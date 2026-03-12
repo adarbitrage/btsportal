@@ -142,6 +142,63 @@ export const adminApi = {
   getAnalytics: () => adminFetch<Analytics>("/admin/community/analytics"),
 };
 
+export interface AdminWin {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  milestoneId: number;
+  milestoneName: string;
+  milestoneIcon: string;
+  milestoneSlug: string;
+  milestoneCategory: string;
+  title: string;
+  description: string;
+  revenueAmount: string | null;
+  metricLabel: string | null;
+  metricValue: string | null;
+  proofImageUrl: string | null;
+  proofImage2Url: string | null;
+  proofVerified: boolean;
+  winDate: string;
+  status: string;
+  featuredAt: string | null;
+  allowTestimonial: boolean;
+  allowPublicName: boolean;
+  testimonialRequested: boolean;
+  testimonialText: string | null;
+  testimonialApproved: boolean;
+  testimonialApprovedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminWinsResponse {
+  wins: AdminWin[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export const adminWinsApi = {
+  getWins: (params: { page?: number; limit?: number; status?: string; testimonial?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.status) qs.set("status", params.status);
+    if (params.testimonial) qs.set("testimonial", params.testimonial);
+    return adminFetch<AdminWinsResponse>(`/admin/wins?${qs.toString()}`);
+  },
+  featureWin: (id: number) =>
+    adminFetch<AdminWin>(`/admin/wins/${id}/feature`, { method: "PATCH" }),
+  verifyWin: (id: number) =>
+    adminFetch<AdminWin>(`/admin/wins/${id}/verify`, { method: "PATCH" }),
+  hideWin: (id: number) =>
+    adminFetch<AdminWin>(`/admin/wins/${id}/hide`, { method: "PATCH" }),
+  requestTestimonial: (id: number) =>
+    adminFetch<AdminWin>(`/admin/wins/${id}/request-testimonial`, { method: "POST" }),
+  approveTestimonial: (id: number) =>
+    adminFetch<AdminWin>(`/admin/wins/${id}/approve-testimonial`, { method: "PATCH" }),
+};
+
 export interface AdminTrack {
   id: number;
   title: string;

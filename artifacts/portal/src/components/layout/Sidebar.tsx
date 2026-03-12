@@ -28,7 +28,7 @@ import {
   FileText,
   Database,
   Gauge,
-  Trophy
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,6 +96,10 @@ const adminChatItems = [
   { href: "/admin/chat/prompts", label: "System Prompts", icon: FileText },
   { href: "/admin/chat/knowledgebase", label: "Knowledgebase", icon: Database },
   { href: "/admin/chat/rate-limits", label: "Rate Limits", icon: Gauge },
+];
+
+const adminWinsItems = [
+  { href: "/admin/wins", label: "Win Curation", icon: Trophy },
 ];
 
 export function Sidebar() {
@@ -171,7 +175,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminChatItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminChatItems, ...adminWinsItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>

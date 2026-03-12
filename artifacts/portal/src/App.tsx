@@ -71,6 +71,7 @@ import VaultResources from "@/pages/admin/VaultResources";
 import VaultResourceEditor from "@/pages/admin/VaultResourceEditor";
 import VaultCollections from "@/pages/admin/VaultCollections";
 import VaultAnalytics from "@/pages/admin/VaultAnalytics";
+import AdminWins from "@/pages/admin/AdminWins";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -341,6 +342,7 @@ function Router() {
       <Route path="/admin/resources/:id/edit">{() => <AdminRoute component={VaultResourceEditor} />}</Route>
       <Route path="/admin/collections">{() => <AdminRoute component={VaultCollections} />}</Route>
       <Route path="/admin/vault/analytics">{() => <AdminRoute component={VaultAnalytics} />}</Route>
+      <Route path="/admin/wins">{() => <AdminRoute component={AdminWins} />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
       <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} />}</Route>
