@@ -2113,6 +2113,200 @@ paths:
         "403":
           description: Access denied
 
+
+  /tools:
+    get:
+      operationId: listTools
+      tags: [tools]
+      summary: List all tools with access state
+      responses:
+        "200":
+          description: Tools list with categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolListResponse"
+
+  /tools/{slug}:
+    get:
+      operationId: getToolBySlug
+      tags: [tools]
+      summary: Get tool detail by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tool detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolDetailResponse"
+        "404":
+          description: Not found
+
+  /tools/{toolId}/data:
+    get:
+      operationId: listToolData
+      tags: [tools]
+      summary: List saved data for a tool
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tool user data list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolUserDataItem"
+    post:
+      operationId: saveToolData
+      tags: [tools]
+      summary: Save data for a tool
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveToolDataBody"
+      responses:
+        "201":
+          description: Data saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolUserDataItem"
+
+  /tools/{toolId}/data/{dataKey}:
+    put:
+      operationId: updateToolData
+      tags: [tools]
+      summary: Update saved tool data
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dataKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateToolDataBody"
+      responses:
+        "200":
+          description: Data updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolUserDataItem"
+    delete:
+      operationId: deleteToolData
+      tags: [tools]
+      summary: Delete saved tool data
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dataKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Data deleted
+
+  /tools/{toolId}/usage:
+    post:
+      operationId: logToolUsage
+      tags: [tools]
+      summary: Log a tool usage event
+      parameters:
+        - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogToolUsageBody"
+      responses:
+        "201":
+          description: Usage logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /tools/headline-generator/generate:
+    post:
+      operationId: generateHeadlines
+      tags: [tools]
+      summary: Generate headlines using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateHeadlinesBody"
+      responses:
+        "200":
+          description: Generated headlines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateHeadlinesResponse"
+
+  /tools/campaign-calculator/analyze:
+    post:
+      operationId: analyzeCampaign
+      tags: [tools]
+      summary: Get AI analysis of campaign numbers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeCampaignBody"
+      responses:
+        "200":
+          description: AI analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzeCampaignResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -2273,6 +2467,10 @@ components:
             $ref: "#/components/schemas/Announcement"
         ticketLimit:
           type: integer
+        recentTools:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardToolWidget"
       required:
         - memberName
         - highestProductName
@@ -3911,3 +4109,244 @@ components:
           items:
             type: object
       required: [exportedAt, version, tracks]
+
+    ToolCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        icon:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+      required: [id, name, slug, sortOrder]
+
+    ToolItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        type:
+          type: string
+          enum: [builtin, external, embedded]
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        categorySlug:
+          type: string
+        requiredEntitlement:
+          type: string
+        icon:
+          type: ["string", "null"]
+        status:
+          type: string
+        isFeatured:
+          type: boolean
+        badge:
+          type: ["string", "null"]
+        totalLaunches:
+          type: integer
+        access:
+          type: string
+          enum: [granted, locked, hidden]
+        sortOrder:
+          type: integer
+      required: [id, slug, name, shortDescription, type, categoryId, categoryName, categorySlug, requiredEntitlement, status, isFeatured, totalLaunches, access, sortOrder]
+
+    ToolListResponse:
+      type: object
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolItem"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCategory"
+      required: [tools, categories]
+
+    ToolDetailResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [builtin, external, embedded]
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        requiredEntitlement:
+          type: string
+        config:
+          type: ["object", "null"]
+        icon:
+          type: ["string", "null"]
+        status:
+          type: string
+        isFeatured:
+          type: boolean
+        badge:
+          type: ["string", "null"]
+        totalLaunches:
+          type: integer
+        helpDocUrl:
+          type: ["string", "null"]
+        videoTutorialUrl:
+          type: ["string", "null"]
+        access:
+          type: string
+          enum: [granted, locked, hidden]
+        userEntitlements:
+          type: array
+          items:
+            type: string
+      required: [id, slug, name, shortDescription, type, categoryId, categoryName, requiredEntitlement, status, isFeatured, totalLaunches, access]
+
+    ToolUserDataItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        toolId:
+          type: integer
+        dataKey:
+          type: string
+        dataValue:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, toolId, dataKey, dataValue, createdAt, updatedAt]
+
+    SaveToolDataBody:
+      type: object
+      properties:
+        dataKey:
+          type: string
+        dataValue:
+          type: object
+      required: [dataKey, dataValue]
+
+    UpdateToolDataBody:
+      type: object
+      properties:
+        dataValue:
+          type: object
+      required: [dataValue]
+
+    LogToolUsageBody:
+      type: object
+      properties:
+        action:
+          type: string
+        metadata:
+          type: object
+      required: [action]
+
+    GenerateHeadlinesBody:
+      type: object
+      properties:
+        productDescription:
+          type: string
+        style:
+          type: string
+        platform:
+          type: string
+        tone:
+          type: string
+        count:
+          type: integer
+      required: [productDescription]
+
+    GenerateHeadlinesResponse:
+      type: object
+      properties:
+        headlines:
+          type: array
+          items:
+            type: string
+        remainingToday:
+          type: integer
+        dailyLimit:
+          type: integer
+      required: [headlines, remainingToday, dailyLimit]
+
+    AnalyzeCampaignBody:
+      type: object
+      properties:
+        dailyBudget:
+          type: number
+        cpc:
+          type: number
+        landingPageCtr:
+          type: number
+        offerPayout:
+          type: number
+        conversionRate:
+          type: number
+        dailyClicks:
+          type: number
+        dailyLeads:
+          type: number
+        dailyConversions:
+          type: number
+        dailyRevenue:
+          type: number
+        dailyProfit:
+          type: number
+      required: [dailyBudget, cpc, landingPageCtr, offerPayout, conversionRate]
+
+    AnalyzeCampaignResponse:
+      type: object
+      properties:
+        analysis:
+          type: string
+        remainingToday:
+          type: integer
+        dailyLimit:
+          type: integer
+      required: [analysis, remainingToday, dailyLimit]
+
+    DashboardToolWidget:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        icon:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+      required: [id, slug, name, shortDescription, isFeatured]

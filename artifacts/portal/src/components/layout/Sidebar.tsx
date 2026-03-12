@@ -23,7 +23,8 @@ import {
   DollarSign,
   Key,
   Globe,
-  FileEdit
+  FileEdit,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
+  { href: "/tools", label: "Software & Tools", icon: Wrench, requiredEntitlement: "software:base" },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
 ];

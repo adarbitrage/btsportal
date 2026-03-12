@@ -230,6 +230,18 @@ export const GetDashboardResponse = zod.object({
     }),
   ),
   ticketLimit: zod.number(),
+  recentTools: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        slug: zod.string(),
+        name: zod.string(),
+        shortDescription: zod.string(),
+        icon: zod.string().nullish(),
+        isFeatured: zod.boolean(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -1875,4 +1887,178 @@ export const AdminImportContentBody = zod.object({
 export const DownloadLessonResourceParams = zod.object({
   lessonId: zod.coerce.number(),
   resourceId: zod.coerce.number(),
+});
+
+/**
+ * @summary List all tools with access state
+ */
+export const ListToolsResponse = zod.object({
+  tools: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      name: zod.string(),
+      shortDescription: zod.string(),
+      type: zod.enum(["builtin", "external", "embedded"]),
+      categoryId: zod.number(),
+      categoryName: zod.string(),
+      categorySlug: zod.string(),
+      requiredEntitlement: zod.string(),
+      icon: zod.string().nullish(),
+      status: zod.string(),
+      isFeatured: zod.boolean(),
+      badge: zod.string().nullish(),
+      totalLaunches: zod.number(),
+      access: zod.enum(["granted", "locked", "hidden"]),
+      sortOrder: zod.number(),
+    }),
+  ),
+  categories: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      slug: zod.string(),
+      description: zod.string().nullish(),
+      icon: zod.string().nullish(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get tool detail by slug
+ */
+export const GetToolBySlugParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetToolBySlugResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().nullish(),
+  type: zod.enum(["builtin", "external", "embedded"]),
+  categoryId: zod.number(),
+  categoryName: zod.string(),
+  requiredEntitlement: zod.string(),
+  config: zod.object({}).passthrough().nullish(),
+  icon: zod.string().nullish(),
+  status: zod.string(),
+  isFeatured: zod.boolean(),
+  badge: zod.string().nullish(),
+  totalLaunches: zod.number(),
+  helpDocUrl: zod.string().nullish(),
+  videoTutorialUrl: zod.string().nullish(),
+  access: zod.enum(["granted", "locked", "hidden"]),
+  userEntitlements: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary List saved data for a tool
+ */
+export const ListToolDataParams = zod.object({
+  toolId: zod.coerce.number(),
+});
+
+export const ListToolDataResponseItem = zod.object({
+  id: zod.number(),
+  toolId: zod.number(),
+  dataKey: zod.string(),
+  dataValue: zod.object({}).passthrough(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListToolDataResponse = zod.array(ListToolDataResponseItem);
+
+/**
+ * @summary Save data for a tool
+ */
+export const SaveToolDataParams = zod.object({
+  toolId: zod.coerce.number(),
+});
+
+export const SaveToolDataBody = zod.object({
+  dataKey: zod.string(),
+  dataValue: zod.object({}).passthrough(),
+});
+
+/**
+ * @summary Update saved tool data
+ */
+export const UpdateToolDataParams = zod.object({
+  toolId: zod.coerce.number(),
+  dataKey: zod.coerce.string(),
+});
+
+export const UpdateToolDataBody = zod.object({
+  dataValue: zod.object({}).passthrough(),
+});
+
+export const UpdateToolDataResponse = zod.object({
+  id: zod.number(),
+  toolId: zod.number(),
+  dataKey: zod.string(),
+  dataValue: zod.object({}).passthrough(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete saved tool data
+ */
+export const DeleteToolDataParams = zod.object({
+  toolId: zod.coerce.number(),
+  dataKey: zod.coerce.string(),
+});
+
+/**
+ * @summary Log a tool usage event
+ */
+export const LogToolUsageParams = zod.object({
+  toolId: zod.coerce.number(),
+});
+
+export const LogToolUsageBody = zod.object({
+  action: zod.string(),
+  metadata: zod.object({}).passthrough().optional(),
+});
+
+/**
+ * @summary Generate headlines using AI
+ */
+export const GenerateHeadlinesBody = zod.object({
+  productDescription: zod.string(),
+  style: zod.string().optional(),
+  platform: zod.string().optional(),
+  tone: zod.string().optional(),
+  count: zod.number().optional(),
+});
+
+export const GenerateHeadlinesResponse = zod.object({
+  headlines: zod.array(zod.string()),
+  remainingToday: zod.number(),
+  dailyLimit: zod.number(),
+});
+
+/**
+ * @summary Get AI analysis of campaign numbers
+ */
+export const AnalyzeCampaignBody = zod.object({
+  dailyBudget: zod.number(),
+  cpc: zod.number(),
+  landingPageCtr: zod.number(),
+  offerPayout: zod.number(),
+  conversionRate: zod.number(),
+  dailyClicks: zod.number().optional(),
+  dailyLeads: zod.number().optional(),
+  dailyConversions: zod.number().optional(),
+  dailyRevenue: zod.number().optional(),
+  dailyProfit: zod.number().optional(),
+});
+
+export const AnalyzeCampaignResponse = zod.object({
+  analysis: zod.string(),
+  remainingToday: zod.number(),
+  dailyLimit: zod.number(),
 });

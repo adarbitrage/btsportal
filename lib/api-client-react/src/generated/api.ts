@@ -46,6 +46,8 @@ import type {
   AdminUpdateTicketStatusBody,
   AdminUpdateTrack,
   AgentPerformance,
+  AnalyzeCampaignBody,
+  AnalyzeCampaignResponse,
   Announcement,
   CannedResponse,
   ChatPrompt,
@@ -78,6 +80,8 @@ import type {
   EditCommunityComment,
   EditCommunityPost,
   EntitlementSet,
+  GenerateHeadlinesBody,
+  GenerateHeadlinesResponse,
   GetLegalDocumentsParams,
   HealthStatus,
   LegalDocument,
@@ -91,6 +95,8 @@ import type {
   ListCommunityNotificationsParams,
   ListCommunityPostsParams,
   ListTicketsParams,
+  LogToolUsage201,
+  LogToolUsageBody,
   MemberProfile,
   MergeTicketsBody,
   MergeTicketsResult,
@@ -110,6 +116,7 @@ import type {
   ResourceUploadRequest,
   RoutingRule,
   SatisfactionStatus,
+  SaveToolDataBody,
   SendChatMessageBody,
   SignDocumentBody,
   SignDocumentResponse,
@@ -122,8 +129,12 @@ import type {
   TicketSlaDetail,
   TicketWithMessages,
   ToggleCommunityReaction,
+  ToolDetailResponse,
+  ToolListResponse,
+  ToolUserDataItem,
   TrackWithModules,
   UpdateChatPromptBody,
+  UpdateToolDataBody,
   UploadUrlResponse,
 } from "./api.schemas";
 
@@ -8898,3 +8909,763 @@ export function useDownloadLessonResource<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all tools with access state
+ */
+export const getListToolsUrl = () => {
+  return `/api/tools`;
+};
+
+export const listTools = async (
+  options?: RequestInit,
+): Promise<ToolListResponse> => {
+  return customFetch<ToolListResponse>(getListToolsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListToolsQueryKey = () => {
+  return [`/api/tools`] as const;
+};
+
+export const getListToolsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListToolsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTools>>> = ({
+    signal,
+  }) => listTools({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTools>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListToolsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTools>>
+>;
+export type ListToolsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tools with access state
+ */
+
+export function useListTools<
+  TData = Awaited<ReturnType<typeof listTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListToolsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get tool detail by slug
+ */
+export const getGetToolBySlugUrl = (slug: string) => {
+  return `/api/tools/${slug}`;
+};
+
+export const getToolBySlug = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<ToolDetailResponse> => {
+  return customFetch<ToolDetailResponse>(getGetToolBySlugUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetToolBySlugQueryKey = (slug: string) => {
+  return [`/api/tools/${slug}`] as const;
+};
+
+export const getGetToolBySlugQueryOptions = <
+  TData = Awaited<ReturnType<typeof getToolBySlug>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getToolBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetToolBySlugQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getToolBySlug>>> = ({
+    signal,
+  }) => getToolBySlug(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getToolBySlug>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetToolBySlugQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getToolBySlug>>
+>;
+export type GetToolBySlugQueryError = ErrorType<void>;
+
+/**
+ * @summary Get tool detail by slug
+ */
+
+export function useGetToolBySlug<
+  TData = Awaited<ReturnType<typeof getToolBySlug>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getToolBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetToolBySlugQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List saved data for a tool
+ */
+export const getListToolDataUrl = (toolId: number) => {
+  return `/api/tools/${toolId}/data`;
+};
+
+export const listToolData = async (
+  toolId: number,
+  options?: RequestInit,
+): Promise<ToolUserDataItem[]> => {
+  return customFetch<ToolUserDataItem[]>(getListToolDataUrl(toolId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListToolDataQueryKey = (toolId: number) => {
+  return [`/api/tools/${toolId}/data`] as const;
+};
+
+export const getListToolDataQueryOptions = <
+  TData = Awaited<ReturnType<typeof listToolData>>,
+  TError = ErrorType<unknown>,
+>(
+  toolId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listToolData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListToolDataQueryKey(toolId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listToolData>>> = ({
+    signal,
+  }) => listToolData(toolId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!toolId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listToolData>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListToolDataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listToolData>>
+>;
+export type ListToolDataQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List saved data for a tool
+ */
+
+export function useListToolData<
+  TData = Awaited<ReturnType<typeof listToolData>>,
+  TError = ErrorType<unknown>,
+>(
+  toolId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listToolData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListToolDataQueryOptions(toolId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save data for a tool
+ */
+export const getSaveToolDataUrl = (toolId: number) => {
+  return `/api/tools/${toolId}/data`;
+};
+
+export const saveToolData = async (
+  toolId: number,
+  saveToolDataBody: SaveToolDataBody,
+  options?: RequestInit,
+): Promise<ToolUserDataItem> => {
+  return customFetch<ToolUserDataItem>(getSaveToolDataUrl(toolId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveToolDataBody),
+  });
+};
+
+export const getSaveToolDataMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveToolData>>,
+    TError,
+    { toolId: number; data: BodyType<SaveToolDataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveToolData>>,
+  TError,
+  { toolId: number; data: BodyType<SaveToolDataBody> },
+  TContext
+> => {
+  const mutationKey = ["saveToolData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveToolData>>,
+    { toolId: number; data: BodyType<SaveToolDataBody> }
+  > = (props) => {
+    const { toolId, data } = props ?? {};
+
+    return saveToolData(toolId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveToolDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveToolData>>
+>;
+export type SaveToolDataMutationBody = BodyType<SaveToolDataBody>;
+export type SaveToolDataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save data for a tool
+ */
+export const useSaveToolData = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveToolData>>,
+    TError,
+    { toolId: number; data: BodyType<SaveToolDataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveToolData>>,
+  TError,
+  { toolId: number; data: BodyType<SaveToolDataBody> },
+  TContext
+> => {
+  return useMutation(getSaveToolDataMutationOptions(options));
+};
+
+/**
+ * @summary Update saved tool data
+ */
+export const getUpdateToolDataUrl = (toolId: number, dataKey: string) => {
+  return `/api/tools/${toolId}/data/${dataKey}`;
+};
+
+export const updateToolData = async (
+  toolId: number,
+  dataKey: string,
+  updateToolDataBody: UpdateToolDataBody,
+  options?: RequestInit,
+): Promise<ToolUserDataItem> => {
+  return customFetch<ToolUserDataItem>(getUpdateToolDataUrl(toolId, dataKey), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateToolDataBody),
+  });
+};
+
+export const getUpdateToolDataMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateToolData>>,
+    TError,
+    { toolId: number; dataKey: string; data: BodyType<UpdateToolDataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateToolData>>,
+  TError,
+  { toolId: number; dataKey: string; data: BodyType<UpdateToolDataBody> },
+  TContext
+> => {
+  const mutationKey = ["updateToolData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateToolData>>,
+    { toolId: number; dataKey: string; data: BodyType<UpdateToolDataBody> }
+  > = (props) => {
+    const { toolId, dataKey, data } = props ?? {};
+
+    return updateToolData(toolId, dataKey, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateToolDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateToolData>>
+>;
+export type UpdateToolDataMutationBody = BodyType<UpdateToolDataBody>;
+export type UpdateToolDataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update saved tool data
+ */
+export const useUpdateToolData = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateToolData>>,
+    TError,
+    { toolId: number; dataKey: string; data: BodyType<UpdateToolDataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateToolData>>,
+  TError,
+  { toolId: number; dataKey: string; data: BodyType<UpdateToolDataBody> },
+  TContext
+> => {
+  return useMutation(getUpdateToolDataMutationOptions(options));
+};
+
+/**
+ * @summary Delete saved tool data
+ */
+export const getDeleteToolDataUrl = (toolId: number, dataKey: string) => {
+  return `/api/tools/${toolId}/data/${dataKey}`;
+};
+
+export const deleteToolData = async (
+  toolId: number,
+  dataKey: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteToolDataUrl(toolId, dataKey), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteToolDataMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteToolData>>,
+    TError,
+    { toolId: number; dataKey: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteToolData>>,
+  TError,
+  { toolId: number; dataKey: string },
+  TContext
+> => {
+  const mutationKey = ["deleteToolData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteToolData>>,
+    { toolId: number; dataKey: string }
+  > = (props) => {
+    const { toolId, dataKey } = props ?? {};
+
+    return deleteToolData(toolId, dataKey, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteToolDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteToolData>>
+>;
+
+export type DeleteToolDataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete saved tool data
+ */
+export const useDeleteToolData = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteToolData>>,
+    TError,
+    { toolId: number; dataKey: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteToolData>>,
+  TError,
+  { toolId: number; dataKey: string },
+  TContext
+> => {
+  return useMutation(getDeleteToolDataMutationOptions(options));
+};
+
+/**
+ * @summary Log a tool usage event
+ */
+export const getLogToolUsageUrl = (toolId: number) => {
+  return `/api/tools/${toolId}/usage`;
+};
+
+export const logToolUsage = async (
+  toolId: number,
+  logToolUsageBody: LogToolUsageBody,
+  options?: RequestInit,
+): Promise<LogToolUsage201> => {
+  return customFetch<LogToolUsage201>(getLogToolUsageUrl(toolId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(logToolUsageBody),
+  });
+};
+
+export const getLogToolUsageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logToolUsage>>,
+    TError,
+    { toolId: number; data: BodyType<LogToolUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logToolUsage>>,
+  TError,
+  { toolId: number; data: BodyType<LogToolUsageBody> },
+  TContext
+> => {
+  const mutationKey = ["logToolUsage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logToolUsage>>,
+    { toolId: number; data: BodyType<LogToolUsageBody> }
+  > = (props) => {
+    const { toolId, data } = props ?? {};
+
+    return logToolUsage(toolId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogToolUsageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logToolUsage>>
+>;
+export type LogToolUsageMutationBody = BodyType<LogToolUsageBody>;
+export type LogToolUsageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log a tool usage event
+ */
+export const useLogToolUsage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logToolUsage>>,
+    TError,
+    { toolId: number; data: BodyType<LogToolUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logToolUsage>>,
+  TError,
+  { toolId: number; data: BodyType<LogToolUsageBody> },
+  TContext
+> => {
+  return useMutation(getLogToolUsageMutationOptions(options));
+};
+
+/**
+ * @summary Generate headlines using AI
+ */
+export const getGenerateHeadlinesUrl = () => {
+  return `/api/tools/headline-generator/generate`;
+};
+
+export const generateHeadlines = async (
+  generateHeadlinesBody: GenerateHeadlinesBody,
+  options?: RequestInit,
+): Promise<GenerateHeadlinesResponse> => {
+  return customFetch<GenerateHeadlinesResponse>(getGenerateHeadlinesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateHeadlinesBody),
+  });
+};
+
+export const getGenerateHeadlinesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateHeadlines>>,
+    TError,
+    { data: BodyType<GenerateHeadlinesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateHeadlines>>,
+  TError,
+  { data: BodyType<GenerateHeadlinesBody> },
+  TContext
+> => {
+  const mutationKey = ["generateHeadlines"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateHeadlines>>,
+    { data: BodyType<GenerateHeadlinesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateHeadlines(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateHeadlinesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateHeadlines>>
+>;
+export type GenerateHeadlinesMutationBody = BodyType<GenerateHeadlinesBody>;
+export type GenerateHeadlinesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate headlines using AI
+ */
+export const useGenerateHeadlines = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateHeadlines>>,
+    TError,
+    { data: BodyType<GenerateHeadlinesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateHeadlines>>,
+  TError,
+  { data: BodyType<GenerateHeadlinesBody> },
+  TContext
+> => {
+  return useMutation(getGenerateHeadlinesMutationOptions(options));
+};
+
+/**
+ * @summary Get AI analysis of campaign numbers
+ */
+export const getAnalyzeCampaignUrl = () => {
+  return `/api/tools/campaign-calculator/analyze`;
+};
+
+export const analyzeCampaign = async (
+  analyzeCampaignBody: AnalyzeCampaignBody,
+  options?: RequestInit,
+): Promise<AnalyzeCampaignResponse> => {
+  return customFetch<AnalyzeCampaignResponse>(getAnalyzeCampaignUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(analyzeCampaignBody),
+  });
+};
+
+export const getAnalyzeCampaignMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeCampaign>>,
+    TError,
+    { data: BodyType<AnalyzeCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof analyzeCampaign>>,
+  TError,
+  { data: BodyType<AnalyzeCampaignBody> },
+  TContext
+> => {
+  const mutationKey = ["analyzeCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof analyzeCampaign>>,
+    { data: BodyType<AnalyzeCampaignBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return analyzeCampaign(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnalyzeCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof analyzeCampaign>>
+>;
+export type AnalyzeCampaignMutationBody = BodyType<AnalyzeCampaignBody>;
+export type AnalyzeCampaignMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI analysis of campaign numbers
+ */
+export const useAnalyzeCampaign = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeCampaign>>,
+    TError,
+    { data: BodyType<AnalyzeCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof analyzeCampaign>>,
+  TError,
+  { data: BodyType<AnalyzeCampaignBody> },
+  TContext
+> => {
+  return useMutation(getAnalyzeCampaignMutationOptions(options));
+};

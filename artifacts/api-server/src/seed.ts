@@ -13,6 +13,7 @@ import {
   commissionsTable, commissionPayoutsTable, affiliateResourcesTable,
   sequencesTable, sequenceStepsTable,
   winMilestonesTable, winsTable,
+  toolCategoriesTable, toolsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -938,6 +939,123 @@ async function seed() {
   }
   console.log(`  Wins: ${winSeedData.length} sample wins seeded with community posts`);
 
+  const insertedCategories = await db.insert(toolCategoriesTable).values([
+    { name: "Content Creation", slug: "content-creation", description: "Tools for creating compelling ad copy, headlines, and content", icon: "PenTool", sortOrder: 1 },
+    { name: "Campaign Planning", slug: "campaign-planning", description: "Plan and analyze your advertising campaigns", icon: "Target", sortOrder: 2 },
+    { name: "Traffic & Tracking", slug: "traffic-tracking", description: "Build tracking URLs and manage traffic sources", icon: "BarChart3", sortOrder: 3 },
+    { name: "Creative Assets", slug: "creative-assets", description: "Design and manage your creative assets", icon: "Image", sortOrder: 4 },
+    { name: "Research", slug: "research", description: "Research niches, keywords, and markets", icon: "Search", sortOrder: 5 },
+    { name: "Optimization", slug: "optimization", description: "Optimize your campaigns and funnels", icon: "Gauge", sortOrder: 6 },
+  ]).returning();
+
+  const catBySlug: Record<string, number> = {};
+  for (const c of insertedCategories) {
+    catBySlug[c.slug] = c.id;
+  }
+
+  const insertedTools = await db.insert(toolsTable).values([
+    {
+      slug: "headline-generator", name: "Headline Generator",
+      shortDescription: "Generate high-converting headlines with AI for any platform or niche.",
+      longDescription: "Use AI to generate scroll-stopping headlines for your ads, landing pages, and emails. Choose your style, platform, and tone to get targeted headline suggestions that convert.",
+      categoryId: catBySlug["content-creation"], type: "builtin",
+      requiredEntitlement: "software:base",
+      config: JSON.stringify({ component: "HeadlineGenerator", limits: { base: 5, expanded: 25 } }),
+      icon: "Sparkles", status: "active", isFeatured: 1, badge: "NEW",
+      totalLaunches: 1247, sortOrder: 1,
+    },
+    {
+      slug: "campaign-calculator", name: "Campaign Calculator",
+      shortDescription: "Calculate ROI, breakeven points, and monthly projections for your campaigns.",
+      longDescription: "Input your campaign metrics and instantly see your projected ROI, breakeven rates, and monthly projections. Get AI-powered analysis with the expanded tier.",
+      categoryId: catBySlug["campaign-planning"], type: "builtin",
+      requiredEntitlement: "software:base",
+      config: JSON.stringify({ component: "CampaignCalculator", limits: { base: 3, expanded: 15 } }),
+      icon: "Calculator", status: "active", isFeatured: 1,
+      totalLaunches: 892, sortOrder: 2,
+    },
+    {
+      slug: "tracking-url-builder", name: "Tracking URL Builder",
+      shortDescription: "Build tracking URLs with UTM parameters and platform-specific macros.",
+      longDescription: "Generate perfectly formatted tracking URLs for any traffic source. Choose from preset traffic source templates that auto-fill UTM parameters and platform macros.",
+      categoryId: catBySlug["traffic-tracking"], type: "builtin",
+      requiredEntitlement: "software:base",
+      config: JSON.stringify({ component: "TrackingUrlBuilder" }),
+      icon: "Link", status: "active",
+      totalLaunches: 634, sortOrder: 3,
+    },
+    {
+      slug: "advanced-copy-suite", name: "Advanced Copy Suite",
+      shortDescription: "Full-featured AI copywriting suite for ads, emails, and landing pages.",
+      categoryId: catBySlug["content-creation"], type: "builtin",
+      requiredEntitlement: "software:expanded",
+      config: JSON.stringify({ component: "AdvancedCopySuite" }),
+      icon: "FileText", status: "active", badge: "BETA",
+      totalLaunches: 156, sortOrder: 4,
+    },
+    {
+      slug: "keyword-research-hub", name: "Keyword Research Hub",
+      shortDescription: "Research profitable keywords and niches with competitive analysis.",
+      categoryId: catBySlug["research"], type: "external",
+      requiredEntitlement: "software:expanded",
+      config: JSON.stringify({ url: "https://tools.bts-example.com/keyword-research", openInNewTab: true }),
+      icon: "Search", status: "active",
+      totalLaunches: 89, sortOrder: 5,
+    },
+    {
+      slug: "compliance-checker", name: "Compliance Checker",
+      shortDescription: "Check your ads and landing pages for compliance issues before publishing.",
+      categoryId: catBySlug["optimization"], type: "builtin",
+      requiredEntitlement: "software:base",
+      config: JSON.stringify({ component: "ComplianceChecker" }),
+      icon: "ShieldCheck", status: "coming_soon",
+      totalLaunches: 0, sortOrder: 6,
+    },
+    {
+      slug: "niche-scorer", name: "Niche Scorer",
+      shortDescription: "Score and compare niches based on profitability, competition, and trends.",
+      categoryId: catBySlug["research"], type: "builtin",
+      requiredEntitlement: "software:base",
+      config: JSON.stringify({ component: "NicheScorer" }),
+      icon: "TrendingUp", status: "coming_soon",
+      totalLaunches: 0, sortOrder: 7,
+    },
+    {
+      slug: "ad-creative-studio", name: "Ad Creative Studio",
+      shortDescription: "Design scroll-stopping ad creatives with templates and AI assistance.",
+      categoryId: catBySlug["creative-assets"], type: "builtin",
+      requiredEntitlement: "software:expanded",
+      config: JSON.stringify({ component: "AdCreativeStudio" }),
+      icon: "Palette", status: "coming_soon",
+      totalLaunches: 0, sortOrder: 8,
+    },
+  ]).returning();
+
+  const toolBySlug: Record<string, number> = {};
+  for (const t of insertedTools) {
+    toolBySlug[t.slug] = t.id;
+  }
+
+  await db.insert(toolUserDataTable).values([
+    {
+      userId: marcus.id, toolId: toolBySlug["headline-generator"],
+      dataKey: "favorites",
+      dataValue: JSON.stringify({ headlines: ["Stop Scrolling: The $47 System That Changed Everything", "Why 93% of Affiliates Fail (And How to Be in the 7%)"] }),
+    },
+    {
+      userId: marcus.id, toolId: toolBySlug["tracking-url-builder"],
+      dataKey: "saved-urls",
+      dataValue: JSON.stringify({ urls: [{ name: "FB Campaign 1", url: "https://example.com?utm_source=facebook&utm_medium=cpc&utm_campaign=spring2026" }] }),
+    },
+  ]);
+
+  await db.insert(toolUsageLogTable).values([
+    { userId: marcus.id, toolId: toolBySlug["headline-generator"], action: "open" },
+    { userId: marcus.id, toolId: toolBySlug["headline-generator"], action: "generate", metadata: JSON.stringify({ count: 5 }) },
+    { userId: marcus.id, toolId: toolBySlug["campaign-calculator"], action: "open" },
+    { userId: marcus.id, toolId: toolBySlug["tracking-url-builder"], action: "open" },
+  ]);
+
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));
   console.log("Communication templates seeded.");
@@ -948,6 +1066,7 @@ async function seed() {
   console.log("  Jake Rivera (jake@example.com / Demo1234) - 1-Year [affiliate: jaker23, tier: premium]");
   console.log("  Lisa Thompson (lisa@example.com / Demo1234) - 3-Month [affiliate: lisat55, tier: entry]");
   console.log("Chat data: system prompt, 10 knowledgebase docs, 3 demo chat sessions");
+  console.log("Software & Tools: 6 categories, 8 tools, sample user data seeded.");
 }
 
 seed().catch(console.error).finally(() => process.exit(0));

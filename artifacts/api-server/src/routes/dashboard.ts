@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable } from "@workspace/db";
+import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
 import { eq, count, gte, and, sql, desc } from "drizzle-orm";
-import { GetDashboardResponse } from "@workspace/api-zod";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 
 const router: IRouter = Router();
@@ -89,6 +88,63 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     };
   }
 
+  let recentTools: any[] = [];
+  if (entitlements.has("software:base") || entitlements.has("software:expanded")) {
+    const recentUsage = await db
+      .select({
+        toolId: toolUsageLogTable.toolId,
+        lastUsed: sql<Date>`MAX(${toolUsageLogTable.createdAt})`.as("last_used"),
+      })
+      .from(toolUsageLogTable)
+      .where(eq(toolUsageLogTable.userId, userId))
+      .groupBy(toolUsageLogTable.toolId)
+      .orderBy(sql`MAX(${toolUsageLogTable.createdAt}) DESC`)
+      .limit(3);
+
+    if (recentUsage.length > 0) {
+      const toolIds = recentUsage.map((u) => u.toolId);
+      const tools = await db
+        .select({
+          id: toolsTable.id,
+          slug: toolsTable.slug,
+          name: toolsTable.name,
+          shortDescription: toolsTable.shortDescription,
+          icon: toolsTable.icon,
+          isFeatured: toolsTable.isFeatured,
+        })
+        .from(toolsTable)
+        .where(sql`${toolsTable.id} IN (${sql.join(toolIds.map(id => sql`${id}`), sql`, `)})`);
+
+      recentTools = toolIds
+        .map((id) => tools.find((t) => t.id === id))
+        .filter(Boolean)
+        .map((t: any) => ({ ...t, isFeatured: t.isFeatured === 1 }));
+    }
+
+    if (recentTools.length < 3) {
+      const featuredTools = await db
+        .select({
+          id: toolsTable.id,
+          slug: toolsTable.slug,
+          name: toolsTable.name,
+          shortDescription: toolsTable.shortDescription,
+          icon: toolsTable.icon,
+          isFeatured: toolsTable.isFeatured,
+        })
+        .from(toolsTable)
+        .where(and(eq(toolsTable.status, "active"), eq(toolsTable.isFeatured, 1)))
+        .orderBy(toolsTable.sortOrder)
+        .limit(3);
+
+      const existingIds = new Set(recentTools.map((t: any) => t.id));
+      for (const ft of featuredTools) {
+        if (!existingIds.has(ft.id) && recentTools.length < 3) {
+          recentTools.push({ ...ft, isFeatured: ft.isFeatured === 1 });
+        }
+      }
+    }
+  }
+
   const result = {
     memberName: user.name,
     highestProductName: highest.name,
@@ -107,9 +163,10 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     upcomingCalls: upcomingCallsMapped,
     recentAnnouncements,
     ticketLimit,
+    recentTools,
   };
 
-  res.json(GetDashboardResponse.parse(result));
+  res.json(result);
 });
 
 export default router;

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck } from "lucide-react";
+import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
@@ -175,6 +175,33 @@ export default function Dashboard() {
 
           <div className="space-y-8">
             {hasCommissions && <CommissionsSummaryWidget />}
+            {dashboard.recentTools && dashboard.recentTools.length > 0 && (
+              <Card>
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <div className="flex items-center gap-2 text-foreground font-semibold">
+                    <Wrench className="w-5 h-5 text-primary" />
+                    Software & Tools
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 px-0">
+                  <div className="divide-y divide-border">
+                    {dashboard.recentTools.map((tool: any) => (
+                      <Link key={tool.id} href={`/tools/${tool.slug}`}>
+                        <div className="p-4 hover:bg-secondary/50 transition-colors cursor-pointer">
+                          <h4 className="font-semibold text-sm text-foreground">{tool.name}</h4>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{tool.shortDescription}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="p-4 border-t border-border">
+                    <Link href="/tools">
+                      <Button variant="ghost" className="w-full text-primary hover:text-primary/80">View All Tools</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-4 border-b border-border/50">

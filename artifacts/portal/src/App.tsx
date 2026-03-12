@@ -17,6 +17,8 @@ import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
 import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Chat from "@/pages/Chat";
+import Tools from "@/pages/Tools";
+import ToolDetail from "@/pages/ToolDetail";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -302,6 +304,8 @@ function Router() {
       <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} />}</Route>
       <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} />}</Route>
       <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} />}</Route>
+      <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
+      <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

@@ -120,6 +120,16 @@ export interface Announcement {
   createdAt: string;
 }
 
+export interface DashboardToolWidget {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  /** @nullable */
+  icon?: string | null;
+  isFeatured: boolean;
+}
+
 export interface DashboardData {
   memberName: string;
   highestProductName: string;
@@ -138,6 +148,7 @@ export interface DashboardData {
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
   ticketLimit: number;
+  recentTools?: DashboardToolWidget[];
 }
 
 export interface ModuleSummary {
@@ -1129,6 +1140,175 @@ export interface ContentExport {
   tracks: ContentExportTracksItem[];
 }
 
+export interface ToolCategory {
+  id: number;
+  name: string;
+  slug: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  sortOrder: number;
+}
+
+export type ToolItemType = (typeof ToolItemType)[keyof typeof ToolItemType];
+
+export const ToolItemType = {
+  builtin: "builtin",
+  external: "external",
+  embedded: "embedded",
+} as const;
+
+export type ToolItemAccess =
+  (typeof ToolItemAccess)[keyof typeof ToolItemAccess];
+
+export const ToolItemAccess = {
+  granted: "granted",
+  locked: "locked",
+  hidden: "hidden",
+} as const;
+
+export interface ToolItem {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  type: ToolItemType;
+  categoryId: number;
+  categoryName: string;
+  categorySlug: string;
+  requiredEntitlement: string;
+  /** @nullable */
+  icon?: string | null;
+  status: string;
+  isFeatured: boolean;
+  /** @nullable */
+  badge?: string | null;
+  totalLaunches: number;
+  access: ToolItemAccess;
+  sortOrder: number;
+}
+
+export interface ToolListResponse {
+  tools: ToolItem[];
+  categories: ToolCategory[];
+}
+
+export type ToolDetailResponseType =
+  (typeof ToolDetailResponseType)[keyof typeof ToolDetailResponseType];
+
+export const ToolDetailResponseType = {
+  builtin: "builtin",
+  external: "external",
+  embedded: "embedded",
+} as const;
+
+/**
+ * @nullable
+ */
+export type ToolDetailResponseConfig = { [key: string]: unknown } | null;
+
+export type ToolDetailResponseAccess =
+  (typeof ToolDetailResponseAccess)[keyof typeof ToolDetailResponseAccess];
+
+export const ToolDetailResponseAccess = {
+  granted: "granted",
+  locked: "locked",
+  hidden: "hidden",
+} as const;
+
+export interface ToolDetailResponse {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  /** @nullable */
+  longDescription?: string | null;
+  type: ToolDetailResponseType;
+  categoryId: number;
+  categoryName: string;
+  requiredEntitlement: string;
+  /** @nullable */
+  config?: ToolDetailResponseConfig;
+  /** @nullable */
+  icon?: string | null;
+  status: string;
+  isFeatured: boolean;
+  /** @nullable */
+  badge?: string | null;
+  totalLaunches: number;
+  /** @nullable */
+  helpDocUrl?: string | null;
+  /** @nullable */
+  videoTutorialUrl?: string | null;
+  access: ToolDetailResponseAccess;
+  userEntitlements?: string[];
+}
+
+export type ToolUserDataItemDataValue = { [key: string]: unknown };
+
+export interface ToolUserDataItem {
+  id: number;
+  toolId: number;
+  dataKey: string;
+  dataValue: ToolUserDataItemDataValue;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SaveToolDataBodyDataValue = { [key: string]: unknown };
+
+export interface SaveToolDataBody {
+  dataKey: string;
+  dataValue: SaveToolDataBodyDataValue;
+}
+
+export type UpdateToolDataBodyDataValue = { [key: string]: unknown };
+
+export interface UpdateToolDataBody {
+  dataValue: UpdateToolDataBodyDataValue;
+}
+
+export type LogToolUsageBodyMetadata = { [key: string]: unknown };
+
+export interface LogToolUsageBody {
+  action: string;
+  metadata?: LogToolUsageBodyMetadata;
+}
+
+export interface GenerateHeadlinesBody {
+  productDescription: string;
+  style?: string;
+  platform?: string;
+  tone?: string;
+  count?: number;
+}
+
+export interface GenerateHeadlinesResponse {
+  headlines: string[];
+  remainingToday: number;
+  dailyLimit: number;
+}
+
+export interface AnalyzeCampaignBody {
+  dailyBudget: number;
+  cpc: number;
+  landingPageCtr: number;
+  offerPayout: number;
+  conversionRate: number;
+  dailyClicks?: number;
+  dailyLeads?: number;
+  dailyConversions?: number;
+  dailyRevenue?: number;
+  dailyProfit?: number;
+}
+
+export interface AnalyzeCampaignResponse {
+  analysis: string;
+  remainingToday: number;
+  dailyLimit: number;
+}
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -1271,4 +1451,8 @@ export type AdminImportContent201Imported = {
 
 export type AdminImportContent201 = {
   imported?: AdminImportContent201Imported;
+};
+
+export type LogToolUsage201 = {
+  success: boolean;
 };

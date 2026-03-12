@@ -246,6 +246,11 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `community_notifications` — In-app notification system for mentions, comments, reactions
 - `win_milestones` — Pre-defined milestone types for win tracking (21 default: revenue, campaign, skill, lifestyle, custom categories) with slug, icon, category, sort_order, xp_reward
 - `wins` — Member win submissions linked to milestones, with proof images, revenue metrics, community sharing, testimonial pipeline fields (requested/text/approved), curation status (published/featured/hidden/draft), and community post cross-reference
+- `tool_categories` — Tool category definitions
+- `tools` — Tool registry (slug, type, config, required entitlement, status)
+- `tool_user_data` — Per-user per-tool saved data
+- `tool_usage_log` — Tool usage event log
+- `tool_daily_usage` — Daily rate limit counters per user per action
 
 ### Onboarding Flow
 
@@ -393,6 +398,13 @@ Integration package: `lib/integrations-anthropic-ai` (`@workspace/integrations-a
   - `PATCH /admin/api-keys/:id` — Update key metadata/permissions (admin-only)
   - `POST /admin/api-keys/:id/revoke` — Revoke API key (admin-only)
 - **Admin UI:** Settings → API Keys page at `/settings/api-keys` (admin-only)
+- `GET /tools` — List tools with access state (requires software entitlement)
+- `GET /tools/:slug` — Tool detail with config and user entitlements
+- `GET /tools/:toolId/data` — List user's tool data
+- `POST /tools/:toolId/data` — Save/upsert user tool data
+- `POST /tools/:toolId/usage` — Log tool usage
+- `POST /tools/headline-generator/generate` — AI headline generation (rate-limited)
+- `POST /tools/campaign-calculator/analyze` — AI campaign analysis (expanded tier, rate-limited)
 
 ### Community System
 
@@ -488,6 +500,53 @@ Central communication system using SendGrid (email) and Twilio (SMS) with BullMQ
 **Template variable syntax:** `{{variable_name}}` — Common vars: `member_name`, `portal_url`, `support_email`, `company_name`, `current_year`
 
 **Bounce handling:** Hard bounce → immediate suppression. Soft bounce → suppress after 3 in 7 days. All marketing sends check suppression before sending.
+
+### Software & Tools System
+
+An "internal app store" gated by `software:base`/`software:expanded` entitlements. Tools are registered in a DB-backed registry with category organization, access control, and usage tracking.
+
+**Database Tables:**
+- `tool_categories` — Tool categories with slug, description, icon, sort order
+- `tools` — Tool registry with slug, type (builtin/external/embedded), config (JSON), required entitlement, status (active/beta/coming_soon)
+- `tool_user_data` — Per-user per-tool data storage (favorites, saved calculations, etc.)
+- `tool_usage_log` — Usage event logging (open, generate, etc.)
+- `tool_daily_usage` — Daily rate limit tracking per user per action
+
+**Tool Types:**
+- `builtin` — React component rendered inline (config.component maps to component registry)
+- `external` — Opens external URL in new tab
+- `embedded` — Renders external URL in iframe with fullscreen toggle
+
+**Built-in Tool Components** (`artifacts/portal/src/components/tools/`):
+- `HeadlineGenerator` — AI-powered headline generation via Claude (claude-haiku-4-5), with rate limiting (5/day base, 25/day expanded)
+- `CampaignCalculator` — ROI/breakeven/projection calculator with AI campaign analysis (expanded tier only, 15/day)
+- `TrackingUrlBuilder` — UTM parameter builder with traffic source presets (FB, Google, TikTok, Native, Email, YouTube)
+
+**Access States:**
+- `granted` — User's entitlement matches tool's requiredEntitlement
+- `locked` — Tool requires `software:expanded` but user only has `software:base` (shows upgrade prompt)
+- `hidden` — User lacks any software entitlement
+
+**Seeded Data:** 6 categories, 8 tools (3 active base, 2 expanded, 3 coming-soon)
+
+**API Routes:**
+- `GET /tools` — List all tools with access state
+- `GET /tools/:slug` — Tool detail with config, userEntitlements
+- `GET /tools/:toolId/data` — List user's saved data for a tool
+- `POST /tools/:toolId/data` — Save/update user tool data (upsert by dataKey)
+- `POST /tools/:toolId/usage` — Log usage event
+- `POST /tools/headline-generator/generate` — AI headline generation with rate limiting
+- `POST /tools/campaign-calculator/analyze` — AI campaign analysis (expanded tier only)
+
+**AI Integration:** Uses Anthropic Claude (claude-haiku-4-5) via Replit AI Integrations proxy (`lib/integrations-anthropic-ai/`). No API key needed.
+
+**Frontend Pages:**
+- `/tools` — Tool listing with category tabs, search, featured section, access-gated cards
+- `/tools/:slug` — Tool detail with dynamic component loading, locked state, external/embedded support
+
+**Sidebar:** Wrench icon, conditional on `software:base` entitlement
+
+**Dashboard Widget:** Shows recent tools with links to tool detail pages
 
 ### Seed Data
 Demo users (all password: Demo1234):

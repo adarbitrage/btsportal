@@ -37,6 +37,7 @@ import v1HealthRouter from "./v1-health";
 import winsRouter from "./wins";
 import adminWinsRouter from "./admin-wins";
 import marketingRouter from "./marketing";
+import toolsRouter from "./tools";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(adminApiKeysRouter);
 router.use(winsRouter);
 router.use(adminWinsRouter);
 router.use(marketingRouter);
+router.use(toolsRouter);
 
 export default router;

@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
-async function authFetch(path: string, options?: RequestInit) {
+export async function authFetch(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",

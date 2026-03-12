@@ -7,6 +7,7 @@
  */
 import type { Announcement } from "./announcement";
 import type { CoachingCall } from "./coachingCall";
+import type { DashboardToolWidget } from "./dashboardToolWidget";
 import type { NextLesson } from "./nextLesson";
 
 export interface DashboardData {
@@ -27,4 +28,5 @@ export interface DashboardData {
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
   ticketLimit: number;
+  recentTools?: DashboardToolWidget[];
 }
