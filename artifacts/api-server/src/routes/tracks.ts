@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, tracksTable, modulesTable, lessonsTable, progressTable } from "@workspace/db";
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, and } from "drizzle-orm";
 import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams, GetLessonResponse } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
 
@@ -9,7 +9,9 @@ const router: IRouter = Router();
 router.get("/tracks", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
-  const tracks = await db.select().from(tracksTable).orderBy(tracksTable.sortOrder);
+  const tracks = await db.select().from(tracksTable)
+    .where(and(eq(tracksTable.status, "published"), eq(tracksTable.archived, false)))
+    .orderBy(tracksTable.sortOrder);
 
   const result = [];
   for (const track of tracks) {
@@ -22,7 +24,7 @@ router.get("/tracks", async (req, res): Promise<void> => {
     const moduleSummaries = [];
 
     for (const mod of modules) {
-      const lessons = await db.select().from(lessonsTable).where(eq(lessonsTable.moduleId, mod.id));
+      const lessons = await db.select().from(lessonsTable).where(and(eq(lessonsTable.moduleId, mod.id), eq(lessonsTable.status, "published")));
       const modLessonCount = lessons.length;
       const modMinutes = lessons.reduce((acc, l) => acc + l.durationMinutes, 0);
 
@@ -84,7 +86,9 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
   }
 
   const entitlements = await getUserEntitlements(userId);
-  const lessons = await db.select().from(lessonsTable).where(eq(lessonsTable.moduleId, mod.id)).orderBy(lessonsTable.sortOrder);
+  const lessons = await db.select().from(lessonsTable)
+    .where(and(eq(lessonsTable.moduleId, mod.id), eq(lessonsTable.status, "published")))
+    .orderBy(lessonsTable.sortOrder);
 
   const completedIds = await db
     .select({ lessonId: progressTable.lessonId })
@@ -109,7 +113,7 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [lesson] = await db.select().from(lessonsTable).where(eq(lessonsTable.id, params.data.id));
+  const [lesson] = await db.select().from(lessonsTable).where(and(eq(lessonsTable.id, params.data.id), eq(lessonsTable.status, "published")));
   if (!lesson) {
     res.status(404).json({ error: "Lesson not found" });
     return;

@@ -1309,3 +1309,569 @@ export const CreateTicketFromChatBody = zod.object({
   sessionId: zod.number(),
   subject: zod.string(),
 });
+
+/**
+ * @summary Request a presigned upload URL
+ */
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string(),
+  size: zod.number(),
+  contentType: zod.string(),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+  metadata: zod
+    .object({
+      name: zod.string().optional(),
+      size: zod.number().optional(),
+      contentType: zod.string().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary List all tracks with module/lesson counts
+ */
+export const AdminListTracksResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+  archived: zod.boolean(),
+  archivedAt: zod.date().nullish(),
+  moduleCount: zod.number(),
+  lessonCount: zod.number(),
+});
+export const AdminListTracksResponse = zod.array(AdminListTracksResponseItem);
+
+/**
+ * @summary Create a new track
+ */
+export const AdminCreateTrackBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string().optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+});
+
+/**
+ * @summary Update a track
+ */
+export const AdminUpdateTrackParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateTrackBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  requiredEntitlement: zod.string().optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const AdminUpdateTrackResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+  archived: zod.boolean(),
+  archivedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Reorder tracks
+ */
+export const AdminReorderTracksBody = zod.object({
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+export const AdminReorderTracksResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+  archived: zod.boolean(),
+  archivedAt: zod.date().nullish(),
+});
+export const AdminReorderTracksResponse = zod.array(
+  AdminReorderTracksResponseItem,
+);
+
+/**
+ * @summary Archive a track (soft delete)
+ */
+export const AdminArchiveTrackParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminArchiveTrackResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+  archived: zod.boolean(),
+  archivedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Unarchive a track
+ */
+export const AdminUnarchiveTrackParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUnarchiveTrackResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+  archived: zod.boolean(),
+  archivedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Duplicate a track with all modules and lessons
+ */
+export const AdminDuplicateTrackParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List modules within a track
+ */
+export const AdminListModulesParams = zod.object({
+  trackId: zod.coerce.number(),
+});
+
+export const AdminListModulesResponseItem = zod.object({
+  id: zod.number(),
+  trackId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  sortOrder: zod.number(),
+  lessonCount: zod.number(),
+});
+export const AdminListModulesResponse = zod.array(AdminListModulesResponseItem);
+
+/**
+ * @summary Create a new module
+ */
+export const AdminCreateModuleBody = zod.object({
+  trackId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+});
+
+/**
+ * @summary Update a module
+ */
+export const AdminUpdateModuleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateModuleBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const AdminUpdateModuleResponse = zod.object({
+  id: zod.number(),
+  trackId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary Delete a module
+ */
+export const AdminDeleteModuleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteModuleResponse = zod.object({
+  id: zod.number(),
+  trackId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary Reorder modules within a track
+ */
+export const AdminReorderModulesBody = zod.object({
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Move a module to a different track
+ */
+export const AdminMoveModuleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminMoveModuleBody = zod.object({
+  targetTrackId: zod.number(),
+});
+
+export const AdminMoveModuleResponse = zod.object({
+  id: zod.number(),
+  trackId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary List lessons within a module
+ */
+export const AdminListLessonsParams = zod.object({
+  moduleId: zod.coerce.number(),
+});
+
+export const AdminListLessonsResponseItem = zod.object({
+  id: zod.number(),
+  moduleId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  videoUrl: zod.string().nullish(),
+  contentType: zod.string(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  durationMinutes: zod.number(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+});
+export const AdminListLessonsResponse = zod.array(AdminListLessonsResponseItem);
+
+/**
+ * @summary Create a new lesson
+ */
+export const AdminCreateLessonBody = zod.object({
+  moduleId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  videoUrl: zod.string().optional(),
+  contentType: zod.string().optional(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  durationMinutes: zod.number().optional(),
+  requiredEntitlement: zod.string().optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+});
+
+/**
+ * @summary Update a lesson
+ */
+export const AdminUpdateLessonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateLessonBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  videoUrl: zod.string().optional(),
+  contentType: zod.string().optional(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  durationMinutes: zod.number().optional(),
+  requiredEntitlement: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+});
+
+export const AdminUpdateLessonResponse = zod.object({
+  id: zod.number(),
+  moduleId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  videoUrl: zod.string().nullish(),
+  contentType: zod.string(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  durationMinutes: zod.number(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+});
+
+/**
+ * @summary Delete a lesson
+ */
+export const AdminDeleteLessonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteLessonResponse = zod.object({
+  id: zod.number(),
+  moduleId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  videoUrl: zod.string().nullish(),
+  contentType: zod.string(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  durationMinutes: zod.number(),
+  requiredEntitlement: zod.string(),
+  sortOrder: zod.number(),
+  status: zod.enum(["draft", "published"]),
+});
+
+/**
+ * @summary Reorder lessons within a module
+ */
+export const AdminReorderLessonsBody = zod.object({
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Duplicate a lesson
+ */
+export const AdminDuplicateLessonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDuplicateLessonBody = zod.object({
+  targetModuleId: zod.number().optional(),
+});
+
+/**
+ * @summary Publish a lesson and create version snapshot
+ */
+export const AdminPublishLessonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminPublishLessonBody = zod.object({
+  changeSummary: zod.string().optional(),
+});
+
+/**
+ * @summary List version history for a lesson
+ */
+export const AdminListLessonVersionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminListLessonVersionsResponseItem = zod.object({
+  id: zod.number(),
+  lessonId: zod.number(),
+  versionNumber: zod.number(),
+  title: zod.string(),
+  contentType: zod.string(),
+  videoUrl: zod.string().nullish(),
+  textContent: zod.unknown().optional(),
+  actionItems: zod.unknown().optional(),
+  publishedBy: zod.number().nullish(),
+  publishedAt: zod.date(),
+  changeSummary: zod.string().nullish(),
+});
+export const AdminListLessonVersionsResponse = zod.array(
+  AdminListLessonVersionsResponseItem,
+);
+
+/**
+ * @summary Restore a lesson from a previous version
+ */
+export const AdminRestoreLessonVersionParams = zod.object({
+  id: zod.coerce.number(),
+  versionId: zod.coerce.number(),
+});
+
+/**
+ * @summary Request upload URL for a lesson resource
+ */
+export const AdminRequestResourceUploadUrlParams = zod.object({
+  lessonId: zod.coerce.number(),
+});
+
+export const AdminRequestResourceUploadUrlBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  fileType: zod.string(),
+});
+
+export const AdminRequestResourceUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary List resources for a lesson
+ */
+export const AdminListLessonResourcesParams = zod.object({
+  lessonId: zod.coerce.number(),
+});
+
+export const AdminListLessonResourcesResponseItem = zod.object({
+  id: zod.number(),
+  lessonId: zod.number(),
+  fileName: zod.string(),
+  fileUrl: zod.string(),
+  fileSize: zod.number(),
+  fileType: zod.string(),
+  sortOrder: zod.number(),
+  downloadCount: zod.number(),
+  createdAt: zod.date(),
+});
+export const AdminListLessonResourcesResponse = zod.array(
+  AdminListLessonResourcesResponseItem,
+);
+
+/**
+ * @summary Create a lesson resource record after upload
+ */
+export const AdminCreateLessonResourceParams = zod.object({
+  lessonId: zod.coerce.number(),
+});
+
+export const AdminCreateLessonResourceBody = zod.object({
+  fileName: zod.string(),
+  fileUrl: zod.string(),
+  fileSize: zod.number().optional(),
+  fileType: zod.string(),
+});
+
+/**
+ * @summary Reorder lesson resources
+ */
+export const AdminReorderLessonResourcesParams = zod.object({
+  lessonId: zod.coerce.number(),
+});
+
+export const AdminReorderLessonResourcesBody = zod.object({
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete a lesson resource
+ */
+export const AdminDeleteResourceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteResourceResponse = zod.object({
+  id: zod.number(),
+  lessonId: zod.number(),
+  fileName: zod.string(),
+  fileUrl: zod.string(),
+  fileSize: zod.number(),
+  fileType: zod.string(),
+  sortOrder: zod.number(),
+  downloadCount: zod.number(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Request upload URL for inline editor image
+ */
+export const AdminRequestImageUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Bulk publish multiple lessons
+ */
+export const AdminBulkPublishLessonsBody = zod.object({
+  lessonIds: zod.array(zod.number()),
+});
+
+export const AdminBulkPublishLessonsResponse = zod.object({
+  published: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        status: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Bulk move lessons to a target module
+ */
+export const AdminBulkMoveLessonsBody = zod.object({
+  lessonIds: zod.array(zod.number()),
+  targetModuleId: zod.number(),
+});
+
+export const AdminBulkMoveLessonsResponse = zod.object({
+  moved: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        moduleId: zod.number(),
+        title: zod.string(),
+        description: zod.string(),
+        videoUrl: zod.string().nullish(),
+        contentType: zod.string(),
+        textContent: zod.unknown().optional(),
+        actionItems: zod.unknown().optional(),
+        durationMinutes: zod.number(),
+        requiredEntitlement: zod.string(),
+        sortOrder: zod.number(),
+        status: zod.enum(["draft", "published"]),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Export training content structure as JSON
+ */
+export const AdminExportContentResponse = zod.object({
+  exportedAt: zod.date(),
+  version: zod.number(),
+  tracks: zod.array(zod.object({}).passthrough()),
+});
+
+/**
+ * @summary Import training content from JSON
+ */
+export const AdminImportContentBody = zod.object({
+  tracks: zod.array(zod.object({}).passthrough()),
+});
+
+/**
+ * @summary Download a lesson resource (entitlement-checked)
+ */
+export const DownloadLessonResourceParams = zod.object({
+  lessonId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});

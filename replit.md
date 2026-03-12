@@ -135,9 +135,11 @@ The community frontend is a UI layer built for integration with community backen
 - `entitlements` — Reference table of all entitlement keys
 - `legal_documents` — Legal document templates (type, version, title, content as markdown)
 - `signed_documents` — User document signatures (user_id, document_type, document_version, signature, signed_at, ip_address)
-- `tracks` — Training tracks with `required_entitlement` key
+- `tracks` — Training tracks with `required_entitlement` key, `status` (draft/published), `archived` flag
 - `modules` — Modules within tracks
-- `lessons` — Lessons with `required_entitlement` key and `content_type`
+- `lessons` — Lessons with `required_entitlement` key, `content_type`, `status` (draft/published), `text_content` (JSONB for TipTap), `action_items` (JSONB)
+- `lesson_resources` — File attachments for lessons (via Object Storage presigned URLs), with download tracking
+- `lesson_versions` — Version snapshots created on publish, supports restore (max 20 per lesson)
 - `progress` — User lesson completion tracking
 - `coaches` — Coach profiles
 - `coaching_calls` — Scheduled coaching sessions with `required_entitlement`
@@ -250,6 +252,43 @@ Uses Anthropic Claude (via Replit AI Integrations) for an AI chat assistant with
 - **System prompt**: Admin-editable, stored in DB with template variables ({{member_name}}, {{chat_tier}}, {{daily_limit}})
 
 Integration package: `lib/integrations-anthropic-ai` (`@workspace/integrations-anthropic-ai`)
+
+- **Admin Content Management (all admin-only):**
+  - `GET/POST /admin/tracks` — List all tracks (with counts) / Create track
+  - `PUT /admin/tracks/:id` — Update track
+  - `PATCH /admin/tracks/reorder` — Reorder tracks
+  - `PATCH /admin/tracks/:id/archive` — Soft-delete (archive) track
+  - `PATCH /admin/tracks/:id/unarchive` — Unarchive track
+  - `POST /admin/tracks/:id/duplicate` — Deep copy track with modules/lessons
+  - `GET /admin/tracks/:trackId/modules` — List modules in track
+  - `POST /admin/modules` — Create module
+  - `PUT /admin/modules/:id` — Update module
+  - `PATCH /admin/modules/reorder` — Reorder modules
+  - `PATCH /admin/modules/:id/move` — Move module to different track
+  - `DELETE /admin/modules/:id` — Delete module (with progress warning)
+  - `GET /admin/modules/:moduleId/lessons` — List lessons in module
+  - `POST /admin/lessons` — Create lesson
+  - `PUT /admin/lessons/:id` — Update lesson (full update: title, content, status, etc.)
+  - `PATCH /admin/lessons/reorder` — Reorder lessons
+  - `POST /admin/lessons/:id/duplicate` — Duplicate lesson
+  - `DELETE /admin/lessons/:id` — Delete lesson
+  - `POST /admin/lessons/:id/publish` — Publish lesson + create version snapshot
+  - `GET /admin/lessons/:id/versions` — List version history
+  - `POST /admin/lessons/:id/restore/:versionId` — Restore from previous version
+  - `POST /admin/lessons/:lessonId/resources/upload-url` — Get presigned upload URL for resource
+  - `GET/POST /admin/lessons/:lessonId/resources` — List / create lesson resources
+  - `PATCH /admin/lessons/:lessonId/resources/reorder` — Reorder resources
+  - `DELETE /admin/resources/:id` — Delete resource
+  - `POST /admin/content/images/upload-url` — Upload URL for inline editor images
+  - `POST /admin/lessons/bulk-publish` — Bulk publish lessons
+  - `POST /admin/lessons/bulk-move` — Bulk move lessons between modules
+  - `GET /admin/content/export` — Export content structure as JSON
+  - `POST /admin/content/import` — Import content from JSON
+- `GET /lessons/:lessonId/resources/:resourceId/download` — Member resource download (entitlement-checked)
+- **Storage:**
+  - `POST /storage/uploads/request-url` — Request presigned upload URL
+  - `GET /storage/public-objects/*` — Serve public assets
+  - `GET /storage/objects/*` — Serve uploaded objects
 
 ### Community System
 

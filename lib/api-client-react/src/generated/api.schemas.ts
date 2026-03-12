@@ -878,6 +878,256 @@ export interface CreateTicketFromChatBody {
   subject: string;
 }
 
+export interface RequestUploadUrlBody {
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+export type RequestUploadUrlResponseMetadata = {
+  name?: string;
+  size?: number;
+  contentType?: string;
+};
+
+export interface RequestUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: RequestUploadUrlResponseMetadata;
+}
+
+export type AdminTrackStatus =
+  (typeof AdminTrackStatus)[keyof typeof AdminTrackStatus];
+
+export const AdminTrackStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminTrack {
+  id: number;
+  title: string;
+  description: string;
+  requiredEntitlement: string;
+  sortOrder: number;
+  status: AdminTrackStatus;
+  archived: boolean;
+  /** @nullable */
+  archivedAt?: string | null;
+  moduleCount: number;
+  lessonCount: number;
+}
+
+export type AdminTrackDetailStatus =
+  (typeof AdminTrackDetailStatus)[keyof typeof AdminTrackDetailStatus];
+
+export const AdminTrackDetailStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminTrackDetail {
+  id: number;
+  title: string;
+  description: string;
+  requiredEntitlement: string;
+  sortOrder: number;
+  status: AdminTrackDetailStatus;
+  archived: boolean;
+  /** @nullable */
+  archivedAt?: string | null;
+}
+
+export type AdminCreateTrackStatus =
+  (typeof AdminCreateTrackStatus)[keyof typeof AdminCreateTrackStatus];
+
+export const AdminCreateTrackStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminCreateTrack {
+  title: string;
+  description: string;
+  requiredEntitlement?: string;
+  status?: AdminCreateTrackStatus;
+}
+
+export type AdminUpdateTrackStatus =
+  (typeof AdminUpdateTrackStatus)[keyof typeof AdminUpdateTrackStatus];
+
+export const AdminUpdateTrackStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminUpdateTrack {
+  title?: string;
+  description?: string;
+  requiredEntitlement?: string;
+  status?: AdminUpdateTrackStatus;
+  sortOrder?: number;
+}
+
+export type ReorderRequestOrdersItem = {
+  id: number;
+  sortOrder: number;
+};
+
+export interface ReorderRequest {
+  orders: ReorderRequestOrdersItem[];
+}
+
+export interface AdminModule {
+  id: number;
+  trackId: number;
+  title: string;
+  description: string;
+  sortOrder: number;
+  lessonCount: number;
+}
+
+export interface AdminModuleDetail {
+  id: number;
+  trackId: number;
+  title: string;
+  description: string;
+  sortOrder: number;
+}
+
+export interface AdminCreateModule {
+  trackId: number;
+  title: string;
+  description: string;
+}
+
+export interface AdminUpdateModule {
+  title?: string;
+  description?: string;
+  sortOrder?: number;
+}
+
+export type AdminLessonStatus =
+  (typeof AdminLessonStatus)[keyof typeof AdminLessonStatus];
+
+export const AdminLessonStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminLesson {
+  id: number;
+  moduleId: number;
+  title: string;
+  description: string;
+  /** @nullable */
+  videoUrl?: string | null;
+  contentType: string;
+  textContent?: unknown;
+  actionItems?: unknown;
+  durationMinutes: number;
+  requiredEntitlement: string;
+  sortOrder: number;
+  status: AdminLessonStatus;
+}
+
+export type AdminCreateLessonStatus =
+  (typeof AdminCreateLessonStatus)[keyof typeof AdminCreateLessonStatus];
+
+export const AdminCreateLessonStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminCreateLesson {
+  moduleId: number;
+  title: string;
+  description: string;
+  videoUrl?: string;
+  contentType?: string;
+  textContent?: unknown;
+  actionItems?: unknown;
+  durationMinutes?: number;
+  requiredEntitlement?: string;
+  status?: AdminCreateLessonStatus;
+}
+
+export type AdminUpdateLessonStatus =
+  (typeof AdminUpdateLessonStatus)[keyof typeof AdminUpdateLessonStatus];
+
+export const AdminUpdateLessonStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export interface AdminUpdateLesson {
+  title?: string;
+  description?: string;
+  videoUrl?: string;
+  contentType?: string;
+  textContent?: unknown;
+  actionItems?: unknown;
+  durationMinutes?: number;
+  requiredEntitlement?: string;
+  sortOrder?: number;
+  status?: AdminUpdateLessonStatus;
+}
+
+export interface LessonVersion {
+  id: number;
+  lessonId: number;
+  versionNumber: number;
+  title: string;
+  contentType: string;
+  /** @nullable */
+  videoUrl?: string | null;
+  textContent?: unknown;
+  actionItems?: unknown;
+  /** @nullable */
+  publishedBy?: number | null;
+  publishedAt: string;
+  /** @nullable */
+  changeSummary?: string | null;
+}
+
+export interface LessonResource {
+  id: number;
+  lessonId: number;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  fileType: string;
+  sortOrder: number;
+  downloadCount: number;
+  createdAt: string;
+}
+
+export interface CreateLessonResource {
+  fileName: string;
+  fileUrl: string;
+  fileSize?: number;
+  fileType: string;
+}
+
+export interface ResourceUploadRequest {
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+}
+
+export type ContentExportTracksItem = { [key: string]: unknown };
+
+export interface ContentExport {
+  exportedAt: string;
+  version: number;
+  tracks: ContentExportTracksItem[];
+}
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -970,4 +1220,54 @@ export const ListCommunityMembersSort = {
 export type ListCommunityNotificationsParams = {
   page?: number;
   limit?: number;
+};
+
+export type AdminMoveModuleBody = {
+  targetTrackId: number;
+};
+
+export type AdminDuplicateLessonBody = {
+  targetModuleId?: number;
+};
+
+export type AdminPublishLessonBody = {
+  changeSummary?: string;
+};
+
+export type AdminBulkPublishLessonsBody = {
+  lessonIds: number[];
+};
+
+export type AdminBulkPublishLessons200PublishedItem = {
+  id?: number;
+  status?: string;
+};
+
+export type AdminBulkPublishLessons200 = {
+  published?: AdminBulkPublishLessons200PublishedItem[];
+};
+
+export type AdminBulkMoveLessonsBody = {
+  lessonIds: number[];
+  targetModuleId: number;
+};
+
+export type AdminBulkMoveLessons200 = {
+  moved?: AdminLesson[];
+};
+
+export type AdminImportContentBodyTracksItem = { [key: string]: unknown };
+
+export type AdminImportContentBody = {
+  tracks: AdminImportContentBodyTracksItem[];
+};
+
+export type AdminImportContent201Imported = {
+  tracks?: number;
+  modules?: number;
+  lessons?: number;
+};
+
+export type AdminImportContent201 = {
+  imported?: AdminImportContent201Imported;
 };

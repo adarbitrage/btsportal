@@ -1378,6 +1378,741 @@ paths:
         "403":
           description: Not chat:full or chat:custom tier
 
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
+
+  /admin/tracks:
+    get:
+      operationId: adminListTracks
+      tags: [admin-content]
+      summary: List all tracks with module/lesson counts
+      responses:
+        "200":
+          description: List of tracks with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTrack"
+    post:
+      operationId: adminCreateTrack
+      tags: [admin-content]
+      summary: Create a new track
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateTrack"
+      responses:
+        "201":
+          description: Track created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/{id}:
+    put:
+      operationId: adminUpdateTrack
+      tags: [admin-content]
+      summary: Update a track
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateTrack"
+      responses:
+        "200":
+          description: Track updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/reorder:
+    patch:
+      operationId: adminReorderTracks
+      tags: [admin-content]
+      summary: Reorder tracks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderRequest"
+      responses:
+        "200":
+          description: Tracks reordered
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/{id}/archive:
+    patch:
+      operationId: adminArchiveTrack
+      tags: [admin-content]
+      summary: Archive a track (soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Track archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/{id}/unarchive:
+    patch:
+      operationId: adminUnarchiveTrack
+      tags: [admin-content]
+      summary: Unarchive a track
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Track unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/{id}/duplicate:
+    post:
+      operationId: adminDuplicateTrack
+      tags: [admin-content]
+      summary: Duplicate a track with all modules and lessons
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Track duplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrackDetail"
+
+  /admin/tracks/{trackId}/modules:
+    get:
+      operationId: adminListModules
+      tags: [admin-content]
+      summary: List modules within a track
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminModule"
+
+  /admin/modules:
+    post:
+      operationId: adminCreateModule
+      tags: [admin-content]
+      summary: Create a new module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateModule"
+      responses:
+        "201":
+          description: Module created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModuleDetail"
+
+  /admin/modules/{id}:
+    put:
+      operationId: adminUpdateModule
+      tags: [admin-content]
+      summary: Update a module
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateModule"
+      responses:
+        "200":
+          description: Module updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModuleDetail"
+    delete:
+      operationId: adminDeleteModule
+      tags: [admin-content]
+      summary: Delete a module
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Module deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModuleDetail"
+
+  /admin/modules/reorder:
+    patch:
+      operationId: adminReorderModules
+      tags: [admin-content]
+      summary: Reorder modules within a track
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderRequest"
+      responses:
+        "200":
+          description: Modules reordered
+
+  /admin/modules/{id}/move:
+    patch:
+      operationId: adminMoveModule
+      tags: [admin-content]
+      summary: Move a module to a different track
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetTrackId:
+                  type: integer
+              required: [targetTrackId]
+      responses:
+        "200":
+          description: Module moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModuleDetail"
+
+  /admin/modules/{moduleId}/lessons:
+    get:
+      operationId: adminListLessons
+      tags: [admin-content]
+      summary: List lessons within a module
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of lessons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLesson"
+
+  /admin/lessons:
+    post:
+      operationId: adminCreateLesson
+      tags: [admin-content]
+      summary: Create a new lesson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateLesson"
+      responses:
+        "201":
+          description: Lesson created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLesson"
+
+  /admin/lessons/{id}:
+    put:
+      operationId: adminUpdateLesson
+      tags: [admin-content]
+      summary: Update a lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateLesson"
+      responses:
+        "200":
+          description: Lesson updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLesson"
+    delete:
+      operationId: adminDeleteLesson
+      tags: [admin-content]
+      summary: Delete a lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLesson"
+
+  /admin/lessons/reorder:
+    patch:
+      operationId: adminReorderLessons
+      tags: [admin-content]
+      summary: Reorder lessons within a module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderRequest"
+      responses:
+        "200":
+          description: Lessons reordered
+
+  /admin/lessons/{id}/duplicate:
+    post:
+      operationId: adminDuplicateLesson
+      tags: [admin-content]
+      summary: Duplicate a lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetModuleId:
+                  type: integer
+      responses:
+        "201":
+          description: Lesson duplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLesson"
+
+  /admin/lessons/{id}/publish:
+    post:
+      operationId: adminPublishLesson
+      tags: [admin-content]
+      summary: Publish a lesson and create version snapshot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                changeSummary:
+                  type: string
+      responses:
+        "201":
+          description: Lesson published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonVersion"
+
+  /admin/lessons/{id}/versions:
+    get:
+      operationId: adminListLessonVersions
+      tags: [admin-content]
+      summary: List version history for a lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Version history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LessonVersion"
+
+  /admin/lessons/{id}/restore/{versionId}:
+    post:
+      operationId: adminRestoreLessonVersion
+      tags: [admin-content]
+      summary: Restore a lesson from a previous version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Version restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonVersion"
+
+  /admin/lessons/{lessonId}/resources/upload-url:
+    post:
+      operationId: adminRequestResourceUploadUrl
+      tags: [admin-content]
+      summary: Request upload URL for a lesson resource
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourceUploadRequest"
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  /admin/lessons/{lessonId}/resources:
+    get:
+      operationId: adminListLessonResources
+      tags: [admin-content]
+      summary: List resources for a lesson
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LessonResource"
+    post:
+      operationId: adminCreateLessonResource
+      tags: [admin-content]
+      summary: Create a lesson resource record after upload
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLessonResource"
+      responses:
+        "201":
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResource"
+
+  /admin/lessons/{lessonId}/resources/reorder:
+    patch:
+      operationId: adminReorderLessonResources
+      tags: [admin-content]
+      summary: Reorder lesson resources
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderRequest"
+      responses:
+        "200":
+          description: Resources reordered
+
+  /admin/resources/{id}:
+    delete:
+      operationId: adminDeleteResource
+      tags: [admin-content]
+      summary: Delete a lesson resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResource"
+
+  /admin/content/images/upload-url:
+    post:
+      operationId: adminRequestImageUploadUrl
+      tags: [admin-content]
+      summary: Request upload URL for inline editor image
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  /admin/lessons/bulk-publish:
+    post:
+      operationId: adminBulkPublishLessons
+      tags: [admin-content]
+      summary: Bulk publish multiple lessons
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lessonIds:
+                  type: array
+                  items:
+                    type: integer
+              required: [lessonIds]
+      responses:
+        "200":
+          description: Lessons published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  published:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        status:
+                          type: string
+
+  /admin/lessons/bulk-move:
+    post:
+      operationId: adminBulkMoveLessons
+      tags: [admin-content]
+      summary: Bulk move lessons to a target module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lessonIds:
+                  type: array
+                  items:
+                    type: integer
+                targetModuleId:
+                  type: integer
+              required: [lessonIds, targetModuleId]
+      responses:
+        "200":
+          description: Lessons moved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moved:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminLesson"
+
+  /admin/content/export:
+    get:
+      operationId: adminExportContent
+      tags: [admin-content]
+      summary: Export training content structure as JSON
+      responses:
+        "200":
+          description: Content export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentExport"
+
+  /admin/content/import:
+    post:
+      operationId: adminImportContent
+      tags: [admin-content]
+      summary: Import training content from JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tracks:
+                  type: array
+                  items:
+                    type: object
+              required: [tracks]
+      responses:
+        "201":
+          description: Content imported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: object
+                    properties:
+                      tracks:
+                        type: integer
+                      modules:
+                        type: integer
+                      lessons:
+                        type: integer
+
+  /lessons/{lessonId}/resources/{resourceId}/download:
+    get:
+      operationId: downloadLessonResource
+      tags: [lessons]
+      summary: Download a lesson resource (entitlement-checked)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File download
+        "403":
+          description: Access denied
+
 components:
   schemas:
     HealthStatus:
@@ -2826,3 +3561,351 @@ components:
         subject:
           type: string
       required: [sessionId, subject]
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required: [name, size, contentType]
+
+    RequestUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            size:
+              type: integer
+            contentType:
+              type: string
+      required: [uploadURL, objectPath]
+
+    AdminTrack:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        requiredEntitlement:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [draft, published]
+        archived:
+          type: boolean
+        archivedAt:
+          type: ["string", "null"]
+          format: date-time
+        moduleCount:
+          type: integer
+        lessonCount:
+          type: integer
+      required: [id, title, description, requiredEntitlement, sortOrder, status, archived, moduleCount, lessonCount]
+
+    AdminTrackDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        requiredEntitlement:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [draft, published]
+        archived:
+          type: boolean
+        archivedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, title, description, requiredEntitlement, sortOrder, status, archived]
+
+    AdminCreateTrack:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        requiredEntitlement:
+          type: string
+        status:
+          type: string
+          enum: [draft, published]
+      required: [title, description]
+
+    AdminUpdateTrack:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        requiredEntitlement:
+          type: string
+        status:
+          type: string
+          enum: [draft, published]
+        sortOrder:
+          type: integer
+
+    ReorderRequest:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              sortOrder:
+                type: integer
+            required: [id, sortOrder]
+      required: [orders]
+
+    AdminModule:
+      type: object
+      properties:
+        id:
+          type: integer
+        trackId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        lessonCount:
+          type: integer
+      required: [id, trackId, title, description, sortOrder, lessonCount]
+
+    AdminModuleDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        trackId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+      required: [id, trackId, title, description, sortOrder]
+
+    AdminCreateModule:
+      type: object
+      properties:
+        trackId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+      required: [trackId, title, description]
+
+    AdminUpdateModule:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+
+    AdminLesson:
+      type: object
+      properties:
+        id:
+          type: integer
+        moduleId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: ["string", "null"]
+        contentType:
+          type: string
+        textContent: {}
+        actionItems: {}
+        durationMinutes:
+          type: integer
+        requiredEntitlement:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [draft, published]
+      required: [id, moduleId, title, description, contentType, durationMinutes, requiredEntitlement, sortOrder, status]
+
+    AdminCreateLesson:
+      type: object
+      properties:
+        moduleId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: string
+        contentType:
+          type: string
+        textContent: {}
+        actionItems: {}
+        durationMinutes:
+          type: integer
+        requiredEntitlement:
+          type: string
+        status:
+          type: string
+          enum: [draft, published]
+      required: [moduleId, title, description]
+
+    AdminUpdateLesson:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: string
+        contentType:
+          type: string
+        textContent: {}
+        actionItems: {}
+        durationMinutes:
+          type: integer
+        requiredEntitlement:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [draft, published]
+
+    LessonVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        lessonId:
+          type: integer
+        versionNumber:
+          type: integer
+        title:
+          type: string
+        contentType:
+          type: string
+        videoUrl:
+          type: ["string", "null"]
+        textContent: {}
+        actionItems: {}
+        publishedBy:
+          type: ["integer", "null"]
+        publishedAt:
+          type: string
+          format: date-time
+        changeSummary:
+          type: ["string", "null"]
+      required: [id, lessonId, versionNumber, title, contentType, publishedAt]
+
+    LessonResource:
+      type: object
+      properties:
+        id:
+          type: integer
+        lessonId:
+          type: integer
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        fileSize:
+          type: integer
+        fileType:
+          type: string
+        sortOrder:
+          type: integer
+        downloadCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, lessonId, fileName, fileUrl, fileSize, fileType, sortOrder, downloadCount, createdAt]
+
+    CreateLessonResource:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        fileSize:
+          type: integer
+        fileType:
+          type: string
+      required: [fileName, fileUrl, fileType]
+
+    ResourceUploadRequest:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        fileType:
+          type: string
+      required: [fileName, fileSize, fileType]
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required: [uploadURL, objectPath]
+
+    ContentExport:
+      type: object
+      properties:
+        exportedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+        tracks:
+          type: array
+          items:
+            type: object
+      required: [exportedAt, version, tracks]

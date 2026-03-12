@@ -7,6 +7,8 @@ export * from "./entitlements";
 export * from "./tracks";
 export * from "./modules";
 export * from "./lessons";
+export * from "./lesson-resources";
+export * from "./lesson-versions";
 export * from "./progress";
 export * from "./coaches";
 export * from "./coaching-calls";

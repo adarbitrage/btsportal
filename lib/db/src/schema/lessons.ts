@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { modulesTable } from "./modules";
@@ -10,10 +10,12 @@ export const lessonsTable = pgTable("lessons", {
   description: text("description").notNull(),
   videoUrl: text("video_url"),
   contentType: text("content_type").notNull().default("video"),
-  textContent: text("text_content"),
+  textContent: jsonb("text_content"),
+  actionItems: jsonb("action_items"),
   durationMinutes: integer("duration_minutes").notNull().default(10),
   requiredEntitlement: text("required_entitlement").notNull().default("content:frontend"),
   sortOrder: integer("sort_order").notNull().default(0),
+  status: text("status").notNull().default("draft"),
 });
 
 export const insertLessonSchema = createInsertSchema(lessonsTable).omit({ id: true });

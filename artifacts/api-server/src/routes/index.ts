@@ -20,6 +20,12 @@ import communityRouter from "./community";
 import adminGhlRouter from "./admin-ghl";
 import adminTicketsRouter from "./admin-tickets";
 import chatRouter from "./chat";
+import adminTracksRouter from "./admin-tracks";
+import adminModulesRouter from "./admin-modules";
+import adminLessonsRouter from "./admin-lessons";
+import adminResourcesRouter from "./admin-resources";
+import adminBulkRouter from "./admin-bulk";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -44,5 +50,11 @@ router.use(communityRouter);
 router.use(adminGhlRouter);
 router.use(adminTicketsRouter);
 router.use(chatRouter);
+router.use(adminTracksRouter);
+router.use(adminModulesRouter);
+router.use(adminLessonsRouter);
+router.use(adminResourcesRouter);
+router.use(adminBulkRouter);
+router.use(storageRouter);
 
 export default router;

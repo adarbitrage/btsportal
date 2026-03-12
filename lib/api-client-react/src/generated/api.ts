@@ -17,14 +17,34 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminBulkMoveLessons200,
+  AdminBulkMoveLessonsBody,
+  AdminBulkPublishLessons200,
+  AdminBulkPublishLessonsBody,
+  AdminCreateLesson,
+  AdminCreateModule,
+  AdminCreateTrack,
   AdminDeleteCannedResponse200,
   AdminDeleteRoutingRule200,
+  AdminDuplicateLessonBody,
+  AdminImportContent201,
+  AdminImportContentBody,
+  AdminLesson,
   AdminListCannedResponsesParams,
   AdminListTicketsParams,
+  AdminModule,
+  AdminModuleDetail,
+  AdminMoveModuleBody,
+  AdminPublishLessonBody,
   AdminTicket,
   AdminTicketMessage,
   AdminTicketWithMessages,
+  AdminTrack,
+  AdminTrackDetail,
+  AdminUpdateLesson,
+  AdminUpdateModule,
   AdminUpdateTicketStatusBody,
+  AdminUpdateTrack,
   AgentPerformance,
   Announcement,
   CannedResponse,
@@ -42,10 +62,12 @@ import type {
   CommunityNotificationList,
   CommunityPostFeed,
   CommunityPostRaw,
+  ContentExport,
   CreateCannedResponse,
   CreateChatPromptBody,
   CreateCommunityComment,
   CreateCommunityPost,
+  CreateLessonResource,
   CreateProgress,
   CreateRoutingRule,
   CreateSatisfaction,
@@ -60,6 +82,8 @@ import type {
   HealthStatus,
   LegalDocument,
   Lesson,
+  LessonResource,
+  LessonVersion,
   ListAnnouncementsParams,
   ListChatSessionsParams,
   ListCoachingCallsParams,
@@ -80,6 +104,10 @@ import type {
   ProductInfo,
   Progress,
   ReactionToggleResult,
+  ReorderRequest,
+  RequestUploadUrlBody,
+  RequestUploadUrlResponse,
+  ResourceUploadRequest,
   RoutingRule,
   SatisfactionStatus,
   SendChatMessageBody,
@@ -96,6 +124,7 @@ import type {
   ToggleCommunityReaction,
   TrackWithModules,
   UpdateChatPromptBody,
+  UploadUrlResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -5923,3 +5952,2949 @@ export const useCreateTicketFromChat = <
 > => {
   return useMutation(getCreateTicketFromChatMutationOptions(options));
 };
+
+/**
+ * @summary Request a presigned upload URL
+ */
+export const getRequestUploadUrlUrl = () => {
+  return `/api/storage/uploads/request-url`;
+};
+
+export const requestUploadUrl = async (
+  requestUploadUrlBody: RequestUploadUrlBody,
+  options?: RequestInit,
+): Promise<RequestUploadUrlResponse> => {
+  return customFetch<RequestUploadUrlResponse>(getRequestUploadUrlUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(requestUploadUrlBody),
+  });
+};
+
+export const getRequestUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    TError,
+    { data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestUploadUrl>>,
+  TError,
+  { data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["requestUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    { data: BodyType<RequestUploadUrlBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestUploadUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestUploadUrl>>
+>;
+export type RequestUploadUrlMutationBody = BodyType<RequestUploadUrlBody>;
+export type RequestUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request a presigned upload URL
+ */
+export const useRequestUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    TError,
+    { data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestUploadUrl>>,
+  TError,
+  { data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary List all tracks with module/lesson counts
+ */
+export const getAdminListTracksUrl = () => {
+  return `/api/admin/tracks`;
+};
+
+export const adminListTracks = async (
+  options?: RequestInit,
+): Promise<AdminTrack[]> => {
+  return customFetch<AdminTrack[]>(getAdminListTracksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListTracksQueryKey = () => {
+  return [`/api/admin/tracks`] as const;
+};
+
+export const getAdminListTracksQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListTracks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTracks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListTracksQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListTracks>>> = ({
+    signal,
+  }) => adminListTracks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTracks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListTracksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListTracks>>
+>;
+export type AdminListTracksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tracks with module/lesson counts
+ */
+
+export function useAdminListTracks<
+  TData = Awaited<ReturnType<typeof adminListTracks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTracks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListTracksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new track
+ */
+export const getAdminCreateTrackUrl = () => {
+  return `/api/admin/tracks`;
+};
+
+export const adminCreateTrack = async (
+  adminCreateTrack: AdminCreateTrack,
+  options?: RequestInit,
+): Promise<AdminTrackDetail> => {
+  return customFetch<AdminTrackDetail>(getAdminCreateTrackUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateTrack),
+  });
+};
+
+export const getAdminCreateTrackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateTrack>>,
+    TError,
+    { data: BodyType<AdminCreateTrack> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateTrack>>,
+  TError,
+  { data: BodyType<AdminCreateTrack> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateTrack"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateTrack>>,
+    { data: BodyType<AdminCreateTrack> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateTrack(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateTrackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateTrack>>
+>;
+export type AdminCreateTrackMutationBody = BodyType<AdminCreateTrack>;
+export type AdminCreateTrackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new track
+ */
+export const useAdminCreateTrack = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateTrack>>,
+    TError,
+    { data: BodyType<AdminCreateTrack> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateTrack>>,
+  TError,
+  { data: BodyType<AdminCreateTrack> },
+  TContext
+> => {
+  return useMutation(getAdminCreateTrackMutationOptions(options));
+};
+
+/**
+ * @summary Update a track
+ */
+export const getAdminUpdateTrackUrl = (id: number) => {
+  return `/api/admin/tracks/${id}`;
+};
+
+export const adminUpdateTrack = async (
+  id: number,
+  adminUpdateTrack: AdminUpdateTrack,
+  options?: RequestInit,
+): Promise<AdminTrackDetail> => {
+  return customFetch<AdminTrackDetail>(getAdminUpdateTrackUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateTrack),
+  });
+};
+
+export const getAdminUpdateTrackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTrack>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTrack> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateTrack>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTrack> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateTrack"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateTrack>>,
+    { id: number; data: BodyType<AdminUpdateTrack> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateTrack(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateTrackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateTrack>>
+>;
+export type AdminUpdateTrackMutationBody = BodyType<AdminUpdateTrack>;
+export type AdminUpdateTrackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a track
+ */
+export const useAdminUpdateTrack = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTrack>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTrack> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateTrack>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTrack> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateTrackMutationOptions(options));
+};
+
+/**
+ * @summary Reorder tracks
+ */
+export const getAdminReorderTracksUrl = () => {
+  return `/api/admin/tracks/reorder`;
+};
+
+export const adminReorderTracks = async (
+  reorderRequest: ReorderRequest,
+  options?: RequestInit,
+): Promise<AdminTrackDetail[]> => {
+  return customFetch<AdminTrackDetail[]>(getAdminReorderTracksUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderRequest),
+  });
+};
+
+export const getAdminReorderTracksMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderTracks>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderTracks>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderTracks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderTracks>>,
+    { data: BodyType<ReorderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderTracks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderTracksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderTracks>>
+>;
+export type AdminReorderTracksMutationBody = BodyType<ReorderRequest>;
+export type AdminReorderTracksMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder tracks
+ */
+export const useAdminReorderTracks = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderTracks>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderTracks>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  return useMutation(getAdminReorderTracksMutationOptions(options));
+};
+
+/**
+ * @summary Archive a track (soft delete)
+ */
+export const getAdminArchiveTrackUrl = (id: number) => {
+  return `/api/admin/tracks/${id}/archive`;
+};
+
+export const adminArchiveTrack = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTrackDetail> => {
+  return customFetch<AdminTrackDetail>(getAdminArchiveTrackUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminArchiveTrackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminArchiveTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminArchiveTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminArchiveTrack"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminArchiveTrack>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminArchiveTrack(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminArchiveTrackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminArchiveTrack>>
+>;
+
+export type AdminArchiveTrackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive a track (soft delete)
+ */
+export const useAdminArchiveTrack = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminArchiveTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminArchiveTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminArchiveTrackMutationOptions(options));
+};
+
+/**
+ * @summary Unarchive a track
+ */
+export const getAdminUnarchiveTrackUrl = (id: number) => {
+  return `/api/admin/tracks/${id}/unarchive`;
+};
+
+export const adminUnarchiveTrack = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTrackDetail> => {
+  return customFetch<AdminTrackDetail>(getAdminUnarchiveTrackUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminUnarchiveTrackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnarchiveTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUnarchiveTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminUnarchiveTrack"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUnarchiveTrack>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminUnarchiveTrack(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUnarchiveTrackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUnarchiveTrack>>
+>;
+
+export type AdminUnarchiveTrackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unarchive a track
+ */
+export const useAdminUnarchiveTrack = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnarchiveTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUnarchiveTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminUnarchiveTrackMutationOptions(options));
+};
+
+/**
+ * @summary Duplicate a track with all modules and lessons
+ */
+export const getAdminDuplicateTrackUrl = (id: number) => {
+  return `/api/admin/tracks/${id}/duplicate`;
+};
+
+export const adminDuplicateTrack = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTrackDetail> => {
+  return customFetch<AdminTrackDetail>(getAdminDuplicateTrackUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminDuplicateTrackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDuplicateTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDuplicateTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDuplicateTrack"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDuplicateTrack>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDuplicateTrack(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDuplicateTrackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDuplicateTrack>>
+>;
+
+export type AdminDuplicateTrackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Duplicate a track with all modules and lessons
+ */
+export const useAdminDuplicateTrack = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDuplicateTrack>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDuplicateTrack>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDuplicateTrackMutationOptions(options));
+};
+
+/**
+ * @summary List modules within a track
+ */
+export const getAdminListModulesUrl = (trackId: number) => {
+  return `/api/admin/tracks/${trackId}/modules`;
+};
+
+export const adminListModules = async (
+  trackId: number,
+  options?: RequestInit,
+): Promise<AdminModule[]> => {
+  return customFetch<AdminModule[]>(getAdminListModulesUrl(trackId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListModulesQueryKey = (trackId: number) => {
+  return [`/api/admin/tracks/${trackId}/modules`] as const;
+};
+
+export const getAdminListModulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListModules>>,
+  TError = ErrorType<unknown>,
+>(
+  trackId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListModules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListModulesQueryKey(trackId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListModules>>
+  > = ({ signal }) => adminListModules(trackId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!trackId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListModules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListModulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListModules>>
+>;
+export type AdminListModulesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List modules within a track
+ */
+
+export function useAdminListModules<
+  TData = Awaited<ReturnType<typeof adminListModules>>,
+  TError = ErrorType<unknown>,
+>(
+  trackId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListModules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListModulesQueryOptions(trackId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new module
+ */
+export const getAdminCreateModuleUrl = () => {
+  return `/api/admin/modules`;
+};
+
+export const adminCreateModule = async (
+  adminCreateModule: AdminCreateModule,
+  options?: RequestInit,
+): Promise<AdminModuleDetail> => {
+  return customFetch<AdminModuleDetail>(getAdminCreateModuleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateModule),
+  });
+};
+
+export const getAdminCreateModuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateModule>>,
+    TError,
+    { data: BodyType<AdminCreateModule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateModule>>,
+  TError,
+  { data: BodyType<AdminCreateModule> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateModule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateModule>>,
+    { data: BodyType<AdminCreateModule> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateModule(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateModuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateModule>>
+>;
+export type AdminCreateModuleMutationBody = BodyType<AdminCreateModule>;
+export type AdminCreateModuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new module
+ */
+export const useAdminCreateModule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateModule>>,
+    TError,
+    { data: BodyType<AdminCreateModule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateModule>>,
+  TError,
+  { data: BodyType<AdminCreateModule> },
+  TContext
+> => {
+  return useMutation(getAdminCreateModuleMutationOptions(options));
+};
+
+/**
+ * @summary Update a module
+ */
+export const getAdminUpdateModuleUrl = (id: number) => {
+  return `/api/admin/modules/${id}`;
+};
+
+export const adminUpdateModule = async (
+  id: number,
+  adminUpdateModule: AdminUpdateModule,
+  options?: RequestInit,
+): Promise<AdminModuleDetail> => {
+  return customFetch<AdminModuleDetail>(getAdminUpdateModuleUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateModule),
+  });
+};
+
+export const getAdminUpdateModuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateModule>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateModule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateModule>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateModule> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateModule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateModule>>,
+    { id: number; data: BodyType<AdminUpdateModule> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateModule(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateModuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateModule>>
+>;
+export type AdminUpdateModuleMutationBody = BodyType<AdminUpdateModule>;
+export type AdminUpdateModuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a module
+ */
+export const useAdminUpdateModule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateModule>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateModule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateModule>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateModule> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateModuleMutationOptions(options));
+};
+
+/**
+ * @summary Delete a module
+ */
+export const getAdminDeleteModuleUrl = (id: number) => {
+  return `/api/admin/modules/${id}`;
+};
+
+export const adminDeleteModule = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminModuleDetail> => {
+  return customFetch<AdminModuleDetail>(getAdminDeleteModuleUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteModuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteModule>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteModule>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteModule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteModule>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteModule(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteModuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteModule>>
+>;
+
+export type AdminDeleteModuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a module
+ */
+export const useAdminDeleteModule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteModule>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteModule>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteModuleMutationOptions(options));
+};
+
+/**
+ * @summary Reorder modules within a track
+ */
+export const getAdminReorderModulesUrl = () => {
+  return `/api/admin/modules/reorder`;
+};
+
+export const adminReorderModules = async (
+  reorderRequest: ReorderRequest,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderModulesUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderRequest),
+  });
+};
+
+export const getAdminReorderModulesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderModules>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderModules>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderModules"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderModules>>,
+    { data: BodyType<ReorderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderModules(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderModulesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderModules>>
+>;
+export type AdminReorderModulesMutationBody = BodyType<ReorderRequest>;
+export type AdminReorderModulesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder modules within a track
+ */
+export const useAdminReorderModules = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderModules>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderModules>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  return useMutation(getAdminReorderModulesMutationOptions(options));
+};
+
+/**
+ * @summary Move a module to a different track
+ */
+export const getAdminMoveModuleUrl = (id: number) => {
+  return `/api/admin/modules/${id}/move`;
+};
+
+export const adminMoveModule = async (
+  id: number,
+  adminMoveModuleBody: AdminMoveModuleBody,
+  options?: RequestInit,
+): Promise<AdminModuleDetail> => {
+  return customFetch<AdminModuleDetail>(getAdminMoveModuleUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminMoveModuleBody),
+  });
+};
+
+export const getAdminMoveModuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminMoveModule>>,
+    TError,
+    { id: number; data: BodyType<AdminMoveModuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminMoveModule>>,
+  TError,
+  { id: number; data: BodyType<AdminMoveModuleBody> },
+  TContext
+> => {
+  const mutationKey = ["adminMoveModule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminMoveModule>>,
+    { id: number; data: BodyType<AdminMoveModuleBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminMoveModule(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminMoveModuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminMoveModule>>
+>;
+export type AdminMoveModuleMutationBody = BodyType<AdminMoveModuleBody>;
+export type AdminMoveModuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Move a module to a different track
+ */
+export const useAdminMoveModule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminMoveModule>>,
+    TError,
+    { id: number; data: BodyType<AdminMoveModuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminMoveModule>>,
+  TError,
+  { id: number; data: BodyType<AdminMoveModuleBody> },
+  TContext
+> => {
+  return useMutation(getAdminMoveModuleMutationOptions(options));
+};
+
+/**
+ * @summary List lessons within a module
+ */
+export const getAdminListLessonsUrl = (moduleId: number) => {
+  return `/api/admin/modules/${moduleId}/lessons`;
+};
+
+export const adminListLessons = async (
+  moduleId: number,
+  options?: RequestInit,
+): Promise<AdminLesson[]> => {
+  return customFetch<AdminLesson[]>(getAdminListLessonsUrl(moduleId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListLessonsQueryKey = (moduleId: number) => {
+  return [`/api/admin/modules/${moduleId}/lessons`] as const;
+};
+
+export const getAdminListLessonsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListLessons>>,
+  TError = ErrorType<unknown>,
+>(
+  moduleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessons>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListLessonsQueryKey(moduleId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListLessons>>
+  > = ({ signal }) => adminListLessons(moduleId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!moduleId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListLessons>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListLessonsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListLessons>>
+>;
+export type AdminListLessonsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List lessons within a module
+ */
+
+export function useAdminListLessons<
+  TData = Awaited<ReturnType<typeof adminListLessons>>,
+  TError = ErrorType<unknown>,
+>(
+  moduleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessons>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListLessonsQueryOptions(moduleId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new lesson
+ */
+export const getAdminCreateLessonUrl = () => {
+  return `/api/admin/lessons`;
+};
+
+export const adminCreateLesson = async (
+  adminCreateLesson: AdminCreateLesson,
+  options?: RequestInit,
+): Promise<AdminLesson> => {
+  return customFetch<AdminLesson>(getAdminCreateLessonUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateLesson),
+  });
+};
+
+export const getAdminCreateLessonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateLesson>>,
+    TError,
+    { data: BodyType<AdminCreateLesson> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateLesson>>,
+  TError,
+  { data: BodyType<AdminCreateLesson> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateLesson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateLesson>>,
+    { data: BodyType<AdminCreateLesson> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateLesson(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateLessonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateLesson>>
+>;
+export type AdminCreateLessonMutationBody = BodyType<AdminCreateLesson>;
+export type AdminCreateLessonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new lesson
+ */
+export const useAdminCreateLesson = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateLesson>>,
+    TError,
+    { data: BodyType<AdminCreateLesson> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateLesson>>,
+  TError,
+  { data: BodyType<AdminCreateLesson> },
+  TContext
+> => {
+  return useMutation(getAdminCreateLessonMutationOptions(options));
+};
+
+/**
+ * @summary Update a lesson
+ */
+export const getAdminUpdateLessonUrl = (id: number) => {
+  return `/api/admin/lessons/${id}`;
+};
+
+export const adminUpdateLesson = async (
+  id: number,
+  adminUpdateLesson: AdminUpdateLesson,
+  options?: RequestInit,
+): Promise<AdminLesson> => {
+  return customFetch<AdminLesson>(getAdminUpdateLessonUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateLesson),
+  });
+};
+
+export const getAdminUpdateLessonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateLesson> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateLesson> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateLesson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateLesson>>,
+    { id: number; data: BodyType<AdminUpdateLesson> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateLesson(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateLessonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateLesson>>
+>;
+export type AdminUpdateLessonMutationBody = BodyType<AdminUpdateLesson>;
+export type AdminUpdateLessonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a lesson
+ */
+export const useAdminUpdateLesson = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateLesson> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateLesson> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateLessonMutationOptions(options));
+};
+
+/**
+ * @summary Delete a lesson
+ */
+export const getAdminDeleteLessonUrl = (id: number) => {
+  return `/api/admin/lessons/${id}`;
+};
+
+export const adminDeleteLesson = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminLesson> => {
+  return customFetch<AdminLesson>(getAdminDeleteLessonUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteLessonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteLesson>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteLesson>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteLesson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteLesson>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteLesson(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteLessonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteLesson>>
+>;
+
+export type AdminDeleteLessonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a lesson
+ */
+export const useAdminDeleteLesson = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteLesson>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteLesson>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteLessonMutationOptions(options));
+};
+
+/**
+ * @summary Reorder lessons within a module
+ */
+export const getAdminReorderLessonsUrl = () => {
+  return `/api/admin/lessons/reorder`;
+};
+
+export const adminReorderLessons = async (
+  reorderRequest: ReorderRequest,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderLessonsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderRequest),
+  });
+};
+
+export const getAdminReorderLessonsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderLessons>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderLessons>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderLessons"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderLessons>>,
+    { data: BodyType<ReorderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderLessons(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderLessonsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderLessons>>
+>;
+export type AdminReorderLessonsMutationBody = BodyType<ReorderRequest>;
+export type AdminReorderLessonsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder lessons within a module
+ */
+export const useAdminReorderLessons = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderLessons>>,
+    TError,
+    { data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderLessons>>,
+  TError,
+  { data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  return useMutation(getAdminReorderLessonsMutationOptions(options));
+};
+
+/**
+ * @summary Duplicate a lesson
+ */
+export const getAdminDuplicateLessonUrl = (id: number) => {
+  return `/api/admin/lessons/${id}/duplicate`;
+};
+
+export const adminDuplicateLesson = async (
+  id: number,
+  adminDuplicateLessonBody: AdminDuplicateLessonBody,
+  options?: RequestInit,
+): Promise<AdminLesson> => {
+  return customFetch<AdminLesson>(getAdminDuplicateLessonUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminDuplicateLessonBody),
+  });
+};
+
+export const getAdminDuplicateLessonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDuplicateLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminDuplicateLessonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDuplicateLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminDuplicateLessonBody> },
+  TContext
+> => {
+  const mutationKey = ["adminDuplicateLesson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDuplicateLesson>>,
+    { id: number; data: BodyType<AdminDuplicateLessonBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminDuplicateLesson(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDuplicateLessonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDuplicateLesson>>
+>;
+export type AdminDuplicateLessonMutationBody =
+  BodyType<AdminDuplicateLessonBody>;
+export type AdminDuplicateLessonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Duplicate a lesson
+ */
+export const useAdminDuplicateLesson = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDuplicateLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminDuplicateLessonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDuplicateLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminDuplicateLessonBody> },
+  TContext
+> => {
+  return useMutation(getAdminDuplicateLessonMutationOptions(options));
+};
+
+/**
+ * @summary Publish a lesson and create version snapshot
+ */
+export const getAdminPublishLessonUrl = (id: number) => {
+  return `/api/admin/lessons/${id}/publish`;
+};
+
+export const adminPublishLesson = async (
+  id: number,
+  adminPublishLessonBody: AdminPublishLessonBody,
+  options?: RequestInit,
+): Promise<LessonVersion> => {
+  return customFetch<LessonVersion>(getAdminPublishLessonUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminPublishLessonBody),
+  });
+};
+
+export const getAdminPublishLessonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPublishLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminPublishLessonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPublishLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminPublishLessonBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPublishLesson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPublishLesson>>,
+    { id: number; data: BodyType<AdminPublishLessonBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPublishLesson(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPublishLessonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPublishLesson>>
+>;
+export type AdminPublishLessonMutationBody = BodyType<AdminPublishLessonBody>;
+export type AdminPublishLessonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Publish a lesson and create version snapshot
+ */
+export const useAdminPublishLesson = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPublishLesson>>,
+    TError,
+    { id: number; data: BodyType<AdminPublishLessonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPublishLesson>>,
+  TError,
+  { id: number; data: BodyType<AdminPublishLessonBody> },
+  TContext
+> => {
+  return useMutation(getAdminPublishLessonMutationOptions(options));
+};
+
+/**
+ * @summary List version history for a lesson
+ */
+export const getAdminListLessonVersionsUrl = (id: number) => {
+  return `/api/admin/lessons/${id}/versions`;
+};
+
+export const adminListLessonVersions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LessonVersion[]> => {
+  return customFetch<LessonVersion[]>(getAdminListLessonVersionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListLessonVersionsQueryKey = (id: number) => {
+  return [`/api/admin/lessons/${id}/versions`] as const;
+};
+
+export const getAdminListLessonVersionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListLessonVersions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessonVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListLessonVersionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListLessonVersions>>
+  > = ({ signal }) =>
+    adminListLessonVersions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListLessonVersions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListLessonVersionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListLessonVersions>>
+>;
+export type AdminListLessonVersionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List version history for a lesson
+ */
+
+export function useAdminListLessonVersions<
+  TData = Awaited<ReturnType<typeof adminListLessonVersions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessonVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListLessonVersionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Restore a lesson from a previous version
+ */
+export const getAdminRestoreLessonVersionUrl = (
+  id: number,
+  versionId: number,
+) => {
+  return `/api/admin/lessons/${id}/restore/${versionId}`;
+};
+
+export const adminRestoreLessonVersion = async (
+  id: number,
+  versionId: number,
+  options?: RequestInit,
+): Promise<LessonVersion> => {
+  return customFetch<LessonVersion>(
+    getAdminRestoreLessonVersionUrl(id, versionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminRestoreLessonVersionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRestoreLessonVersion>>,
+    TError,
+    { id: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRestoreLessonVersion>>,
+  TError,
+  { id: number; versionId: number },
+  TContext
+> => {
+  const mutationKey = ["adminRestoreLessonVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRestoreLessonVersion>>,
+    { id: number; versionId: number }
+  > = (props) => {
+    const { id, versionId } = props ?? {};
+
+    return adminRestoreLessonVersion(id, versionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRestoreLessonVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRestoreLessonVersion>>
+>;
+
+export type AdminRestoreLessonVersionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore a lesson from a previous version
+ */
+export const useAdminRestoreLessonVersion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRestoreLessonVersion>>,
+    TError,
+    { id: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRestoreLessonVersion>>,
+  TError,
+  { id: number; versionId: number },
+  TContext
+> => {
+  return useMutation(getAdminRestoreLessonVersionMutationOptions(options));
+};
+
+/**
+ * @summary Request upload URL for a lesson resource
+ */
+export const getAdminRequestResourceUploadUrlUrl = (lessonId: number) => {
+  return `/api/admin/lessons/${lessonId}/resources/upload-url`;
+};
+
+export const adminRequestResourceUploadUrl = async (
+  lessonId: number,
+  resourceUploadRequest: ResourceUploadRequest,
+  options?: RequestInit,
+): Promise<UploadUrlResponse> => {
+  return customFetch<UploadUrlResponse>(
+    getAdminRequestResourceUploadUrlUrl(lessonId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(resourceUploadRequest),
+    },
+  );
+};
+
+export const getAdminRequestResourceUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>,
+    TError,
+    { lessonId: number; data: BodyType<ResourceUploadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>,
+  TError,
+  { lessonId: number; data: BodyType<ResourceUploadRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminRequestResourceUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>,
+    { lessonId: number; data: BodyType<ResourceUploadRequest> }
+  > = (props) => {
+    const { lessonId, data } = props ?? {};
+
+    return adminRequestResourceUploadUrl(lessonId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRequestResourceUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>
+>;
+export type AdminRequestResourceUploadUrlMutationBody =
+  BodyType<ResourceUploadRequest>;
+export type AdminRequestResourceUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request upload URL for a lesson resource
+ */
+export const useAdminRequestResourceUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>,
+    TError,
+    { lessonId: number; data: BodyType<ResourceUploadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRequestResourceUploadUrl>>,
+  TError,
+  { lessonId: number; data: BodyType<ResourceUploadRequest> },
+  TContext
+> => {
+  return useMutation(getAdminRequestResourceUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary List resources for a lesson
+ */
+export const getAdminListLessonResourcesUrl = (lessonId: number) => {
+  return `/api/admin/lessons/${lessonId}/resources`;
+};
+
+export const adminListLessonResources = async (
+  lessonId: number,
+  options?: RequestInit,
+): Promise<LessonResource[]> => {
+  return customFetch<LessonResource[]>(
+    getAdminListLessonResourcesUrl(lessonId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListLessonResourcesQueryKey = (lessonId: number) => {
+  return [`/api/admin/lessons/${lessonId}/resources`] as const;
+};
+
+export const getAdminListLessonResourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListLessonResources>>,
+  TError = ErrorType<unknown>,
+>(
+  lessonId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessonResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListLessonResourcesQueryKey(lessonId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListLessonResources>>
+  > = ({ signal }) =>
+    adminListLessonResources(lessonId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!lessonId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListLessonResources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListLessonResourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListLessonResources>>
+>;
+export type AdminListLessonResourcesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List resources for a lesson
+ */
+
+export function useAdminListLessonResources<
+  TData = Awaited<ReturnType<typeof adminListLessonResources>>,
+  TError = ErrorType<unknown>,
+>(
+  lessonId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListLessonResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListLessonResourcesQueryOptions(
+    lessonId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a lesson resource record after upload
+ */
+export const getAdminCreateLessonResourceUrl = (lessonId: number) => {
+  return `/api/admin/lessons/${lessonId}/resources`;
+};
+
+export const adminCreateLessonResource = async (
+  lessonId: number,
+  createLessonResource: CreateLessonResource,
+  options?: RequestInit,
+): Promise<LessonResource> => {
+  return customFetch<LessonResource>(
+    getAdminCreateLessonResourceUrl(lessonId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createLessonResource),
+    },
+  );
+};
+
+export const getAdminCreateLessonResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateLessonResource>>,
+    TError,
+    { lessonId: number; data: BodyType<CreateLessonResource> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateLessonResource>>,
+  TError,
+  { lessonId: number; data: BodyType<CreateLessonResource> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateLessonResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateLessonResource>>,
+    { lessonId: number; data: BodyType<CreateLessonResource> }
+  > = (props) => {
+    const { lessonId, data } = props ?? {};
+
+    return adminCreateLessonResource(lessonId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateLessonResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateLessonResource>>
+>;
+export type AdminCreateLessonResourceMutationBody =
+  BodyType<CreateLessonResource>;
+export type AdminCreateLessonResourceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a lesson resource record after upload
+ */
+export const useAdminCreateLessonResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateLessonResource>>,
+    TError,
+    { lessonId: number; data: BodyType<CreateLessonResource> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateLessonResource>>,
+  TError,
+  { lessonId: number; data: BodyType<CreateLessonResource> },
+  TContext
+> => {
+  return useMutation(getAdminCreateLessonResourceMutationOptions(options));
+};
+
+/**
+ * @summary Reorder lesson resources
+ */
+export const getAdminReorderLessonResourcesUrl = (lessonId: number) => {
+  return `/api/admin/lessons/${lessonId}/resources/reorder`;
+};
+
+export const adminReorderLessonResources = async (
+  lessonId: number,
+  reorderRequest: ReorderRequest,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderLessonResourcesUrl(lessonId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderRequest),
+  });
+};
+
+export const getAdminReorderLessonResourcesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderLessonResources>>,
+    TError,
+    { lessonId: number; data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderLessonResources>>,
+  TError,
+  { lessonId: number; data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderLessonResources"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderLessonResources>>,
+    { lessonId: number; data: BodyType<ReorderRequest> }
+  > = (props) => {
+    const { lessonId, data } = props ?? {};
+
+    return adminReorderLessonResources(lessonId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderLessonResourcesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderLessonResources>>
+>;
+export type AdminReorderLessonResourcesMutationBody = BodyType<ReorderRequest>;
+export type AdminReorderLessonResourcesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder lesson resources
+ */
+export const useAdminReorderLessonResources = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderLessonResources>>,
+    TError,
+    { lessonId: number; data: BodyType<ReorderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderLessonResources>>,
+  TError,
+  { lessonId: number; data: BodyType<ReorderRequest> },
+  TContext
+> => {
+  return useMutation(getAdminReorderLessonResourcesMutationOptions(options));
+};
+
+/**
+ * @summary Delete a lesson resource
+ */
+export const getAdminDeleteResourceUrl = (id: number) => {
+  return `/api/admin/resources/${id}`;
+};
+
+export const adminDeleteResource = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LessonResource> => {
+  return customFetch<LessonResource>(getAdminDeleteResourceUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteResource>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteResource>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteResource>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteResource(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteResource>>
+>;
+
+export type AdminDeleteResourceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a lesson resource
+ */
+export const useAdminDeleteResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteResource>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteResource>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteResourceMutationOptions(options));
+};
+
+/**
+ * @summary Request upload URL for inline editor image
+ */
+export const getAdminRequestImageUploadUrlUrl = () => {
+  return `/api/admin/content/images/upload-url`;
+};
+
+export const adminRequestImageUploadUrl = async (
+  options?: RequestInit,
+): Promise<UploadUrlResponse> => {
+  return customFetch<UploadUrlResponse>(getAdminRequestImageUploadUrlUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminRequestImageUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRequestImageUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRequestImageUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminRequestImageUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRequestImageUploadUrl>>,
+    void
+  > = () => {
+    return adminRequestImageUploadUrl(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRequestImageUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRequestImageUploadUrl>>
+>;
+
+export type AdminRequestImageUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request upload URL for inline editor image
+ */
+export const useAdminRequestImageUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRequestImageUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRequestImageUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAdminRequestImageUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Bulk publish multiple lessons
+ */
+export const getAdminBulkPublishLessonsUrl = () => {
+  return `/api/admin/lessons/bulk-publish`;
+};
+
+export const adminBulkPublishLessons = async (
+  adminBulkPublishLessonsBody: AdminBulkPublishLessonsBody,
+  options?: RequestInit,
+): Promise<AdminBulkPublishLessons200> => {
+  return customFetch<AdminBulkPublishLessons200>(
+    getAdminBulkPublishLessonsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminBulkPublishLessonsBody),
+    },
+  );
+};
+
+export const getAdminBulkPublishLessonsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBulkPublishLessons>>,
+    TError,
+    { data: BodyType<AdminBulkPublishLessonsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminBulkPublishLessons>>,
+  TError,
+  { data: BodyType<AdminBulkPublishLessonsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminBulkPublishLessons"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminBulkPublishLessons>>,
+    { data: BodyType<AdminBulkPublishLessonsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminBulkPublishLessons(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminBulkPublishLessonsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminBulkPublishLessons>>
+>;
+export type AdminBulkPublishLessonsMutationBody =
+  BodyType<AdminBulkPublishLessonsBody>;
+export type AdminBulkPublishLessonsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk publish multiple lessons
+ */
+export const useAdminBulkPublishLessons = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBulkPublishLessons>>,
+    TError,
+    { data: BodyType<AdminBulkPublishLessonsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminBulkPublishLessons>>,
+  TError,
+  { data: BodyType<AdminBulkPublishLessonsBody> },
+  TContext
+> => {
+  return useMutation(getAdminBulkPublishLessonsMutationOptions(options));
+};
+
+/**
+ * @summary Bulk move lessons to a target module
+ */
+export const getAdminBulkMoveLessonsUrl = () => {
+  return `/api/admin/lessons/bulk-move`;
+};
+
+export const adminBulkMoveLessons = async (
+  adminBulkMoveLessonsBody: AdminBulkMoveLessonsBody,
+  options?: RequestInit,
+): Promise<AdminBulkMoveLessons200> => {
+  return customFetch<AdminBulkMoveLessons200>(getAdminBulkMoveLessonsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminBulkMoveLessonsBody),
+  });
+};
+
+export const getAdminBulkMoveLessonsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBulkMoveLessons>>,
+    TError,
+    { data: BodyType<AdminBulkMoveLessonsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminBulkMoveLessons>>,
+  TError,
+  { data: BodyType<AdminBulkMoveLessonsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminBulkMoveLessons"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminBulkMoveLessons>>,
+    { data: BodyType<AdminBulkMoveLessonsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminBulkMoveLessons(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminBulkMoveLessonsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminBulkMoveLessons>>
+>;
+export type AdminBulkMoveLessonsMutationBody =
+  BodyType<AdminBulkMoveLessonsBody>;
+export type AdminBulkMoveLessonsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk move lessons to a target module
+ */
+export const useAdminBulkMoveLessons = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBulkMoveLessons>>,
+    TError,
+    { data: BodyType<AdminBulkMoveLessonsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminBulkMoveLessons>>,
+  TError,
+  { data: BodyType<AdminBulkMoveLessonsBody> },
+  TContext
+> => {
+  return useMutation(getAdminBulkMoveLessonsMutationOptions(options));
+};
+
+/**
+ * @summary Export training content structure as JSON
+ */
+export const getAdminExportContentUrl = () => {
+  return `/api/admin/content/export`;
+};
+
+export const adminExportContent = async (
+  options?: RequestInit,
+): Promise<ContentExport> => {
+  return customFetch<ContentExport>(getAdminExportContentUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminExportContentQueryKey = () => {
+  return [`/api/admin/content/export`] as const;
+};
+
+export const getAdminExportContentQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminExportContent>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminExportContent>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminExportContentQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminExportContent>>
+  > = ({ signal }) => adminExportContent({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminExportContent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminExportContentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminExportContent>>
+>;
+export type AdminExportContentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Export training content structure as JSON
+ */
+
+export function useAdminExportContent<
+  TData = Awaited<ReturnType<typeof adminExportContent>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminExportContent>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminExportContentQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Import training content from JSON
+ */
+export const getAdminImportContentUrl = () => {
+  return `/api/admin/content/import`;
+};
+
+export const adminImportContent = async (
+  adminImportContentBody: AdminImportContentBody,
+  options?: RequestInit,
+): Promise<AdminImportContent201> => {
+  return customFetch<AdminImportContent201>(getAdminImportContentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminImportContentBody),
+  });
+};
+
+export const getAdminImportContentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminImportContent>>,
+    TError,
+    { data: BodyType<AdminImportContentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminImportContent>>,
+  TError,
+  { data: BodyType<AdminImportContentBody> },
+  TContext
+> => {
+  const mutationKey = ["adminImportContent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminImportContent>>,
+    { data: BodyType<AdminImportContentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminImportContent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminImportContentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminImportContent>>
+>;
+export type AdminImportContentMutationBody = BodyType<AdminImportContentBody>;
+export type AdminImportContentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Import training content from JSON
+ */
+export const useAdminImportContent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminImportContent>>,
+    TError,
+    { data: BodyType<AdminImportContentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminImportContent>>,
+  TError,
+  { data: BodyType<AdminImportContentBody> },
+  TContext
+> => {
+  return useMutation(getAdminImportContentMutationOptions(options));
+};
+
+/**
+ * @summary Download a lesson resource (entitlement-checked)
+ */
+export const getDownloadLessonResourceUrl = (
+  lessonId: number,
+  resourceId: number,
+) => {
+  return `/api/lessons/${lessonId}/resources/${resourceId}/download`;
+};
+
+export const downloadLessonResource = async (
+  lessonId: number,
+  resourceId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDownloadLessonResourceUrl(lessonId, resourceId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadLessonResourceQueryKey = (
+  lessonId: number,
+  resourceId: number,
+) => {
+  return [`/api/lessons/${lessonId}/resources/${resourceId}/download`] as const;
+};
+
+export const getDownloadLessonResourceQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadLessonResource>>,
+  TError = ErrorType<void>,
+>(
+  lessonId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadLessonResource>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getDownloadLessonResourceQueryKey(lessonId, resourceId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadLessonResource>>
+  > = ({ signal }) =>
+    downloadLessonResource(lessonId, resourceId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(lessonId && resourceId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadLessonResource>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadLessonResourceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadLessonResource>>
+>;
+export type DownloadLessonResourceQueryError = ErrorType<void>;
+
+/**
+ * @summary Download a lesson resource (entitlement-checked)
+ */
+
+export function useDownloadLessonResource<
+  TData = Awaited<ReturnType<typeof downloadLessonResource>>,
+  TError = ErrorType<void>,
+>(
+  lessonId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadLessonResource>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadLessonResourceQueryOptions(
+    lessonId,
+    resourceId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
