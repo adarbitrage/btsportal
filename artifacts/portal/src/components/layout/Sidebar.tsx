@@ -81,6 +81,10 @@ const adminCommunityItems = [
   { href: "/admin/community/analytics", label: "Community Stats", icon: BarChart3 },
 ];
 
+const adminCommissionItems = [
+  { href: "/admin/commissions", label: "Commissions", icon: DollarSign },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
@@ -154,7 +158,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>

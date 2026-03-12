@@ -50,6 +50,13 @@ import CommunityModeration from "@/pages/admin/CommunityModeration";
 import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
 import ContentTracks from "@/pages/admin/ContentTracks";
 import LessonEditor from "@/pages/admin/LessonEditor";
+import CommissionOverview from "@/pages/admin/CommissionOverview";
+import CommissionAll from "@/pages/admin/CommissionAll";
+import CommissionPayouts from "@/pages/admin/CommissionPayouts";
+import CommissionAffiliates from "@/pages/admin/CommissionAffiliates";
+import CommissionRates from "@/pages/admin/CommissionRates";
+import CommissionResources from "@/pages/admin/CommissionResources";
+import CommissionFraudAlerts from "@/pages/admin/CommissionFraudAlerts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -312,6 +319,13 @@ function Router() {
       <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
+      <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} />}</Route>
+      <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} />}</Route>
+      <Route path="/admin/commissions/payouts">{() => <AdminRoute component={CommissionPayouts} />}</Route>
+      <Route path="/admin/commissions/affiliates">{() => <AdminRoute component={CommissionAffiliates} />}</Route>
+      <Route path="/admin/commissions/rates">{() => <AdminRoute component={CommissionRates} />}</Route>
+      <Route path="/admin/commissions/resources">{() => <AdminRoute component={CommissionResources} />}</Route>
+      <Route path="/admin/commissions/fraud">{() => <AdminRoute component={CommissionFraudAlerts} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

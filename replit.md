@@ -614,6 +614,17 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 BTS Member Portal frontend. React + Vite with Tailwind CSS, shadcn/ui components, wouter routing, and React Query hooks from `@workspace/api-client-react`. Auth context in `src/lib/auth.tsx`.
 
+**Admin Commission Panel** (`/admin/commissions/*`): Full admin UI for affiliate program management with 7 sub-pages:
+- Overview — summary stats, quick actions (run approval, generate payouts, export CSV)
+- All Commissions — filterable/sortable/paginated commission table with approve/reject/reverse actions
+- Payouts — payout batch list with mark-paid workflow
+- Affiliates — affiliate profile management with pause/unpause, edit tier/status, view tax form
+- Rates — editable commission rates grid grouped by tier with add/edit/delete
+- Resources — CRUD for promotional materials (email swipes, social posts, banners, guidelines)
+- Fraud Alerts — tabbed view of flagged commissions, flagged affiliates, and suspicious click patterns
+
+Key files: `src/lib/commission-admin-api.ts` (API layer), `src/components/layout/CommissionAdminLayout.tsx` (layout with sub-nav), `src/pages/admin/Commission*.tsx` (7 pages).
+
 ### `lib/db` (`@workspace/db`)
 
 Database layer using Drizzle ORM with PostgreSQL. Schema files in `src/schema/`.
