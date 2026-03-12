@@ -6,7 +6,7 @@ import {
   userProductsTable, productsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, or, isNull, gte, ilike, count, ne } from "drizzle-orm";
-import { hasEntitlement, getHighestProductLabel, getUserEntitlements } from "../lib/entitlements";
+import { hasEntitlement, getHighestProductLabel, getUserEntitlements, getEditWindowMinutes } from "../lib/entitlements";
 
 const router: IRouter = Router();
 
@@ -145,6 +145,7 @@ router.get("/community/posts", async (req, res): Promise<void> => {
       content: communityPostsTable.content,
       imageUrl: communityPostsTable.imageUrl,
       isPinned: communityPostsTable.isPinned,
+      isFeatured: communityPostsTable.isFeatured,
       commentCount: communityPostsTable.commentCount,
       reactionCount: communityPostsTable.reactionCount,
       createdAt: communityPostsTable.createdAt,
@@ -290,9 +291,10 @@ router.patch("/community/posts/:postId", async (req, res): Promise<void> => {
     return;
   }
 
+  const editWindow = await getEditWindowMinutes(userId);
   const minutesSinceCreation = (Date.now() - post.createdAt.getTime()) / (1000 * 60);
-  if (minutesSinceCreation > 15) {
-    res.status(403).json({ error: "Posts can only be edited within 15 minutes of creation" });
+  if (minutesSinceCreation > editWindow) {
+    res.status(403).json({ error: `Posts can only be edited within ${editWindow} minutes of creation` });
     return;
   }
 

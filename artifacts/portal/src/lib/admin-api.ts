@@ -1,12 +1,12 @@
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
-async function adminFetch(path: string, options?: RequestInit) {
+async function adminFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -61,3 +61,83 @@ export function updateGhlConfig(config: Record<string, any>) {
     body: JSON.stringify(config),
   });
 }
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  postsCount: number;
+  createdAt: string;
+}
+
+export interface AdminPost {
+  id: number;
+  content: string;
+  imageUrl: string | null;
+  isPinned: boolean;
+  isFeatured: boolean;
+  isDeleted: boolean;
+  deletedBy: string | null;
+  commentCount: number;
+  reactionCount: number;
+  createdAt: string;
+  authorId: number;
+  authorName: string;
+  authorEmail: string;
+  categoryId: number;
+  categoryName: string;
+}
+
+export interface AdminComment {
+  id: number;
+  postId: number;
+  content: string;
+  isDeleted: boolean;
+  deletedBy: string | null;
+  reactionCount: number;
+  createdAt: string;
+  authorId: number;
+  authorName: string;
+  authorEmail: string;
+}
+
+export interface Analytics {
+  posts: { total: number; today: number; thisWeek: number; thisMonth: number };
+  comments: { total: number; today: number; thisWeek: number; thisMonth: number };
+  reactions: { total: number; today: number; thisWeek: number; thisMonth: number };
+  activeCategories: { id: number; name: string; slug: string; postCount: number }[];
+  topPosters: { userId: number; name: string; email: string; postCount: number }[];
+  topCommenters: { userId: number; name: string; email: string; commentCount: number }[];
+  newMembersThisMonth: number;
+}
+
+export const adminApi = {
+  getCategories: () => adminFetch<Category[]>("/admin/community/categories"),
+  createCategory: (data: { name: string; slug: string; description?: string; sortOrder?: number }) =>
+    adminFetch<Category>("/admin/community/categories", { method: "POST", body: JSON.stringify(data) }),
+  updateCategory: (id: number, data: Partial<{ name: string; slug: string; description: string; sortOrder: number; isActive: boolean }>) =>
+    adminFetch<Category>(`/admin/community/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deactivateCategory: (id: number) =>
+    adminFetch<Category>(`/admin/community/categories/${id}`, { method: "DELETE" }),
+  reorderCategories: (order: { id: number; sortOrder: number }[]) =>
+    adminFetch<Category[]>("/admin/community/categories/reorder", { method: "PATCH", body: JSON.stringify({ order }) }),
+
+  getPosts: (page = 1, limit = 20) =>
+    adminFetch<{ posts: AdminPost[]; total: number; page: number; limit: number }>(`/admin/community/posts?page=${page}&limit=${limit}`),
+  togglePin: (id: number) =>
+    adminFetch(`/admin/community/posts/${id}/pin`, { method: "PATCH" }),
+  toggleFeature: (id: number) =>
+    adminFetch(`/admin/community/posts/${id}/feature`, { method: "PATCH" }),
+  deletePost: (id: number) =>
+    adminFetch(`/admin/community/posts/${id}`, { method: "DELETE" }),
+  deleteComment: (id: number) =>
+    adminFetch(`/admin/community/comments/${id}`, { method: "DELETE" }),
+
+  getComments: (page = 1, limit = 20) =>
+    adminFetch<{ comments: AdminComment[]; total: number; page: number; limit: number }>(`/admin/community/comments?page=${page}&limit=${limit}`),
+
+  getAnalytics: () => adminFetch<Analytics>("/admin/community/analytics"),
+};

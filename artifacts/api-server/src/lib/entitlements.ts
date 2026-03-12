@@ -82,3 +82,21 @@ export function getSupportTicketLimit(entitlements: Set<string>): number {
 export function getEntitlementsList(entitlements: Set<string>): string[] {
   return Array.from(entitlements).sort();
 }
+
+export async function getEditWindowMinutes(userId: number): Promise<number> {
+  const entitlements = await getUserEntitlements(userId);
+  if (entitlements.has("access:lifetime") || entitlements.has("coaching:one_on_one:monthly")) {
+    return 30;
+  }
+  return 15;
+}
+
+export function getTierBadgeColor(slug: string): string {
+  switch (slug) {
+    case "3month": return "blue";
+    case "6month": return "orange";
+    case "1year": return "purple";
+    case "lifetime": return "gold";
+    default: return "gray";
+  }
+}

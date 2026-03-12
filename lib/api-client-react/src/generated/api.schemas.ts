@@ -31,6 +31,7 @@ export interface MemberProfile {
   timezone?: string | null;
   /** @nullable */
   sourceProduct?: string | null;
+  role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
   /** @nullable */

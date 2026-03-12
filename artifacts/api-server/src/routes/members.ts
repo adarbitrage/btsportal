@@ -27,6 +27,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     phone: user.phone,
     timezone: user.timezone,
     sourceProduct: user.sourceProduct,
+    role: user.role,
     onboardingComplete: user.onboardingComplete,
     onboardingStep: user.onboardingStep,
     experienceLevel: user.experienceLevel,

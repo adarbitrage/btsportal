@@ -24,6 +24,7 @@ export const GetCurrentMemberResponse = zod.object({
   phone: zod.string().nullish(),
   timezone: zod.string().nullish(),
   sourceProduct: zod.string().nullish(),
+  role: zod.string(),
   onboardingComplete: zod.boolean(),
   onboardingStep: zod.number(),
   experienceLevel: zod.string().nullish(),

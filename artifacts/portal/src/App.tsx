@@ -36,6 +36,9 @@ import RoutingRules from "@/pages/admin/RoutingRules";
 import CannedResponses from "@/pages/admin/CannedResponses";
 import AgentPerformance from "@/pages/admin/AgentPerformance";
 import SupportAnalytics from "@/pages/admin/SupportAnalytics";
+import CommunityCategories from "@/pages/admin/CommunityCategories";
+import CommunityModeration from "@/pages/admin/CommunityModeration";
+import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -281,6 +284,9 @@ function Router() {
       <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} />}</Route>
       <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} />}</Route>
       <Route path="/settings/api-keys">{() => <AdminRoute component={AdminApiKeys} />}</Route>
+      <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} />}</Route>
+      <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} />}</Route>
+      <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

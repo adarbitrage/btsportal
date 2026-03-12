@@ -23,6 +23,7 @@ export const communityPostsTable = pgTable("community_posts", {
   content: text("content").notNull(),
   imageUrl: text("image_url"),
   isPinned: boolean("is_pinned").notNull().default(false),
+  isFeatured: boolean("is_featured").notNull().default(false),
   isDeleted: boolean("is_deleted").notNull().default(false),
   deletedBy: text("deleted_by"),
   commentCount: integer("comment_count").notNull().default(0),

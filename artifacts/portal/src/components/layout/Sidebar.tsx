@@ -1,5 +1,26 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, BookOpen, Video, LifeBuoy, MessageCircle, Crown, User, Users, LogOut, Settings, Activity } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  BookOpen, 
+  Video, 
+  LifeBuoy, 
+  MessageCircle, 
+  Crown, 
+  User, 
+  Users, 
+  LogOut, 
+  Settings, 
+  Activity,
+  Shield, 
+  FolderOpen, 
+  Eye, 
+  BarChart3,
+  Ticket,
+  Network,
+  MessageSquare,
+  Users2,
+  PieChart
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,15 +53,27 @@ const adminGhlItems = [
   { href: "/admin/ghl/config", label: "GHL Config", icon: Settings },
 ];
 
+const adminTicketItems = [
+  { href: "/admin/tickets", label: "Ticket Queue", icon: Ticket },
+  { href: "/admin/routing-rules", label: "Routing Rules", icon: Network },
+  { href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquare },
+  { href: "/admin/agent-performance", label: "Agent Performance", icon: Users2 },
+  { href: "/admin/analytics", label: "Support Analytics", icon: PieChart },
+];
+
+const adminCommunityItems = [
+  { href: "/admin/community/categories", label: "Categories", icon: FolderOpen },
+  { href: "/admin/community/moderation", label: "Moderation", icon: Eye },
+  { href: "/admin/community/analytics", label: "Community Stats", icon: BarChart3 },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
   const { user, logout } = useAuth();
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || member?.role === "admin";
   const entitlements = new Set(member?.entitlements ?? []);
-  const hasLifetime = entitlements.has("access:lifetime");
-  const highestSlug = member?.highestProductSlug ?? "free";
 
   const productDisplayNames: Record<string, string> = {
     frontend: "Front-End Member",
@@ -95,10 +128,15 @@ export function Sidebar() {
 
         {isAdmin && (
           <>
-            <Separator className="my-4" />
-            <p className="px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Admin</p>
-            {adminGhlItems.map((item) => {
-              const isActive = location === item.href || (item.href !== "/admin/ghl" && location.startsWith(item.href));
+            <div className="mt-6 mb-2 px-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <Shield className="w-3.5 h-3.5" />
+                Admin
+              </div>
+            </div>
+            
+            {[...adminGhlItems, ...adminTicketItems, ...adminCommunityItems].map((item) => {
+              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>
                   <div

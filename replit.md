@@ -115,6 +115,9 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Support Center** (`/support`) — Ticket management with entitlement-based limits
 - **AI Chat** (`/chat`) — Full-width AI chat page with session sidebar, SSE streaming, markdown rendering, saved prompts (Lifetime), and support ticket creation from chat
 - **Chat Widget** — Floating chat bubble on all authenticated pages (bottom-right), expandable 380px panel with the same chat features, hidden on `/chat` page. Requires `chat:ai` entitlement.
+- **Admin: Community Categories** (`/admin/community/categories`) — Create, edit, reorder, deactivate categories
+- **Admin: Content Moderation** (`/admin/community/moderation`) — View/pin/feature/delete posts
+- **Admin: Community Analytics** (`/admin/community/analytics`) — Engagement metrics dashboard
 
 ### Community Frontend (UI Layer)
 
@@ -206,6 +209,12 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `sequences` — Communication sequence definitions (slug, trigger_event, product_type, active flag)
 - `sequence_steps` — Individual steps within sequences (channel, template_ref, subject, delay_minutes, conditions JSONB)
 - `sequence_enrollments` — User enrollments in sequences (status, current_step_order, enrolled_at, metadata)
+- `community_categories` — Discussion categories with sort_order, is_active, posts_count
+- `community_posts` — Community posts with is_pinned, is_featured, is_deleted, deleted_by
+- `community_comments` — Threaded comments with parent_id nesting
+- `community_reactions` — User reactions (fire type) on posts/comments
+- `community_badges` — Achievement badges (newcomer, contributor, mentor, streak, first_win)
+- `community_notifications` — In-app notification system for mentions, comments, reactions
 
 ### Onboarding Flow
 
