@@ -30,10 +30,14 @@ import type {
   AdminCreateLesson,
   AdminCreateModule,
   AdminCreateSystemPromptBody,
+  AdminCreateTool,
+  AdminCreateToolCategory,
   AdminCreateTrack,
   AdminDeleteCannedResponse200,
   AdminDeleteKnowledgebaseDoc200,
   AdminDeleteRoutingRule200,
+  AdminDeleteTool200,
+  AdminDeleteToolCategory200,
   AdminDuplicateLessonBody,
   AdminFlagChatMessageBody,
   AdminGetGhlLogParams,
@@ -58,6 +62,10 @@ import type {
   AdminTicket,
   AdminTicketMessage,
   AdminTicketWithMessages,
+  AdminTool,
+  AdminToolAnalytics,
+  AdminToolCategory,
+  AdminToolUsageDetail,
   AdminTrack,
   AdminTrackDetail,
   AdminUpdateKnowledgebaseDocBody,
@@ -67,6 +75,8 @@ import type {
   AdminUpdateRateLimitsBody,
   AdminUpdateSessionRequest,
   AdminUpdateTicketStatusBody,
+  AdminUpdateTool,
+  AdminUpdateToolCategory,
   AdminUpdateTrack,
   AffiliateProfile,
   AffiliateResource,
@@ -11081,6 +11091,1007 @@ export const useAnalyzeCampaign = <
 > => {
   return useMutation(getAnalyzeCampaignMutationOptions(options));
 };
+
+/**
+ * @summary List all tool categories
+ */
+export const getAdminListToolCategoriesUrl = () => {
+  return `/api/admin/tool-categories`;
+};
+
+export const adminListToolCategories = async (
+  options?: RequestInit,
+): Promise<AdminToolCategory[]> => {
+  return customFetch<AdminToolCategory[]>(getAdminListToolCategoriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListToolCategoriesQueryKey = () => {
+  return [`/api/admin/tool-categories`] as const;
+};
+
+export const getAdminListToolCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListToolCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListToolCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListToolCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListToolCategories>>
+  > = ({ signal }) => adminListToolCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListToolCategories>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListToolCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListToolCategories>>
+>;
+export type AdminListToolCategoriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tool categories
+ */
+
+export function useAdminListToolCategories<
+  TData = Awaited<ReturnType<typeof adminListToolCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListToolCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListToolCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a tool category
+ */
+export const getAdminCreateToolCategoryUrl = () => {
+  return `/api/admin/tool-categories`;
+};
+
+export const adminCreateToolCategory = async (
+  adminCreateToolCategory: AdminCreateToolCategory,
+  options?: RequestInit,
+): Promise<AdminToolCategory> => {
+  return customFetch<AdminToolCategory>(getAdminCreateToolCategoryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateToolCategory),
+  });
+};
+
+export const getAdminCreateToolCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateToolCategory>>,
+    TError,
+    { data: BodyType<AdminCreateToolCategory> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateToolCategory>>,
+  TError,
+  { data: BodyType<AdminCreateToolCategory> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateToolCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateToolCategory>>,
+    { data: BodyType<AdminCreateToolCategory> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateToolCategory(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateToolCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateToolCategory>>
+>;
+export type AdminCreateToolCategoryMutationBody =
+  BodyType<AdminCreateToolCategory>;
+export type AdminCreateToolCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a tool category
+ */
+export const useAdminCreateToolCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateToolCategory>>,
+    TError,
+    { data: BodyType<AdminCreateToolCategory> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateToolCategory>>,
+  TError,
+  { data: BodyType<AdminCreateToolCategory> },
+  TContext
+> => {
+  return useMutation(getAdminCreateToolCategoryMutationOptions(options));
+};
+
+/**
+ * @summary Update a tool category
+ */
+export const getAdminUpdateToolCategoryUrl = (id: number) => {
+  return `/api/admin/tool-categories/${id}`;
+};
+
+export const adminUpdateToolCategory = async (
+  id: number,
+  adminUpdateToolCategory: AdminUpdateToolCategory,
+  options?: RequestInit,
+): Promise<AdminToolCategory> => {
+  return customFetch<AdminToolCategory>(getAdminUpdateToolCategoryUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateToolCategory),
+  });
+};
+
+export const getAdminUpdateToolCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateToolCategory>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateToolCategory> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateToolCategory>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateToolCategory> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateToolCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateToolCategory>>,
+    { id: number; data: BodyType<AdminUpdateToolCategory> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateToolCategory(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateToolCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateToolCategory>>
+>;
+export type AdminUpdateToolCategoryMutationBody =
+  BodyType<AdminUpdateToolCategory>;
+export type AdminUpdateToolCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a tool category
+ */
+export const useAdminUpdateToolCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateToolCategory>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateToolCategory> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateToolCategory>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateToolCategory> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateToolCategoryMutationOptions(options));
+};
+
+/**
+ * @summary Delete a tool category
+ */
+export const getAdminDeleteToolCategoryUrl = (id: number) => {
+  return `/api/admin/tool-categories/${id}`;
+};
+
+export const adminDeleteToolCategory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteToolCategory200> => {
+  return customFetch<AdminDeleteToolCategory200>(
+    getAdminDeleteToolCategoryUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getAdminDeleteToolCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteToolCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteToolCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteToolCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteToolCategory>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteToolCategory(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteToolCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteToolCategory>>
+>;
+
+export type AdminDeleteToolCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a tool category
+ */
+export const useAdminDeleteToolCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteToolCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteToolCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteToolCategoryMutationOptions(options));
+};
+
+/**
+ * @summary List all tools for admin
+ */
+export const getAdminListToolsUrl = () => {
+  return `/api/admin/tools`;
+};
+
+export const adminListTools = async (
+  options?: RequestInit,
+): Promise<AdminTool[]> => {
+  return customFetch<AdminTool[]>(getAdminListToolsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListToolsQueryKey = () => {
+  return [`/api/admin/tools`] as const;
+};
+
+export const getAdminListToolsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTools>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListToolsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListTools>>> = ({
+    signal,
+  }) => adminListTools({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTools>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListToolsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListTools>>
+>;
+export type AdminListToolsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tools for admin
+ */
+
+export function useAdminListTools<
+  TData = Awaited<ReturnType<typeof adminListTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTools>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListToolsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a tool
+ */
+export const getAdminCreateToolUrl = () => {
+  return `/api/admin/tools`;
+};
+
+export const adminCreateTool = async (
+  adminCreateTool: AdminCreateTool,
+  options?: RequestInit,
+): Promise<AdminTool> => {
+  return customFetch<AdminTool>(getAdminCreateToolUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateTool),
+  });
+};
+
+export const getAdminCreateToolMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateTool>>,
+    TError,
+    { data: BodyType<AdminCreateTool> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateTool>>,
+  TError,
+  { data: BodyType<AdminCreateTool> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateTool"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateTool>>,
+    { data: BodyType<AdminCreateTool> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateTool(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateToolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateTool>>
+>;
+export type AdminCreateToolMutationBody = BodyType<AdminCreateTool>;
+export type AdminCreateToolMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a tool
+ */
+export const useAdminCreateTool = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateTool>>,
+    TError,
+    { data: BodyType<AdminCreateTool> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateTool>>,
+  TError,
+  { data: BodyType<AdminCreateTool> },
+  TContext
+> => {
+  return useMutation(getAdminCreateToolMutationOptions(options));
+};
+
+/**
+ * @summary Get tool usage analytics
+ */
+export const getAdminToolAnalyticsUrl = () => {
+  return `/api/admin/tools/analytics`;
+};
+
+export const adminToolAnalytics = async (
+  options?: RequestInit,
+): Promise<AdminToolAnalytics> => {
+  return customFetch<AdminToolAnalytics>(getAdminToolAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminToolAnalyticsQueryKey = () => {
+  return [`/api/admin/tools/analytics`] as const;
+};
+
+export const getAdminToolAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminToolAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminToolAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminToolAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminToolAnalytics>>
+  > = ({ signal }) => adminToolAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminToolAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminToolAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminToolAnalytics>>
+>;
+export type AdminToolAnalyticsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get tool usage analytics
+ */
+
+export function useAdminToolAnalytics<
+  TData = Awaited<ReturnType<typeof adminToolAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminToolAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminToolAnalyticsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a tool
+ */
+export const getAdminUpdateToolUrl = (id: number) => {
+  return `/api/admin/tools/${id}`;
+};
+
+export const adminUpdateTool = async (
+  id: number,
+  adminUpdateTool: AdminUpdateTool,
+  options?: RequestInit,
+): Promise<AdminTool> => {
+  return customFetch<AdminTool>(getAdminUpdateToolUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateTool),
+  });
+};
+
+export const getAdminUpdateToolMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTool>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTool> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateTool>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTool> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateTool"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateTool>>,
+    { id: number; data: BodyType<AdminUpdateTool> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateTool(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateToolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateTool>>
+>;
+export type AdminUpdateToolMutationBody = BodyType<AdminUpdateTool>;
+export type AdminUpdateToolMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a tool
+ */
+export const useAdminUpdateTool = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTool>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTool> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateTool>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTool> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateToolMutationOptions(options));
+};
+
+/**
+ * @summary Delete a tool
+ */
+export const getAdminDeleteToolUrl = (id: number) => {
+  return `/api/admin/tools/${id}`;
+};
+
+export const adminDeleteTool = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteTool200> => {
+  return customFetch<AdminDeleteTool200>(getAdminDeleteToolUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteToolMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteTool"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteTool>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteTool(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteToolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteTool>>
+>;
+
+export type AdminDeleteToolMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a tool
+ */
+export const useAdminDeleteTool = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteToolMutationOptions(options));
+};
+
+/**
+ * @summary Activate a tool
+ */
+export const getAdminActivateToolUrl = (id: number) => {
+  return `/api/admin/tools/${id}/activate`;
+};
+
+export const adminActivateTool = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTool> => {
+  return customFetch<AdminTool>(getAdminActivateToolUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminActivateToolMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminActivateTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminActivateTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminActivateTool"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminActivateTool>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminActivateTool(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminActivateToolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminActivateTool>>
+>;
+
+export type AdminActivateToolMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Activate a tool
+ */
+export const useAdminActivateTool = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminActivateTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminActivateTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminActivateToolMutationOptions(options));
+};
+
+/**
+ * @summary Deactivate a tool
+ */
+export const getAdminDeactivateToolUrl = (id: number) => {
+  return `/api/admin/tools/${id}/deactivate`;
+};
+
+export const adminDeactivateTool = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTool> => {
+  return customFetch<AdminTool>(getAdminDeactivateToolUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminDeactivateToolMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeactivateTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeactivateTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeactivateTool"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeactivateTool>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeactivateTool(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeactivateToolMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeactivateTool>>
+>;
+
+export type AdminDeactivateToolMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Deactivate a tool
+ */
+export const useAdminDeactivateTool = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeactivateTool>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeactivateTool>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeactivateToolMutationOptions(options));
+};
+
+/**
+ * @summary Get usage detail for a specific tool
+ */
+export const getAdminToolUsageDetailUrl = (id: number) => {
+  return `/api/admin/tools/${id}/usage`;
+};
+
+export const adminToolUsageDetail = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminToolUsageDetail> => {
+  return customFetch<AdminToolUsageDetail>(getAdminToolUsageDetailUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminToolUsageDetailQueryKey = (id: number) => {
+  return [`/api/admin/tools/${id}/usage`] as const;
+};
+
+export const getAdminToolUsageDetailQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminToolUsageDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminToolUsageDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminToolUsageDetailQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminToolUsageDetail>>
+  > = ({ signal }) => adminToolUsageDetail(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminToolUsageDetail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminToolUsageDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminToolUsageDetail>>
+>;
+export type AdminToolUsageDetailQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get usage detail for a specific tool
+ */
+
+export function useAdminToolUsageDetail<
+  TData = Awaited<ReturnType<typeof adminToolUsageDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminToolUsageDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminToolUsageDetailQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get 1-on-1 coaching status for current member

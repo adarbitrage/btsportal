@@ -118,6 +118,9 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Admin: Community Categories** (`/admin/community/categories`) — Create, edit, reorder, deactivate categories
 - **Admin: Content Moderation** (`/admin/community/moderation`) — View/pin/feature/delete posts
 - **Admin: Community Analytics** (`/admin/community/analytics`) — Engagement metrics dashboard
+- **Admin: Tool Management** (`/admin/tools`) — CRUD for tools and tool categories with tabbed interface, type-specific config (builtin/external/embedded), entitlement gating, display flags (featured/new/beta), activate/deactivate
+- **Admin: Tool Analytics** (`/admin/tools/analytics`) — Aggregate tool usage stats: opens (today/week/month), popular tools ranking, usage by entitlement tier, AI generation counts + cost estimation, tool adoption rates, daily usage chart
+- **Admin: Tool Usage Detail** (`/admin/tools/:id/usage`) — Per-tool usage: daily chart, action breakdown, unique users, total opens
 
 ### Community Frontend (UI Layer)
 

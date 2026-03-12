@@ -34,6 +34,7 @@ tags:
   - name: chat
   - name: admin-chat
   - name: admin-communications
+  - name: admin-tools
 paths:
   /healthz:
     get:
@@ -3101,6 +3102,230 @@ paths:
       responses:
         "200":
           description: Analytics data
+
+  /admin/tool-categories:
+    get:
+      operationId: adminListToolCategories
+      tags: [admin-tools]
+      summary: List all tool categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminToolCategory"
+    post:
+      operationId: adminCreateToolCategory
+      tags: [admin-tools]
+      summary: Create a tool category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateToolCategory"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToolCategory"
+
+  /admin/tool-categories/{id}:
+    put:
+      operationId: adminUpdateToolCategory
+      tags: [admin-tools]
+      summary: Update a tool category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateToolCategory"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToolCategory"
+    delete:
+      operationId: adminDeleteToolCategory
+      tags: [admin-tools]
+      summary: Delete a tool category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /admin/tools:
+    get:
+      operationId: adminListTools
+      tags: [admin-tools]
+      summary: List all tools for admin
+      responses:
+        "200":
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTool"
+    post:
+      operationId: adminCreateTool
+      tags: [admin-tools]
+      summary: Create a tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateTool"
+      responses:
+        "201":
+          description: Created tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTool"
+
+  /admin/tools/analytics:
+    get:
+      operationId: adminToolAnalytics
+      tags: [admin-tools]
+      summary: Get tool usage analytics
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToolAnalytics"
+
+  /admin/tools/{id}:
+    put:
+      operationId: adminUpdateTool
+      tags: [admin-tools]
+      summary: Update a tool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateTool"
+      responses:
+        "200":
+          description: Updated tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTool"
+    delete:
+      operationId: adminDeleteTool
+      tags: [admin-tools]
+      summary: Delete a tool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /admin/tools/{id}/activate:
+    patch:
+      operationId: adminActivateTool
+      tags: [admin-tools]
+      summary: Activate a tool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activated tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTool"
+
+  /admin/tools/{id}/deactivate:
+    patch:
+      operationId: adminDeactivateTool
+      tags: [admin-tools]
+      summary: Deactivate a tool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deactivated tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTool"
+
+  /admin/tools/{id}/usage:
+    get:
+      operationId: adminToolUsageDetail
+      tags: [admin-tools]
+      summary: Get usage detail for a specific tool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Usage detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToolUsageDetail"
 
   /coaching/one-on-one/status:
     get:
@@ -7921,5 +8146,319 @@ components:
           required: [reminders24h, reminders1h]
       required: [completed, reminders]
 
+    AdminToolCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        icon:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, sortOrder, isActive, createdAt, updatedAt]
 
+    AdminCreateToolCategory:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        sortOrder:
+          type: integer
+      required: [name, slug]
+
+    AdminUpdateToolCategory:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    AdminTool:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: ["string", "null"]
+        icon:
+          type: ["string", "null"]
+        categoryId:
+          type: integer
+        categoryName:
+          type: ["string", "null"]
+        type:
+          type: string
+        requiredEntitlement:
+          type: string
+        config:
+          type: object
+        isFeatured:
+          type: integer
+        isNew:
+          type: boolean
+        isBeta:
+          type: boolean
+        status:
+          type: string
+        badge:
+          type: ["string", "null"]
+        totalLaunches:
+          type: integer
+        sortOrder:
+          type: integer
+        videoTutorialUrl:
+          type: ["string", "null"]
+        helpDocUrl:
+          type: ["string", "null"]
+        rateLimitPerDay:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, shortDescription, categoryId, type, requiredEntitlement, config, isFeatured, isNew, isBeta, status, totalLaunches, sortOrder, createdAt, updatedAt]
+
+    AdminCreateTool:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: string
+        icon:
+          type: string
+        categoryId:
+          type: integer
+        type:
+          type: string
+        requiredEntitlement:
+          type: string
+        config:
+          type: object
+        isFeatured:
+          type: integer
+        isNew:
+          type: boolean
+        isBeta:
+          type: boolean
+        status:
+          type: string
+        badge:
+          type: string
+        videoTutorialUrl:
+          type: string
+        helpDocUrl:
+          type: string
+        rateLimitPerDay:
+          type: integer
+        sortOrder:
+          type: integer
+      required: [slug, name, shortDescription, categoryId]
+
+    AdminUpdateTool:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: string
+        icon:
+          type: string
+        categoryId:
+          type: integer
+        type:
+          type: string
+        requiredEntitlement:
+          type: string
+        config:
+          type: object
+        isFeatured:
+          type: integer
+        isNew:
+          type: boolean
+        isBeta:
+          type: boolean
+        status:
+          type: string
+        badge:
+          type: string
+        videoTutorialUrl:
+          type: string
+        helpDocUrl:
+          type: string
+        rateLimitPerDay:
+          type: integer
+        sortOrder:
+          type: integer
+
+    AdminToolAnalytics:
+      type: object
+      properties:
+        totalOpens:
+          type: object
+          properties:
+            today:
+              type: integer
+            todayTrend:
+              type: number
+            week:
+              type: integer
+            weekTrend:
+              type: number
+            month:
+              type: integer
+            monthTrend:
+              type: number
+          required: [today, todayTrend, week, weekTrend, month, monthTrend]
+        popularTools:
+          type: array
+          items:
+            type: object
+            properties:
+              toolId:
+                type: integer
+              toolName:
+                type: string
+              toolSlug:
+                type: string
+              opens:
+                type: integer
+            required: [toolId, toolName, toolSlug, opens]
+        usageByTier:
+          type: array
+          items:
+            type: object
+            properties:
+              entitlementTier:
+                type: ["string", "null"]
+              count:
+                type: integer
+            required: [entitlementTier, count]
+        aiStats:
+          type: object
+          properties:
+            totalGenerations:
+              type: integer
+            totalTokens:
+              type: integer
+            totalCostCents:
+              type: integer
+          required: [totalGenerations, totalTokens, totalCostCents]
+        toolAdoption:
+          type: array
+          items:
+            type: object
+            properties:
+              toolId:
+                type: integer
+              toolName:
+                type: string
+              uniqueUsers:
+                type: integer
+              adoptionRate:
+                type: number
+            required: [toolId, toolName, uniqueUsers, adoptionRate]
+        dailyUsage:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+            required: [date, count]
+        perToolDailyUsage:
+          type: array
+          items:
+            type: object
+            properties:
+              toolId:
+                type: integer
+              toolName:
+                type: string
+              date:
+                type: string
+              count:
+                type: integer
+            required: [toolId, toolName, date, count]
+        totalUsers:
+          type: integer
+      required: [totalOpens, popularTools, usageByTier, aiStats, toolAdoption, dailyUsage, perToolDailyUsage, totalUsers]
+
+    AdminToolUsageDetail:
+      type: object
+      properties:
+        tool:
+          $ref: "#/components/schemas/AdminTool"
+        dailyUsage:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+            required: [date, count]
+        actionBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              count:
+                type: integer
+            required: [action, count]
+        uniqueUsers:
+          type: integer
+        totalOpensAllTime:
+          type: integer
+      required: [tool, dailyUsage, actionBreakdown, uniqueUsers, totalOpensAllTime]
 

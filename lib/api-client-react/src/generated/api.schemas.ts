@@ -2030,6 +2030,194 @@ export type PageParamParameter = number;
  */
 export type LimitParamParameter = number;
 
+export interface AdminToolCategory {
+  id: number;
+  name: string;
+  slug: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminCreateToolCategory {
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  sortOrder?: number;
+}
+
+export interface AdminUpdateToolCategory {
+  name?: string;
+  slug?: string;
+  description?: string;
+  icon?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export type AdminToolConfig = { [key: string]: unknown };
+
+export interface AdminTool {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  /** @nullable */
+  longDescription?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  categoryId: number;
+  /** @nullable */
+  categoryName?: string | null;
+  type: string;
+  requiredEntitlement: string;
+  config: AdminToolConfig;
+  isFeatured: number;
+  isNew: boolean;
+  isBeta: boolean;
+  status: string;
+  /** @nullable */
+  badge?: string | null;
+  totalLaunches: number;
+  sortOrder: number;
+  /** @nullable */
+  videoTutorialUrl?: string | null;
+  /** @nullable */
+  helpDocUrl?: string | null;
+  /** @nullable */
+  rateLimitPerDay?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AdminCreateToolConfig = { [key: string]: unknown };
+
+export interface AdminCreateTool {
+  slug: string;
+  name: string;
+  shortDescription: string;
+  longDescription?: string;
+  icon?: string;
+  categoryId: number;
+  type?: string;
+  requiredEntitlement?: string;
+  config?: AdminCreateToolConfig;
+  isFeatured?: number;
+  isNew?: boolean;
+  isBeta?: boolean;
+  status?: string;
+  badge?: string;
+  videoTutorialUrl?: string;
+  helpDocUrl?: string;
+  rateLimitPerDay?: number;
+  sortOrder?: number;
+}
+
+export type AdminUpdateToolConfig = { [key: string]: unknown };
+
+export interface AdminUpdateTool {
+  slug?: string;
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
+  icon?: string;
+  categoryId?: number;
+  type?: string;
+  requiredEntitlement?: string;
+  config?: AdminUpdateToolConfig;
+  isFeatured?: number;
+  isNew?: boolean;
+  isBeta?: boolean;
+  status?: string;
+  badge?: string;
+  videoTutorialUrl?: string;
+  helpDocUrl?: string;
+  rateLimitPerDay?: number;
+  sortOrder?: number;
+}
+
+export type AdminToolAnalyticsTotalOpens = {
+  today: number;
+  todayTrend: number;
+  week: number;
+  weekTrend: number;
+  month: number;
+  monthTrend: number;
+};
+
+export type AdminToolAnalyticsPopularToolsItem = {
+  toolId: number;
+  toolName: string;
+  toolSlug: string;
+  opens: number;
+};
+
+export type AdminToolAnalyticsUsageByTierItem = {
+  /** @nullable */
+  entitlementTier: string | null;
+  count: number;
+};
+
+export type AdminToolAnalyticsAiStats = {
+  totalGenerations: number;
+  totalTokens: number;
+  totalCostCents: number;
+};
+
+export type AdminToolAnalyticsToolAdoptionItem = {
+  toolId: number;
+  toolName: string;
+  uniqueUsers: number;
+  adoptionRate: number;
+};
+
+export type AdminToolAnalyticsDailyUsageItem = {
+  date: string;
+  count: number;
+};
+
+export type AdminToolAnalyticsPerToolDailyUsageItem = {
+  toolId: number;
+  toolName: string;
+  date: string;
+  count: number;
+};
+
+export interface AdminToolAnalytics {
+  totalOpens: AdminToolAnalyticsTotalOpens;
+  popularTools: AdminToolAnalyticsPopularToolsItem[];
+  usageByTier: AdminToolAnalyticsUsageByTierItem[];
+  aiStats: AdminToolAnalyticsAiStats;
+  toolAdoption: AdminToolAnalyticsToolAdoptionItem[];
+  dailyUsage: AdminToolAnalyticsDailyUsageItem[];
+  perToolDailyUsage: AdminToolAnalyticsPerToolDailyUsageItem[];
+  totalUsers: number;
+}
+
+export type AdminToolUsageDetailDailyUsageItem = {
+  date: string;
+  count: number;
+};
+
+export type AdminToolUsageDetailActionBreakdownItem = {
+  action: string;
+  count: number;
+};
+
+export interface AdminToolUsageDetail {
+  tool: AdminTool;
+  dailyUsage: AdminToolUsageDetailDailyUsageItem[];
+  actionBreakdown: AdminToolUsageDetailActionBreakdownItem[];
+  uniqueUsers: number;
+  totalOpensAllTime: number;
+}
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -2234,6 +2422,14 @@ export type AdminImportContent201 = {
 
 export type LogToolUsage201 = {
   success: boolean;
+};
+
+export type AdminDeleteToolCategory200 = {
+  message?: string;
+};
+
+export type AdminDeleteTool200 = {
+  message?: string;
 };
 
 export type GetOneOnOneSlotsParams = {

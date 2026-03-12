@@ -87,6 +87,9 @@ import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
 import CommunicationsBroadcasts from "@/pages/admin/CommunicationsBroadcasts";
 import CommunicationsLog from "@/pages/admin/CommunicationsLog";
 import CommunicationsAnalytics from "@/pages/admin/CommunicationsAnalytics";
+import ToolManagement from "@/pages/admin/ToolManagement";
+import ToolAnalytics from "@/pages/admin/ToolAnalytics";
+import ToolUsageDetail from "@/pages/admin/ToolUsageDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -387,6 +390,9 @@ function Router() {
       <Route path="/admin/communications/broadcasts">{() => <AdminRoute component={CommunicationsBroadcasts} />}</Route>
       <Route path="/admin/communications/log">{() => <AdminRoute component={CommunicationsLog} />}</Route>
       <Route path="/admin/communications/analytics">{() => <AdminRoute component={CommunicationsAnalytics} />}</Route>
+      <Route path="/admin/tools">{() => <AdminRoute component={ToolManagement} />}</Route>
+      <Route path="/admin/tools/analytics">{() => <AdminRoute component={ToolAnalytics} />}</Route>
+      <Route path="/admin/tools/:id/usage">{() => <AdminRoute component={ToolUsageDetail} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

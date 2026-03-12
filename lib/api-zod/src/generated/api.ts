@@ -2353,6 +2353,364 @@ export const AnalyzeCampaignResponse = zod.object({
 });
 
 /**
+ * @summary List all tool categories
+ */
+export const AdminListToolCategoriesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListToolCategoriesResponse = zod.array(
+  AdminListToolCategoriesResponseItem,
+);
+
+/**
+ * @summary Create a tool category
+ */
+export const AdminCreateToolCategoryBody = zod.object({
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Update a tool category
+ */
+export const AdminUpdateToolCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateToolCategoryBody = zod.object({
+  name: zod.string().optional(),
+  slug: zod.string().optional(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateToolCategoryResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a tool category
+ */
+export const AdminDeleteToolCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteToolCategoryResponse = zod.object({
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List all tools for admin
+ */
+export const AdminListToolsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  categoryId: zod.number(),
+  categoryName: zod.string().nullish(),
+  type: zod.string(),
+  requiredEntitlement: zod.string(),
+  config: zod.object({}).passthrough(),
+  isFeatured: zod.number(),
+  isNew: zod.boolean(),
+  isBeta: zod.boolean(),
+  status: zod.string(),
+  badge: zod.string().nullish(),
+  totalLaunches: zod.number(),
+  sortOrder: zod.number(),
+  videoTutorialUrl: zod.string().nullish(),
+  helpDocUrl: zod.string().nullish(),
+  rateLimitPerDay: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListToolsResponse = zod.array(AdminListToolsResponseItem);
+
+/**
+ * @summary Create a tool
+ */
+export const AdminCreateToolBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().optional(),
+  icon: zod.string().optional(),
+  categoryId: zod.number(),
+  type: zod.string().optional(),
+  requiredEntitlement: zod.string().optional(),
+  config: zod.object({}).passthrough().optional(),
+  isFeatured: zod.number().optional(),
+  isNew: zod.boolean().optional(),
+  isBeta: zod.boolean().optional(),
+  status: zod.string().optional(),
+  badge: zod.string().optional(),
+  videoTutorialUrl: zod.string().optional(),
+  helpDocUrl: zod.string().optional(),
+  rateLimitPerDay: zod.number().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Get tool usage analytics
+ */
+export const AdminToolAnalyticsResponse = zod.object({
+  totalOpens: zod.object({
+    today: zod.number(),
+    todayTrend: zod.number(),
+    week: zod.number(),
+    weekTrend: zod.number(),
+    month: zod.number(),
+    monthTrend: zod.number(),
+  }),
+  popularTools: zod.array(
+    zod.object({
+      toolId: zod.number(),
+      toolName: zod.string(),
+      toolSlug: zod.string(),
+      opens: zod.number(),
+    }),
+  ),
+  usageByTier: zod.array(
+    zod.object({
+      entitlementTier: zod.string().nullable(),
+      count: zod.number(),
+    }),
+  ),
+  aiStats: zod.object({
+    totalGenerations: zod.number(),
+    totalTokens: zod.number(),
+    totalCostCents: zod.number(),
+  }),
+  toolAdoption: zod.array(
+    zod.object({
+      toolId: zod.number(),
+      toolName: zod.string(),
+      uniqueUsers: zod.number(),
+      adoptionRate: zod.number(),
+    }),
+  ),
+  dailyUsage: zod.array(
+    zod.object({
+      date: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  perToolDailyUsage: zod.array(
+    zod.object({
+      toolId: zod.number(),
+      toolName: zod.string(),
+      date: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  totalUsers: zod.number(),
+});
+
+/**
+ * @summary Update a tool
+ */
+export const AdminUpdateToolParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateToolBody = zod.object({
+  slug: zod.string().optional(),
+  name: zod.string().optional(),
+  shortDescription: zod.string().optional(),
+  longDescription: zod.string().optional(),
+  icon: zod.string().optional(),
+  categoryId: zod.number().optional(),
+  type: zod.string().optional(),
+  requiredEntitlement: zod.string().optional(),
+  config: zod.object({}).passthrough().optional(),
+  isFeatured: zod.number().optional(),
+  isNew: zod.boolean().optional(),
+  isBeta: zod.boolean().optional(),
+  status: zod.string().optional(),
+  badge: zod.string().optional(),
+  videoTutorialUrl: zod.string().optional(),
+  helpDocUrl: zod.string().optional(),
+  rateLimitPerDay: zod.number().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const AdminUpdateToolResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  categoryId: zod.number(),
+  categoryName: zod.string().nullish(),
+  type: zod.string(),
+  requiredEntitlement: zod.string(),
+  config: zod.object({}).passthrough(),
+  isFeatured: zod.number(),
+  isNew: zod.boolean(),
+  isBeta: zod.boolean(),
+  status: zod.string(),
+  badge: zod.string().nullish(),
+  totalLaunches: zod.number(),
+  sortOrder: zod.number(),
+  videoTutorialUrl: zod.string().nullish(),
+  helpDocUrl: zod.string().nullish(),
+  rateLimitPerDay: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a tool
+ */
+export const AdminDeleteToolParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteToolResponse = zod.object({
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Activate a tool
+ */
+export const AdminActivateToolParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminActivateToolResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  categoryId: zod.number(),
+  categoryName: zod.string().nullish(),
+  type: zod.string(),
+  requiredEntitlement: zod.string(),
+  config: zod.object({}).passthrough(),
+  isFeatured: zod.number(),
+  isNew: zod.boolean(),
+  isBeta: zod.boolean(),
+  status: zod.string(),
+  badge: zod.string().nullish(),
+  totalLaunches: zod.number(),
+  sortOrder: zod.number(),
+  videoTutorialUrl: zod.string().nullish(),
+  helpDocUrl: zod.string().nullish(),
+  rateLimitPerDay: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Deactivate a tool
+ */
+export const AdminDeactivateToolParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeactivateToolResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  shortDescription: zod.string(),
+  longDescription: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  categoryId: zod.number(),
+  categoryName: zod.string().nullish(),
+  type: zod.string(),
+  requiredEntitlement: zod.string(),
+  config: zod.object({}).passthrough(),
+  isFeatured: zod.number(),
+  isNew: zod.boolean(),
+  isBeta: zod.boolean(),
+  status: zod.string(),
+  badge: zod.string().nullish(),
+  totalLaunches: zod.number(),
+  sortOrder: zod.number(),
+  videoTutorialUrl: zod.string().nullish(),
+  helpDocUrl: zod.string().nullish(),
+  rateLimitPerDay: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Get usage detail for a specific tool
+ */
+export const AdminToolUsageDetailParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminToolUsageDetailResponse = zod.object({
+  tool: zod.object({
+    id: zod.number(),
+    slug: zod.string(),
+    name: zod.string(),
+    shortDescription: zod.string(),
+    longDescription: zod.string().nullish(),
+    icon: zod.string().nullish(),
+    categoryId: zod.number(),
+    categoryName: zod.string().nullish(),
+    type: zod.string(),
+    requiredEntitlement: zod.string(),
+    config: zod.object({}).passthrough(),
+    isFeatured: zod.number(),
+    isNew: zod.boolean(),
+    isBeta: zod.boolean(),
+    status: zod.string(),
+    badge: zod.string().nullish(),
+    totalLaunches: zod.number(),
+    sortOrder: zod.number(),
+    videoTutorialUrl: zod.string().nullish(),
+    helpDocUrl: zod.string().nullish(),
+    rateLimitPerDay: zod.number().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+  dailyUsage: zod.array(
+    zod.object({
+      date: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  actionBreakdown: zod.array(
+    zod.object({
+      action: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  uniqueUsers: zod.number(),
+  totalOpensAllTime: zod.number(),
+});
+
+/**
  * @summary Get 1-on-1 coaching status for current member
  */
 export const GetOneOnOneStatusResponse = zod.object({

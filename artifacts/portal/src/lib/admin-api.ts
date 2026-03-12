@@ -591,6 +591,18 @@ export interface VaultCollection {
   updatedAt: string;
 }
 
+export interface AdminToolCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VaultResource {
   id: number;
   collectionId: number | null;
@@ -793,5 +805,154 @@ export function useAdminVaultAnalytics() {
   return useQuery({
     queryKey: ["/api/admin/vault/analytics"],
     queryFn: () => adminFetch<VaultAnalytics>("/admin/vault/analytics"),
+  });
+}
+export interface AdminTool {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  longDescription: string | null;
+  icon: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  type: string;
+  requiredEntitlement: string;
+  config: Record<string, unknown>;
+  isFeatured: number;
+  isNew: boolean;
+  isBeta: boolean;
+  status: string;
+  badge: string | null;
+  totalLaunches: number;
+  sortOrder: number;
+  videoTutorialUrl: string | null;
+  helpDocUrl: string | null;
+  rateLimitPerDay: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminToolAnalytics {
+  totalOpens: {
+    today: number; todayTrend: number;
+    week: number; weekTrend: number;
+    month: number; monthTrend: number;
+  };
+  popularTools: { toolId: number; toolName: string; toolSlug: string; opens: number }[];
+  usageByTier: { entitlementTier: string | null; count: number }[];
+  aiStats: { totalGenerations: number; totalTokens: number; totalCostCents: number };
+  toolAdoption: { toolId: number; toolName: string; uniqueUsers: number; adoptionRate: number }[];
+  dailyUsage: { date: string; count: number }[];
+  perToolDailyUsage: { toolId: number; toolName: string; date: string; count: number }[];
+  totalUsers: number;
+}
+
+export interface AdminToolUsageDetail {
+  tool: AdminTool & { categoryName: string | null };
+  dailyUsage: { date: string; count: number }[];
+  actionBreakdown: { action: string; count: number }[];
+  uniqueUsers: number;
+  totalOpensAllTime: number;
+}
+
+export function useAdminListToolCategories() {
+  return useQuery({
+    queryKey: ["/api/admin/tool-categories"],
+    queryFn: () => adminFetch<AdminToolCategory[]>("/admin/tool-categories"),
+  });
+}
+
+export function useAdminCreateToolCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; slug: string; description?: string; icon?: string; sortOrder?: number }) =>
+      adminFetch<AdminToolCategory>("/admin/tool-categories", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tool-categories"] }),
+  });
+}
+
+export function useAdminUpdateToolCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; name?: string; slug?: string; description?: string; icon?: string; sortOrder?: number; isActive?: boolean }) =>
+      adminFetch<AdminToolCategory>(`/admin/tool-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tool-categories"] }),
+  });
+}
+
+export function useAdminDeleteToolCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch(`/admin/tool-categories/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tool-categories"] }),
+  });
+}
+
+export function useAdminListTools() {
+  return useQuery({
+    queryKey: ["/api/admin/tools"],
+    queryFn: () => adminFetch<AdminTool[]>("/admin/tools"),
+  });
+}
+
+export function useAdminCreateTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<AdminTool> & { slug: string; name: string; shortDescription: string }) =>
+      adminFetch<AdminTool>("/admin/tools", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tools"] }),
+  });
+}
+
+export function useAdminUpdateTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number } & Partial<AdminTool>) =>
+      adminFetch<AdminTool>(`/admin/tools/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tools"] }),
+  });
+}
+
+export function useAdminDeleteTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch(`/admin/tools/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tools"] }),
+  });
+}
+
+export function useAdminActivateTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<AdminTool>(`/admin/tools/${id}/activate`, { method: "PATCH" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tools"] }),
+  });
+}
+
+export function useAdminDeactivateTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<AdminTool>(`/admin/tools/${id}/deactivate`, { method: "PATCH" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/tools"] }),
+  });
+}
+
+export function useAdminToolAnalytics() {
+  return useQuery({
+    queryKey: ["/api/admin/tools/analytics"],
+    queryFn: () => adminFetch<AdminToolAnalytics>("/admin/tools/analytics"),
+  });
+}
+
+export function useAdminToolUsage(id: number) {
+  return useQuery({
+    queryKey: ["/api/admin/tools", id, "usage"],
+    queryFn: () => adminFetch<AdminToolUsageDetail>(`/admin/tools/${id}/usage`),
+    enabled: id > 0,
   });
 }

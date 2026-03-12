@@ -46,6 +46,7 @@ import vaultRouter from "./vault";
 import coachingOneOnOneRouter from "./coaching-one-on-one";
 import adminCoachingRouter from "./admin-coaching";
 import adminVaultRouter from "./admin-vault";
+import adminToolsRouter from "./admin-tools";
 
 const router: IRouter = Router();
 
@@ -96,5 +97,6 @@ router.use(vaultRouter);
 router.use(adminCoachingRouter);
 router.use(adminVaultRouter);
 router.use(adminCommunicationsRouter);
+router.use(adminToolsRouter);
 
 export default router;

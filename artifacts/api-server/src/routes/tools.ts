@@ -8,7 +8,7 @@ const router: IRouter = Router();
 async function verifyToolAccess(toolId: number, entitlements: Set<string>): Promise<{ allowed: boolean; tool?: any }> {
   if (isNaN(toolId) || toolId < 1) return { allowed: false };
   const [tool] = await db.select({ requiredEntitlement: toolsTable.requiredEntitlement, status: toolsTable.status }).from(toolsTable).where(eq(toolsTable.id, toolId));
-  if (!tool || tool.status === "coming_soon") return { allowed: false };
+  if (!tool || tool.status !== "active") return { allowed: false };
   if (!entitlements.has(tool.requiredEntitlement)) return { allowed: false };
   return { allowed: true, tool };
 }
@@ -55,11 +55,13 @@ router.get("/tools", async (req, res): Promise<void> => {
     .innerJoin(toolCategoriesTable, eq(toolsTable.categoryId, toolCategoriesTable.id))
     .orderBy(toolsTable.sortOrder);
 
-  const toolsWithAccess = tools.map((t) => ({
-    ...t,
-    isFeatured: t.isFeatured === 1,
-    access: t.status === "coming_soon" ? "hidden" as const : resolveAccess(t.requiredEntitlement, entitlements),
-  }));
+  const toolsWithAccess = tools
+    .filter((t) => t.status === "active" || t.status === "coming_soon")
+    .map((t) => ({
+      ...t,
+      isFeatured: t.isFeatured === 1,
+      access: t.status === "coming_soon" ? "hidden" as const : resolveAccess(t.requiredEntitlement, entitlements),
+    }));
 
   res.json({ tools: toolsWithAccess, categories });
 });
@@ -98,7 +100,7 @@ router.get("/tools/:slug", async (req, res): Promise<void> => {
     .innerJoin(toolCategoriesTable, eq(toolsTable.categoryId, toolCategoriesTable.id))
     .where(eq(toolsTable.slug, slug));
 
-  if (!tool) {
+  if (!tool || tool.status === "inactive") {
     res.status(404).json({ error: "Tool not found" });
     return;
   }
@@ -279,10 +281,13 @@ router.post("/tools/:toolId/usage", async (req, res): Promise<void> => {
     return;
   }
 
+  const tier = entitlements.has("software:expanded") ? "expanded" : entitlements.has("software:base") ? "base" : "none";
+
   await db.insert(toolUsageLogTable).values({
     userId,
     toolId,
     action,
+    entitlementTier: tier,
     metadata: metadata ? JSON.stringify(metadata) : null,
   });
 
@@ -352,10 +357,10 @@ async function claimDailyUsage(userId: number, toolId: number, limit: number): P
   };
 }
 
-async function verifyToolBySlug(slug: string, entitlements: Set<string>): Promise<{ allowed: boolean; tool?: any; reason?: string }> {
+async function verifyToolBySlug(slug: string, entitlements: Set<string>): Promise<{ allowed: boolean; tool?: typeof toolsTable.$inferSelect; reason?: string }> {
   const [tool] = await db.select().from(toolsTable).where(eq(toolsTable.slug, slug));
   if (!tool) return { allowed: false, reason: "Tool not found" };
-  if (tool.status === "coming_soon") return { allowed: false, reason: "Tool not available" };
+  if (tool.status !== "active") return { allowed: false, reason: "Tool not available" };
   if (!entitlements.has(tool.requiredEntitlement)) return { allowed: false, reason: "Insufficient entitlement" };
   return { allowed: true, tool };
 }
@@ -427,10 +432,19 @@ Generate ${headlineCount} headlines:`;
 
     const usageClaim = await claimDailyUsage(userId, tool.id, dailyLimit);
 
+    const inputTokens = message.usage?.input_tokens ?? 0;
+    const outputTokens = message.usage?.output_tokens ?? 0;
+    const totalTokens = inputTokens + outputTokens;
+    const estimatedCostCents = Math.ceil((inputTokens * 0.025 + outputTokens * 0.125) / 100);
+    const genTier = entitlements.has("software:expanded") ? "expanded" : "base";
+
     await db.insert(toolUsageLogTable).values({
       userId,
       toolId: tool.id,
       action: "generate",
+      entitlementTier: genTier,
+      aiTokensUsed: totalTokens,
+      aiCostCents: estimatedCostCents,
       metadata: JSON.stringify({ count: headlines.length }),
     });
 
@@ -512,10 +526,18 @@ Provide a brief (3-4 paragraph) analysis covering:
 
     const usageClaim = await claimDailyUsage(userId, tool.id, dailyLimit);
 
+    const aInputTokens = message.usage?.input_tokens ?? 0;
+    const aOutputTokens = message.usage?.output_tokens ?? 0;
+    const aTotalTokens = aInputTokens + aOutputTokens;
+    const aEstimatedCostCents = Math.ceil((aInputTokens * 0.025 + aOutputTokens * 0.125) / 100);
+
     await db.insert(toolUsageLogTable).values({
       userId,
       toolId: tool.id,
       action: "analyze",
+      entitlementTier: "expanded",
+      aiTokensUsed: aTotalTokens,
+      aiCostCents: aEstimatedCostCents,
     });
 
     res.json({

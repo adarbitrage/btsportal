@@ -29,7 +29,9 @@ import {
   Database,
   Gauge,
   Trophy,
-  UserCheck
+  UserCheck,
+  Hammer,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,6 +110,11 @@ const adminWinsItems = [
   { href: "/admin/wins", label: "Win Curation", icon: Trophy },
 ];
 
+const adminToolItems = [
+  { href: "/admin/tools", label: "Tool Management", icon: Hammer },
+  { href: "/admin/tools/analytics", label: "Tool Analytics", icon: TrendingUp },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
@@ -181,7 +188,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>
