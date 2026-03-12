@@ -125,6 +125,13 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
 
   await db.update(usersTable).set(updateData).where(eq(usersTable.id, userId));
 
+  if (isComplete) {
+    const { cancelSequence, enrollInSequence } = await import("../lib/sequence-helpers");
+    await cancelSequence(userId, "onboarding_frontend");
+    await cancelSequence(userId, "onboarding_mentorship");
+    await enrollInSequence(userId, "nurture_frontend_to_upgrade");
+  }
+
   res.json(
     PatchOnboardingStepResponse.parse({
       currentStep: isComplete ? 5 : nextStep,

@@ -10,7 +10,8 @@ import {
   chatSessionsTable, chatMessagesTable, chatDailyUsageTable, chatPromptsTable,
   chatSystemPromptsTable, knowledgebaseDocsTable,
   affiliateProfilesTable, commissionRatesTable, referralLinksTable, referralClicksTable,
-  commissionsTable, commissionPayoutsTable, affiliateResourcesTable
+  commissionsTable, commissionPayoutsTable, affiliateResourcesTable,
+  sequencesTable, sequenceStepsTable,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -284,6 +285,77 @@ async function seed() {
     { name: "Off-Topic", slug: "off-topic", description: "Casual conversations", sortOrder: 7 },
   ]);
   console.log("Community categories seeded.");
+
+  const [seqOnboardingFrontend] = await db.insert(sequencesTable).values({
+    slug: "onboarding_frontend",
+    name: "Frontend Product Onboarding",
+    description: "Welcome sequence for new frontend product purchasers",
+    triggerEvent: "purchase_frontend",
+    productType: "frontend",
+    active: true,
+  }).returning();
+
+  const [seqOnboardingMentorship] = await db.insert(sequencesTable).values({
+    slug: "onboarding_mentorship",
+    name: "Mentorship Onboarding",
+    description: "Welcome sequence for new mentorship members",
+    triggerEvent: "purchase_backend",
+    productType: "backend",
+    active: true,
+  }).returning();
+
+  const [seqNurture] = await db.insert(sequencesTable).values({
+    slug: "nurture_frontend_to_upgrade",
+    name: "Frontend to Upgrade Nurture",
+    description: "Nurture frontend customers toward mentorship upgrade",
+    triggerEvent: "onboarding_complete",
+    productType: "frontend",
+    active: true,
+  }).returning();
+
+  const [seqReengagement] = await db.insert(sequencesTable).values({
+    slug: "reengagement",
+    name: "Re-engagement",
+    description: "Re-engage users who have been inactive for 7+ days",
+    triggerEvent: "inactivity",
+    active: true,
+  }).returning();
+
+  await db.insert(sequenceStepsTable).values([
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 1, channel: "email", templateRef: "onboarding_frontend_welcome", subject: "Welcome to Build Test Scale!", delayMinutes: 0 },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 2, channel: "email", templateRef: "onboarding_frontend_getting_started", subject: "Getting started: Your first steps", delayMinutes: 1440, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 3, channel: "email", templateRef: "onboarding_frontend_first_module", subject: "Have you checked out Module 1?", delayMinutes: 4320, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 4, channel: "sms", templateRef: "onboarding_frontend_checkin_sms", subject: "Quick check-in", delayMinutes: 7200, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 5, channel: "email", templateRef: "onboarding_frontend_tips", subject: "5 tips for your first affiliate campaign", delayMinutes: 10080 },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 6, channel: "email", templateRef: "onboarding_frontend_community", subject: "Join the BTS community", delayMinutes: 14400 },
+    { sequenceId: seqOnboardingFrontend.id, stepOrder: 7, channel: "email", templateRef: "onboarding_frontend_next_steps", subject: "What's next on your journey?", delayMinutes: 20160 },
+  ]);
+
+  await db.insert(sequenceStepsTable).values([
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 1, channel: "email", templateRef: "onboarding_mentorship_welcome", subject: "Welcome to BTS Mentorship!", delayMinutes: 0 },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 2, channel: "sms", templateRef: "onboarding_mentorship_welcome_sms", subject: "Welcome SMS", delayMinutes: 30 },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 3, channel: "email", templateRef: "onboarding_mentorship_coaching_intro", subject: "Your coaching calls: what to expect", delayMinutes: 1440, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 4, channel: "email", templateRef: "onboarding_mentorship_community_intro", subject: "Meet your fellow mentorship members", delayMinutes: 4320, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 5, channel: "email", templateRef: "onboarding_mentorship_tools", subject: "Your mentorship tools & software", delayMinutes: 7200, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 6, channel: "sms", templateRef: "onboarding_mentorship_first_call_sms", subject: "Don't miss your first coaching call", delayMinutes: 10080, conditions: { ifNotCompleted: "onboarding" } },
+    { sequenceId: seqOnboardingMentorship.id, stepOrder: 7, channel: "email", templateRef: "onboarding_mentorship_week2_checkin", subject: "How's your first two weeks going?", delayMinutes: 20160, conditions: { ifNotCompleted: "onboarding" } },
+  ]);
+
+  await db.insert(sequenceStepsTable).values([
+    { sequenceId: seqNurture.id, stepOrder: 1, channel: "email", templateRef: "nurture_congrats_onboarding", subject: "Congrats on completing onboarding!", delayMinutes: 0 },
+    { sequenceId: seqNurture.id, stepOrder: 2, channel: "email", templateRef: "nurture_success_stories", subject: "See what mentorship members are achieving", delayMinutes: 4320 },
+    { sequenceId: seqNurture.id, stepOrder: 3, channel: "email", templateRef: "nurture_coaching_preview", subject: "What live coaching looks like", delayMinutes: 10080 },
+    { sequenceId: seqNurture.id, stepOrder: 4, channel: "email", templateRef: "nurture_upgrade_benefits", subject: "Ready for the next level?", delayMinutes: 20160, conditions: { ifProductLevel: ["reserve_income", "backroad", "offmarket"] } },
+    { sequenceId: seqNurture.id, stepOrder: 5, channel: "email", templateRef: "nurture_limited_offer", subject: "Special mentorship offer for you", delayMinutes: 30240, conditions: { ifProductLevel: ["reserve_income", "backroad", "offmarket"] } },
+  ]);
+
+  await db.insert(sequenceStepsTable).values([
+    { sequenceId: seqReengagement.id, stepOrder: 1, channel: "email", templateRef: "reengagement_miss_you", subject: "We miss you at BTS!", delayMinutes: 0, conditions: { ifNotLoggedIn: true } },
+    { sequenceId: seqReengagement.id, stepOrder: 2, channel: "sms", templateRef: "reengagement_checkin_sms", subject: "Quick check-in", delayMinutes: 4320, conditions: { ifNotLoggedIn: true } },
+    { sequenceId: seqReengagement.id, stepOrder: 3, channel: "email", templateRef: "reengagement_whats_new", subject: "Here's what you've been missing", delayMinutes: 10080, conditions: { ifNotLoggedIn: true } },
+  ]);
+
+  console.log("Sequences seeded: onboarding_frontend, onboarding_mentorship, nurture_frontend_to_upgrade, reengagement");
 
   await db.insert(chatSystemPromptsTable).values({
     name: "default",

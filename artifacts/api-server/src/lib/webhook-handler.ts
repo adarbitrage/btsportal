@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile, resolveUserCommissionTier } from "./commissions";
+import { enrollInSequence } from "./sequence-helpers";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -336,6 +337,13 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
     } catch (err) {
       console.error("[Webhook] Commission attribution error:", err);
     }
+
+  const sequenceSlug = product.type === "frontend" ? "onboarding_frontend" : "onboarding_mentorship";
+  await enrollInSequence(userId, sequenceSlug, {
+    productId: product.id,
+    productName: product.name,
+    orderId,
+  });
 
   return {
     action: "granted",

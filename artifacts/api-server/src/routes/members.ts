@@ -73,6 +73,11 @@ router.post("/members/me/onboarding-complete", async (req, res): Promise<void> =
     noteBody: "Portal onboarding completed",
   });
 
+  const { cancelSequence, enrollInSequence } = await import("../lib/sequence-helpers");
+  await cancelSequence(userId, "onboarding_frontend");
+  await cancelSequence(userId, "onboarding_mentorship");
+  await enrollInSequence(userId, "nurture_frontend_to_upgrade");
+
   res.json({ message: "Onboarding marked as complete" });
 });
 

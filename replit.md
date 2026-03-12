@@ -21,6 +21,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Auth**: Custom email/password with JWT access tokens + refresh tokens (httpOnly cookies), bcryptjs + API key auth (`bts_{env}_{type}_{random}`)
 - **Rate Limiting**: Redis-backed sliding window rate limiter (standard: 60/min, elevated: 300/min, unlimited)
 - **CRM Sync**: GoHighLevel (GHL) bidirectional sync via BullMQ queue + ioredis (rate-limited 90 req/min, exponential backoff retries)
+- **Communication Sequences**: Automated multi-step email/SMS flows via BullMQ (sequence engine every 5 min, scheduled comms every 15 min, nightly inactivity check at 2am)
 
 ## Structure
 
@@ -202,6 +203,9 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `affiliate_resources` — Promotional resources (email swipes, social templates, banners) for affiliates
 - `api_keys` — API key records with bcrypt hash, prefix, type (secret/publishable), permissions (JSONB), rate_limit_tier, revocation tracking
 - `api_request_log` — API request log with request_id, method, path, status, response time, API key reference
+- `sequences` — Communication sequence definitions (slug, trigger_event, product_type, active flag)
+- `sequence_steps` — Individual steps within sequences (channel, template_ref, subject, delay_minutes, conditions JSONB)
+- `sequence_enrollments` — User enrollments in sequences (status, current_step_order, enrolled_at, metadata)
 
 ### Onboarding Flow
 
