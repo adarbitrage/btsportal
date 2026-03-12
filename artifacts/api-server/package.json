@@ -12,6 +12,7 @@
     "@types/qs": "^6.15.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/integrations-anthropic-ai": "workspace:*",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.70.4",
     "cookie-parser": "^1.4.7",

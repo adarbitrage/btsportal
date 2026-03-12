@@ -29,6 +29,7 @@ tags:
   - name: community-reactions
   - name: community-members
   - name: community-notifications
+  - name: chat
 paths:
   /healthz:
     get:
@@ -911,6 +912,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/CommunityPostRaw"
 
+  /chat:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a message to the AI chat assistant (SSE streaming response)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageBody"
+      responses:
+        "200":
+          description: SSE stream of chat response chunks
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "403":
+          description: No chat access
+        "429":
+          description: Daily limit reached
+
+  /chat/sessions:
+    get:
+      operationId: listChatSessions
+      tags: [chat]
+      summary: List chat sessions for the current user
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated list of chat sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionList"
+
   /community/posts/{postId}:
     patch:
       operationId: editCommunityPost
@@ -948,6 +996,50 @@ paths:
       responses:
         "200":
           description: Post deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /chat/sessions/{sessionId}:
+    get:
+      operationId: getChatSession
+      tags: [chat]
+      summary: Get a chat session with full message history
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chat session with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionWithMessages"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteChatSession
+      tags: [chat]
+      summary: Soft-delete a chat session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -1149,7 +1241,102 @@ paths:
             type: integer
       responses:
         "200":
-          description: Notification marked as read
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Not found
+
+  /chat/status:
+    get:
+      operationId: getChatStatus
+      tags: [chat]
+      summary: Get chat tier info and daily usage
+      responses:
+        "200":
+          description: Chat status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatStatus"
+
+  /chat/prompts:
+    get:
+      operationId: listChatPrompts
+      tags: [chat]
+      summary: List saved prompt templates (chat:custom only)
+      responses:
+        "200":
+          description: List of prompts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatPrompt"
+        "403":
+          description: Not chat:custom tier
+    post:
+      operationId: createChatPrompt
+      tags: [chat]
+      summary: Create a saved prompt template (chat:custom only, max 20)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChatPromptBody"
+      responses:
+        "201":
+          description: Prompt created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPrompt"
+        "403":
+          description: Not chat:custom tier
+
+  /chat/prompts/{promptId}:
+    patch:
+      operationId: updateChatPrompt
+      tags: [chat]
+      summary: Update a saved prompt template
+      parameters:
+        - name: promptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChatPromptBody"
+      responses:
+        "200":
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPrompt"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteChatPrompt
+      tags: [chat]
+      summary: Delete a saved prompt template
+      parameters:
+        - name: promptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Prompt deleted
           content:
             application/json:
               schema:
@@ -1167,6 +1354,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Not found
+
+  /chat/create-ticket:
+    post:
+      operationId: createTicketFromChat
+      tags: [chat]
+      summary: Create a support ticket from a chat session (chat:full and chat:custom only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketFromChatBody"
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "403":
+          description: Not chat:full or chat:custom tier
 
 components:
   schemas:
@@ -2121,6 +2331,40 @@ components:
         success:
           type: boolean
       required: [success]
+    SendChatMessageBody:
+      type: object
+      properties:
+        message:
+          type: string
+        sessionId:
+          type: ["integer", "null"]
+      required: [message]
+
+    ChatSessionSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, createdAt, updatedAt]
+
+    ChatSessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSessionSummary"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [sessions, pagination]
 
     Pagination:
       type: object
@@ -2134,6 +2378,42 @@ components:
         totalPages:
           type: integer
       required: [page, limit, total, totalPages]
+
+    ChatMessageItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, role, content, createdAt]
+
+    ChatSessionWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageItem"
+      required: [id, title, createdAt, updatedAt, messages]
 
     CommunityCategory:
       type: object
@@ -2467,6 +2747,47 @@ components:
           format: date-time
       required: [id, type, message, isRead, createdAt]
 
+    ChatStatus:
+      type: object
+      properties:
+        tier:
+          type: string
+        dailyLimit:
+          type: integer
+        messagesUsedToday:
+          type: integer
+        messagesRemaining:
+          type: integer
+        resetTime:
+          type: string
+          format: date-time
+        maxOutputTokens:
+          type: integer
+        historyDepth:
+          type: integer
+        sessionRetentionDays:
+          type: ["integer", "null"]
+      required: [tier, dailyLimit, messagesUsedToday, messagesRemaining, resetTime, maxOutputTokens, historyDepth]
+
+    ChatPrompt:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, title, content, createdAt, updatedAt]
+
     CommunityNotificationList:
       type: object
       properties:
@@ -2479,3 +2800,29 @@ components:
         pagination:
           $ref: "#/components/schemas/Pagination"
       required: [notifications, unreadCount, pagination]
+
+    CreateChatPromptBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+      required: [title, content]
+
+    UpdateChatPromptBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+
+    CreateTicketFromChatBody:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        subject:
+          type: string
+      required: [sessionId, subject]

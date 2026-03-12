@@ -18,3 +18,8 @@ export * from "./signed-documents";
 export * from "./community";
 export * from "./ghl-sync-log";
 export * from "./ghl-config";
+export * from "./chat-sessions";
+export * from "./chat-daily-usage";
+export * from "./chat-prompts";
+export * from "./chat-system-prompts";
+export * from "./knowledgebase-docs";

@@ -7,6 +7,8 @@ import {
   communityCategoriesTable,
   communityPostsTable, communityCommentsTable, communityReactionsTable,
   communityBadgesTable, communityNotificationsTable,
+  chatSessionsTable, chatMessagesTable, chatDailyUsageTable, chatPromptsTable,
+  chatSystemPromptsTable, knowledgebaseDocsTable,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -14,7 +16,13 @@ import bcrypt from "bcryptjs";
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE TABLE community_notifications, community_badges, community_reactions, community_comments, community_posts, community_categories, signed_documents, legal_documents, webhook_logs, sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`DO $$ BEGIN
+    EXECUTE (
+      SELECT string_agg('TRUNCATE TABLE ' || quote_ident(tablename) || ' RESTART IDENTITY CASCADE', '; ')
+      FROM pg_tables
+      WHERE schemaname = 'public'
+    );
+  END $$`);
 
   const entitlementData = [
     { key: "content:frontend", description: "Foundational video + text training modules", category: "content" },
@@ -251,12 +259,130 @@ async function seed() {
   ]);
   console.log("Community categories seeded.");
 
+  await db.insert(chatSystemPromptsTable).values({
+    name: "default",
+    content: `You are the BTS (Build Test Scale) AI Chat Assistant — a knowledgeable, encouraging mentor for affiliate marketing members.
+
+## Your Role
+- Help members with affiliate marketing strategy, campaign optimization, and platform navigation
+- Answer questions about BTS training content, tools, and best practices
+- Provide actionable, step-by-step guidance tailored to the member's level
+- Be encouraging but honest — celebrate wins and give constructive feedback
+
+## Member Context
+- Member name: {{member_name}}
+- Chat tier: {{chat_tier}}
+- Daily message limit: {{daily_limit}}
+
+## Guidelines
+1. Always be professional, friendly, and supportive
+2. Give specific, actionable advice rather than vague suggestions
+3. Reference BTS training modules and resources when relevant
+4. If a question is about billing, account issues, or technical problems you cannot solve, suggest creating a support ticket by saying [SUGGEST_TICKET]
+5. Never provide financial guarantees or income claims
+6. Stay focused on affiliate marketing and BTS platform topics
+7. If you don't know something, say so honestly rather than guessing
+
+## Response Style
+- Use clear formatting with headers, bullet points, and numbered lists
+- Keep responses focused and concise
+- Include examples when helpful
+- End with a follow-up question or next step when appropriate`,
+    isActive: true,
+  });
+
+  await db.insert(knowledgebaseDocsTable).values([
+    {
+      title: "Getting Started with BTS",
+      category: "faq",
+      content: "Welcome to Build Test Scale! BTS is a comprehensive affiliate marketing training platform. To get started: 1) Complete your onboarding checklist, 2) Watch the Welcome video in Track 1, 3) Choose your niche using our research methods, 4) Set up your accounts following the Foundation module. Your dashboard shows your progress, upcoming coaching calls, and quick links to continue learning.",
+    },
+    {
+      title: "How to Choose a Profitable Niche",
+      category: "platform_guide",
+      content: "Choosing a niche is one of the most important decisions in affiliate marketing. Key criteria: 1) Passion or interest in the topic, 2) Market demand (use Google Trends, keyword research), 3) Monetization potential (check affiliate programs in the space), 4) Competition level (aim for niches with competition but not oversaturated). Popular niches for beginners include health & wellness, personal finance, and technology. The BTS Niche Research Methods lesson in Module 2 covers this in detail.",
+    },
+    {
+      title: "Understanding Affiliate Commissions",
+      category: "faq",
+      content: "Affiliate commissions vary by program and product type. Common commission structures: 1) Pay-per-sale (CPS): earn a percentage of each sale, typically 5-50%, 2) Pay-per-lead (CPL): earn for each qualified lead, usually $1-$50, 3) Pay-per-click (CPC): earn per click, usually $0.01-$0.50. Recurring commissions are available for subscription products. BTS members can earn commissions through the BTS affiliate program at entry, mid, premium, or top tier based on their membership level.",
+    },
+    {
+      title: "Campaign Tracking Setup Guide",
+      category: "platform_guide",
+      content: "Proper tracking is essential for profitable campaigns. Steps to set up tracking: 1) Choose a tracking platform (recommended: Voluum, RedTrack, or free alternatives), 2) Set up your tracking domain, 3) Create tracking links for each traffic source, 4) Set up postback URLs with your affiliate networks, 5) Test your tracking flow end-to-end before spending on ads. The Basic Tracking Setup lesson in Module 3 walks through this process step by step.",
+    },
+    {
+      title: "Facebook Ads Best Practices for Affiliates",
+      category: "marketing",
+      content: "Facebook Ads can be highly profitable for affiliate marketing when done right. Best practices: 1) Start with a small daily budget ($20-50), 2) Use broad targeting initially and let Facebook's algorithm optimize, 3) Create multiple ad variations for testing, 4) Use advertorial/bridge pages instead of direct linking, 5) Monitor metrics: CTR > 1%, CPC reasonable for your niche, positive ROAS within 3-5 days. Common mistakes: scaling too fast, not testing creatives, ignoring compliance rules. See the Scaling Facebook Ads module for advanced strategies.",
+    },
+    {
+      title: "Compliance and FTC Guidelines",
+      category: "compliance",
+      content: "Compliance is critical in affiliate marketing. Key FTC guidelines: 1) Always disclose your affiliate relationship clearly, 2) Don't make false or misleading claims, 3) Only promote products you genuinely believe in, 4) Include proper disclaimers on landing pages, 5) Follow platform-specific rules (Facebook, Google, etc.). Consequences of non-compliance include account bans, legal action, and loss of affiliate partnerships. The Compliance Basics lesson covers everything you need to know.",
+    },
+    {
+      title: "Scaling Your Campaigns Profitably",
+      category: "advanced_strategy",
+      content: "Scaling is about increasing your ad spend while maintaining profitability. Two approaches: 1) Vertical scaling: increase budget on winning campaigns gradually (20-30% per day), 2) Horizontal scaling: duplicate winning campaigns to new audiences, placements, or platforms. Key metrics to watch: ROAS (should stay above your break-even), frequency (keep below 3-4), CPM trends. When to scale: 3+ consecutive profitable days, stable CPA, proven creative. See the Scaling module in Track 4 for detailed strategies.",
+    },
+    {
+      title: "Common Troubleshooting Issues",
+      category: "troubleshooting",
+      content: "Common issues and solutions: 1) Videos not loading: clear browser cache, try a different browser, check internet connection. 2) Progress not saving: ensure you click the 'Mark Complete' button, refresh the page. 3) Can't access a module: check that your membership tier includes the required entitlement. 4) Coaching call link not working: links become active 5 minutes before the scheduled time. 5) Account locked: after 5 failed login attempts, wait 15 minutes or reset your password. For other issues, create a support ticket.",
+    },
+    {
+      title: "BTS Membership Tiers Explained",
+      category: "faq",
+      content: "BTS offers several membership tiers: 1) Frontend Products (Reserve Income, Backroad, Off-Market): foundational training and basic support. 2) LaunchPad: advanced content + software tools. 3) 3-Month Mentorship: adds group coaching and community access. 4) 6-Month Mentorship: adds mastermind sessions and expanded tools. 5) 1-Year Mentorship: includes monthly 1-on-1 coaching. 6) Lifetime Mentorship: full access forever with weekly 1-on-1 coaching and VIP support. Each tier builds on the previous, unlocking more resources and support.",
+    },
+    {
+      title: "Writing High-Converting Ad Copy",
+      category: "marketing",
+      content: "Great ad copy follows proven frameworks: 1) AIDA: Attention, Interest, Desire, Action. 2) PAS: Problem, Agitate, Solution. 3) Hook-Story-Offer: grab attention, tell a relatable story, present your offer. Tips for affiliate ad copy: use emotional triggers, focus on benefits not features, include social proof when possible, create urgency without being pushy, test multiple angles. The Advanced Copywriting module covers headline formulas, emotional triggers, and data-driven optimization.",
+    },
+  ]);
+
+  const [chatSession1] = await db.insert(chatSessionsTable).values({
+    userId: marcus.id,
+    title: "Help with Facebook Ads campaign setup",
+  }).returning();
+
+  await db.insert(chatMessagesTable).values([
+    { sessionId: chatSession1.id, role: "user", content: "I'm ready to start my first Facebook Ads campaign for affiliate marketing. What budget should I start with?" },
+    { sessionId: chatSession1.id, role: "assistant", content: "Great question, Marcus! Starting your first Facebook Ads campaign is exciting. Here's what I recommend:\n\n## Starting Budget\n- **Daily budget**: $20-50/day\n- **Test period**: 3-5 days minimum before making decisions\n- **Total initial test budget**: $100-250\n\n## Why This Range?\n1. **Too low** ($5-10/day) won't give Facebook's algorithm enough data to optimize\n2. **Too high** risks losing money before you've validated your approach\n3. **$20-50** gives you enough data for meaningful results\n\n## Quick Setup Checklist\n1. Choose your offer (what are you promoting?)\n2. Set up your bridge/advertorial page\n3. Install the Facebook Pixel\n4. Create 3-5 ad variations\n5. Start with broad targeting\n\nHave you already chosen which affiliate offer you'll be promoting?" },
+    { sessionId: chatSession1.id, role: "user", content: "I'm thinking about promoting a health supplement. Is that a good niche?" },
+    { sessionId: chatSession1.id, role: "assistant", content: "Health supplements can be profitable but come with important considerations:\n\n## Pros\n- Huge market demand\n- High commission rates (often 40-75%)\n- Recurring purchase potential\n\n## Challenges\n- **Strict compliance**: Facebook has very specific rules about health claims\n- **Ad account risk**: Health ads get flagged more often\n- **Competition**: Very competitive space\n\n## Compliance Tips for Health Offers\n1. Never make specific health claims (\"cures X\", \"lose 20 lbs\")\n2. Use softer language (\"may support\", \"designed to help\")\n3. Include proper disclaimers\n4. Follow FTC guidelines strictly\n\n## Recommendation\nIf you're just starting out, I'd suggest a less regulated niche first to learn the basics. Once you're comfortable with campaign mechanics, you can move into health.\n\nCheck out the **Niche Research Methods** lesson in Module 2 — it covers criteria for evaluating niches. Would you like help brainstorming alternative niches?" },
+  ]);
+
+  const [chatSession2] = await db.insert(chatSessionsTable).values({
+    userId: marcus.id,
+    title: "Understanding tracking and attribution",
+  }).returning();
+
+  await db.insert(chatMessagesTable).values([
+    { sessionId: chatSession2.id, role: "user", content: "Can you explain how tracking works in affiliate marketing? I'm confused about postbacks." },
+    { sessionId: chatSession2.id, role: "assistant", content: "Absolutely! Tracking is crucial for knowing which ads are making you money. Let me break it down:\n\n## How Affiliate Tracking Works\n\n```\nYour Ad → Tracking Link → Bridge Page → Affiliate Offer → Sale → Postback\n```\n\n## Key Concepts\n\n### 1. Tracking Links\n- Unique URLs that record clicks and their source\n- Include parameters like ad ID, creative ID, traffic source\n\n### 2. Postbacks (Server-to-Server Tracking)\n- When a sale happens, the affiliate network sends a \"postback\" to your tracker\n- This tells your tracker: \"This click converted!\"\n- It's like a receipt that connects the sale back to the specific ad\n\n### 3. Why It Matters\n- Without tracking, you're spending blind\n- With tracking, you know exactly which ads, audiences, and creatives make money\n\n## Setting Up (Simplified)\n1. Sign up for a tracker (Voluum, RedTrack)\n2. Add your traffic source (Facebook, etc.)\n3. Add your affiliate network\n4. Create a campaign with your tracking link\n5. Set up the postback URL in your affiliate network\n\nThe **Basic Tracking Setup** lesson in Module 3 walks through this step-by-step with screenshots. Want me to explain any part in more detail?" },
+  ]);
+
+  const [chatSession3] = await db.insert(chatSessionsTable).values({
+    userId: marcus.id,
+    title: "Billing question about tier upgrade",
+  }).returning();
+
+  await db.insert(chatMessagesTable).values([
+    { sessionId: chatSession3.id, role: "user", content: "I'm currently on the 6-Month Mentorship. How do I upgrade to the 1-Year plan? Do I lose my progress?" },
+    { sessionId: chatSession3.id, role: "assistant", content: "Great that you're considering upgrading! Here's what I can tell you:\n\n## What You Keep\n- **All your progress**: Course completion, streaks, everything carries over\n- **Chat history**: All your conversations stay intact\n- **Coaching call recordings**: Access to any past recordings\n\n## What You Gain with 1-Year Mentorship\n- Monthly 1-on-1 coaching sessions\n- Premium affiliate commissions tier\n- Extended access duration\n\n## For the Upgrade Process\nBilling and account changes are handled by our support team to ensure everything transitions smoothly. [SUGGEST_TICKET]\n\nI'd recommend creating a support ticket and our team can:\n1. Explain the prorated pricing\n2. Process the upgrade\n3. Ensure no disruption to your access\n\nWould you like help with anything else about the membership tiers?" },
+  ]);
+
   console.log("Seeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));
   console.log("Demo users:");
   console.log("  Marcus Johnson (marcus@example.com / Demo1234) - 6-Month + Backroad");
   console.log("  Sarah Chen (sarah@example.com / Demo1234) - Reserve Income (frontend only)");
   console.log("  Admin User (admin@bts.com / Demo1234) - Lifetime");
+  console.log("Chat data: system prompt, 10 knowledgebase docs, 3 demo chat sessions");
 }
 
 seed().catch(console.error).finally(() => process.exit(0));

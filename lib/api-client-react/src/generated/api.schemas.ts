@@ -588,11 +588,53 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+export interface SendChatMessageBody {
+  message: string;
+  /** @nullable */
+  sessionId?: number | null;
+}
+
+export interface ChatSessionSummary {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Pagination {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
+}
+
+export interface ChatSessionList {
+  sessions: ChatSessionSummary[];
+  pagination: Pagination;
+}
+
+export type ChatMessageItemRole =
+  (typeof ChatMessageItemRole)[keyof typeof ChatMessageItemRole];
+
+export const ChatMessageItemRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessageItem {
+  id: number;
+  sessionId: number;
+  role: ChatMessageItemRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatSessionWithMessages {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessageItem[];
 }
 
 export interface CommunityCategory {
@@ -794,10 +836,46 @@ export interface CommunityNotificationItem {
   createdAt: string;
 }
 
+export interface ChatStatus {
+  tier: string;
+  dailyLimit: number;
+  messagesUsedToday: number;
+  messagesRemaining: number;
+  resetTime: string;
+  maxOutputTokens: number;
+  historyDepth: number;
+  /** @nullable */
+  sessionRetentionDays?: number | null;
+}
+
+export interface ChatPrompt {
+  id: number;
+  userId: number;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CommunityNotificationList {
   notifications: CommunityNotificationItem[];
   unreadCount: number;
   pagination: Pagination;
+}
+
+export interface CreateChatPromptBody {
+  title: string;
+  content: string;
+}
+
+export interface UpdateChatPromptBody {
+  title?: string;
+  content?: string;
+}
+
+export interface CreateTicketFromChatBody {
+  sessionId: number;
+  subject: string;
 }
 
 export type GetLegalDocumentsParams = {
@@ -865,6 +943,11 @@ export type ListCommunityPostsParams = {
   page?: number;
   limit?: number;
   categoryId?: number;
+};
+
+export type ListChatSessionsParams = {
+  page?: number;
+  limit?: number;
 };
 
 export type ListCommunityMembersParams = {

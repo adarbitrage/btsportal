@@ -19,6 +19,7 @@ import documentsRouter from "./documents";
 import communityRouter from "./community";
 import adminGhlRouter from "./admin-ghl";
 import adminTicketsRouter from "./admin-tickets";
+import chatRouter from "./chat";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(documentsRouter);
 router.use(communityRouter);
 router.use(adminGhlRouter);
 router.use(adminTicketsRouter);
+router.use(chatRouter);
 
 export default router;

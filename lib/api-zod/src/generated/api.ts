@@ -924,6 +924,39 @@ export const CreateCommunityPostBody = zod.object({
 });
 
 /**
+ * @summary Send a message to the AI chat assistant (SSE streaming response)
+ */
+export const SendChatMessageBody = zod.object({
+  message: zod.string(),
+  sessionId: zod.number().nullish(),
+});
+
+/**
+ * @summary List chat sessions for the current user
+ */
+export const ListChatSessionsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListChatSessionsResponse = zod.object({
+  sessions: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
  * @summary Edit a post within 15 minutes of creation
  */
 export const EditCommunityPostParams = zod.object({
@@ -962,6 +995,40 @@ export const DeleteCommunityPostParams = zod.object({
 });
 
 export const DeleteCommunityPostResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get a chat session with full message history
+ */
+export const GetChatSessionParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const GetChatSessionResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      sessionId: zod.number(),
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Soft-delete a chat session
+ */
+export const DeleteChatSessionParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const DeleteChatSessionResponse = zod.object({
   success: zod.boolean(),
 });
 
@@ -1162,8 +1229,83 @@ export const MarkCommunityNotificationReadResponse = zod.object({
 });
 
 /**
+ * @summary Get chat tier info and daily usage
+ */
+export const GetChatStatusResponse = zod.object({
+  tier: zod.string(),
+  dailyLimit: zod.number(),
+  messagesUsedToday: zod.number(),
+  messagesRemaining: zod.number(),
+  resetTime: zod.date(),
+  maxOutputTokens: zod.number(),
+  historyDepth: zod.number(),
+  sessionRetentionDays: zod.number().nullish(),
+});
+
+/**
+ * @summary List saved prompt templates (chat:custom only)
+ */
+export const ListChatPromptsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListChatPromptsResponse = zod.array(ListChatPromptsResponseItem);
+
+/**
+ * @summary Create a saved prompt template (chat:custom only, max 20)
+ */
+export const CreateChatPromptBody = zod.object({
+  title: zod.string(),
+  content: zod.string(),
+});
+
+/**
+ * @summary Update a saved prompt template
+ */
+export const UpdateChatPromptParams = zod.object({
+  promptId: zod.coerce.number(),
+});
+
+export const UpdateChatPromptBody = zod.object({
+  title: zod.string().optional(),
+  content: zod.string().optional(),
+});
+
+export const UpdateChatPromptResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a saved prompt template
+ */
+export const DeleteChatPromptParams = zod.object({
+  promptId: zod.coerce.number(),
+});
+
+export const DeleteChatPromptResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * @summary Mark all notifications as read
  */
 export const MarkAllCommunityNotificationsReadResponse = zod.object({
   success: zod.boolean(),
+});
+
+/**
+ * @summary Create a support ticket from a chat session (chat:full and chat:custom only)
+ */
+export const CreateTicketFromChatBody = zod.object({
+  sessionId: zod.number(),
+  subject: zod.string(),
 });

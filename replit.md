@@ -130,6 +130,12 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `ghl_config` — GHL configuration key-value store (sync_enabled flag, pipeline/stage IDs, tag prefix)
 - `tiers` — Legacy tier definitions (kept for backward compat)
 - `users.ghl_contact_id` — GHL contact ID cross-reference on user record
+- `chat_sessions` — AI chat sessions with soft delete support
+- `chat_messages` — Chat message history (user + assistant roles)
+- `chat_daily_usage` — Daily message count per user for rate limiting
+- `chat_prompts` — User-saved prompt templates (chat:custom tier only, max 20)
+- `chat_system_prompts` — Admin-editable system prompts with active flag
+- `knowledgebase_docs` — RAG knowledge base documents with GIN index for full-text search
 
 ### Onboarding Flow
 
@@ -200,6 +206,27 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET /admin/ghl/config` — List GHL config key-value pairs
 - `PATCH /admin/ghl/config` — Upsert a GHL config value (sync_enabled, pipeline_id, etc.)
 - `POST /admin/ghl/retry/:jobId` — Retry a failed BullMQ job
+- `POST /chat` — Send message to AI chat assistant (SSE streaming, entitlement-gated)
+- `GET /chat/sessions` — List chat sessions (paginated)
+- `GET /chat/sessions/:sessionId` — Get session with full message history
+- `DELETE /chat/sessions/:sessionId` — Soft-delete a chat session
+- `GET /chat/status` — Get chat tier, daily limit, usage, reset time
+- `GET/POST /chat/prompts` — List/create saved prompt templates (chat:custom only, max 20)
+- `PATCH/DELETE /chat/prompts/:promptId` — Update/delete saved prompt templates
+- `POST /chat/create-ticket` — Create support ticket from chat session (chat:full/chat:custom only)
+
+### AI Chat System
+
+Uses Anthropic Claude (via Replit AI Integrations) for an AI chat assistant with:
+- **3 chat tiers**: `chat:basic` (20/day, 1000 tokens), `chat:full` (50/day, 2000 tokens), `chat:custom` (100/day, 4000 tokens)
+- **RAG retrieval**: PostgreSQL full-text search (tsvector/GIN) on knowledgebase_docs, filtered by tier-accessible categories
+- **SSE streaming**: Real-time response streaming via `POST /chat`
+- **Session management**: Conversation history with configurable depth per tier
+- **Saved prompts**: Custom prompt templates for chat:custom users (max 20)
+- **Ticket creation**: Create support tickets from chat context (chat:full/chat:custom)
+- **System prompt**: Admin-editable, stored in DB with template variables ({{member_name}}, {{chat_tier}}, {{daily_limit}})
+
+Integration package: `lib/integrations-anthropic-ai` (`@workspace/integrations-anthropic-ai`)
 
 ### Community System
 
@@ -236,6 +263,8 @@ Demo users (all password: Demo1234):
 - Sarah Chen (sarah@example.com) — Reserve Income System (frontend only)
 - Admin User (admin@bts.com) — Lifetime Mentorship, admin role
 
+Chat seed data: 1 system prompt, 10 knowledgebase documents, 3 demo chat sessions for Marcus
+
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
@@ -270,6 +299,10 @@ OpenAPI 3.1 spec and Orval codegen config. Run codegen: `pnpm --filter @workspac
 ### `lib/api-zod` (`@workspace/api-zod`)
 
 Generated Zod schemas from the OpenAPI spec.
+
+### `lib/integrations-anthropic-ai` (`@workspace/integrations-anthropic-ai`)
+
+Anthropic Claude SDK client via Replit AI Integrations proxy. Provides pre-configured client and batch processing utilities. Env vars `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` and `AI_INTEGRATIONS_ANTHROPIC_API_KEY` are auto-provisioned.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
