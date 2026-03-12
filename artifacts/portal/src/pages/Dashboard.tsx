@@ -1,0 +1,209 @@
+import { useGetDashboard } from "@workspace/api-client-react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video } from "lucide-react";
+import { format } from "date-fns";
+import { Link } from "wouter";
+
+export default function Dashboard() {
+  const { data: dashboard, isLoading, error } = useGetDashboard();
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-pulse space-y-4 w-full">
+            <div className="h-32 bg-card rounded-xl"></div>
+            <div className="grid grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-card rounded-xl"></div>)}
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (error || !dashboard) {
+    return (
+      <AppLayout>
+        <div className="text-center p-12 bg-white rounded-xl border border-border">
+          <h2 className="text-xl font-semibold text-foreground">Could not load dashboard</h2>
+          <p className="text-muted-foreground mt-2">Please try refreshing the page.</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <div className="space-y-8">
+        {/* Welcome Banner */}
+        <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-foreground">Welcome back, {dashboard.memberName}.</h1>
+              <Badge variant={dashboard.tierSlug as any}>{dashboard.tierName} TIER</Badge>
+            </div>
+            <p className="text-muted-foreground">
+              Member since {format(new Date(dashboard.memberSince), 'MMMM yyyy')} <span className="mx-2 opacity-50">•</span> Day {dashboard.daysSinceJoined} in the program
+            </p>
+          </div>
+          {dashboard.nextLesson && (
+            <Link href={`/training/modules/${dashboard.nextLesson.moduleName}`}>
+              <Button size="lg" className="shadow-lg shadow-primary/20">
+                <PlayCircle className="w-5 h-5 mr-2" />
+                RESUME TRAINING
+              </Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard 
+            title="LESSONS COMPLETED" 
+            value={dashboard.lessonsCompleted.toString()} 
+            subtext={`of ${dashboard.totalLessons} total`}
+            icon={BookOpen}
+          />
+          <StatCard 
+            title="HOURS LEARNED" 
+            value={dashboard.hoursLearned.toString()} 
+            subtext="+2.5 this week"
+            icon={Clock}
+          />
+          <StatCard 
+            title="CURRENT STREAK" 
+            value={`${dashboard.currentStreak} Days`} 
+            subtext="Personal best: 14"
+            icon={Flame}
+            valueColor="text-primary"
+          />
+          <StatCard 
+            title="TICKETS OPEN" 
+            value={dashboard.openTickets.toString()} 
+            subtext={dashboard.openTickets > 0 ? "Awaiting reply" : "All clear!"}
+            icon={TicketIcon}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content Area */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Training Progress */}
+            <Card>
+              <CardHeader className="pb-4 flex flex-row items-center justify-between border-b border-border/50">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                  Training Progress
+                </div>
+                <span className="text-sm font-bold text-primary">{dashboard.overallProgress}% COMPLETE</span>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <Progress value={dashboard.overallProgress} className="h-3 mb-6" />
+                
+                {dashboard.nextLesson && (
+                  <div className="bg-secondary/50 rounded-xl p-5 border border-border/50">
+                    <p className="text-xs font-bold text-primary tracking-widest uppercase mb-2">Up Next</p>
+                    <h3 className="text-xl font-bold text-foreground mb-1">{dashboard.nextLesson.moduleName}</h3>
+                    <p className="text-muted-foreground mb-4">{dashboard.nextLesson.lessonTitle}</p>
+                    <Link href={`/training/modules/1`}>
+                      <Button variant="outline" className="w-full sm:w-auto bg-white">
+                        Continue Learning
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Announcements */}
+            {dashboard.recentAnnouncements.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold mb-4 text-foreground flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                  Recent Announcements
+                </h3>
+                <div className="space-y-4">
+                  {dashboard.recentAnnouncements.map(announcement => (
+                    <Card key={announcement.id} className="bg-[#faf9f7] border-border/60 hover:shadow-md transition-shadow">
+                      <CardContent className="p-5">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-foreground">{announcement.title}</h4>
+                          <span className="text-xs text-muted-foreground">{format(new Date(announcement.createdAt), 'MMM d')}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{announcement.body}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar Area */}
+          <div className="space-y-8">
+            <Card>
+              <CardHeader className="pb-4 border-b border-border/50">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <Video className="w-5 h-5 text-primary" />
+                  Upcoming Calls
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 px-0">
+                {dashboard.upcomingCalls.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {dashboard.upcomingCalls.slice(0,3).map(call => (
+                      <div key={call.id} className="p-5 hover:bg-secondary/50 transition-colors">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-semibold text-sm text-foreground">{call.title}</h4>
+                          <Badge variant="outline" className="text-[10px] bg-white">{call.callType.replace('_', ' ')}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{format(new Date(call.scheduledAt), 'MMM d, h:mm a')}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary">
+                              {call.coachName.charAt(0)}
+                            </div>
+                            <span className="text-xs text-muted-foreground">Coach {call.coachName.split(' ')[0]}</span>
+                          </div>
+                          <Button size="sm" variant="default" className="h-7 text-xs px-3">RSVP</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-sm text-muted-foreground">No upcoming calls scheduled.</div>
+                )}
+                <div className="p-4 border-t border-border">
+                  <Link href="/coaching">
+                    <Button variant="ghost" className="w-full text-primary hover:text-primary/80">View Full Schedule</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+
+function StatCard({ title, value, subtext, icon: Icon, valueColor = "text-primary" }: { title: string, value: string, subtext: string, icon: any, valueColor?: string }) {
+  return (
+    <Card className="border-t-4 border-t-primary rounded-t-sm">
+      <CardContent className="p-6 flex flex-col items-center text-center">
+        <Icon className="w-6 h-6 text-muted-foreground mb-3 opacity-80" />
+        <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mb-1">{title}</p>
+        <h3 className={`text-4xl font-bold mb-2 ${valueColor}`}>{value}</h3>
+        <p className="text-xs text-muted-foreground">{subtext}</p>
+      </CardContent>
+    </Card>
+  );
+}

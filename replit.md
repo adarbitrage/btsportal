@@ -15,38 +15,90 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui
+- **Routing**: wouter
+- **Data fetching**: React Query (via Orval-generated hooks)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   ├── portal/             # BTS Member Portal (React + Vite)
+│   └── mockup-sandbox/     # Design mockup preview server
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
 ├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   └── src/                # Individual .ts scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
+
+## BTS Member Portal
+
+The main application is a customer member portal for "Build Test Scale" (BTS), an affiliate marketing mentorship platform.
+
+### Pages
+- **Dashboard** (`/`) — Welcome banner, stats cards, training progress, upcoming calls, announcements
+- **Training Library** (`/training`) — Tracks, modules, lessons with progress tracking
+- **Coaching Calls** (`/coaching`) — Upcoming/past calls, coach profiles, tier-gated access
+- **Support Center** (`/support`) — Ticket management with message threads
+
+### Design
+- Primary brand color: BTS blue (#1a56db)
+- Background: warm off-white (#faf9f7)
+- Font: Roboto (modern sans-serif)
+- Editorial card layout with warm borders (#e8e4dc)
+- Tier system: Bronze, Silver, Gold, Diamond
+
+### Database Tables
+- `tiers` — Membership tier definitions
+- `users` — Member profiles with tier references
+- `tracks` — Training tracks
+- `modules` — Modules within tracks
+- `lessons` — Individual lessons within modules
+- `progress` — User lesson completion tracking
+- `coaches` — Coach profiles
+- `coaching_calls` — Scheduled coaching sessions
+- `tickets` — Support tickets
+- `ticket_messages` — Message threads on tickets
+- `announcements` — Portal announcements
+
+### API Routes (all under `/api`)
+- `GET /dashboard` — Aggregated dashboard data
+- `GET /tiers` — List membership tiers
+- `GET /tracks` — List tracks with modules and progress
+- `GET /modules/:id` — Module detail with lessons
+- `GET /lessons/:id` — Single lesson
+- `GET/POST /progress` — Track/mark lesson completion
+- `GET /coaching-calls` — List coaching calls (supports `?upcoming=true`)
+- `GET /coaches` — List coaches
+- `GET/POST /tickets` — List/create support tickets
+- `GET /tickets/:id` — Ticket with message thread
+- `POST /tickets/:id/messages` — Add message to ticket
+- `GET /announcements` — List announcements
+
+### Seed Data
+Demo user: Marcus Johnson (Gold tier, 12 of 20 lessons completed, 5-day streak)
 
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+- **Always typecheck from the root** — run `pnpm run typecheck`
+- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck
+- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array
 
 ## Root Scripts
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages
+- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly`
 
 ## Packages
 
@@ -54,43 +106,22 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+### `artifacts/portal` (`@workspace/portal`)
+
+BTS Member Portal frontend. React + Vite with Tailwind CSS, shadcn/ui components, wouter routing, and React Query hooks from `@workspace/api-client-react`.
 
 ### `lib/db` (`@workspace/db`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+Database layer using Drizzle ORM with PostgreSQL. Schema files in `src/schema/`.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
+OpenAPI 3.1 spec and Orval codegen config. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
 ### `lib/api-zod` (`@workspace/api-zod`)
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from the OpenAPI spec.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Generated React Query hooks and fetch client from the OpenAPI spec.

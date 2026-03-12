@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Roboto', sans-serif;
+
+  /* Editorial Warm Tones & BTS Blue */
+  --color-background: hsl(40 25% 97%); /* #faf9f7 */
+  --color-foreground: hsl(0 0% 15%);
+  
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(0 0% 15%);
+  --color-card-border: hsl(40 18% 88%); /* #e8e4dc */
+
+  --color-primary: hsl(221 80% 48%); /* #1a56db - BTS Blue */
+  --color-primary-foreground: hsl(0 0% 100%);
+  
+  --color-secondary: hsl(40 20% 92%);
+  --color-secondary-foreground: hsl(0 0% 20%);
+  
+  --color-muted: hsl(40 15% 94%);
+  --color-muted-foreground: hsl(0 0% 40%);
+  
+  --color-border: hsl(40 18% 88%);
+  --color-input: hsl(40 18% 88%);
+  --color-ring: hsl(221 80% 48%);
+
+  /* Tier Colors */
+  --color-tier-bronze: hsl(23 82% 31%); /* #92400e */
+  --color-tier-silver: hsl(220 9% 46%); /* #6b7280 */
+  --color-tier-gold: hsl(31 91% 37%); /* #b45309 */
+  --color-tier-diamond: hsl(192 91% 36%); /* #0891b2 */
+}
+
+:root {
+  --background: 40 25% 97%;
+  --foreground: 0 0% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 15%;
+  --border: 40 18% 88%;
+  --primary: 221 80% 48%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 40 15% 94%;
+  --muted-foreground: 0 0% 40%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium tracking-tight;
+  }
+}
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}

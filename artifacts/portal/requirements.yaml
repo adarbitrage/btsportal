@@ -1,0 +1,14 @@
+packages:
+  "framer-motion": "For page transitions and smooth UI animations"
+  "date-fns": "For human-readable date formatting across the portal"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "lucide-react": "For UI icons"
+  "react-hook-form": "For form state management in support tickets"
+  "@hookform/resolvers": "For zod validation with react-hook-form"
+  "zod": "For schema validation"
+
+notes:
+  - Uses existing logo at /images/bts-logo.png
+  - Uses generated React Query hooks from @workspace/api-client-react
+  - wouter is used for routing

@@ -3,13 +3,33 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: BTS Member Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Dashboard summary
+  - name: tiers
+    description: Membership tiers
+  - name: tracks
+    description: Training tracks
+  - name: modules
+    description: Training modules
+  - name: lessons
+    description: Training lessons
+  - name: progress
+    description: Lesson progress
+  - name: coaching
+    description: Coaching calls
+  - name: coaches
+    description: Coach profiles
+  - name: tickets
+    description: Support tickets
+  - name: announcements
+    description: Portal announcements
 paths:
   /healthz:
     get:
@@ -24,6 +44,267 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard summary
+      description: Returns personalized dashboard data for the current member
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardData"
+
+  /tiers:
+    get:
+      operationId: listTiers
+      tags: [tiers]
+      summary: List all membership tiers
+      responses:
+        "200":
+          description: List of tiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tier"
+
+  /tracks:
+    get:
+      operationId: listTracks
+      tags: [tracks]
+      summary: List all training tracks with modules
+      responses:
+        "200":
+          description: List of tracks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrackWithModules"
+
+  /modules/{id}:
+    get:
+      operationId: getModule
+      tags: [modules]
+      summary: Get a module with its lessons
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Module with lessons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleWithLessons"
+        "404":
+          description: Not found
+
+  /lessons/{id}:
+    get:
+      operationId: getLesson
+      tags: [lessons]
+      summary: Get a single lesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "404":
+          description: Not found
+
+  /progress:
+    get:
+      operationId: listProgress
+      tags: [progress]
+      summary: List all progress entries for the current user
+      responses:
+        "200":
+          description: Progress entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Progress"
+    post:
+      operationId: markLessonComplete
+      tags: [progress]
+      summary: Mark a lesson as complete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgress"
+      responses:
+        "201":
+          description: Progress created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+
+  /coaching-calls:
+    get:
+      operationId: listCoachingCalls
+      tags: [coaching]
+      summary: List coaching calls
+      parameters:
+        - name: upcoming
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of coaching calls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoachingCall"
+
+  /coaches:
+    get:
+      operationId: listCoaches
+      tags: [coaches]
+      summary: List all coaches
+      responses:
+        "200":
+          description: List of coaches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coach"
+
+  /tickets:
+    get:
+      operationId: listTickets
+      tags: [tickets]
+      summary: List support tickets for the current user
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, in_progress, awaiting_response, resolved, closed]
+      responses:
+        "200":
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+    post:
+      operationId: createTicket
+      tags: [tickets]
+      summary: Create a new support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicket"
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+
+  /tickets/{id}:
+    get:
+      operationId: getTicket
+      tags: [tickets]
+      summary: Get a ticket with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketWithMessages"
+        "404":
+          description: Not found
+
+  /tickets/{id}/messages:
+    post:
+      operationId: addTicketMessage
+      tags: [tickets]
+      summary: Add a message to a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketMessage"
+      responses:
+        "201":
+          description: Message added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketMessage"
+
+  /announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [announcements]
+      summary: List announcements
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Announcement"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +315,365 @@ components:
       required:
         - status
 
+    Tier:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        level:
+          type: integer
+        priceMonthly:
+          type: number
+        features:
+          type: object
+        maxSupportTickets:
+          type: integer
+        callAccessLevel:
+          type: string
+      required: [id, name, slug, level, priceMonthly, maxSupportTickets, callAccessLevel]
+
+    DashboardData:
+      type: object
+      properties:
+        memberName:
+          type: string
+        tierName:
+          type: string
+        tierSlug:
+          type: string
+        memberSince:
+          type: string
+        daysSinceJoined:
+          type: integer
+        lessonsCompleted:
+          type: integer
+        totalLessons:
+          type: integer
+        hoursLearned:
+          type: number
+        currentStreak:
+          type: integer
+        openTickets:
+          type: integer
+        overallProgress:
+          type: number
+        nextLesson:
+          $ref: "#/components/schemas/NextLesson"
+        upcomingCalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachingCall"
+        recentAnnouncements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Announcement"
+      required:
+        - memberName
+        - tierName
+        - tierSlug
+        - memberSince
+        - daysSinceJoined
+        - lessonsCompleted
+        - totalLessons
+        - hoursLearned
+        - currentStreak
+        - openTickets
+        - overallProgress
+        - upcomingCalls
+        - recentAnnouncements
+
+    NextLesson:
+      type: object
+      properties:
+        lessonId:
+          type: integer
+        lessonTitle:
+          type: string
+        moduleName:
+          type: string
+        trackName:
+          type: string
+        durationMinutes:
+          type: integer
+      required: [lessonId, lessonTitle, moduleName, trackName, durationMinutes]
+
+    TrackWithModules:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        totalModules:
+          type: integer
+        totalLessons:
+          type: integer
+        estimatedMinutes:
+          type: integer
+        progress:
+          type: number
+        isCurrent:
+          type: boolean
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleSummary"
+      required: [id, title, description, sortOrder, totalModules, totalLessons, estimatedMinutes, progress, isCurrent, modules]
+
+    ModuleSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        sortOrder:
+          type: integer
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        progress:
+          type: number
+      required: [id, title, sortOrder, totalLessons, completedLessons, progress]
+
+    ModuleWithLessons:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        trackId:
+          type: integer
+        sortOrder:
+          type: integer
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lesson"
+      required: [id, title, description, trackId, sortOrder, lessons]
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: integer
+        moduleId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: ["string", "null"]
+        durationMinutes:
+          type: integer
+        minimumTier:
+          type: string
+        sortOrder:
+          type: integer
+        isCompleted:
+          type: boolean
+        isLocked:
+          type: boolean
+      required: [id, moduleId, title, description, durationMinutes, minimumTier, sortOrder, isCompleted, isLocked]
+
+    Progress:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        lessonId:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+      required: [id, userId, lessonId, completedAt]
+
+    CreateProgress:
+      type: object
+      properties:
+        lessonId:
+          type: integer
+      required: [lessonId]
+
+    CoachingCall:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        callType:
+          type: string
+          enum: [weekly_qa, strategy, mastermind, vip_roundtable]
+        coachId:
+          type: integer
+        coachName:
+          type: string
+        meetLink:
+          type: ["string", "null"]
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        minimumTier:
+          type: string
+        recordingUrl:
+          type: ["string", "null"]
+        registeredCount:
+          type: integer
+        isAccessible:
+          type: boolean
+      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, minimumTier, registeredCount, isAccessible]
+
+    Coach:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        bio:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        specialties:
+          type: string
+        callTypes:
+          type: array
+          items:
+            type: string
+      required: [id, name, bio, specialties, callTypes]
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketNumber:
+          type: string
+        userId:
+          type: integer
+        category:
+          type: string
+          enum: [billing, technical, training, account, other]
+        priority:
+          type: string
+          enum: [urgent, high, normal, low]
+        status:
+          type: string
+          enum: [open, in_progress, awaiting_response, resolved, closed]
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt]
+
+    CreateTicket:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [billing, technical, training, account, other]
+        subject:
+          type: string
+        description:
+          type: string
+      required: [category, subject, description]
+
+    TicketWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketNumber:
+          type: string
+        userId:
+          type: integer
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketMessage"
+      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt, messages]
+
+    TicketMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        senderType:
+          type: string
+          enum: [member, admin]
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, ticketId, senderType, body, createdAt]
+
+    CreateTicketMessage:
+      type: object
+      properties:
+        body:
+          type: string
+      required: [body]
+
+    Announcement:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        type:
+          type: string
+          enum: [new_content, event, milestone, general]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, body, type, createdAt]

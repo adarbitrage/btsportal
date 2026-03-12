@@ -1,0 +1,131 @@
+import { Router, type IRouter } from "express";
+import { db, tracksTable, modulesTable, lessonsTable, progressTable } from "@workspace/db";
+import { eq, count, sql } from "drizzle-orm";
+import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams, GetLessonResponse } from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+const userId = 1;
+
+router.get("/tracks", async (_req, res): Promise<void> => {
+  const tracks = await db.select().from(tracksTable).orderBy(tracksTable.sortOrder);
+
+  const result = [];
+  for (const track of tracks) {
+    const modules = await db.select().from(modulesTable).where(eq(modulesTable.trackId, track.id)).orderBy(modulesTable.sortOrder);
+
+    let totalLessons = 0;
+    let totalCompleted = 0;
+    let totalMinutes = 0;
+    const moduleSummaries = [];
+
+    for (const mod of modules) {
+      const lessons = await db.select().from(lessonsTable).where(eq(lessonsTable.moduleId, mod.id));
+      const modLessonCount = lessons.length;
+      const modMinutes = lessons.reduce((acc, l) => acc + l.durationMinutes, 0);
+
+      const [completedResult] = await db
+        .select({ count: count() })
+        .from(progressTable)
+        .where(
+          sql`${progressTable.userId} = ${userId} AND ${progressTable.lessonId} IN (SELECT id FROM lessons WHERE module_id = ${mod.id})`
+        );
+      const modCompleted = completedResult?.count ?? 0;
+
+      totalLessons += modLessonCount;
+      totalCompleted += modCompleted;
+      totalMinutes += modMinutes;
+
+      moduleSummaries.push({
+        id: mod.id,
+        title: mod.title,
+        sortOrder: mod.sortOrder,
+        totalLessons: modLessonCount,
+        completedLessons: modCompleted,
+        progress: modLessonCount > 0 ? Math.round((modCompleted / modLessonCount) * 100) : 0,
+      });
+    }
+
+    const progress = totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0;
+
+    result.push({
+      id: track.id,
+      title: track.title,
+      description: track.description,
+      sortOrder: track.sortOrder,
+      totalModules: modules.length,
+      totalLessons,
+      estimatedMinutes: totalMinutes,
+      progress,
+      isCurrent: progress > 0 && progress < 100,
+      modules: moduleSummaries,
+    });
+  }
+
+  res.json(ListTracksResponse.parse(result));
+});
+
+router.get("/modules/:id", async (req, res): Promise<void> => {
+  const params = GetModuleParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [mod] = await db.select().from(modulesTable).where(eq(modulesTable.id, params.data.id));
+  if (!mod) {
+    res.status(404).json({ error: "Module not found" });
+    return;
+  }
+
+  const lessons = await db.select().from(lessonsTable).where(eq(lessonsTable.moduleId, mod.id)).orderBy(lessonsTable.sortOrder);
+
+  const completedIds = await db
+    .select({ lessonId: progressTable.lessonId })
+    .from(progressTable)
+    .where(eq(progressTable.userId, userId));
+  const completedSet = new Set(completedIds.map((p) => p.lessonId));
+
+  const tierLevel = 3;
+  const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
+
+  const mappedLessons = lessons.map((l) => ({
+    ...l,
+    isCompleted: completedSet.has(l.id),
+    isLocked: tierLevel < (tierLevels[l.minimumTier] ?? 0),
+  }));
+
+  res.json(GetModuleResponse.parse({ ...mod, lessons: mappedLessons }));
+});
+
+router.get("/lessons/:id", async (req, res): Promise<void> => {
+  const params = GetLessonParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [lesson] = await db.select().from(lessonsTable).where(eq(lessonsTable.id, params.data.id));
+  if (!lesson) {
+    res.status(404).json({ error: "Lesson not found" });
+    return;
+  }
+
+  const [progress] = await db
+    .select()
+    .from(progressTable)
+    .where(sql`${progressTable.userId} = ${userId} AND ${progressTable.lessonId} = ${lesson.id}`);
+
+  const tierLevel = 3;
+  const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
+
+  res.json(
+    GetLessonResponse.parse({
+      ...lesson,
+      isCompleted: !!progress,
+      isLocked: tierLevel < (tierLevels[lesson.minimumTier] ?? 0),
+    })
+  );
+});
+
+export default router;
