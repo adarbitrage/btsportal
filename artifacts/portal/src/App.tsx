@@ -14,6 +14,7 @@ import TicketDetail from "@/pages/TicketDetail";
 import CommunityFeed from "@/pages/community/CommunityFeed";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
+import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -214,6 +215,7 @@ function Router() {
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
+      <Route path="/support/tickets/:id/rate">{() => <ProtectedRoute component={SatisfactionSurveyPage} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

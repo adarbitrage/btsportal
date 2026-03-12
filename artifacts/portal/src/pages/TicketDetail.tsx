@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -28,6 +29,45 @@ export default function TicketDetail() {
         queryClient.invalidateQueries({ queryKey: getGetTicketQueryKey(ticketId) });
       }
     });
+  };
+
+  const visibleMessages = ticket.messages.filter((msg: any) => !msg.isInternal);
+
+  const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+
+  const isSystemMessage = (body: string) => {
+    const systemPatterns = [
+      /^this ticket has been automatically closed/i,
+      /^your ticket has been automatically closed/i,
+      /^was your issue fully resolved/i,
+      /^this ticket was auto-closed/i,
+    ];
+    return systemPatterns.some((pattern) => pattern.test(body.trim()));
+  };
+
+  const getMessageStyle = (msg: any) => {
+    if (isSystemMessage(msg.body)) {
+      return {
+        cardClass: "border-amber-200/50 bg-amber-50/30",
+        iconBg: "bg-amber-100 text-amber-600",
+        icon: <Bot className="w-5 h-5" />,
+        label: "System",
+      };
+    }
+    if (msg.senderType === "admin") {
+      return {
+        cardClass: "border-primary/20 bg-primary/[0.02]",
+        iconBg: "bg-primary text-white",
+        icon: <ShieldAlert className="w-5 h-5" />,
+        label: "Support Team",
+      };
+    }
+    return {
+      cardClass: "",
+      iconBg: "bg-secondary text-muted-foreground",
+      icon: <User className="w-5 h-5" />,
+      label: "You",
+    };
   };
 
   return (
@@ -58,29 +98,36 @@ export default function TicketDetail() {
         </div>
 
         <div className="space-y-4">
-          {ticket.messages.map((msg) => (
-            <Card key={msg.id} className={msg.senderType === 'admin' ? 'border-primary/20 bg-primary/[0.02]' : ''}>
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${msg.senderType === 'admin' ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
-                    {msg.senderType === 'admin' ? <ShieldAlert className="w-5 h-5" /> : <User className="w-5 h-5" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-foreground capitalize">{msg.senderType === 'admin' ? 'Support Team' : 'You'}</span>
-                      <span className="text-xs text-muted-foreground">{format(new Date(msg.createdAt), 'MMM d, h:mm a')}</span>
+          {visibleMessages.map((msg: any) => {
+            const style = getMessageStyle(msg);
+            return (
+              <Card key={msg.id} className={style.cardClass}>
+                <CardContent className="p-6">
+                  <div className="flex gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${style.iconBg}`}>
+                      {style.icon}
                     </div>
-                    <div className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
-                      {msg.body}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-bold text-foreground capitalize">{style.label}</span>
+                        <span className="text-xs text-muted-foreground">{format(new Date(msg.createdAt), 'MMM d, h:mm a')}</span>
+                      </div>
+                      <div className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
+                        {msg.body}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {ticket.status !== 'closed' && (
+        {isResolved && (
+          <SatisfactionSurvey ticketId={ticketId} />
+        )}
+
+        {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
           <Card className="mt-8 overflow-hidden border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
             <textarea 
               value={reply}
