@@ -168,6 +168,35 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET /admin/product-mappings` — List ThriveCart product ID mappings (admin-only)
 - `PUT /admin/product-mappings/:id` — Update ThriveCart product ID mapping (admin-only)
 
+### Community System
+
+The portal includes a community discussion feature gated behind the `community:access` entitlement (mentorship-tier products). Built with categorized posts, threaded comments (one-level replies), fire reactions, badges, member directory, and notifications.
+
+**Database Tables:**
+- `community_categories` — Categorized feeds (Wins, Questions, Strategies, Introductions, Accountability, Resources, Off-Topic)
+- `community_posts` — User posts with soft delete, pinning, denormalized counters
+- `community_comments` — Comments with optional one-level replies (`parent_id`)
+- `community_reactions` — Fire reactions (toggle) on posts or comments
+- `community_badges` — User badges (newcomer, contributor, first_win, mentor, streak)
+- `community_notifications` — Notifications for comments, replies, reactions, @mentions
+- `users.community_bio` — Optional 200-char bio column
+
+**Community API Routes (all under `/api/community`):**
+- `GET /categories` — Active categories with post counts
+- `GET/POST /posts` — Paginated feed (pinned first) + create post
+- `PATCH/DELETE /posts/:postId` — Edit (15-min window) / soft delete
+- `GET/POST /posts/:postId/comments` — List + create (with optional `parentId`)
+- `PATCH/DELETE /comments/:commentId` — Edit (5-min window) / soft delete
+- `POST /reactions` — Toggle fire reaction (post or comment)
+- `GET /members` — Paginated directory (search, filter by badge, sort by activity/newest/alpha)
+- `GET /members/:userId` — Profile with badges, activity stats, recent posts
+- `GET /notifications` — Paginated with unread count
+- `PATCH /notifications/:id/read` — Mark single as read
+- `POST /notifications/read-all` — Mark all as read
+
+**Rate Limits:** 10 posts/day, 30 comments/day per user.
+**Validation:** Post content 10-5000 chars, comment max 2000 chars.
+
 ### Seed Data
 Demo users (all password: Demo1234):
 - Marcus Johnson (marcus@example.com) — Backroad System + 6-Month Mentorship, 12/25 lessons, 5-day streak

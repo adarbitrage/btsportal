@@ -26,6 +26,7 @@ export const usersTable = pgTable("users", {
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   failedLoginCount: integer("failed_login_count").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  communityBio: text("community_bio"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

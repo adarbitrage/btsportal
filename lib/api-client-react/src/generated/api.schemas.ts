@@ -369,6 +369,222 @@ export interface SignDocumentResponse {
   signedAt: string;
 }
 
+export interface SuccessResponse {
+  success: boolean;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CommunityCategory {
+  id: number;
+  name: string;
+  slug: string;
+  /** @nullable */
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  postsCount: number;
+  createdAt: string;
+}
+
+export interface CommunityPostItem {
+  id: number;
+  authorId: number;
+  authorName: string;
+  categoryId: number;
+  categoryName: string;
+  categorySlug: string;
+  content: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  isPinned: boolean;
+  commentCount: number;
+  reactionCount: number;
+  hasReacted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityPostFeed {
+  posts: CommunityPostItem[];
+  pagination: Pagination;
+}
+
+export interface CommunityPostRaw {
+  id: number;
+  authorId: number;
+  categoryId: number;
+  content: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  isPinned: boolean;
+  isDeleted: boolean;
+  commentCount: number;
+  reactionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommunityPost {
+  /**
+   * @minLength 10
+   * @maxLength 5000
+   */
+  content: string;
+  categoryId: number;
+  imageUrl?: string;
+}
+
+export interface EditCommunityPost {
+  /**
+   * @minLength 10
+   * @maxLength 5000
+   */
+  content: string;
+}
+
+export interface CommunityCommentItem {
+  id: number;
+  postId: number;
+  authorId: number;
+  authorName: string;
+  /** @nullable */
+  parentId?: number | null;
+  content: string;
+  reactionCount: number;
+  hasReacted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityCommentRaw {
+  id: number;
+  postId: number;
+  authorId: number;
+  /** @nullable */
+  parentId?: number | null;
+  content: string;
+  isDeleted: boolean;
+  reactionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommunityComment {
+  /** @maxLength 2000 */
+  content: string;
+  parentId?: number;
+}
+
+export interface EditCommunityComment {
+  /** @maxLength 2000 */
+  content: string;
+}
+
+export interface ToggleCommunityReaction {
+  postId?: number;
+  commentId?: number;
+}
+
+export type ReactionToggleResultToggled =
+  (typeof ReactionToggleResultToggled)[keyof typeof ReactionToggleResultToggled];
+
+export const ReactionToggleResultToggled = {
+  added: "added",
+  removed: "removed",
+} as const;
+
+export interface ReactionToggleResult {
+  toggled: ReactionToggleResultToggled;
+  reactionCount: number;
+}
+
+export interface CommunityMemberItem {
+  id: number;
+  name: string;
+  /** @nullable */
+  communityBio?: string | null;
+  memberSince: string;
+  currentStreak: number;
+  badges: string[];
+}
+
+export interface CommunityMemberList {
+  members: CommunityMemberItem[];
+  pagination: Pagination;
+}
+
+export interface CommunityActivityStats {
+  postsCount: number;
+  commentsCount: number;
+  reactionsCount: number;
+}
+
+export interface CommunityBadge {
+  badgeType: string;
+  awardedAt: string;
+}
+
+export interface CommunityMemberRecentPost {
+  id: number;
+  content: string;
+  categoryName: string;
+  commentCount: number;
+  reactionCount: number;
+  createdAt: string;
+}
+
+export interface CommunityMemberProfile {
+  id: number;
+  name: string;
+  /** @nullable */
+  communityBio?: string | null;
+  memberSince: string;
+  currentStreak: number;
+  badges: CommunityBadge[];
+  activityStats: CommunityActivityStats;
+  recentPosts: CommunityMemberRecentPost[];
+  tier: string;
+  tierSlug: string;
+}
+
+export type CommunityNotificationItemType =
+  (typeof CommunityNotificationItemType)[keyof typeof CommunityNotificationItemType];
+
+export const CommunityNotificationItemType = {
+  comment: "comment",
+  reply: "reply",
+  reaction: "reaction",
+  mention: "mention",
+} as const;
+
+export interface CommunityNotificationItem {
+  id: number;
+  /** @nullable */
+  actorId?: number | null;
+  /** @nullable */
+  actorName?: string | null;
+  type: CommunityNotificationItemType;
+  /** @nullable */
+  postId?: number | null;
+  /** @nullable */
+  commentId?: number | null;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface CommunityNotificationList {
+  notifications: CommunityNotificationItem[];
+  unreadCount: number;
+  pagination: Pagination;
+}
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -393,5 +609,33 @@ export const ListTicketsStatus = {
 } as const;
 
 export type ListAnnouncementsParams = {
+  limit?: number;
+};
+
+export type ListCommunityPostsParams = {
+  page?: number;
+  limit?: number;
+  categoryId?: number;
+};
+
+export type ListCommunityMembersParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  badge?: string;
+  sort?: ListCommunityMembersSort;
+};
+
+export type ListCommunityMembersSort =
+  (typeof ListCommunityMembersSort)[keyof typeof ListCommunityMembersSort];
+
+export const ListCommunityMembersSort = {
+  newest: "newest",
+  activity: "activity",
+  alpha: "alpha",
+} as const;
+
+export type ListCommunityNotificationsParams = {
+  page?: number;
   limit?: number;
 };

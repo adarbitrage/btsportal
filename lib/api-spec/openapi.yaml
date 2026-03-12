@@ -21,6 +21,13 @@ tags:
   - name: coaches
   - name: tickets
   - name: announcements
+  - name: community
+  - name: community-categories
+  - name: community-posts
+  - name: community-comments
+  - name: community-reactions
+  - name: community-members
+  - name: community-notifications
 paths:
   /healthz:
     get:
@@ -422,6 +429,321 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Announcement"
+
+  /community/categories:
+    get:
+      operationId: listCommunityCategories
+      tags: [community-categories]
+      summary: List active community categories with post counts
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunityCategory"
+
+  /community/posts:
+    get:
+      operationId: listCommunityPosts
+      tags: [community-posts]
+      summary: Paginated community feed with category filter
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated post feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityPostFeed"
+    post:
+      operationId: createCommunityPost
+      tags: [community-posts]
+      summary: Create a new community post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommunityPost"
+      responses:
+        "201":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityPostRaw"
+
+  /community/posts/{postId}:
+    patch:
+      operationId: editCommunityPost
+      tags: [community-posts]
+      summary: Edit a post within 15 minutes of creation
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditCommunityPost"
+      responses:
+        "200":
+          description: Post updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityPostRaw"
+    delete:
+      operationId: deleteCommunityPost
+      tags: [community-posts]
+      summary: Soft delete a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /community/posts/{postId}/comments:
+    get:
+      operationId: listCommunityComments
+      tags: [community-comments]
+      summary: List comments for a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunityCommentItem"
+    post:
+      operationId: createCommunityComment
+      tags: [community-comments]
+      summary: Create a comment on a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommunityComment"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityCommentRaw"
+
+  /community/comments/{commentId}:
+    patch:
+      operationId: editCommunityComment
+      tags: [community-comments]
+      summary: Edit a comment within 5 minutes of creation
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditCommunityComment"
+      responses:
+        "200":
+          description: Comment updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityCommentRaw"
+    delete:
+      operationId: deleteCommunityComment
+      tags: [community-comments]
+      summary: Soft delete a comment
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Comment deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /community/reactions:
+    post:
+      operationId: toggleCommunityReaction
+      tags: [community-reactions]
+      summary: Toggle fire reaction on a post or comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleCommunityReaction"
+      responses:
+        "200":
+          description: Reaction toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionToggleResult"
+
+  /community/members:
+    get:
+      operationId: listCommunityMembers
+      tags: [community-members]
+      summary: Paginated member directory
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: badge
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, activity, alpha]
+      responses:
+        "200":
+          description: Paginated member list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityMemberList"
+
+  /community/members/{userId}:
+    get:
+      operationId: getCommunityMemberProfile
+      tags: [community-members]
+      summary: Get member profile with bio, badges, activity stats
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityMemberProfile"
+        "404":
+          description: Not found
+
+  /community/notifications:
+    get:
+      operationId: listCommunityNotifications
+      tags: [community-notifications]
+      summary: List notifications with unread count
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityNotificationList"
+
+  /community/notifications/{id}/read:
+    patch:
+      operationId: markCommunityNotificationRead
+      tags: [community-notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /community/notifications/read-all:
+    post:
+      operationId: markAllCommunityNotificationsRead
+      tags: [community-notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
 
 components:
   schemas:
@@ -1008,3 +1330,368 @@ components:
         signedAt:
           type: string
       required: [id, documentType, signedAt]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required: [page, limit, total, totalPages]
+
+    CommunityCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        postsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, sortOrder, isActive, postsCount, createdAt]
+
+    CommunityPostItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        categorySlug:
+          type: string
+        content:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        isPinned:
+          type: boolean
+        commentCount:
+          type: integer
+        reactionCount:
+          type: integer
+        hasReacted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, authorId, authorName, categoryId, categoryName, categorySlug, content, isPinned, commentCount, reactionCount, hasReacted, createdAt, updatedAt]
+
+    CommunityPostFeed:
+      type: object
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityPostItem"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [posts, pagination]
+
+    CommunityPostRaw:
+      type: object
+      properties:
+        id:
+          type: integer
+        authorId:
+          type: integer
+        categoryId:
+          type: integer
+        content:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        isPinned:
+          type: boolean
+        isDeleted:
+          type: boolean
+        commentCount:
+          type: integer
+        reactionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, authorId, categoryId, content, isPinned, isDeleted, commentCount, reactionCount, createdAt, updatedAt]
+
+    CreateCommunityPost:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 10
+          maxLength: 5000
+        categoryId:
+          type: integer
+        imageUrl:
+          type: string
+      required: [content, categoryId]
+
+    EditCommunityPost:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 10
+          maxLength: 5000
+      required: [content]
+
+    CommunityCommentItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        parentId:
+          type: ["integer", "null"]
+        content:
+          type: string
+        reactionCount:
+          type: integer
+        hasReacted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, postId, authorId, authorName, content, reactionCount, hasReacted, createdAt, updatedAt]
+
+    CommunityCommentRaw:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        authorId:
+          type: integer
+        parentId:
+          type: ["integer", "null"]
+        content:
+          type: string
+        isDeleted:
+          type: boolean
+        reactionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, postId, authorId, content, isDeleted, reactionCount, createdAt, updatedAt]
+
+    CreateCommunityComment:
+      type: object
+      properties:
+        content:
+          type: string
+          maxLength: 2000
+        parentId:
+          type: integer
+      required: [content]
+
+    EditCommunityComment:
+      type: object
+      properties:
+        content:
+          type: string
+          maxLength: 2000
+      required: [content]
+
+    ToggleCommunityReaction:
+      type: object
+      properties:
+        postId:
+          type: integer
+        commentId:
+          type: integer
+
+    ReactionToggleResult:
+      type: object
+      properties:
+        toggled:
+          type: string
+          enum: [added, removed]
+        reactionCount:
+          type: integer
+      required: [toggled, reactionCount]
+
+    CommunityMemberItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        communityBio:
+          type: ["string", "null"]
+        memberSince:
+          type: string
+          format: date-time
+        currentStreak:
+          type: integer
+        badges:
+          type: array
+          items:
+            type: string
+      required: [id, name, memberSince, currentStreak, badges]
+
+    CommunityMemberList:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityMemberItem"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [members, pagination]
+
+    CommunityActivityStats:
+      type: object
+      properties:
+        postsCount:
+          type: integer
+        commentsCount:
+          type: integer
+        reactionsCount:
+          type: integer
+      required: [postsCount, commentsCount, reactionsCount]
+
+    CommunityBadge:
+      type: object
+      properties:
+        badgeType:
+          type: string
+        awardedAt:
+          type: string
+          format: date-time
+      required: [badgeType, awardedAt]
+
+    CommunityMemberRecentPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        categoryName:
+          type: string
+        commentCount:
+          type: integer
+        reactionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, content, categoryName, commentCount, reactionCount, createdAt]
+
+    CommunityMemberProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        communityBio:
+          type: ["string", "null"]
+        memberSince:
+          type: string
+          format: date-time
+        currentStreak:
+          type: integer
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityBadge"
+        activityStats:
+          $ref: "#/components/schemas/CommunityActivityStats"
+        recentPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityMemberRecentPost"
+        tier:
+          type: string
+        tierSlug:
+          type: string
+      required: [id, name, memberSince, currentStreak, badges, activityStats, recentPosts, tier, tierSlug]
+
+    CommunityNotificationItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        actorId:
+          type: ["integer", "null"]
+        actorName:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [comment, reply, reaction, mention]
+        postId:
+          type: ["integer", "null"]
+        commentId:
+          type: ["integer", "null"]
+        message:
+          type: string
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, message, isRead, createdAt]
+
+    CommunityNotificationList:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityNotificationItem"
+        unreadCount:
+          type: integer
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [notifications, unreadCount, pagination]

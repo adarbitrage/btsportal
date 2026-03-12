@@ -15,3 +15,4 @@ export * from "./announcements";
 export * from "./webhook-logs";
 export * from "./legal-documents";
 export * from "./signed-documents";
+export * from "./community";

@@ -15,6 +15,7 @@ import adminWebhooksRouter from "./admin-webhooks";
 import adminExpirationRouter from "./admin-expiration";
 import onboardingRouter from "./onboarding";
 import documentsRouter from "./documents";
+import communityRouter from "./community";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(adminWebhooksRouter);
 router.use(adminExpirationRouter);
 router.use(onboardingRouter);
 router.use(documentsRouter);
+router.use(communityRouter);
 
 export default router;

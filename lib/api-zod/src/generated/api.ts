@@ -462,3 +462,316 @@ export const ListAnnouncementsResponseItem = zod.object({
 export const ListAnnouncementsResponse = zod.array(
   ListAnnouncementsResponseItem,
 );
+
+/**
+ * @summary List active community categories with post counts
+ */
+export const ListCommunityCategoriesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  postsCount: zod.number(),
+  createdAt: zod.date(),
+});
+export const ListCommunityCategoriesResponse = zod.array(
+  ListCommunityCategoriesResponseItem,
+);
+
+/**
+ * @summary Paginated community feed with category filter
+ */
+export const ListCommunityPostsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  categoryId: zod.coerce.number().optional(),
+});
+
+export const ListCommunityPostsResponse = zod.object({
+  posts: zod.array(
+    zod.object({
+      id: zod.number(),
+      authorId: zod.number(),
+      authorName: zod.string(),
+      categoryId: zod.number(),
+      categoryName: zod.string(),
+      categorySlug: zod.string(),
+      content: zod.string(),
+      imageUrl: zod.string().nullish(),
+      isPinned: zod.boolean(),
+      commentCount: zod.number(),
+      reactionCount: zod.number(),
+      hasReacted: zod.boolean(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a new community post
+ */
+export const createCommunityPostBodyContentMin = 10;
+export const createCommunityPostBodyContentMax = 5000;
+
+export const CreateCommunityPostBody = zod.object({
+  content: zod
+    .string()
+    .min(createCommunityPostBodyContentMin)
+    .max(createCommunityPostBodyContentMax),
+  categoryId: zod.number(),
+  imageUrl: zod.string().optional(),
+});
+
+/**
+ * @summary Edit a post within 15 minutes of creation
+ */
+export const EditCommunityPostParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const editCommunityPostBodyContentMin = 10;
+export const editCommunityPostBodyContentMax = 5000;
+
+export const EditCommunityPostBody = zod.object({
+  content: zod
+    .string()
+    .min(editCommunityPostBodyContentMin)
+    .max(editCommunityPostBodyContentMax),
+});
+
+export const EditCommunityPostResponse = zod.object({
+  id: zod.number(),
+  authorId: zod.number(),
+  categoryId: zod.number(),
+  content: zod.string(),
+  imageUrl: zod.string().nullish(),
+  isPinned: zod.boolean(),
+  isDeleted: zod.boolean(),
+  commentCount: zod.number(),
+  reactionCount: zod.number(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Soft delete a post
+ */
+export const DeleteCommunityPostParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const DeleteCommunityPostResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List comments for a post
+ */
+export const ListCommunityCommentsParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const ListCommunityCommentsResponseItem = zod.object({
+  id: zod.number(),
+  postId: zod.number(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  parentId: zod.number().nullish(),
+  content: zod.string(),
+  reactionCount: zod.number(),
+  hasReacted: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListCommunityCommentsResponse = zod.array(
+  ListCommunityCommentsResponseItem,
+);
+
+/**
+ * @summary Create a comment on a post
+ */
+export const CreateCommunityCommentParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const createCommunityCommentBodyContentMax = 2000;
+
+export const CreateCommunityCommentBody = zod.object({
+  content: zod.string().max(createCommunityCommentBodyContentMax),
+  parentId: zod.number().optional(),
+});
+
+/**
+ * @summary Edit a comment within 5 minutes of creation
+ */
+export const EditCommunityCommentParams = zod.object({
+  commentId: zod.coerce.number(),
+});
+
+export const editCommunityCommentBodyContentMax = 2000;
+
+export const EditCommunityCommentBody = zod.object({
+  content: zod.string().max(editCommunityCommentBodyContentMax),
+});
+
+export const EditCommunityCommentResponse = zod.object({
+  id: zod.number(),
+  postId: zod.number(),
+  authorId: zod.number(),
+  parentId: zod.number().nullish(),
+  content: zod.string(),
+  isDeleted: zod.boolean(),
+  reactionCount: zod.number(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Soft delete a comment
+ */
+export const DeleteCommunityCommentParams = zod.object({
+  commentId: zod.coerce.number(),
+});
+
+export const DeleteCommunityCommentResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Toggle fire reaction on a post or comment
+ */
+export const ToggleCommunityReactionBody = zod.object({
+  postId: zod.number().optional(),
+  commentId: zod.number().optional(),
+});
+
+export const ToggleCommunityReactionResponse = zod.object({
+  toggled: zod.enum(["added", "removed"]),
+  reactionCount: zod.number(),
+});
+
+/**
+ * @summary Paginated member directory
+ */
+export const ListCommunityMembersQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+  badge: zod.coerce.string().optional(),
+  sort: zod.enum(["newest", "activity", "alpha"]).optional(),
+});
+
+export const ListCommunityMembersResponse = zod.object({
+  members: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      communityBio: zod.string().nullish(),
+      memberSince: zod.date(),
+      currentStreak: zod.number(),
+      badges: zod.array(zod.string()),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get member profile with bio, badges, activity stats
+ */
+export const GetCommunityMemberProfileParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetCommunityMemberProfileResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  communityBio: zod.string().nullish(),
+  memberSince: zod.date(),
+  currentStreak: zod.number(),
+  badges: zod.array(
+    zod.object({
+      badgeType: zod.string(),
+      awardedAt: zod.date(),
+    }),
+  ),
+  activityStats: zod.object({
+    postsCount: zod.number(),
+    commentsCount: zod.number(),
+    reactionsCount: zod.number(),
+  }),
+  recentPosts: zod.array(
+    zod.object({
+      id: zod.number(),
+      content: zod.string(),
+      categoryName: zod.string(),
+      commentCount: zod.number(),
+      reactionCount: zod.number(),
+      createdAt: zod.date(),
+    }),
+  ),
+  tier: zod.string(),
+  tierSlug: zod.string(),
+});
+
+/**
+ * @summary List notifications with unread count
+ */
+export const ListCommunityNotificationsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListCommunityNotificationsResponse = zod.object({
+  notifications: zod.array(
+    zod.object({
+      id: zod.number(),
+      actorId: zod.number().nullish(),
+      actorName: zod.string().nullish(),
+      type: zod.enum(["comment", "reply", "reaction", "mention"]),
+      postId: zod.number().nullish(),
+      commentId: zod.number().nullish(),
+      message: zod.string(),
+      isRead: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+  unreadCount: zod.number(),
+  pagination: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Mark a notification as read
+ */
+export const MarkCommunityNotificationReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkCommunityNotificationReadResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllCommunityNotificationsReadResponse = zod.object({
+  success: zod.boolean(),
+});
