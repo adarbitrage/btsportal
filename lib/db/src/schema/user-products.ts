@@ -12,6 +12,9 @@ export const userProductsTable = pgTable("user_products", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   status: text("status").notNull().default("active"),
   thrivecartOrderId: text("thrivecart_order_id"),
+  thrivecartSubId: text("thrivecart_sub_id"),
+  graceExpiresAt: timestamp("grace_expires_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

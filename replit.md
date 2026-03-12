@@ -117,6 +117,7 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `tickets` — Support tickets
 - `ticket_messages` — Message threads on tickets
 - `announcements` — Portal announcements
+- `webhook_logs` — ThriveCart webhook event log with payload, status, and idempotency tracking
 - `tiers` — Legacy tier definitions (kept for backward compat)
 
 ### API Routes (all under `/api`)
@@ -136,6 +137,15 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `GET /tickets/:id` — Ticket with message thread
 - `POST /tickets/:id/messages` — Add message to ticket
 - `GET /announcements` — List announcements
+- `POST /webhooks/thrivecart` — ThriveCart webhook receiver (public, signature-verified)
+- `POST /dev/simulate-purchase` — Dev-only simulated purchase (disabled in production)
+- `POST /dev/simulate-refund` — Dev-only simulated refund (disabled in production)
+- `POST /dev/simulate-cancellation` — Dev-only simulated cancellation (disabled in production)
+- `POST /admin/run-expiration-check` — Nightly expiration check for time-limited products (admin-only)
+- `GET /admin/webhook-logs` — List/filter webhook logs (admin-only)
+- `GET /admin/webhook-logs/:id` — Single webhook log with full payload (admin-only)
+- `GET /admin/product-mappings` — List ThriveCart product ID mappings (admin-only)
+- `PUT /admin/product-mappings/:id` — Update ThriveCart product ID mapping (admin-only)
 
 ### Seed Data
 Demo users (all password: Demo1234):

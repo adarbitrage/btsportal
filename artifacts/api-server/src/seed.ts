@@ -3,7 +3,7 @@ import {
   productsTable, entitlementsTable, userProductsTable,
   usersTable, tracksTable, modulesTable, lessonsTable, progressTable,
   coachesTable, coachingCallsTable, ticketsTable, ticketMessagesTable, announcementsTable,
-  sessionsTable
+  sessionsTable, webhookLogsTable
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -11,7 +11,7 @@ import bcrypt from "bcryptjs";
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE TABLE sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE webhook_logs, sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
 
   const entitlementData = [
     { key: "content:frontend", description: "Foundational video + text training modules", category: "content" },

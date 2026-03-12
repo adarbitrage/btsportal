@@ -12,3 +12,4 @@ export * from "./coaches";
 export * from "./coaching-calls";
 export * from "./tickets";
 export * from "./announcements";
+export * from "./webhook-logs";

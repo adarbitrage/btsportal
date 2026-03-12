@@ -9,6 +9,10 @@ import progressRouter from "./progress";
 import coachingRouter from "./coaching";
 import ticketsRouter from "./tickets";
 import announcementsRouter from "./announcements";
+import webhooksRouter from "./webhooks";
+import devSimulateRouter from "./dev-simulate";
+import adminWebhooksRouter from "./admin-webhooks";
+import adminExpirationRouter from "./admin-expiration";
 
 const router: IRouter = Router();
 
@@ -22,5 +26,9 @@ router.use(progressRouter);
 router.use(coachingRouter);
 router.use(ticketsRouter);
 router.use(announcementsRouter);
+router.use(webhooksRouter);
+router.use(devSimulateRouter);
+router.use(adminWebhooksRouter);
+router.use(adminExpirationRouter);
 
 export default router;
