@@ -34,6 +34,9 @@ import commissionsRouter from "./commissions";
 import adminCommissionsRouter from "./admin-commissions";
 import adminApiKeysRouter from "./admin-api-keys";
 import v1HealthRouter from "./v1-health";
+import winsRouter from "./wins";
+import adminWinsRouter from "./admin-wins";
+import marketingRouter from "./marketing";
 
 const router: IRouter = Router();
 
@@ -72,5 +75,8 @@ router.use(storageRouter);
 router.use(commissionsRouter);
 router.use(adminCommissionsRouter);
 router.use(adminApiKeysRouter);
+router.use(winsRouter);
+router.use(adminWinsRouter);
+router.use(marketingRouter);
 
 export default router;

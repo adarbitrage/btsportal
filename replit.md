@@ -244,6 +244,8 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `community_reactions` — User reactions (fire type) on posts/comments
 - `community_badges` — Achievement badges (newcomer, contributor, mentor, streak, first_win)
 - `community_notifications` — In-app notification system for mentions, comments, reactions
+- `win_milestones` — Pre-defined milestone types for win tracking (21 default: revenue, campaign, skill, lifestyle, custom categories) with slug, icon, category, sort_order, xp_reward
+- `wins` — Member win submissions linked to milestones, with proof images, revenue metrics, community sharing, testimonial pipeline fields (requested/text/approved), curation status (published/featured/hidden/draft), and community post cross-reference
 
 ### Onboarding Flow
 

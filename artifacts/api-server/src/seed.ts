@@ -12,6 +12,7 @@ import {
   affiliateProfilesTable, commissionRatesTable, referralLinksTable, referralClicksTable,
   commissionsTable, commissionPayoutsTable, affiliateResourcesTable,
   sequencesTable, sequenceStepsTable,
+  winMilestonesTable, winsTable,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -779,6 +780,163 @@ async function seed() {
     },
   ]);
   console.log("  Affiliate resources: 10 resources (3 email swipes, 3 social templates, 4 banners)");
+
+  console.log("Seeding win milestones...");
+  const milestoneData = [
+    { slug: "first-sale", name: "First Sale", description: "Made your first affiliate sale", icon: "💰", category: "revenue", sortOrder: 1, xpReward: 100 },
+    { slug: "first-profitable-day", name: "First Profitable Day", description: "First day with positive ROI", icon: "📈", category: "revenue", sortOrder: 2, xpReward: 150 },
+    { slug: "first-100-day", name: "First $100 Day", description: "Earned $100+ in a single day", icon: "💵", category: "revenue", sortOrder: 3, xpReward: 200 },
+    { slug: "first-500-day", name: "First $500 Day", description: "Earned $500+ in a single day", icon: "🔥", category: "revenue", sortOrder: 4, xpReward: 300 },
+    { slug: "first-1k-day", name: "First $1K Day", description: "Earned $1,000+ in a single day", icon: "🚀", category: "revenue", sortOrder: 5, xpReward: 500 },
+    { slug: "first-5k-day", name: "First $5K Day", description: "Earned $5,000+ in a single day", icon: "⭐", category: "revenue", sortOrder: 6, xpReward: 750 },
+    { slug: "first-10k-day", name: "First $10K Day", description: "Earned $10,000+ in a single day", icon: "👑", category: "revenue", sortOrder: 7, xpReward: 1000 },
+    { slug: "first-10k-month", name: "First $10K Month", description: "Earned $10,000+ in a calendar month", icon: "🏆", category: "revenue", sortOrder: 8, xpReward: 1200 },
+    { slug: "first-50k-month", name: "First $50K Month", description: "Earned $50,000+ in a calendar month", icon: "💎", category: "revenue", sortOrder: 9, xpReward: 2000 },
+    { slug: "first-100k-month", name: "First $100K Month", description: "Earned $100,000+ in a calendar month", icon: "🌟", category: "revenue", sortOrder: 10, xpReward: 5000 },
+    { slug: "first-campaign-launched", name: "First Campaign Launched", description: "Launched your first paid campaign", icon: "🎯", category: "campaign", sortOrder: 11, xpReward: 100 },
+    { slug: "first-winning-campaign", name: "First Winning Campaign", description: "First campaign with positive ROI after 7+ days", icon: "✅", category: "campaign", sortOrder: 12, xpReward: 250 },
+    { slug: "first-scaled-campaign", name: "First Scaled Campaign", description: "First campaign scaled past $100/day profitably", icon: "📊", category: "campaign", sortOrder: 13, xpReward: 400 },
+    { slug: "10-campaigns-launched", name: "10 Campaigns Launched", description: "Launched 10 total campaigns", icon: "🔟", category: "campaign", sortOrder: 14, xpReward: 300 },
+    { slug: "training-complete", name: "Training Complete", description: "Completed all foundational training modules", icon: "🎓", category: "skill", sortOrder: 15, xpReward: 500 },
+    { slug: "advanced-training-complete", name: "Advanced Training Complete", description: "Completed all advanced training", icon: "🧠", category: "skill", sortOrder: 16, xpReward: 750 },
+    { slug: "first-advertorial-written", name: "First Advertorial Written", description: "Wrote your first advertorial", icon: "✍️", category: "skill", sortOrder: 17, xpReward: 150 },
+    { slug: "first-split-test-run", name: "First Split Test Run", description: "Ran your first headline or creative split test", icon: "🧪", category: "skill", sortOrder: 18, xpReward: 150 },
+    { slug: "quit-day-job", name: "Quit My Day Job", description: "Left full-time employment to do affiliate marketing", icon: "🎉", category: "lifestyle", sortOrder: 19, xpReward: 2000 },
+    { slug: "first-vacation-from-earnings", name: "First Vacation From Earnings", description: "Took a trip funded entirely by affiliate income", icon: "✈️", category: "lifestyle", sortOrder: 20, xpReward: 1000 },
+    { slug: "custom-win", name: "Custom Win", description: "Something awesome that doesn't fit a category", icon: "🏅", category: "custom", sortOrder: 21, xpReward: 50 },
+  ];
+  const insertedMilestones = await db.insert(winMilestonesTable).values(milestoneData).returning();
+  const milestonesBySlug: Record<string, number> = {};
+  for (const m of insertedMilestones) {
+    milestonesBySlug[m.slug] = m.id;
+  }
+  console.log(`  Win milestones: ${insertedMilestones.length} milestones seeded`);
+
+  const winsCategory = await db
+    .select({ id: communityCategoriesTable.id })
+    .from(communityCategoriesTable)
+    .where(sql`${communityCategoriesTable.slug} = 'wins'`)
+    .limit(1);
+  const winsCategoryId = winsCategory[0]?.id;
+
+  const winSeedData = [
+    {
+      userId: marcus.id,
+      milestoneId: milestonesBySlug["first-sale"],
+      title: "Got my first affiliate sale!",
+      description: "After 2 weeks of testing different approaches from Module 2, I finally got my first sale in the health niche. It was only $45 but it proves the system works!",
+      revenueAmount: "45.00",
+      winDate: "2026-02-10",
+      status: "published",
+      proofVerified: true,
+      shareToCommunity: true,
+      allowTestimonial: true,
+      allowPublicName: true,
+    },
+    {
+      userId: marcus.id,
+      milestoneId: milestonesBySlug["first-profitable-day"],
+      title: "First profitable day - small but real!",
+      description: "Small profit but it proves the model works. Spent $50 on ads and made $73.40 in commissions. The Module 4 headline testing framework is a game changer.",
+      revenueAmount: "23.40",
+      winDate: "2026-02-28",
+      status: "published",
+      proofVerified: true,
+      shareToCommunity: true,
+      allowTestimonial: true,
+      allowPublicName: true,
+    },
+    {
+      userId: marcus.id,
+      milestoneId: milestonesBySlug["first-100-day"],
+      title: "Hit my first $100 day!",
+      description: "After 3 weeks of testing headlines using the Module 4 framework, I finally cracked the code in the health niche. Started with $50/day budget and scaled to $200/day. The key was the split testing approach from the advanced training.",
+      revenueAmount: "147.50",
+      winDate: "2026-03-15",
+      status: "featured",
+      featuredAt: new Date("2026-03-16T10:00:00Z"),
+      proofVerified: true,
+      shareToCommunity: true,
+      allowTestimonial: true,
+      allowPublicName: true,
+      testimonialRequested: true,
+      testimonialText: "BTS completely changed my approach to affiliate marketing. The headline testing framework from Module 4 took me from break-even to my first $100 day in just 3 weeks.",
+      testimonialApproved: true,
+      testimonialApprovedAt: new Date("2026-03-17T14:00:00Z"),
+    },
+    {
+      userId: jake.id,
+      milestoneId: milestonesBySlug["first-1k-day"],
+      title: "First $1K day - mind blown! 🚀",
+      description: "Never thought I'd see this day. Scaled my winning campaign to $500/day spend and it returned $1,247.50 in commissions. The scaling strategies from Track 4 were exactly what I needed.",
+      revenueAmount: "1247.50",
+      winDate: "2026-03-10",
+      status: "featured",
+      featuredAt: new Date("2026-03-11T09:00:00Z"),
+      proofVerified: true,
+      shareToCommunity: true,
+      allowTestimonial: true,
+      allowPublicName: true,
+      testimonialRequested: true,
+      testimonialText: "The BTS scaling strategies are no joke. Went from struggling to break even to my first $1K day in under 4 months. The 1-on-1 coaching sessions were the difference maker.",
+      testimonialApproved: true,
+      testimonialApprovedAt: new Date("2026-03-12T11:00:00Z"),
+    },
+    {
+      userId: lisa.id,
+      milestoneId: milestonesBySlug["first-campaign-launched"],
+      title: "Just launched my first campaign!",
+      description: "Finally hit publish on my first Facebook Ads campaign promoting health supplements. Budget is $20/day. Nervous but excited! Following the Module 5 step-by-step guide made it feel manageable.",
+      winDate: "2026-03-01",
+      status: "published",
+      shareToCommunity: true,
+      allowTestimonial: false,
+      allowPublicName: false,
+    },
+    {
+      userId: jake.id,
+      milestoneId: milestonesBySlug["first-advertorial-written"],
+      title: "Wrote my first advertorial",
+      description: "Used the AIDA framework from the Advanced Copywriting module. Took me about 4 hours but I'm pretty happy with how it turned out. Already getting a 2.1% CTR on initial tests.",
+      metricLabel: "CTR",
+      metricValue: "2.1%",
+      winDate: "2026-01-15",
+      status: "published",
+      proofVerified: false,
+      shareToCommunity: true,
+      allowTestimonial: false,
+      allowPublicName: true,
+    },
+  ];
+
+  for (const winData of winSeedData) {
+    const [win] = await db.insert(winsTable).values(winData).returning();
+
+    if (winData.shareToCommunity && winsCategoryId && winData.status !== "draft") {
+      const milestone = insertedMilestones.find(m => m.id === winData.milestoneId);
+      const postContent = `🏆 **${milestone?.icon || "🏅"} ${milestone?.name}**\n\n**${winData.title}**\n\n${winData.description}${winData.revenueAmount ? `\n\nRevenue: $${Number(winData.revenueAmount).toLocaleString()}` : ""}`;
+
+      const [communityPost] = await db
+        .insert(communityPostsTable)
+        .values({
+          authorId: winData.userId,
+          categoryId: winsCategoryId,
+          content: postContent,
+        })
+        .returning();
+
+      await db
+        .update(winsTable)
+        .set({ communityPostId: communityPost.id })
+        .where(sql`${winsTable.id} = ${win.id}`);
+
+      await db
+        .update(communityCategoriesTable)
+        .set({ postsCount: sql`${communityCategoriesTable.postsCount} + 1` })
+        .where(sql`${communityCategoriesTable.id} = ${winsCategoryId}`);
+    }
+  }
+  console.log(`  Wins: ${winSeedData.length} sample wins seeded with community posts`);
 
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));
