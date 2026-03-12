@@ -8,6 +8,7 @@ import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
+import LessonView from "@/pages/LessonView";
 import Coaching from "@/pages/Coaching";
 import Support from "@/pages/Support";
 import TicketDetail from "@/pages/TicketDetail";
@@ -42,6 +43,8 @@ import SupportAnalytics from "@/pages/admin/SupportAnalytics";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
 import CommunityModeration from "@/pages/admin/CommunityModeration";
 import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
+import ContentTracks from "@/pages/admin/ContentTracks";
+import LessonEditor from "@/pages/admin/LessonEditor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,9 +205,9 @@ function OnboardingRoute({ component: Component, step }: { component: React.Comp
 
 function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
-  const [, navigate] = useLocation();
+  const { data: member, isLoading: memberLoading } = useGetCurrentMember();
 
-  if (loading) {
+  if (loading || memberLoading) {
     return (
       <div style={{
         minHeight: "100vh",
@@ -235,7 +238,7 @@ function AdminRoute({ component: Component }: { component: React.ComponentType<a
     return <Redirect to="/login" />;
   }
 
-  if (user.role !== "admin") {
+  if ((member as any)?.role !== "admin") {
     return <Redirect to="/" />;
   }
 
@@ -272,6 +275,9 @@ function Router() {
       <Route path="/">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
+      <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
+      <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} />}</Route>
+      <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} />}</Route>
       <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>

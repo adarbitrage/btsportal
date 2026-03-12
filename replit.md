@@ -139,6 +139,35 @@ The community frontend is a UI layer built for integration with community backen
 
 **Expected backend endpoints:** `GET/POST /community/posts`, `GET/POST /community/posts/:id/comments`, `POST /community/reactions`, `GET /community/categories`, `GET /community/members`, `GET /community/members/:id`, `GET /community/notifications`, `POST /community/notifications/read`
 
+### Admin Content Management
+Admin CMS pages for managing training content (tracks, modules, lessons):
+
+**Admin Pages:**
+- **Content Management** (`/admin/content/tracks`) — Tree view of all tracks with expandable modules/lessons, create/edit/archive/duplicate tracks, create/edit/delete/move modules, create lessons, bulk publish/move
+- **Lesson Editor** (`/admin/content/lessons/:id/edit`) — Full lesson editor with TipTap rich text, video embed preview (YouTube/Vimeo/Wistia), resource file upload, action items checklist editor, settings panel (status/sort/duration), autosave every 30s, version history panel, preview mode
+
+**Admin Components** (`artifacts/portal/src/components/admin/`):
+- `RichTextEditor.tsx` — TipTap editor with full toolbar (bold, italic, underline, strikethrough, headings H2-H4, lists, blockquote, code blocks, images, links, YouTube embeds, tables, callout boxes, horizontal rules, text alignment)
+- `VideoEmbed.tsx` — Parses YouTube/Vimeo/Wistia URLs and renders responsive 16:9 iframe embeds
+- `ResourceUpload.tsx` — Drag-and-drop file upload with file list, size/type display, remove/reorder
+- `ActionItemsEditor.tsx` — Add/remove/reorder checklist items
+- `VersionHistory.tsx` — Version list with preview and restore capabilities
+
+**Admin API Layer** (`artifacts/portal/src/lib/admin-api.ts`):
+Custom React Query hooks for admin content CRUD operations (tracks, modules, lessons, versions, bulk operations). Uses `/api/admin/content/*` endpoints.
+
+**Route Protection:**
+- `AdminRoute` component in `App.tsx` checks user's role === "admin"
+- Admin nav section in Sidebar only visible to admin role users
+
+**Member Lesson View** (`/training/lessons/:id`):
+- `LessonView.tsx` — Renders TipTap JSON content as styled HTML, responsive video embeds, downloadable resources with entitlement checks, action item checklists
+
+**Dependencies Added:**
+- TipTap packages (react, starter-kit, extensions for underline, link, image, table, code-block-lowlight, placeholder, text-align, youtube, horizontal-rule)
+- @dnd-kit (core, sortable, utilities)
+- lowlight
+
 ### Design
 - Primary brand color: BTS blue (#1a56db)
 - Background: warm off-white (#faf9f7)

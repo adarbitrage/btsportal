@@ -10,7 +10,7 @@ import {
   Users, 
   LogOut, 
   Settings, 
-  Activity,
+  Activity, 
   Shield, 
   FolderOpen, 
   Eye, 
@@ -20,7 +20,10 @@ import {
   MessageSquare,
   Users2,
   PieChart,
-  DollarSign
+  DollarSign,
+  Key,
+  Globe,
+  FileEdit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +56,12 @@ const adminGhlItems = [
   { href: "/admin/ghl", label: "GHL Sync", icon: Activity },
   { href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users },
   { href: "/admin/ghl/config", label: "GHL Config", icon: Settings },
+  { href: "/support/dashboard", label: "Support Dashboard", icon: Shield },
+  { href: "/settings/api-keys", label: "API Keys", icon: Key },
+];
+
+const adminNavItems: NavItem[] = [
+  { href: "/admin/content/tracks", label: "Content Management", icon: FileEdit },
 ];
 
 const adminTicketItems = [
@@ -133,7 +142,7 @@ export function Sidebar() {
           );
         })}
 
-        {isAdmin && (
+        {(member as any)?.role === "admin" && (
           <>
             <div className="mt-6 mb-2 px-3">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -142,7 +151,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminGhlItems, ...adminTicketItems, ...adminCommunityItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>
