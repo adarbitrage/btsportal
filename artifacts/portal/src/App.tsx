@@ -81,6 +81,12 @@ import CoachingOverrides from "@/pages/admin/CoachingOverrides";
 import CoachingSessions from "@/pages/admin/CoachingSessions";
 import CoachingNotes from "@/pages/admin/CoachingNotes";
 import CoachingAnalytics from "@/pages/admin/CoachingAnalytics";
+import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
+import CommunicationsSmsTemplates from "@/pages/admin/CommunicationsSmsTemplates";
+import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
+import CommunicationsBroadcasts from "@/pages/admin/CommunicationsBroadcasts";
+import CommunicationsLog from "@/pages/admin/CommunicationsLog";
+import CommunicationsAnalytics from "@/pages/admin/CommunicationsAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -375,6 +381,12 @@ function Router() {
       <Route path="/admin/coaching/sessions">{() => <AdminRoute component={CoachingSessions} />}</Route>
       <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} />}</Route>
       <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} />}</Route>
+      <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} />}</Route>
+      <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} />}</Route>
+      <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} />}</Route>
+      <Route path="/admin/communications/broadcasts">{() => <AdminRoute component={CommunicationsBroadcasts} />}</Route>
+      <Route path="/admin/communications/log">{() => <AdminRoute component={CommunicationsLog} />}</Route>
+      <Route path="/admin/communications/analytics">{() => <AdminRoute component={CommunicationsAnalytics} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

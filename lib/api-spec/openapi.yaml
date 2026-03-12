@@ -33,6 +33,7 @@ tags:
   - name: community-notifications
   - name: chat
   - name: admin-chat
+  - name: admin-communications
 paths:
   /healthz:
     get:
@@ -2643,6 +2644,18 @@ paths:
           required: true
           schema:
             type: integer
+  /admin/communications/email-templates:
+    get:
+      operationId: adminListEmailTemplates
+      tags: [admin-communications]
+      summary: List all email templates
+      responses:
+        "200":
+          description: List of email templates
+    post:
+      operationId: adminCreateEmailTemplate
+      tags: [admin-communications]
+      summary: Create email template
       requestBody:
         required: true
         content:
@@ -2664,6 +2677,31 @@ paths:
       summary: Update saved tool data
       parameters:
         - name: toolId
+              type: object
+      responses:
+        "201":
+          description: Template created
+
+  /admin/communications/email-templates/{id}:
+    get:
+      operationId: adminGetEmailTemplate
+      tags: [admin-communications]
+      summary: Get email template by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Email template
+    put:
+      operationId: adminUpdateEmailTemplate
+      tags: [admin-communications]
+      summary: Update email template (creates version)
+      parameters:
+        - name: id
           in: path
           required: true
           schema:
@@ -2692,6 +2730,16 @@ paths:
       summary: Delete saved tool data
       parameters:
         - name: toolId
+              type: object
+      responses:
+        "200":
+          description: Updated template
+    delete:
+      operationId: adminDeleteEmailTemplate
+      tags: [admin-communications]
+      summary: Delete email template
+      parameters:
+        - name: id
           in: path
           required: true
           schema:
@@ -2712,10 +2760,52 @@ paths:
       summary: Log a tool usage event
       parameters:
         - name: toolId
+      responses:
+        "200":
+          description: Template deleted
+
+  /admin/communications/email-templates/{id}/versions:
+    get:
+      operationId: adminGetTemplateVersions
+      tags: [admin-communications]
+      summary: List template versions (last 10)
+      parameters:
+        - name: id
           in: path
           required: true
           schema:
             type: integer
+      responses:
+        "200":
+          description: List of versions
+
+  /admin/communications/email-templates/{id}/preview:
+    post:
+      operationId: adminPreviewEmailTemplate
+      tags: [admin-communications]
+      summary: Preview template with sample data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rendered preview
+
+  /admin/communications/sms-templates:
+    get:
+      operationId: adminListSmsTemplates
+      tags: [admin-communications]
+      summary: List all SMS templates
+      responses:
+        "200":
+          description: List of SMS templates
+    post:
+      operationId: adminCreateSmsTemplate
+      tags: [admin-communications]
+      summary: Create SMS template
       requestBody:
         required: true
         content:
@@ -2739,6 +2829,23 @@ paths:
       operationId: generateHeadlines
       tags: [tools]
       summary: Generate headlines using AI
+              type: object
+      responses:
+        "201":
+          description: SMS template created
+
+  /admin/communications/sequences:
+    get:
+      operationId: adminListSequences
+      tags: [admin-communications]
+      summary: List all sequences with enrollment counts
+      responses:
+        "200":
+          description: List of sequences
+    post:
+      operationId: adminCreateSequence
+      tags: [admin-communications]
+      summary: Create a new sequence
       requestBody:
         required: true
         content:
@@ -2758,6 +2865,96 @@ paths:
       operationId: analyzeCampaign
       tags: [tools]
       summary: Get AI analysis of campaign numbers
+              type: object
+      responses:
+        "201":
+          description: Sequence created
+
+  /admin/communications/sequences/{id}:
+    get:
+      operationId: adminGetSequence
+      tags: [admin-communications]
+      summary: Get sequence with steps and enrollments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sequence with steps and enrollments
+    put:
+      operationId: adminUpdateSequence
+      tags: [admin-communications]
+      summary: Update sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated sequence
+
+  /admin/communications/sequences/{id}/pause:
+    patch:
+      operationId: adminPauseSequence
+      tags: [admin-communications]
+      summary: Pause a sequence globally
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sequence paused
+
+  /admin/communications/sequences/{id}/resume:
+    patch:
+      operationId: adminResumeSequence
+      tags: [admin-communications]
+      summary: Resume a paused sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sequence resumed
+
+  /admin/communications/sequences/{id}/enroll:
+    post:
+      operationId: adminEnrollUser
+      tags: [admin-communications]
+      summary: Manually enroll a user in sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: User enrolled
+
+  /admin/communications/broadcasts:
+    get:
+      operationId: adminListBroadcasts
+      tags: [admin-communications]
+      summary: List all broadcasts
+      responses:
+        "200":
+          description: List of broadcasts
+    post:
+      operationId: adminCreateBroadcast
+      tags: [admin-communications]
+      summary: Create a new broadcast
       requestBody:
         required: true
         content:
@@ -2771,6 +2968,139 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnalyzeCampaignResponse"
+              type: object
+      responses:
+        "201":
+          description: Broadcast created
+
+  /admin/communications/broadcasts/{id}/preview:
+    post:
+      operationId: adminPreviewBroadcast
+      tags: [admin-communications]
+      summary: Preview broadcast recipients
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Estimated count and sample recipients
+
+  /admin/communications/broadcasts/{id}/send:
+    post:
+      operationId: adminSendBroadcast
+      tags: [admin-communications]
+      summary: Send a broadcast (requires confirmation for 100+ recipients)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Broadcast sent or confirmation required
+
+  /admin/communications/broadcasts/{id}/duplicate:
+    post:
+      operationId: adminDuplicateBroadcast
+      tags: [admin-communications]
+      summary: Duplicate a broadcast as draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Duplicated broadcast
+
+  /admin/communications/log:
+    get:
+      operationId: adminGetCommunicationLog
+      tags: [admin-communications]
+      summary: Search and filter communication log
+      parameters:
+        - name: channel
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated communication log
+
+  /admin/communications/member/{userId}/history:
+    get:
+      operationId: adminGetMemberCommunicationHistory
+      tags: [admin-communications]
+      summary: Get communication history for a specific member
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member communication history
+
+  /admin/communications/bounces:
+    get:
+      operationId: adminGetBounces
+      tags: [admin-communications]
+      summary: List bounced emails
+      responses:
+        "200":
+          description: List of bounces
+
+  /admin/communications/bounces/{id}/unsuppress:
+    patch:
+      operationId: adminUnsuppressBounce
+      tags: [admin-communications]
+      summary: Manually unsuppress a bounced email
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bounce unsuppressed
+
+  /admin/communications/analytics:
+    get:
+      operationId: adminGetCommunicationAnalytics
+      tags: [admin-communications]
+      summary: Get communication analytics by period
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month]
+      responses:
+        "200":
+          description: Analytics data
 
   /coaching/one-on-one/status:
     get:

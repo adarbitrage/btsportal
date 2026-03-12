@@ -35,6 +35,7 @@ import commissionsRouter from "./commissions";
 import adminCommissionsRouter from "./admin-commissions";
 import adminApiKeysRouter from "./admin-api-keys";
 import adminRevenueRouter from "./admin-revenue";
+import adminCommunicationsRouter from "./admin-communications";
 import v1HealthRouter from "./v1-health";
 import winsRouter from "./wins";
 import adminWinsRouter from "./admin-wins";
@@ -94,5 +95,6 @@ router.use(adminOutgoingWebhooksRouter);
 router.use(vaultRouter);
 router.use(adminCoachingRouter);
 router.use(adminVaultRouter);
+router.use(adminCommunicationsRouter);
 
 export default router;

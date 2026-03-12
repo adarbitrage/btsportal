@@ -643,6 +643,38 @@ An "internal app store" gated by `software:base`/`software:expanded` entitlement
 
 **Dashboard Widget:** Shows recent tools with links to tool detail pages
 
+### Communications Admin Panel
+
+Admin-facing UI and API for managing email/SMS templates, sequences, broadcasts, communication logs, and analytics.
+
+**Admin routes file:** `artifacts/api-server/src/routes/admin-communications.ts`
+
+**Frontend pages:**
+- `artifacts/portal/src/pages/admin/CommunicationsTemplates.tsx` — Email template CRUD, versioning (last 10), HTML preview with sample data
+- `artifacts/portal/src/pages/admin/CommunicationsSmsTemplates.tsx` — SMS template CRUD
+- `artifacts/portal/src/pages/admin/CommunicationsSequences.tsx` — Sequence management: CRUD steps, enrollment, pause/resume
+- `artifacts/portal/src/pages/admin/CommunicationsBroadcasts.tsx` — Broadcast system: create, preview recipients, segment filtering, send with confirmation for 100+, duplicate
+- `artifacts/portal/src/pages/admin/CommunicationsLog.tsx` — Searchable/filterable communication log with rendered content viewer, bounce management
+- `artifacts/portal/src/pages/admin/CommunicationsAnalytics.tsx` — Analytics dashboard: email/SMS stats, top templates, sequence completion rates, estimated costs
+
+**Layout:** `artifacts/portal/src/components/layout/CommunicationsLayout.tsx` — Sidebar navigation for communications admin
+
+**API client:** `artifacts/portal/src/lib/communications-api.ts` — Frontend API wrapper for all admin communications endpoints
+
+**DB tables added:** `email_template_versions`, `sequences`, `sequence_steps`, `sequence_enrollments`, `broadcasts` (plus new columns on `communication_log`: `broadcast_id`, `sequence_id`, `rendered_html`, `rendered_text`)
+
+**Segment filter keys (broadcasts):** `products` (array of slugs), `experienceLevel`, `smsOptIn` (bool), `registeredAfter`, `registeredBefore`, `lastLoginAfter`, `lastLoginBefore`
+
+**Admin routes (all require admin auth):**
+- `/admin/communications/email-templates` — CRUD, `/preview`, `/versions`, `/restore/:versionId`
+- `/admin/communications/sms-templates` — CRUD
+- `/admin/communications/sequences` — CRUD, steps CRUD, `/enroll`, `/cancel-enrollment`, `/pause`, `/resume`
+- `/admin/communications/broadcasts` — CRUD, `/preview`, `/send`, `/duplicate`
+- `/admin/communications/log` — Paginated log with filters
+- `/admin/communications/member/:userId/history` — Per-member history
+- `/admin/communications/bounces` — List bounces, `/unsuppress`
+- `/admin/communications/analytics` — Aggregate stats by period
+
 ### Seed Data
 Demo users (all password: Demo1234):
 - Marcus Johnson (marcus@example.com) — Backroad System + 6-Month Mentorship, 12/25 lessons, 5-day streak [affiliate: marcus01, tier: mid]
