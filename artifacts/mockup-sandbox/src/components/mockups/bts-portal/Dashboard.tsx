@@ -36,14 +36,14 @@ export function Dashboard() {
             <div className="flex items-center gap-3 mb-3">
               <h1 
                 className="text-4xl font-bold"
-                style={{ fontFamily: "'Playfair Display', serif", color: '#2d2d2d' }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: '#2d2d2d' }}
               >
                 Welcome back, Marcus.
               </h1>
               <span 
                 className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-[1.5px] flex items-center gap-1.5 rounded"
                 style={{ 
-                  fontFamily: "'Source Sans Pro', sans-serif",
+                  fontFamily: "'Roboto', sans-serif",
                   backgroundColor: '#fef3c7', 
                   color: '#b45309',
                 }}
@@ -54,7 +54,7 @@ export function Dashboard() {
             </div>
             <p 
               className="text-[15px] flex items-center gap-4"
-              style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#5a5a5a' }}
+              style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a' }}
             >
               <span>Member since January 2026</span>
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e8e4dc' }}></span>
@@ -66,7 +66,7 @@ export function Dashboard() {
             <button 
               className="px-6 py-2.5 flex items-center gap-2 transition-colors"
               style={{ 
-                fontFamily: "'Source Sans Pro', sans-serif",
+                fontFamily: "'Roboto', sans-serif",
                 fontWeight: 700,
                 backgroundColor: '#1a56db', 
                 color: '#ffffff',
@@ -102,14 +102,14 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-8 pb-4" style={{ borderBottom: '1px solid #e8e4dc' }}>
                 <h2 
                   className="text-2xl font-bold flex items-center gap-2"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
                 >
                   <BookOpen className="w-6 h-6" style={{ color: '#1a56db' }} />
                   Training Progress
                 </h2>
                 <span 
                   className="text-[13px] font-bold tracking-wide uppercase"
-                  style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#1a56db' }}
+                  style={{ fontFamily: "'Roboto', sans-serif", color: '#1a56db' }}
                 >
                   42% Complete
                 </span>
@@ -135,26 +135,26 @@ export function Dashboard() {
               >
                 <div 
                   className="text-[11px] font-bold uppercase tracking-[2px] mb-3"
-                  style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#1a56db' }}
+                  style={{ fontFamily: "'Roboto', sans-serif", color: '#1a56db' }}
                 >
                   Up Next
                 </div>
                 <h3 
                   className="text-2xl font-bold mb-2"
-                  style={{ fontFamily: "'Playfair Display', serif", color: '#2d2d2d' }}
+                  style={{ fontFamily: "'Roboto', sans-serif", color: '#2d2d2d' }}
                 >
                   Module 3: Ad Creative Testing
                 </h3>
                 <p 
                   className="text-[16px] mb-6"
-                  style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#5a5a5a', fontStyle: 'italic' }}
+                  style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a', fontStyle: 'italic' }}
                 >
                   Lesson 3.2: Writing Headlines That Convert
                 </p>
                 <div className="flex items-center justify-between pt-5" style={{ borderTop: '1px solid #e8e4dc' }}>
                   <div 
                     className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#5a5a5a' }}
+                    style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a' }}
                   >
                     <Clock className="w-4 h-4" />
                     18 mins remaining
@@ -162,7 +162,7 @@ export function Dashboard() {
                   <button 
                     className="px-5 py-2 flex items-center gap-2 transition-colors"
                     style={{ 
-                      fontFamily: "'Source Sans Pro', sans-serif", 
+                      fontFamily: "'Roboto', sans-serif", 
                       fontWeight: 700, 
                       backgroundColor: '#1a56db', 
                       color: '#ffffff',
@@ -186,14 +186,14 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-8 pb-4" style={{ borderBottom: '1px solid #e8e4dc' }}>
                 <h2 
                   className="text-2xl font-bold flex items-center gap-2"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
                 >
                   <MessageSquare className="w-6 h-6" style={{ color: '#1a56db' }} />
                   Recent Support
                 </h2>
                 <button 
                   className="text-[12px] font-bold uppercase tracking-[1px] flex items-center gap-1 hover:underline"
-                  style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#1a56db' }}
+                  style={{ fontFamily: "'Roboto', sans-serif", color: '#1a56db' }}
                 >
                   View All <ChevronRight className="w-4 h-4" />
                 </button>
@@ -210,26 +210,26 @@ export function Dashboard() {
                   <div className="flex items-center justify-between mb-2">
                     <h4 
                       className="text-lg font-bold"
-                      style={{ fontFamily: "'Playfair Display', serif", color: '#2d2d2d' }}
+                      style={{ fontFamily: "'Roboto', sans-serif", color: '#2d2d2d' }}
                     >
                       Facebook Pixel Event Tracking Issue
                     </h4>
                     <span 
                       className="text-[12px] uppercase tracking-wide font-semibold"
-                      style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#888888' }}
+                      style={{ fontFamily: "'Roboto', sans-serif", color: '#888888' }}
                     >
                       2 hours ago
                     </span>
                   </div>
                   <p 
                     className="text-[15px] leading-relaxed mb-4"
-                    style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#5a5a5a' }}
+                    style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a' }}
                   >
                     "I'm having trouble verifying the purchase event on my landing page after following the steps in Module 2."
                   </p>
                   <div 
                     className="flex items-center gap-3"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <span 
                       className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-[1px] rounded"
@@ -260,7 +260,7 @@ export function Dashboard() {
             >
               <h2 
                 className="text-xl font-bold flex items-center gap-2 mb-6 pb-4"
-                style={{ fontFamily: "'Playfair Display', serif", borderBottom: '1px solid #e8e4dc' }}
+                style={{ fontFamily: "'Roboto', sans-serif", borderBottom: '1px solid #e8e4dc' }}
               >
                 <Video className="w-5 h-5" style={{ color: '#1a56db' }} />
                 Upcoming Calls
@@ -295,7 +295,7 @@ export function Dashboard() {
             >
               <h2 
                 className="text-xl font-bold flex items-center gap-2 mb-6 pb-4"
-                style={{ fontFamily: "'Playfair Display', serif", borderBottom: '1px solid #e8e4dc' }}
+                style={{ fontFamily: "'Roboto', sans-serif", borderBottom: '1px solid #e8e4dc' }}
               >
                 <Megaphone className="w-5 h-5" style={{ color: '#1a56db' }} />
                 Announcements
@@ -349,20 +349,20 @@ function StatCard({ icon: Icon, label, value, subtext }: any) {
       </div>
       <p 
         className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2"
-        style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#888888' }}
+        style={{ fontFamily: "'Roboto', sans-serif", color: '#888888' }}
       >
         {label}
       </p>
       <div className="flex flex-col items-center">
         <h3 
           className="text-4xl font-bold mb-1"
-          style={{ fontFamily: "'Playfair Display', serif", color: '#1a56db' }}
+          style={{ fontFamily: "'Roboto', sans-serif", color: '#1a56db' }}
         >
           {value}
         </h3>
         <span 
           className="text-[13px] font-medium"
-          style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#5a5a5a', fontStyle: 'italic' }}
+          style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a', fontStyle: 'italic' }}
         >
           {subtext}
         </span>
@@ -381,13 +381,13 @@ function CallCard({ title, time, coach, type }: any) {
         <div>
           <h4 
             className="text-lg font-bold mb-1.5"
-            style={{ fontFamily: "'Playfair Display', serif", color: '#2d2d2d' }}
+            style={{ fontFamily: "'Roboto', sans-serif", color: '#2d2d2d' }}
           >
             {title}
           </h4>
           <p 
             className="text-[13px] flex items-center gap-1.5 font-semibold"
-            style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#5a5a5a', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a', textTransform: 'uppercase', letterSpacing: '0.5px' }}
           >
             <Calendar className="w-4 h-4" />
             {time}
@@ -396,7 +396,7 @@ function CallCard({ title, time, coach, type }: any) {
         <span 
           className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded"
           style={{ 
-            fontFamily: "'Source Sans Pro', sans-serif", 
+            fontFamily: "'Roboto', sans-serif", 
             backgroundColor: '#eff6ff', 
             color: '#1a56db', 
             border: '1px solid #dbeafe' 
@@ -416,14 +416,14 @@ function CallCard({ title, time, coach, type }: any) {
           </div>
           <span 
             className="text-[14px]"
-            style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#3d3d3d' }}
+            style={{ fontFamily: "'Roboto', sans-serif", color: '#3d3d3d' }}
           >
             {coach}
           </span>
         </div>
         <button 
           className="px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-[1px] transition-colors hover:opacity-90"
-          style={{ fontFamily: "'Source Sans Pro', sans-serif", backgroundColor: '#2d2d2d', color: '#ffffff' }}
+          style={{ fontFamily: "'Roboto', sans-serif", backgroundColor: '#2d2d2d', color: '#ffffff' }}
         >
           RSVP
         </button>
@@ -438,21 +438,21 @@ function Announcement({ title, date, content, isNew }: any) {
       <div className="flex items-center justify-between mb-2">
         <h4 
           className="text-[16px] font-bold flex items-center gap-2"
-          style={{ fontFamily: "'Playfair Display', serif", color: '#2d2d2d' }}
+          style={{ fontFamily: "'Roboto', sans-serif", color: '#2d2d2d' }}
         >
           {title}
           {isNew && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1a56db' }}></span>}
         </h4>
         <span 
           className="text-[11px] font-bold uppercase tracking-[1px]"
-          style={{ fontFamily: "'Source Sans Pro', sans-serif", color: '#888888' }}
+          style={{ fontFamily: "'Roboto', sans-serif", color: '#888888' }}
         >
           {date}
         </span>
       </div>
       <p 
         className="text-[14px] leading-relaxed"
-        style={{ fontFamily: "'Source Serif Pro', Georgia, serif", color: '#5a5a5a' }}
+        style={{ fontFamily: "'Roboto', sans-serif", color: '#5a5a5a' }}
       >
         {content}
       </p>

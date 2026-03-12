@@ -54,7 +54,7 @@ export function AppLayout({
   return (
     <div
       className="flex h-screen w-full"
-      style={{ background: "#faf9f7", color: "#2d2d2d", fontFamily: "'Source Serif Pro', Georgia, serif" }}
+      style={{ background: "#faf9f7", color: "#2d2d2d", fontFamily: "'Roboto', sans-serif" }}
     >
       <aside
         className="w-[260px] flex flex-col shrink-0"
@@ -74,13 +74,13 @@ export function AppLayout({
             <div>
               <h1
                 className="text-[15px] font-bold tracking-wide"
-                style={{ fontFamily: "'Playfair Display', serif", color: "#2d2d2d", letterSpacing: "0.5px" }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: "#2d2d2d", letterSpacing: "0.5px" }}
               >
                 BUILD TEST SCALE
               </h1>
               <p
                 className="text-[10px] tracking-[2px] uppercase"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif", color: "#888" }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: "#888" }}
               >
                 Member Portal
               </p>
@@ -96,7 +96,7 @@ export function AppLayout({
                 key={item.id}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded text-[13.5px] font-semibold transition-all"
                 style={{
-                  fontFamily: "'Source Sans Pro', sans-serif",
+                  fontFamily: "'Roboto', sans-serif",
                   background: isActive ? "#eff6ff" : "transparent",
                   color: isActive ? "#1a56db" : "#5a5a5a",
                   borderLeft: isActive ? "3px solid #1a56db" : "3px solid transparent",
@@ -121,20 +121,20 @@ export function AppLayout({
               <ChevronUp className="w-4 h-4" style={{ color: "#1a56db" }} />
               <span
                 className="text-xs font-bold"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif", color: "#1a56db" }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: "#1a56db" }}
               >
                 Upgrade to Diamond
               </span>
             </div>
             <p
               className="text-[11px] leading-relaxed mb-2.5"
-              style={{ fontFamily: "'Source Sans Pro', sans-serif", color: "#5a5a5a" }}
+              style={{ fontFamily: "'Roboto', sans-serif", color: "#5a5a5a" }}
             >
               Get weekly 1-on-1 coaching and priority support
             </p>
             <button
               className="w-full py-1.5 rounded text-xs font-bold text-white"
-              style={{ fontFamily: "'Source Sans Pro', sans-serif", background: "#1a56db" }}
+              style={{ fontFamily: "'Roboto', sans-serif", background: "#1a56db" }}
             >
               View Plans
             </button>
@@ -147,7 +147,7 @@ export function AppLayout({
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
               style={{
-                fontFamily: "'Source Sans Pro', sans-serif",
+                fontFamily: "'Roboto', sans-serif",
                 background: tierBgColors[tier],
                 border: `1.5px solid ${tierColors[tier]}44`,
                 color: tierColors[tier],
@@ -161,13 +161,13 @@ export function AppLayout({
             <div className="flex-1 min-w-0">
               <p
                 className="text-[13px] font-bold truncate"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif", color: "#2d2d2d" }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: "#2d2d2d" }}
               >
                 {memberName}
               </p>
               <p
                 className="text-[11px] font-semibold"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif", color: tierColors[tier] }}
+                style={{ fontFamily: "'Roboto', sans-serif", color: tierColors[tier] }}
               >
                 {tierLabels[tier]} Member
               </p>

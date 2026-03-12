@@ -90,8 +90,8 @@ export function Support() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#e8e4dc] pb-6">
             <div>
-              <h1 className="text-3xl font-bold text-[#2d2d2d] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Support Center</h1>
-              <div className="flex items-center gap-2 text-sm text-[#5a5a5a]" style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}>
+              <h1 className="text-3xl font-bold text-[#2d2d2d] mb-2" style={{ fontFamily: "'Roboto', sans-serif" }}>Support Center</h1>
+              <div className="flex items-center gap-2 text-sm text-[#5a5a5a]" style={{ fontFamily: "'Roboto', sans-serif" }}>
                 <span>Get help with your account, billing, or technical issues</span>
               </div>
             </div>
@@ -102,7 +102,7 @@ export function Support() {
               style={{ 
                 backgroundColor: '#1a56db', 
                 color: '#ffffff', 
-                fontFamily: "'Source Sans Pro', sans-serif",
+                fontFamily: "'Roboto', sans-serif",
                 fontWeight: 600
               }}
             >
@@ -129,7 +129,7 @@ export function Support() {
                     onClick={() => setActiveTab(tab.id)}
                     className="py-3 text-[14px] font-bold uppercase tracking-wide transition-colors relative"
                     style={{ 
-                      fontFamily: "'Source Sans Pro', sans-serif",
+                      fontFamily: "'Roboto', sans-serif",
                       color: activeTab === tab.id ? '#1a56db' : '#5a5a5a'
                     }}
                   >
@@ -158,13 +158,13 @@ export function Support() {
                           type="text" 
                           placeholder="Search tickets..." 
                           className="w-full bg-white border border-[#e8e4dc] text-[#2d2d2d] placeholder:text-[#888] rounded pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         />
                       </div>
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <select 
                           className="w-full sm:w-auto bg-white border border-[#e8e4dc] text-[#2d2d2d] rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1a56db]"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           <option>All Statuses</option>
                           <option>Open</option>
@@ -184,12 +184,12 @@ export function Support() {
                                 <span className="text-xs font-mono text-[#888]">#{ticket.id}</span>
                                 <h3 
                                   className="text-[16px] font-bold text-[#2d2d2d] group-hover:text-[#1a56db] transition-colors"
-                                  style={{ fontFamily: "'Playfair Display', serif" }}
+                                  style={{ fontFamily: "'Roboto', sans-serif" }}
                                 >
                                   {ticket.subject}
                                 </h3>
                               </div>
-                              <div className="flex flex-wrap items-center gap-3 text-xs" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>
+                              <div className="flex flex-wrap items-center gap-3 text-xs" style={{ fontFamily: "'Roboto', sans-serif" }}>
                                 <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${CATEGORY_COLORS[ticket.category] || CATEGORY_COLORS.Account}`}>
                                   {ticket.category}
                                 </span>
@@ -211,12 +211,12 @@ export function Support() {
                                 style={{ 
                                   backgroundColor: STATUS_STYLES[ticket.status].bg,
                                   color: STATUS_STYLES[ticket.status].color,
-                                  fontFamily: "'Source Sans Pro', sans-serif"
+                                  fontFamily: "'Roboto', sans-serif"
                                 }}
                               >
                                 {ticket.status}
                               </span>
-                              <div className="text-xs text-[#888]" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>
+                              <div className="text-xs text-[#888]" style={{ fontFamily: "'Roboto', sans-serif" }}>
                                 {ticket.status === 'Resolved' ? `Resolved: ${ticket.updated}` : `Updated: ${ticket.updated}`}
                               </div>
                             </div>
@@ -231,11 +231,11 @@ export function Support() {
                 {activeTab === 'new' && (
                   <div className="p-6 md:p-8 space-y-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-[#2d2d2d] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Submit a Request</h2>
-                      <p className="text-[#5a5a5a]" style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}>Please provide as much detail as possible so we can help you quickly.</p>
+                      <h2 className="text-2xl font-bold text-[#2d2d2d] mb-2" style={{ fontFamily: "'Roboto', sans-serif" }}>Submit a Request</h2>
+                      <p className="text-[#5a5a5a]" style={{ fontFamily: "'Roboto', sans-serif" }}>Please provide as much detail as possible so we can help you quickly.</p>
                     </div>
 
-                    <form className="space-y-6" onSubmit={e => e.preventDefault()} style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>
+                    <form className="space-y-6" onSubmit={e => e.preventDefault()} style={{ fontFamily: "'Roboto', sans-serif" }}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-sm font-bold text-[#2d2d2d] uppercase tracking-wide">Category</label>
@@ -273,7 +273,7 @@ export function Support() {
                           onChange={(e) => setTicketDescription(e.target.value)}
                           placeholder="Please describe your issue in detail..."
                           className="w-full bg-white border border-[#e8e4dc] text-[#2d2d2d] rounded px-4 py-3 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] resize-none shadow-sm placeholder:text-[#888]"
-                          style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         ></textarea>
                       </div>
 
@@ -316,12 +316,12 @@ export function Support() {
                         type="text" 
                         placeholder="Search for answers..." 
                         className="w-full bg-[#faf9f7] border border-[#e8e4dc] text-[#2d2d2d] placeholder:text-[#888] rounded pl-12 pr-4 py-4 text-base focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] shadow-sm"
-                        style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                        style={{ fontFamily: "'Roboto', sans-serif" }}
                       />
                     </div>
                     
                     <div>
-                      <h3 className="text-sm font-bold text-[#2d2d2d] uppercase tracking-wide mb-4" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>Popular Articles</h3>
+                      <h3 className="text-sm font-bold text-[#2d2d2d] uppercase tracking-wide mb-4" style={{ fontFamily: "'Roboto', sans-serif" }}>Popular Articles</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {KB_ARTICLES.map((article, i) => (
                           <div key={i} className="p-5 rounded border border-[#e8e4dc] bg-white hover:border-[#1a56db] hover:shadow-sm transition-all cursor-pointer group flex gap-4">
@@ -329,8 +329,8 @@ export function Support() {
                               <article.icon className="w-5 h-5 text-[#1a56db]" />
                             </div>
                             <div>
-                              <h4 className="text-[16px] font-bold text-[#2d2d2d] group-hover:text-[#1a56db] transition-colors mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>{article.title}</h4>
-                              <p className="text-sm text-[#5a5a5a] leading-relaxed" style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}>{article.desc}</p>
+                              <h4 className="text-[16px] font-bold text-[#2d2d2d] group-hover:text-[#1a56db] transition-colors mb-1" style={{ fontFamily: "'Roboto', sans-serif" }}>{article.title}</h4>
+                              <p className="text-sm text-[#5a5a5a] leading-relaxed" style={{ fontFamily: "'Roboto', sans-serif" }}>{article.desc}</p>
                             </div>
                           </div>
                         ))}
@@ -353,10 +353,10 @@ export function Support() {
                 <div className="p-6 relative z-10">
                   <div className="flex items-center gap-2 mb-5">
                     <Clock className="w-5 h-5 text-[#1a56db]" />
-                    <h3 className="text-lg font-bold text-[#2d2d2d]" style={{ fontFamily: "'Playfair Display', serif" }}>Your SLA: Gold Tier</h3>
+                    <h3 className="text-lg font-bold text-[#2d2d2d]" style={{ fontFamily: "'Roboto', sans-serif" }}>Your SLA: Gold Tier</h3>
                   </div>
                   
-                  <div className="space-y-5" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>
+                  <div className="space-y-5" style={{ fontFamily: "'Roboto', sans-serif" }}>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-sm">
                         <span className="text-[#5a5a5a]">First response</span>
@@ -389,12 +389,12 @@ export function Support() {
 
               {/* Quick Links */}
               <div className="bg-white border border-[#e8e4dc] rounded shadow-sm p-6">
-                <h3 className="text-lg font-bold text-[#2d2d2d] mb-4 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <h3 className="text-lg font-bold text-[#2d2d2d] mb-4 flex items-center gap-2" style={{ fontFamily: "'Roboto', sans-serif" }}>
                   <HelpCircle className="w-5 h-5 text-[#1a56db]" />
                   Need Quick Answers?
                 </h3>
                 
-                <div className="space-y-2 mb-5" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>
+                <div className="space-y-2 mb-5" style={{ fontFamily: "'Roboto', sans-serif" }}>
                   {KB_ARTICLES.slice(0, 4).map((article, i) => (
                     <button key={i} className="w-full flex items-center justify-between py-2 text-left group border-b border-[#e8e4dc] last:border-0">
                       <span className="text-sm text-[#3d3d3d] font-medium group-hover:text-[#1a56db] transition-colors truncate pr-4">
@@ -408,7 +408,7 @@ export function Support() {
                 <button 
                   onClick={() => setActiveTab('kb')}
                   className="w-full py-2.5 border border-[#e8e4dc] hover:bg-[#f5f2ed] text-sm font-bold text-[#2d2d2d] rounded transition-colors"
-                  style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
                 >
                   View All Topics
                 </button>
@@ -419,11 +419,11 @@ export function Support() {
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-[#dbeafe] shadow-sm">
                   <MessageSquare className="w-5 h-5 text-[#1a56db]" />
                 </div>
-                <h3 className="text-lg font-bold text-[#2d2d2d] mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>Live Chat Support</h3>
-                <p className="text-xs text-[#5a5a5a] mb-5 font-bold uppercase tracking-wide" style={{ fontFamily: "'Source Sans Pro', sans-serif" }}>Available Mon-Fri, 9am-5pm EST</p>
+                <h3 className="text-lg font-bold text-[#2d2d2d] mb-1" style={{ fontFamily: "'Roboto', sans-serif" }}>Live Chat Support</h3>
+                <p className="text-xs text-[#5a5a5a] mb-5 font-bold uppercase tracking-wide" style={{ fontFamily: "'Roboto', sans-serif" }}>Available Mon-Fri, 9am-5pm EST</p>
                 <button 
                   className="w-full py-2.5 bg-[#1a56db] text-white font-bold text-sm rounded hover:bg-[#1e40af] transition-colors shadow-sm"
-                  style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
                 >
                   Start Chat
                 </button>

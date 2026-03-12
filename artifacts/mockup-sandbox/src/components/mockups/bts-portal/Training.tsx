@@ -31,13 +31,13 @@ export function Training() {
           <div className="space-y-3">
             <h1 
               className="text-4xl font-bold text-[#2d2d2d]"
-              style={{ fontFamily: "'Playfair Display', serif" }}
+              style={{ fontFamily: "'Roboto', sans-serif" }}
             >
               Training Library
             </h1>
             <p 
               className="text-lg text-[#5a5a5a] flex items-center gap-2"
-              style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+              style={{ fontFamily: "'Roboto', sans-serif" }}
             >
               <BookOpen className="w-5 h-5 text-[#1a56db]" />
               Master affiliate marketing from zero to scale
@@ -54,13 +54,13 @@ export function Training() {
             <div className="flex items-center justify-between mb-3">
               <span 
                 className="text-sm font-bold uppercase tracking-wider text-[#5a5a5a]"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                style={{ fontFamily: "'Roboto', sans-serif" }}
               >
                 Overall Progress
               </span>
               <span 
                 className="text-lg font-bold text-[#1a56db]"
-                style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                style={{ fontFamily: "'Roboto', sans-serif" }}
               >
                 {overallProgress}%
               </span>
@@ -76,7 +76,7 @@ export function Training() {
             </div>
             <div 
               className="text-[13px] text-[#5a5a5a] flex justify-between"
-              style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+              style={{ fontFamily: "'Roboto', sans-serif" }}
             >
               <span>{completedLessons} of {totalLessons} lessons completed</span>
             </div>
@@ -97,7 +97,7 @@ export function Training() {
                 background: "#ffffff",
                 border: "1px solid #e8e4dc",
                 color: "#2d2d2d",
-                fontFamily: "'Source Sans Pro', sans-serif"
+                fontFamily: "'Roboto', sans-serif"
               }}
             />
           </div>
@@ -107,7 +107,7 @@ export function Training() {
               background: "#ffffff",
               border: "1px solid #e8e4dc",
               color: "#2d2d2d",
-              fontFamily: "'Source Sans Pro', sans-serif"
+              fontFamily: "'Roboto', sans-serif"
             }}
           >
             <Filter className="w-4 h-4" />
@@ -130,7 +130,7 @@ export function Training() {
                     <span 
                       className="text-[11px] font-bold px-2.5 py-1 rounded uppercase tracking-[2px]"
                       style={{ 
-                        fontFamily: "'Source Sans Pro', sans-serif",
+                        fontFamily: "'Roboto', sans-serif",
                         color: "#16a34a",
                         background: "#f0fdf4",
                         border: "1px solid #bbf7d0"
@@ -140,21 +140,21 @@ export function Training() {
                     </span>
                     <h2 
                       className="text-2xl font-bold text-[#2d2d2d]"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
+                      style={{ fontFamily: "'Roboto', sans-serif" }}
                     >
                       Building Your Foundation
                     </h2>
                   </div>
                   <p 
                     className="text-[16px] text-[#5a5a5a] mb-5 leading-relaxed"
-                    style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     Learn the core principles of affiliate marketing, finding winning offers, and setting up your initial tracking infrastructure.
                   </p>
                   
                   <div 
                     className="flex items-center gap-6 text-[14px] text-[#5a5a5a]"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <div className="flex items-center gap-2">
                       <BookOpen className="w-4 h-4 text-[#888]" /> 5 Modules
@@ -171,7 +171,7 @@ export function Training() {
                 <div className="w-full md:w-56 shrink-0">
                   <div 
                     className="flex items-center justify-between mb-2"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <span className="text-[13px] font-bold text-[#5a5a5a] uppercase tracking-wider">Progress</span>
                     <span className="text-[15px] font-bold text-[#16a34a]">85%</span>
@@ -182,7 +182,7 @@ export function Training() {
                   <button 
                     className="w-full py-2.5 rounded text-[14px] font-bold transition-colors"
                     style={{ 
-                      fontFamily: "'Source Sans Pro', sans-serif",
+                      fontFamily: "'Roboto', sans-serif",
                       background: "#f5f2ed",
                       color: "#2d2d2d",
                       border: "1px solid #e8e4dc"
@@ -213,7 +213,7 @@ export function Training() {
                     <span 
                       className="text-[11px] font-bold px-2.5 py-1 rounded uppercase tracking-[2px]"
                       style={{ 
-                        fontFamily: "'Source Sans Pro', sans-serif",
+                        fontFamily: "'Roboto', sans-serif",
                         color: "#1a56db",
                         background: "#eff6ff",
                         border: "1px solid #dbeafe"
@@ -223,14 +223,14 @@ export function Training() {
                     </span>
                     <h2 
                       className="text-2xl font-bold text-[#2d2d2d]"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
+                      style={{ fontFamily: "'Roboto', sans-serif" }}
                     >
                       Testing & Optimization
                     </h2>
                     <span 
                       className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider"
                       style={{ 
-                        fontFamily: "'Source Sans Pro', sans-serif",
+                        fontFamily: "'Roboto', sans-serif",
                         background: "#eff6ff", 
                         color: "#1a56db", 
                         border: "1px solid #dbeafe"
@@ -241,14 +241,14 @@ export function Training() {
                   </div>
                   <p 
                     className="text-[16px] text-[#5a5a5a] mb-5 leading-relaxed"
-                    style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     Master the art of buying data efficiently, identifying profitable angles, and optimizing your campaigns for maximum ROI.
                   </p>
                   
                   <div 
                     className="flex items-center gap-6 text-[14px] text-[#5a5a5a]"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <div className="flex items-center gap-2">
                       <BookOpen className="w-4 h-4 text-[#888]" /> 4 Modules
@@ -265,7 +265,7 @@ export function Training() {
                 <div className="w-full md:w-56 shrink-0">
                   <div 
                     className="flex items-center justify-between mb-2"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <span className="text-[13px] font-bold text-[#5a5a5a] uppercase tracking-wider">Progress</span>
                     <span className="text-[15px] font-bold text-[#1a56db]">30%</span>
@@ -277,7 +277,7 @@ export function Training() {
                     onClick={() => setExpandedTrack(expandedTrack === 2 ? null : 2)}
                     className="w-full py-2.5 rounded text-[14px] font-bold flex items-center justify-center gap-2 transition-colors"
                     style={{ 
-                      fontFamily: "'Source Sans Pro', sans-serif",
+                      fontFamily: "'Roboto', sans-serif",
                       background: "#1a56db",
                       color: "#ffffff"
                     }}
@@ -294,7 +294,7 @@ export function Training() {
               <div className="p-7 space-y-4" style={{ background: "#faf9f7" }}>
                 <h3 
                   className="text-[12px] font-bold uppercase tracking-[2px] mb-3"
-                  style={{ color: "#5a5a5a", fontFamily: "'Source Sans Pro', sans-serif" }}
+                  style={{ color: "#5a5a5a", fontFamily: "'Roboto', sans-serif" }}
                 >
                   Modules
                 </h3>
@@ -313,7 +313,7 @@ export function Training() {
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[16px]"
                         style={{ 
-                          fontFamily: "'Playfair Display', serif",
+                          fontFamily: "'Roboto', sans-serif",
                           background: "#fffbeb",
                           color: "#d97706",
                           border: "1px solid #fde68a"
@@ -324,13 +324,13 @@ export function Training() {
                       <div>
                         <h4 
                           className="text-[18px] font-bold text-[#2d2d2d]"
-                          style={{ fontFamily: "'Playfair Display', serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           Ad Creative Testing
                         </h4>
                         <p 
                           className="text-[14px] text-[#5a5a5a] mt-1"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           4 lessons • 50% Complete
                         </p>
@@ -356,13 +356,13 @@ export function Training() {
                           <div className="flex-1">
                             <h5 
                               className="text-[16px] font-bold text-[#2d2d2d]"
-                              style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               3.1 Creative Formats That Convert
                             </h5>
                             <p 
                               className="text-[13px] text-[#5a5a5a] mt-1 flex items-center gap-1.5 uppercase tracking-wider"
-                              style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               <Play className="w-3.5 h-3.5" /> Video • 14 min
                             </p>
@@ -370,7 +370,7 @@ export function Training() {
                           <span 
                             className="text-[12px] font-bold uppercase tracking-wider px-2.5 py-1 rounded"
                             style={{ 
-                              fontFamily: "'Source Sans Pro', sans-serif",
+                              fontFamily: "'Roboto', sans-serif",
                               color: "#16a34a",
                               background: "#f0fdf4"
                             }}
@@ -391,13 +391,13 @@ export function Training() {
                           <div className="flex-1">
                             <h5 
                               className="text-[16px] font-bold text-[#1a56db]"
-                              style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               3.2 Writing Headlines That Convert
                             </h5>
                             <p 
                               className="text-[13px] text-[#1a56db] mt-1 flex items-center gap-1.5 uppercase tracking-wider opacity-80"
-                              style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               <Play className="w-3.5 h-3.5" /> Video • 22 min
                             </p>
@@ -405,7 +405,7 @@ export function Training() {
                           <button 
                             className="text-[13px] font-bold px-4 py-2 rounded transition-colors"
                             style={{ 
-                              fontFamily: "'Source Sans Pro', sans-serif",
+                              fontFamily: "'Roboto', sans-serif",
                               background: "#1a56db",
                               color: "#ffffff"
                             }}
@@ -423,13 +423,13 @@ export function Training() {
                           <div className="flex-1">
                             <h5 
                               className="text-[16px] text-[#888] italic"
-                              style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               3.3 Image & Video Creative Best Practices
                             </h5>
                             <p 
                               className="text-[13px] text-[#888] mt-1 flex items-center gap-1.5 uppercase tracking-wider"
-                              style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               <Play className="w-3.5 h-3.5" /> Video • 18 min
                             </p>
@@ -442,13 +442,13 @@ export function Training() {
                           <div className="flex-1">
                             <h5 
                               className="text-[16px] text-[#888] italic"
-                              style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               3.4 A/B Testing Your Creatives
                             </h5>
                             <p 
                               className="text-[13px] text-[#888] mt-1 flex items-center gap-1.5 uppercase tracking-wider"
-                              style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                              style={{ fontFamily: "'Roboto', sans-serif" }}
                             >
                               <Play className="w-3.5 h-3.5" /> Video • 25 min
                             </p>
@@ -469,7 +469,7 @@ export function Training() {
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[16px]"
                         style={{ 
-                          fontFamily: "'Playfair Display', serif",
+                          fontFamily: "'Roboto', sans-serif",
                           background: "#f5f2ed",
                           color: "#888",
                           border: "1px solid #e8e4dc"
@@ -480,13 +480,13 @@ export function Training() {
                       <div>
                         <h4 
                           className="text-[18px] font-bold text-[#888]"
-                          style={{ fontFamily: "'Playfair Display', serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           Landing Page Optimization
                         </h4>
                         <p 
                           className="text-[14px] text-[#888] mt-1"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           3 lessons • 0% Complete
                         </p>
@@ -506,7 +506,7 @@ export function Training() {
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[16px]"
                         style={{ 
-                          fontFamily: "'Playfair Display', serif",
+                          fontFamily: "'Roboto', sans-serif",
                           background: "#f5f2ed",
                           color: "#888",
                           border: "1px solid #e8e4dc"
@@ -517,13 +517,13 @@ export function Training() {
                       <div>
                         <h4 
                           className="text-[18px] font-bold text-[#888]"
-                          style={{ fontFamily: "'Playfair Display', serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           Split Testing Strategies
                         </h4>
                         <p 
                           className="text-[14px] text-[#888] mt-1"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           5 lessons • 0% Complete
                         </p>
@@ -541,7 +541,7 @@ export function Training() {
                   <div 
                     className="absolute top-4 right-5 flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded uppercase tracking-wider"
                     style={{ 
-                      fontFamily: "'Source Sans Pro', sans-serif",
+                      fontFamily: "'Roboto', sans-serif",
                       color: "#b45309",
                       background: "#fef3c7",
                       border: "1px solid #fde68a"
@@ -554,7 +554,7 @@ export function Training() {
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[16px]"
                         style={{ 
-                          fontFamily: "'Playfair Display', serif",
+                          fontFamily: "'Roboto', sans-serif",
                           background: "#f5f2ed",
                           color: "#888",
                           border: "1px solid #e8e4dc"
@@ -565,13 +565,13 @@ export function Training() {
                       <div>
                         <h4 
                           className="text-[18px] font-bold text-[#888]"
-                          style={{ fontFamily: "'Playfair Display', serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           Analytics & Tracking
                         </h4>
                         <p 
                           className="text-[14px] text-[#888] mt-1"
-                          style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
                         >
                           4 lessons • 0% Complete
                         </p>
@@ -596,7 +596,7 @@ export function Training() {
                     <span 
                       className="text-[11px] font-bold px-2.5 py-1 rounded uppercase tracking-[2px]"
                       style={{ 
-                        fontFamily: "'Source Sans Pro', sans-serif",
+                        fontFamily: "'Roboto', sans-serif",
                         color: "#5a5a5a",
                         background: "#f5f2ed",
                         border: "1px solid #e8e4dc"
@@ -606,21 +606,21 @@ export function Training() {
                     </span>
                     <h2 
                       className="text-2xl font-bold text-[#888] flex items-center gap-3"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
+                      style={{ fontFamily: "'Roboto', sans-serif" }}
                     >
                       Scaling Campaigns <Lock className="w-5 h-5 text-[#888]" />
                     </h2>
                   </div>
                   <p 
                     className="text-[16px] text-[#888] italic mb-5 leading-relaxed"
-                    style={{ fontFamily: "'Source Serif Pro', Georgia, serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     Take your profitable campaigns to the next level. Learn vertical and horizontal scaling tactics, budget management, and team building.
                   </p>
                   
                   <div 
                     className="flex items-center gap-6 text-[14px] text-[#888]"
-                    style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
                   >
                     <div className="flex items-center gap-2">
                       <BookOpen className="w-4 h-4" /> 3 Modules
@@ -642,7 +642,7 @@ export function Training() {
                     <Lock className="w-5 h-5 text-[#888]" />
                     <span 
                       className="text-[13px] text-[#5a5a5a]"
-                      style={{ fontFamily: "'Source Sans Pro', sans-serif" }}
+                      style={{ fontFamily: "'Roboto', sans-serif" }}
                     >
                       Complete Track 2 to unlock
                     </span>
