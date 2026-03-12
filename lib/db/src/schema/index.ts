@@ -33,3 +33,5 @@ export * from "./referral-clicks";
 export * from "./commissions";
 export * from "./commission-payouts";
 export * from "./affiliate-resources";
+export * from "./api-keys";
+export * from "./api-request-log";

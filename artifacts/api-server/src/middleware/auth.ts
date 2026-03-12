@@ -1,7 +1,9 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { db, usersTable, apiKeysTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { sendError, ErrorCodes } from "../lib/api-errors";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
@@ -10,6 +12,15 @@ declare global {
     interface Request {
       userId?: number;
       userEmail?: string;
+      requestId?: string;
+      isApiKeyAuth?: boolean;
+      apiKeyContext?: {
+        id: number;
+        prefix: string;
+        type: string;
+        permissions: string[];
+        rateLimitTier: string;
+      };
     }
   }
 }
@@ -26,6 +37,7 @@ const PUBLIC_PATHS = [
   "/products",
   "/announcements",
   "/email/unsubscribe",
+  "/v1/health",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
@@ -36,9 +48,16 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     return;
   }
 
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer bts_")) {
+    const apiKey = authHeader.slice(7);
+    authenticateApiKey(apiKey, req, res, next);
+    return;
+  }
+
   const token = req.cookies?.access_token;
   if (!token) {
-    res.status(401).json({ error: "Authentication required" });
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
     return;
   }
 
@@ -46,15 +65,77 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const payload = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
     req.userId = payload.userId;
     req.userEmail = payload.email;
+    req.isApiKeyAuth = false;
     next();
   } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Invalid or expired token");
+  }
+}
+
+async function authenticateApiKey(rawKey: string, req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const parts = rawKey.split("_");
+    if (parts.length < 4) {
+      sendError(res, 401, ErrorCodes.INVALID_API_KEY, "Invalid API key format");
+      return;
+    }
+
+    const prefix = parts.slice(0, 3).join("_") + "_" + parts[3].substring(0, 8);
+
+    const keys = await db
+      .select()
+      .from(apiKeysTable)
+      .where(and(eq(apiKeysTable.prefix, prefix), eq(apiKeysTable.revoked, false)));
+
+    if (keys.length === 0) {
+      sendError(res, 401, ErrorCodes.INVALID_API_KEY, "Invalid or revoked API key");
+      return;
+    }
+
+    const keyRecord = keys[0];
+
+    if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
+      sendError(res, 401, ErrorCodes.API_KEY_EXPIRED, "API key has expired");
+      return;
+    }
+
+    const valid = await bcrypt.compare(rawKey, keyRecord.keyHash);
+    if (!valid) {
+      sendError(res, 401, ErrorCodes.INVALID_API_KEY, "Invalid API key");
+      return;
+    }
+
+    req.apiKeyContext = {
+      id: keyRecord.id,
+      prefix: keyRecord.prefix,
+      type: keyRecord.type,
+      permissions: keyRecord.permissions as string[],
+      rateLimitTier: keyRecord.rateLimitTier,
+    };
+
+    req.isApiKeyAuth = true;
+    req.userId = keyRecord.createdById;
+
+    db.update(apiKeysTable)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeysTable.id, keyRecord.id))
+      .catch((err) => console.error("[Auth] Failed to update lastUsedAt:", err));
+
+    next();
+  } catch (err) {
+    console.error("[Auth] API key auth error:", err);
+    sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Authentication error");
   }
 }
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (req.isApiKeyAuth) {
+    sendError(res, 403, ErrorCodes.FORBIDDEN, "Admin routes require session authentication, not API key");
+    return;
+  }
+
   if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
     return;
   }
 
@@ -65,7 +146,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     .limit(1);
 
   if (!user || user.role !== "admin") {
-    res.status(403).json({ error: "Admin access required" });
+    sendError(res, 403, ErrorCodes.FORBIDDEN, "Admin access required");
     return;
   }
 

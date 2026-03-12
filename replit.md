@@ -18,7 +18,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Frontend**: React + Vite + Tailwind CSS + shadcn/ui
 - **Routing**: wouter
 - **Data fetching**: React Query (via Orval-generated hooks)
-- **Auth**: Custom email/password with JWT access tokens + refresh tokens (httpOnly cookies), bcryptjs
+- **Auth**: Custom email/password with JWT access tokens + refresh tokens (httpOnly cookies), bcryptjs + API key auth (`bts_{env}_{type}_{random}`)
+- **Rate Limiting**: Redis-backed sliding window rate limiter (standard: 60/min, elevated: 300/min, unlimited)
 - **CRM Sync**: GoHighLevel (GHL) bidirectional sync via BullMQ queue + ioredis (rate-limited 90 req/min, exponential backoff retries)
 
 ## Structure
@@ -57,7 +58,19 @@ Custom email/password auth with:
 - **Password reset**: Token-based with 1-hour expiry (logged to console in dev)
 - **CSRF**: Token in non-httpOnly cookie for client-side access
 
-**Auth middleware** (`artifacts/api-server/src/middleware/auth.ts`): Verifies JWT from `access_token` cookie, sets `req.userId` and `req.userEmail`. Public paths bypass auth.
+**Auth middleware** (`artifacts/api-server/src/middleware/auth.ts`): Verifies JWT from `access_token` cookie OR `Authorization: Bearer bts_...` API key header. Sets `req.userId`, `req.userEmail`, and optionally `req.apiKeyContext`. Public paths bypass auth.
+
+**API Key Auth**: Keys follow format `bts_{environment}_{type}_{random}` (e.g., `bts_live_sk_a1b2c3...`). Two types: `secret` (full access) and `publishable` (read-only). Key is shown once at creation, stored as bcrypt hash. Supports granular permissions (`members:read`, `training:write`, `*`, etc.) and rate limit tiers.
+
+**Request ID**: Every API request gets a UUID v4 `requestId` via `X-Request-Id` header (`artifacts/api-server/src/lib/api-errors.ts`).
+
+**Rate Limiting**: Redis-backed sliding window per API key prefix (`artifacts/api-server/src/middleware/rate-limiter.ts`). Response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `X-RateLimit-Tier`.
+
+**API Request Logging**: API key requests logged to `api_request_log` table (`artifacts/api-server/src/middleware/api-request-logger.ts`).
+
+**Permissions**: Granular `{resource}:{action}` permission checking (`artifacts/api-server/src/middleware/permissions.ts`). Usage: `requirePermission("members:read")`.
+
+**Pagination**: Cursor-based pagination helper (`artifacts/api-server/src/lib/pagination.ts`). Returns `{ data, pagination: { hasMore, nextCursor, previousCursor, total } }`.
 
 **Auth routes** (`artifacts/api-server/src/routes/auth.ts`):
 - `POST /auth/register` — Create account (validates email, password strength)
@@ -187,6 +200,8 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `commissions` — Individual commission records with status lifecycle (pending → approved → paid | reversed | rejected)
 - `commission_payouts` — Aggregated payout records for affiliate payouts
 - `affiliate_resources` — Promotional resources (email swipes, social templates, banners) for affiliates
+- `api_keys` — API key records with bcrypt hash, prefix, type (secret/publishable), permissions (JSONB), rate_limit_tier, revocation tracking
+- `api_request_log` — API request log with request_id, method, path, status, response time, API key reference
 
 ### Onboarding Flow
 
@@ -327,6 +342,13 @@ Integration package: `lib/integrations-anthropic-ai` (`@workspace/integrations-a
   - `POST /storage/uploads/request-url` — Request presigned upload URL
   - `GET /storage/public-objects/*` — Serve public assets
   - `GET /storage/objects/*` — Serve uploaded objects
+- **Public API:**
+  - `GET /v1/health` — Service health check (database, Redis, SendGrid, Twilio status)
+  - `GET /admin/api-keys` — List all API keys (admin-only)
+  - `POST /admin/api-keys` — Create API key, returns plaintext once (admin-only)
+  - `PATCH /admin/api-keys/:id` — Update key metadata/permissions (admin-only)
+  - `POST /admin/api-keys/:id/revoke` — Revoke API key (admin-only)
+- **Admin UI:** Settings → API Keys page at `/settings/api-keys` (admin-only)
 
 ### Community System
 

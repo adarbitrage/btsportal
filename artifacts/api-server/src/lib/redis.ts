@@ -23,3 +23,19 @@ export function createRedisConnection(): IORedis {
     enableReadyCheck: false,
   });
 }
+
+export function getRedis(): IORedis | null {
+  if (!process.env.REDIS_URL) return null;
+  return getRedisConnection();
+}
+
+export async function isRedisConnected(): Promise<boolean> {
+  try {
+    const r = getRedis();
+    if (!r) return false;
+    const pong = await r.ping();
+    return pong === "PONG";
+  } catch {
+    return false;
+  }
+}

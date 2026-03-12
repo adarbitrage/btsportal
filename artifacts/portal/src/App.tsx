@@ -23,6 +23,7 @@ import NotFound from "@/pages/not-found";
 import GhlDashboard from "@/pages/admin/GhlDashboard";
 import GhlContacts from "@/pages/admin/GhlContacts";
 import GhlConfig from "@/pages/admin/GhlConfig";
+import AdminApiKeys from "@/pages/AdminApiKeys";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
@@ -279,6 +280,7 @@ function Router() {
       <Route path="/admin/canned-responses">{() => <AdminRoute component={CannedResponses} />}</Route>
       <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} />}</Route>
       <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} />}</Route>
+      <Route path="/settings/api-keys">{() => <AdminRoute component={AdminApiKeys} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

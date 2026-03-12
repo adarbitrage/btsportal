@@ -5,6 +5,9 @@ import qs from "qs";
 import router from "./routes";
 import referralRedirectRouter from "./routes/referral-redirect";
 import { authenticate } from "./middleware/auth";
+import { requestIdMiddleware, apiErrorHandler } from "./lib/api-errors";
+import { rateLimiter } from "./middleware/rate-limiter";
+import { apiRequestLogger } from "./middleware/api-request-logger";
 import { startTicketJobs } from "./lib/ticket-jobs";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 
@@ -43,11 +46,14 @@ app.use("/api/webhooks", express.raw({ type: "*/*" }), (req: Request, _res: Resp
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
+app.use("/api", requestIdMiddleware);
 app.use("/api", referralRedirectRouter);
 
 app.use("/api", authenticate);
+app.use("/api", rateLimiter);
+app.use("/api", apiRequestLogger);
 app.use("/api", router);
+app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 startTicketJobs();

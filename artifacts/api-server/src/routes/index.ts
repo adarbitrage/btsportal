@@ -31,10 +31,13 @@ import emailRouter from "./email";
 import memberCommunicationsRouter from "./member-communications";
 import commissionsRouter from "./commissions";
 import adminCommissionsRouter from "./admin-commissions";
+import adminApiKeysRouter from "./admin-api-keys";
+import v1HealthRouter from "./v1-health";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(v1HealthRouter);
 router.use(authRouter);
 router.use(membersRouter);
 router.use(productsRouter);
@@ -66,5 +69,6 @@ router.use(adminBulkRouter);
 router.use(storageRouter);
 router.use(commissionsRouter);
 router.use(adminCommissionsRouter);
+router.use(adminApiKeysRouter);
 
 export default router;
