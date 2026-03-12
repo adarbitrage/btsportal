@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, Users, LogOut, Settings, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
@@ -24,11 +25,18 @@ const navItems: NavItem[] = [
   { href: "/support", label: "Support", icon: LifeBuoy },
 ];
 
+const adminGhlItems = [
+  { href: "/admin/ghl", label: "GHL Sync", icon: Activity },
+  { href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users },
+  { href: "/admin/ghl/config", label: "GHL Config", icon: Settings },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
+  const isAdmin = user?.role === "admin";
   const entitlements = new Set(member?.entitlements ?? []);
   const hasLifetime = entitlements.has("access:lifetime");
   const highestSlug = member?.highestProductSlug ?? "free";
@@ -83,6 +91,31 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {isAdmin && (
+          <>
+            <Separator className="my-4" />
+            <p className="px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Admin</p>
+            {adminGhlItems.map((item) => {
+              const isActive = location === item.href || (item.href !== "/admin/ghl" && location.startsWith(item.href));
+              return (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-primary" : "")} />
+                    {item.label}
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </div>
 
       <div className="p-4 mt-auto">

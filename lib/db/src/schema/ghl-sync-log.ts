@@ -9,6 +9,7 @@ export const ghlSyncLogTable = pgTable("ghl_sync_log", {
   action: text("action").notNull(),
   direction: text("direction").notNull().default("outbound"),
   payload: jsonb("payload"),
+  result: jsonb("result"),
   ghlContactId: text("ghl_contact_id"),
   status: text("status").notNull().default("queued"),
   errorMessage: text("error_message"),

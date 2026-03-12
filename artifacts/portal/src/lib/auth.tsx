@@ -4,6 +4,7 @@ interface User {
   id: number;
   email: string;
   name: string;
+  role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
 }

@@ -19,6 +19,9 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
+import GhlDashboard from "@/pages/admin/GhlDashboard";
+import GhlContacts from "@/pages/admin/GhlContacts";
+import GhlConfig from "@/pages/admin/GhlConfig";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
@@ -179,6 +182,48 @@ function OnboardingRoute({ component: Component, step }: { component: React.Comp
   return <Component />;
 }
 
+function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
+  const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#faf9f7",
+        fontFamily: "Roboto, sans-serif",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: "3px solid #e8e4dc",
+            borderTop: "3px solid #1a56db",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px",
+          }} />
+          <p style={{ color: "#6b7280", fontSize: 14 }}>Loading...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
+
+  if (user.role !== "admin") {
+    return <Redirect to="/" />;
+  }
+
+  return <Component />;
+}
+
 function GuestRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
 
@@ -216,6 +261,9 @@ function Router() {
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
       <Route path="/support/tickets/:id/rate">{() => <ProtectedRoute component={SatisfactionSurveyPage} />}</Route>
+      <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} />}</Route>
+      <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
+      <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
