@@ -1408,6 +1408,253 @@ export interface ChatRateLimitInput {
   maxOutputTokens: number;
 }
 
+/**
+ * @nullable
+ */
+export type OneOnOneStatusFrequency =
+  | (typeof OneOnOneStatusFrequency)[keyof typeof OneOnOneStatusFrequency]
+  | null;
+
+export const OneOnOneStatusFrequency = {
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export interface UpcomingOneOnOne {
+  id: number;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: string;
+  coachName: string;
+  /** @nullable */
+  meetLink?: string | null;
+}
+
+export interface OneOnOneStatus {
+  eligible: boolean;
+  /** @nullable */
+  frequency: OneOnOneStatusFrequency;
+  sessionsUsed: number;
+  sessionsLimit: number;
+  /** @nullable */
+  periodStart?: string | null;
+  /** @nullable */
+  periodEnd?: string | null;
+  upcomingSession: UpcomingOneOnOne | null;
+}
+
+export interface CoachAvailabilitySlot {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface OneOnOneCoach {
+  id: number;
+  name: string;
+  bio: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  specialties: string;
+  timezone: string;
+  /** @nullable */
+  averageRating?: number | null;
+  totalRatings: number;
+  availability: CoachAvailabilitySlot[];
+}
+
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+  coachId: number;
+}
+
+export interface SlotsResponse {
+  slots: TimeSlot[];
+}
+
+export interface BookSessionRequest {
+  coachId: number;
+  startTime: string;
+}
+
+export type CoachingSessionSummaryStatus =
+  (typeof CoachingSessionSummaryStatus)[keyof typeof CoachingSessionSummaryStatus];
+
+export const CoachingSessionSummaryStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+  no_show: "no_show",
+  rescheduled: "rescheduled",
+} as const;
+
+export interface CoachingSessionSummary {
+  id: number;
+  coachId: number;
+  coachName: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: CoachingSessionSummaryStatus;
+  /** @nullable */
+  meetLink?: string | null;
+  createdAt: string;
+}
+
+export type CoachingSessionDetailStatus =
+  (typeof CoachingSessionDetailStatus)[keyof typeof CoachingSessionDetailStatus];
+
+export const CoachingSessionDetailStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+  no_show: "no_show",
+  rescheduled: "rescheduled",
+} as const;
+
+export interface ActionItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export interface SessionRating {
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+  createdAt: string;
+}
+
+export interface CoachingSessionDetail {
+  id: number;
+  coachId: number;
+  coachName?: string;
+  /** @nullable */
+  coachPhotoUrl?: string | null;
+  memberId?: number;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: CoachingSessionDetailStatus;
+  /** @nullable */
+  meetLink?: string | null;
+  /** @nullable */
+  memberNotes?: string | null;
+  actionItems?: ActionItem[];
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancelledBy?: string | null;
+  /** @nullable */
+  cancellationReason?: string | null;
+  creditReturned: boolean;
+  /** @nullable */
+  rescheduledFromId?: number | null;
+  /** @nullable */
+  rescheduledToId?: number | null;
+  rating?: SessionRating | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CancelSessionRequest {
+  reason?: string;
+}
+
+export interface CancelSessionResponse {
+  id: number;
+  status: string;
+  creditReturned: boolean;
+  message: string;
+}
+
+export interface RescheduleSessionRequest {
+  newStartTime: string;
+  coachId?: number;
+}
+
+export interface UpdateActionItemRequest {
+  actionItemId: string;
+  completed: boolean;
+}
+
+export interface ActionItemsResponse {
+  actionItems: ActionItem[];
+}
+
+export interface RateSessionRequest {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  comment?: string;
+}
+
+export interface CoachingRating {
+  id: number;
+  sessionId: number;
+  coachId: number;
+  memberId: number;
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+  createdAt: string;
+}
+
+export interface AdminCoachingSession {
+  id: number;
+  coachId: number;
+  coachName: string;
+  memberId: number;
+  memberName: string;
+  memberEmail: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: string;
+  /** @nullable */
+  meetLink?: string | null;
+  /** @nullable */
+  coachNotes?: string | null;
+  /** @nullable */
+  memberNotes?: string | null;
+  actionItems?: ActionItem[];
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancelledBy?: string | null;
+  creditReturned: boolean;
+  createdAt: string;
+}
+
+export type AdminUpdateSessionRequestStatus =
+  (typeof AdminUpdateSessionRequestStatus)[keyof typeof AdminUpdateSessionRequestStatus];
+
+export const AdminUpdateSessionRequestStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+  no_show: "no_show",
+} as const;
+
+export interface AdminUpdateSessionRequest {
+  status?: AdminUpdateSessionRequestStatus;
+  coachNotes?: string;
+  memberNotes?: string;
+  actionItems?: ActionItem[];
+}
+
+export type NightlyJobResultReminders = {
+  reminders24h: number;
+  reminders1h: number;
+};
+
+export interface NightlyJobResult {
+  completed: number;
+  reminders: NightlyJobResultReminders;
+}
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -1612,4 +1859,31 @@ export type AdminImportContent201 = {
 
 export type LogToolUsage201 = {
   success: boolean;
+};
+
+export type GetOneOnOneSlotsParams = {
+  coachId: number;
+  startDate: string;
+  endDate: string;
+  timezone?: string;
+};
+
+export type ListOneOnOneSessionsParams = {
+  status?: ListOneOnOneSessionsStatus;
+};
+
+export type ListOneOnOneSessionsStatus =
+  (typeof ListOneOnOneSessionsStatus)[keyof typeof ListOneOnOneSessionsStatus];
+
+export const ListOneOnOneSessionsStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+  no_show: "no_show",
+  rescheduled: "rescheduled",
+} as const;
+
+export type AdminListCoachingSessionsParams = {
+  status?: string;
+  coachId?: number;
 };

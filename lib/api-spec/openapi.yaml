@@ -20,6 +20,8 @@ tags:
   - name: coaching
   - name: coaches
   - name: tickets
+  - name: coaching-one-on-one
+  - name: admin-coaching
   - name: admin-tickets
   - name: announcements
   - name: community
@@ -2670,6 +2672,320 @@ paths:
               schema:
                 $ref: "#/components/schemas/AnalyzeCampaignResponse"
 
+  /coaching/one-on-one/status:
+    get:
+      operationId: getOneOnOneStatus
+      tags: [coaching-one-on-one]
+      summary: Get 1-on-1 coaching status for current member
+      responses:
+        "200":
+          description: Coaching status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OneOnOneStatus"
+
+  /coaching/one-on-one/coaches:
+    get:
+      operationId: listOneOnOneCoaches
+      tags: [coaching-one-on-one]
+      summary: List coaches available for 1-on-1 sessions
+      responses:
+        "200":
+          description: List of coaches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OneOnOneCoach"
+
+  /coaching/one-on-one/slots:
+    get:
+      operationId: getOneOnOneSlots
+      tags: [coaching-one-on-one]
+      summary: Get available time slots for a coach
+      parameters:
+        - name: coachId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: timezone
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotsResponse"
+
+  /coaching/one-on-one/book:
+    post:
+      operationId: bookOneOnOneSession
+      tags: [coaching-one-on-one]
+      summary: Book a 1-on-1 coaching session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookSessionRequest"
+      responses:
+        "201":
+          description: Session booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingSessionDetail"
+        "409":
+          description: Conflict (slot taken or limit reached)
+
+  /coaching/one-on-one/sessions:
+    get:
+      operationId: listOneOnOneSessions
+      tags: [coaching-one-on-one]
+      summary: List member's 1-on-1 sessions
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [scheduled, completed, cancelled, no_show, rescheduled]
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoachingSessionSummary"
+
+  /coaching/one-on-one/sessions/{id}:
+    get:
+      operationId: getOneOnOneSession
+      tags: [coaching-one-on-one]
+      summary: Get session detail with notes and action items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingSessionDetail"
+        "404":
+          description: Not found
+
+  /coaching/one-on-one/sessions/{id}/cancel:
+    patch:
+      operationId: cancelOneOnOneSession
+      tags: [coaching-one-on-one]
+      summary: Cancel a scheduled session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelSessionRequest"
+      responses:
+        "200":
+          description: Session cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelSessionResponse"
+
+  /coaching/one-on-one/sessions/{id}/reschedule:
+    post:
+      operationId: rescheduleOneOnOneSession
+      tags: [coaching-one-on-one]
+      summary: Reschedule a session to a new time
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleSessionRequest"
+      responses:
+        "201":
+          description: New session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingSessionDetail"
+        "409":
+          description: Conflict
+
+  /coaching/one-on-one/sessions/{id}/action-items:
+    patch:
+      operationId: updateActionItemCompletion
+      tags: [coaching-one-on-one]
+      summary: Update action item completion status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActionItemRequest"
+      responses:
+        "200":
+          description: Updated action items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionItemsResponse"
+
+  /coaching/one-on-one/sessions/{id}/rate:
+    post:
+      operationId: rateOneOnOneSession
+      tags: [coaching-one-on-one]
+      summary: Rate a completed session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateSessionRequest"
+      responses:
+        "201":
+          description: Rating created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingRating"
+        "409":
+          description: Already rated
+
+  /admin/coaching/sessions:
+    get:
+      operationId: adminListCoachingSessions
+      tags: [admin-coaching]
+      summary: List all coaching sessions (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: coachId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCoachingSession"
+
+  /admin/coaching/sessions/{id}:
+    patch:
+      operationId: adminUpdateCoachingSession
+      tags: [admin-coaching]
+      summary: Update session status or notes (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateSessionRequest"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingSessionDetail"
+
+  /admin/coaching/sessions/{id}/return-credit:
+    post:
+      operationId: adminReturnSessionCredit
+      tags: [admin-coaching]
+      summary: Cancel session and return credit (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Credit returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelSessionResponse"
+
+  /admin/coaching/run-nightly:
+    post:
+      operationId: adminRunNightlyJob
+      tags: [admin-coaching]
+      summary: Trigger nightly session completion and reminders
+      responses:
+        "200":
+          description: Job results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NightlyJobResult"
 components:
   schemas:
     HealthStatus:
@@ -4898,3 +5214,370 @@ components:
           type: integer
         maxOutputTokens:
           type: integer
+    OneOnOneStatus:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+        frequency:
+          type: ["string", "null"]
+          enum: [weekly, monthly, null]
+        sessionsUsed:
+          type: integer
+        sessionsLimit:
+          type: integer
+        periodStart:
+          type: ["string", "null"]
+          format: date-time
+        periodEnd:
+          type: ["string", "null"]
+          format: date-time
+        upcomingSession:
+          oneOf:
+            - $ref: "#/components/schemas/UpcomingOneOnOne"
+            - type: "null"
+      required: [eligible, frequency, sessionsUsed, sessionsLimit, upcomingSession]
+
+    UpcomingOneOnOne:
+      type: object
+      properties:
+        id:
+          type: integer
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+        coachName:
+          type: string
+        meetLink:
+          type: ["string", "null"]
+      required: [id, scheduledAt, durationMinutes, status, coachName]
+
+    OneOnOneCoach:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        bio:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        specialties:
+          type: string
+        timezone:
+          type: string
+        averageRating:
+          type: ["number", "null"]
+        totalRatings:
+          type: integer
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachAvailabilitySlot"
+      required: [id, name, bio, specialties, timezone, totalRatings, availability]
+
+    CoachAvailabilitySlot:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+      required: [dayOfWeek, startTime, endTime]
+
+    SlotsResponse:
+      type: object
+      properties:
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeSlot"
+      required: [slots]
+
+    TimeSlot:
+      type: object
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        coachId:
+          type: integer
+      required: [startTime, endTime, coachId]
+
+    BookSessionRequest:
+      type: object
+      properties:
+        coachId:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+      required: [coachId, startTime]
+
+    CoachingSessionSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        coachId:
+          type: integer
+        coachName:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no_show, rescheduled]
+        meetLink:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, coachId, coachName, scheduledAt, durationMinutes, status, createdAt]
+
+    CoachingSessionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        coachId:
+          type: integer
+        coachName:
+          type: string
+        coachPhotoUrl:
+          type: ["string", "null"]
+        memberId:
+          type: integer
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no_show, rescheduled]
+        meetLink:
+          type: ["string", "null"]
+        memberNotes:
+          type: ["string", "null"]
+        actionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
+        cancelledBy:
+          type: ["string", "null"]
+        cancellationReason:
+          type: ["string", "null"]
+        creditReturned:
+          type: boolean
+        rescheduledFromId:
+          type: ["integer", "null"]
+        rescheduledToId:
+          type: ["integer", "null"]
+        rating:
+          oneOf:
+            - $ref: "#/components/schemas/SessionRating"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, coachId, scheduledAt, durationMinutes, status, creditReturned, createdAt, updatedAt]
+
+    ActionItem:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        completed:
+          type: boolean
+        completedAt:
+          type: ["string", "null"]
+      required: [id, text, completed]
+
+    SessionRating:
+      type: object
+      properties:
+        rating:
+          type: integer
+        comment:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [rating, createdAt]
+
+    CancelSessionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    CancelSessionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        creditReturned:
+          type: boolean
+        message:
+          type: string
+      required: [id, status, creditReturned, message]
+
+    RescheduleSessionRequest:
+      type: object
+      properties:
+        newStartTime:
+          type: string
+          format: date-time
+        coachId:
+          type: integer
+      required: [newStartTime]
+
+    UpdateActionItemRequest:
+      type: object
+      properties:
+        actionItemId:
+          type: string
+        completed:
+          type: boolean
+      required: [actionItemId, completed]
+
+    ActionItemsResponse:
+      type: object
+      properties:
+        actionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+      required: [actionItems]
+
+    RateSessionRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+      required: [rating]
+
+    CoachingRating:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        coachId:
+          type: integer
+        memberId:
+          type: integer
+        rating:
+          type: integer
+        comment:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, coachId, memberId, rating, createdAt]
+
+    AdminCoachingSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        coachId:
+          type: integer
+        coachName:
+          type: string
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        memberEmail:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+        meetLink:
+          type: ["string", "null"]
+        coachNotes:
+          type: ["string", "null"]
+        memberNotes:
+          type: ["string", "null"]
+        actionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
+        cancelledBy:
+          type: ["string", "null"]
+        creditReturned:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, coachId, coachName, memberId, memberName, memberEmail, scheduledAt, durationMinutes, status, creditReturned, createdAt]
+
+    AdminUpdateSessionRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled, no_show]
+        coachNotes:
+          type: string
+        memberNotes:
+          type: string
+        actionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+
+    NightlyJobResult:
+      type: object
+      properties:
+        completed:
+          type: integer
+        reminders:
+          type: object
+          properties:
+            reminders24h:
+              type: integer
+            reminders1h:
+              type: integer
+          required: [reminders24h, reminders1h]
+      required: [completed, reminders]
+
+
+

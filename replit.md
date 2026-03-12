@@ -206,8 +206,12 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `lesson_resources` — File attachments for lessons (via Object Storage presigned URLs), with download tracking
 - `lesson_versions` — Version snapshots created on publish, supports restore (max 20 per lesson)
 - `progress` — User lesson completion tracking
-- `coaches` — Coach profiles
-- `coaching_calls` — Scheduled coaching sessions with `required_entitlement`
+- `coaches` — Coach profiles with timezone, max_daily_sessions, one_on_one_enabled, meet_link, average_rating, total_ratings
+- `coaching_calls` — Scheduled group coaching sessions with `required_entitlement`
+- `coach_availability` — Recurring weekly availability windows per coach (day_of_week, start_time, end_time, timezone)
+- `coach_availability_overrides` — Date-specific availability overrides (blocked days, custom hours)
+- `coaching_sessions` — 1-on-1 coaching sessions with booking, cancellation, rescheduling, notes, action items, reminders
+- `coaching_ratings` — Session ratings (1-5) with denormalized average on coaches
 - `tickets` — Support tickets (with `assigned_to` column for agent assignment)
 - `ticket_messages` — Message threads on tickets (with `is_internal` flag for internal notes)
 - `ticket_sla` — SLA tracking per ticket (tier-based targets, breach/warning flags, business-hours clock)
@@ -307,7 +311,18 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `POST /dev/simulate-purchase` — Dev-only simulated purchase (disabled in production)
 - `POST /dev/simulate-refund` — Dev-only simulated refund (disabled in production)
 - `POST /dev/simulate-cancellation` — Dev-only simulated cancellation (disabled in production)
+- `GET /coaching/one-on-one/status` — Member's booking eligibility, frequency, usage
+- `GET /coaching/one-on-one/coaches` — Coaches offering 1-on-1 sessions
+- `GET /coaching/one-on-one/coaches/:id/slots` — Available time slots for a coach
+- `POST /coaching/one-on-one/book` — Book a 1-on-1 session (transactional, race-condition safe)
+- `GET /coaching/one-on-one/sessions` — List member's sessions
+- `GET /coaching/one-on-one/sessions/:id` — Session detail with rating
+- `PATCH /coaching/one-on-one/sessions/:id/cancel` — Cancel session (24h+ = credit returned)
+- `POST /coaching/one-on-one/sessions/:id/reschedule` — Reschedule session (transactional)
+- `PATCH /coaching/one-on-one/sessions/:id/action-items` — Toggle action item completion
+- `POST /coaching/one-on-one/sessions/:id/rate` — Rate a completed session (1-5)
 - `POST /admin/run-expiration-check` — Nightly expiration check for time-limited products (admin-only)
+<<<<<<< HEAD
 - `GET /admin/tickets` — List all tickets with filters (admin-only)
 - `GET /admin/tickets/:id` — Get ticket with all messages including internal notes (admin-only)
 - `PUT /admin/tickets/:id/status` — Update ticket status with SLA pause/resume (admin-only)
@@ -322,6 +337,10 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `PUT/DELETE /admin/canned-responses/:id` — Update/delete canned responses (admin-only)
 - `GET/POST /admin/ticket-routing` — CRUD routing rules (admin-only)
 - `PUT/DELETE /admin/ticket-routing/:id` — Update/delete routing rules (admin-only)
+- `GET /admin/coaching/sessions` — List all coaching sessions with filters (admin-only)
+- `PATCH /admin/coaching/sessions/:id` — Update session status/notes (admin-only)
+- `POST /admin/coaching/sessions/:id/return-credit` — Return credit for a session (admin-only)
+- `POST /admin/coaching/run-nightly` — Run nightly auto-complete + reminders (admin-only)
 - `GET /admin/webhook-logs` — List/filter webhook logs (admin-only)
 - `GET /admin/webhook-logs/:id` — Single webhook log with full payload (admin-only)
 - `GET /admin/product-mappings` — List ThriveCart product ID mappings (admin-only)

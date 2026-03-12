@@ -41,6 +41,8 @@ import marketingRouter from "./marketing";
 import toolsRouter from "./tools";
 import adminOutgoingWebhooksRouter from "./admin-outgoing-webhooks";
 import vaultRouter from "./vault";
+import coachingOneOnOneRouter from "./coaching-one-on-one";
+import adminCoachingRouter from "./admin-coaching";
 
 const router: IRouter = Router();
 
@@ -53,6 +55,7 @@ router.use(dashboardRouter);
 router.use(tracksRouter);
 router.use(progressRouter);
 router.use(coachingRouter);
+router.use(coachingOneOnOneRouter);
 router.use(ticketsRouter);
 router.use(announcementsRouter);
 router.use(webhooksRouter);
@@ -86,5 +89,6 @@ router.use(marketingRouter);
 router.use(toolsRouter);
 router.use(adminOutgoingWebhooksRouter);
 router.use(vaultRouter);
+router.use(adminCoachingRouter);
 
 export default router;

@@ -17,12 +17,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActionItemsResponse,
   AdminBulkMoveLessons200,
   AdminBulkMoveLessonsBody,
   AdminBulkPublishLessons200,
   AdminBulkPublishLessonsBody,
   AdminChatSessionDetail,
   AdminChatSessionList,
+  AdminCoachingSession,
   AdminCreateKnowledgebaseDocBody,
   AdminCreateLesson,
   AdminCreateModule,
@@ -38,6 +40,7 @@ import type {
   AdminLesson,
   AdminListCannedResponsesParams,
   AdminListChatSessionsParams,
+  AdminListCoachingSessionsParams,
   AdminListKnowledgebaseDocsParams,
   AdminListTicketsParams,
   AdminModule,
@@ -56,12 +59,16 @@ import type {
   AdminUpdateMessageNotesBody,
   AdminUpdateModule,
   AdminUpdateRateLimitsBody,
+  AdminUpdateSessionRequest,
   AdminUpdateTicketStatusBody,
   AdminUpdateTrack,
   AgentPerformance,
   AnalyzeCampaignBody,
   AnalyzeCampaignResponse,
   Announcement,
+  BookSessionRequest,
+  CancelSessionRequest,
+  CancelSessionResponse,
   CannedResponse,
   ChatAnalytics,
   ChatMessageAdmin,
@@ -72,6 +79,9 @@ import type {
   ChatStatus,
   Coach,
   CoachingCall,
+  CoachingRating,
+  CoachingSessionDetail,
+  CoachingSessionSummary,
   CommunityCategory,
   CommunityCommentItem,
   CommunityCommentRaw,
@@ -99,6 +109,7 @@ import type {
   GenerateHeadlinesBody,
   GenerateHeadlinesResponse,
   GetLegalDocumentsParams,
+  GetOneOnOneSlotsParams,
   HealthStatus,
   KnowledgebaseDocAdmin,
   LegalDocument,
@@ -111,6 +122,7 @@ import type {
   ListCommunityMembersParams,
   ListCommunityNotificationsParams,
   ListCommunityPostsParams,
+  ListOneOnOneSessionsParams,
   ListTicketsParams,
   LogToolUsage201,
   LogToolUsageBody,
@@ -118,7 +130,10 @@ import type {
   MergeTicketsBody,
   MergeTicketsResult,
   ModuleWithLessons,
+  NightlyJobResult,
   OnboardingState,
+  OneOnOneCoach,
+  OneOnOneStatus,
   OwnedProduct,
   PatchMemberProfileBody,
   PatchMemberProfileResponse,
@@ -126,10 +141,12 @@ import type {
   PatchOnboardingStepResponse,
   ProductInfo,
   Progress,
+  RateSessionRequest,
   ReactionToggleResult,
   ReorderRequest,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
+  RescheduleSessionRequest,
   ResourceUploadRequest,
   RoutingRule,
   SatisfactionStatus,
@@ -138,6 +155,7 @@ import type {
   SignDocumentBody,
   SignDocumentResponse,
   SlaDashboard,
+  SlotsResponse,
   SuccessResponse,
   SystemPromptVersion,
   Ticket,
@@ -151,6 +169,7 @@ import type {
   ToolListResponse,
   ToolUserDataItem,
   TrackWithModules,
+  UpdateActionItemRequest,
   UpdateChatPromptBody,
   UpdateToolDataBody,
   UploadUrlResponse,
@@ -11011,4 +11030,1254 @@ export const useAnalyzeCampaign = <
   TContext
 > => {
   return useMutation(getAnalyzeCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Get 1-on-1 coaching status for current member
+ */
+export const getGetOneOnOneStatusUrl = () => {
+  return `/api/coaching/one-on-one/status`;
+};
+
+export const getOneOnOneStatus = async (
+  options?: RequestInit,
+): Promise<OneOnOneStatus> => {
+  return customFetch<OneOnOneStatus>(getGetOneOnOneStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOneOnOneStatusQueryKey = () => {
+  return [`/api/coaching/one-on-one/status`] as const;
+};
+
+export const getGetOneOnOneStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOneOnOneStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOneOnOneStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOneOnOneStatus>>
+  > = ({ signal }) => getOneOnOneStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOneOnOneStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOneOnOneStatus>>
+>;
+export type GetOneOnOneStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get 1-on-1 coaching status for current member
+ */
+
+export function useGetOneOnOneStatus<
+  TData = Awaited<ReturnType<typeof getOneOnOneStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOneOnOneStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List coaches available for 1-on-1 sessions
+ */
+export const getListOneOnOneCoachesUrl = () => {
+  return `/api/coaching/one-on-one/coaches`;
+};
+
+export const listOneOnOneCoaches = async (
+  options?: RequestInit,
+): Promise<OneOnOneCoach[]> => {
+  return customFetch<OneOnOneCoach[]>(getListOneOnOneCoachesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOneOnOneCoachesQueryKey = () => {
+  return [`/api/coaching/one-on-one/coaches`] as const;
+};
+
+export const getListOneOnOneCoachesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOneOnOneCoachesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOneOnOneCoaches>>
+  > = ({ signal }) => listOneOnOneCoaches({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOneOnOneCoachesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOneOnOneCoaches>>
+>;
+export type ListOneOnOneCoachesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List coaches available for 1-on-1 sessions
+ */
+
+export function useListOneOnOneCoaches<
+  TData = Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOneOnOneCoachesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get available time slots for a coach
+ */
+export const getGetOneOnOneSlotsUrl = (params: GetOneOnOneSlotsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/coaching/one-on-one/slots?${stringifiedParams}`
+    : `/api/coaching/one-on-one/slots`;
+};
+
+export const getOneOnOneSlots = async (
+  params: GetOneOnOneSlotsParams,
+  options?: RequestInit,
+): Promise<SlotsResponse> => {
+  return customFetch<SlotsResponse>(getGetOneOnOneSlotsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOneOnOneSlotsQueryKey = (
+  params?: GetOneOnOneSlotsParams,
+) => {
+  return [
+    `/api/coaching/one-on-one/slots`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetOneOnOneSlotsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOneOnOneSlots>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetOneOnOneSlotsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOneOnOneSlots>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOneOnOneSlotsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOneOnOneSlots>>
+  > = ({ signal }) => getOneOnOneSlots(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOneOnOneSlots>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOneOnOneSlotsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOneOnOneSlots>>
+>;
+export type GetOneOnOneSlotsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get available time slots for a coach
+ */
+
+export function useGetOneOnOneSlots<
+  TData = Awaited<ReturnType<typeof getOneOnOneSlots>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetOneOnOneSlotsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOneOnOneSlots>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOneOnOneSlotsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Book a 1-on-1 coaching session
+ */
+export const getBookOneOnOneSessionUrl = () => {
+  return `/api/coaching/one-on-one/book`;
+};
+
+export const bookOneOnOneSession = async (
+  bookSessionRequest: BookSessionRequest,
+  options?: RequestInit,
+): Promise<CoachingSessionDetail> => {
+  return customFetch<CoachingSessionDetail>(getBookOneOnOneSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bookSessionRequest),
+  });
+};
+
+export const getBookOneOnOneSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    TError,
+    { data: BodyType<BookSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bookOneOnOneSession>>,
+  TError,
+  { data: BodyType<BookSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["bookOneOnOneSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    { data: BodyType<BookSessionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bookOneOnOneSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BookOneOnOneSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bookOneOnOneSession>>
+>;
+export type BookOneOnOneSessionMutationBody = BodyType<BookSessionRequest>;
+export type BookOneOnOneSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Book a 1-on-1 coaching session
+ */
+export const useBookOneOnOneSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    TError,
+    { data: BodyType<BookSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bookOneOnOneSession>>,
+  TError,
+  { data: BodyType<BookSessionRequest> },
+  TContext
+> => {
+  return useMutation(getBookOneOnOneSessionMutationOptions(options));
+};
+
+/**
+ * @summary List member's 1-on-1 sessions
+ */
+export const getListOneOnOneSessionsUrl = (
+  params?: ListOneOnOneSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/coaching/one-on-one/sessions?${stringifiedParams}`
+    : `/api/coaching/one-on-one/sessions`;
+};
+
+export const listOneOnOneSessions = async (
+  params?: ListOneOnOneSessionsParams,
+  options?: RequestInit,
+): Promise<CoachingSessionSummary[]> => {
+  return customFetch<CoachingSessionSummary[]>(
+    getListOneOnOneSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListOneOnOneSessionsQueryKey = (
+  params?: ListOneOnOneSessionsParams,
+) => {
+  return [
+    `/api/coaching/one-on-one/sessions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListOneOnOneSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOneOnOneSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOneOnOneSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOneOnOneSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListOneOnOneSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOneOnOneSessions>>
+  > = ({ signal }) =>
+    listOneOnOneSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOneOnOneSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOneOnOneSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOneOnOneSessions>>
+>;
+export type ListOneOnOneSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List member's 1-on-1 sessions
+ */
+
+export function useListOneOnOneSessions<
+  TData = Awaited<ReturnType<typeof listOneOnOneSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOneOnOneSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOneOnOneSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOneOnOneSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get session detail with notes and action items
+ */
+export const getGetOneOnOneSessionUrl = (id: number) => {
+  return `/api/coaching/one-on-one/sessions/${id}`;
+};
+
+export const getOneOnOneSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CoachingSessionDetail> => {
+  return customFetch<CoachingSessionDetail>(getGetOneOnOneSessionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOneOnOneSessionQueryKey = (id: number) => {
+  return [`/api/coaching/one-on-one/sessions/${id}`] as const;
+};
+
+export const getGetOneOnOneSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOneOnOneSession>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOneOnOneSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOneOnOneSessionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOneOnOneSession>>
+  > = ({ signal }) => getOneOnOneSession(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOneOnOneSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOneOnOneSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOneOnOneSession>>
+>;
+export type GetOneOnOneSessionQueryError = ErrorType<void>;
+
+/**
+ * @summary Get session detail with notes and action items
+ */
+
+export function useGetOneOnOneSession<
+  TData = Awaited<ReturnType<typeof getOneOnOneSession>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOneOnOneSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOneOnOneSessionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Cancel a scheduled session
+ */
+export const getCancelOneOnOneSessionUrl = (id: number) => {
+  return `/api/coaching/one-on-one/sessions/${id}/cancel`;
+};
+
+export const cancelOneOnOneSession = async (
+  id: number,
+  cancelSessionRequest?: CancelSessionRequest,
+  options?: RequestInit,
+): Promise<CancelSessionResponse> => {
+  return customFetch<CancelSessionResponse>(getCancelOneOnOneSessionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(cancelSessionRequest),
+  });
+};
+
+export const getCancelOneOnOneSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<CancelSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<CancelSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["cancelOneOnOneSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    { id: number; data: BodyType<CancelSessionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return cancelOneOnOneSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelOneOnOneSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelOneOnOneSession>>
+>;
+export type CancelOneOnOneSessionMutationBody = BodyType<CancelSessionRequest>;
+export type CancelOneOnOneSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cancel a scheduled session
+ */
+export const useCancelOneOnOneSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<CancelSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<CancelSessionRequest> },
+  TContext
+> => {
+  return useMutation(getCancelOneOnOneSessionMutationOptions(options));
+};
+
+/**
+ * @summary Reschedule a session to a new time
+ */
+export const getRescheduleOneOnOneSessionUrl = (id: number) => {
+  return `/api/coaching/one-on-one/sessions/${id}/reschedule`;
+};
+
+export const rescheduleOneOnOneSession = async (
+  id: number,
+  rescheduleSessionRequest: RescheduleSessionRequest,
+  options?: RequestInit,
+): Promise<CoachingSessionDetail> => {
+  return customFetch<CoachingSessionDetail>(
+    getRescheduleOneOnOneSessionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(rescheduleSessionRequest),
+    },
+  );
+};
+
+export const getRescheduleOneOnOneSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<RescheduleSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<RescheduleSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["rescheduleOneOnOneSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    { id: number; data: BodyType<RescheduleSessionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rescheduleOneOnOneSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RescheduleOneOnOneSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>
+>;
+export type RescheduleOneOnOneSessionMutationBody =
+  BodyType<RescheduleSessionRequest>;
+export type RescheduleOneOnOneSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Reschedule a session to a new time
+ */
+export const useRescheduleOneOnOneSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<RescheduleSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<RescheduleSessionRequest> },
+  TContext
+> => {
+  return useMutation(getRescheduleOneOnOneSessionMutationOptions(options));
+};
+
+/**
+ * @summary Update action item completion status
+ */
+export const getUpdateActionItemCompletionUrl = (id: number) => {
+  return `/api/coaching/one-on-one/sessions/${id}/action-items`;
+};
+
+export const updateActionItemCompletion = async (
+  id: number,
+  updateActionItemRequest: UpdateActionItemRequest,
+  options?: RequestInit,
+): Promise<ActionItemsResponse> => {
+  return customFetch<ActionItemsResponse>(
+    getUpdateActionItemCompletionUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateActionItemRequest),
+    },
+  );
+};
+
+export const getUpdateActionItemCompletionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActionItemCompletion>>,
+    TError,
+    { id: number; data: BodyType<UpdateActionItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateActionItemCompletion>>,
+  TError,
+  { id: number; data: BodyType<UpdateActionItemRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateActionItemCompletion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateActionItemCompletion>>,
+    { id: number; data: BodyType<UpdateActionItemRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateActionItemCompletion(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateActionItemCompletionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateActionItemCompletion>>
+>;
+export type UpdateActionItemCompletionMutationBody =
+  BodyType<UpdateActionItemRequest>;
+export type UpdateActionItemCompletionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update action item completion status
+ */
+export const useUpdateActionItemCompletion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActionItemCompletion>>,
+    TError,
+    { id: number; data: BodyType<UpdateActionItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateActionItemCompletion>>,
+  TError,
+  { id: number; data: BodyType<UpdateActionItemRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateActionItemCompletionMutationOptions(options));
+};
+
+/**
+ * @summary Rate a completed session
+ */
+export const getRateOneOnOneSessionUrl = (id: number) => {
+  return `/api/coaching/one-on-one/sessions/${id}/rate`;
+};
+
+export const rateOneOnOneSession = async (
+  id: number,
+  rateSessionRequest: RateSessionRequest,
+  options?: RequestInit,
+): Promise<CoachingRating> => {
+  return customFetch<CoachingRating>(getRateOneOnOneSessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rateSessionRequest),
+  });
+};
+
+export const getRateOneOnOneSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<RateSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rateOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<RateSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["rateOneOnOneSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    { id: number; data: BodyType<RateSessionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rateOneOnOneSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RateOneOnOneSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rateOneOnOneSession>>
+>;
+export type RateOneOnOneSessionMutationBody = BodyType<RateSessionRequest>;
+export type RateOneOnOneSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Rate a completed session
+ */
+export const useRateOneOnOneSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    TError,
+    { id: number; data: BodyType<RateSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rateOneOnOneSession>>,
+  TError,
+  { id: number; data: BodyType<RateSessionRequest> },
+  TContext
+> => {
+  return useMutation(getRateOneOnOneSessionMutationOptions(options));
+};
+
+/**
+ * @summary List all coaching sessions (admin)
+ */
+export const getAdminListCoachingSessionsUrl = (
+  params?: AdminListCoachingSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/coaching/sessions?${stringifiedParams}`
+    : `/api/admin/coaching/sessions`;
+};
+
+export const adminListCoachingSessions = async (
+  params?: AdminListCoachingSessionsParams,
+  options?: RequestInit,
+): Promise<AdminCoachingSession[]> => {
+  return customFetch<AdminCoachingSession[]>(
+    getAdminListCoachingSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListCoachingSessionsQueryKey = (
+  params?: AdminListCoachingSessionsParams,
+) => {
+  return [`/api/admin/coaching/sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListCoachingSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListCoachingSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListCoachingSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListCoachingSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListCoachingSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListCoachingSessions>>
+  > = ({ signal }) =>
+    adminListCoachingSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListCoachingSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListCoachingSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListCoachingSessions>>
+>;
+export type AdminListCoachingSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all coaching sessions (admin)
+ */
+
+export function useAdminListCoachingSessions<
+  TData = Awaited<ReturnType<typeof adminListCoachingSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListCoachingSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListCoachingSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListCoachingSessionsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update session status or notes (admin)
+ */
+export const getAdminUpdateCoachingSessionUrl = (id: number) => {
+  return `/api/admin/coaching/sessions/${id}`;
+};
+
+export const adminUpdateCoachingSession = async (
+  id: number,
+  adminUpdateSessionRequest: AdminUpdateSessionRequest,
+  options?: RequestInit,
+): Promise<CoachingSessionDetail> => {
+  return customFetch<CoachingSessionDetail>(
+    getAdminUpdateCoachingSessionUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminUpdateSessionRequest),
+    },
+  );
+};
+
+export const getAdminUpdateCoachingSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCoachingSession>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateCoachingSession>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateCoachingSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateCoachingSession>>,
+    { id: number; data: BodyType<AdminUpdateSessionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateCoachingSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateCoachingSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateCoachingSession>>
+>;
+export type AdminUpdateCoachingSessionMutationBody =
+  BodyType<AdminUpdateSessionRequest>;
+export type AdminUpdateCoachingSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update session status or notes (admin)
+ */
+export const useAdminUpdateCoachingSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCoachingSession>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateCoachingSession>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateSessionRequest> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateCoachingSessionMutationOptions(options));
+};
+
+/**
+ * @summary Cancel session and return credit (admin)
+ */
+export const getAdminReturnSessionCreditUrl = (id: number) => {
+  return `/api/admin/coaching/sessions/${id}/return-credit`;
+};
+
+export const adminReturnSessionCredit = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CancelSessionResponse> => {
+  return customFetch<CancelSessionResponse>(
+    getAdminReturnSessionCreditUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminReturnSessionCreditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReturnSessionCredit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReturnSessionCredit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminReturnSessionCredit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReturnSessionCredit>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminReturnSessionCredit(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReturnSessionCreditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReturnSessionCredit>>
+>;
+
+export type AdminReturnSessionCreditMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cancel session and return credit (admin)
+ */
+export const useAdminReturnSessionCredit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReturnSessionCredit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReturnSessionCredit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminReturnSessionCreditMutationOptions(options));
+};
+
+/**
+ * @summary Trigger nightly session completion and reminders
+ */
+export const getAdminRunNightlyJobUrl = () => {
+  return `/api/admin/coaching/run-nightly`;
+};
+
+export const adminRunNightlyJob = async (
+  options?: RequestInit,
+): Promise<NightlyJobResult> => {
+  return customFetch<NightlyJobResult>(getAdminRunNightlyJobUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminRunNightlyJobMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRunNightlyJob>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRunNightlyJob>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminRunNightlyJob"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRunNightlyJob>>,
+    void
+  > = () => {
+    return adminRunNightlyJob(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRunNightlyJobMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRunNightlyJob>>
+>;
+
+export type AdminRunNightlyJobMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Trigger nightly session completion and reminders
+ */
+export const useAdminRunNightlyJob = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRunNightlyJob>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRunNightlyJob>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAdminRunNightlyJobMutationOptions(options));
 };

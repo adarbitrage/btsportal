@@ -2363,3 +2363,367 @@ export const AnalyzeCampaignResponse = zod.object({
   remainingToday: zod.number(),
   dailyLimit: zod.number(),
 });
+
+/**
+ * @summary Get 1-on-1 coaching status for current member
+ */
+export const GetOneOnOneStatusResponse = zod.object({
+  eligible: zod.boolean(),
+  frequency: zod
+    .union([zod.literal("weekly"), zod.literal("monthly"), zod.literal(null)])
+    .nullable(),
+  sessionsUsed: zod.number(),
+  sessionsLimit: zod.number(),
+  periodStart: zod.date().nullish(),
+  periodEnd: zod.date().nullish(),
+  upcomingSession: zod.union([
+    zod.object({
+      id: zod.number(),
+      scheduledAt: zod.date(),
+      durationMinutes: zod.number(),
+      status: zod.string(),
+      coachName: zod.string(),
+      meetLink: zod.string().nullish(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary List coaches available for 1-on-1 sessions
+ */
+export const ListOneOnOneCoachesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  bio: zod.string(),
+  photoUrl: zod.string().nullish(),
+  specialties: zod.string(),
+  timezone: zod.string(),
+  averageRating: zod.number().nullish(),
+  totalRatings: zod.number(),
+  availability: zod.array(
+    zod.object({
+      dayOfWeek: zod.number(),
+      startTime: zod.string(),
+      endTime: zod.string(),
+    }),
+  ),
+});
+export const ListOneOnOneCoachesResponse = zod.array(
+  ListOneOnOneCoachesResponseItem,
+);
+
+/**
+ * @summary Get available time slots for a coach
+ */
+export const GetOneOnOneSlotsQueryParams = zod.object({
+  coachId: zod.coerce.number(),
+  startDate: zod.date(),
+  endDate: zod.date(),
+  timezone: zod.coerce.string().optional(),
+});
+
+export const GetOneOnOneSlotsResponse = zod.object({
+  slots: zod.array(
+    zod.object({
+      startTime: zod.date(),
+      endTime: zod.date(),
+      coachId: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Book a 1-on-1 coaching session
+ */
+export const BookOneOnOneSessionBody = zod.object({
+  coachId: zod.number(),
+  startTime: zod.date(),
+});
+
+/**
+ * @summary List member's 1-on-1 sessions
+ */
+export const ListOneOnOneSessionsQueryParams = zod.object({
+  status: zod
+    .enum(["scheduled", "completed", "cancelled", "no_show", "rescheduled"])
+    .optional(),
+});
+
+export const ListOneOnOneSessionsResponseItem = zod.object({
+  id: zod.number(),
+  coachId: zod.number(),
+  coachName: zod.string(),
+  scheduledAt: zod.date(),
+  durationMinutes: zod.number(),
+  status: zod.enum([
+    "scheduled",
+    "completed",
+    "cancelled",
+    "no_show",
+    "rescheduled",
+  ]),
+  meetLink: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+export const ListOneOnOneSessionsResponse = zod.array(
+  ListOneOnOneSessionsResponseItem,
+);
+
+/**
+ * @summary Get session detail with notes and action items
+ */
+export const GetOneOnOneSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetOneOnOneSessionResponse = zod.object({
+  id: zod.number(),
+  coachId: zod.number(),
+  coachName: zod.string().optional(),
+  coachPhotoUrl: zod.string().nullish(),
+  memberId: zod.number().optional(),
+  scheduledAt: zod.date(),
+  durationMinutes: zod.number(),
+  status: zod.enum([
+    "scheduled",
+    "completed",
+    "cancelled",
+    "no_show",
+    "rescheduled",
+  ]),
+  meetLink: zod.string().nullish(),
+  memberNotes: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        text: zod.string(),
+        completed: zod.boolean(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  cancelledAt: zod.date().nullish(),
+  cancelledBy: zod.string().nullish(),
+  cancellationReason: zod.string().nullish(),
+  creditReturned: zod.boolean(),
+  rescheduledFromId: zod.number().nullish(),
+  rescheduledToId: zod.number().nullish(),
+  rating: zod
+    .union([
+      zod.object({
+        rating: zod.number(),
+        comment: zod.string().nullish(),
+        createdAt: zod.date(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Cancel a scheduled session
+ */
+export const CancelOneOnOneSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelOneOnOneSessionBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const CancelOneOnOneSessionResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  creditReturned: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Reschedule a session to a new time
+ */
+export const RescheduleOneOnOneSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RescheduleOneOnOneSessionBody = zod.object({
+  newStartTime: zod.date(),
+  coachId: zod.number().optional(),
+});
+
+/**
+ * @summary Update action item completion status
+ */
+export const UpdateActionItemCompletionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateActionItemCompletionBody = zod.object({
+  actionItemId: zod.string(),
+  completed: zod.boolean(),
+});
+
+export const UpdateActionItemCompletionResponse = zod.object({
+  actionItems: zod.array(
+    zod.object({
+      id: zod.string(),
+      text: zod.string(),
+      completed: zod.boolean(),
+      completedAt: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Rate a completed session
+ */
+export const RateOneOnOneSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const rateOneOnOneSessionBodyRatingMax = 5;
+
+export const RateOneOnOneSessionBody = zod.object({
+  rating: zod.number().min(1).max(rateOneOnOneSessionBodyRatingMax),
+  comment: zod.string().optional(),
+});
+
+/**
+ * @summary List all coaching sessions (admin)
+ */
+export const AdminListCoachingSessionsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  coachId: zod.coerce.number().optional(),
+});
+
+export const AdminListCoachingSessionsResponseItem = zod.object({
+  id: zod.number(),
+  coachId: zod.number(),
+  coachName: zod.string(),
+  memberId: zod.number(),
+  memberName: zod.string(),
+  memberEmail: zod.string(),
+  scheduledAt: zod.date(),
+  durationMinutes: zod.number(),
+  status: zod.string(),
+  meetLink: zod.string().nullish(),
+  coachNotes: zod.string().nullish(),
+  memberNotes: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        text: zod.string(),
+        completed: zod.boolean(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  cancelledAt: zod.date().nullish(),
+  cancelledBy: zod.string().nullish(),
+  creditReturned: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const AdminListCoachingSessionsResponse = zod.array(
+  AdminListCoachingSessionsResponseItem,
+);
+
+/**
+ * @summary Update session status or notes (admin)
+ */
+export const AdminUpdateCoachingSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateCoachingSessionBody = zod.object({
+  status: zod
+    .enum(["scheduled", "completed", "cancelled", "no_show"])
+    .optional(),
+  coachNotes: zod.string().optional(),
+  memberNotes: zod.string().optional(),
+  actionItems: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        text: zod.string(),
+        completed: zod.boolean(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+export const AdminUpdateCoachingSessionResponse = zod.object({
+  id: zod.number(),
+  coachId: zod.number(),
+  coachName: zod.string().optional(),
+  coachPhotoUrl: zod.string().nullish(),
+  memberId: zod.number().optional(),
+  scheduledAt: zod.date(),
+  durationMinutes: zod.number(),
+  status: zod.enum([
+    "scheduled",
+    "completed",
+    "cancelled",
+    "no_show",
+    "rescheduled",
+  ]),
+  meetLink: zod.string().nullish(),
+  memberNotes: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        text: zod.string(),
+        completed: zod.boolean(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  cancelledAt: zod.date().nullish(),
+  cancelledBy: zod.string().nullish(),
+  cancellationReason: zod.string().nullish(),
+  creditReturned: zod.boolean(),
+  rescheduledFromId: zod.number().nullish(),
+  rescheduledToId: zod.number().nullish(),
+  rating: zod
+    .union([
+      zod.object({
+        rating: zod.number(),
+        comment: zod.string().nullish(),
+        createdAt: zod.date(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Cancel session and return credit (admin)
+ */
+export const AdminReturnSessionCreditParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminReturnSessionCreditResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  creditReturned: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Trigger nightly session completion and reminders
+ */
+export const AdminRunNightlyJobResponse = zod.object({
+  completed: zod.number(),
+  reminders: zod.object({
+    reminders24h: zod.number(),
+    reminders1h: zod.number(),
+  }),
+});
