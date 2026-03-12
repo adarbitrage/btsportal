@@ -94,8 +94,31 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Onboarding** (`/onboarding/*`) — 5-step wizard (welcome, documents, profile, orientation, quick-start)
 - **Dashboard** (`/`) — Welcome banner with product badge, stats cards, training progress, upcoming calls, entitlement display, announcements
 - **Training Library** (`/training`) — Tracks with locked/unlocked state based on `requiredEntitlement`, modules with progress
+- **Community Feed** (`/community`) — Categorized post feed with reactions, comments, new post composer; gated by `community:access` entitlement
+- **Member Directory** (`/community/members`) — Searchable/filterable grid of community members
+- **Member Profile** (`/community/members/:userId`) — Member profile with stats, badges, and recent posts
 - **Coaching Calls** (`/coaching`) — Calls gated by entitlement (coaching:group, coaching:mastermind, etc.)
 - **Support Center** (`/support`) — Ticket management with entitlement-based limits
+
+### Community Frontend (UI Layer)
+
+The community frontend is a UI layer built for integration with community backend API endpoints (`/api/community/*`). It uses a custom fetch-based API layer (`src/lib/community-api.ts`) with React Query hooks (`src/hooks/use-community.ts`), since the community backend routes are not yet in the OpenAPI spec.
+
+**Key files:**
+- `src/lib/community-api.ts` — API client with typed interfaces for all community endpoints
+- `src/hooks/use-community.ts` — React Query hooks with infinite scroll, optimistic reaction updates
+- `src/pages/community/CommunityFeed.tsx` — Main feed with category tabs, pinned posts, pagination
+- `src/pages/community/MemberDirectory.tsx` — Member grid with search, tier filter, sort
+- `src/pages/community/MemberProfile.tsx` — Individual member profile page
+- `src/components/community/PostCard.tsx` — Post cards with markdown rendering, reactions, edit/delete
+- `src/components/community/CommentThread.tsx` — Comment threads with replies, inline input, edit/delete
+- `src/components/community/NewPostModal.tsx` — Post composer modal with category, markdown, image URL
+- `src/components/community/NotificationBell.tsx` — Bell dropdown with notification list, mark-all-read
+- `src/components/community/TierBadge.tsx` — Tier badge colors and engagement badge components
+- `src/components/community/ProfilePopover.tsx` — Hover/click profile card popover, AuthorAvatar
+- `src/components/community/MemberCard.tsx` — Member card for directory grid
+
+**Expected backend endpoints:** `GET/POST /community/posts`, `GET/POST /community/posts/:id/comments`, `POST /community/reactions`, `GET /community/categories`, `GET /community/members`, `GET /community/members/:id`, `GET /community/notifications`, `POST /community/notifications/read`
 
 ### Design
 - Primary brand color: BTS blue (#1a56db)

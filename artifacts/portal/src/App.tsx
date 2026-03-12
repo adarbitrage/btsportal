@@ -4,12 +4,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
+import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import Coaching from "@/pages/Coaching";
 import Support from "@/pages/Support";
 import TicketDetail from "@/pages/TicketDetail";
+import CommunityFeed from "@/pages/community/CommunityFeed";
+import MemberDirectory from "@/pages/community/MemberDirectory";
+import MemberProfile from "@/pages/community/MemberProfile";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -75,6 +79,54 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   if (!user.onboardingComplete) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
+  }
+
+  return <Component />;
+}
+
+function EntitlementRoute({ component: Component, entitlement }: { component: React.ComponentType<any>; entitlement: string }) {
+  const { user, loading } = useAuth();
+  const { data: member, isLoading: memberLoading } = useGetCurrentMember();
+
+  if (loading || memberLoading) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#faf9f7",
+        fontFamily: "Roboto, sans-serif",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: "3px solid #e8e4dc",
+            borderTop: "3px solid #1a56db",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px",
+          }} />
+          <p style={{ color: "#6b7280", fontSize: 14 }}>Loading...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
+
+  if (!user.onboardingComplete) {
+    const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    return <Redirect to={stepRoute} />;
+  }
+
+  const entitlements = new Set(member?.entitlements ?? []);
+  if (!entitlements.has(entitlement)) {
+    return <Redirect to="/" />;
   }
 
   return <Component />;
@@ -156,6 +208,9 @@ function Router() {
       <Route path="/">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
+      <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
+      <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
+      <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>

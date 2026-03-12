@@ -1,15 +1,25 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, LogOut } from "lucide-react";
+import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, Users, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
+import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  requiredEntitlement?: string;
+  showNotificationBadge?: boolean;
+}
+
+const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/training", label: "Training Library", icon: BookOpen },
+  { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/support", label: "Support", icon: LifeBuoy },
 ];
@@ -68,6 +78,7 @@ export function Sidebar() {
                 <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-primary" : isLocked ? "opacity-50" : "")} />
                 {item.label}
                 {isLocked && <span className="ml-auto text-[9px] text-muted-foreground/60 bg-secondary px-1.5 py-0.5 rounded">Upgrade</span>}
+                {!isLocked && item.showNotificationBadge && <NotificationBadgeCount />}
               </div>
             </Link>
           );
@@ -100,6 +111,7 @@ export function Sidebar() {
               {productDisplayNames[highestSlug] ?? highestSlug}
             </p>
           </div>
+          {entitlements.has("community:access") && <NotificationBell />}
           <button
             onClick={() => logout()}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
