@@ -1,0 +1,22 @@
+:root {
+  --bts-primary: #6366f1;
+  --bts-primary-light: #818cf8;
+  --bts-primary-dark: #4f46e5;
+  --bts-accent: #f59e0b;
+  --bts-accent-light: #fbbf24;
+  --bts-bg: #0f172a;
+  --bts-bg-card: #1e293b;
+  --bts-bg-sidebar: #0c1425;
+  --bts-bg-hover: #334155;
+  --bts-text: #f1f5f9;
+  --bts-text-muted: #94a3b8;
+  --bts-border: #334155;
+  --bts-success: #22c55e;
+  --bts-warning: #f59e0b;
+  --bts-danger: #ef4444;
+
+  --bts-bronze: #cd7f32;
+  --bts-silver: #c0c0c0;
+  --bts-gold: #ffd700;
+  --bts-diamond: #b9f2ff;
+}
