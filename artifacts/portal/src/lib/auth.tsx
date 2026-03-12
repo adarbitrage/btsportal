@@ -4,6 +4,8 @@ interface User {
   id: number;
   email: string;
   name: string;
+  onboardingComplete: boolean;
+  onboardingStep: number;
 }
 
 interface AuthContextType {

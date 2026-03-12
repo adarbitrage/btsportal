@@ -25,16 +25,25 @@ import type {
   CreateTicketMessage,
   DashboardData,
   EntitlementSet,
+  GetLegalDocumentsParams,
   HealthStatus,
+  LegalDocument,
   Lesson,
   ListAnnouncementsParams,
   ListCoachingCallsParams,
   ListTicketsParams,
   MemberProfile,
   ModuleWithLessons,
+  OnboardingState,
   OwnedProduct,
+  PatchMemberProfileBody,
+  PatchMemberProfileResponse,
+  PatchOnboardingStepBody,
+  PatchOnboardingStepResponse,
   ProductInfo,
   Progress,
+  SignDocumentBody,
+  SignDocumentResponse,
   Ticket,
   TicketMessage,
   TicketWithMessages,
@@ -349,6 +358,436 @@ export function useGetMemberEntitlements<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get current onboarding state
+ */
+export const getGetOnboardingStateUrl = () => {
+  return `/api/members/me/onboarding`;
+};
+
+export const getOnboardingState = async (
+  options?: RequestInit,
+): Promise<OnboardingState> => {
+  return customFetch<OnboardingState>(getGetOnboardingStateUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOnboardingStateQueryKey = () => {
+  return [`/api/members/me/onboarding`] as const;
+};
+
+export const getGetOnboardingStateQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOnboardingState>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingState>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOnboardingStateQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOnboardingState>>
+  > = ({ signal }) => getOnboardingState({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingState>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOnboardingStateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOnboardingState>>
+>;
+export type GetOnboardingStateQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current onboarding state
+ */
+
+export function useGetOnboardingState<
+  TData = Awaited<ReturnType<typeof getOnboardingState>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingState>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOnboardingStateQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Complete current onboarding step and advance
+ */
+export const getPatchOnboardingStepUrl = () => {
+  return `/api/members/me/onboarding`;
+};
+
+export const patchOnboardingStep = async (
+  patchOnboardingStepBody: PatchOnboardingStepBody,
+  options?: RequestInit,
+): Promise<PatchOnboardingStepResponse> => {
+  return customFetch<PatchOnboardingStepResponse>(getPatchOnboardingStepUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchOnboardingStepBody),
+  });
+};
+
+export const getPatchOnboardingStepMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchOnboardingStep>>,
+    TError,
+    { data: BodyType<PatchOnboardingStepBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchOnboardingStep>>,
+  TError,
+  { data: BodyType<PatchOnboardingStepBody> },
+  TContext
+> => {
+  const mutationKey = ["patchOnboardingStep"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchOnboardingStep>>,
+    { data: BodyType<PatchOnboardingStepBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return patchOnboardingStep(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchOnboardingStepMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchOnboardingStep>>
+>;
+export type PatchOnboardingStepMutationBody = BodyType<PatchOnboardingStepBody>;
+export type PatchOnboardingStepMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Complete current onboarding step and advance
+ */
+export const usePatchOnboardingStep = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchOnboardingStep>>,
+    TError,
+    { data: BodyType<PatchOnboardingStepBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchOnboardingStep>>,
+  TError,
+  { data: BodyType<PatchOnboardingStepBody> },
+  TContext
+> => {
+  return useMutation(getPatchOnboardingStepMutationOptions(options));
+};
+
+/**
+ * @summary Update member profile fields
+ */
+export const getPatchMemberProfileUrl = () => {
+  return `/api/members/me/profile`;
+};
+
+export const patchMemberProfile = async (
+  patchMemberProfileBody: PatchMemberProfileBody,
+  options?: RequestInit,
+): Promise<PatchMemberProfileResponse> => {
+  return customFetch<PatchMemberProfileResponse>(getPatchMemberProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchMemberProfileBody),
+  });
+};
+
+export const getPatchMemberProfileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchMemberProfile>>,
+    TError,
+    { data: BodyType<PatchMemberProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchMemberProfile>>,
+  TError,
+  { data: BodyType<PatchMemberProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["patchMemberProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchMemberProfile>>,
+    { data: BodyType<PatchMemberProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return patchMemberProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchMemberProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchMemberProfile>>
+>;
+export type PatchMemberProfileMutationBody = BodyType<PatchMemberProfileBody>;
+export type PatchMemberProfileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update member profile fields
+ */
+export const usePatchMemberProfile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchMemberProfile>>,
+    TError,
+    { data: BodyType<PatchMemberProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchMemberProfile>>,
+  TError,
+  { data: BodyType<PatchMemberProfileBody> },
+  TContext
+> => {
+  return useMutation(getPatchMemberProfileMutationOptions(options));
+};
+
+/**
+ * @summary Fetch legal documents
+ */
+export const getGetLegalDocumentsUrl = (params?: GetLegalDocumentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents?${stringifiedParams}`
+    : `/api/documents`;
+};
+
+export const getLegalDocuments = async (
+  params?: GetLegalDocumentsParams,
+  options?: RequestInit,
+): Promise<LegalDocument[]> => {
+  return customFetch<LegalDocument[]>(getGetLegalDocumentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLegalDocumentsQueryKey = (
+  params?: GetLegalDocumentsParams,
+) => {
+  return [`/api/documents`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetLegalDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLegalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetLegalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetLegalDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLegalDocuments>>
+  > = ({ signal }) => getLegalDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLegalDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLegalDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLegalDocuments>>
+>;
+export type GetLegalDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Fetch legal documents
+ */
+
+export function useGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof getLegalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetLegalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLegalDocumentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Sign a legal document
+ */
+export const getSignDocumentUrl = () => {
+  return `/api/documents/sign`;
+};
+
+export const signDocument = async (
+  signDocumentBody: SignDocumentBody,
+  options?: RequestInit,
+): Promise<SignDocumentResponse> => {
+  return customFetch<SignDocumentResponse>(getSignDocumentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(signDocumentBody),
+  });
+};
+
+export const getSignDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof signDocument>>,
+    TError,
+    { data: BodyType<SignDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof signDocument>>,
+  TError,
+  { data: BodyType<SignDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["signDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof signDocument>>,
+    { data: BodyType<SignDocumentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return signDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SignDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof signDocument>>
+>;
+export type SignDocumentMutationBody = BodyType<SignDocumentBody>;
+export type SignDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sign a legal document
+ */
+export const useSignDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof signDocument>>,
+    TError,
+    { data: BodyType<SignDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof signDocument>>,
+  TError,
+  { data: BodyType<SignDocumentBody> },
+  TContext
+> => {
+  return useMutation(getSignDocumentMutationOptions(options));
+};
 
 /**
  * @summary List all available products

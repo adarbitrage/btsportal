@@ -18,6 +18,12 @@ export interface MemberProfile {
   /** @nullable */
   sourceProduct?: string | null;
   onboardingComplete: boolean;
+  onboardingStep: number;
+  /** @nullable */
+  experienceLevel?: string | null;
+  /** @nullable */
+  primaryGoal?: string | null;
+  smsOptIn: boolean;
   currentStreak: number;
   memberSince: string;
   highestProductName: string;

@@ -90,6 +90,7 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Login** (`/login`) — Email/password sign in with BTS branding
 - **Register** (`/register`) — Account creation with password validation
 - **Forgot Password** (`/forgot-password`) — Password reset request
+- **Onboarding** (`/onboarding/*`) — 5-step wizard (welcome, documents, profile, orientation, quick-start)
 - **Dashboard** (`/`) — Welcome banner with product badge, stats cards, training progress, upcoming calls, entitlement display, announcements
 - **Training Library** (`/training`) — Tracks with locked/unlocked state based on `requiredEntitlement`, modules with progress
 - **Coaching Calls** (`/coaching`) — Calls gated by entitlement (coaching:group, coaching:mastermind, etc.)
@@ -103,11 +104,13 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - Product badge colors: Frontend=#6b7280, LaunchPad=#92400e, 3-Month=#b45309, 6-Month=#d97706, 1-Year=#0891b2, Lifetime=purple gradient
 
 ### Database Tables
-- `users` — Member profiles with auth fields (password_hash, email_verified, reset_token, failed_login_count, locked_until)
+- `users` — Member profiles with auth fields, onboarding state (`onboarding_complete`, `onboarding_step`, `experience_level`, `primary_goal`, `sms_opt_in`)
 - `sessions` — JWT refresh token sessions (refresh_token_hash, expires_at, revoked_at, ip_address, user_agent)
 - `products` — Product definitions with entitlement key mappings (JSON)
 - `user_products` — User-product ownership with status and expiration
 - `entitlements` — Reference table of all entitlement keys
+- `legal_documents` — Legal document templates (type, version, title, content as markdown)
+- `signed_documents` — User document signatures (user_id, document_type, document_version, signature, signed_at, ip_address)
 - `tracks` — Training tracks with `required_entitlement` key
 - `modules` — Modules within tracks
 - `lessons` — Lessons with `required_entitlement` key and `content_type`
@@ -120,11 +123,29 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `webhook_logs` — ThriveCart webhook event log with payload, status, and idempotency tracking
 - `tiers` — Legacy tier definitions (kept for backward compat)
 
+### Onboarding Flow
+
+New members (`onboarding_complete === false`) are redirected to a 5-step onboarding wizard:
+1. **Welcome** (`/onboarding/welcome`) — Personalized greeting, product list, optional welcome video
+2. **Documents** (`/onboarding/documents`) — Scroll-enforced Membership Agreement + Terms of Service with typed signature
+3. **Profile** (`/onboarding/profile`) — Name, phone, timezone (auto-detected), experience level, primary goal, SMS opt-in
+4. **Orientation** (`/onboarding/orientation`) — Dynamic display of owned entitlements vs. upgrade options
+5. **Quick Start** (`/onboarding/quick-start`) — Product-tier-specific first mission, quick links preview, "Go to My Dashboard" button
+
+Progress is saved per step (`onboarding_step` column). Server-side validates prerequisites (docs must be signed before step 2 advances, profile fields required before step 3). Step 5 completion sets `onboarding_complete = true`.
+
+**Out of scope (TODO placeholders):** PDF generation, SendGrid email delivery, canvas signature, GHL contact sync, admin panel for document editing.
+
 ### API Routes (all under `/api`)
 - Auth: `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`, `GET /auth/me`
-- `GET /members/me` — Current member profile with entitlements and products
+- `GET /members/me` — Current member profile with entitlements, products, and onboarding fields
 - `GET /members/me/products` — List owned products
 - `GET /members/me/entitlements` — Resolved entitlement set
+- `GET /members/me/onboarding` — Current onboarding state (step, completed steps, signed docs)
+- `PATCH /members/me/onboarding` — Advance onboarding step (validates prerequisites)
+- `PATCH /members/me/profile` — Update profile fields (name, phone, timezone, experience_level, primary_goal, sms_opt_in)
+- `GET /documents` — Fetch legal document content (optional `?type=` filter)
+- `POST /documents/sign` — Record document signature with version tracking
 - `GET /products` — List all available products
 - `GET /dashboard` — Aggregated dashboard data with entitlements
 - `GET /tracks` — List tracks with modules, progress, and locked state

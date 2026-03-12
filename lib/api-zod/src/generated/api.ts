@@ -25,6 +25,10 @@ export const GetCurrentMemberResponse = zod.object({
   timezone: zod.string().nullish(),
   sourceProduct: zod.string().nullish(),
   onboardingComplete: zod.boolean(),
+  onboardingStep: zod.number(),
+  experienceLevel: zod.string().nullish(),
+  primaryGoal: zod.string().nullish(),
+  smsOptIn: zod.boolean(),
   currentStreak: zod.number(),
   memberSince: zod.string(),
   highestProductName: zod.string(),
@@ -70,6 +74,87 @@ export const GetMemberEntitlementsResponse = zod.object({
   highestProductName: zod.string(),
   highestProductSlug: zod.string(),
   ticketLimit: zod.number(),
+});
+
+/**
+ * @summary Get current onboarding state
+ */
+export const GetOnboardingStateResponse = zod.object({
+  currentStep: zod.number(),
+  onboardingComplete: zod.boolean(),
+  completedSteps: zod.array(zod.string()),
+  signedDocuments: zod.array(
+    zod.object({
+      documentType: zod.string(),
+      signedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Complete current onboarding step and advance
+ */
+export const PatchOnboardingStepBody = zod.object({
+  step: zod.number(),
+});
+
+export const PatchOnboardingStepResponse = zod.object({
+  currentStep: zod.number(),
+  onboardingComplete: zod.boolean(),
+});
+
+/**
+ * @summary Update member profile fields
+ */
+export const PatchMemberProfileBody = zod.object({
+  name: zod.string().optional(),
+  phone: zod.string().nullish(),
+  timezone: zod.string().optional(),
+  experienceLevel: zod.string().optional(),
+  primaryGoal: zod.string().optional(),
+  smsOptIn: zod.boolean().optional(),
+});
+
+export const PatchMemberProfileResponse = zod.object({
+  name: zod.string(),
+  phone: zod.string().nullish(),
+  timezone: zod.string().nullish(),
+  experienceLevel: zod.string().nullish(),
+  primaryGoal: zod.string().nullish(),
+  smsOptIn: zod.boolean(),
+});
+
+/**
+ * @summary Fetch legal documents
+ */
+export const GetLegalDocumentsQueryParams = zod.object({
+  type: zod.coerce.string().optional(),
+});
+
+export const GetLegalDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.string(),
+  version: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+});
+export const GetLegalDocumentsResponse = zod.array(
+  GetLegalDocumentsResponseItem,
+);
+
+/**
+ * @summary Sign a legal document
+ */
+export const SignDocumentBody = zod.object({
+  documentType: zod.string(),
+  documentVersion: zod.number(),
+  signature: zod.string(),
+});
+
+export const SignDocumentResponse = zod.object({
+  id: zod.number(),
+  documentType: zod.string(),
+  signedAt: zod.string(),
 });
 
 /**

@@ -99,7 +99,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
 
-  res.status(201).json({ id: user.id, email: user.email, name: user.name });
+  res.status(201).json({ id: user.id, email: user.email, name: user.name, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
 });
 
 router.post("/auth/login", async (req, res): Promise<void> => {
@@ -143,7 +143,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
 
-  res.json({ id: user.id, email: user.email, name: user.name });
+  res.json({ id: user.id, email: user.email, name: user.name, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
 });
 
 router.post("/auth/refresh", async (req, res): Promise<void> => {
@@ -178,7 +178,7 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
   const newRefreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, newRefreshToken);
 
-  res.json({ id: user.id, email: user.email, name: user.name });
+  res.json({ id: user.id, email: user.email, name: user.name, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
 });
 
 router.post("/auth/logout", async (req, res): Promise<void> => {
@@ -290,6 +290,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     id: usersTable.id,
     email: usersTable.email,
     name: usersTable.name,
+    onboardingComplete: usersTable.onboardingComplete,
+    onboardingStep: usersTable.onboardingStep,
   }).from(usersTable).where(eq(usersTable.id, req.userId));
 
   if (!user) {

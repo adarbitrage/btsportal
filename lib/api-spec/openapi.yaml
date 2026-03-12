@@ -10,6 +10,8 @@ tags:
   - name: health
   - name: dashboard
   - name: members
+  - name: onboarding
+  - name: documents
   - name: products
   - name: tracks
   - name: modules
@@ -73,6 +75,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EntitlementSet"
+
+  /members/me/onboarding:
+    get:
+      operationId: getOnboardingState
+      tags: [onboarding]
+      summary: Get current onboarding state
+      responses:
+        "200":
+          description: Onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingState"
+    patch:
+      operationId: patchOnboardingStep
+      tags: [onboarding]
+      summary: Complete current onboarding step and advance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchOnboardingStepBody"
+      responses:
+        "200":
+          description: Updated onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchOnboardingStepResponse"
+
+  /members/me/profile:
+    patch:
+      operationId: patchMemberProfile
+      tags: [members]
+      summary: Update member profile fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMemberProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchMemberProfileResponse"
+
+  /documents:
+    get:
+      operationId: getLegalDocuments
+      tags: [documents]
+      summary: Fetch legal documents
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of legal documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegalDocument"
+
+  /documents/sign:
+    post:
+      operationId: signDocument
+      tags: [documents]
+      summary: Sign a legal document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignDocumentBody"
+      responses:
+        "200":
+          description: Signed document confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignDocumentResponse"
 
   /products:
     get:
@@ -359,6 +449,14 @@ components:
           type: ["string", "null"]
         onboardingComplete:
           type: boolean
+        onboardingStep:
+          type: integer
+        experienceLevel:
+          type: ["string", "null"]
+        primaryGoal:
+          type: ["string", "null"]
+        smsOptIn:
+          type: boolean
         currentStreak:
           type: integer
         memberSince:
@@ -377,7 +475,7 @@ components:
             $ref: "#/components/schemas/OwnedProduct"
         ticketLimit:
           type: integer
-      required: [id, name, email, onboardingComplete, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+      required: [id, name, email, onboardingComplete, onboardingStep, smsOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
 
     OwnedProduct:
       type: object
@@ -798,3 +896,115 @@ components:
           type: string
           format: date-time
       required: [id, title, body, type, createdAt]
+
+    OnboardingState:
+      type: object
+      properties:
+        currentStep:
+          type: integer
+        onboardingComplete:
+          type: boolean
+        completedSteps:
+          type: array
+          items:
+            type: string
+        signedDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignedDocumentSummary"
+      required: [currentStep, onboardingComplete, completedSteps, signedDocuments]
+
+    SignedDocumentSummary:
+      type: object
+      properties:
+        documentType:
+          type: string
+        signedAt:
+          type: string
+      required: [documentType, signedAt]
+
+    PatchOnboardingStepBody:
+      type: object
+      properties:
+        step:
+          type: integer
+      required: [step]
+
+    PatchOnboardingStepResponse:
+      type: object
+      properties:
+        currentStep:
+          type: integer
+        onboardingComplete:
+          type: boolean
+      required: [currentStep, onboardingComplete]
+
+    PatchMemberProfileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        timezone:
+          type: string
+        experienceLevel:
+          type: string
+        primaryGoal:
+          type: string
+        smsOptIn:
+          type: boolean
+
+    PatchMemberProfileResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+        experienceLevel:
+          type: ["string", "null"]
+        primaryGoal:
+          type: ["string", "null"]
+        smsOptIn:
+          type: boolean
+      required: [name, smsOptIn]
+
+    LegalDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        version:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+      required: [id, type, version, title, content]
+
+    SignDocumentBody:
+      type: object
+      properties:
+        documentType:
+          type: string
+        documentVersion:
+          type: integer
+        signature:
+          type: string
+      required: [documentType, documentVersion, signature]
+
+    SignDocumentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentType:
+          type: string
+        signedAt:
+          type: string
+      required: [id, documentType, signedAt]

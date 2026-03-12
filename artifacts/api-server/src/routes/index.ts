@@ -13,6 +13,8 @@ import webhooksRouter from "./webhooks";
 import devSimulateRouter from "./dev-simulate";
 import adminWebhooksRouter from "./admin-webhooks";
 import adminExpirationRouter from "./admin-expiration";
+import onboardingRouter from "./onboarding";
+import documentsRouter from "./documents";
 
 const router: IRouter = Router();
 
@@ -30,5 +32,7 @@ router.use(webhooksRouter);
 router.use(devSimulateRouter);
 router.use(adminWebhooksRouter);
 router.use(adminExpirationRouter);
+router.use(onboardingRouter);
+router.use(documentsRouter);
 
 export default router;

@@ -3,7 +3,7 @@ import {
   productsTable, entitlementsTable, userProductsTable,
   usersTable, tracksTable, modulesTable, lessonsTable, progressTable,
   coachesTable, coachingCallsTable, ticketsTable, ticketMessagesTable, announcementsTable,
-  sessionsTable, webhookLogsTable
+  sessionsTable, webhookLogsTable, legalDocumentsTable, signedDocumentsTable
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -11,7 +11,7 @@ import bcrypt from "bcryptjs";
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE TABLE webhook_logs, sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE signed_documents, legal_documents, webhook_logs, sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
 
   const entitlementData = [
     { key: "content:frontend", description: "Foundational video + text training modules", category: "content" },
@@ -220,6 +220,21 @@ async function seed() {
     { title: "Live Event: Summer Scaling Summit", body: "Join us for our annual Summer Scaling Summit. Early bird pricing for Mentorship members.", type: "event" },
     { title: "Community Milestone: 10,000 Members!", body: "We've hit 10,000 members in the BTS community!", type: "milestone" },
     { title: "Platform Update: New Video Player", body: "Upgraded video player with faster loading and adjustable playback speed.", type: "general" },
+  ]);
+
+  await db.insert(legalDocumentsTable).values([
+    {
+      type: "membership_agreement",
+      version: 1,
+      title: "Membership Agreement",
+      content: `# Build Test Scale Membership Agreement\n\n**Effective Date:** Upon execution by Member\n\nThis Membership Agreement ("Agreement") is entered into between Build Test Scale, LLC ("Company," "we," "us," or "our") and the individual or entity identified during registration ("Member," "you," or "your").\n\n## 1. Membership & Access\n\nBy purchasing a Build Test Scale product or service, you are granted access to the specific digital training content, tools, community features, and coaching services associated with your purchased tier. Access is non-transferable and limited to the registered Member.\n\n## 2. Payment & Billing\n\n- All purchases are processed through ThriveCart or an authorized payment processor.\n- Recurring memberships (3-Month, 6-Month, 1-Year Mentorship) will auto-renew unless canceled before the renewal date.\n- Lifetime Memberships are one-time purchases and do not renew.\n\n## 3. Refund Policy\n\n- Front-end products carry a 30-day money-back guarantee from the date of purchase.\n- Mentorship programs are non-refundable after the 72-hour cooling-off period.\n- Lifetime Memberships are non-refundable.\n\n## 4. Code of Conduct\n\nMembers agree to treat all community members, coaches, and staff with respect, not share login credentials or distribute proprietary content, not engage in spam, harassment, or illegal activities, and provide truthful information during registration.\n\n## 5. Intellectual Property\n\nAll training materials, videos, documents, templates, and tools provided through Build Test Scale are the intellectual property of Build Test Scale, LLC. Unauthorized reproduction, distribution, or resale is strictly prohibited.\n\n## 6. Limitation of Liability\n\nBuild Test Scale provides educational content and tools for informational purposes only. We do not guarantee specific income results.\n\n## 7. Termination\n\nWe reserve the right to terminate or suspend your membership for violation of this Agreement.\n\n## 8. Modifications\n\nWe may update this Agreement at any time. Continued use of the platform after changes constitutes acceptance.\n\nBy proceeding, you acknowledge that you have read, understand, and agree to be bound by this Membership Agreement.`,
+    },
+    {
+      type: "terms_of_service",
+      version: 1,
+      title: "Terms of Service",
+      content: `# Build Test Scale Terms of Service\n\n**Last Updated:** January 2026\n\nWelcome to Build Test Scale. These Terms of Service ("Terms") govern your access to and use of the Build Test Scale member portal, training content, tools, coaching services, and community features.\n\n## 1. Acceptance of Terms\n\nBy creating an account, accessing the Platform, or using any Build Test Scale services, you agree to be bound by these Terms.\n\n## 2. Eligibility\n\nYou must be at least 18 years of age and have the legal capacity to enter into binding agreements.\n\n## 3. Account Security\n\nYou are responsible for maintaining the confidentiality of your login credentials and must notify us immediately of any unauthorized access.\n\n## 4. Acceptable Use\n\nYou agree not to copy, modify, or distribute any Platform content without written permission, use automated tools, interfere with the Platform, impersonate another person, or use the Platform for any unlawful purpose.\n\n## 5. Content & Training\n\nTraining content is provided "as is" for educational purposes. You are solely responsible for how you apply the information.\n\n## 6. Community Guidelines\n\nBe respectful, do not post spam, do not share confidential coaching details publicly, and report violations to our support team.\n\n## 7. Privacy\n\nYour use of the Platform is also governed by our Privacy Policy.\n\n## 8. Disclaimer of Warranties\n\nTHE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND.\n\n## 9. Limitation of Liability\n\nIN NO EVENT SHALL BUILD TEST SCALE BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.\n\n## 10. Governing Law\n\nThese Terms are governed by the laws of the State of Delaware.\n\n## 11. Contact\n\nFor questions, contact us at support@buildtestscale.com.\n\nBy proceeding, you acknowledge that you have read, understand, and agree to these Terms of Service.`,
+    },
   ]);
 
   console.log("Seeding complete!");

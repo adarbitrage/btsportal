@@ -13,3 +13,5 @@ export * from "./coaching-calls";
 export * from "./tickets";
 export * from "./announcements";
 export * from "./webhook-logs";
+export * from "./legal-documents";
+export * from "./signed-documents";

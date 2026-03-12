@@ -32,6 +32,12 @@ export interface MemberProfile {
   /** @nullable */
   sourceProduct?: string | null;
   onboardingComplete: boolean;
+  onboardingStep: number;
+  /** @nullable */
+  experienceLevel?: string | null;
+  /** @nullable */
+  primaryGoal?: string | null;
+  smsOptIn: boolean;
   currentStreak: number;
   memberSince: string;
   highestProductName: string;
@@ -298,6 +304,74 @@ export interface TicketWithMessages {
 export interface CreateTicketMessage {
   body: string;
 }
+
+export interface SignedDocumentSummary {
+  documentType: string;
+  signedAt: string;
+}
+
+export interface OnboardingState {
+  currentStep: number;
+  onboardingComplete: boolean;
+  completedSteps: string[];
+  signedDocuments: SignedDocumentSummary[];
+}
+
+export interface PatchOnboardingStepBody {
+  step: number;
+}
+
+export interface PatchOnboardingStepResponse {
+  currentStep: number;
+  onboardingComplete: boolean;
+}
+
+export interface PatchMemberProfileBody {
+  name?: string;
+  /** @nullable */
+  phone?: string | null;
+  timezone?: string;
+  experienceLevel?: string;
+  primaryGoal?: string;
+  smsOptIn?: boolean;
+}
+
+export interface PatchMemberProfileResponse {
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  timezone?: string | null;
+  /** @nullable */
+  experienceLevel?: string | null;
+  /** @nullable */
+  primaryGoal?: string | null;
+  smsOptIn: boolean;
+}
+
+export interface LegalDocument {
+  id: number;
+  type: string;
+  version: number;
+  title: string;
+  content: string;
+}
+
+export interface SignDocumentBody {
+  documentType: string;
+  documentVersion: number;
+  signature: string;
+}
+
+export interface SignDocumentResponse {
+  id: number;
+  documentType: string;
+  signedAt: string;
+}
+
+export type GetLegalDocumentsParams = {
+  type?: string;
+};
 
 export type ListCoachingCallsParams = {
   upcoming?: boolean;
