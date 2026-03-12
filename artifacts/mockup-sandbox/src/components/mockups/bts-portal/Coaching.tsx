@@ -17,7 +17,8 @@ const upcomingCalls = [
   {
     id: 1,
     type: 'Weekly Q&A',
-    typeColor: '#3b82f6',
+    typeColor: '#1a56db',
+    typeBg: '#eff6ff',
     date: 'Mar 13',
     dayOfWeek: 'Tomorrow',
     time: '2:00 PM EST',
@@ -31,7 +32,8 @@ const upcomingCalls = [
   {
     id: 2,
     type: 'Strategy Session',
-    typeColor: '#8b5cf6',
+    typeColor: '#7c3aed',
+    typeBg: '#faf5ff',
     date: 'Mar 18',
     dayOfWeek: 'Monday',
     time: '11:00 AM EST',
@@ -45,7 +47,8 @@ const upcomingCalls = [
   {
     id: 3,
     type: 'Mastermind',
-    typeColor: '#f59e0b',
+    typeColor: '#b45309',
+    typeBg: '#fef3c7',
     date: 'Mar 22',
     dayOfWeek: 'Friday',
     time: '3:00 PM EST',
@@ -59,7 +62,8 @@ const upcomingCalls = [
   {
     id: 4,
     type: 'VIP Roundtable',
-    typeColor: '#22d3ee',
+    typeColor: '#0891b2',
+    typeBg: '#ecfeff',
     date: 'Mar 25',
     dayOfWeek: 'Monday',
     time: '1:00 PM EST',
@@ -73,7 +77,8 @@ const upcomingCalls = [
   {
     id: 5,
     type: 'Weekly Q&A',
-    typeColor: '#3b82f6',
+    typeColor: '#1a56db',
+    typeBg: '#eff6ff',
     date: 'Mar 27',
     dayOfWeek: 'Wednesday',
     time: '2:00 PM EST',
@@ -93,7 +98,7 @@ const coaches = [
     role: 'Facebook Ads Expert',
     sessions: 'Weekly Q&A, VIP Roundtable',
     avatar: 'SM',
-    color: '#3b82f6'
+    color: '#1a56db'
   },
   {
     id: 2,
@@ -101,7 +106,7 @@ const coaches = [
     role: 'Scaling Strategist',
     sessions: 'Strategy Sessions, Weekly Q&A',
     avatar: 'DC',
-    color: '#8b5cf6'
+    color: '#7c3aed'
   },
   {
     id: 3,
@@ -109,7 +114,7 @@ const coaches = [
     role: 'Optimization Specialist',
     sessions: 'Mastermind sessions',
     avatar: 'JP',
-    color: '#f59e0b'
+    color: '#b45309'
   }
 ];
 
@@ -118,20 +123,20 @@ export function Coaching() {
 
   return (
     <AppLayout activePage="coaching" tier="gold" memberName="Marcus Johnson">
-      <div className="max-w-6xl mx-auto p-6 lg:p-10 space-y-8">
+      <div className="max-w-5xl mx-auto p-6 lg:p-12 space-y-8">
         
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b" style={{ borderColor: 'var(--bts-border)' }}>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Coaching Calls</h1>
-            <div className="flex items-center gap-2 text-sm text-[#94a3b8]">
-              <Crown className="w-4 h-4 text-[#ffd700]" />
-              <span className="text-[#ffd700] font-medium">Gold members:</span>
+            <h1 className="text-4xl font-bold mb-3" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>Coaching Calls</h1>
+            <div className="flex items-center gap-2 text-sm" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-secondary)' }}>
+              <Crown className="w-4 h-4" style={{ color: 'var(--bts-gold)' }} />
+              <span className="font-bold" style={{ color: 'var(--bts-gold)' }}>Gold members:</span>
               <span>Access to all call types except VIP</span>
             </div>
           </div>
           
-          <div className="flex bg-[#1e293b] p-1 rounded-xl border border-[#334155] w-fit">
+          <div className="flex" style={{ fontFamily: 'var(--font-ui)' }}>
             {[
               { id: 'upcoming', label: 'Upcoming Calls' },
               { id: 'past', label: 'Past Recordings' },
@@ -140,11 +145,12 @@ export function Coaching() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-[#334155] text-white shadow-sm' 
-                    : 'text-[#94a3b8] hover:text-white hover:bg-[#334155]/50'
-                }`}
+                className={`px-6 py-2.5 text-[13px] font-bold uppercase tracking-wider transition-all`}
+                style={{
+                  color: activeTab === tab.id ? 'var(--bts-blue)' : 'var(--bts-text-muted)',
+                  borderBottom: activeTab === tab.id ? '2px solid var(--bts-blue)' : '2px solid transparent',
+                  marginBottom: '-1px'
+                }}
               >
                 {tab.label}
               </button>
@@ -153,12 +159,11 @@ export function Coaching() {
         </div>
 
         {activeTab === 'upcoming' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             
             {/* Left Column: Upcoming Calls */}
-            <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
-                <Video className="w-5 h-5 text-indigo-400" />
+            <div className="lg:col-span-2 space-y-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>
                 Schedule
               </h2>
               
@@ -166,105 +171,109 @@ export function Coaching() {
                 {upcomingCalls.map(call => (
                   <div 
                     key={call.id}
-                    className={`relative rounded-xl border p-5 transition-all duration-200 ${
-                      call.status === 'locked' 
-                        ? 'bg-[#1e293b]/50 border-[#334155]/50 opacity-75' 
-                        : 'bg-[#1e293b] border-[#334155] hover:border-[#475569] shadow-sm'
-                    }`}
+                    className="relative rounded bg-white p-6 transition-all duration-200"
+                    style={{ 
+                      border: '1px solid var(--bts-border)',
+                      opacity: call.status === 'locked' ? 0.7 : 1,
+                    }}
                   >
                     {call.status === 'locked' && (
-                      <div className="absolute inset-0 bg-[#0f172a]/40 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-10">
-                        <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 flex flex-col items-center shadow-xl">
-                          <Lock className="w-6 h-6 text-cyan-400 mb-2" />
-                          <p className="text-sm font-semibold text-white mb-1">Diamond Tier Only</p>
-                          <button className="text-xs text-cyan-400 font-medium hover:text-cyan-300 transition-colors">
+                      <div className="absolute inset-0 bg-[#faf9f7]/40 backdrop-blur-[1px] rounded flex items-center justify-center z-10">
+                        <div className="bg-white border rounded p-6 flex flex-col items-center shadow-lg" style={{ borderColor: 'var(--bts-border)', minWidth: '220px' }}>
+                          <Lock className="w-5 h-5 mb-3" style={{ color: 'var(--bts-text)' }} />
+                          <p className="text-[13px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text)' }}>Diamond Only</p>
+                          <button className="text-xs font-semibold hover:underline" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-blue)' }}>
                             Upgrade to Unlock &rarr;
                           </button>
                         </div>
                       </div>
                     )}
                     
-                    <div className="flex flex-col sm:flex-row gap-5">
+                    <div className="flex flex-col sm:flex-row gap-6">
                       {/* Calendar Date Side */}
-                      <div className="flex flex-col items-center justify-center sm:w-24 shrink-0 bg-[#0f172a] rounded-lg p-3 border border-[#334155]/50">
-                        <span className="text-xs font-medium text-[#94a3b8] uppercase tracking-wider mb-1">
+                      <div className="flex flex-col items-center justify-center sm:w-28 shrink-0 py-4 border-r" style={{ borderColor: 'var(--bts-border)' }}>
+                        <span className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-muted)' }}>
                           {call.date.split(' ')[0]}
                         </span>
-                        <span className="text-2xl font-bold text-white mb-1">
+                        <span className="text-4xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>
                           {call.date.split(' ')[1]}
                         </span>
-                        <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-semibold tracking-wide mt-2" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-secondary)' }}>
                           {call.dayOfWeek}
                         </span>
                       </div>
                       
                       {/* Call Details */}
-                      <div className="flex-1 flex flex-col justify-between">
+                      <div className="flex-1 flex flex-col justify-between pl-2">
                         <div>
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <div className="flex flex-wrap items-center gap-3 mb-3" style={{ fontFamily: 'var(--font-ui)' }}>
                             <span 
-                              className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                              className="text-[11px] font-bold px-2.5 py-1 uppercase tracking-[1.5px] rounded-sm"
                               style={{ 
                                 color: call.typeColor, 
-                                backgroundColor: `${call.typeColor}15`,
-                                border: `1px solid ${call.typeColor}30`
+                                backgroundColor: call.typeBg,
                               }}
                             >
                               {call.type}
                             </span>
-                            <span className="text-xs font-medium text-[#94a3b8] flex items-center gap-1.5">
+                            <span className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--bts-text-secondary)' }}>
                               <Clock className="w-3.5 h-3.5" />
                               {call.time}
                             </span>
                             {call.tierReq === 'diamond' ? (
-                              <span className="text-[10px] font-bold text-[#b9f2ff] bg-[#b9f2ff]/10 px-2 py-0.5 rounded border border-[#b9f2ff]/20 ml-auto flex items-center gap-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 ml-auto flex items-center gap-1"
+                                style={{ color: 'var(--bts-diamond)', backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
                                 <Crown className="w-3 h-3" /> Diamond
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold text-[#94a3b8] bg-[#334155] px-2 py-0.5 rounded ml-auto">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 ml-auto"
+                                style={{ color: 'var(--bts-text-secondary)', backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
                                 {call.tier}
                               </span>
                             )}
                           </div>
                           
-                          <h3 className="text-lg font-bold text-white mb-1 leading-snug">
+                          <h3 className="text-xl font-bold mb-2 leading-snug" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>
                             {call.topic}
                           </h3>
-                          <div className="flex items-center gap-2 mb-4">
+                          <div className="flex items-center gap-3 mb-6">
                             <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold"
                               style={{ 
-                                backgroundColor: `${call.typeColor}20`, 
+                                backgroundColor: call.typeBg, 
                                 color: call.typeColor,
-                                border: `1px solid ${call.typeColor}40`
+                                fontFamily: 'var(--font-heading)'
                               }}
                             >
                               {call.coach.split(' ').map(n => n[0]).join('')}
                             </div>
-                            <p className="text-sm text-[#94a3b8]">
-                              With Coach <span className="font-medium text-[#e2e8f0]">{call.coach}</span>
+                            <p className="text-[13px]" style={{ fontFamily: 'var(--font-body)', color: 'var(--bts-text-body)' }}>
+                              With <span className="font-semibold italic">{call.coach}</span>
                             </p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#334155]/50">
-                          <div className="flex items-center gap-1.5 text-xs text-[#94a3b8]">
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t" style={{ borderColor: 'var(--bts-border)' }}>
+                          <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-secondary)' }}>
                             <Users className="w-3.5 h-3.5" />
                             {call.attendees} registered
                           </div>
                           
                           {call.status === 'live' ? (
-                            <button className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all">
+                            <button className="flex items-center gap-2 px-5 py-2 text-[13px] font-bold text-white rounded-sm transition-all"
+                              style={{ fontFamily: 'var(--font-ui)', backgroundColor: 'var(--bts-success)' }}>
                               <Video className="w-4 h-4" />
-                              Join Now
+                              Join Call
                             </button>
                           ) : call.status === 'upcoming' ? (
-                            <button className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold text-white bg-[#334155] hover:bg-[#475569] transition-all">
+                            <button className="flex items-center gap-2 px-5 py-2 text-[13px] font-bold text-white rounded-sm transition-all hover:opacity-90"
+                              style={{ fontFamily: 'var(--font-ui)', backgroundColor: 'var(--bts-blue)' }}>
                               <CalendarIcon className="w-4 h-4" />
                               Register
                             </button>
                           ) : (
-                            <button disabled className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold text-[#64748b] bg-[#0f172a] border border-[#334155] cursor-not-allowed">
+                            <button disabled className="flex items-center gap-2 px-5 py-2 text-[13px] font-bold rounded-sm cursor-not-allowed"
+                              style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-muted)', backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
                               <Lock className="w-4 h-4" />
                               Locked
                             </button>
@@ -278,36 +287,36 @@ export function Coaching() {
             </div>
             
             {/* Right Column: Coach Profiles */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-indigo-400" />
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>
                 Your Coaches
               </h2>
               
               <div className="space-y-4">
                 {coaches.map(coach => (
-                  <div key={coach.id} className="bg-[#1e293b] rounded-xl border border-[#334155] p-5 hover:border-[#475569] transition-colors">
+                  <div key={coach.id} className="bg-white rounded p-5 transition-colors" style={{ border: '1px solid var(--bts-border)' }}>
                     <div className="flex items-start gap-4 mb-4">
                       <div 
                         className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0"
                         style={{ 
-                          backgroundColor: `${coach.color}20`, 
+                          backgroundColor: `${coach.color}15`, 
                           color: coach.color,
-                          border: `1px solid ${coach.color}40`
+                          fontFamily: 'var(--font-heading)'
                         }}
                       >
                         {coach.avatar}
                       </div>
                       <div>
-                        <h4 className="text-white font-semibold">{coach.name}</h4>
-                        <p className="text-xs text-indigo-400 font-medium mb-1">{coach.role}</p>
+                        <h4 className="font-bold text-[16px] mb-1" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>{coach.name}</h4>
+                        <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text-secondary)' }}>{coach.role}</p>
                       </div>
                     </div>
-                    <div className="text-xs text-[#94a3b8] bg-[#0f172a] rounded-lg p-3 border border-[#334155]/50">
-                      <span className="block font-medium text-[#cbd5e1] mb-1">Hosts:</span>
-                      {coach.sessions}
+                    <div className="text-[13px] p-3 rounded-sm mb-4" style={{ fontFamily: 'var(--font-body)', color: 'var(--bts-text-body)', backgroundColor: 'var(--bts-bg-highlight)' }}>
+                      <span className="block font-semibold mb-1" style={{ color: 'var(--bts-text)' }}>Hosts:</span>
+                      <span className="italic">{coach.sessions}</span>
                     </div>
-                    <button className="w-full mt-4 flex items-center justify-center gap-2 text-sm text-[#94a3b8] hover:text-white transition-colors py-2 border border-[#334155] rounded-lg hover:bg-[#334155]">
+                    <button className="w-full flex items-center justify-center gap-2 text-[13px] font-bold uppercase tracking-wider py-2.5 rounded-sm transition-colors hover:bg-gray-50"
+                      style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-text)', border: '1px solid var(--bts-border)' }}>
                       <ExternalLink className="w-4 h-4" />
                       View Profile
                     </button>
@@ -315,17 +324,17 @@ export function Coaching() {
                 ))}
               </div>
               
-              <div className="mt-6 bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-xl p-5">
-                <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
-                  <Play className="w-4 h-4 text-indigo-400" />
+              <div className="mt-8 rounded p-6" style={{ backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
+                <h4 className="font-bold mb-3 flex items-center gap-2 text-lg" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>
                   Missed a call?
                 </h4>
-                <p className="text-sm text-[#94a3b8] mb-4">
+                <p className="text-[14px] leading-relaxed mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--bts-text-body)' }}>
                   All coaching calls are recorded and uploaded to the vault within 24 hours.
                 </p>
                 <button 
                   onClick={() => setActiveTab('past')}
-                  className="text-sm font-medium text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                  className="text-[13px] font-bold uppercase tracking-wider flex items-center gap-1 hover:underline"
+                  style={{ fontFamily: 'var(--font-ui)', color: 'var(--bts-blue)' }}
                 >
                   Browse Recordings <ChevronRight className="w-4 h-4" />
                 </button>
@@ -336,30 +345,32 @@ export function Coaching() {
         )}
         
         {activeTab === 'past' && (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[#1e293b] rounded-xl border border-[#334155]">
-            <div className="w-16 h-16 bg-[#0f172a] rounded-full flex items-center justify-center mb-4 border border-[#334155]">
-              <Play className="w-8 h-8 text-indigo-400 ml-1" />
+          <div className="flex flex-col items-center justify-center py-24 px-6 text-center bg-white rounded border" style={{ borderColor: 'var(--bts-border)' }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
+              <Play className="w-8 h-8 ml-1" style={{ color: 'var(--bts-blue)' }} />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Past Recordings</h3>
-            <p className="text-[#94a3b8] max-w-md mx-auto mb-6">
+            <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>Past Recordings</h3>
+            <p className="max-w-md mx-auto mb-8 text-[15px] leading-relaxed" style={{ fontFamily: 'var(--font-body)', color: 'var(--bts-text-body)' }}>
               Browse our archive of past coaching calls, strategy sessions, and masterminds.
             </p>
-            <button className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
+            <button className="px-8 py-3 text-[13px] font-bold text-white uppercase tracking-wider rounded-sm transition-colors hover:opacity-90"
+              style={{ fontFamily: 'var(--font-ui)', backgroundColor: 'var(--bts-blue)' }}>
               Access Vault
             </button>
           </div>
         )}
         
         {activeTab === 'coaches' && (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[#1e293b] rounded-xl border border-[#334155]">
-            <div className="w-16 h-16 bg-[#0f172a] rounded-full flex items-center justify-center mb-4 border border-[#334155]">
-              <Users className="w-8 h-8 text-indigo-400" />
+          <div className="flex flex-col items-center justify-center py-24 px-6 text-center bg-white rounded border" style={{ borderColor: 'var(--bts-border)' }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: 'var(--bts-bg-highlight)', border: '1px solid var(--bts-border)' }}>
+              <Users className="w-8 h-8" style={{ color: 'var(--bts-blue)' }} />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Coach Directory</h3>
-            <p className="text-[#94a3b8] max-w-md mx-auto mb-6">
+            <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: 'var(--font-heading)', color: 'var(--bts-text)' }}>Coach Directory</h3>
+            <p className="max-w-md mx-auto mb-8 text-[15px] leading-relaxed" style={{ fontFamily: 'var(--font-body)', color: 'var(--bts-text-body)' }}>
               Connect with our expert coaches and book 1-on-1 sessions.
             </p>
-            <button className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
+            <button className="px-8 py-3 text-[13px] font-bold text-white uppercase tracking-wider rounded-sm transition-colors hover:opacity-90"
+              style={{ fontFamily: 'var(--font-ui)', backgroundColor: 'var(--bts-blue)' }}>
               View All Coaches
             </button>
           </div>

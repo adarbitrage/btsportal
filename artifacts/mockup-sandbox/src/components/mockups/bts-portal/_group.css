@@ -1,22 +1,36 @@
-:root {
-  --bts-primary: #6366f1;
-  --bts-primary-light: #818cf8;
-  --bts-primary-dark: #4f46e5;
-  --bts-accent: #f59e0b;
-  --bts-accent-light: #fbbf24;
-  --bts-bg: #0f172a;
-  --bts-bg-card: #1e293b;
-  --bts-bg-sidebar: #0c1425;
-  --bts-bg-hover: #334155;
-  --bts-text: #f1f5f9;
-  --bts-text-muted: #94a3b8;
-  --bts-border: #334155;
-  --bts-success: #22c55e;
-  --bts-warning: #f59e0b;
-  --bts-danger: #ef4444;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+Pro:wght@400;600;700&family=Source+Serif+Pro:ital,wght@0,400;0,600;1,400&display=swap');
 
-  --bts-bronze: #cd7f32;
-  --bts-silver: #c0c0c0;
-  --bts-gold: #ffd700;
-  --bts-diamond: #b9f2ff;
+:root {
+  --bts-blue: #1a56db;
+  --bts-blue-light: #3b82f6;
+  --bts-blue-dark: #1e40af;
+  --bts-blue-50: #eff6ff;
+  --bts-blue-100: #dbeafe;
+
+  --bts-bg: #faf9f7;
+  --bts-bg-card: #ffffff;
+  --bts-bg-sidebar: #ffffff;
+  --bts-bg-highlight: #f5f2ed;
+  --bts-bg-hover: #f0ebe3;
+
+  --bts-text: #2d2d2d;
+  --bts-text-body: #3d3d3d;
+  --bts-text-secondary: #5a5a5a;
+  --bts-text-muted: #888888;
+
+  --bts-border: #e8e4dc;
+  --bts-border-dark: #d4cfc7;
+
+  --bts-success: #16a34a;
+  --bts-warning: #d97706;
+  --bts-danger: #dc2626;
+
+  --bts-bronze: #92400e;
+  --bts-silver: #6b7280;
+  --bts-gold: #b45309;
+  --bts-diamond: #0891b2;
+
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-ui: 'Source Sans Pro', -apple-system, sans-serif;
+  --font-body: 'Source Serif Pro', Georgia, serif;
 }
