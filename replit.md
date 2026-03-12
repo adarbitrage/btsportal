@@ -99,6 +99,8 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Member Profile** (`/community/members/:userId`) — Member profile with stats, badges, and recent posts
 - **Coaching Calls** (`/coaching`) — Calls gated by entitlement (coaching:group, coaching:mastermind, etc.)
 - **Support Center** (`/support`) — Ticket management with entitlement-based limits
+- **AI Chat** (`/chat`) — Full-width AI chat page with session sidebar, SSE streaming, markdown rendering, saved prompts (Lifetime), and support ticket creation from chat
+- **Chat Widget** — Floating chat bubble on all authenticated pages (bottom-right), expandable 380px panel with the same chat features, hidden on `/chat` page. Requires `chat:ai` entitlement.
 
 ### Community Frontend (UI Layer)
 

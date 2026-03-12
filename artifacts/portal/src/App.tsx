@@ -15,6 +15,7 @@ import CommunityFeed from "@/pages/community/CommunityFeed";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
 import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
+import Chat from "@/pages/Chat";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -27,6 +28,7 @@ import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingOrientation from "@/pages/onboarding/Orientation";
 import OnboardingQuickStart from "@/pages/onboarding/QuickStart";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -264,9 +266,18 @@ function Router() {
       <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} />}</Route>
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
+      <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+function AuthenticatedChatWidget() {
+  const { user, loading } = useAuth();
+  const [location] = useLocation();
+  if (loading || !user || !user.onboardingComplete) return null;
+  if (location === "/chat") return null;
+  return <ChatWidget />;
 }
 
 function App() {
@@ -276,6 +287,7 @@ function App() {
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
+            <AuthenticatedChatWidget />
           </WouterRouter>
           <Toaster />
         </AuthProvider>

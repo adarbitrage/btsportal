@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, Users, LogOut, Settings, Activity } from "lucide-react";
+import { LayoutDashboard, BookOpen, Video, LifeBuoy, MessageCircle, Crown, User, Users, LogOut, Settings, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/support", label: "Support", icon: LifeBuoy },
+  { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
 ];
 
 const adminGhlItems = [
