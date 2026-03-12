@@ -1,0 +1,900 @@
+# BTS Portal — Software & Tools Section Build Spec
+
+**Priority:** After Auth + ThriveCart + Onboarding + AI Chat + Community
+**Status:** Not started
+**Depends on:** Entitlement system (done), Auth system
+**Reference:** BTS PRD v2.0, Sections 7.1, 7.2, 8.2, 9.2
+
+---
+
+## Context
+
+The entitlement system defines two software access levels:
+
+```
+software:base      → LaunchPad, 3-Month, 6-Month, 1-Year, Lifetime
+software:expanded  → 6-Month, 1-Year, Lifetime
+```
+
+The sidebar navigation conditionally shows "Software & Tools" when `software:base` or higher is present. But there's no tools page or tool delivery infrastructure built yet.
+
+This spec builds a **tool registry system** — a flexible framework for delivering software tools to members through the portal. The specific tools BTS will offer are TBD, but the system must support adding, removing, and gating tools without code changes. Think of it as an internal app store where entitlements control what's available.
+
+---
+
+## Tool Types
+
+BTS tools will likely fall into three categories. The system must support all three:
+
+### Type 1: Built-In Tools (Hosted Inside the Portal)
+
+Interactive tools that run directly in the portal as React components. No external dependencies or separate logins. These are the highest-value tools because the experience is seamless.
+
+**Examples of what BTS might build:**
+- Headline Generator — AI-powered headline creation for advertorials and ads
+- Campaign Calculator — ROI projections, breakeven analysis, budget allocation
+- Ad Copy Writer — AI-assisted copy generation for native ads and bridge pages
+- Split Test Planner — Experiment design tool for headlines, images, and landing pages
+- Niche Scorer — Evaluate potential niches against profitability criteria
+- Compliance Checker — Scan ad copy for compliance red flags before submitting
+- Tracking URL Builder — Generate properly tagged URLs with UTM parameters and postback macros
+
+### Type 2: External Tools (Links to Third-Party Services)
+
+Tools hosted on external platforms where BTS has provisioned access for the member. The portal provides a launch button that opens the tool in a new tab, potentially with SSO or a pre-configured account.
+
+**Examples:**
+- A shared Ahrefs or SEMrush account for keyword research
+- A BTS-configured ClickMagick or Voluum tracking account
+- Access to a private tool suite hosted on a separate domain
+
+### Type 3: Embedded Tools (Iframes or Widgets)
+
+External tools embedded directly in the portal via iframe. The member stays in the portal while using the tool.
+
+**Examples:**
+- An embedded spreadsheet (Google Sheets) with pre-built campaign tracking templates
+- An embedded Figma file with ad creative templates
+- A third-party widget for image editing or design
+
+---
+
+## What to Build
+
+### 1. Tool Registry System
+
+The tool registry is a database-backed catalog of all tools available in BTS. Each tool is a record with configuration that determines how it's rendered, who can access it, and how it's launched.
+
+#### Tool Schema
+
+```sql
+tools
+  id                  SERIAL PRIMARY KEY
+  slug                TEXT NOT NULL UNIQUE       -- URL-friendly identifier (e.g., 'headline-generator')
+  name                TEXT NOT NULL              -- display name
+  description         TEXT NOT NULL              -- 1-2 sentence description shown on the tools page
+  long_description    TEXT                       -- detailed description shown on the tool's detail page
+  icon                TEXT                       -- lucide icon name or emoji
+  category            TEXT NOT NULL              -- tool category for grouping (see below)
+  tool_type           TEXT NOT NULL              -- 'builtin', 'external', 'embedded'
+  required_entitlement TEXT NOT NULL             -- 'software:base' or 'software:expanded'
+  
+  -- Type-specific configuration (stored as JSON)
+  config              JSONB NOT NULL DEFAULT '{}'
+  
+  -- For builtin tools:
+  --   { "component": "HeadlineGenerator" }
+  --   The frontend maps this to a React component
+  
+  -- For external tools:
+  --   { "url": "https://tool.example.com", "openInNewTab": true }
+  --   Optional: { "ssoEnabled": true, "ssoProvider": "custom" }
+  
+  -- For embedded tools:
+  --   { "embedUrl": "https://tool.example.com/embed", "height": "600px", "allowFullscreen": true }
+  
+  -- Display settings
+  sort_order          INTEGER DEFAULT 0
+  is_featured         BOOLEAN DEFAULT false      -- shown prominently at top of tools page
+  is_new              BOOLEAN DEFAULT false       -- shows "NEW" badge
+  is_beta             BOOLEAN DEFAULT false       -- shows "BETA" badge
+  is_active           BOOLEAN DEFAULT true        -- admin can deactivate without deleting
+  
+  -- Usage tracking
+  total_launches      INTEGER DEFAULT 0          -- how many times this tool has been opened
+  
+  -- Metadata
+  video_tutorial_url  TEXT                       -- optional tutorial video link
+  help_doc_url        TEXT                       -- link to help documentation or knowledgebase article
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+#### Tool Categories
+
+Group tools by function. Admin-managed.
+
+```sql
+tool_categories
+  id              SERIAL PRIMARY KEY
+  name            TEXT NOT NULL              -- 'Content Creation', 'Analytics', etc.
+  slug            TEXT NOT NULL UNIQUE
+  description     TEXT
+  icon            TEXT
+  sort_order      INTEGER DEFAULT 0
+  is_active       BOOLEAN DEFAULT true
+```
+
+**Default categories to seed:**
+
+| Category | Slug | Icon | Description |
+|----------|------|------|-------------|
+| Content Creation | content-creation | ✏️ | Tools for writing ads, headlines, and landing pages |
+| Campaign Planning | campaign-planning | 📊 | Calculators, planners, and strategy tools |
+| Traffic & Tracking | traffic-tracking | 📡 | URL builders, tracking setup, and traffic tools |
+| Creative Assets | creative-assets | 🎨 | Image editing, ad creative, and design tools |
+| Research | research | 🔍 | Niche research, competitive analysis, and market data |
+| Optimization | optimization | ⚡ | Split testing, compliance checking, and performance tools |
+
+---
+
+### 2. Tools Page (`/tools`)
+
+The main tools page displays all available tools organized by category, with entitlement-based gating.
+
+#### Layout
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  SOFTWARE & TOOLS                                                │
+│                                                                  │
+│  Your toolkit for building, testing, and scaling campaigns.      │
+│                                                                  │
+│  [All] [Content Creation] [Campaign Planning] [Traffic] [...]    │
+│                                                                  │
+│  [Search tools..._______________________]                        │
+│                                                                  │
+│  ── FEATURED ───────────────────────────────────────────         │
+│                                                                  │
+│  ┌────────────────────────┐  ┌────────────────────────┐          │
+│  │  ✏️  Headline Generator │  │  📊  Campaign Calculator│          │
+│  │  ⭐ FEATURED           │  │  ⭐ FEATURED            │          │
+│  │                        │  │                        │          │
+│  │  AI-powered headline   │  │  Calculate ROI, break- │          │
+│  │  creation for ads and  │  │  even points, and      │          │
+│  │  advertorials.         │  │  budget allocation.    │          │
+│  │                        │  │                        │          │
+│  │  [Open Tool →]         │  │  [Open Tool →]         │          │
+│  └────────────────────────┘  └────────────────────────┘          │
+│                                                                  │
+│  ── CONTENT CREATION ───────────────────────────────────         │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │ ✏️ Headline   │  │ 📝 Ad Copy   │  │ 🔒 Advanced  │           │
+│  │ Generator    │  │ Writer       │  │ Copy Suite   │           │
+│  │              │  │              │  │              │           │
+│  │ Generate     │  │ AI-assisted  │  │ Requires     │           │
+│  │ headlines... │  │ ad copy...   │  │ Expanded     │           │
+│  │              │  │              │  │ Tools        │           │
+│  │ 234 uses     │  │ NEW · 89uses │  │ [Upgrade →]  │           │
+│  │ [Open →]     │  │ [Open →]     │  │              │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                                                                  │
+│  ── CAMPAIGN PLANNING ──────────────────────────────────         │
+│  ...                                                             │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Tool Card Component
+
+Each tool is displayed as a card with consistent structure:
+
+```
+┌─────────────────────────────┐
+│  [Icon]  Tool Name     [NEW]│    ← badges: NEW, BETA, or nothing
+│                             │
+│  Brief description of what  │
+│  this tool does and why     │
+│  you'd use it.              │
+│                             │
+│  Category · 234 uses        │    ← social proof: total launches
+│                             │
+│  [Open Tool →]              │    ← or [Upgrade →] if locked
+└─────────────────────────────┘
+```
+
+**Card states:**
+
+| State | Visual | Action |
+|-------|--------|--------|
+| Accessible | Full color, active button | "Open Tool →" launches the tool |
+| Locked (software:expanded required) | Dimmed/grayed, lock icon overlay | "Upgrade to unlock →" links to upgrade page |
+| Coming Soon | Dimmed, "Coming Soon" badge | No action, shows "We're building this" message |
+| Beta | Full color, "BETA" badge | Opens tool with a beta feedback banner |
+
+#### Filtering & Search
+
+- **Category tabs:** Horizontal tabs at the top filter by category. "All" shows everything.
+- **Search:** Text search across tool names and descriptions. Client-side filtering is fine for v1 (tool count will be small). If catalog grows past 50+ tools, move to server-side search.
+- **Sort:** Default sort by `sort_order` (admin-controlled). No user-facing sort options in v1.
+
+---
+
+### 3. Tool Detail Page (`/tools/:slug`)
+
+Clicking a tool card navigates to the tool's detail page, which either renders the tool directly (built-in), launches it (external), or embeds it (iframe).
+
+#### Layout for Built-In Tools
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Tools                                                 │
+│                                                                  │
+│  ✏️  HEADLINE GENERATOR                          [? Help] [📹]   │
+│  AI-powered headline creation for advertorials and native ads.   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │                                                          │    │
+│  │                                                          │    │
+│  │              [ THE TOOL RENDERS HERE ]                   │    │
+│  │                                                          │    │
+│  │     (React component loaded dynamically based on         │    │
+│  │      the tool's config.component value)                  │    │
+│  │                                                          │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Header elements:**
+- Back link to `/tools`
+- Tool icon and name
+- Help button (opens `help_doc_url` or triggers AI chat with tool-specific context)
+- Tutorial video button (opens `video_tutorial_url` in a modal if available)
+
+#### Layout for External Tools
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Tools                                                 │
+│                                                                  │
+│  🔍  KEYWORD RESEARCH TOOL                      [? Help] [📹]   │
+│  Research keywords and analyze competition for your niche.       │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │                                                          │    │
+│  │  This tool opens in a new tab.                           │    │
+│  │                                                          │    │
+│  │  [Long description of the tool, how to use it,           │    │
+│  │   what to look for, and tips for getting the most        │    │
+│  │   out of it.]                                            │    │
+│  │                                                          │    │
+│  │              [ Launch Tool ↗ ]                            │    │
+│  │                                                          │    │
+│  │  Opens: tool.example.com                                 │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Layout for Embedded Tools
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Tools                                                 │
+│                                                                  │
+│  🎨  AD CREATIVE TEMPLATES                      [? Help] [⛶]    │
+│  Pre-built templates for native ad creatives.                    │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │                                                          │    │
+│  │  <iframe src="embedUrl" height="600px" />                │    │
+│  │                                                          │    │
+│  │  (Embedded third-party tool or resource)                 │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- Fullscreen toggle button (⛶) for embedded tools — expands iframe to fill the viewport
+- Loading spinner while iframe loads
+- Error state if iframe fails to load (show message + "Open in new tab" fallback link)
+
+---
+
+### 4. Built-In Tool Framework
+
+Built-in tools are React components that render inside the tool detail page. The framework provides a consistent structure for building tools quickly.
+
+#### Dynamic Component Loading
+
+The tool's `config.component` value maps to a React component. Use dynamic imports to keep the main bundle small — tools are only loaded when opened.
+
+```javascript
+// Tool component registry
+const TOOL_COMPONENTS: Record<string, () => Promise<{ default: React.ComponentType<ToolProps> }>> = {
+  'HeadlineGenerator': () => import('./tools/HeadlineGenerator'),
+  'CampaignCalculator': () => import('./tools/CampaignCalculator'),
+  'AdCopyWriter': () => import('./tools/AdCopyWriter'),
+  'SplitTestPlanner': () => import('./tools/SplitTestPlanner'),
+  'NicheScorer': () => import('./tools/NicheScorer'),
+  'ComplianceChecker': () => import('./tools/ComplianceChecker'),
+  'TrackingUrlBuilder': () => import('./tools/TrackingUrlBuilder'),
+};
+
+// In the ToolDetail page
+const ToolDetail = ({ tool }) => {
+  const ToolComponent = React.lazy(TOOL_COMPONENTS[tool.config.component]);
+  
+  return (
+    <React.Suspense fallback={<LoadingSpinner />}>
+      <ToolComponent tool={tool} userId={userId} />
+    </React.Suspense>
+  );
+};
+```
+
+#### ToolProps Interface
+
+Every built-in tool receives a standard props object:
+
+```typescript
+interface ToolProps {
+  tool: Tool;              // tool record from the registry
+  userId: number;          // authenticated user ID
+  memberName: string;      // for personalization
+  entitlements: string[];  // member's resolved entitlements
+  onSave?: (data: any) => void;  // optional callback to save tool output
+}
+```
+
+#### Tool Data Persistence
+
+Some tools need to save member-specific data (e.g., saved headlines, campaign calculations, generated copy). Create a generic storage table:
+
+```sql
+tool_user_data
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  tool_id         INTEGER REFERENCES tools(id) NOT NULL
+  data_key        TEXT NOT NULL            -- e.g., 'saved_headlines', 'campaign_001'
+  data_value      JSONB NOT NULL           -- the actual saved data
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+  UNIQUE(user_id, tool_id, data_key)
+```
+
+**API:**
+
+```
+GET    /api/tools/:toolId/data                → List all saved data for this tool + user
+GET    /api/tools/:toolId/data/:key           → Get specific saved data
+POST   /api/tools/:toolId/data                → Save data { key, value }
+PUT    /api/tools/:toolId/data/:key           → Update saved data
+DELETE /api/tools/:toolId/data/:key           → Delete saved data
+```
+
+This gives every built-in tool a consistent save/load mechanism without needing tool-specific tables.
+
+---
+
+### 5. Starter Built-In Tools
+
+Build 2–3 tools for launch to demonstrate the framework and provide immediate value. These tools use the Claude API for AI-powered features and the standard tool data persistence for saving outputs.
+
+#### Tool 1: Headline Generator
+
+**Purpose:** Generate, test, and save headline variations for native ads and advertorials.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  What are you promoting?                                     │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │ A weight loss supplement targeting women over 40      │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                                                              │
+│  Headline style:                                             │
+│  [Curiosity ▼]  [Listicle] [News] [Story] [Warning]         │
+│                                                              │
+│  Platform: [NewsBreak ▼]                                     │
+│                                                              │
+│  Tone: [Conversational ▼]                                    │
+│                                                              │
+│  Number of headlines: [10 ▼]                                 │
+│                                                              │
+│              [ Generate Headlines 🔥 ]                       │
+│                                                              │
+│  ── GENERATED HEADLINES ─────────────────────────────────    │
+│                                                              │
+│  1. "Doctors Are Stunned by New Discovery..."   [⭐] [📋]   │
+│  2. "Over 40? This One Change Could..."         [⭐] [📋]   │
+│  3. "Women Are Raving About This Simple..."     [⭐] [📋]   │
+│  ...                                                         │
+│                                                              │
+│  ⭐ = Save to favorites    📋 = Copy to clipboard            │
+│                                                              │
+│  ── SAVED HEADLINES (12 saved) ──────────────────────────    │
+│  [View saved headlines →]                                    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Backend:** `POST /api/tools/headline-generator/generate`
+
+```json
+{
+  "product": "A weight loss supplement targeting women over 40",
+  "style": "curiosity",
+  "platform": "newsbreak",
+  "tone": "conversational",
+  "count": 10
+}
+```
+
+Calls Claude API with a headline-generation prompt. Returns an array of headlines. Saves results to `tool_user_data` for history.
+
+**Entitlement difference:**
+- `software:base`: 5 generations per day, 10 headlines per generation
+- `software:expanded`: 25 generations per day, 25 headlines per generation
+
+#### Tool 2: Campaign Calculator
+
+**Purpose:** Run ROI projections, breakeven analysis, and budget allocation calculations.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  ── INPUTS ──────────────────────────────────────────────    │
+│                                                              │
+│  Daily ad budget:         [$________50.00]                   │
+│  Cost per click (CPC):    [$_________0.35]                   │
+│  Landing page CTR:        [________12.0] %                   │
+│  Offer payout:            [$_______45.00]                    │
+│  Conversion rate:         [_________2.5] %                   │
+│                                                              │
+│              [ Calculate → ]                                 │
+│                                                              │
+│  ── RESULTS ─────────────────────────────────────────────    │
+│                                                              │
+│  Daily clicks:                   142                         │
+│  Daily leads:                    17                          │
+│  Daily conversions:              0.43                        │
+│  Daily revenue:                  $19.13                      │
+│  Daily profit/loss:              -$30.87  ← RED              │
+│  ─────────────────────────────────────────                   │
+│  Breakeven conversion rate:      7.9%                        │
+│  Breakeven CPC:                  $0.13                       │
+│  Breakeven offer payout:         $116.67                     │
+│  ─────────────────────────────────────────                   │
+│  Monthly projection (30 days):                               │
+│    Spend: $1,500  Revenue: $573.90  P/L: -$926.10           │
+│  ─────────────────────────────────────────                   │
+│                                                              │
+│  💡 AI Analysis:                                             │
+│  "Your conversion rate needs to reach 7.9% to break even.   │
+│   Current rate of 2.5% suggests you need to test new         │
+│   landing page variants. Focus on headline and CTA testing   │
+│   before increasing budget."                                 │
+│                                                              │
+│  [Save Calculation]  [Export CSV]  [Share with Coach]        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**This tool is entirely client-side math** — no API call needed for the calculations. The optional "AI Analysis" section calls Claude for a brief interpretation of the numbers.
+
+**Entitlement difference:**
+- `software:base`: Basic calculator (inputs → outputs, no AI analysis)
+- `software:expanded`: Full calculator + AI analysis + save/export + "Share with Coach" (creates a coaching session note)
+
+#### Tool 3: Tracking URL Builder
+
+**Purpose:** Generate properly formatted tracking URLs with UTM parameters, affiliate network postback macros, and platform-specific tokens.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  Base URL:                                                   │
+│  [https://offer.example.com/landing?___________________]     │
+│                                                              │
+│  Traffic source: [NewsBreak ▼]                               │
+│  (auto-fills platform-specific macros)                       │
+│                                                              │
+│  UTM Source:    [newsbreak_________]  (auto-filled)          │
+│  UTM Medium:   [native______________]  (auto-filled)        │
+│  UTM Campaign: [wl_women40_v2______]                         │
+│  UTM Content:  [headline_test_a____]                         │
+│                                                              │
+│  Affiliate Network: [Media Mavens ▼]                         │
+│  Affiliate ID:      [AF-12345_______]                        │
+│                                                              │
+│  ── GENERATED URL ───────────────────────────────────────    │
+│                                                              │
+│  https://offer.example.com/landing?utm_source=newsbreak      │
+│  &utm_medium=native&utm_campaign=wl_women40_v2               │
+│  &utm_content=headline_test_a&af=AF-12345&click_id={click}   │
+│                                                              │
+│  [📋 Copy URL]  [📋 Copy Short URL]  [Save to Library]      │
+│                                                              │
+│  ── SAVED URLs (8 saved) ────────────────────────────────    │
+│  [View URL Library →]                                        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Entirely client-side** — no API calls needed except for saving to the URL library via `tool_user_data`.
+
+**Traffic source presets** (admin-configurable):
+
+```json
+{
+  "newsbreak": {
+    "name": "NewsBreak",
+    "utm_source": "newsbreak",
+    "utm_medium": "native",
+    "macros": { "click_id": "{click}", "campaign_id": "{campaign}" }
+  },
+  "facebook": {
+    "name": "Facebook/Meta",
+    "utm_source": "facebook",
+    "utm_medium": "paid_social",
+    "macros": { "click_id": "{{ad.id}}", "campaign_id": "{{campaign.id}}" }
+  }
+}
+```
+
+Store presets in a `tool_presets` table or as part of the tool's `config` JSON. Admin-editable.
+
+---
+
+### 6. Usage Tracking & Analytics
+
+Track how members use tools for engagement scoring and product development insights.
+
+#### Usage Log Schema
+
+```sql
+tool_usage_log
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  tool_id         INTEGER REFERENCES tools(id) NOT NULL
+  action          TEXT NOT NULL            -- 'open', 'generate', 'save', 'export'
+  metadata        JSONB                   -- action-specific data (e.g., which style was selected)
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Index:** `(user_id, tool_id, created_at)` for per-user usage queries. `(tool_id, created_at)` for tool-level analytics.
+
+#### What to Log
+
+| Action | When | Metadata |
+|--------|------|----------|
+| open | Member opens a tool | `{ source: "tools_page" or "dashboard" or "direct_link" }` |
+| generate | AI-powered generation completes | `{ type: "headlines", count: 10, style: "curiosity" }` |
+| save | Member saves tool output | `{ key: "saved_headlines", itemCount: 3 }` |
+| export | Member exports data (CSV, copy, etc.) | `{ format: "csv" or "clipboard" }` |
+| share | Member shares output (with coach, community) | `{ target: "coach" or "community" }` |
+
+**API:**
+
+```
+POST /api/tools/:toolId/usage
+{ "action": "open", "metadata": { "source": "tools_page" } }
+```
+
+Called automatically by the tool framework on open. Individual tools call it for generate/save/export actions.
+
+#### Rate Limiting by Tier
+
+Some tools (especially AI-powered ones) need per-day usage limits to manage API costs:
+
+```sql
+tool_daily_usage
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  tool_id         INTEGER REFERENCES tools(id) NOT NULL
+  usage_date      DATE NOT NULL
+  generation_count INTEGER DEFAULT 0       -- AI generations used today
+  UNIQUE(user_id, tool_id, usage_date)
+```
+
+**Limit configuration** is stored on each tool record in the `config` JSON:
+
+```json
+{
+  "component": "HeadlineGenerator",
+  "limits": {
+    "software:base": { "dailyGenerations": 5, "maxPerGeneration": 10 },
+    "software:expanded": { "dailyGenerations": 25, "maxPerGeneration": 25 }
+  }
+}
+```
+
+The tool framework checks this before allowing AI-powered actions. When the limit is reached, the tool shows a message with the reset time and an upgrade CTA (if applicable).
+
+---
+
+### 7. Entitlement-Based Access Control
+
+#### API Middleware
+
+All `/api/tools/*` endpoints check entitlements:
+
+```
+1. If member has NO software entitlement → 403:
+   { error: "Software access not included", upgradeProduct: "BTS LaunchPad" }
+
+2. If member has software:base but tool requires software:expanded → 403:
+   { error: "This tool requires expanded access", upgradeProduct: "BTS 6-Month Mentorship" }
+
+3. If member has the required entitlement → allow access
+```
+
+#### Frontend Gating
+
+The tools page fetches all tools from the API and receives them pre-annotated with access status:
+
+```
+GET /api/tools
+
+Response:
+{
+  "tools": [
+    {
+      "id": 1,
+      "slug": "headline-generator",
+      "name": "Headline Generator",
+      "requiredEntitlement": "software:base",
+      "access": "granted",          // ← server tells frontend the access state
+      "category": { "name": "Content Creation", "slug": "content-creation" },
+      ...
+    },
+    {
+      "id": 5,
+      "slug": "advanced-copy-suite",
+      "name": "Advanced Copy Suite",
+      "requiredEntitlement": "software:expanded",
+      "access": "locked",           // ← member doesn't have software:expanded
+      "upgradeProduct": "BTS 6-Month Mentorship",
+      ...
+    }
+  ]
+}
+```
+
+The frontend renders tool cards in the appropriate state based on `access`. No client-side entitlement logic — the server resolves everything.
+
+---
+
+### 8. Dashboard Integration
+
+Add a "Software & Tools" widget to the member dashboard (visible when `software:base` or higher is present):
+
+```
+┌─ SOFTWARE & TOOLS ──────────────────────────────────┐
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
+│  │ ✏️ Head-  │  │ 📊 Camp- │  │ 📡 Track-│           │
+│  │ line Gen │  │ aign Calc│  │ ing URLs │           │
+│  │ [Open →] │  │ [Open →] │  │ [Open →] │           │
+│  └──────────┘  └──────────┘  └──────────┘           │
+│                                                      │
+│  3 tools available · [View All Tools →]              │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+```
+
+Shows the 3 most recently used tools (or featured tools if no usage history). "View All Tools" links to `/tools`.
+
+---
+
+### 9. Admin Panel Additions
+
+#### Tool Management
+
+Full CRUD for the tool registry:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  TOOL MANAGEMENT                           [+ Add New Tool] │
+│                                                             │
+│  Name              Type       Entitlement    Status  Actions│
+│  ─────────────────────────────────────────────────────────  │
+│  Headline Gen.     builtin    software:base  Active  [Edit] │
+│  Campaign Calc.    builtin    software:base  Active  [Edit] │
+│  URL Builder       builtin    software:base  Active  [Edit] │
+│  Adv. Copy Suite   builtin    expanded       Active  [Edit] │
+│  Keyword Research  external   expanded       Active  [Edit] │
+│  Creative Templates embedded  software:base  Beta    [Edit] │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Add/Edit Tool Form:**
+- Name, slug, description, long description
+- Icon (select from icon library or type emoji)
+- Category (dropdown)
+- Tool type (builtin/external/embedded)
+- Required entitlement (dropdown: software:base or software:expanded)
+- Type-specific config (JSON editor or structured form depending on type)
+- Display flags: featured, new, beta, active
+- Sort order
+- Tutorial video URL and help doc URL
+- For AI tools: rate limit configuration per entitlement tier
+
+#### Tool Analytics Dashboard
+
+- Total tool opens (today, week, month) with trend
+- Most popular tools (ranked by opens)
+- Usage by entitlement tier (base vs expanded)
+- AI generation counts and estimated API cost
+- Tool adoption rate (unique users who opened each tool / total eligible users)
+- Per-tool daily usage chart
+
+#### Tool Category Management
+
+CRUD for tool categories (name, slug, description, icon, sort order).
+
+---
+
+### 10. API Endpoints Summary
+
+**Public (requires auth + entitlement):**
+
+```
+GET    /api/tools                              → List all tools (with access state per member)
+GET    /api/tools/:slug                        → Tool detail
+GET    /api/tools/:toolId/data                 → List saved data for tool + user
+GET    /api/tools/:toolId/data/:key            → Get specific saved data
+POST   /api/tools/:toolId/data                 → Save tool data
+PUT    /api/tools/:toolId/data/:key            → Update saved data
+DELETE /api/tools/:toolId/data/:key            → Delete saved data
+POST   /api/tools/:toolId/usage                → Log usage event
+```
+
+**Tool-specific endpoints (built-in tools):**
+
+```
+POST   /api/tools/headline-generator/generate  → Generate headlines via Claude
+POST   /api/tools/campaign-calculator/analyze   → Get AI analysis of campaign numbers
+```
+
+**Admin:**
+
+```
+CRUD   /api/admin/tools                        → Manage tool registry
+CRUD   /api/admin/tool-categories              → Manage categories
+GET    /api/admin/tools/analytics              → Tool usage analytics
+GET    /api/admin/tools/:id/usage              → Per-tool usage details
+```
+
+---
+
+### 11. Database Schema Summary
+
+```sql
+-- Tool registry
+tools (
+  id, slug, name, description, long_description, icon,
+  category_id, tool_type, required_entitlement, config,
+  sort_order, is_featured, is_new, is_beta, is_active,
+  total_launches, video_tutorial_url, help_doc_url,
+  created_at, updated_at
+)
+
+-- Tool categories
+tool_categories (
+  id, name, slug, description, icon, sort_order, is_active
+)
+
+-- Tool user data (generic key-value store per user per tool)
+tool_user_data (
+  id, user_id, tool_id, data_key, data_value,
+  created_at, updated_at
+  UNIQUE(user_id, tool_id, data_key)
+)
+
+-- Tool usage log
+tool_usage_log (
+  id, user_id, tool_id, action, metadata, created_at
+)
+
+-- Tool daily usage (for rate limiting AI generations)
+tool_daily_usage (
+  id, user_id, tool_id, usage_date, generation_count
+  UNIQUE(user_id, tool_id, usage_date)
+)
+```
+
+---
+
+### 12. Frontend Routes
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/tools` | ToolsPage | Tool catalog with category tabs, search, and tool cards |
+| `/tools/:slug` | ToolDetail | Tool detail page — renders builtin component, external launch, or iframe |
+
+**Navigation:** "Software & Tools" appears in sidebar when `software:base` or higher is present. Shows wrench icon.
+
+**Mobile:** Tool cards stack vertically in a single column. Built-in tools render full-width. Embedded tools get a "Open in new tab" fallback if iframe doesn't work well on mobile.
+
+---
+
+### 13. Seed Data
+
+**Tool categories:** All 6 defaults from the table above.
+
+**Tools:** Seed the 3 starter tools (Headline Generator, Campaign Calculator, Tracking URL Builder) as active, plus 3–4 placeholder tools marked as "Coming Soon" to fill out the page:
+
+```
+Active tools (software:base):
+- Headline Generator (builtin, featured)
+- Campaign Calculator (builtin, featured)
+- Tracking URL Builder (builtin)
+
+Active tools (software:expanded):
+- Advanced Copy Suite (builtin, placeholder component)
+- Keyword Research Hub (external, placeholder URL)
+
+Coming soon:
+- Compliance Checker (builtin, is_active: false, coming_soon flag)
+- Niche Scorer (builtin, is_active: false, coming_soon flag)
+- Ad Creative Studio (builtin, is_active: false, coming_soon flag)
+```
+
+**Tool user data:** Seed some saved headlines and campaign calculations for the demo user so the tools don't feel empty on first open.
+
+---
+
+### 14. Environment Variables
+
+```
+# AI tool generation (uses same Anthropic key as chat)
+TOOL_HEADLINE_MODEL=claude-sonnet-4-20250514
+TOOL_ANALYSIS_MODEL=claude-sonnet-4-20250514
+TOOL_MAX_TOKENS=1500
+
+# Rate limits (override defaults from tool config)
+TOOL_DAILY_LIMIT_BASE=5
+TOOL_DAILY_LIMIT_EXPANDED=25
+```
+
+---
+
+## What NOT to Build Yet
+
+- Complex multi-step tool workflows (e.g., "build a full campaign from scratch" wizard)
+- Tool marketplace where members can submit tools
+- Tool API keys or provisioned third-party accounts (SSO for external tools)
+- Tool collaboration features (share tool outputs between members)
+- Tool versioning (v1, v2 of the same tool)
+- Offline tool access or downloadable tool versions
+- Tool-specific onboarding tutorials (rely on the video_tutorial_url and help_doc_url for now)
+- GHL sync of tool usage data (log events for now, sync later)
+- Mobile-native tool experiences (responsive web is sufficient for v1)
+
+---
+
+## Definition of Done
+
+1. `/tools` page displays all tools organized by category with correct entitlement gating
+2. Tool cards show correct state: accessible, locked (with upgrade CTA), coming soon, new, beta
+3. Built-in tools render as dynamic React components inside the tool detail page
+4. External tools show description + "Launch" button that opens in new tab
+5. Embedded tools render in an iframe with fullscreen toggle and error fallback
+6. Headline Generator works end-to-end: inputs → Claude API → generated headlines → save to favorites
+7. Campaign Calculator works with all inputs → calculations → optional AI analysis
+8. Tracking URL Builder generates properly formatted URLs with platform-specific macros
+9. Tool data persistence works: members can save, load, and delete tool outputs
+10. Usage tracking logs all opens, generates, saves, and exports
+11. Rate limits enforced per tier for AI-powered tools with clear UI feedback
+12. Admin can add/edit/remove tools, categories, and view usage analytics
+13. Dashboard widget shows recently used or featured tools
+14. No software entitlement → "Software & Tools" nav item hidden, all `/tools/*` routes return 403
+15. `software:base` members see expanded-only tools in locked state with upgrade path

@@ -1,0 +1,971 @@
+# BTS Portal — Commission Tracking Dashboard Build Spec
+
+**Priority:** After Auth + ThriveCart + Onboarding + AI Chat + Community + Software & Tools
+**Status:** Not started
+**Depends on:** Entitlement system (done), Auth system, ThriveCart Webhook integration
+**Reference:** BTS PRD v2.0, Sections 8.4, 9.2
+
+---
+
+## Context
+
+The entitlement system defines four commission tiers:
+
+```
+commissions:entry    → 3-Month Mentorship
+commissions:mid      → 6-Month Mentorship
+commissions:premium  → 1-Year Mentorship
+commissions:top      → Lifetime Mentorship
+```
+
+Each tier earns a different payout percentage when a member refers new customers who purchase through their unique referral link. The sidebar conditionally shows "Commissions" when any `commissions:*` entitlement is present. But there's no commission tracking UI or referral infrastructure built yet.
+
+This spec builds the full affiliate commission system: referral link generation, cookie-based attribution, commission calculation on purchase events, payout tracking, and a member-facing dashboard showing earnings, referrals, and performance.
+
+---
+
+## How BTS Affiliate Commissions Work
+
+```
+REFERRAL FLOW:
+
+1. Member (the "affiliate") shares their unique referral link
+2. Prospect clicks the link → lands on a BTS landing page or checkout page
+3. A tracking cookie is set attributing this prospect to the affiliate
+4. Prospect purchases a BTS product via ThriveCart
+5. ThriveCart (or the portal) attributes the sale to the affiliate
+6. Commission is calculated based on the affiliate's tier and the product purchased
+7. Commission is recorded in the portal and visible on the affiliate's dashboard
+8. Payouts are processed on a schedule (monthly, manual, or via integration)
+
+ATTRIBUTION:
+
+Option A — ThriveCart Native Affiliates:
+  ThriveCart has a built-in affiliate system. Each affiliate gets a ThriveCart 
+  affiliate ID. ThriveCart handles cookie tracking, attribution, and commission 
+  calculation. The portal reads commission data from ThriveCart via API or webhook.
+
+Option B — Custom Tracking (Tapfiliate or Portal-Built):
+  The portal generates referral links, handles cookie tracking, and passes 
+  attribution data to ThriveCart as a custom field on checkout. Commission 
+  calculation happens in the portal.
+
+RECOMMENDATION: Use ThriveCart's native affiliate system for attribution and 
+commission calculation. The portal provides the dashboard UI, referral link 
+management, and performance analytics. This avoids building cookie tracking 
+and attribution from scratch. If ThriveCart's affiliate features are insufficient, 
+layer Tapfiliate on top later.
+```
+
+---
+
+## Commission Tier Structure
+
+Each mentorship tier earns a different commission percentage. The exact percentages are TBD but the system must support configurable rates per tier per product.
+
+#### Commission Rate Schema
+
+```sql
+commission_rates
+  id                  SERIAL PRIMARY KEY
+  commission_tier     TEXT NOT NULL          -- 'entry', 'mid', 'premium', 'top'
+  product_id          INTEGER REFERENCES products(id) NOT NULL
+  rate_type           TEXT NOT NULL          -- 'percentage' or 'fixed'
+  rate_value          DECIMAL(10,2) NOT NULL -- e.g., 30.00 for 30% or 50.00 for $50 flat
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+  UNIQUE(commission_tier, product_id)
+```
+
+**Example rate structure (placeholder — Adam to finalize):**
+
+| Product | Entry (3mo) | Mid (6mo) | Premium (1yr) | Top (Lifetime) |
+|---------|-------------|-----------|---------------|----------------|
+| Reserve Income ($47–$97) | 20% | 30% | 40% | 50% |
+| Backroad ($47–$97) | 20% | 30% | 40% | 50% |
+| Off-Market ($47–$97) | 20% | 30% | 40% | 50% |
+| LaunchPad | 15% | 25% | 35% | 50% |
+| 3-Month Mentorship | 10% | 20% | 30% | 40% |
+| 6-Month Mentorship | 10% | 15% | 25% | 35% |
+| 1-Year Mentorship | — | 10% | 20% | 30% |
+| Lifetime Mentorship | — | — | 15% | 25% |
+
+**Rules:**
+- A member earns commissions based on their HIGHEST active commission tier
+- If a member's mentorship expires, their commission tier drops to the next active level (or none if they have no active mentorship)
+- Commission tier is resolved dynamically from entitlements, not stored as a static field
+- Cells marked "—" mean that tier cannot earn commissions on that product (optional restriction, configurable)
+
+---
+
+## What to Build
+
+### 1. Affiliate Profile & Referral Links
+
+Every member with a `commissions:*` entitlement has an affiliate profile with unique referral links for each BTS product.
+
+#### Affiliate Schema
+
+```sql
+affiliate_profiles
+  id                  SERIAL PRIMARY KEY
+  user_id             INTEGER REFERENCES users(id) NOT NULL UNIQUE
+  affiliate_code      TEXT NOT NULL UNIQUE   -- short code (e.g., 'marcus-j', 'mj2026', auto-generated)
+  custom_code         TEXT UNIQUE            -- member-chosen vanity code (optional, max 20 chars)
+  thrivecart_aff_id   TEXT                   -- ThriveCart affiliate ID (if using TC native affiliates)
+  paypal_email        TEXT                   -- payout destination
+  payout_method       TEXT DEFAULT 'paypal'  -- 'paypal', 'bank_transfer', 'check'
+  payout_threshold    DECIMAL(10,2) DEFAULT 50.00  -- minimum balance before payout
+  tax_form_submitted  BOOLEAN DEFAULT false  -- W-9 or W-8BEN submitted
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Affiliate code generation:**
+- Auto-generated on first commission entitlement grant: lowercase first name + last initial + random 3 digits (e.g., `marcus-j-482`)
+- Member can set a custom vanity code from their dashboard (e.g., `marcuswins`) — validated for uniqueness, alphanumeric + hyphens only, 3–20 characters
+- The affiliate code is embedded in referral links
+
+#### Referral Links
+
+Each product has a referral link for the affiliate. Links are generated dynamically based on the affiliate code and the product's landing page URL.
+
+**Link format:**
+
+```
+Option A — ThriveCart native:
+https://checkout.thrivecart.com/tc_reserve_income/?affiliate=marcus-j-482
+
+Option B — Portal-tracked:
+https://buildtestscale.com/go/reserve-income?ref=marcus-j-482
+  → Portal sets attribution cookie
+  → Redirects to ThriveCart checkout with affiliate param
+
+Option C — Landing page with tracking:
+https://reserveincomesystem.com/?ref=marcus-j-482
+  → Landing page JS reads ?ref param, stores in cookie
+  → ThriveCart checkout link includes affiliate param from cookie
+```
+
+**For v1, implement Option B** — the portal acts as a redirect with cookie setting:
+
+```
+GET /go/:productSlug?ref=:affiliateCode
+
+Logic:
+1. Look up affiliate by code → if invalid, redirect without attribution
+2. Set a first-party cookie: bts_ref={affiliateCode}, 30-day expiry
+3. Redirect to the product's landing page URL (or direct to ThriveCart checkout)
+4. When ThriveCart webhook fires for a purchase, check for bts_ref cookie 
+   (passed as a custom field on the checkout URL)
+```
+
+#### Referral Link Table
+
+```sql
+referral_links
+  id                  SERIAL PRIMARY KEY
+  affiliate_id        INTEGER REFERENCES affiliate_profiles(id) NOT NULL
+  product_id          INTEGER REFERENCES products(id) NOT NULL
+  link_url            TEXT NOT NULL          -- the full referral URL
+  short_code          TEXT UNIQUE            -- optional short URL code
+  click_count         INTEGER DEFAULT 0      -- total clicks (denormalized)
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMP DEFAULT NOW()
+  UNIQUE(affiliate_id, product_id)
+```
+
+Pre-generate referral links for every active product when the affiliate profile is created. New links are auto-created when new products are added.
+
+---
+
+### 2. Click Tracking
+
+Track every click on a referral link for analytics.
+
+#### Click Schema
+
+```sql
+referral_clicks
+  id                  SERIAL PRIMARY KEY
+  referral_link_id    INTEGER REFERENCES referral_links(id) NOT NULL
+  affiliate_id        INTEGER REFERENCES affiliate_profiles(id) NOT NULL
+  ip_address          TEXT
+  user_agent          TEXT
+  referer_url         TEXT                   -- where the click came from
+  landing_url         TEXT                   -- where they were sent
+  country             TEXT                   -- GeoIP lookup (optional, basic)
+  device_type         TEXT                   -- 'desktop', 'mobile', 'tablet' (parsed from UA)
+  created_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Index:** `(affiliate_id, created_at)` for affiliate-specific click queries. `(referral_link_id, created_at)` for per-link analytics.
+
+#### Click Tracking Endpoint
+
+```
+GET /go/:productSlug?ref=:affiliateCode
+
+Logic:
+1. Validate affiliate code → look up affiliate_profiles
+2. Find referral_link for this affiliate + product
+3. Log click to referral_clicks table (async — don't block the redirect)
+4. Increment referral_links.click_count
+5. Set attribution cookie: bts_ref={affiliateCode}, 30-day expiry, SameSite=Lax
+6. Build redirect URL:
+   - Product landing page URL + ?ref={affiliateCode}
+   - OR ThriveCart checkout URL + ?affiliate={thrivecart_aff_id}
+7. 302 redirect to the destination
+
+Response time must be < 100ms — this is a redirect, not a page load.
+```
+
+**Deduplication:** Don't count multiple clicks from the same IP within 5 minutes as separate clicks. Check the most recent click from that IP for the same link and skip if within the window.
+
+---
+
+### 3. Commission Recording
+
+When a purchase is attributed to an affiliate, a commission record is created.
+
+#### Commission Schema
+
+```sql
+commissions
+  id                  SERIAL PRIMARY KEY
+  affiliate_id        INTEGER REFERENCES affiliate_profiles(id) NOT NULL
+  referred_user_id    INTEGER REFERENCES users(id)  -- the customer who purchased
+  product_id          INTEGER REFERENCES products(id) NOT NULL
+  order_id            TEXT NOT NULL           -- ThriveCart order ID
+  
+  -- Sale details
+  sale_amount         DECIMAL(10,2) NOT NULL  -- total sale price
+  commission_tier     TEXT NOT NULL            -- tier at time of sale ('entry', 'mid', 'premium', 'top')
+  commission_rate     DECIMAL(5,2) NOT NULL    -- rate applied (e.g., 30.00 for 30%)
+  commission_amount   DECIMAL(10,2) NOT NULL   -- calculated payout amount
+  
+  -- Status tracking
+  status              TEXT NOT NULL DEFAULT 'pending'
+    -- 'pending'   → sale confirmed, waiting for refund window
+    -- 'approved'  → past refund window, eligible for payout
+    -- 'paid'      → payout processed
+    -- 'reversed'  → sale was refunded, commission clawed back
+    -- 'rejected'  → flagged as fraudulent or self-referral
+  
+  -- Payout tracking
+  payout_id           INTEGER REFERENCES commission_payouts(id)
+  approved_at         TIMESTAMP
+  paid_at             TIMESTAMP
+  reversed_at         TIMESTAMP
+  
+  -- Metadata
+  notes               TEXT                    -- admin notes
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+  
+  UNIQUE(affiliate_id, order_id)  -- one commission per affiliate per order
+```
+
+#### Commission Calculation (in ThriveCart Webhook Handler)
+
+Add to the existing ThriveCart webhook `order.success` handler:
+
+```
+After Step 5 (Grant Product Entitlements), add:
+
+Step 5.5: CALCULATE AFFILIATE COMMISSION
+  a. Check if the purchase has an affiliate attribution:
+     - Look for bts_ref cookie value passed as custom field in ThriveCart payload
+     - OR check ThriveCart's native affiliate field in the webhook payload
+  
+  b. If attributed:
+     - Look up the affiliate profile by code
+     - Validate: affiliate cannot earn commission on their own purchase (self-referral check)
+     - Resolve the affiliate's current commission tier from their entitlements
+     - Look up the commission rate for (tier + product) in commission_rates table
+     - If no rate exists for this combination → skip (tier can't earn on this product)
+     - Calculate: commission_amount = sale_amount × (rate_value / 100)
+     - Create commission record with status 'pending'
+  
+  c. If not attributed:
+     - No commission to record, skip
+```
+
+#### Refund Handling
+
+Add to the existing ThriveCart webhook `order.refund` handler:
+
+```
+After revoking product entitlements, add:
+
+Step: REVERSE COMMISSION
+  a. Find commission record matching this order_id
+  b. If found and status is 'pending' or 'approved':
+     - Update status to 'reversed'
+     - Set reversed_at timestamp
+     - If commission was already paid: create a negative adjustment (see payouts)
+  c. Log reversal to webhook_logs
+```
+
+---
+
+### 4. Payout System
+
+#### Payout Schema
+
+```sql
+commission_payouts
+  id                  SERIAL PRIMARY KEY
+  affiliate_id        INTEGER REFERENCES affiliate_profiles(id) NOT NULL
+  amount              DECIMAL(10,2) NOT NULL  -- total payout amount
+  commission_count    INTEGER NOT NULL        -- number of commissions in this payout
+  method              TEXT NOT NULL            -- 'paypal', 'bank_transfer', 'check'
+  destination         TEXT NOT NULL            -- PayPal email, bank details reference, etc.
+  status              TEXT NOT NULL DEFAULT 'pending'
+    -- 'pending'    → payout created, awaiting admin approval
+    -- 'approved'   → admin approved, ready to process
+    -- 'processing' → payment initiated
+    -- 'completed'  → payment confirmed
+    -- 'failed'     → payment failed (retry or manual intervention)
+  
+  reference_id        TEXT                    -- external payment reference (PayPal txn ID, etc.)
+  admin_notes         TEXT
+  approved_by         INTEGER REFERENCES users(id)
+  approved_at         TIMESTAMP
+  processed_at        TIMESTAMP
+  completed_at        TIMESTAMP
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+#### Payout Flow
+
+```
+1. APPROVAL WINDOW
+   - New commissions start as 'pending'
+   - After 30 days (configurable refund window), a nightly job moves 
+     them to 'approved' if no refund occurred
+   - This protects against paying commissions on refunded sales
+
+2. PAYOUT GENERATION (monthly, admin-triggered or automated)
+   - System aggregates all 'approved' commissions per affiliate
+   - If total >= affiliate's payout_threshold: create a payout record
+   - Link all included commissions to this payout (set payout_id)
+   - Update commission status to 'paid'
+   - Payout enters admin approval queue
+
+3. PAYOUT PROCESSING
+   - Admin reviews and approves the payout
+   - Admin processes payment externally (PayPal mass pay, bank transfer, etc.)
+   - Admin marks payout as 'completed' with reference ID
+   - Affiliate receives notification (email via SendGrid)
+
+4. For v1: Payouts are MANUAL
+   - Admin generates payout reports
+   - Admin processes payments outside the portal
+   - Admin records the payment in the portal
+   - Future: integrate PayPal Payouts API or Stripe Connect for automated payouts
+```
+
+#### Commission Approval Job
+
+Nightly job (or admin-triggered endpoint):
+
+```
+POST /api/admin/commissions/run-approval
+
+Logic:
+1. Find all commissions where:
+   - status = 'pending'
+   - created_at < NOW() - 30 days (configurable refund window)
+   - No matching refund in webhook_logs for this order_id
+2. Update status to 'approved', set approved_at
+3. Log count of approved commissions
+```
+
+#### Payout Generation
+
+```
+POST /api/admin/commissions/generate-payouts
+
+Logic:
+1. For each affiliate with approved, unpaid commissions:
+   a. Sum all approved commission amounts
+   b. If sum >= affiliate's payout_threshold:
+      - Create payout record
+      - Link commissions to payout
+      - Update commission status to 'paid'
+2. Return list of generated payouts for admin review
+```
+
+---
+
+### 5. Member-Facing Dashboard (`/commissions`)
+
+The commission dashboard is the affiliate's control center. It shows earnings, referral links, click performance, and payout history.
+
+#### Dashboard Layout
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  COMMISSIONS                                                     │
+│                                                                  │
+│  Your commission tier: 🟠 Mid-Tier (6-Month Mentorship)         │
+│  [View commission rates →]                                       │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │  EARNINGS     │  │  PENDING     │  │  AVAILABLE   │           │
+│  │  This Month   │  │              │  │  FOR PAYOUT  │           │
+│  │               │  │              │  │              │           │
+│  │  $1,247.50    │  │  $340.00     │  │  $907.50     │           │
+│  │  ↑ 23% vs     │  │  3 sales     │  │  Next payout:│           │
+│  │  last month   │  │  awaiting    │  │  April 1     │           │
+│  │               │  │  approval    │  │              │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │  TOTAL        │  │  TOTAL       │  │  TOTAL       │           │
+│  │  EARNED       │  │  REFERRALS   │  │  CLICKS      │           │
+│  │               │  │              │  │              │           │
+│  │  $8,430.00    │  │  47          │  │  1,234       │           │
+│  │  All time     │  │  All time    │  │  This month  │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                                                                  │
+│  ═══════════════════════════════════════════════════════════════  │
+│                                                                  │
+│  [Referral Links]  [Earnings]  [Payouts]  [Leaderboard]          │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Tab 1: Referral Links
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  YOUR REFERRAL LINKS                                             │
+│                                                                  │
+│  Your affiliate code: marcus-j-482  [Edit code →]               │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │  The Reserve Income System                               │     │
+│  │  Price: $47–$97  ·  Your commission: 30% ($14.10–$29.10)│     │
+│  │                                                         │     │
+│  │  Link: buildtestscale.com/go/reserve-income?ref=mar...  │     │
+│  │  [📋 Copy Link]  [📋 Copy Short Link]                   │     │
+│  │                                                         │     │
+│  │  Performance (30 days):                                 │     │
+│  │  Clicks: 234  →  Sales: 12  →  Revenue: $349.20        │     │
+│  │  Conversion rate: 5.1%                                  │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │  The Backroad System                                     │     │
+│  │  Price: $47–$97  ·  Your commission: 30% ($14.10–$29.10)│     │
+│  │                                                         │     │
+│  │  Link: buildtestscale.com/go/backroad?ref=marcus-j-482  │     │
+│  │  [📋 Copy Link]  [📋 Copy Short Link]                   │     │
+│  │                                                         │     │
+│  │  Performance (30 days):                                 │     │
+│  │  Clicks: 89  →  Sales: 4  →  Revenue: $116.40          │     │
+│  │  Conversion rate: 4.5%                                  │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                                                                  │
+│  ... (one card per product the member can earn commissions on)   │
+│                                                                  │
+│  🔒 HIGHER-TIER PRODUCTS                                        │
+│  Upgrade to Premium or Top tier to earn commissions on:          │
+│  · BTS 1-Year Mentorship (Premium: 20%, Top: 30%)               │
+│  · BTS Lifetime Mentorship (Top: 25%)                            │
+│  [See upgrade options →]                                         │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key features:**
+- One card per product the affiliate can earn commissions on (based on their tier's rate table)
+- Products their tier CAN'T earn on are shown in a locked section with upgrade CTA
+- One-click copy for referral links
+- Per-link performance metrics (clicks, sales, revenue, conversion rate) for the last 30 days
+- Custom vanity code editor (modal: enter desired code → check availability → save)
+
+#### Tab 2: Earnings
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  EARNINGS                                                        │
+│                                                                  │
+│  Time period: [This Month ▼]  [Last Month] [Last 90 Days] [All] │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │                                                          │    │
+│  │     [ EARNINGS CHART — Bar or Line Chart ]               │    │
+│  │     X-axis: days/weeks/months                            │    │
+│  │     Y-axis: commission amount ($)                        │    │
+│  │     Bars colored by status (pending, approved, paid)     │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ── RECENT COMMISSIONS ──────────────────────────────────────    │
+│                                                                  │
+│  Date        Referred      Product         Sale    Comm   Status │
+│  ──────────────────────────────────────────────────────────────  │
+│  Mar 10      Sarah C.      Reserve Income  $97     $29.10 ✅ Paid│
+│  Mar 8       Alex R.       LaunchPad       $297    $74.25 ⏳ Pend│
+│  Mar 5       Jordan T.     Backroad        $47     $14.10 ✅ Appr│
+│  Mar 2       Casey M.      3-Month         $497    $99.40 ✅ Paid│
+│  Feb 28      Morgan L.     Reserve Income  $97     $29.10 ↩️ Rev │
+│  ...                                                             │
+│                                                                  │
+│  [Show 20 more...]                                               │
+│                                                                  │
+│  ── SUMMARY ─────────────────────────────────────────────────    │
+│  This month:  $1,247.50 earned  ·  14 sales  ·  5.2% conv rate  │
+│  All time:    $8,430.00 earned  ·  47 sales                      │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Commission status indicators:**
+- ⏳ Pending — within refund window, not yet approved
+- ✅ Approved — past refund window, eligible for payout
+- 💰 Paid — payout processed
+- ↩️ Reversed — sale was refunded
+- ❌ Rejected — flagged by admin
+
+**Privacy:** The "Referred" column shows first name + last initial only (e.g., "Sarah C."). Never show full email or last name of referred customers.
+
+#### Tab 3: Payouts
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PAYOUTS                                                         │
+│                                                                  │
+│  Payout method: PayPal (marcus@example.com) [Edit →]            │
+│  Minimum payout: $50.00                                          │
+│  Next payout date: April 1, 2026                                 │
+│                                                                  │
+│  ── PAYOUT HISTORY ──────────────────────────────────────────    │
+│                                                                  │
+│  Date        Amount      Commissions    Method    Status         │
+│  ──────────────────────────────────────────────────────────────  │
+│  Mar 1       $907.50     8 sales        PayPal    ✅ Completed   │
+│  Feb 1       $1,130.00   11 sales       PayPal    ✅ Completed   │
+│  Jan 1       $645.00     6 sales        PayPal    ✅ Completed   │
+│  ...                                                             │
+│                                                                  │
+│  ── PAYOUT SETTINGS ─────────────────────────────────────────    │
+│                                                                  │
+│  PayPal Email: [marcus@example.com___________]                   │
+│  Minimum Payout Threshold: [$____50.00]                          │
+│  Tax Form: ☐ W-9 submitted  [Upload W-9 →]                      │
+│                                                                  │
+│  Note: Payouts are processed on the 1st of each month for       │
+│  all approved commissions. You must submit a W-9 (US) or        │
+│  W-8BEN (international) before your first payout.                │
+│                                                                  │
+│              [Save Payout Settings]                               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Tax form handling:**
+- Members must submit a W-9 (US) or W-8BEN (non-US) before receiving their first payout
+- Upload endpoint stores the file in Cloudflare R2: `tax-forms/{user_id}/w9_{timestamp}.pdf`
+- Admin can view uploaded tax forms from the admin panel
+- `tax_form_submitted` flag on affiliate_profiles gates payout processing
+
+#### Tab 4: Leaderboard
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  LEADERBOARD                                                     │
+│                                                                  │
+│  Top affiliates this month:                                      │
+│                                                                  │
+│  Time period: [This Month ▼]  [Last Month] [All Time]            │
+│                                                                  │
+│  #   Member              Tier       Referrals  Earnings          │
+│  ──────────────────────────────────────────────────────────────  │
+│  🥇  You (Marcus J.)     Mid        14         $1,247.50         │
+│  🥈  Alex R.             Premium    11         $1,130.00         │
+│  🥉  Jordan T.           Top        9          $980.00           │
+│  4   Casey M.            Mid        8          $720.00           │
+│  5   Morgan L.           Entry      7          $410.00           │
+│  ...                                                             │
+│  (shows top 20)                                                  │
+│                                                                  │
+│  Your rank: #1 of 47 active affiliates                           │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Privacy:** Leaderboard shows first name + last initial only. Members can opt out of the leaderboard from their account settings (add `leaderboard_opt_out` to affiliate_profiles).
+
+**Gamification:** The leaderboard drives competition and motivation. Highlight the current member's row. Show rank change vs previous period (↑2, ↓1, —).
+
+---
+
+### 6. Commission Rate Viewer
+
+A modal or expandable section showing the full commission rate table for the member's current tier, with rates for other tiers shown as locked/greyed to drive upgrades.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  YOUR COMMISSION RATES                                           │
+│                                                                  │
+│  Your tier: 🟠 Mid-Tier (6-Month Mentorship)                    │
+│                                                                  │
+│  Product                    Your Rate    Premium Rate   Top Rate │
+│  ──────────────────────────────────────────────────────────────  │
+│  Reserve Income ($47–97)    30%          🔒 40%        🔒 50%   │
+│  Backroad ($47–97)          30%          🔒 40%        🔒 50%   │
+│  Off-Market ($47–97)        30%          🔒 40%        🔒 50%   │
+│  LaunchPad                  25%          🔒 35%        🔒 50%   │
+│  3-Month Mentorship         20%          🔒 30%        🔒 40%   │
+│  6-Month Mentorship         15%          🔒 25%        🔒 35%   │
+│  1-Year Mentorship          —            🔒 20%        🔒 30%   │
+│  Lifetime Mentorship        —            —             🔒 25%   │
+│                                                                  │
+│  Upgrade to earn higher commissions on every sale.               │
+│  [See upgrade options →]                                         │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7. Promotional Resources
+
+Give affiliates marketing materials to promote BTS effectively.
+
+#### Resources Page (`/commissions/resources`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  AFFILIATE RESOURCES                                             │
+│                                                                  │
+│  Ready-to-use materials for promoting BTS.                       │
+│                                                                  │
+│  ── EMAIL SWIPES ────────────────────────────────────────────    │
+│  Pre-written emails you can send to your list.                   │
+│  [📋 Copy] Email 1: "The system that changed everything..."     │
+│  [📋 Copy] Email 2: "Why most affiliates fail (and how to fix)."│
+│  [📋 Copy] Email 3: "Your invitation to Build, Test, Scale"     │
+│                                                                  │
+│  ── SOCIAL MEDIA POSTS ──────────────────────────────────────    │
+│  [📋 Copy] Facebook post template                                │
+│  [📋 Copy] Instagram caption template                            │
+│  [📋 Copy] Twitter/X thread template                             │
+│                                                                  │
+│  ── BANNER IMAGES ───────────────────────────────────────────    │
+│  [⬇ Download] 300x250 Banner                                    │
+│  [⬇ Download] 728x90 Banner                                     │
+│  [⬇ Download] 1080x1080 Social Post                             │
+│  [⬇ Download] 1200x628 Facebook Ad                              │
+│                                                                  │
+│  ── GUIDELINES ──────────────────────────────────────────────    │
+│  • Always use your referral link (not direct product URLs)       │
+│  • Never make income guarantees or unrealistic promises          │
+│  • Include earnings disclaimers in promotional content           │
+│  • Do not bid on "Build Test Scale" or "BTS" brand keywords      │
+│  • [Read full affiliate terms →]                                 │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Resource Schema
+
+```sql
+affiliate_resources
+  id              SERIAL PRIMARY KEY
+  category        TEXT NOT NULL            -- 'email_swipe', 'social_post', 'banner', 'guideline'
+  title           TEXT NOT NULL
+  content         TEXT                     -- text content (for swipes and posts)
+  file_url        TEXT                     -- R2 URL (for banners and images)
+  file_type       TEXT                     -- 'image/png', 'image/jpeg', etc.
+  sort_order      INTEGER DEFAULT 0
+  is_active       BOOLEAN DEFAULT true
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+Admin-managed via admin panel CRUD.
+
+---
+
+### 8. Fraud Prevention
+
+#### Self-Referral Detection
+
+```
+On commission creation:
+- If affiliate.user_id === referred_user_id → reject commission, status: 'rejected', 
+  notes: 'Self-referral detected'
+- Also check: if referred user's email domain matches affiliate's email domain AND 
+  both are non-public domains (not gmail, yahoo, etc.) → flag for admin review
+```
+
+#### Cookie Stuffing / Click Fraud
+
+```
+- Track unique IPs per affiliate per day
+- If an affiliate generates > 500 clicks in a single day with < 0.5% conversion → 
+  flag for review
+- If > 50% of clicks come from a single IP → flag for review
+- Admin can pause an affiliate's commission earning pending investigation
+```
+
+#### Admin Fraud Dashboard
+
+```
+Flagged affiliates with:
+- Suspiciously high click-to-sale ratio
+- Self-referral attempts
+- Same-domain referrals
+- Abnormal click patterns
+Actions: review, approve, reject individual commissions, pause affiliate
+```
+
+---
+
+### 9. Dashboard Widget Integration
+
+Add a "Commissions" widget to the main portal dashboard (visible when any `commissions:*` entitlement is present):
+
+```
+┌─ COMMISSIONS ───────────────────────────────────────┐
+│                                                      │
+│  This month: $1,247.50  ·  14 referrals              │
+│  Available for payout: $907.50                       │
+│  Your tier: Mid-Tier (30% on front-end offers)       │
+│                                                      │
+│  [View Commission Dashboard →]                       │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+### 10. Notifications
+
+| Event | Channel | Message |
+|-------|---------|---------|
+| New referral sale | Portal notification + Email | "You earned a $29.10 commission! [Name] purchased Reserve Income via your link." |
+| Commission approved | Portal notification | "3 commissions ($213.45) approved and eligible for payout." |
+| Payout processed | Email | "Your payout of $907.50 has been sent to your PayPal." |
+| Commission reversed | Portal notification | "A $29.10 commission was reversed due to a refund." |
+| Tier upgrade | Portal notification + Email | "Your commission tier upgraded to Premium! You now earn up to 40% on front-end offers." |
+
+For v1: portal notifications only (using the community notification system bell icon). Email notifications are TODO stubs.
+
+---
+
+### 11. Admin Panel Additions
+
+#### Commission Management
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  COMMISSION MANAGEMENT                                           │
+│                                                                  │
+│  [Overview] [All Commissions] [Payouts] [Affiliates] [Rates]    │
+│  [Resources] [Fraud Alerts]                                      │
+│                                                                  │
+│  ── OVERVIEW ────────────────────────────────────────────────    │
+│  This month: $4,230 total commissions · 47 sales · 23 affiliates│
+│  Pending: $1,280 · Approved: $1,340 · Paid: $1,610              │
+│  Next payout run: April 1, 2026                                  │
+│                                                                  │
+│  ── ACTIONS ─────────────────────────────────────────────────    │
+│  [Run Approval Job] [Generate Payouts] [Export CSV]              │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Admin sub-pages:**
+
+| Page | Purpose |
+|------|---------|
+| All Commissions | Table of all commissions with filters (status, affiliate, product, date range). Actions: approve, reject, reverse, add notes |
+| Payouts | List all payouts with status tracking. Actions: approve payout, mark as processing/completed/failed, add reference ID |
+| Affiliates | List all affiliate profiles with: name, tier, total earned, pending balance, status. Actions: pause/unpause, edit profile, view tax form |
+| Rates | Edit commission rates per tier per product. Changes apply to future commissions only |
+| Resources | CRUD for affiliate promotional resources (email swipes, banners, social posts) |
+| Fraud Alerts | Flagged affiliates and suspicious activity. Actions: review, dismiss, reject commissions, pause affiliate |
+
+---
+
+### 12. API Endpoints Summary
+
+**Member-facing (requires auth + commissions entitlement):**
+
+```
+GET    /api/commissions/dashboard               → Summary stats (earnings, pending, available, rank)
+GET    /api/commissions/earnings                 → Commission list (paginated, filterable by status/date/product)
+GET    /api/commissions/referral-links           → All referral links with per-link performance
+GET    /api/commissions/payouts                  → Payout history
+GET    /api/commissions/leaderboard              → Top affiliates (time-filtered)
+GET    /api/commissions/rates                    → Commission rate table for member's tier
+GET    /api/commissions/resources                → Promotional resources
+GET    /api/commissions/profile                  → Affiliate profile (code, payout settings, tax status)
+PATCH  /api/commissions/profile                  → Update payout settings, custom code
+POST   /api/commissions/profile/tax-form         → Upload W-9/W-8BEN
+GET    /api/commissions/chart                    → Earnings chart data (daily/weekly/monthly)
+```
+
+**Referral tracking (public, no auth):**
+
+```
+GET    /go/:productSlug                          → Referral redirect with click tracking + cookie
+```
+
+**Admin:**
+
+```
+GET    /api/admin/commissions                    → All commissions with filters
+PATCH  /api/admin/commissions/:id                → Update status, add notes
+GET    /api/admin/commissions/payouts             → All payouts
+POST   /api/admin/commissions/payouts/generate    → Generate payout batch
+PATCH  /api/admin/commissions/payouts/:id         → Update payout status
+POST   /api/admin/commissions/run-approval        → Run commission approval job
+GET    /api/admin/commissions/affiliates          → All affiliate profiles
+PATCH  /api/admin/commissions/affiliates/:id      → Pause/unpause, edit
+GET    /api/admin/commissions/fraud-alerts         → Flagged activity
+PATCH  /api/admin/commissions/fraud-alerts/:id     → Review, dismiss
+CRUD   /api/admin/commissions/rates               → Manage commission rates
+CRUD   /api/admin/commissions/resources            → Manage promotional resources
+```
+
+---
+
+### 13. Database Schema Summary
+
+```sql
+-- Affiliate profiles
+affiliate_profiles (
+  id, user_id, affiliate_code, custom_code, thrivecart_aff_id,
+  paypal_email, payout_method, payout_threshold, tax_form_submitted,
+  tax_form_url, leaderboard_opt_out, is_active, created_at, updated_at
+)
+
+-- Commission rates (per tier per product)
+commission_rates (
+  id, commission_tier, product_id, rate_type, rate_value,
+  is_active, created_at, updated_at
+  UNIQUE(commission_tier, product_id)
+)
+
+-- Referral links
+referral_links (
+  id, affiliate_id, product_id, link_url, short_code,
+  click_count, is_active, created_at
+  UNIQUE(affiliate_id, product_id)
+)
+
+-- Click tracking
+referral_clicks (
+  id, referral_link_id, affiliate_id, ip_address, user_agent,
+  referer_url, landing_url, country, device_type, created_at
+)
+
+-- Commissions
+commissions (
+  id, affiliate_id, referred_user_id, product_id, order_id,
+  sale_amount, commission_tier, commission_rate, commission_amount,
+  status, payout_id, approved_at, paid_at, reversed_at,
+  notes, created_at, updated_at
+  UNIQUE(affiliate_id, order_id)
+)
+
+-- Payouts
+commission_payouts (
+  id, affiliate_id, amount, commission_count, method, destination,
+  status, reference_id, admin_notes, approved_by, approved_at,
+  processed_at, completed_at, created_at, updated_at
+)
+
+-- Promotional resources
+affiliate_resources (
+  id, category, title, content, file_url, file_type,
+  sort_order, is_active, created_at
+)
+```
+
+---
+
+### 14. Frontend Routes
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/commissions` | CommissionDashboard | Summary stats + tabbed interface (links, earnings, payouts, leaderboard) |
+| `/commissions/resources` | AffiliateResources | Promotional materials and guidelines |
+| `/commissions/rates` | CommissionRates | Full rate table with tier comparison |
+
+**Navigation:** "Commissions" appears in sidebar when any `commissions:*` entitlement is present. Shows dollar-sign icon.
+
+---
+
+### 15. Seed Data
+
+**Commission rates:** Full rate table for all 4 tiers × 8 products (use the placeholder percentages from Section 2 above).
+
+**Affiliate profiles:** Create profiles for demo users who have mentorship products.
+
+**Referral links:** Auto-generate for each affiliate × each active product.
+
+**Commissions:** Seed 20–30 commission records across demo affiliates with mixed statuses (pending, approved, paid, reversed) spanning the last 90 days.
+
+**Payouts:** Seed 2–3 completed payouts for the primary demo user.
+
+**Clicks:** Seed 200–300 referral clicks spread across demo affiliate links over the last 30 days.
+
+**Resources:** Seed 3 email swipes, 3 social post templates, and 4 banner image placeholders.
+
+---
+
+### 16. Environment Variables
+
+```
+COMMISSION_REFUND_WINDOW_DAYS=30
+COMMISSION_DEFAULT_PAYOUT_THRESHOLD=50.00
+COMMISSION_PAYOUT_DAY=1
+REFERRAL_COOKIE_NAME=bts_ref
+REFERRAL_COOKIE_EXPIRY_DAYS=30
+REFERRAL_CLICK_DEDUP_MINUTES=5
+```
+
+---
+
+## What NOT to Build Yet
+
+- Automated payouts via PayPal Payouts API or Stripe Connect (manual for v1)
+- Two-tier affiliate commissions (earning on sub-affiliates' referrals)
+- Custom landing pages per affiliate (dedicated affiliate microsites)
+- Recurring commissions on subscription renewals (one-time commission per sale for v1)
+- Real-time commission notifications via WebSocket (polling/page refresh is fine)
+- Tapfiliate or third-party affiliate platform integration
+- Affiliate application/approval process (auto-granted with mentorship entitlement)
+- Commission dispute system (admin handles disputes manually for v1)
+- GHL sync of commission data (log for now)
+- Public-facing affiliate signup page (commissions are mentorship-exclusive, not a public affiliate program)
+
+---
+
+## Definition of Done
+
+1. Affiliate profiles auto-created when a member gains any `commissions:*` entitlement
+2. Unique referral links generated per affiliate per product with one-click copy
+3. Click tracking logs every referral click with deduplication
+4. `/go/:productSlug?ref=:code` redirect sets attribution cookie and logs click in < 100ms
+5. ThriveCart webhook handler calculates and records commissions on attributed sales
+6. Self-referral detection prevents members from earning commissions on their own purchases
+7. Commission status lifecycle works: pending → approved (after 30-day window) → paid
+8. Refunds correctly reverse associated commissions
+9. Member dashboard shows earnings summary, per-link performance, commission history, and payout history
+10. Leaderboard ranks affiliates by earnings with time period filters
+11. Payout settings (PayPal, threshold, tax form) are editable by the member
+12. Admin can manage rates, approve/reject commissions, generate and process payouts, and review fraud alerts
+13. Commission rates are tier-aware: higher mentorship tiers earn higher percentages
+14. Promotional resources (email swipes, banners, social posts) available to affiliates
+15. No commission entitlement → "Commissions" nav hidden, all `/commissions/*` routes return 403
