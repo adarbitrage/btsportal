@@ -1,10 +1,11 @@
 import { useGetDashboard, useGetCurrentMember } from "@workspace/api-client-react";
+import { useVaultStats } from "@/lib/vault-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench } from "lucide-react";
+import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const { data: member } = useGetCurrentMember();
   const memberEntitlements = new Set(member?.entitlements ?? []);
   const hasCommissions = Array.from(memberEntitlements).some((e: string) => e.startsWith("commissions:"));
+  const { data: vaultStats } = useVaultStats();
 
   if (isLoading) {
     return (
@@ -249,6 +251,52 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {vaultStats && (
+              <Card>
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <div className="flex items-center gap-2 text-foreground font-semibold">
+                    <FolderOpen className="w-5 h-5 text-primary" />
+                    Resource Vault
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 px-0">
+                  <div className="p-5 flex items-center justify-between border-b border-border/50">
+                    <div>
+                      <p className="text-2xl font-bold text-primary">{vaultStats.totalResources}</p>
+                      <p className="text-xs text-muted-foreground">Total Resources</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1 justify-end">
+                        <Heart className="w-4 h-4 text-red-400" />
+                        <p className="text-2xl font-bold text-foreground">{vaultStats.favoriteCount}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Favorites</p>
+                    </div>
+                  </div>
+                  {vaultStats.recentResources?.length > 0 && (
+                    <div className="divide-y divide-border">
+                      {vaultStats.recentResources.slice(0, 3).map((resource: any) => (
+                        <Link key={resource.id} href={`/resources/${resource.collectionSlug}/${resource.id}`}>
+                          <div className="p-4 hover:bg-secondary/50 transition-colors cursor-pointer flex items-center justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground truncate">{resource.title}</p>
+                              <p className="text-[11px] text-muted-foreground capitalize">{resource.type}</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  <div className="p-4 border-t border-border">
+                    <Link href="/resources">
+                      <Button variant="ghost" className="w-full text-primary hover:text-primary/80">Browse All Resources</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

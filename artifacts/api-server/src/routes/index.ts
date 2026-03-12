@@ -39,6 +39,7 @@ import adminWinsRouter from "./admin-wins";
 import marketingRouter from "./marketing";
 import toolsRouter from "./tools";
 import adminOutgoingWebhooksRouter from "./admin-outgoing-webhooks";
+import vaultRouter from "./vault";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use(adminWinsRouter);
 router.use(marketingRouter);
 router.use(toolsRouter);
 router.use(adminOutgoingWebhooksRouter);
+router.use(vaultRouter);
 
 export default router;

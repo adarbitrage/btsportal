@@ -18,6 +18,7 @@ import {
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { seedCommunicationTemplates } from "./lib/seed-templates";
+import { seedVaultData } from "./lib/seed-vault";
 
 async function seed() {
   console.log("Seeding database...");
@@ -1055,6 +1056,8 @@ async function seed() {
     { userId: marcus.id, toolId: toolBySlug["campaign-calculator"], action: "open" },
     { userId: marcus.id, toolId: toolBySlug["tracking-url-builder"], action: "open" },
   ]);
+
+  await seedVaultData(marcus.id);
 
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));

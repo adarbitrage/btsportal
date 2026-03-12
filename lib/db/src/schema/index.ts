@@ -40,3 +40,7 @@ export * from "./wins";
 export * from "./tools";
 export * from "./webhook-subscriptions";
 export * from "./webhook-deliveries";
+export * from "./vault-collections";
+export * from "./vault-resources";
+export * from "./vault-favorites";
+export * from "./vault-resource-relations";

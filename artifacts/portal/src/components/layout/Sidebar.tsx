@@ -46,6 +46,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/training", label: "Training Library", icon: BookOpen },
+  { href: "/resources", label: "Resources", icon: FolderOpen },
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },

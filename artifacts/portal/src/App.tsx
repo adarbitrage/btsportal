@@ -19,6 +19,9 @@ import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Chat from "@/pages/Chat";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
+import Resources from "@/pages/Resources";
+import CollectionDetail from "@/pages/CollectionDetail";
+import ResourceDetail from "@/pages/ResourceDetail";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -294,6 +297,9 @@ function Router() {
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
       <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
+      <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
+      <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
+      <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
       <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} />}</Route>
       <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} />}</Route>
       <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} />}</Route>
