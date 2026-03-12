@@ -129,6 +129,23 @@ The community frontend is a UI layer built for integration with community backen
 - Editorial card layout with warm borders (#e8e4dc)
 - Product badge colors: Frontend=#6b7280, LaunchPad=#92400e, 3-Month=#b45309, 6-Month=#d97706, 1-Year=#0891b2, Lifetime=purple gradient
 
+### Admin Support Ticket UI
+
+Admin-facing support ticket management pages accessible at `/admin/*` routes. All pages use a dedicated `AdminLayout` with its own sidebar navigation. Currently uses mock data (backend APIs pending).
+
+**Pages:**
+- `/admin/tickets` — Priority queue sorted by SLA urgency (breached > approaching > within), then VIP tier, then priority, then age. Color-coded rows (red/orange/green). Filters: status, category, agent, tier, SLA status. Bulk actions: assign, close, categorize with confirmation dialogs.
+- `/admin/tickets/:id` — Ticket detail with internal notes (yellow background), canned response picker modal (categorized, searchable, variable auto-replacement), internal note toggle, and ticket merge dialog.
+- `/admin/routing-rules` — CRUD for auto-routing rules with drag-and-drop reordering, enable/disable toggle.
+- `/admin/canned-responses` — CRUD for response templates grouped by category (tabbed), with variable documentation and live preview.
+- `/admin/agent-performance` — Per-agent metrics: tickets handled, response/resolution times, SLA compliance, satisfaction. Bar chart + radar chart comparison.
+- `/admin/analytics` — Overall support analytics: ticket volume trends (line chart), status breakdown (bar chart), SLA compliance by tier, category pie chart, satisfaction distribution, busy hours heatmap.
+
+**Key files:**
+- `artifacts/portal/src/pages/admin/` — All admin page components
+- `artifacts/portal/src/components/layout/AdminLayout.tsx` — Admin sidebar layout
+- `artifacts/portal/src/lib/admin-mock-data.ts` — Mock data and TypeScript interfaces
+
 ### Database Tables
 - `users` — Member profiles with auth fields, onboarding state, GHL contact ID, communication preferences (sms_opt_in, marketing_opt_in)
 - `sessions` — JWT refresh token sessions (refresh_token_hash, expires_at, revoked_at, ip_address, user_agent)

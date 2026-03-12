@@ -29,6 +29,12 @@ import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingOrientation from "@/pages/onboarding/Orientation";
 import OnboardingQuickStart from "@/pages/onboarding/QuickStart";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import AdminTicketQueue from "@/pages/admin/AdminTicketQueue";
+import AdminTicketDetail from "@/pages/admin/AdminTicketDetail";
+import RoutingRules from "@/pages/admin/RoutingRules";
+import CannedResponses from "@/pages/admin/CannedResponses";
+import AgentPerformance from "@/pages/admin/AgentPerformance";
+import SupportAnalytics from "@/pages/admin/SupportAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -267,6 +273,12 @@ function Router() {
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
       <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
+      <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} />}</Route>
+      <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} />}</Route>
+      <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} />}</Route>
+      <Route path="/admin/canned-responses">{() => <AdminRoute component={CannedResponses} />}</Route>
+      <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} />}</Route>
+      <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
