@@ -64,6 +64,8 @@ app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 startTicketJobs();
-startOutgoingWebhookWorker();
+if (process.env.REDIS_URL) {
+  startOutgoingWebhookWorker();
+}
 
 export default app;
