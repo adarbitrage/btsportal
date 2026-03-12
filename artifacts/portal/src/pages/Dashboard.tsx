@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { Link } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
+import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
@@ -177,6 +178,9 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-8">
+            {(Array.from(memberEntitlements).some((e: string) => e.startsWith("coaching:one_on_one:"))) && (
+              <CoachingDashboardWidget />
+            )}
             {hasCommissions && <CommissionsSummaryWidget />}
             {dashboard.recentTools && dashboard.recentTools.length > 0 && (
               <Card>

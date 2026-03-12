@@ -72,6 +72,9 @@ import VaultResourceEditor from "@/pages/admin/VaultResourceEditor";
 import VaultCollections from "@/pages/admin/VaultCollections";
 import VaultAnalytics from "@/pages/admin/VaultAnalytics";
 import AdminWins from "@/pages/admin/AdminWins";
+import OneOnOneCoaching from "@/pages/coaching/OneOnOneCoaching";
+import BookCoaching from "@/pages/coaching/BookCoaching";
+import CoachingSessionDetail from "@/pages/coaching/CoachingSessionDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -316,6 +319,9 @@ function Router() {
       <Route path="/wins/mine">{() => <ProtectedRoute component={MyWins} />}</Route>
       <Route path="/wins/:id/testimonial">{() => <ProtectedRoute component={TestimonialSubmit} />}</Route>
       <Route path="/wins/:id">{() => <ProtectedRoute component={WinDetail} />}</Route>
+      <Route path="/coaching/one-on-one/book">{() => <EntitlementRoute component={BookCoaching} entitlement="coaching:one_on_one:*" />}</Route>
+      <Route path="/coaching/one-on-one/sessions/:id">{() => <EntitlementRoute component={CoachingSessionDetail} entitlement="coaching:one_on_one:*" />}</Route>
+      <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>

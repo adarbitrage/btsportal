@@ -29,6 +29,7 @@ import {
   Database,
   Gauge,
   Trophy,
+  UserCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/wins", label: "Wins", icon: Trophy },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
+  { href: "/coaching/one-on-one", label: "1-on-1 Coaching", icon: UserCheck, requiredEntitlement: "coaching:one_on_one:*" },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/tools", label: "Software & Tools", icon: Wrench, requiredEntitlement: "software:base" },
   { href: "/support", label: "Support", icon: LifeBuoy },
