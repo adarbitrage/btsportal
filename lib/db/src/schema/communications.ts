@@ -1,5 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, index, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { sequencesTable } from "./sequences";
 
 export const emailTemplatesTable = pgTable("email_templates", {
   id: serial("id").primaryKey(),
@@ -44,49 +45,6 @@ export const smsTemplatesTable = pgTable("sms_templates", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
-
-export const sequencesTable = pgTable("sequences", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("active"),
-  triggerEvent: text("trigger_event"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
-
-export const sequenceStepsTable = pgTable("sequence_steps", {
-  id: serial("id").primaryKey(),
-  sequenceId: integer("sequence_id").notNull().references(() => sequencesTable.id, { onDelete: "cascade" }),
-  sortOrder: integer("sort_order").notNull().default(0),
-  channel: text("channel").notNull().default("email"),
-  templateSlug: text("template_slug"),
-  subject: text("subject"),
-  body: text("body"),
-  delayMinutes: integer("delay_minutes").notNull().default(0),
-  condition: jsonb("condition").$type<Record<string, unknown>>(),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  index("sequence_steps_sequence_id_idx").on(table.sequenceId),
-]);
-
-export const sequenceEnrollmentsTable = pgTable("sequence_enrollments", {
-  id: serial("id").primaryKey(),
-  sequenceId: integer("sequence_id").notNull().references(() => sequencesTable.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
-  currentStepId: integer("current_step_id").references(() => sequenceStepsTable.id),
-  status: text("status").notNull().default("active"),
-  enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
-  lastStepAt: timestamp("last_step_at", { withTimezone: true }),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-}, (table) => [
-  index("sequence_enrollments_sequence_id_idx").on(table.sequenceId),
-  index("sequence_enrollments_user_id_idx").on(table.userId),
-  index("sequence_enrollments_status_idx").on(table.status),
-]);
 
 export const broadcastsTable = pgTable("broadcasts", {
   id: serial("id").primaryKey(),
@@ -187,7 +145,4 @@ export type SmsTemplate = typeof smsTemplatesTable.$inferSelect;
 export type CommunicationLog = typeof communicationLogTable.$inferSelect;
 export type EmailUnsubscribe = typeof emailUnsubscribesTable.$inferSelect;
 export type EmailBounce = typeof emailBouncesTable.$inferSelect;
-export type Sequence = typeof sequencesTable.$inferSelect;
-export type SequenceStep = typeof sequenceStepsTable.$inferSelect;
-export type SequenceEnrollment = typeof sequenceEnrollmentsTable.$inferSelect;
 export type Broadcast = typeof broadcastsTable.$inferSelect;

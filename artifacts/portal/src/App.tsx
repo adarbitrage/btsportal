@@ -90,6 +90,12 @@ import CommunicationsAnalytics from "@/pages/admin/CommunicationsAnalytics";
 import ToolManagement from "@/pages/admin/ToolManagement";
 import ToolAnalytics from "@/pages/admin/ToolAnalytics";
 import ToolUsageDetail from "@/pages/admin/ToolUsageDetail";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AuditLog from "@/pages/admin/AuditLog";
+import AdminMembers from "@/pages/admin/AdminMembers";
+import MemberDetail from "@/pages/admin/MemberDetail";
+import SystemHealth from "@/pages/admin/SystemHealth";
+import AdminSettings from "@/pages/admin/AdminSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -393,6 +399,12 @@ function Router() {
       <Route path="/admin/tools">{() => <AdminRoute component={ToolManagement} />}</Route>
       <Route path="/admin/tools/analytics">{() => <AdminRoute component={ToolAnalytics} />}</Route>
       <Route path="/admin/tools/:id/usage">{() => <AdminRoute component={ToolUsageDetail} />}</Route>
+      <Route path="/admin/dashboard">{() => <AdminRoute component={AdminDashboard} />}</Route>
+      <Route path="/admin/audit-log">{() => <AdminRoute component={AuditLog} />}</Route>
+      <Route path="/admin/members/:id">{() => <AdminRoute component={MemberDetail} />}</Route>
+      <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} />}</Route>
+      <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} />}</Route>
+      <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

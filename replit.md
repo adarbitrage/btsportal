@@ -71,6 +71,10 @@ Custom email/password auth with:
 
 **Permissions**: Granular `{resource}:{action}` permission checking (`artifacts/api-server/src/middleware/permissions.ts`). Usage: `requirePermission("members:read")`.
 
+**Admin RBAC**: Role-based access control for admin panel (`artifacts/api-server/src/middleware/rbac.ts`). Four roles: `super_admin`, `admin`, `support_agent`, `content_manager`. Each role maps to a set of permissions (e.g., `dashboard:view`, `members:edit`, `audit:view`, `settings:manage`). Usage: `requirePermission("members:view")`.
+
+**Audit Logging**: All admin actions are logged to `audit_log` table via `logAdminAction()` utility (`artifacts/api-server/src/lib/audit-log.ts`). Captures actor, action type, entity, description, IP, user agent, and metadata.
+
 **Pagination**: Cursor-based pagination helper (`artifacts/api-server/src/lib/pagination.ts`). Returns `{ data, pagination: { hasMore, nextCursor, previousCursor, total } }`.
 
 **Auth routes** (`artifacts/api-server/src/routes/auth.ts`):
@@ -115,6 +119,12 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - **Support Center** (`/support`) — Ticket management with entitlement-based limits
 - **AI Chat** (`/chat`) — Full-width AI chat page with session sidebar, SSE streaming, markdown rendering, saved prompts (Lifetime), and support ticket creation from chat
 - **Chat Widget** — Floating chat bubble on all authenticated pages (bottom-right), expandable 380px panel with the same chat features, hidden on `/chat` page. Requires `chat:ai` entitlement.
+- **Admin Dashboard** (`/admin/dashboard`) — Unified KPI cards (total members, new 30d, open tickets, active subscriptions), 30-day activity chart, needs-attention alerts, recent audit activity
+- **Admin Members** (`/admin/members`) — Paginated member list with search/filter, links to member detail
+- **Admin Member Detail** (`/admin/members/:id`) — 360° member view: profile, products, tickets, training progress, admin notes, audit history; grant/revoke products, impersonation
+- **Admin Audit Log** (`/admin/audit-log`) — Filterable/paginated audit trail, CSV/JSON export
+- **Admin System Health** (`/admin/system`) — API uptime, DB status, memory usage, node version
+- **Admin Settings** (`/admin/settings`) — Centralized system settings CRUD grouped by category
 - **Admin: Community Categories** (`/admin/community/categories`) — Create, edit, reorder, deactivate categories
 - **Admin: Content Moderation** (`/admin/community/moderation`) — View/pin/feature/delete posts
 - **Admin: Community Analytics** (`/admin/community/analytics`) — Engagement metrics dashboard

@@ -53,3 +53,6 @@ export * from "./vault-resources";
 export * from "./vault-favorites";
 export * from "./vault-resource-relations";
 export * from "./coaching-action-items";
+export * from "./audit-log";
+export * from "./system-settings";
+export * from "./admin-notes";

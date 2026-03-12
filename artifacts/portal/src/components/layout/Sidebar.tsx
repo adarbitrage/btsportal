@@ -31,7 +31,10 @@ import {
   Trophy,
   UserCheck,
   Hammer,
-  TrendingUp
+  TrendingUp,
+  ScrollText,
+  Server,
+  Home
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,6 +118,14 @@ const adminToolItems = [
   { href: "/admin/tools/analytics", label: "Tool Analytics", icon: TrendingUp },
 ];
 
+const adminPanelItems = [
+  { href: "/admin/dashboard", label: "Admin Dashboard", icon: Home },
+  { href: "/admin/members", label: "Members", icon: Users },
+  { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
+  { href: "/admin/system", label: "System Health", icon: Server },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
@@ -132,6 +143,9 @@ export function Sidebar() {
     lifetime: "Lifetime Member",
     free: "Free Member",
   };
+
+  const highestSlug = member?.sourceProduct ?? "free";
+  const hasLifetime = highestSlug === "lifetime";
 
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-white border-r border-border min-h-screen sticky top-0">
@@ -188,7 +202,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
+            {[...adminPanelItems, ...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>
