@@ -1,8 +1,9 @@
 import crypto from "crypto";
-import { db, webhookLogsTable, productsTable, userProductsTable, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, webhookLogsTable, productsTable, userProductsTable, usersTable, affiliateProfilesTable, commissionsTable, commissionRatesTable, referralLinksTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
+import { ensureAffiliateProfile, resolveUserCommissionTier } from "./commissions";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -307,23 +308,34 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
     });
   }
 
-  await queueGHLSync({
-    action: "add_tags",
-    userId,
-    email,
-    tags: [`product_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`, "active_customer"],
-    customFields: {
-      last_purchase: product.name,
-      last_purchase_date: new Date().toISOString(),
-    },
-  });
+    await queueGHLSync({
+      action: "add_tags",
+      userId,
+      email,
+      tags: [`product_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`, "active_customer"],
+      customFields: {
+        last_purchase: product.name,
+        last_purchase_date: new Date().toISOString(),
+      },
+    });
 
-  await queueGHLSync({
-    action: "add_note",
-    userId,
-    email,
-    noteBody: `Purchased ${product.name} via ThriveCart (Order: ${orderId || "N/A"})`,
-  });
+    await queueGHLSync({
+      action: "add_note",
+      userId,
+      email,
+      noteBody: `Purchased ${product.name} via ThriveCart (Order: ${orderId || "N/A"})`,
+    });
+
+    await ensureAffiliateProfile(userId).catch(err => {
+      console.error("[Webhook] Error ensuring affiliate profile:", err);
+    });
+
+    let commissionResult: Record<string, unknown> | null = null;
+    try {
+      commissionResult = await handleCommissionAttribution(payload, body, userId, product, orderId);
+    } catch (err) {
+      console.error("[Webhook] Commission attribution error:", err);
+    }
 
   return {
     action: "granted",
@@ -332,6 +344,7 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
     productName: product.name,
     isNewUser: isNew,
     expiresAt: expiresAt?.toISOString() || null,
+    commission: commissionResult,
   };
 }
 
@@ -368,6 +381,7 @@ async function handleOrderRefund(payload: ThrivecartPayload, body: Record<string
     .where(and(...conditions))
     .returning();
 
+  let totalUpdated = updated.length;
   if (updated.length === 0 && orderId) {
     const fallback = await db.update(userProductsTable)
       .set({ status: "refunded" })
@@ -377,26 +391,20 @@ async function handleOrderRefund(payload: ThrivecartPayload, body: Record<string
         eq(userProductsTable.status, "active")
       ))
       .returning();
+    totalUpdated = fallback.length;
     if (fallback.length > 0) {
       console.log(`[Webhook] Refunded product "${product.name}" for user ${email} (fallback match)`);
     }
-    return {
-      action: "refunded",
-      userId: user.id,
-      productId: product.id,
-      productName: product.name,
-      recordsUpdated: fallback.length,
-    };
+  } else {
+    console.log(`[Webhook] Refunded product "${product.name}" for user ${email}`);
   }
 
-  console.log(`[Webhook] Refunded product "${product.name}" for user ${email}`);
   CommunicationService.queueEmail({
     templateSlug: "refund_processed",
     to: email,
     variables: { member_name: email, product_name: product.name },
     userId: user.id,
   });
-
   await queueGHLSync({
     action: "add_tags",
     userId: user.id,
@@ -418,12 +426,44 @@ async function handleOrderRefund(payload: ThrivecartPayload, body: Record<string
     noteBody: `Refunded: ${product.name}`,
   });
 
+  let commissionsReversed = 0;
+  try {
+    if (orderId) {
+      const toReverse = await db
+        .select({ id: commissionsTable.id, status: commissionsTable.status, affiliateId: commissionsTable.affiliateId, commissionAmount: commissionsTable.commissionAmount })
+        .from(commissionsTable)
+        .where(and(
+          eq(commissionsTable.orderId, orderId),
+          sql`${commissionsTable.status} IN ('pending', 'approved')`
+        ));
+
+      for (const c of toReverse) {
+        await db.update(commissionsTable)
+          .set({ status: "reversed", reversalReason: "Order refunded", reversedAt: new Date() })
+          .where(eq(commissionsTable.id, c.id));
+
+        const balanceField = c.status === "pending" ? "pending_balance" : "approved_balance";
+        await db.update(affiliateProfilesTable)
+          .set({ [c.status === "pending" ? "pendingBalance" : "approvedBalance"]: sql`${sql.identifier(balanceField)} - ${c.commissionAmount}` })
+          .where(eq(affiliateProfilesTable.id, c.affiliateId));
+      }
+
+      commissionsReversed = toReverse.length;
+      if (commissionsReversed > 0) {
+        console.log(`[Webhook] Reversed ${commissionsReversed} commission(s) for order ${orderId}`);
+      }
+    }
+  } catch (err) {
+    console.error("[Webhook] Commission reversal error:", err);
+  }
+
   return {
     action: "refunded",
     userId: user.id,
     productId: product.id,
     productName: product.name,
-    recordsUpdated: updated.length,
+    recordsUpdated: totalUpdated,
+    commissionsReversed,
   };
 }
 
@@ -585,5 +625,152 @@ async function handlePaymentRecovered(payload: ThrivecartPayload, body: Record<s
     productId: product.id,
     productName: product.name,
     recordsUpdated: updated.length,
+  };
+}
+
+interface ProductInfo {
+  id: number;
+  slug: string;
+  name: string;
+  thrivecartProductId: string | null;
+  entitlementKeys: unknown;
+  durationDays: number | null;
+  priceDisplay: string | null;
+  sortOrder: number;
+  type: string;
+}
+
+async function handleCommissionAttribution(
+  payload: ThrivecartPayload,
+  body: Record<string, unknown>,
+  buyerUserId: number,
+  product: ProductInfo,
+  orderId: string
+): Promise<Record<string, unknown> | null> {
+  const affiliateCode =
+    flatGet(body, ["bts_ref", "custom_bts_ref", "thrivecart_custom_bts_ref"]) ||
+    deepGet(body, "order.custom.bts_ref") ||
+    deepGet(body, "custom.bts_ref") ||
+    "";
+
+  if (!affiliateCode) {
+    return { action: "no_attribution", reason: "No affiliate code found" };
+  }
+
+  const [affiliate] = await db
+    .select({
+      id: affiliateProfilesTable.id,
+      userId: affiliateProfilesTable.userId,
+      tier: affiliateProfilesTable.tier,
+      status: affiliateProfilesTable.status,
+    })
+    .from(affiliateProfilesTable)
+    .where(eq(affiliateProfilesTable.affiliateCode, affiliateCode))
+    .limit(1);
+
+  if (!affiliate) {
+    return { action: "no_attribution", reason: `Affiliate code not found: ${affiliateCode}` };
+  }
+
+  if (affiliate.status !== "active") {
+    return { action: "no_attribution", reason: "Affiliate is not active" };
+  }
+
+  if (affiliate.userId === buyerUserId) {
+    return { action: "self_referral_rejected", reason: "Cannot earn commission on own purchase" };
+  }
+
+  const [buyerUser] = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, buyerUserId))
+    .limit(1);
+
+  const [affiliateUser] = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, affiliate.userId))
+    .limit(1);
+
+  let fraudFlag: string | null = null;
+  if (buyerUser && affiliateUser) {
+    const buyerDomain = buyerUser.email.split("@")[1];
+    const affiliateDomain = affiliateUser.email.split("@")[1];
+    if (buyerDomain === affiliateDomain && !["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com"].includes(buyerDomain)) {
+      fraudFlag = "same_domain_email";
+    }
+  }
+
+  const [rate] = await db
+    .select({
+      ratePercent: commissionRatesTable.ratePercent,
+      flatBonus: commissionRatesTable.flatBonus,
+    })
+    .from(commissionRatesTable)
+    .where(and(
+      eq(commissionRatesTable.tier, affiliate.tier),
+      eq(commissionRatesTable.productId, product.id)
+    ))
+    .limit(1);
+
+  if (!rate) {
+    return { action: "no_rate", reason: `No commission rate for tier ${affiliate.tier} on product ${product.slug}` };
+  }
+
+  const saleAmountRaw = flatGet(body, ["order[total]", "total", "amount"]) || deepGet(body, "order.total");
+  const saleAmount = Math.round(parseFloat(saleAmountRaw || "0") * 100);
+
+  if (saleAmount <= 0) {
+    return { action: "no_sale_amount", reason: "Could not determine sale amount" };
+  }
+
+  const ratePercent = parseFloat(rate.ratePercent);
+  const commissionAmount = Math.round(saleAmount * (ratePercent / 100)) + (rate.flatBonus || 0);
+
+  const [commission] = await db.insert(commissionsTable).values({
+    affiliateId: affiliate.id,
+    productId: product.id,
+    orderId: orderId || `order_${Date.now()}`,
+    customerEmail: buyerUser?.email || "unknown",
+    saleAmount,
+    commissionRate: rate.ratePercent,
+    commissionAmount,
+    flatBonus: rate.flatBonus || 0,
+    status: "pending",
+    tier: affiliate.tier,
+    fraudFlag,
+  }).returning();
+
+  await db.update(affiliateProfilesTable)
+    .set({
+      pendingBalance: sql`pending_balance + ${commissionAmount}`,
+      totalEarnings: sql`total_earnings + ${commissionAmount}`,
+      lifetimeConversions: sql`lifetime_conversions + 1`,
+    })
+    .where(eq(affiliateProfilesTable.id, affiliate.id));
+
+  await db.update(referralLinksTable)
+    .set({ conversionCount: sql`conversion_count + 1` })
+    .where(and(
+      eq(referralLinksTable.affiliateId, affiliate.id),
+      eq(referralLinksTable.productId, product.id)
+    ));
+
+  if (fraudFlag) {
+    await db.update(affiliateProfilesTable)
+      .set({ fraudFlag: true, fraudReason: sql`coalesce(fraud_reason || '; ', '') || ${fraudFlag}` })
+      .where(eq(affiliateProfilesTable.id, affiliate.id));
+  }
+
+  console.log(`[Webhook] Commission created: $${(commissionAmount / 100).toFixed(2)} for affiliate ${affiliateCode} on order ${orderId}`);
+
+  return {
+    action: "commission_created",
+    commissionId: commission.id,
+    affiliateCode,
+    affiliateId: affiliate.id,
+    commissionAmount,
+    ratePercent,
+    fraudFlag,
   };
 }

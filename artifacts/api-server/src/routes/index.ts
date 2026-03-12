@@ -29,6 +29,8 @@ import storageRouter from "./storage";
 import communicationWebhooksRouter from "./communication-webhooks";
 import emailRouter from "./email";
 import memberCommunicationsRouter from "./member-communications";
+import commissionsRouter from "./commissions";
+import adminCommissionsRouter from "./admin-commissions";
 
 const router: IRouter = Router();
 
@@ -62,5 +64,7 @@ router.use(adminLessonsRouter);
 router.use(adminResourcesRouter);
 router.use(adminBulkRouter);
 router.use(storageRouter);
+router.use(commissionsRouter);
+router.use(adminCommissionsRouter);
 
 export default router;

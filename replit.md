@@ -163,6 +163,13 @@ The community frontend is a UI layer built for integration with community backen
 - `chat_prompts` — User-saved prompt templates (chat:custom tier only, max 20)
 - `chat_system_prompts` — Admin-editable system prompts with active flag
 - `knowledgebase_docs` — RAG knowledge base documents with GIN index for full-text search
+- `affiliate_profiles` — Affiliate profiles linked to users, with tier, balances, click/conversion stats, fraud flags
+- `commission_rates` — Commission rate table: rate_percent + flat_bonus per (tier × product) combination
+- `referral_links` — Per-affiliate-per-product referral link tracking with click/conversion counts
+- `referral_clicks` — Individual click events with IP dedup, user agent, referer
+- `commissions` — Individual commission records with status lifecycle (pending → approved → paid | reversed | rejected)
+- `commission_payouts` — Aggregated payout records for affiliate payouts
+- `affiliate_resources` — Promotional resources (email swipes, social templates, banners) for affiliates
 
 ### Onboarding Flow
 
@@ -332,6 +339,43 @@ The portal includes a community discussion feature gated behind the `community:a
 
 **Rate Limits:** 10 posts/day, 30 comments/day per user.
 **Validation:** Post content 10-5000 chars, comment max 2000 chars.
+- `GET /go/:productSlug?ref=:affiliateCode` — Public referral redirect with click tracking and bts_ref cookie (30-day)
+- **Commission Member Routes** (require `commissions:*` entitlement):
+  - `GET /commissions/dashboard` — Affiliate dashboard summary
+  - `GET /commissions/earnings` — Paginated earnings list with filters
+  - `GET /commissions/referral-links` — Referral links with per-link stats
+  - `GET /commissions/payouts` — Payout history
+  - `GET /commissions/leaderboard` — Top affiliates leaderboard
+  - `GET /commissions/rates` — Commission rate table
+  - `GET /commissions/resources` — Promotional resources
+  - `GET/PATCH /commissions/profile` — Affiliate profile (read/update PayPal email)
+  - `POST /commissions/profile/tax-form` — Submit tax form URL
+  - `GET /commissions/chart` — Earnings chart data
+- **Commission Admin Routes** (require admin role):
+  - `GET /admin/commissions` — All commissions with pagination/filters
+  - `POST /admin/commissions/:id/approve|reject|reverse` — Commission lifecycle management
+  - `POST /admin/commissions/run-approval` — Bulk approve commissions older than 30 days
+  - `POST /admin/commissions/generate-payouts` — Generate payouts above threshold
+  - `GET /admin/commissions/payouts` — All payouts
+  - `POST /admin/commissions/payouts/:id/mark-paid` — Mark payout as paid
+  - `GET /admin/affiliates` — List all affiliates
+  - `PATCH /admin/affiliates/:id` — Update affiliate status/tier/fraud flags
+  - `GET/POST/PUT/DELETE /admin/commissions/rates` — CRUD commission rates
+  - `GET/POST/PUT/DELETE /admin/commissions/resources` — CRUD affiliate resources
+  - `GET /admin/commissions/fraud-alerts` — Flagged commissions and affiliates
+
+### Commission System
+
+The affiliate commission system lets mentorship members earn referral commissions. Key components:
+- **Tier resolution**: `commissions:top` > `commissions:premium` > `commissions:mid` > `commissions:entry` (from entitlements)
+- **Affiliate profiles**: Auto-created when a user gains a commission entitlement
+- **Referral tracking**: `/go/:productSlug?ref=:code` sets a 30-day `bts_ref` cookie with 5-min IP dedup
+- **Commission attribution**: ThriveCart `order.success` webhook checks for `bts_ref` in custom fields, resolves rate, creates pending commission
+- **Refund reversal**: `order.refund` reverses pending/approved commissions for the order
+- **Approval lifecycle**: pending → approved (after 30 days) → in_payout → paid
+- **Fraud detection**: Self-referral rejection, same-domain email flagging, high-click-low-conversion flagging
+- **Config env vars**: `BTS_REF_COOKIE_DAYS`, `CLICK_DEDUP_MINUTES`, `COMMISSION_APPROVAL_DAYS`, `PAYOUT_THRESHOLD_CENTS`
+- **Key files**: `lib/db/src/schema/affiliate-profiles.ts`, `commission-rates.ts`, `referral-links.ts`, `referral-clicks.ts`, `commissions.ts`, `commission-payouts.ts`, `affiliate-resources.ts`, `artifacts/api-server/src/lib/commissions.ts`, `routes/commissions.ts`, `routes/admin-commissions.ts`, `routes/referral-redirect.ts`
 
 ### Communications Infrastructure
 
@@ -364,9 +408,13 @@ Central communication system using SendGrid (email) and Twilio (SMS) with BullMQ
 
 ### Seed Data
 Demo users (all password: Demo1234):
-- Marcus Johnson (marcus@example.com) — Backroad System + 6-Month Mentorship, 12/25 lessons, 5-day streak
-- Sarah Chen (sarah@example.com) — Reserve Income System (frontend only)
-- Admin User (admin@bts.com) — Lifetime Mentorship, admin role
+- Marcus Johnson (marcus@example.com) — Backroad System + 6-Month Mentorship, 12/25 lessons, 5-day streak [affiliate: marcus01, tier: mid]
+- Sarah Chen (sarah@example.com) — Reserve Income System (frontend only, no commission access)
+- Admin User (admin@bts.com) — Lifetime Mentorship, admin role [affiliate: btsteam, tier: top]
+- Jake Rivera (jake@example.com) — 1-Year Mentorship [affiliate: jaker23, tier: premium]
+- Lisa Thompson (lisa@example.com) — 3-Month Mentorship [affiliate: lisat55, tier: entry]
+
+Commission seed data: 32 rates (4 tiers × 8 products), 4 affiliate profiles, 32 referral links, 250 clicks, 28 commissions, 3 payouts, 10 promotional resources
 
 Chat seed data: 1 system prompt, 10 knowledgebase documents, 3 demo chat sessions for Marcus
 

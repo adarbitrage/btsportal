@@ -9,6 +9,8 @@ import {
   communityBadgesTable, communityNotificationsTable,
   chatSessionsTable, chatMessagesTable, chatDailyUsageTable, chatPromptsTable,
   chatSystemPromptsTable, knowledgebaseDocsTable,
+  affiliateProfilesTable, commissionRatesTable, referralLinksTable, referralClicksTable,
+  commissionsTable, commissionPayoutsTable, affiliateResourcesTable
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -135,13 +137,36 @@ async function seed() {
     currentStreak: 0, memberSince: new Date("2025-01-01T00:00:00Z"),
   }).returning();
 
+  const [jake] = await db.insert(usersTable).values({
+    name: "Jake Rivera", email: "jake@example.com",
+    passwordHash,
+    sourceProduct: "1year", onboardingComplete: true,
+    emailVerified: true,
+    currentStreak: 8, memberSince: new Date("2025-11-01T00:00:00Z"),
+  }).returning();
+
+  const [lisa] = await db.insert(usersTable).values({
+    name: "Lisa Thompson", email: "lisa@example.com",
+    passwordHash,
+    sourceProduct: "3month", onboardingComplete: true,
+    emailVerified: true,
+    currentStreak: 1, memberSince: new Date("2026-01-10T00:00:00Z"),
+  }).returning();
+
   const sixMonthsFromNow = new Date();
   sixMonthsFromNow.setDate(sixMonthsFromNow.getDate() + 120);
+  const oneYearFromNow = new Date();
+  oneYearFromNow.setDate(oneYearFromNow.getDate() + 280);
+  const threeMonthsFromNow = new Date();
+  threeMonthsFromNow.setDate(threeMonthsFromNow.getDate() + 45);
+
   await db.insert(userProductsTable).values([
     { userId: marcus.id, productId: productsBySlug["backroad"], status: "active" },
     { userId: marcus.id, productId: productsBySlug["6month"], status: "active", expiresAt: sixMonthsFromNow },
     { userId: sarah.id, productId: productsBySlug["reserve_income"], status: "active" },
     { userId: admin.id, productId: productsBySlug["lifetime"], status: "active" },
+    { userId: jake.id, productId: productsBySlug["1year"], status: "active", expiresAt: oneYearFromNow },
+    { userId: lisa.id, productId: productsBySlug["3month"], status: "active", expiresAt: threeMonthsFromNow },
   ]);
 
   const [track1] = await db.insert(tracksTable).values({ title: "Affiliate Marketing Foundations", description: "Master the fundamentals of affiliate marketing from choosing a niche to launching your first campaign.", requiredEntitlement: "content:frontend", sortOrder: 1 }).returning();
@@ -379,12 +404,319 @@ async function seed() {
 
   await seedCommunicationTemplates();
 
-  console.log("Seeding complete!");
+  console.log("Seeding commission data...");
+
+  const tiers = ["entry", "mid", "premium", "top"];
+  const productSlugs = ["reserve_income", "backroad", "offmarket", "launchpad", "3month", "6month", "1year", "lifetime"];
+  const rateMap: Record<string, Record<string, { rate: string; bonus: number }>> = {
+    entry:   { reserve_income: { rate: "15.00", bonus: 0 }, backroad: { rate: "15.00", bonus: 0 }, offmarket: { rate: "15.00", bonus: 0 }, launchpad: { rate: "10.00", bonus: 0 }, "3month": { rate: "10.00", bonus: 0 }, "6month": { rate: "10.00", bonus: 0 }, "1year": { rate: "8.00", bonus: 0 }, lifetime: { rate: "5.00", bonus: 0 } },
+    mid:     { reserve_income: { rate: "20.00", bonus: 0 }, backroad: { rate: "20.00", bonus: 0 }, offmarket: { rate: "20.00", bonus: 0 }, launchpad: { rate: "15.00", bonus: 500 }, "3month": { rate: "15.00", bonus: 500 }, "6month": { rate: "15.00", bonus: 1000 }, "1year": { rate: "12.00", bonus: 1500 }, lifetime: { rate: "10.00", bonus: 2000 } },
+    premium: { reserve_income: { rate: "25.00", bonus: 0 }, backroad: { rate: "25.00", bonus: 0 }, offmarket: { rate: "25.00", bonus: 0 }, launchpad: { rate: "20.00", bonus: 1000 }, "3month": { rate: "20.00", bonus: 1000 }, "6month": { rate: "20.00", bonus: 2000 }, "1year": { rate: "18.00", bonus: 3000 }, lifetime: { rate: "15.00", bonus: 5000 } },
+    top:     { reserve_income: { rate: "30.00", bonus: 500 }, backroad: { rate: "30.00", bonus: 500 }, offmarket: { rate: "30.00", bonus: 500 }, launchpad: { rate: "25.00", bonus: 2000 }, "3month": { rate: "25.00", bonus: 2000 }, "6month": { rate: "25.00", bonus: 3000 }, "1year": { rate: "22.00", bonus: 5000 }, lifetime: { rate: "20.00", bonus: 10000 } },
+  };
+
+  const rateValues = [];
+  for (const tier of tiers) {
+    for (const slug of productSlugs) {
+      const r = rateMap[tier][slug];
+      rateValues.push({
+        tier,
+        productId: productsBySlug[slug],
+        ratePercent: r.rate,
+        flatBonus: r.bonus,
+      });
+    }
+  }
+  await db.insert(commissionRatesTable).values(rateValues);
+  console.log(`  Commission rates: ${rateValues.length} rates (${tiers.length} tiers × ${productSlugs.length} products)`);
+
+  const [marcusAff] = await db.insert(affiliateProfilesTable).values({
+    userId: marcus.id,
+    affiliateCode: "marcus01",
+    tier: "mid",
+    paypalEmail: "marcus@paypal.example.com",
+    taxFormSubmitted: true,
+    taxFormUrl: "https://example.com/tax/marcus-w9.pdf",
+    totalEarnings: 125000,
+    totalPaid: 85000,
+    pendingBalance: 18500,
+    approvedBalance: 21500,
+    lifetimeClicks: 1247,
+    lifetimeConversions: 42,
+  }).returning();
+
+  const [adminAff] = await db.insert(affiliateProfilesTable).values({
+    userId: admin.id,
+    affiliateCode: "btsteam",
+    tier: "top",
+    paypalEmail: "admin@paypal.example.com",
+    taxFormSubmitted: true,
+    taxFormUrl: "https://example.com/tax/admin-w9.pdf",
+    totalEarnings: 450000,
+    totalPaid: 380000,
+    pendingBalance: 32000,
+    approvedBalance: 38000,
+    lifetimeClicks: 5890,
+    lifetimeConversions: 156,
+  }).returning();
+
+  const [jakeAff] = await db.insert(affiliateProfilesTable).values({
+    userId: jake.id,
+    affiliateCode: "jaker23",
+    tier: "premium",
+    paypalEmail: "jake@paypal.example.com",
+    taxFormSubmitted: true,
+    taxFormUrl: "https://example.com/tax/jake-w9.pdf",
+    totalEarnings: 287500,
+    totalPaid: 220000,
+    pendingBalance: 28500,
+    approvedBalance: 39000,
+    lifetimeClicks: 3412,
+    lifetimeConversions: 98,
+  }).returning();
+
+  const [lisaAff] = await db.insert(affiliateProfilesTable).values({
+    userId: lisa.id,
+    affiliateCode: "lisat55",
+    tier: "entry",
+    paypalEmail: null,
+    taxFormSubmitted: false,
+    totalEarnings: 15200,
+    totalPaid: 5000,
+    pendingBalance: 4800,
+    approvedBalance: 5400,
+    lifetimeClicks: 312,
+    lifetimeConversions: 8,
+  }).returning();
+
+  console.log("  Affiliate profiles: 4 profiles created");
+
+  const affiliates = [
+    { aff: marcusAff, slug: "marcus01" },
+    { aff: adminAff, slug: "btsteam" },
+    { aff: jakeAff, slug: "jaker23" },
+    { aff: lisaAff, slug: "lisat55" },
+  ];
+
+  const linkValues = [];
+  for (const { aff } of affiliates) {
+    for (const slug of productSlugs) {
+      linkValues.push({
+        affiliateId: aff.id,
+        productId: productsBySlug[slug],
+        slug,
+        clickCount: Math.floor(Math.random() * 200) + 10,
+        conversionCount: Math.floor(Math.random() * 15),
+      });
+    }
+  }
+  const insertedLinks = await db.insert(referralLinksTable).values(linkValues).returning();
+  console.log(`  Referral links: ${insertedLinks.length} links created`);
+
+  const clickValues = [];
+  const userAgents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)",
+    "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36",
+  ];
+  const referers = [
+    "https://facebook.com",
+    "https://youtube.com",
+    "https://google.com",
+    "https://twitter.com",
+    "https://instagram.com",
+    null,
+  ];
+
+  for (let i = 0; i < 250; i++) {
+    const link = insertedLinks[Math.floor(Math.random() * insertedLinks.length)];
+    const daysAgo = Math.floor(Math.random() * 90);
+    const clickedAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000 - Math.random() * 24 * 60 * 60 * 1000);
+    clickValues.push({
+      referralLinkId: link.id,
+      ipAddress: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+      userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+      referer: referers[Math.floor(Math.random() * referers.length)],
+      clickedAt,
+    });
+  }
+  await db.insert(referralClicksTable).values(clickValues);
+  console.log(`  Referral clicks: ${clickValues.length} clicks created`);
+
+  const statuses = ["pending", "pending", "pending", "approved", "approved", "paid", "paid", "reversed"];
+  const customerEmails = [
+    "buyer1@example.com", "buyer2@example.com", "buyer3@example.com",
+    "buyer4@example.com", "buyer5@example.com", "buyer6@example.com",
+    "buyer7@example.com", "buyer8@example.com", "buyer9@example.com",
+    "buyer10@example.com", "newcustomer@example.com", "returning@example.com",
+  ];
+
+  const commissionValues = [];
+  const allAffiliates = [marcusAff, adminAff, jakeAff, lisaAff];
+  const affTiers = ["mid", "top", "premium", "entry"];
+
+  for (let i = 0; i < 28; i++) {
+    const affIdx = Math.floor(Math.random() * allAffiliates.length);
+    const aff = allAffiliates[affIdx];
+    const tier = affTiers[affIdx];
+    const prodSlug = productSlugs[Math.floor(Math.random() * productSlugs.length)];
+    const prodId = productsBySlug[prodSlug];
+    const rate = rateMap[tier][prodSlug];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const daysAgo = Math.floor(Math.random() * 90);
+    const createdAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+    const saleAmount = [4700, 4700, 9700, 19700, 29700, 49700, 79700, 149700][productSlugs.indexOf(prodSlug)] || 4700;
+    const ratePercent = parseFloat(rate.rate);
+    const commissionAmount = Math.round(saleAmount * (ratePercent / 100)) + rate.bonus;
+
+    commissionValues.push({
+      affiliateId: aff.id,
+      productId: prodId,
+      orderId: `TC-${100000 + i}`,
+      customerEmail: customerEmails[Math.floor(Math.random() * customerEmails.length)],
+      saleAmount,
+      commissionRate: rate.rate,
+      commissionAmount,
+      flatBonus: rate.bonus,
+      status,
+      tier,
+      createdAt,
+      approvedAt: ["approved", "paid"].includes(status) ? new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null,
+      paidAt: status === "paid" ? new Date(createdAt.getTime() + 45 * 24 * 60 * 60 * 1000) : null,
+      reversedAt: status === "reversed" ? new Date(createdAt.getTime() + 5 * 24 * 60 * 60 * 1000) : null,
+      reversalReason: status === "reversed" ? "Order refunded" : null,
+      fraudFlag: i === 25 ? "same_domain_email" : null,
+    });
+  }
+  await db.insert(commissionsTable).values(commissionValues);
+  console.log(`  Commissions: ${commissionValues.length} commission records created`);
+
+  const [payout1] = await db.insert(commissionPayoutsTable).values({
+    affiliateId: marcusAff.id,
+    amount: 42500,
+    commissionCount: 8,
+    status: "paid",
+    paypalEmail: "marcus@paypal.example.com",
+    paypalTransactionId: "PP-TX-001234",
+    notes: "Monthly payout - January 2026",
+    paidAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+  }).returning();
+
+  const [payout2] = await db.insert(commissionPayoutsTable).values({
+    affiliateId: adminAff.id,
+    amount: 125000,
+    commissionCount: 22,
+    status: "paid",
+    paypalEmail: "admin@paypal.example.com",
+    paypalTransactionId: "PP-TX-001235",
+    notes: "Monthly payout - January 2026",
+    paidAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+  }).returning();
+
+  await db.insert(commissionPayoutsTable).values({
+    affiliateId: jakeAff.id,
+    amount: 67500,
+    commissionCount: 12,
+    status: "pending",
+    paypalEmail: "jake@paypal.example.com",
+    notes: "Pending payout - February 2026",
+  });
+
+  console.log("  Payouts: 3 payout records created (2 paid, 1 pending)");
+
+  await db.insert(affiliateResourcesTable).values([
+    {
+      type: "email_swipe",
+      title: "Reserve Income Email Swipe #1",
+      description: "High-converting email for promoting the Reserve Income System",
+      content: "Subject: How I Make $200/Day With This Simple System\n\nHey [Name],\n\nI wanted to share something that's been working incredibly well for me...\n\nThe Reserve Income System showed me how to build passive income streams using affiliate marketing. And the best part? You don't need any experience.\n\nClick here to learn more: [YOUR LINK]\n\nTo your success,\n[Your Name]",
+      productSlug: "reserve_income",
+      sortOrder: 1,
+    },
+    {
+      type: "email_swipe",
+      title: "Backroad System Email Swipe #1",
+      description: "Introduction email for the Backroad System",
+      content: "Subject: The 'Backroad' To Affiliate Profits Nobody Talks About\n\nHey [Name],\n\nMost affiliate marketers are competing on the same crowded highways...\n\nBut what if I told you there's a 'backroad' that almost nobody knows about? The Backroad System reveals untapped traffic sources that convert like crazy.\n\nCheck it out here: [YOUR LINK]\n\nBest,\n[Your Name]",
+      productSlug: "backroad",
+      sortOrder: 2,
+    },
+    {
+      type: "email_swipe",
+      title: "Mentorship Upgrade Email Swipe",
+      description: "Email template for promoting mentorship upgrades",
+      content: "Subject: Ready to Go Full-Time With Affiliate Marketing?\n\nHey [Name],\n\nIf you've been dabbling in affiliate marketing and want to take it to the next level, the BTS Mentorship program is exactly what you need.\n\nYou'll get live coaching, community access, and a proven roadmap to scale.\n\nLearn more: [YOUR LINK]\n\nLet's build something amazing,\n[Your Name]",
+      productSlug: "6month",
+      sortOrder: 3,
+    },
+    {
+      type: "social_template",
+      title: "Facebook Post Template - Success Story",
+      description: "Share your affiliate marketing journey on Facebook",
+      content: "🚀 Just hit another milestone with affiliate marketing!\n\nWhen I started with @BuildTestScale, I had no idea I could [RESULT]. The training and community support have been incredible.\n\nIf you're looking to start your own affiliate marketing journey, check out the link in my bio! 👇\n\n#AffiliateMarketing #OnlineIncome #BuildTestScale",
+      sortOrder: 1,
+    },
+    {
+      type: "social_template",
+      title: "Instagram Story Template",
+      description: "Instagram story promoting BTS products",
+      content: "Swipe up to see the system that changed everything for me ⬆️\n\n✅ No experience needed\n✅ Step-by-step training\n✅ Live coaching support\n\nLink: [YOUR LINK]",
+      sortOrder: 2,
+    },
+    {
+      type: "social_template",
+      title: "Twitter/X Thread Starter",
+      description: "Twitter thread to promote affiliate marketing",
+      content: "Thread: How I went from $0 to $X/month with affiliate marketing 🧵\n\n1/ Six months ago, I knew nothing about affiliate marketing. Today, I'm earning [AMOUNT] per month. Here's exactly what I did...\n\n2/ First, I joined @BuildTestScale and followed their step-by-step system. The key was [YOUR INSIGHT]...\n\n3/ The results speak for themselves. If you want to learn more, check out: [YOUR LINK]",
+      sortOrder: 3,
+    },
+    {
+      type: "banner",
+      title: "Reserve Income Banner - 728x90",
+      description: "Leaderboard banner ad for Reserve Income System",
+      fileUrl: "https://example.com/banners/reserve-income-728x90.png",
+      thumbnailUrl: "https://example.com/banners/thumbs/reserve-income-728x90.png",
+      productSlug: "reserve_income",
+      sortOrder: 1,
+    },
+    {
+      type: "banner",
+      title: "Backroad System Banner - 300x250",
+      description: "Medium rectangle banner for Backroad System",
+      fileUrl: "https://example.com/banners/backroad-300x250.png",
+      thumbnailUrl: "https://example.com/banners/thumbs/backroad-300x250.png",
+      productSlug: "backroad",
+      sortOrder: 2,
+    },
+    {
+      type: "banner",
+      title: "BTS Mentorship Banner - 728x90",
+      description: "Leaderboard banner for BTS Mentorship programs",
+      fileUrl: "https://example.com/banners/mentorship-728x90.png",
+      thumbnailUrl: "https://example.com/banners/thumbs/mentorship-728x90.png",
+      sortOrder: 3,
+    },
+    {
+      type: "banner",
+      title: "BTS Mentorship Banner - 160x600",
+      description: "Skyscraper banner for BTS Mentorship programs",
+      fileUrl: "https://example.com/banners/mentorship-160x600.png",
+      thumbnailUrl: "https://example.com/banners/thumbs/mentorship-160x600.png",
+      sortOrder: 4,
+    },
+  ]);
+  console.log("  Affiliate resources: 10 resources (3 email swipes, 3 social templates, 4 banners)");
+
+  console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));
+  console.log("Communication templates seeded.");
   console.log("Demo users:");
-  console.log("  Marcus Johnson (marcus@example.com / Demo1234) - 6-Month + Backroad");
-  console.log("  Sarah Chen (sarah@example.com / Demo1234) - Reserve Income (frontend only)");
-  console.log("  Admin User (admin@bts.com / Demo1234) - Lifetime");
+  console.log("  Marcus Johnson (marcus@example.com / Demo1234) - 6-Month + Backroad [affiliate: marcus01, tier: mid]");
+  console.log("  Sarah Chen (sarah@example.com / Demo1234) - Reserve Income (frontend only, no commission access)");
+  console.log("  Admin User (admin@bts.com / Demo1234) - Lifetime [affiliate: btsteam, tier: top]");
+  console.log("  Jake Rivera (jake@example.com / Demo1234) - 1-Year [affiliate: jaker23, tier: premium]");
+  console.log("  Lisa Thompson (lisa@example.com / Demo1234) - 3-Month [affiliate: lisat55, tier: entry]");
   console.log("Chat data: system prompt, 10 knowledgebase docs, 3 demo chat sessions");
 }
 

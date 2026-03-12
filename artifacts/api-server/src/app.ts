@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import qs from "qs";
 import router from "./routes";
+import referralRedirectRouter from "./routes/referral-redirect";
 import { authenticate } from "./middleware/auth";
 import { startTicketJobs } from "./lib/ticket-jobs";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
@@ -42,6 +43,9 @@ app.use("/api/webhooks", express.raw({ type: "*/*" }), (req: Request, _res: Resp
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.use("/api", referralRedirectRouter);
+
 app.use("/api", authenticate);
 app.use("/api", router);
 
