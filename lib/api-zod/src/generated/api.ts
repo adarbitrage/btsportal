@@ -390,6 +390,7 @@ export const ListTicketsResponseItem = zod.object({
     "closed",
   ]),
   subject: zod.string(),
+  assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   resolvedAt: zod.date().nullish(),
@@ -420,6 +421,7 @@ export const GetTicketResponse = zod.object({
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),
+  assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   resolvedAt: zod.date().nullish(),
@@ -443,6 +445,396 @@ export const AddTicketMessageParams = zod.object({
 
 export const AddTicketMessageBody = zod.object({
   body: zod.string(),
+});
+
+/**
+ * @summary Submit satisfaction survey for a resolved ticket
+ */
+export const SubmitTicketSatisfactionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const submitTicketSatisfactionBodyRatingMax = 5;
+
+export const SubmitTicketSatisfactionBody = zod.object({
+  rating: zod.number().min(1).max(submitTicketSatisfactionBodyRatingMax),
+  feedback: zod.string().nullish(),
+});
+
+/**
+ * @summary Get satisfaction survey status for a ticket
+ */
+export const GetTicketSatisfactionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTicketSatisfactionResponse = zod.object({
+  submitted: zod.boolean(),
+  rating: zod.number().optional(),
+  feedback: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+});
+
+/**
+ * @summary List all tickets (admin)
+ */
+export const AdminListTicketsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  category: zod.coerce.string().optional(),
+  assignedTo: zod.coerce.string().optional(),
+});
+
+export const AdminListTicketsResponseItem = zod.object({
+  id: zod.number(),
+  ticketNumber: zod.string(),
+  userId: zod.number(),
+  category: zod.string(),
+  priority: zod.string(),
+  status: zod.string(),
+  subject: zod.string(),
+  assignedTo: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  resolvedAt: zod.date().nullish(),
+});
+export const AdminListTicketsResponse = zod.array(AdminListTicketsResponseItem);
+
+/**
+ * @summary Get ticket with all messages including internal notes (admin)
+ */
+export const AdminGetTicketParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminGetTicketResponse = zod.object({
+  id: zod.number(),
+  ticketNumber: zod.string(),
+  userId: zod.number(),
+  category: zod.string(),
+  priority: zod.string(),
+  status: zod.string(),
+  subject: zod.string(),
+  assignedTo: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  resolvedAt: zod.date().nullish(),
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      ticketId: zod.number(),
+      senderType: zod.enum(["member", "admin"]),
+      body: zod.string(),
+      isInternal: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update ticket status (admin)
+ */
+export const AdminUpdateTicketStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateTicketStatusBody = zod.object({
+  status: zod.enum([
+    "open",
+    "in_progress",
+    "awaiting_response",
+    "resolved",
+    "closed",
+  ]),
+});
+
+export const AdminUpdateTicketStatusResponse = zod.object({
+  id: zod.number(),
+  ticketNumber: zod.string(),
+  userId: zod.number(),
+  category: zod.string(),
+  priority: zod.string(),
+  status: zod.string(),
+  subject: zod.string(),
+  assignedTo: zod.number().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  resolvedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Send a reply to a ticket (admin)
+ */
+export const AdminReplyToTicketParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminReplyToTicketBody = zod.object({
+  body: zod.string(),
+});
+
+/**
+ * @summary Add an internal note to a ticket (admin)
+ */
+export const AdminAddInternalNoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminAddInternalNoteBody = zod.object({
+  body: zod.string(),
+});
+
+/**
+ * @summary Get SLA details for a ticket (admin)
+ */
+export const AdminGetTicketSlaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminGetTicketSlaResponse = zod.object({
+  id: zod.number(),
+  ticketId: zod.number(),
+  tierSlug: zod.string(),
+  firstResponseTargetMinutes: zod.number(),
+  resolutionTargetMinutes: zod.number(),
+  firstResponseAt: zod.date().nullish(),
+  firstResponseBreached: zod.boolean(),
+  firstResponseWarning: zod.boolean(),
+  resolutionBreached: zod.boolean(),
+  resolutionWarning: zod.boolean(),
+  totalPausedMinutes: zod.number(),
+  elapsedBusinessMinutes: zod.number(),
+  firstResponsePct: zod.number().nullish(),
+  resolutionPct: zod.number(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Merge duplicate tickets into a primary ticket
+ */
+export const AdminMergeTicketsBody = zod.object({
+  primaryTicketId: zod.number(),
+  ticketIds: zod.array(zod.number()),
+});
+
+export const AdminMergeTicketsResponse = zod.object({
+  primaryTicket: zod.object({
+    id: zod.number(),
+    ticketNumber: zod.string(),
+    userId: zod.number(),
+    category: zod.string(),
+    priority: zod.string(),
+    status: zod.string(),
+    subject: zod.string(),
+    assignedTo: zod.number().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    resolvedAt: zod.date().nullish(),
+  }),
+  mergedCount: zod.number(),
+  totalMessages: zod.number(),
+});
+
+/**
+ * @summary Get SLA compliance dashboard (admin)
+ */
+export const AdminGetSlaDashboardResponse = zod.object({
+  total: zod.number(),
+  compliant: zod.number(),
+  complianceRate: zod.number(),
+  firstResponseBreached: zod.number(),
+  firstResponseWarning: zod.number(),
+  resolutionBreached: zod.number(),
+  resolutionWarning: zod.number(),
+  byTier: zod.record(
+    zod.string(),
+    zod.object({
+      total: zod.number(),
+      compliant: zod.number(),
+      breached: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get ticket analytics (admin)
+ */
+export const AdminGetTicketAnalyticsResponse = zod.object({
+  totalTickets: zod.number(),
+  last30Days: zod.number(),
+  last7Days: zod.number(),
+  byStatus: zod.array(
+    zod.object({
+      status: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  byCategory: zod.array(
+    zod.object({
+      category: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  byPriority: zod.array(
+    zod.object({
+      priority: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  averageSatisfaction: zod.number(),
+});
+
+/**
+ * @summary Get agent performance metrics (admin)
+ */
+export const AdminGetAgentPerformanceResponseItem = zod.object({
+  agentId: zod.number(),
+  agentName: zod.string(),
+  agentEmail: zod.string(),
+  totalAssigned: zod.number(),
+  openTickets: zod.number(),
+  resolvedTickets: zod.number(),
+  slaBreaches: zod.number(),
+  averageRating: zod.number(),
+});
+export const AdminGetAgentPerformanceResponse = zod.array(
+  AdminGetAgentPerformanceResponseItem,
+);
+
+/**
+ * @summary List canned responses with optional category filter
+ */
+export const AdminListCannedResponsesQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const AdminListCannedResponsesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.string(),
+  body: zod.string(),
+  sortOrder: zod.number(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListCannedResponsesResponse = zod.array(
+  AdminListCannedResponsesResponseItem,
+);
+
+/**
+ * @summary Create a new canned response
+ */
+export const AdminCreateCannedResponseBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  body: zod.string(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Update a canned response
+ */
+export const AdminUpdateCannedResponseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateCannedResponseBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  body: zod.string(),
+  sortOrder: zod.number().optional(),
+});
+
+export const AdminUpdateCannedResponseResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.string(),
+  body: zod.string(),
+  sortOrder: zod.number(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a canned response
+ */
+export const AdminDeleteCannedResponseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteCannedResponseResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List ticket routing rules
+ */
+export const AdminListRoutingRulesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  tierSlug: zod.string().nullish(),
+  assignToUserId: zod.number().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const AdminListRoutingRulesResponse = zod.array(
+  AdminListRoutingRulesResponseItem,
+);
+
+/**
+ * @summary Create a ticket routing rule
+ */
+export const AdminCreateRoutingRuleBody = zod.object({
+  name: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  tierSlug: zod.string().nullish(),
+  assignToUserId: zod.number().nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a ticket routing rule
+ */
+export const AdminUpdateRoutingRuleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateRoutingRuleBody = zod.object({
+  name: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  tierSlug: zod.string().nullish(),
+  assignToUserId: zod.number().nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateRoutingRuleResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  tierSlug: zod.string().nullish(),
+  assignToUserId: zod.number().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a ticket routing rule
+ */
+export const AdminDeleteRoutingRuleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteRoutingRuleResponse = zod.object({
+  success: zod.boolean(),
 });
 
 /**

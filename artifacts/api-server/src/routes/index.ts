@@ -18,6 +18,7 @@ import onboardingRouter from "./onboarding";
 import documentsRouter from "./documents";
 import communityRouter from "./community";
 import adminGhlRouter from "./admin-ghl";
+import adminTicketsRouter from "./admin-tickets";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(onboardingRouter);
 router.use(documentsRouter);
 router.use(communityRouter);
 router.use(adminGhlRouter);
+router.use(adminTicketsRouter);
 
 export default router;

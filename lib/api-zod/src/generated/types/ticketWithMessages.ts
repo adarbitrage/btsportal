@@ -15,6 +15,8 @@ export interface TicketWithMessages {
   priority: string;
   status: string;
   subject: string;
+  /** @nullable */
+  assignedTo?: number | null;
   createdAt: Date;
   updatedAt: Date;
   /** @nullable */

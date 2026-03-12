@@ -1,0 +1,36 @@
+import { db, cannedResponsesTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
+
+const CANNED_RESPONSES = [
+  { title: "Welcome - New Ticket", category: "general", sortOrder: 1, body: "Hi {{member_name}}, thank you for reaching out to BTS Support! I've received your ticket #{{ticket_id}} and will be looking into this shortly. We aim to respond within our SLA timeframe based on your membership tier." },
+  { title: "Request More Info", category: "general", sortOrder: 2, body: "Hi {{member_name}}, thank you for contacting us. To better assist you with ticket #{{ticket_id}}, could you please provide more details about the issue you're experiencing? Any screenshots or specific error messages would be very helpful." },
+  { title: "Issue Resolved", category: "general", sortOrder: 3, body: "Hi {{member_name}}, I'm happy to let you know that the issue reported in ticket #{{ticket_id}} has been resolved. Please let us know if you experience any further problems. We'd appreciate it if you could take a moment to rate your support experience!" },
+  { title: "Escalation Notice", category: "general", sortOrder: 4, body: "Hi {{member_name}}, I've escalated your ticket #{{ticket_id}} to our senior support team for further investigation. You can expect an update within the next business day. We appreciate your patience." },
+  { title: "Billing - Refund Processing", category: "billing", sortOrder: 5, body: "Hi {{member_name}}, regarding ticket #{{ticket_id}}, your refund has been initiated and should appear in your account within 5-10 business days depending on your payment provider. Please don't hesitate to reach out if you don't see it by then." },
+  { title: "Billing - Payment Failed", category: "billing", sortOrder: 6, body: "Hi {{member_name}}, we noticed a payment issue on your account (ticket #{{ticket_id}}). Please verify your payment method is up to date. You can update it in your account settings. If the issue persists, please let us know and we'll help resolve it." },
+  { title: "Billing - Subscription Change", category: "billing", sortOrder: 7, body: "Hi {{member_name}}, your subscription change request (ticket #{{ticket_id}}) has been processed. The changes will take effect at the start of your next billing cycle. You'll receive a confirmation email shortly." },
+  { title: "Billing - Invoice Request", category: "billing", sortOrder: 8, body: "Hi {{member_name}}, regarding ticket #{{ticket_id}}, I've attached your requested invoice. If you need any modifications or have questions about the charges, please let us know." },
+  { title: "Technical - Browser Clear Cache", category: "technical", sortOrder: 9, body: "Hi {{member_name}}, for the issue in ticket #{{ticket_id}}, could you try clearing your browser cache and cookies, then restart your browser? This often resolves display and loading issues. Steps: Settings > Privacy > Clear browsing data > Select 'Cached images and files' > Clear." },
+  { title: "Technical - Video Playback", category: "technical", sortOrder: 10, body: "Hi {{member_name}}, regarding the video playback issue in ticket #{{ticket_id}}, please try the following: 1) Check your internet connection speed 2) Try a different browser (Chrome recommended) 3) Disable any ad blockers 4) Clear browser cache. If the issue persists, please let us know which specific lesson is affected." },
+  { title: "Technical - Login Issues", category: "technical", sortOrder: 11, body: "Hi {{member_name}}, for the login issue in ticket #{{ticket_id}}, please try resetting your password using the 'Forgot Password' link on the login page. If you're still unable to access your account, please let us know the email address associated with your account and we'll investigate further." },
+  { title: "Technical - Mobile Access", category: "technical", sortOrder: 12, body: "Hi {{member_name}}, regarding ticket #{{ticket_id}}, our platform is fully responsive and works on mobile browsers. For the best experience, we recommend using the latest version of Chrome or Safari. Please ensure your mobile browser is up to date and try again." },
+  { title: "Training - Course Access", category: "training", sortOrder: 13, body: "Hi {{member_name}}, regarding ticket #{{ticket_id}}, access to training courses is based on your current membership tier. I've verified your entitlements and you should now have access to the requested content. Please log out and back in to refresh your permissions." },
+  { title: "Training - Certificate Request", category: "training", sortOrder: 14, body: "Hi {{member_name}}, regarding your certificate request in ticket #{{ticket_id}}, certificates are generated automatically upon completion of all modules within a track. Please ensure all lessons are marked as complete, then check your progress page." },
+  { title: "Training - Content Feedback", category: "training", sortOrder: 15, body: "Hi {{member_name}}, thank you for your feedback on our training content (ticket #{{ticket_id}}). We've passed your suggestions to our content team for review. We're always working to improve our materials and appreciate member input." },
+  { title: "Account - Profile Update", category: "account", sortOrder: 16, body: "Hi {{member_name}}, regarding ticket #{{ticket_id}}, you can update your profile information by going to Settings > Profile in the member portal. If you need to change your email address, please reply to this ticket and we'll assist you with that process." },
+  { title: "Account - Membership Upgrade", category: "account", sortOrder: 17, body: "Hi {{member_name}}, thank you for your interest in upgrading (ticket #{{ticket_id}})! I'd be happy to help you explore our membership options. Your current tier gives you access to specific features, and upgrading would unlock additional benefits including priority support, advanced coaching, and exclusive content." },
+  { title: "Account - Cancellation", category: "account", sortOrder: 18, body: "Hi {{member_name}}, we're sorry to see you considering cancellation (ticket #{{ticket_id}}). Before we proceed, we'd love to understand what we could do better. Your access will remain active until the end of your current billing period. Would you like to discuss any concerns?" },
+  { title: "Account - Data Export", category: "account", sortOrder: 19, body: "Hi {{member_name}}, regarding your data export request in ticket #{{ticket_id}}, we're preparing your data export. This typically takes 1-2 business days. You'll receive an email notification when it's ready for download." },
+  { title: "Follow-Up Check", category: "general", sortOrder: 20, body: "Hi {{member_name}}, I'm following up on ticket #{{ticket_id}}. It's been a few days since our last update - have you had a chance to try the solution we suggested? If you're still experiencing issues, please let us know and we'll continue working on it." },
+];
+
+export async function seedCannedResponses(): Promise<void> {
+  const existing = await db.select({ count: sql<number>`count(*)` }).from(cannedResponsesTable);
+  if (Number(existing[0]?.count) > 0) {
+    console.log("[Seed] Canned responses already seeded, skipping");
+    return;
+  }
+
+  await db.insert(cannedResponsesTable).values(CANNED_RESPONSES);
+  console.log(`[Seed] Inserted ${CANNED_RESPONSES.length} canned responses`);
+}

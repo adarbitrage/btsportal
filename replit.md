@@ -118,8 +118,12 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `progress` — User lesson completion tracking
 - `coaches` — Coach profiles
 - `coaching_calls` — Scheduled coaching sessions with `required_entitlement`
-- `tickets` — Support tickets
-- `ticket_messages` — Message threads on tickets
+- `tickets` — Support tickets (with `assigned_to` column for agent assignment)
+- `ticket_messages` — Message threads on tickets (with `is_internal` flag for internal notes)
+- `ticket_sla` — SLA tracking per ticket (tier-based targets, breach/warning flags, business-hours clock)
+- `canned_responses` — Pre-built response templates with category and variable support
+- `ticket_routing_rules` — Auto-routing rules for ticket assignment (category, priority, tier matching)
+- `ticket_satisfaction` — Post-resolution satisfaction surveys (1-5 rating + feedback)
 - `announcements` — Portal announcements
 - `webhook_logs` — ThriveCart webhook event log with payload, status, and idempotency tracking
 - `ghl_sync_log` — GHL sync event log (user_id, action, direction, payload, ghl_contact_id, status, error_message, attempts)
@@ -158,15 +162,31 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET/POST /progress` — Track/mark lesson completion
 - `GET /coaching-calls` — List coaching calls with accessibility flag
 - `GET /coaches` — List coaches
-- `GET/POST /tickets` — List/create support tickets
-- `GET /tickets/:id` — Ticket with message thread
+- `GET/POST /tickets` — List/create support tickets (auto-creates SLA, auto-routes)
+- `GET /tickets/:id` — Ticket with message thread (excludes internal notes)
 - `POST /tickets/:id/messages` — Add message to ticket
+- `POST /tickets/:id/satisfaction` — Submit satisfaction survey (1-5 rating)
+- `GET /tickets/:id/satisfaction` — Check satisfaction survey status
 - `GET /announcements` — List announcements
 - `POST /webhooks/thrivecart` — ThriveCart webhook receiver (public, signature-verified)
 - `POST /dev/simulate-purchase` — Dev-only simulated purchase (disabled in production)
 - `POST /dev/simulate-refund` — Dev-only simulated refund (disabled in production)
 - `POST /dev/simulate-cancellation` — Dev-only simulated cancellation (disabled in production)
 - `POST /admin/run-expiration-check` — Nightly expiration check for time-limited products (admin-only)
+- `GET /admin/tickets` — List all tickets with filters (admin-only)
+- `GET /admin/tickets/:id` — Get ticket with all messages including internal notes (admin-only)
+- `PUT /admin/tickets/:id/status` — Update ticket status with SLA pause/resume (admin-only)
+- `POST /admin/tickets/:id/reply` — Admin reply with first-response SLA tracking (admin-only)
+- `POST /admin/tickets/:id/internal-note` — Add internal note (admin-only)
+- `GET /admin/tickets/:id/sla` — Per-ticket SLA details (admin-only)
+- `POST /admin/tickets/merge` — Merge duplicate tickets (admin-only)
+- `GET /admin/tickets/sla-dashboard` — SLA compliance overview (admin-only)
+- `GET /admin/tickets/analytics` — Volume, categories, trends (admin-only)
+- `GET /admin/tickets/agent-performance` — Per-agent metrics (admin-only)
+- `GET/POST /admin/canned-responses` — CRUD canned responses (admin-only)
+- `PUT/DELETE /admin/canned-responses/:id` — Update/delete canned responses (admin-only)
+- `GET/POST /admin/ticket-routing` — CRUD routing rules (admin-only)
+- `PUT/DELETE /admin/ticket-routing/:id` — Update/delete routing rules (admin-only)
 - `GET /admin/webhook-logs` — List/filter webhook logs (admin-only)
 - `GET /admin/webhook-logs/:id` — Single webhook log with full payload (admin-only)
 - `GET /admin/product-mappings` — List ThriveCart product ID mappings (admin-only)

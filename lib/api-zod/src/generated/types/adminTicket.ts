@@ -5,17 +5,14 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
-import type { TicketCategory } from "./ticketCategory";
-import type { TicketPriority } from "./ticketPriority";
-import type { TicketStatus } from "./ticketStatus";
 
-export interface Ticket {
+export interface AdminTicket {
   id: number;
   ticketNumber: string;
   userId: number;
-  category: TicketCategory;
-  priority: TicketPriority;
-  status: TicketStatus;
+  category: string;
+  priority: string;
+  status: string;
   subject: string;
   /** @nullable */
   assignedTo?: number | null;

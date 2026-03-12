@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import qs from "qs";
 import router from "./routes";
 import { authenticate } from "./middleware/auth";
+import { startTicketJobs } from "./lib/ticket-jobs";
+import { seedCannedResponses } from "./lib/seed-canned-responses";
 
 declare global {
   namespace Express {
@@ -42,5 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api", authenticate);
 app.use("/api", router);
+
+seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
+startTicketJobs();
 
 export default app;

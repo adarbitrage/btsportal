@@ -17,7 +17,17 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminDeleteCannedResponse200,
+  AdminDeleteRoutingRule200,
+  AdminListCannedResponsesParams,
+  AdminListTicketsParams,
+  AdminTicket,
+  AdminTicketMessage,
+  AdminTicketWithMessages,
+  AdminUpdateTicketStatusBody,
+  AgentPerformance,
   Announcement,
+  CannedResponse,
   Coach,
   CoachingCall,
   CommunityCategory,
@@ -28,9 +38,12 @@ import type {
   CommunityNotificationList,
   CommunityPostFeed,
   CommunityPostRaw,
+  CreateCannedResponse,
   CreateCommunityComment,
   CreateCommunityPost,
   CreateProgress,
+  CreateRoutingRule,
+  CreateSatisfaction,
   CreateTicket,
   CreateTicketMessage,
   DashboardData,
@@ -48,6 +61,8 @@ import type {
   ListCommunityPostsParams,
   ListTicketsParams,
   MemberProfile,
+  MergeTicketsBody,
+  MergeTicketsResult,
   ModuleWithLessons,
   OnboardingState,
   OwnedProduct,
@@ -58,11 +73,17 @@ import type {
   ProductInfo,
   Progress,
   ReactionToggleResult,
+  RoutingRule,
+  SatisfactionStatus,
   SignDocumentBody,
   SignDocumentResponse,
+  SlaDashboard,
   SuccessResponse,
   Ticket,
+  TicketAnalytics,
   TicketMessage,
+  TicketSatisfaction,
+  TicketSlaDetail,
   TicketWithMessages,
   ToggleCommunityReaction,
   TrackWithModules,
@@ -1883,6 +1904,1724 @@ export const useAddTicketMessage = <
   TContext
 > => {
   return useMutation(getAddTicketMessageMutationOptions(options));
+};
+
+/**
+ * @summary Submit satisfaction survey for a resolved ticket
+ */
+export const getSubmitTicketSatisfactionUrl = (id: number) => {
+  return `/api/tickets/${id}/satisfaction`;
+};
+
+export const submitTicketSatisfaction = async (
+  id: number,
+  createSatisfaction: CreateSatisfaction,
+  options?: RequestInit,
+): Promise<TicketSatisfaction> => {
+  return customFetch<TicketSatisfaction>(getSubmitTicketSatisfactionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSatisfaction),
+  });
+};
+
+export const getSubmitTicketSatisfactionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTicketSatisfaction>>,
+    TError,
+    { id: number; data: BodyType<CreateSatisfaction> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitTicketSatisfaction>>,
+  TError,
+  { id: number; data: BodyType<CreateSatisfaction> },
+  TContext
+> => {
+  const mutationKey = ["submitTicketSatisfaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitTicketSatisfaction>>,
+    { id: number; data: BodyType<CreateSatisfaction> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return submitTicketSatisfaction(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitTicketSatisfactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitTicketSatisfaction>>
+>;
+export type SubmitTicketSatisfactionMutationBody = BodyType<CreateSatisfaction>;
+export type SubmitTicketSatisfactionMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit satisfaction survey for a resolved ticket
+ */
+export const useSubmitTicketSatisfaction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTicketSatisfaction>>,
+    TError,
+    { id: number; data: BodyType<CreateSatisfaction> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitTicketSatisfaction>>,
+  TError,
+  { id: number; data: BodyType<CreateSatisfaction> },
+  TContext
+> => {
+  return useMutation(getSubmitTicketSatisfactionMutationOptions(options));
+};
+
+/**
+ * @summary Get satisfaction survey status for a ticket
+ */
+export const getGetTicketSatisfactionUrl = (id: number) => {
+  return `/api/tickets/${id}/satisfaction`;
+};
+
+export const getTicketSatisfaction = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SatisfactionStatus> => {
+  return customFetch<SatisfactionStatus>(getGetTicketSatisfactionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTicketSatisfactionQueryKey = (id: number) => {
+  return [`/api/tickets/${id}/satisfaction`] as const;
+};
+
+export const getGetTicketSatisfactionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTicketSatisfaction>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTicketSatisfaction>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTicketSatisfactionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTicketSatisfaction>>
+  > = ({ signal }) => getTicketSatisfaction(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTicketSatisfaction>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTicketSatisfactionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTicketSatisfaction>>
+>;
+export type GetTicketSatisfactionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get satisfaction survey status for a ticket
+ */
+
+export function useGetTicketSatisfaction<
+  TData = Awaited<ReturnType<typeof getTicketSatisfaction>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTicketSatisfaction>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTicketSatisfactionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all tickets (admin)
+ */
+export const getAdminListTicketsUrl = (params?: AdminListTicketsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/tickets?${stringifiedParams}`
+    : `/api/admin/tickets`;
+};
+
+export const adminListTickets = async (
+  params?: AdminListTicketsParams,
+  options?: RequestInit,
+): Promise<AdminTicket[]> => {
+  return customFetch<AdminTicket[]>(getAdminListTicketsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListTicketsQueryKey = (
+  params?: AdminListTicketsParams,
+) => {
+  return [`/api/admin/tickets`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListTicketsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListTickets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListTicketsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListTicketsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListTickets>>
+  > = ({ signal }) => adminListTickets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListTickets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListTickets>>
+>;
+export type AdminListTicketsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tickets (admin)
+ */
+
+export function useAdminListTickets<
+  TData = Awaited<ReturnType<typeof adminListTickets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListTicketsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListTicketsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get ticket with all messages including internal notes (admin)
+ */
+export const getAdminGetTicketUrl = (id: number) => {
+  return `/api/admin/tickets/${id}`;
+};
+
+export const adminGetTicket = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminTicketWithMessages> => {
+  return customFetch<AdminTicketWithMessages>(getAdminGetTicketUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetTicketQueryKey = (id: number) => {
+  return [`/api/admin/tickets/${id}`] as const;
+};
+
+export const getAdminGetTicketQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetTicket>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTicket>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetTicketQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminGetTicket>>> = ({
+    signal,
+  }) => adminGetTicket(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTicket>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetTicketQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetTicket>>
+>;
+export type AdminGetTicketQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get ticket with all messages including internal notes (admin)
+ */
+
+export function useAdminGetTicket<
+  TData = Awaited<ReturnType<typeof adminGetTicket>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTicket>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetTicketQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update ticket status (admin)
+ */
+export const getAdminUpdateTicketStatusUrl = (id: number) => {
+  return `/api/admin/tickets/${id}/status`;
+};
+
+export const adminUpdateTicketStatus = async (
+  id: number,
+  adminUpdateTicketStatusBody: AdminUpdateTicketStatusBody,
+  options?: RequestInit,
+): Promise<AdminTicket> => {
+  return customFetch<AdminTicket>(getAdminUpdateTicketStatusUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateTicketStatusBody),
+  });
+};
+
+export const getAdminUpdateTicketStatusMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTicketStatus>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTicketStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateTicketStatus>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTicketStatusBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateTicketStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateTicketStatus>>,
+    { id: number; data: BodyType<AdminUpdateTicketStatusBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateTicketStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateTicketStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateTicketStatus>>
+>;
+export type AdminUpdateTicketStatusMutationBody =
+  BodyType<AdminUpdateTicketStatusBody>;
+export type AdminUpdateTicketStatusMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update ticket status (admin)
+ */
+export const useAdminUpdateTicketStatus = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTicketStatus>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateTicketStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateTicketStatus>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateTicketStatusBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateTicketStatusMutationOptions(options));
+};
+
+/**
+ * @summary Send a reply to a ticket (admin)
+ */
+export const getAdminReplyToTicketUrl = (id: number) => {
+  return `/api/admin/tickets/${id}/reply`;
+};
+
+export const adminReplyToTicket = async (
+  id: number,
+  createTicketMessage: CreateTicketMessage,
+  options?: RequestInit,
+): Promise<AdminTicketMessage> => {
+  return customFetch<AdminTicketMessage>(getAdminReplyToTicketUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTicketMessage),
+  });
+};
+
+export const getAdminReplyToTicketMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReplyToTicket>>,
+    TError,
+    { id: number; data: BodyType<CreateTicketMessage> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReplyToTicket>>,
+  TError,
+  { id: number; data: BodyType<CreateTicketMessage> },
+  TContext
+> => {
+  const mutationKey = ["adminReplyToTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReplyToTicket>>,
+    { id: number; data: BodyType<CreateTicketMessage> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminReplyToTicket(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReplyToTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReplyToTicket>>
+>;
+export type AdminReplyToTicketMutationBody = BodyType<CreateTicketMessage>;
+export type AdminReplyToTicketMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a reply to a ticket (admin)
+ */
+export const useAdminReplyToTicket = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReplyToTicket>>,
+    TError,
+    { id: number; data: BodyType<CreateTicketMessage> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReplyToTicket>>,
+  TError,
+  { id: number; data: BodyType<CreateTicketMessage> },
+  TContext
+> => {
+  return useMutation(getAdminReplyToTicketMutationOptions(options));
+};
+
+/**
+ * @summary Add an internal note to a ticket (admin)
+ */
+export const getAdminAddInternalNoteUrl = (id: number) => {
+  return `/api/admin/tickets/${id}/internal-note`;
+};
+
+export const adminAddInternalNote = async (
+  id: number,
+  createTicketMessage: CreateTicketMessage,
+  options?: RequestInit,
+): Promise<AdminTicketMessage> => {
+  return customFetch<AdminTicketMessage>(getAdminAddInternalNoteUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTicketMessage),
+  });
+};
+
+export const getAdminAddInternalNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminAddInternalNote>>,
+    TError,
+    { id: number; data: BodyType<CreateTicketMessage> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminAddInternalNote>>,
+  TError,
+  { id: number; data: BodyType<CreateTicketMessage> },
+  TContext
+> => {
+  const mutationKey = ["adminAddInternalNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminAddInternalNote>>,
+    { id: number; data: BodyType<CreateTicketMessage> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminAddInternalNote(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminAddInternalNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminAddInternalNote>>
+>;
+export type AdminAddInternalNoteMutationBody = BodyType<CreateTicketMessage>;
+export type AdminAddInternalNoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an internal note to a ticket (admin)
+ */
+export const useAdminAddInternalNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminAddInternalNote>>,
+    TError,
+    { id: number; data: BodyType<CreateTicketMessage> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminAddInternalNote>>,
+  TError,
+  { id: number; data: BodyType<CreateTicketMessage> },
+  TContext
+> => {
+  return useMutation(getAdminAddInternalNoteMutationOptions(options));
+};
+
+/**
+ * @summary Get SLA details for a ticket (admin)
+ */
+export const getAdminGetTicketSlaUrl = (id: number) => {
+  return `/api/admin/tickets/${id}/sla`;
+};
+
+export const adminGetTicketSla = async (
+  id: number,
+  options?: RequestInit,
+): Promise<TicketSlaDetail> => {
+  return customFetch<TicketSlaDetail>(getAdminGetTicketSlaUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetTicketSlaQueryKey = (id: number) => {
+  return [`/api/admin/tickets/${id}/sla`] as const;
+};
+
+export const getAdminGetTicketSlaQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetTicketSla>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTicketSla>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetTicketSlaQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetTicketSla>>
+  > = ({ signal }) => adminGetTicketSla(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTicketSla>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetTicketSlaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetTicketSla>>
+>;
+export type AdminGetTicketSlaQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get SLA details for a ticket (admin)
+ */
+
+export function useAdminGetTicketSla<
+  TData = Awaited<ReturnType<typeof adminGetTicketSla>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTicketSla>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetTicketSlaQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Merge duplicate tickets into a primary ticket
+ */
+export const getAdminMergeTicketsUrl = () => {
+  return `/api/admin/tickets/merge`;
+};
+
+export const adminMergeTickets = async (
+  mergeTicketsBody: MergeTicketsBody,
+  options?: RequestInit,
+): Promise<MergeTicketsResult> => {
+  return customFetch<MergeTicketsResult>(getAdminMergeTicketsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mergeTicketsBody),
+  });
+};
+
+export const getAdminMergeTicketsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminMergeTickets>>,
+    TError,
+    { data: BodyType<MergeTicketsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminMergeTickets>>,
+  TError,
+  { data: BodyType<MergeTicketsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminMergeTickets"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminMergeTickets>>,
+    { data: BodyType<MergeTicketsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminMergeTickets(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminMergeTicketsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminMergeTickets>>
+>;
+export type AdminMergeTicketsMutationBody = BodyType<MergeTicketsBody>;
+export type AdminMergeTicketsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Merge duplicate tickets into a primary ticket
+ */
+export const useAdminMergeTickets = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminMergeTickets>>,
+    TError,
+    { data: BodyType<MergeTicketsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminMergeTickets>>,
+  TError,
+  { data: BodyType<MergeTicketsBody> },
+  TContext
+> => {
+  return useMutation(getAdminMergeTicketsMutationOptions(options));
+};
+
+/**
+ * @summary Get SLA compliance dashboard (admin)
+ */
+export const getAdminGetSlaDashboardUrl = () => {
+  return `/api/admin/tickets/sla-dashboard`;
+};
+
+export const adminGetSlaDashboard = async (
+  options?: RequestInit,
+): Promise<SlaDashboard> => {
+  return customFetch<SlaDashboard>(getAdminGetSlaDashboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetSlaDashboardQueryKey = () => {
+  return [`/api/admin/tickets/sla-dashboard`] as const;
+};
+
+export const getAdminGetSlaDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetSlaDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSlaDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetSlaDashboardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetSlaDashboard>>
+  > = ({ signal }) => adminGetSlaDashboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSlaDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetSlaDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetSlaDashboard>>
+>;
+export type AdminGetSlaDashboardQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get SLA compliance dashboard (admin)
+ */
+
+export function useAdminGetSlaDashboard<
+  TData = Awaited<ReturnType<typeof adminGetSlaDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSlaDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetSlaDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get ticket analytics (admin)
+ */
+export const getAdminGetTicketAnalyticsUrl = () => {
+  return `/api/admin/tickets/analytics`;
+};
+
+export const adminGetTicketAnalytics = async (
+  options?: RequestInit,
+): Promise<TicketAnalytics> => {
+  return customFetch<TicketAnalytics>(getAdminGetTicketAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetTicketAnalyticsQueryKey = () => {
+  return [`/api/admin/tickets/analytics`] as const;
+};
+
+export const getAdminGetTicketAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetTicketAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTicketAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetTicketAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetTicketAnalytics>>
+  > = ({ signal }) => adminGetTicketAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTicketAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetTicketAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetTicketAnalytics>>
+>;
+export type AdminGetTicketAnalyticsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get ticket analytics (admin)
+ */
+
+export function useAdminGetTicketAnalytics<
+  TData = Awaited<ReturnType<typeof adminGetTicketAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTicketAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetTicketAnalyticsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get agent performance metrics (admin)
+ */
+export const getAdminGetAgentPerformanceUrl = () => {
+  return `/api/admin/tickets/agent-performance`;
+};
+
+export const adminGetAgentPerformance = async (
+  options?: RequestInit,
+): Promise<AgentPerformance[]> => {
+  return customFetch<AgentPerformance[]>(getAdminGetAgentPerformanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetAgentPerformanceQueryKey = () => {
+  return [`/api/admin/tickets/agent-performance`] as const;
+};
+
+export const getAdminGetAgentPerformanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetAgentPerformance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAgentPerformance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetAgentPerformanceQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetAgentPerformance>>
+  > = ({ signal }) => adminGetAgentPerformance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAgentPerformance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetAgentPerformanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetAgentPerformance>>
+>;
+export type AdminGetAgentPerformanceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get agent performance metrics (admin)
+ */
+
+export function useAdminGetAgentPerformance<
+  TData = Awaited<ReturnType<typeof adminGetAgentPerformance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAgentPerformance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetAgentPerformanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List canned responses with optional category filter
+ */
+export const getAdminListCannedResponsesUrl = (
+  params?: AdminListCannedResponsesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/canned-responses?${stringifiedParams}`
+    : `/api/admin/canned-responses`;
+};
+
+export const adminListCannedResponses = async (
+  params?: AdminListCannedResponsesParams,
+  options?: RequestInit,
+): Promise<CannedResponse[]> => {
+  return customFetch<CannedResponse[]>(getAdminListCannedResponsesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListCannedResponsesQueryKey = (
+  params?: AdminListCannedResponsesParams,
+) => {
+  return [`/api/admin/canned-responses`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListCannedResponsesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListCannedResponses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListCannedResponsesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListCannedResponses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListCannedResponsesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListCannedResponses>>
+  > = ({ signal }) =>
+    adminListCannedResponses(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListCannedResponses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListCannedResponsesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListCannedResponses>>
+>;
+export type AdminListCannedResponsesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List canned responses with optional category filter
+ */
+
+export function useAdminListCannedResponses<
+  TData = Awaited<ReturnType<typeof adminListCannedResponses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListCannedResponsesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListCannedResponses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListCannedResponsesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new canned response
+ */
+export const getAdminCreateCannedResponseUrl = () => {
+  return `/api/admin/canned-responses`;
+};
+
+export const adminCreateCannedResponse = async (
+  createCannedResponse: CreateCannedResponse,
+  options?: RequestInit,
+): Promise<CannedResponse> => {
+  return customFetch<CannedResponse>(getAdminCreateCannedResponseUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCannedResponse),
+  });
+};
+
+export const getAdminCreateCannedResponseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateCannedResponse>>,
+    TError,
+    { data: BodyType<CreateCannedResponse> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateCannedResponse>>,
+  TError,
+  { data: BodyType<CreateCannedResponse> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateCannedResponse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateCannedResponse>>,
+    { data: BodyType<CreateCannedResponse> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateCannedResponse(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateCannedResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateCannedResponse>>
+>;
+export type AdminCreateCannedResponseMutationBody =
+  BodyType<CreateCannedResponse>;
+export type AdminCreateCannedResponseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new canned response
+ */
+export const useAdminCreateCannedResponse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateCannedResponse>>,
+    TError,
+    { data: BodyType<CreateCannedResponse> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateCannedResponse>>,
+  TError,
+  { data: BodyType<CreateCannedResponse> },
+  TContext
+> => {
+  return useMutation(getAdminCreateCannedResponseMutationOptions(options));
+};
+
+/**
+ * @summary Update a canned response
+ */
+export const getAdminUpdateCannedResponseUrl = (id: number) => {
+  return `/api/admin/canned-responses/${id}`;
+};
+
+export const adminUpdateCannedResponse = async (
+  id: number,
+  createCannedResponse: CreateCannedResponse,
+  options?: RequestInit,
+): Promise<CannedResponse> => {
+  return customFetch<CannedResponse>(getAdminUpdateCannedResponseUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCannedResponse),
+  });
+};
+
+export const getAdminUpdateCannedResponseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCannedResponse>>,
+    TError,
+    { id: number; data: BodyType<CreateCannedResponse> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateCannedResponse>>,
+  TError,
+  { id: number; data: BodyType<CreateCannedResponse> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateCannedResponse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateCannedResponse>>,
+    { id: number; data: BodyType<CreateCannedResponse> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateCannedResponse(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateCannedResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateCannedResponse>>
+>;
+export type AdminUpdateCannedResponseMutationBody =
+  BodyType<CreateCannedResponse>;
+export type AdminUpdateCannedResponseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a canned response
+ */
+export const useAdminUpdateCannedResponse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCannedResponse>>,
+    TError,
+    { id: number; data: BodyType<CreateCannedResponse> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateCannedResponse>>,
+  TError,
+  { id: number; data: BodyType<CreateCannedResponse> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateCannedResponseMutationOptions(options));
+};
+
+/**
+ * @summary Delete a canned response
+ */
+export const getAdminDeleteCannedResponseUrl = (id: number) => {
+  return `/api/admin/canned-responses/${id}`;
+};
+
+export const adminDeleteCannedResponse = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteCannedResponse200> => {
+  return customFetch<AdminDeleteCannedResponse200>(
+    getAdminDeleteCannedResponseUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getAdminDeleteCannedResponseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteCannedResponse>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteCannedResponse>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteCannedResponse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteCannedResponse>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteCannedResponse(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteCannedResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteCannedResponse>>
+>;
+
+export type AdminDeleteCannedResponseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a canned response
+ */
+export const useAdminDeleteCannedResponse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteCannedResponse>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteCannedResponse>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteCannedResponseMutationOptions(options));
+};
+
+/**
+ * @summary List ticket routing rules
+ */
+export const getAdminListRoutingRulesUrl = () => {
+  return `/api/admin/ticket-routing`;
+};
+
+export const adminListRoutingRules = async (
+  options?: RequestInit,
+): Promise<RoutingRule[]> => {
+  return customFetch<RoutingRule[]>(getAdminListRoutingRulesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListRoutingRulesQueryKey = () => {
+  return [`/api/admin/ticket-routing`] as const;
+};
+
+export const getAdminListRoutingRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListRoutingRules>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoutingRules>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListRoutingRulesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListRoutingRules>>
+  > = ({ signal }) => adminListRoutingRules({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoutingRules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListRoutingRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListRoutingRules>>
+>;
+export type AdminListRoutingRulesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List ticket routing rules
+ */
+
+export function useAdminListRoutingRules<
+  TData = Awaited<ReturnType<typeof adminListRoutingRules>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoutingRules>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListRoutingRulesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a ticket routing rule
+ */
+export const getAdminCreateRoutingRuleUrl = () => {
+  return `/api/admin/ticket-routing`;
+};
+
+export const adminCreateRoutingRule = async (
+  createRoutingRule: CreateRoutingRule,
+  options?: RequestInit,
+): Promise<RoutingRule> => {
+  return customFetch<RoutingRule>(getAdminCreateRoutingRuleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRoutingRule),
+  });
+};
+
+export const getAdminCreateRoutingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateRoutingRule>>,
+    TError,
+    { data: BodyType<CreateRoutingRule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateRoutingRule>>,
+  TError,
+  { data: BodyType<CreateRoutingRule> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateRoutingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateRoutingRule>>,
+    { data: BodyType<CreateRoutingRule> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateRoutingRule(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateRoutingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateRoutingRule>>
+>;
+export type AdminCreateRoutingRuleMutationBody = BodyType<CreateRoutingRule>;
+export type AdminCreateRoutingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a ticket routing rule
+ */
+export const useAdminCreateRoutingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateRoutingRule>>,
+    TError,
+    { data: BodyType<CreateRoutingRule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateRoutingRule>>,
+  TError,
+  { data: BodyType<CreateRoutingRule> },
+  TContext
+> => {
+  return useMutation(getAdminCreateRoutingRuleMutationOptions(options));
+};
+
+/**
+ * @summary Update a ticket routing rule
+ */
+export const getAdminUpdateRoutingRuleUrl = (id: number) => {
+  return `/api/admin/ticket-routing/${id}`;
+};
+
+export const adminUpdateRoutingRule = async (
+  id: number,
+  createRoutingRule: CreateRoutingRule,
+  options?: RequestInit,
+): Promise<RoutingRule> => {
+  return customFetch<RoutingRule>(getAdminUpdateRoutingRuleUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRoutingRule),
+  });
+};
+
+export const getAdminUpdateRoutingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateRoutingRule>>,
+    TError,
+    { id: number; data: BodyType<CreateRoutingRule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateRoutingRule>>,
+  TError,
+  { id: number; data: BodyType<CreateRoutingRule> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateRoutingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateRoutingRule>>,
+    { id: number; data: BodyType<CreateRoutingRule> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateRoutingRule(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateRoutingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateRoutingRule>>
+>;
+export type AdminUpdateRoutingRuleMutationBody = BodyType<CreateRoutingRule>;
+export type AdminUpdateRoutingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a ticket routing rule
+ */
+export const useAdminUpdateRoutingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateRoutingRule>>,
+    TError,
+    { id: number; data: BodyType<CreateRoutingRule> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateRoutingRule>>,
+  TError,
+  { id: number; data: BodyType<CreateRoutingRule> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateRoutingRuleMutationOptions(options));
+};
+
+/**
+ * @summary Delete a ticket routing rule
+ */
+export const getAdminDeleteRoutingRuleUrl = (id: number) => {
+  return `/api/admin/ticket-routing/${id}`;
+};
+
+export const adminDeleteRoutingRule = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteRoutingRule200> => {
+  return customFetch<AdminDeleteRoutingRule200>(
+    getAdminDeleteRoutingRuleUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getAdminDeleteRoutingRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteRoutingRule>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteRoutingRule>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteRoutingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteRoutingRule>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteRoutingRule(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteRoutingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteRoutingRule>>
+>;
+
+export type AdminDeleteRoutingRuleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a ticket routing rule
+ */
+export const useAdminDeleteRoutingRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteRoutingRule>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteRoutingRule>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteRoutingRuleMutationOptions(options));
 };
 
 /**

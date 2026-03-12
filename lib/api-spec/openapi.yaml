@@ -20,6 +20,7 @@ tags:
   - name: coaching
   - name: coaches
   - name: tickets
+  - name: admin-tickets
   - name: announcements
   - name: community
   - name: community-categories
@@ -408,6 +409,428 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TicketMessage"
+
+  /tickets/{id}/satisfaction:
+    post:
+      operationId: submitTicketSatisfaction
+      tags: [tickets]
+      summary: Submit satisfaction survey for a resolved ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSatisfaction"
+      responses:
+        "201":
+          description: Satisfaction survey submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketSatisfaction"
+        "400":
+          description: Bad request
+        "409":
+          description: Survey already submitted
+    get:
+      operationId: getTicketSatisfaction
+      tags: [tickets]
+      summary: Get satisfaction survey status for a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Satisfaction status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatisfactionStatus"
+
+  /admin/tickets:
+    get:
+      operationId: adminListTickets
+      tags: [admin-tickets]
+      summary: List all tickets (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: assignedTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of all tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTicket"
+
+  /admin/tickets/{id}:
+    get:
+      operationId: adminGetTicket
+      tags: [admin-tickets]
+      summary: Get ticket with all messages including internal notes (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket with all messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTicketWithMessages"
+
+  /admin/tickets/{id}/status:
+    put:
+      operationId: adminUpdateTicketStatus
+      tags: [admin-tickets]
+      summary: Update ticket status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [open, in_progress, awaiting_response, resolved, closed]
+              required: [status]
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTicket"
+
+  /admin/tickets/{id}/reply:
+    post:
+      operationId: adminReplyToTicket
+      tags: [admin-tickets]
+      summary: Send a reply to a ticket (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketMessage"
+      responses:
+        "201":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTicketMessage"
+
+  /admin/tickets/{id}/internal-note:
+    post:
+      operationId: adminAddInternalNote
+      tags: [admin-tickets]
+      summary: Add an internal note to a ticket (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketMessage"
+      responses:
+        "201":
+          description: Internal note added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTicketMessage"
+
+  /admin/tickets/{id}/sla:
+    get:
+      operationId: adminGetTicketSla
+      tags: [admin-tickets]
+      summary: Get SLA details for a ticket (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SLA details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketSlaDetail"
+
+  /admin/tickets/merge:
+    post:
+      operationId: adminMergeTickets
+      tags: [admin-tickets]
+      summary: Merge duplicate tickets into a primary ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeTicketsBody"
+      responses:
+        "200":
+          description: Merge result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeTicketsResult"
+
+  /admin/tickets/sla-dashboard:
+    get:
+      operationId: adminGetSlaDashboard
+      tags: [admin-tickets]
+      summary: Get SLA compliance dashboard (admin)
+      responses:
+        "200":
+          description: SLA dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlaDashboard"
+
+  /admin/tickets/analytics:
+    get:
+      operationId: adminGetTicketAnalytics
+      tags: [admin-tickets]
+      summary: Get ticket analytics (admin)
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketAnalytics"
+
+  /admin/tickets/agent-performance:
+    get:
+      operationId: adminGetAgentPerformance
+      tags: [admin-tickets]
+      summary: Get agent performance metrics (admin)
+      responses:
+        "200":
+          description: Agent performance data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentPerformance"
+
+  /admin/canned-responses:
+    get:
+      operationId: adminListCannedResponses
+      tags: [admin-tickets]
+      summary: List canned responses with optional category filter
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of canned responses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CannedResponse"
+    post:
+      operationId: adminCreateCannedResponse
+      tags: [admin-tickets]
+      summary: Create a new canned response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCannedResponse"
+      responses:
+        "201":
+          description: Canned response created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CannedResponse"
+
+  /admin/canned-responses/{id}:
+    put:
+      operationId: adminUpdateCannedResponse
+      tags: [admin-tickets]
+      summary: Update a canned response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCannedResponse"
+      responses:
+        "200":
+          description: Canned response updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CannedResponse"
+    delete:
+      operationId: adminDeleteCannedResponse
+      tags: [admin-tickets]
+      summary: Delete a canned response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /admin/ticket-routing:
+    get:
+      operationId: adminListRoutingRules
+      tags: [admin-tickets]
+      summary: List ticket routing rules
+      responses:
+        "200":
+          description: List of routing rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingRule"
+    post:
+      operationId: adminCreateRoutingRule
+      tags: [admin-tickets]
+      summary: Create a ticket routing rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutingRule"
+      responses:
+        "201":
+          description: Routing rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+
+  /admin/ticket-routing/{id}:
+    put:
+      operationId: adminUpdateRoutingRule
+      tags: [admin-tickets]
+      summary: Update a ticket routing rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutingRule"
+      responses:
+        "200":
+          description: Routing rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+    delete:
+      operationId: adminDeleteRoutingRule
+      tags: [admin-tickets]
+      summary: Delete a ticket routing rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
 
   /announcements:
     get:
@@ -1123,6 +1546,8 @@ components:
           enum: [open, in_progress, awaiting_response, resolved, closed]
         subject:
           type: string
+        assignedTo:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -1163,6 +1588,8 @@ components:
           type: string
         subject:
           type: string
+        assignedTo:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -1293,6 +1720,363 @@ components:
         smsOptIn:
           type: boolean
       required: [name, smsOptIn]
+
+    AdminTicket:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketNumber:
+          type: string
+        userId:
+          type: integer
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        subject:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt]
+
+    AdminTicketMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        senderType:
+          type: string
+          enum: [member, admin]
+        body:
+          type: string
+        isInternal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, ticketId, senderType, body, isInternal, createdAt]
+
+    AdminTicketWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketNumber:
+          type: string
+        userId:
+          type: integer
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        subject:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTicketMessage"
+      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt, messages]
+
+    CreateSatisfaction:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        feedback:
+          type: ["string", "null"]
+      required: [rating]
+
+    TicketSatisfaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        userId:
+          type: integer
+        rating:
+          type: integer
+        feedback:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, ticketId, userId, rating, createdAt]
+
+    SatisfactionStatus:
+      type: object
+      properties:
+        submitted:
+          type: boolean
+        rating:
+          type: integer
+        feedback:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [submitted]
+
+    TicketSlaDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        tierSlug:
+          type: string
+        firstResponseTargetMinutes:
+          type: integer
+        resolutionTargetMinutes:
+          type: integer
+        firstResponseAt:
+          type: ["string", "null"]
+          format: date-time
+        firstResponseBreached:
+          type: boolean
+        firstResponseWarning:
+          type: boolean
+        resolutionBreached:
+          type: boolean
+        resolutionWarning:
+          type: boolean
+        totalPausedMinutes:
+          type: integer
+        elapsedBusinessMinutes:
+          type: integer
+        firstResponsePct:
+          type: ["integer", "null"]
+        resolutionPct:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, ticketId, tierSlug, firstResponseTargetMinutes, resolutionTargetMinutes, firstResponseBreached, firstResponseWarning, resolutionBreached, resolutionWarning, totalPausedMinutes, elapsedBusinessMinutes, resolutionPct, createdAt]
+
+    MergeTicketsBody:
+      type: object
+      properties:
+        primaryTicketId:
+          type: integer
+        ticketIds:
+          type: array
+          items:
+            type: integer
+      required: [primaryTicketId, ticketIds]
+
+    MergeTicketsResult:
+      type: object
+      properties:
+        primaryTicket:
+          $ref: "#/components/schemas/AdminTicket"
+        mergedCount:
+          type: integer
+        totalMessages:
+          type: integer
+      required: [primaryTicket, mergedCount, totalMessages]
+
+    SlaDashboard:
+      type: object
+      properties:
+        total:
+          type: integer
+        compliant:
+          type: integer
+        complianceRate:
+          type: integer
+        firstResponseBreached:
+          type: integer
+        firstResponseWarning:
+          type: integer
+        resolutionBreached:
+          type: integer
+        resolutionWarning:
+          type: integer
+        byTier:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              total:
+                type: integer
+              compliant:
+                type: integer
+              breached:
+                type: integer
+            required: [total, compliant, breached]
+      required: [total, compliant, complianceRate, firstResponseBreached, firstResponseWarning, resolutionBreached, resolutionWarning, byTier]
+
+    TicketAnalytics:
+      type: object
+      properties:
+        totalTickets:
+          type: integer
+        last30Days:
+          type: integer
+        last7Days:
+          type: integer
+        byStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+            required: [status, count]
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+            required: [category, count]
+        byPriority:
+          type: array
+          items:
+            type: object
+            properties:
+              priority:
+                type: string
+              count:
+                type: integer
+            required: [priority, count]
+        averageSatisfaction:
+          type: number
+      required: [totalTickets, last30Days, last7Days, byStatus, byCategory, byPriority, averageSatisfaction]
+
+    AgentPerformance:
+      type: object
+      properties:
+        agentId:
+          type: integer
+        agentName:
+          type: string
+        agentEmail:
+          type: string
+        totalAssigned:
+          type: integer
+        openTickets:
+          type: integer
+        resolvedTickets:
+          type: integer
+        slaBreaches:
+          type: integer
+        averageRating:
+          type: number
+      required: [agentId, agentName, agentEmail, totalAssigned, openTickets, resolvedTickets, slaBreaches, averageRating]
+
+    CannedResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        body:
+          type: string
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, category, body, sortOrder, createdAt, updatedAt]
+
+    CreateCannedResponse:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        body:
+          type: string
+        sortOrder:
+          type: integer
+      required: [title, body]
+
+    RoutingRule:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        tierSlug:
+          type: ["string", "null"]
+        assignToUserId:
+          type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, sortOrder, isActive, createdAt]
+
+    CreateRoutingRule:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        tierSlug:
+          type: ["string", "null"]
+        assignToUserId:
+          type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [name]
 
     LegalDocument:
       type: object

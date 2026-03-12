@@ -247,6 +247,8 @@ export interface Ticket {
   priority: TicketPriority;
   status: TicketStatus;
   subject: string;
+  /** @nullable */
+  assignedTo?: number | null;
   createdAt: string;
   updatedAt: string;
   /** @nullable */
@@ -294,6 +296,8 @@ export interface TicketWithMessages {
   priority: string;
   status: string;
   subject: string;
+  /** @nullable */
+  assignedTo?: number | null;
   createdAt: string;
   updatedAt: string;
   /** @nullable */
@@ -347,6 +351,217 @@ export interface PatchMemberProfileResponse {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+}
+
+export interface AdminTicket {
+  id: number;
+  ticketNumber: string;
+  userId: number;
+  category: string;
+  priority: string;
+  status: string;
+  subject: string;
+  /** @nullable */
+  assignedTo?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  resolvedAt?: string | null;
+}
+
+export type AdminTicketMessageSenderType =
+  (typeof AdminTicketMessageSenderType)[keyof typeof AdminTicketMessageSenderType];
+
+export const AdminTicketMessageSenderType = {
+  member: "member",
+  admin: "admin",
+} as const;
+
+export interface AdminTicketMessage {
+  id: number;
+  ticketId: number;
+  senderType: AdminTicketMessageSenderType;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+}
+
+export interface AdminTicketWithMessages {
+  id: number;
+  ticketNumber: string;
+  userId: number;
+  category: string;
+  priority: string;
+  status: string;
+  subject: string;
+  /** @nullable */
+  assignedTo?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  resolvedAt?: string | null;
+  messages: AdminTicketMessage[];
+}
+
+export interface CreateSatisfaction {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /** @nullable */
+  feedback?: string | null;
+}
+
+export interface TicketSatisfaction {
+  id: number;
+  ticketId: number;
+  userId: number;
+  rating: number;
+  /** @nullable */
+  feedback?: string | null;
+  createdAt: string;
+}
+
+export interface SatisfactionStatus {
+  submitted: boolean;
+  rating?: number;
+  /** @nullable */
+  feedback?: string | null;
+  createdAt?: string;
+}
+
+export interface TicketSlaDetail {
+  id: number;
+  ticketId: number;
+  tierSlug: string;
+  firstResponseTargetMinutes: number;
+  resolutionTargetMinutes: number;
+  /** @nullable */
+  firstResponseAt?: string | null;
+  firstResponseBreached: boolean;
+  firstResponseWarning: boolean;
+  resolutionBreached: boolean;
+  resolutionWarning: boolean;
+  totalPausedMinutes: number;
+  elapsedBusinessMinutes: number;
+  /** @nullable */
+  firstResponsePct?: number | null;
+  resolutionPct: number;
+  createdAt: string;
+}
+
+export interface MergeTicketsBody {
+  primaryTicketId: number;
+  ticketIds: number[];
+}
+
+export interface MergeTicketsResult {
+  primaryTicket: AdminTicket;
+  mergedCount: number;
+  totalMessages: number;
+}
+
+export type SlaDashboardByTier = {
+  [key: string]: {
+    total: number;
+    compliant: number;
+    breached: number;
+  };
+};
+
+export interface SlaDashboard {
+  total: number;
+  compliant: number;
+  complianceRate: number;
+  firstResponseBreached: number;
+  firstResponseWarning: number;
+  resolutionBreached: number;
+  resolutionWarning: number;
+  byTier: SlaDashboardByTier;
+}
+
+export type TicketAnalyticsByStatusItem = {
+  status: string;
+  count: number;
+};
+
+export type TicketAnalyticsByCategoryItem = {
+  category: string;
+  count: number;
+};
+
+export type TicketAnalyticsByPriorityItem = {
+  priority: string;
+  count: number;
+};
+
+export interface TicketAnalytics {
+  totalTickets: number;
+  last30Days: number;
+  last7Days: number;
+  byStatus: TicketAnalyticsByStatusItem[];
+  byCategory: TicketAnalyticsByCategoryItem[];
+  byPriority: TicketAnalyticsByPriorityItem[];
+  averageSatisfaction: number;
+}
+
+export interface AgentPerformance {
+  agentId: number;
+  agentName: string;
+  agentEmail: string;
+  totalAssigned: number;
+  openTickets: number;
+  resolvedTickets: number;
+  slaBreaches: number;
+  averageRating: number;
+}
+
+export interface CannedResponse {
+  id: number;
+  title: string;
+  category: string;
+  body: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCannedResponse {
+  title: string;
+  category?: string;
+  body: string;
+  sortOrder?: number;
+}
+
+export interface RoutingRule {
+  id: number;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  tierSlug?: string | null;
+  /** @nullable */
+  assignToUserId?: number | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateRoutingRule {
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  tierSlug?: string | null;
+  /** @nullable */
+  assignToUserId?: number | null;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 export interface LegalDocument {
@@ -607,6 +822,40 @@ export const ListTicketsStatus = {
   resolved: "resolved",
   closed: "closed",
 } as const;
+
+export type AdminListTicketsParams = {
+  status?: string;
+  category?: string;
+  assignedTo?: string;
+};
+
+export type AdminUpdateTicketStatusBodyStatus =
+  (typeof AdminUpdateTicketStatusBodyStatus)[keyof typeof AdminUpdateTicketStatusBodyStatus];
+
+export const AdminUpdateTicketStatusBodyStatus = {
+  open: "open",
+  in_progress: "in_progress",
+  awaiting_response: "awaiting_response",
+  resolved: "resolved",
+  closed: "closed",
+} as const;
+
+export type AdminUpdateTicketStatusBody = {
+  status: AdminUpdateTicketStatusBodyStatus;
+};
+
+export type AdminListCannedResponsesParams = {
+  category?: string;
+  search?: string;
+};
+
+export type AdminDeleteCannedResponse200 = {
+  success: boolean;
+};
+
+export type AdminDeleteRoutingRule200 = {
+  success: boolean;
+};
 
 export type ListAnnouncementsParams = {
   limit?: number;
