@@ -96,6 +96,13 @@ import AdminMembers from "@/pages/admin/AdminMembers";
 import MemberDetail from "@/pages/admin/MemberDetail";
 import SystemHealth from "@/pages/admin/SystemHealth";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import RevenueDashboard from "@/pages/admin/RevenueDashboard";
+import CohortAnalysis from "@/pages/admin/CohortAnalysis";
+import AtRiskMembers from "@/pages/admin/AtRiskMembers";
+import UpgradeOpportunities from "@/pages/admin/UpgradeOpportunities";
+import FunnelPerformance from "@/pages/admin/FunnelPerformance";
+import LtvAnalysis from "@/pages/admin/LtvAnalysis";
+import RevenueForecast from "@/pages/admin/RevenueForecast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -405,6 +412,13 @@ function Router() {
       <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} />}</Route>
       <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} />}</Route>
       <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} />}</Route>
+      <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} />}</Route>
+      <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} />}</Route>
+      <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} />}</Route>
+      <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} />}</Route>
+      <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} />}</Route>
+      <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} />}</Route>
+      <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

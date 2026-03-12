@@ -34,7 +34,8 @@ import {
   TrendingUp,
   ScrollText,
   Server,
-  Home
+  Home,
+  LineChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,6 +127,10 @@ const adminPanelItems = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
+const adminRevenueItems = [
+  { href: "/admin/revenue", label: "Revenue Intelligence", icon: LineChart },
+];
+
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
@@ -202,7 +207,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminPanelItems, ...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
+            {[...adminPanelItems, ...adminNavItems, ...adminRevenueItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>

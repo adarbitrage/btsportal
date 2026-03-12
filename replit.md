@@ -770,6 +770,23 @@ Backend data engine for revenue intelligence. Computes, caches, and serves all r
 - `POST /admin/revenue/manual-entry` — Manual data entry (ad spend, etc.)
 - `POST /admin/revenue/recompute` — Force full pipeline recompute
 
+### Revenue Intelligence Dashboard UI
+
+Admin-facing frontend pages for visualizing revenue metrics. Located in `artifacts/portal/src/pages/admin/Revenue*.tsx`, `CohortAnalysis.tsx`, `AtRiskMembers.tsx`, `UpgradeOpportunities.tsx`, `FunnelPerformance.tsx`, `LtvAnalysis.tsx`.
+
+**Pages:**
+- `/admin/revenue` — Dashboard with 8 KPI cards (MRR, New Revenue, Expansion, Churned, ARR, Avg LTV, CAC, LTV:CAC), period selector, revenue trend area chart, revenue-by-product bar chart
+- `/admin/revenue/cohorts` — Cohort heatmap table (M0–M12 columns) with metric toggle (Revenue/Retention/Upgrade/Active) and dimension switcher (signup month/source funnel/first product/experience level)
+- `/admin/revenue/at-risk` — Health score distribution cards (critical/at-risk/watch/healthy), sortable member table with health score bars, churn probability, action buttons (retention email, GHL task, view profile)
+- `/admin/revenue/upgrade-opportunities` — Upgrade probability-ranked member table with training progress, suggested upgrade path, upgrade funnel visualization
+- `/admin/revenue/funnels` — Side-by-side funnel comparison table (purchases, revenue, refund rate, upgrade rate, avg LTV) with grouped bar chart
+- `/admin/revenue/ltv` — Overall avg LTV, segmented by first product and experience level, LTV distribution histogram
+- `/admin/revenue/forecast` — Projected MRR line chart with confidence interval shading, key assumptions display, manual data input form (month, ad spend, lead count, conversion rate)
+
+**API Client:** `artifacts/portal/src/lib/revenue-api.ts` — React Query hooks for all revenue endpoints with typed interfaces
+
+**Sidebar:** "Revenue Intelligence" link added to admin section in `Sidebar.tsx`
+
 ### `lib/api-spec` (`@workspace/api-spec`)
 
 OpenAPI 3.1 spec and Orval codegen config. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
