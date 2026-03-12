@@ -32,7 +32,7 @@ artifacts-monorepo/
 │   ├── portal/             # BTS Member Portal (React + Vite)
 │   └── mockup-sandbox/     # Design mockup preview server
 ├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
+│   ├── api-spec/           # OpenAPI 3.1 spec + Orval codegen config (Swagger UI at /api/docs when API_DOCS_ENABLED=true)
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection

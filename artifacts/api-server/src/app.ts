@@ -11,6 +11,7 @@ import { apiRequestLogger } from "./middleware/api-request-logger";
 import { startTicketJobs } from "./lib/ticket-jobs";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
+import { createSwaggerRouter } from "./middleware/swagger-ui";
 
 declare global {
   namespace Express {
@@ -49,6 +50,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api", requestIdMiddleware);
 app.use("/api", referralRedirectRouter);
+
+const swaggerRouter = createSwaggerRouter();
+if (swaggerRouter) {
+  app.use("/api", swaggerRouter);
+}
 
 app.use("/api", authenticate);
 app.use("/api", rateLimiter);

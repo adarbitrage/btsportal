@@ -5,6 +5,354 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+export interface ErrorResponse {
+  /** Error message */
+  error: string;
+  /** Machine-readable error code */
+  code?: string;
+  /** Request ID for debugging */
+  requestId?: string;
+}
+
+export interface RegisterBody {
+  name: string;
+  email: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export interface LoginBody {
+  email: string;
+  password: string;
+}
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  onboardingComplete?: boolean;
+  onboardingStep?: number;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface CommunicationRecord {
+  id: number;
+  type: string;
+  subject: string;
+  status: string;
+  sentAt: string;
+}
+
+export interface CommissionsDashboard {
+  totalEarnings?: number;
+  pendingEarnings?: number;
+  approvedEarnings?: number;
+  paidEarnings?: number;
+  totalReferrals?: number;
+  activeReferrals?: number;
+  conversionRate?: number;
+}
+
+export type CommissionEarningStatus =
+  (typeof CommissionEarningStatus)[keyof typeof CommissionEarningStatus];
+
+export const CommissionEarningStatus = {
+  pending: "pending",
+  approved: "approved",
+  paid: "paid",
+  rejected: "rejected",
+  reversed: "reversed",
+} as const;
+
+export interface CommissionEarning {
+  id: number;
+  amount: number;
+  status: CommissionEarningStatus;
+  referralName?: string;
+  productName?: string;
+  createdAt: string;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CommissionsEarningsList {
+  earnings: CommissionEarning[];
+  pagination: Pagination;
+}
+
+export interface ReferralLink {
+  id: number;
+  productSlug: string;
+  productName: string;
+  referralCode: string;
+  url: string;
+  clickCount?: number;
+  conversionCount?: number;
+}
+
+export type CommissionPayoutStatus =
+  (typeof CommissionPayoutStatus)[keyof typeof CommissionPayoutStatus];
+
+export const CommissionPayoutStatus = {
+  pending: "pending",
+  processing: "processing",
+  paid: "paid",
+  failed: "failed",
+} as const;
+
+export interface CommissionPayout {
+  id: number;
+  amount: number;
+  status: CommissionPayoutStatus;
+  payoutMethod?: string;
+  createdAt: string;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  affiliateName: string;
+  totalEarnings: number;
+  referralCount: number;
+}
+
+export type CommissionRateRateType =
+  (typeof CommissionRateRateType)[keyof typeof CommissionRateRateType];
+
+export const CommissionRateRateType = {
+  percentage: "percentage",
+  flat: "flat",
+} as const;
+
+export interface CommissionRate {
+  id: number;
+  productSlug: string;
+  rateType: CommissionRateRateType;
+  rateValue: number;
+  isActive: boolean;
+}
+
+export type CreateCommissionRateRateType =
+  (typeof CreateCommissionRateRateType)[keyof typeof CreateCommissionRateRateType];
+
+export const CreateCommissionRateRateType = {
+  percentage: "percentage",
+  flat: "flat",
+} as const;
+
+export interface CreateCommissionRate {
+  productSlug: string;
+  rateType: CreateCommissionRateRateType;
+  rateValue: number;
+  isActive?: boolean;
+}
+
+export interface AffiliateResource {
+  id: number;
+  title: string;
+  description?: string;
+  type: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface CreateAffiliateResource {
+  title: string;
+  description?: string;
+  type: string;
+  url: string;
+}
+
+export interface AffiliateProfile {
+  id: number;
+  userId: number;
+  referralCode: string;
+  payoutMethod?: string;
+  /** @nullable */
+  payoutEmail?: string | null;
+  taxFormSubmitted?: boolean;
+  isActive: boolean;
+}
+
+export interface UpdateAffiliateProfile {
+  payoutMethod?: string;
+  payoutEmail?: string;
+  isActive?: boolean;
+}
+
+export type TaxFormSubmissionFormData = { [key: string]: unknown };
+
+export interface TaxFormSubmission {
+  formType: string;
+  formData: TaxFormSubmissionFormData;
+}
+
+export interface ChartDataPoint {
+  date: string;
+  amount: number;
+  count?: number;
+}
+
+export type AdminCommissionStatus =
+  (typeof AdminCommissionStatus)[keyof typeof AdminCommissionStatus];
+
+export const AdminCommissionStatus = {
+  pending: "pending",
+  approved: "approved",
+  paid: "paid",
+  rejected: "rejected",
+  reversed: "reversed",
+} as const;
+
+export interface AdminCommission {
+  id: number;
+  affiliateId: number;
+  affiliateName?: string;
+  referralId?: number;
+  referralName?: string;
+  productName?: string;
+  amount: number;
+  status: AdminCommissionStatus;
+  createdAt: string;
+}
+
+export type FraudAlertSeverity =
+  (typeof FraudAlertSeverity)[keyof typeof FraudAlertSeverity];
+
+export const FraudAlertSeverity = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface FraudAlert {
+  id: number;
+  type: string;
+  affiliateId: number;
+  description: string;
+  severity: FraudAlertSeverity;
+  createdAt: string;
+}
+
+export interface ApiKeyInfo {
+  id: number;
+  name: string;
+  /** First few characters of the key for identification */
+  prefix: string;
+  permissions: string[];
+  /** @nullable */
+  lastUsedAt?: string | null;
+  /** @nullable */
+  expiresAt?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateApiKey {
+  name: string;
+  permissions?: string[];
+  expiresAt?: string;
+}
+
+export interface ApiKeyCreated {
+  id: number;
+  name: string;
+  /** The full API key value — only returned once at creation time */
+  key: string;
+  permissions: string[];
+  /** @nullable */
+  expiresAt?: string | null;
+  createdAt: string;
+}
+
+export interface UpdateApiKey {
+  name?: string;
+  permissions?: string[];
+  isActive?: boolean;
+}
+
+export type WebhookLogStatus =
+  (typeof WebhookLogStatus)[keyof typeof WebhookLogStatus];
+
+export const WebhookLogStatus = {
+  success: "success",
+  failed: "failed",
+  pending: "pending",
+} as const;
+
+export type WebhookLogPayload = { [key: string]: unknown };
+
+export interface WebhookLog {
+  id: number;
+  source: string;
+  event: string;
+  status: WebhookLogStatus;
+  payload?: WebhookLogPayload;
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  processedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ProductMapping {
+  id: number;
+  externalProductId: string;
+  internalProductSlug: string;
+  source: string;
+  isActive: boolean;
+}
+
+export interface UpdateProductMapping {
+  internalProductSlug?: string;
+  isActive?: boolean;
+}
+
+export interface GhlStatus {
+  connected: boolean;
+  /** @nullable */
+  lastSyncAt?: string | null;
+  totalContacts?: number;
+  syncErrors?: number;
+}
+
+export type GhlLogEntryStatus =
+  (typeof GhlLogEntryStatus)[keyof typeof GhlLogEntryStatus];
+
+export const GhlLogEntryStatus = {
+  success: "success",
+  failed: "failed",
+  pending: "pending",
+} as const;
+
+export interface GhlLogEntry {
+  id: number;
+  action: string;
+  /** @nullable */
+  userId?: number | null;
+  status: GhlLogEntryStatus;
+  /** @nullable */
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
+export interface GhlConfig {
+  apiKey?: string;
+  locationId?: string;
+  syncEnabled?: boolean;
+  syncInterval?: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -120,16 +468,6 @@ export interface Announcement {
   createdAt: string;
 }
 
-export interface DashboardToolWidget {
-  id: number;
-  slug: string;
-  name: string;
-  shortDescription: string;
-  /** @nullable */
-  icon?: string | null;
-  isFeatured: boolean;
-}
-
 export interface DashboardData {
   memberName: string;
   highestProductName: string;
@@ -148,7 +486,6 @@ export interface DashboardData {
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
   ticketLimit: number;
-  recentTools?: DashboardToolWidget[];
 }
 
 export interface ModuleSummary {
@@ -611,13 +948,6 @@ export interface ChatSessionSummary {
   title: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
 }
 
 export interface ChatSessionList {
@@ -1353,6 +1683,16 @@ export interface AnalyzeCampaignResponse {
   dailyLimit: number;
 }
 
+export interface DashboardToolWidget {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  /** @nullable */
+  icon?: string | null;
+  isFeatured: boolean;
+}
+
 export interface ChatMessageAdmin {
   id?: number;
   sessionId?: number;
@@ -1655,6 +1995,41 @@ export interface NightlyJobResult {
   reminders: NightlyJobResultReminders;
 }
 
+/**
+ * Bad request — validation error
+ */
+export type BadRequestResponse = ErrorResponse;
+
+/**
+ * Authentication required or invalid credentials
+ */
+export type UnauthorizedResponse = ErrorResponse;
+
+/**
+ * Insufficient permissions
+ */
+export type ForbiddenResponse = ErrorResponse;
+
+/**
+ * Resource not found
+ */
+export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Rate limit exceeded
+ */
+export type TooManyRequestsResponse = ErrorResponse;
+
+/**
+ * Page number for pagination
+ */
+export type PageParamParameter = number;
+
+/**
+ * Number of items per page
+ */
+export type LimitParamParameter = number;
+
 export type GetLegalDocumentsParams = {
   type?: string;
 };
@@ -1886,4 +2261,117 @@ export const ListOneOnOneSessionsStatus = {
 export type AdminListCoachingSessionsParams = {
   status?: string;
   coachId?: number;
+};
+
+export type ForgotPasswordBody = {
+  email: string;
+};
+
+export type ResetPasswordBody = {
+  token: string;
+  password: string;
+};
+
+export type VerifyEmailBody = {
+  token: string;
+};
+
+export type EmailUnsubscribeParams = {
+  token: string;
+};
+
+export type EmailResubscribeBody = {
+  token: string;
+};
+
+export type GetCommissionsEarningsParams = {
+  /**
+   * Page number for pagination
+   * @minimum 1
+   */
+  page?: PageParamParameter;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+};
+
+export type GetCommissionsChartParams = {
+  period?: GetCommissionsChartPeriod;
+};
+
+export type GetCommissionsChartPeriod =
+  (typeof GetCommissionsChartPeriod)[keyof typeof GetCommissionsChartPeriod];
+
+export const GetCommissionsChartPeriod = {
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
+  "12m": "12m",
+} as const;
+
+export type AdminListCommissionsParams = {
+  status?: string;
+  /**
+   * Page number for pagination
+   * @minimum 1
+   */
+  page?: PageParamParameter;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+};
+
+export type AdminListWebhookLogsParams = {
+  /**
+   * Page number for pagination
+   * @minimum 1
+   */
+  page?: PageParamParameter;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+};
+
+export type AdminGetGhlLogParams = {
+  /**
+   * Page number for pagination
+   * @minimum 1
+   */
+  page?: PageParamParameter;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+};
+
+export type AdminListGhlContactsParams = {
+  search?: string;
+};
+
+export type AdminListGhlContacts200Item = { [key: string]: unknown };
+
+export type HandleThrivecartWebhookBody = { [key: string]: unknown };
+
+export type HandleGhlWebhookBody = { [key: string]: unknown };
+
+export type HandleSendgridWebhookBodyItem = { [key: string]: unknown };
+
+export type HandleTwilioWebhookBody = { [key: string]: unknown };
+
+export type ReferralRedirectParams = {
+  /**
+   * Referral code
+   */
+  ref?: string;
 };

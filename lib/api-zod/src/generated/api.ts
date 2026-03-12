@@ -230,18 +230,6 @@ export const GetDashboardResponse = zod.object({
     }),
   ),
   ticketLimit: zod.number(),
-  recentTools: zod
-    .array(
-      zod.object({
-        id: zod.number(),
-        slug: zod.string(),
-        name: zod.string(),
-        shortDescription: zod.string(),
-        icon: zod.string().nullish(),
-        isFeatured: zod.boolean(),
-      }),
-    )
-    .optional(),
 });
 
 /**
@@ -2726,4 +2714,1016 @@ export const AdminRunNightlyJobResponse = zod.object({
     reminders24h: zod.number(),
     reminders1h: zod.number(),
   }),
+});
+
+/**
+ * @summary Register a new member account
+ */
+export const registerBodyPasswordMin = 8;
+
+export const RegisterBody = zod.object({
+  name: zod.string(),
+  email: zod.string().email(),
+  password: zod.string().min(registerBodyPasswordMin),
+});
+
+/**
+ * @summary Login with email and password
+ */
+export const LoginBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+});
+
+export const LoginResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.string(),
+  onboardingComplete: zod.boolean().optional(),
+  onboardingStep: zod.number().optional(),
+});
+
+/**
+ * @summary Refresh access token using refresh token cookie
+ */
+export const RefreshTokenResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.string(),
+  onboardingComplete: zod.boolean().optional(),
+  onboardingStep: zod.number().optional(),
+});
+
+/**
+ * @summary Logout and clear session cookies
+ */
+export const LogoutResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Request a password reset email
+ */
+export const ForgotPasswordBody = zod.object({
+  email: zod.string().email(),
+});
+
+export const ForgotPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Reset password using token from email
+ */
+export const ResetPasswordBody = zod.object({
+  token: zod.string(),
+  password: zod.string(),
+});
+
+export const ResetPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Verify email address using token
+ */
+export const VerifyEmailBody = zod.object({
+  token: zod.string(),
+});
+
+export const VerifyEmailResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get current authenticated user info
+ */
+export const GetAuthMeResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.string(),
+  onboardingComplete: zod.boolean().optional(),
+  onboardingStep: zod.number().optional(),
+});
+
+/**
+ * @summary Mark onboarding as complete
+ */
+export const CompleteOnboardingResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get communication history for current member
+ */
+export const GetMemberCommunicationsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.string(),
+  subject: zod.string(),
+  status: zod.string(),
+  sentAt: zod.date(),
+});
+export const GetMemberCommunicationsResponse = zod.array(
+  GetMemberCommunicationsResponseItem,
+);
+
+/**
+ * @summary V1 health check endpoint
+ */
+export const V1HealthCheckResponse = zod.object({
+  status: zod.string(),
+});
+
+/**
+ * @summary Unsubscribe from email communications via token
+ */
+export const EmailUnsubscribeQueryParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const EmailUnsubscribeResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Re-subscribe to email communications
+ */
+export const EmailResubscribeBody = zod.object({
+  token: zod.string(),
+});
+
+export const EmailResubscribeResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get affiliate commissions dashboard overview
+ */
+export const GetCommissionsDashboardResponse = zod.object({
+  totalEarnings: zod.number().optional(),
+  pendingEarnings: zod.number().optional(),
+  approvedEarnings: zod.number().optional(),
+  paidEarnings: zod.number().optional(),
+  totalReferrals: zod.number().optional(),
+  activeReferrals: zod.number().optional(),
+  conversionRate: zod.number().optional(),
+});
+
+/**
+ * @summary List commission earnings history
+ */
+export const getCommissionsEarningsQueryPageDefault = 1;
+
+export const getCommissionsEarningsQueryLimitDefault = 20;
+export const getCommissionsEarningsQueryLimitMax = 100;
+
+export const GetCommissionsEarningsQueryParams = zod.object({
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(getCommissionsEarningsQueryPageDefault)
+    .describe("Page number for pagination"),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(getCommissionsEarningsQueryLimitMax)
+    .default(getCommissionsEarningsQueryLimitDefault)
+    .describe("Number of items per page"),
+});
+
+export const GetCommissionsEarningsResponse = zod.object({
+  earnings: zod.array(
+    zod.object({
+      id: zod.number(),
+      amount: zod.number(),
+      status: zod.enum(["pending", "approved", "paid", "rejected", "reversed"]),
+      referralName: zod.string().optional(),
+      productName: zod.string().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get affiliate referral links
+ */
+export const GetCommissionsReferralLinksResponseItem = zod.object({
+  id: zod.number(),
+  productSlug: zod.string(),
+  productName: zod.string(),
+  referralCode: zod.string(),
+  url: zod.string(),
+  clickCount: zod.number().optional(),
+  conversionCount: zod.number().optional(),
+});
+export const GetCommissionsReferralLinksResponse = zod.array(
+  GetCommissionsReferralLinksResponseItem,
+);
+
+/**
+ * @summary List commission payouts
+ */
+export const GetCommissionsPayoutsResponseItem = zod.object({
+  id: zod.number(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "processing", "paid", "failed"]),
+  payoutMethod: zod.string().optional(),
+  createdAt: zod.date(),
+  paidAt: zod.date().nullish(),
+});
+export const GetCommissionsPayoutsResponse = zod.array(
+  GetCommissionsPayoutsResponseItem,
+);
+
+/**
+ * @summary Get affiliate leaderboard
+ */
+export const GetCommissionsLeaderboardResponseItem = zod.object({
+  rank: zod.number(),
+  affiliateName: zod.string(),
+  totalEarnings: zod.number(),
+  referralCount: zod.number(),
+});
+export const GetCommissionsLeaderboardResponse = zod.array(
+  GetCommissionsLeaderboardResponseItem,
+);
+
+/**
+ * @summary Get commission rate structure
+ */
+export const GetCommissionsRatesResponseItem = zod.object({
+  id: zod.number(),
+  productSlug: zod.string(),
+  rateType: zod.enum(["percentage", "flat"]),
+  rateValue: zod.number(),
+  isActive: zod.boolean(),
+});
+export const GetCommissionsRatesResponse = zod.array(
+  GetCommissionsRatesResponseItem,
+);
+
+/**
+ * @summary Get affiliate marketing resources
+ */
+export const GetCommissionsResourcesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  type: zod.string(),
+  url: zod.string(),
+  createdAt: zod.date(),
+});
+export const GetCommissionsResourcesResponse = zod.array(
+  GetCommissionsResourcesResponseItem,
+);
+
+/**
+ * @summary Get affiliate profile and payout settings
+ */
+export const GetCommissionsProfileResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  referralCode: zod.string(),
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().nullish(),
+  taxFormSubmitted: zod.boolean().optional(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Update affiliate profile and payout settings
+ */
+export const UpdateCommissionsProfileBody = zod.object({
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateCommissionsProfileResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  referralCode: zod.string(),
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().nullish(),
+  taxFormSubmitted: zod.boolean().optional(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Submit tax form for commission payouts
+ */
+export const SubmitCommissionsTaxFormBody = zod.object({
+  formType: zod.string(),
+  formData: zod.object({}).passthrough(),
+});
+
+export const SubmitCommissionsTaxFormResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get commission earnings chart data
+ */
+export const GetCommissionsChartQueryParams = zod.object({
+  period: zod.enum(["7d", "30d", "90d", "12m"]).optional(),
+});
+
+export const GetCommissionsChartResponseItem = zod.object({
+  date: zod.string(),
+  amount: zod.number(),
+  count: zod.number().optional(),
+});
+export const GetCommissionsChartResponse = zod.array(
+  GetCommissionsChartResponseItem,
+);
+
+/**
+ * @summary List all commissions (admin)
+ */
+export const adminListCommissionsQueryPageDefault = 1;
+
+export const adminListCommissionsQueryLimitDefault = 20;
+export const adminListCommissionsQueryLimitMax = 100;
+
+export const AdminListCommissionsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(adminListCommissionsQueryPageDefault)
+    .describe("Page number for pagination"),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(adminListCommissionsQueryLimitMax)
+    .default(adminListCommissionsQueryLimitDefault)
+    .describe("Number of items per page"),
+});
+
+export const AdminListCommissionsResponseItem = zod.object({
+  id: zod.number(),
+  affiliateId: zod.number(),
+  affiliateName: zod.string().optional(),
+  referralId: zod.number().optional(),
+  referralName: zod.string().optional(),
+  productName: zod.string().optional(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "approved", "paid", "rejected", "reversed"]),
+  createdAt: zod.date(),
+});
+export const AdminListCommissionsResponse = zod.array(
+  AdminListCommissionsResponseItem,
+);
+
+/**
+ * @summary Approve a pending commission
+ */
+export const AdminApproveCommissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminApproveCommissionResponse = zod.object({
+  id: zod.number(),
+  affiliateId: zod.number(),
+  affiliateName: zod.string().optional(),
+  referralId: zod.number().optional(),
+  referralName: zod.string().optional(),
+  productName: zod.string().optional(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "approved", "paid", "rejected", "reversed"]),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Reject a pending commission
+ */
+export const AdminRejectCommissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminRejectCommissionResponse = zod.object({
+  id: zod.number(),
+  affiliateId: zod.number(),
+  affiliateName: zod.string().optional(),
+  referralId: zod.number().optional(),
+  referralName: zod.string().optional(),
+  productName: zod.string().optional(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "approved", "paid", "rejected", "reversed"]),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Reverse an approved commission
+ */
+export const AdminReverseCommissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminReverseCommissionResponse = zod.object({
+  id: zod.number(),
+  affiliateId: zod.number(),
+  affiliateName: zod.string().optional(),
+  referralId: zod.number().optional(),
+  referralName: zod.string().optional(),
+  productName: zod.string().optional(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "approved", "paid", "rejected", "reversed"]),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Run automatic commission approval batch
+ */
+export const AdminRunCommissionApprovalResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Generate payout batches for approved commissions
+ */
+export const AdminGeneratePayoutsResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List all payout batches (admin)
+ */
+export const AdminListPayoutsResponseItem = zod.object({
+  id: zod.number(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "processing", "paid", "failed"]),
+  payoutMethod: zod.string().optional(),
+  createdAt: zod.date(),
+  paidAt: zod.date().nullish(),
+});
+export const AdminListPayoutsResponse = zod.array(AdminListPayoutsResponseItem);
+
+/**
+ * @summary Mark a payout as paid
+ */
+export const AdminMarkPayoutPaidParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminMarkPayoutPaidResponse = zod.object({
+  id: zod.number(),
+  amount: zod.number(),
+  status: zod.enum(["pending", "processing", "paid", "failed"]),
+  payoutMethod: zod.string().optional(),
+  createdAt: zod.date(),
+  paidAt: zod.date().nullish(),
+});
+
+/**
+ * @summary List all affiliates (admin)
+ */
+export const AdminListAffiliatesResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  referralCode: zod.string(),
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().nullish(),
+  taxFormSubmitted: zod.boolean().optional(),
+  isActive: zod.boolean(),
+});
+export const AdminListAffiliatesResponse = zod.array(
+  AdminListAffiliatesResponseItem,
+);
+
+/**
+ * @summary Update affiliate settings (admin)
+ */
+export const AdminUpdateAffiliateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateAffiliateBody = zod.object({
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateAffiliateResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  referralCode: zod.string(),
+  payoutMethod: zod.string().optional(),
+  payoutEmail: zod.string().nullish(),
+  taxFormSubmitted: zod.boolean().optional(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary List commission rate configurations (admin)
+ */
+export const AdminListCommissionRatesResponseItem = zod.object({
+  id: zod.number(),
+  productSlug: zod.string(),
+  rateType: zod.enum(["percentage", "flat"]),
+  rateValue: zod.number(),
+  isActive: zod.boolean(),
+});
+export const AdminListCommissionRatesResponse = zod.array(
+  AdminListCommissionRatesResponseItem,
+);
+
+/**
+ * @summary Create a commission rate (admin)
+ */
+export const AdminCreateCommissionRateBody = zod.object({
+  productSlug: zod.string(),
+  rateType: zod.enum(["percentage", "flat"]),
+  rateValue: zod.number(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a commission rate (admin)
+ */
+export const AdminUpdateCommissionRateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateCommissionRateBody = zod.object({
+  productSlug: zod.string(),
+  rateType: zod.enum(["percentage", "flat"]),
+  rateValue: zod.number(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateCommissionRateResponse = zod.object({
+  id: zod.number(),
+  productSlug: zod.string(),
+  rateType: zod.enum(["percentage", "flat"]),
+  rateValue: zod.number(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Delete a commission rate (admin)
+ */
+export const AdminDeleteCommissionRateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteCommissionRateResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List affiliate marketing resources (admin)
+ */
+export const AdminListAffiliateResourcesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  type: zod.string(),
+  url: zod.string(),
+  createdAt: zod.date(),
+});
+export const AdminListAffiliateResourcesResponse = zod.array(
+  AdminListAffiliateResourcesResponseItem,
+);
+
+/**
+ * @summary Create an affiliate resource (admin)
+ */
+export const AdminCreateAffiliateResourceBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  type: zod.string(),
+  url: zod.string(),
+});
+
+/**
+ * @summary Update an affiliate resource (admin)
+ */
+export const AdminUpdateAffiliateResourceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateAffiliateResourceBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  type: zod.string(),
+  url: zod.string(),
+});
+
+export const AdminUpdateAffiliateResourceResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  type: zod.string(),
+  url: zod.string(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete an affiliate resource (admin)
+ */
+export const AdminDeleteAffiliateResourceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteAffiliateResourceResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List commission fraud alerts (admin)
+ */
+export const AdminListFraudAlertsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.string(),
+  affiliateId: zod.number(),
+  description: zod.string(),
+  severity: zod.enum(["low", "medium", "high"]),
+  createdAt: zod.date(),
+});
+export const AdminListFraudAlertsResponse = zod.array(
+  AdminListFraudAlertsResponseItem,
+);
+
+/**
+ * @summary List all API keys (admin)
+ */
+export const AdminListApiKeysResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  prefix: zod
+    .string()
+    .describe("First few characters of the key for identification"),
+  permissions: zod.array(zod.string()),
+  lastUsedAt: zod.date().nullish(),
+  expiresAt: zod.date().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const AdminListApiKeysResponse = zod.array(AdminListApiKeysResponseItem);
+
+/**
+ * @summary Create a new API key (admin)
+ */
+export const AdminCreateApiKeyBody = zod.object({
+  name: zod.string(),
+  permissions: zod.array(zod.string()).optional(),
+  expiresAt: zod.date().optional(),
+});
+
+/**
+ * @summary Update API key metadata (admin)
+ */
+export const AdminUpdateApiKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateApiKeyBody = zod.object({
+  name: zod.string().optional(),
+  permissions: zod.array(zod.string()).optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateApiKeyResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  prefix: zod
+    .string()
+    .describe("First few characters of the key for identification"),
+  permissions: zod.array(zod.string()),
+  lastUsedAt: zod.date().nullish(),
+  expiresAt: zod.date().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Revoke an API key (admin)
+ */
+export const AdminRevokeApiKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminRevokeApiKeyResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List webhook event logs (admin)
+ */
+export const adminListWebhookLogsQueryPageDefault = 1;
+
+export const adminListWebhookLogsQueryLimitDefault = 20;
+export const adminListWebhookLogsQueryLimitMax = 100;
+
+export const AdminListWebhookLogsQueryParams = zod.object({
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(adminListWebhookLogsQueryPageDefault)
+    .describe("Page number for pagination"),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(adminListWebhookLogsQueryLimitMax)
+    .default(adminListWebhookLogsQueryLimitDefault)
+    .describe("Number of items per page"),
+});
+
+export const AdminListWebhookLogsResponseItem = zod.object({
+  id: zod.number(),
+  source: zod.string(),
+  event: zod.string(),
+  status: zod.enum(["success", "failed", "pending"]),
+  payload: zod.object({}).passthrough().optional(),
+  errorMessage: zod.string().nullish(),
+  processedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+export const AdminListWebhookLogsResponse = zod.array(
+  AdminListWebhookLogsResponseItem,
+);
+
+/**
+ * @summary Get a single webhook log entry (admin)
+ */
+export const AdminGetWebhookLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminGetWebhookLogResponse = zod.object({
+  id: zod.number(),
+  source: zod.string(),
+  event: zod.string(),
+  status: zod.enum(["success", "failed", "pending"]),
+  payload: zod.object({}).passthrough().optional(),
+  errorMessage: zod.string().nullish(),
+  processedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary List product-to-webhook mappings (admin)
+ */
+export const AdminListProductMappingsResponseItem = zod.object({
+  id: zod.number(),
+  externalProductId: zod.string(),
+  internalProductSlug: zod.string(),
+  source: zod.string(),
+  isActive: zod.boolean(),
+});
+export const AdminListProductMappingsResponse = zod.array(
+  AdminListProductMappingsResponseItem,
+);
+
+/**
+ * @summary Update a product mapping (admin)
+ */
+export const AdminUpdateProductMappingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateProductMappingBody = zod.object({
+  internalProductSlug: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateProductMappingResponse = zod.object({
+  id: zod.number(),
+  externalProductId: zod.string(),
+  internalProductSlug: zod.string(),
+  source: zod.string(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Get GoHighLevel integration status (admin)
+ */
+export const AdminGetGhlStatusResponse = zod.object({
+  connected: zod.boolean(),
+  lastSyncAt: zod.date().nullish(),
+  totalContacts: zod.number().optional(),
+  syncErrors: zod.number().optional(),
+});
+
+/**
+ * @summary Get GHL sync log (admin)
+ */
+export const adminGetGhlLogQueryPageDefault = 1;
+
+export const adminGetGhlLogQueryLimitDefault = 20;
+export const adminGetGhlLogQueryLimitMax = 100;
+
+export const AdminGetGhlLogQueryParams = zod.object({
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(adminGetGhlLogQueryPageDefault)
+    .describe("Page number for pagination"),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(adminGetGhlLogQueryLimitMax)
+    .default(adminGetGhlLogQueryLimitDefault)
+    .describe("Number of items per page"),
+});
+
+export const AdminGetGhlLogResponseItem = zod.object({
+  id: zod.number(),
+  action: zod.string(),
+  userId: zod.number().nullish(),
+  status: zod.enum(["success", "failed", "pending"]),
+  errorMessage: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+export const AdminGetGhlLogResponse = zod.array(AdminGetGhlLogResponseItem);
+
+/**
+ * @summary Get recent GHL activity (admin)
+ */
+export const AdminGetGhlRecentActivityResponseItem = zod.object({
+  id: zod.number(),
+  action: zod.string(),
+  userId: zod.number().nullish(),
+  status: zod.enum(["success", "failed", "pending"]),
+  errorMessage: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+export const AdminGetGhlRecentActivityResponse = zod.array(
+  AdminGetGhlRecentActivityResponseItem,
+);
+
+/**
+ * @summary Get failed GHL sync jobs (admin)
+ */
+export const AdminGetGhlFailedJobsResponseItem = zod.object({
+  id: zod.number(),
+  action: zod.string(),
+  userId: zod.number().nullish(),
+  status: zod.enum(["success", "failed", "pending"]),
+  errorMessage: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+export const AdminGetGhlFailedJobsResponse = zod.array(
+  AdminGetGhlFailedJobsResponseItem,
+);
+
+/**
+ * @summary Retry a failed GHL sync job (admin)
+ */
+export const AdminRetryGhlJobParams = zod.object({
+  jobId: zod.coerce.string(),
+});
+
+export const AdminRetryGhlJobResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List GHL contacts (admin)
+ */
+export const AdminListGhlContactsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+});
+
+export const AdminListGhlContactsResponseItem = zod.object({}).passthrough();
+export const AdminListGhlContactsResponse = zod.array(
+  AdminListGhlContactsResponseItem,
+);
+
+/**
+ * @summary Sync a specific user to GHL (admin)
+ */
+export const AdminSyncGhlUserParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const AdminSyncGhlUserResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Sync a member by ID to GHL (admin)
+ */
+export const AdminSyncGhlMemberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminSyncGhlMemberResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Trigger full GHL sync for all members (admin)
+ */
+export const AdminSyncAllGhlResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Trigger bulk GHL sync (admin)
+ */
+export const AdminBulkSyncGhlResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get GHL configuration (admin)
+ */
+export const AdminGetGhlConfigResponse = zod.object({
+  apiKey: zod.string().optional(),
+  locationId: zod.string().optional(),
+  syncEnabled: zod.boolean().optional(),
+  syncInterval: zod.number().optional(),
+});
+
+/**
+ * @summary Partially update GHL configuration (admin)
+ */
+export const AdminPatchGhlConfigBody = zod.object({
+  apiKey: zod.string().optional(),
+  locationId: zod.string().optional(),
+  syncEnabled: zod.boolean().optional(),
+  syncInterval: zod.number().optional(),
+});
+
+export const AdminPatchGhlConfigResponse = zod.object({
+  apiKey: zod.string().optional(),
+  locationId: zod.string().optional(),
+  syncEnabled: zod.boolean().optional(),
+  syncInterval: zod.number().optional(),
+});
+
+/**
+ * @summary Replace GHL configuration (admin)
+ */
+export const AdminUpdateGhlConfigBody = zod.object({
+  apiKey: zod.string().optional(),
+  locationId: zod.string().optional(),
+  syncEnabled: zod.boolean().optional(),
+  syncInterval: zod.number().optional(),
+});
+
+export const AdminUpdateGhlConfigResponse = zod.object({
+  apiKey: zod.string().optional(),
+  locationId: zod.string().optional(),
+  syncEnabled: zod.boolean().optional(),
+  syncInterval: zod.number().optional(),
+});
+
+/**
+ * @summary Manually run product expiration check (admin)
+ */
+export const AdminRunExpirationCheckResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Handle incoming ThriveCart webhook events
+ */
+export const HandleThrivecartWebhookBody = zod.object({}).passthrough();
+
+export const HandleThrivecartWebhookResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Handle incoming GoHighLevel webhook events
+ */
+export const HandleGhlWebhookBody = zod.object({}).passthrough();
+
+export const HandleGhlWebhookResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Handle incoming SendGrid email event webhooks
+ */
+export const HandleSendgridWebhookBodyItem = zod.object({}).passthrough();
+export const HandleSendgridWebhookBody = zod.array(
+  HandleSendgridWebhookBodyItem,
+);
+
+export const HandleSendgridWebhookResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Referral redirect — track click and redirect to product page
+ */
+export const ReferralRedirectParams = zod.object({
+  productSlug: zod.coerce.string(),
+});
+
+export const ReferralRedirectQueryParams = zod.object({
+  ref: zod.coerce.string().optional().describe("Referral code"),
 });

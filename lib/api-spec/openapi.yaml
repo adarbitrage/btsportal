@@ -464,6 +464,8 @@ paths:
     get:
       operationId: adminListTickets
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: List all tickets (admin)
       parameters:
         - name: status
@@ -495,6 +497,8 @@ paths:
     get:
       operationId: adminGetTicket
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Get ticket with all messages including internal notes (admin)
       parameters:
         - name: id
@@ -514,6 +518,8 @@ paths:
     put:
       operationId: adminUpdateTicketStatus
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Update ticket status (admin)
       parameters:
         - name: id
@@ -544,6 +550,8 @@ paths:
     post:
       operationId: adminReplyToTicket
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Send a reply to a ticket (admin)
       parameters:
         - name: id
@@ -569,6 +577,8 @@ paths:
     post:
       operationId: adminAddInternalNote
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Add an internal note to a ticket (admin)
       parameters:
         - name: id
@@ -594,6 +604,8 @@ paths:
     get:
       operationId: adminGetTicketSla
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Get SLA details for a ticket (admin)
       parameters:
         - name: id
@@ -613,6 +625,8 @@ paths:
     post:
       operationId: adminMergeTickets
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Merge duplicate tickets into a primary ticket
       requestBody:
         required: true
@@ -632,6 +646,8 @@ paths:
     get:
       operationId: adminGetSlaDashboard
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Get SLA compliance dashboard (admin)
       responses:
         "200":
@@ -645,6 +661,8 @@ paths:
     get:
       operationId: adminGetTicketAnalytics
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Get ticket analytics (admin)
       responses:
         "200":
@@ -658,6 +676,8 @@ paths:
     get:
       operationId: adminGetAgentPerformance
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Get agent performance metrics (admin)
       responses:
         "200":
@@ -673,6 +693,8 @@ paths:
     get:
       operationId: adminListCannedResponses
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: List canned responses with optional category filter
       parameters:
         - name: category
@@ -697,6 +719,8 @@ paths:
     post:
       operationId: adminCreateCannedResponse
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Create a new canned response
       requestBody:
         required: true
@@ -716,6 +740,8 @@ paths:
     put:
       operationId: adminUpdateCannedResponse
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Update a canned response
       parameters:
         - name: id
@@ -739,6 +765,8 @@ paths:
     delete:
       operationId: adminDeleteCannedResponse
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Delete a canned response
       parameters:
         - name: id
@@ -762,6 +790,8 @@ paths:
     get:
       operationId: adminListRoutingRules
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: List ticket routing rules
       responses:
         "200":
@@ -775,6 +805,8 @@ paths:
     post:
       operationId: adminCreateRoutingRule
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Create a ticket routing rule
       requestBody:
         required: true
@@ -794,6 +826,8 @@ paths:
     put:
       operationId: adminUpdateRoutingRule
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Update a ticket routing rule
       parameters:
         - name: id
@@ -817,6 +851,8 @@ paths:
     delete:
       operationId: adminDeleteRoutingRule
       tags: [admin-tickets]
+      security:
+        - cookieAuth: []
       summary: Delete a ticket routing rule
       parameters:
         - name: id
@@ -1766,6 +1802,8 @@ paths:
     get:
       operationId: adminListTracks
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: List all tracks with module/lesson counts
       responses:
         "200":
@@ -1779,6 +1817,8 @@ paths:
     post:
       operationId: adminCreateTrack
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Create a new track
       requestBody:
         required: true
@@ -1798,6 +1838,8 @@ paths:
     put:
       operationId: adminUpdateTrack
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Update a track
       parameters:
         - name: id
@@ -1823,6 +1865,8 @@ paths:
     patch:
       operationId: adminReorderTracks
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Reorder tracks
       requestBody:
         required: true
@@ -1844,6 +1888,8 @@ paths:
     patch:
       operationId: adminArchiveTrack
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Archive a track (soft delete)
       parameters:
         - name: id
@@ -1863,6 +1909,8 @@ paths:
     patch:
       operationId: adminUnarchiveTrack
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Unarchive a track
       parameters:
         - name: id
@@ -1882,6 +1930,8 @@ paths:
     post:
       operationId: adminDuplicateTrack
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Duplicate a track with all modules and lessons
       parameters:
         - name: id
@@ -1901,6 +1951,8 @@ paths:
     get:
       operationId: adminListModules
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: List modules within a track
       parameters:
         - name: trackId
@@ -1922,6 +1974,8 @@ paths:
     post:
       operationId: adminCreateModule
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Create a new module
       requestBody:
         required: true
@@ -1941,6 +1995,8 @@ paths:
     put:
       operationId: adminUpdateModule
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Update a module
       parameters:
         - name: id
@@ -1964,6 +2020,8 @@ paths:
     delete:
       operationId: adminDeleteModule
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Delete a module
       parameters:
         - name: id
@@ -1983,6 +2041,8 @@ paths:
     patch:
       operationId: adminReorderModules
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Reorder modules within a track
       requestBody:
         required: true
@@ -1998,6 +2058,8 @@ paths:
     patch:
       operationId: adminMoveModule
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Move a module to a different track
       parameters:
         - name: id
@@ -2027,6 +2089,8 @@ paths:
     get:
       operationId: adminListLessons
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: List lessons within a module
       parameters:
         - name: moduleId
@@ -2048,6 +2112,8 @@ paths:
     post:
       operationId: adminCreateLesson
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Create a new lesson
       requestBody:
         required: true
@@ -2067,6 +2133,8 @@ paths:
     put:
       operationId: adminUpdateLesson
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Update a lesson
       parameters:
         - name: id
@@ -2090,6 +2158,8 @@ paths:
     delete:
       operationId: adminDeleteLesson
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Delete a lesson
       parameters:
         - name: id
@@ -2109,6 +2179,8 @@ paths:
     patch:
       operationId: adminReorderLessons
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Reorder lessons within a module
       requestBody:
         required: true
@@ -2124,6 +2196,8 @@ paths:
     post:
       operationId: adminDuplicateLesson
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Duplicate a lesson
       parameters:
         - name: id
@@ -2151,6 +2225,8 @@ paths:
     post:
       operationId: adminPublishLesson
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Publish a lesson and create version snapshot
       parameters:
         - name: id
@@ -2178,6 +2254,8 @@ paths:
     get:
       operationId: adminListLessonVersions
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: List version history for a lesson
       parameters:
         - name: id
@@ -2199,6 +2277,8 @@ paths:
     post:
       operationId: adminRestoreLessonVersion
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Restore a lesson from a previous version
       parameters:
         - name: id
@@ -2223,6 +2303,8 @@ paths:
     post:
       operationId: adminRequestResourceUploadUrl
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Request upload URL for a lesson resource
       parameters:
         - name: lessonId
@@ -2248,6 +2330,8 @@ paths:
     get:
       operationId: adminListLessonResources
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: List resources for a lesson
       parameters:
         - name: lessonId
@@ -2267,6 +2351,8 @@ paths:
     post:
       operationId: adminCreateLessonResource
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Create a lesson resource record after upload
       parameters:
         - name: lessonId
@@ -2292,6 +2378,8 @@ paths:
     patch:
       operationId: adminReorderLessonResources
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Reorder lesson resources
       parameters:
         - name: lessonId
@@ -2313,6 +2401,8 @@ paths:
     delete:
       operationId: adminDeleteResource
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Delete a lesson resource
       parameters:
         - name: id
@@ -2332,6 +2422,8 @@ paths:
     post:
       operationId: adminRequestImageUploadUrl
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Request upload URL for inline editor image
       responses:
         "200":
@@ -2345,6 +2437,8 @@ paths:
     post:
       operationId: adminBulkPublishLessons
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Bulk publish multiple lessons
       requestBody:
         required: true
@@ -2380,6 +2474,8 @@ paths:
     post:
       operationId: adminBulkMoveLessons
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Bulk move lessons to a target module
       requestBody:
         required: true
@@ -2412,6 +2508,8 @@ paths:
     get:
       operationId: adminExportContent
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Export training content structure as JSON
       responses:
         "200":
@@ -2425,6 +2523,8 @@ paths:
     post:
       operationId: adminImportContent
       tags: [admin-content]
+      security:
+        - cookieAuth: []
       summary: Import training content from JSON
       requestBody:
         required: true
@@ -2986,8 +3086,1923 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NightlyJobResult"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new member account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Account created — access_token cookie is set automatically
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Email already registered
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful — access_token cookie is set automatically
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      summary: Refresh access token using refresh token cookie
+      security: []
+      responses:
+        "200":
+          description: Token refreshed — access_token cookie is set automatically
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout and clear session cookies
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        "200":
+          description: Reset email sent (always returns success)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password using token from email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+              required: [token, password]
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      summary: Verify email address using token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required: [token]
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current authenticated user info
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+
+
+  /members/me/onboarding-complete:
+    post:
+      operationId: completeOnboarding
+      tags: [members]
+      summary: Mark onboarding as complete
+      responses:
+        "200":
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /members/me/communications:
+    get:
+      operationId: getMemberCommunications
+      tags: [communications]
+      summary: Get communication history for current member
+      responses:
+        "200":
+          description: Communication history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunicationRecord"
+
+  /v1/health:
+    get:
+      operationId: v1HealthCheck
+      tags: [health]
+      summary: V1 health check endpoint
+      security: []
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /email/unsubscribe:
+    get:
+      operationId: emailUnsubscribe
+      tags: [email]
+      summary: Unsubscribe from email communications via token
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /email/resubscribe:
+    post:
+      operationId: emailResubscribe
+      tags: [email]
+      summary: Re-subscribe to email communications
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required: [token]
+      responses:
+        "200":
+          description: Resubscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /commissions/dashboard:
+    get:
+      operationId: getCommissionsDashboard
+      tags: [commissions]
+      summary: Get affiliate commissions dashboard overview
+      responses:
+        "200":
+          description: Commission dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionsDashboard"
+
+  /commissions/earnings:
+    get:
+      operationId: getCommissionsEarnings
+      tags: [commissions]
+      summary: List commission earnings history
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Earnings list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionsEarningsList"
+
+  /commissions/referral-links:
+    get:
+      operationId: getCommissionsReferralLinks
+      tags: [commissions]
+      summary: Get affiliate referral links
+      responses:
+        "200":
+          description: Referral links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReferralLink"
+
+  /commissions/payouts:
+    get:
+      operationId: getCommissionsPayouts
+      tags: [commissions]
+      summary: List commission payouts
+      responses:
+        "200":
+          description: Payout history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionPayout"
+
+  /commissions/leaderboard:
+    get:
+      operationId: getCommissionsLeaderboard
+      tags: [commissions]
+      summary: Get affiliate leaderboard
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /commissions/rates:
+    get:
+      operationId: getCommissionsRates
+      tags: [commissions]
+      summary: Get commission rate structure
+      responses:
+        "200":
+          description: Commission rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionRate"
+
+  /commissions/resources:
+    get:
+      operationId: getCommissionsResources
+      tags: [commissions]
+      summary: Get affiliate marketing resources
+      responses:
+        "200":
+          description: Marketing resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AffiliateResource"
+
+  /commissions/profile:
+    get:
+      operationId: getCommissionsProfile
+      tags: [commissions]
+      summary: Get affiliate profile and payout settings
+      responses:
+        "200":
+          description: Affiliate profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateProfile"
+    patch:
+      operationId: updateCommissionsProfile
+      tags: [commissions]
+      summary: Update affiliate profile and payout settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAffiliateProfile"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateProfile"
+
+  /commissions/profile/tax-form:
+    post:
+      operationId: submitCommissionsTaxForm
+      tags: [commissions]
+      summary: Submit tax form for commission payouts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxFormSubmission"
+      responses:
+        "200":
+          description: Tax form submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /commissions/chart:
+    get:
+      operationId: getCommissionsChart
+      tags: [commissions]
+      summary: Get commission earnings chart data
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 12m]
+      responses:
+        "200":
+          description: Chart data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChartDataPoint"
+
+  /admin/commissions:
+    get:
+      operationId: adminListCommissions
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List all commissions (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: List of commissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCommission"
+
+  /admin/commissions/{id}/approve:
+    post:
+      operationId: adminApproveCommission
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Approve a pending commission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Commission approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCommission"
+
+  /admin/commissions/{id}/reject:
+    post:
+      operationId: adminRejectCommission
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Reject a pending commission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Commission rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCommission"
+
+  /admin/commissions/{id}/reverse:
+    post:
+      operationId: adminReverseCommission
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Reverse an approved commission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Commission reversed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCommission"
+
+  /admin/commissions/run-approval:
+    post:
+      operationId: adminRunCommissionApproval
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Run automatic commission approval batch
+      responses:
+        "200":
+          description: Approval batch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/commissions/generate-payouts:
+    post:
+      operationId: adminGeneratePayouts
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Generate payout batches for approved commissions
+      responses:
+        "200":
+          description: Payouts generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/commissions/payouts:
+    get:
+      operationId: adminListPayouts
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List all payout batches (admin)
+      responses:
+        "200":
+          description: List of payouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionPayout"
+
+  /admin/commissions/payouts/{id}/mark-paid:
+    post:
+      operationId: adminMarkPayoutPaid
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Mark a payout as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payout marked as paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPayout"
+
+  /admin/affiliates:
+    get:
+      operationId: adminListAffiliates
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List all affiliates (admin)
+      responses:
+        "200":
+          description: List of affiliates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AffiliateProfile"
+
+  /admin/affiliates/{id}:
+    patch:
+      operationId: adminUpdateAffiliate
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Update affiliate settings (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAffiliateProfile"
+      responses:
+        "200":
+          description: Affiliate updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateProfile"
+
+  /admin/commissions/rates:
+    get:
+      operationId: adminListCommissionRates
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List commission rate configurations (admin)
+      responses:
+        "200":
+          description: List of rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionRate"
+    post:
+      operationId: adminCreateCommissionRate
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Create a commission rate (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommissionRate"
+      responses:
+        "201":
+          description: Rate created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionRate"
+
+  /admin/commissions/rates/{id}:
+    put:
+      operationId: adminUpdateCommissionRate
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Update a commission rate (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommissionRate"
+      responses:
+        "200":
+          description: Rate updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionRate"
+    delete:
+      operationId: adminDeleteCommissionRate
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Delete a commission rate (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rate deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/commissions/resources:
+    get:
+      operationId: adminListAffiliateResources
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List affiliate marketing resources (admin)
+      responses:
+        "200":
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AffiliateResource"
+    post:
+      operationId: adminCreateAffiliateResource
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Create an affiliate resource (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAffiliateResource"
+      responses:
+        "201":
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateResource"
+
+  /admin/commissions/resources/{id}:
+    put:
+      operationId: adminUpdateAffiliateResource
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Update an affiliate resource (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAffiliateResource"
+      responses:
+        "200":
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateResource"
+    delete:
+      operationId: adminDeleteAffiliateResource
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: Delete an affiliate resource (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/commissions/fraud-alerts:
+    get:
+      operationId: adminListFraudAlerts
+      tags: [admin-commissions]
+      security:
+        - cookieAuth: []
+      summary: List commission fraud alerts (admin)
+      responses:
+        "200":
+          description: List of fraud alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FraudAlert"
+
+  /admin/api-keys:
+    get:
+      operationId: adminListApiKeys
+      tags: [admin-api-keys]
+      security:
+        - cookieAuth: []
+      summary: List all API keys (admin)
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyInfo"
+    post:
+      operationId: adminCreateApiKey
+      tags: [admin-api-keys]
+      security:
+        - cookieAuth: []
+      summary: Create a new API key (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKey"
+      responses:
+        "201":
+          description: API key created (key value only returned once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+
+  /admin/api-keys/{id}:
+    patch:
+      operationId: adminUpdateApiKey
+      tags: [admin-api-keys]
+      security:
+        - cookieAuth: []
+      summary: Update API key metadata (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApiKey"
+      responses:
+        "200":
+          description: API key updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyInfo"
+
+  /admin/api-keys/{id}/revoke:
+    post:
+      operationId: adminRevokeApiKey
+      tags: [admin-api-keys]
+      security:
+        - cookieAuth: []
+      summary: Revoke an API key (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: API key revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/webhook-logs:
+    get:
+      operationId: adminListWebhookLogs
+      tags: [admin-webhooks]
+      security:
+        - cookieAuth: []
+      summary: List webhook event logs (admin)
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Webhook logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookLog"
+
+  /admin/webhook-logs/{id}:
+    get:
+      operationId: adminGetWebhookLog
+      tags: [admin-webhooks]
+      security:
+        - cookieAuth: []
+      summary: Get a single webhook log entry (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Webhook log detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookLog"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/product-mappings:
+    get:
+      operationId: adminListProductMappings
+      tags: [admin-webhooks]
+      security:
+        - cookieAuth: []
+      summary: List product-to-webhook mappings (admin)
+      responses:
+        "200":
+          description: Product mappings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductMapping"
+
+  /admin/product-mappings/{id}:
+    put:
+      operationId: adminUpdateProductMapping
+      tags: [admin-webhooks]
+      security:
+        - cookieAuth: []
+      summary: Update a product mapping (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductMapping"
+      responses:
+        "200":
+          description: Mapping updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductMapping"
+
+  /admin/ghl/status:
+    get:
+      operationId: adminGetGhlStatus
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Get GoHighLevel integration status (admin)
+      responses:
+        "200":
+          description: GHL status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhlStatus"
+
+  /admin/ghl/log:
+    get:
+      operationId: adminGetGhlLog
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Get GHL sync log (admin)
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: GHL log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GhlLogEntry"
+
+  /admin/ghl/recent-activity:
+    get:
+      operationId: adminGetGhlRecentActivity
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Get recent GHL activity (admin)
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GhlLogEntry"
+
+  /admin/ghl/failed-jobs:
+    get:
+      operationId: adminGetGhlFailedJobs
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Get failed GHL sync jobs (admin)
+      responses:
+        "200":
+          description: Failed jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GhlLogEntry"
+
+  /admin/ghl/retry/{jobId}:
+    post:
+      operationId: adminRetryGhlJob
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Retry a failed GHL sync job (admin)
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job retried
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/ghl/contacts:
+    get:
+      operationId: adminListGhlContacts
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: List GHL contacts (admin)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: GHL contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /admin/ghl/sync/{userId}:
+    post:
+      operationId: adminSyncGhlUser
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Sync a specific user to GHL (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/ghl/sync-member/{id}:
+    post:
+      operationId: adminSyncGhlMember
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Sync a member by ID to GHL (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/ghl/sync-all:
+    post:
+      operationId: adminSyncAllGhl
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Trigger full GHL sync for all members (admin)
+      responses:
+        "200":
+          description: Full sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/ghl/bulk-sync:
+    post:
+      operationId: adminBulkSyncGhl
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Trigger bulk GHL sync (admin)
+      responses:
+        "200":
+          description: Bulk sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/ghl/config:
+    get:
+      operationId: adminGetGhlConfig
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Get GHL configuration (admin)
+      responses:
+        "200":
+          description: GHL config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhlConfig"
+    patch:
+      operationId: adminPatchGhlConfig
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Partially update GHL configuration (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhlConfig"
+      responses:
+        "200":
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhlConfig"
+    put:
+      operationId: adminUpdateGhlConfig
+      tags: [admin-ghl]
+      security:
+        - cookieAuth: []
+      summary: Replace GHL configuration (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhlConfig"
+      responses:
+        "200":
+          description: Config replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhlConfig"
+
+  /admin/run-expiration-check:
+    post:
+      operationId: adminRunExpirationCheck
+      tags: [admin-expiration]
+      security:
+        - cookieAuth: []
+      summary: Manually run product expiration check (admin)
+      responses:
+        "200":
+          description: Expiration check completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /webhooks/thrivecart:
+    post:
+      operationId: handleThrivecartWebhook
+      tags: [webhooks]
+      summary: Handle incoming ThriveCart webhook events
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /webhooks/ghl:
+    post:
+      operationId: handleGhlWebhook
+      tags: [webhooks]
+      summary: Handle incoming GoHighLevel webhook events
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /webhooks/sendgrid:
+    post:
+      operationId: handleSendgridWebhook
+      tags: [webhooks]
+      summary: Handle incoming SendGrid email event webhooks
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /webhooks/twilio:
+    post:
+      operationId: handleTwilioWebhook
+      tags: [webhooks]
+      summary: Handle incoming Twilio SMS status webhooks
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+
+  /go/{productSlug}:
+    get:
+      operationId: referralRedirect
+      tags: [commissions]
+      summary: Referral redirect — track click and redirect to product page
+      security: []
+      parameters:
+        - name: productSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ref
+          in: query
+          schema:
+            type: string
+          description: Referral code
+      responses:
+        "302":
+          description: Redirect to product page
+
+security:
+  - cookieAuth: []
+  - apiKeyAuth: []
+
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: JWT access token set via cookie after login
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      description: API key for programmatic access — pass as Bearer token (keys start with `bts_`)
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number for pagination
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Number of items per page
+
+  responses:
+    BadRequest:
+      description: Bad request — validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Maximum requests allowed in the window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Requests remaining in the current window
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Unix timestamp when the rate limit window resets
+
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Machine-readable error code
+        requestId:
+          type: string
+          description: Request ID for debugging
+      required: [error]
+
+    RegisterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required: [name, email, password]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        onboardingComplete:
+          type: boolean
+        onboardingStep:
+          type: integer
+      required: [id, name, email, role]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    CommunicationRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        subject:
+          type: string
+        status:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+      required: [id, type, subject, status, sentAt]
+
+    CommissionsDashboard:
+      type: object
+      properties:
+        totalEarnings:
+          type: number
+        pendingEarnings:
+          type: number
+        approvedEarnings:
+          type: number
+        paidEarnings:
+          type: number
+        totalReferrals:
+          type: integer
+        activeReferrals:
+          type: integer
+        conversionRate:
+          type: number
+
+    CommissionsEarningsList:
+      type: object
+      properties:
+        earnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommissionEarning"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [earnings, pagination]
+
+    CommissionEarning:
+      type: object
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, approved, paid, rejected, reversed]
+        referralName:
+          type: string
+        productName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, amount, status, createdAt]
+
+    ReferralLink:
+      type: object
+      properties:
+        id:
+          type: integer
+        productSlug:
+          type: string
+        productName:
+          type: string
+        referralCode:
+          type: string
+        url:
+          type: string
+        clickCount:
+          type: integer
+        conversionCount:
+          type: integer
+      required: [id, productSlug, productName, referralCode, url]
+
+    CommissionPayout:
+      type: object
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, processing, paid, failed]
+        payoutMethod:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, amount, status, createdAt]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        affiliateName:
+          type: string
+        totalEarnings:
+          type: number
+        referralCount:
+          type: integer
+      required: [rank, affiliateName, totalEarnings, referralCount]
+
+    CommissionRate:
+      type: object
+      properties:
+        id:
+          type: integer
+        productSlug:
+          type: string
+        rateType:
+          type: string
+          enum: [percentage, flat]
+        rateValue:
+          type: number
+        isActive:
+          type: boolean
+      required: [id, productSlug, rateType, rateValue, isActive]
+
+    CreateCommissionRate:
+      type: object
+      properties:
+        productSlug:
+          type: string
+        rateType:
+          type: string
+          enum: [percentage, flat]
+        rateValue:
+          type: number
+        isActive:
+          type: boolean
+      required: [productSlug, rateType, rateValue]
+
+    AffiliateResource:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, type, url, createdAt]
+
+    CreateAffiliateResource:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+      required: [title, type, url]
+
+    AffiliateProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        referralCode:
+          type: string
+        payoutMethod:
+          type: string
+        payoutEmail:
+          type: ["string", "null"]
+        taxFormSubmitted:
+          type: boolean
+        isActive:
+          type: boolean
+      required: [id, userId, referralCode, isActive]
+
+    UpdateAffiliateProfile:
+      type: object
+      properties:
+        payoutMethod:
+          type: string
+        payoutEmail:
+          type: string
+        isActive:
+          type: boolean
+
+    TaxFormSubmission:
+      type: object
+      properties:
+        formType:
+          type: string
+        formData:
+          type: object
+      required: [formType, formData]
+
+    ChartDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        amount:
+          type: number
+        count:
+          type: integer
+      required: [date, amount]
+
+    AdminCommission:
+      type: object
+      properties:
+        id:
+          type: integer
+        affiliateId:
+          type: integer
+        affiliateName:
+          type: string
+        referralId:
+          type: integer
+        referralName:
+          type: string
+        productName:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, approved, paid, rejected, reversed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, affiliateId, amount, status, createdAt]
+
+    FraudAlert:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        affiliateId:
+          type: integer
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, affiliateId, description, severity, createdAt]
+
+    ApiKeyInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+          description: First few characters of the key for identification
+        permissions:
+          type: array
+          items:
+            type: string
+        lastUsedAt:
+          type: ["string", "null"]
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, prefix, permissions, isActive, createdAt]
+
+    CreateApiKey:
+      type: object
+      properties:
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required: [name]
+
+    ApiKeyCreated:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        key:
+          type: string
+          description: The full API key value — only returned once at creation time
+        permissions:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, key, permissions, createdAt]
+
+    UpdateApiKey:
+      type: object
+      properties:
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    WebhookLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+        event:
+          type: string
+        status:
+          type: string
+          enum: [success, failed, pending]
+        payload:
+          type: object
+        errorMessage:
+          type: ["string", "null"]
+        processedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, source, event, status, createdAt]
+
+    ProductMapping:
+      type: object
+      properties:
+        id:
+          type: integer
+        externalProductId:
+          type: string
+        internalProductSlug:
+          type: string
+        source:
+          type: string
+        isActive:
+          type: boolean
+      required: [id, externalProductId, internalProductSlug, source, isActive]
+
+    UpdateProductMapping:
+      type: object
+      properties:
+        internalProductSlug:
+          type: string
+        isActive:
+          type: boolean
+
+    GhlStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        lastSyncAt:
+          type: ["string", "null"]
+          format: date-time
+        totalContacts:
+          type: integer
+        syncErrors:
+          type: integer
+      required: [connected]
+
+    GhlLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        userId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [success, failed, pending]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, action, status, createdAt]
+
+    GhlConfig:
+      type: object
+      properties:
+        apiKey:
+          type: string
+        locationId:
+          type: string
+        syncEnabled:
+          type: boolean
+        syncInterval:
+          type: integer
+
     HealthStatus:
       type: object
       properties:
@@ -3146,10 +5161,6 @@ components:
             $ref: "#/components/schemas/Announcement"
         ticketLimit:
           type: integer
-        recentTools:
-          type: array
-          items:
-            $ref: "#/components/schemas/DashboardToolWidget"
       required:
         - memberName
         - highestProductName
@@ -4788,7 +6799,6 @@ components:
           items:
             type: object
       required: [exportedAt, version, tracks]
-
     ToolCategory:
       type: object
       properties:
@@ -5214,6 +7224,8 @@ components:
           type: integer
         maxOutputTokens:
           type: integer
+
+
     OneOnOneStatus:
       type: object
       properties:
