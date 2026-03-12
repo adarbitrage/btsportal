@@ -1,0 +1,1001 @@
+# BTS Portal — Public & Partner API Specification
+
+**Priority:** Build alongside core features (API-first development)
+**Status:** Not started
+**Depends on:** Auth system, all feature modules
+**Reference:** BTS PRD v2.0, all build specs
+
+---
+
+## Context
+
+The BTS portal has internal API routes defined across 14 build specs. But the platform also needs a formal, documented, versioned API that third-party systems can consume — Zapier/Make automations, custom CRM integrations, analytics platforms, mobile apps, affiliate tools, white-label partners, and anything else that needs to read or write BTS data programmatically.
+
+This spec defines the complete public API surface: authentication, versioning, rate limiting, every resource endpoint, outgoing webhooks (so third parties can subscribe to BTS events), error standards, and documentation infrastructure.
+
+---
+
+## API Design Principles
+
+1. **RESTful** — resources as nouns, HTTP methods as verbs, predictable URL patterns
+2. **JSON everywhere** — all requests and responses are `application/json` (except file uploads and webhooks)
+3. **Versioned** — all endpoints prefixed with `/api/v1/`. Breaking changes get a new version.
+4. **Consistent error format** — every error returns the same structure
+5. **Pagination** — all list endpoints support cursor-based pagination
+6. **Filtering** — list endpoints support query params for filtering and sorting
+7. **Rate limited** — per-key limits with clear headers
+8. **Idempotent** — PUT/DELETE operations are safe to retry
+9. **Documented** — OpenAPI 3.1 spec auto-generates interactive documentation
+
+---
+
+## Authentication
+
+### Three Auth Methods
+
+The API supports three authentication methods for different use cases:
+
+#### Method 1: API Keys (Server-to-Server)
+
+For backend integrations (Zapier, Make, custom scripts, partner systems). API keys are tied to an admin user and inherit that user's role permissions.
+
+```
+Authorization: Bearer bts_live_sk_a1b2c3d4e5f6...
+```
+
+**Key format:** `bts_{environment}_{type}_{random}`
+- Environment: `live` or `test`
+- Type: `sk` (secret key, full access) or `pk` (publishable key, read-only)
+- Random: 32-character alphanumeric string
+
+**Key management:**
+```sql
+api_keys
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL  -- admin who owns this key
+  name            TEXT NOT NULL              -- "Zapier Integration", "Analytics Dashboard", etc.
+  key_hash        TEXT NOT NULL              -- bcrypt hash of the key (never store plaintext)
+  key_prefix      TEXT NOT NULL              -- first 8 chars for identification (e.g., "bts_live")
+  environment     TEXT NOT NULL              -- 'live' or 'test'
+  key_type        TEXT NOT NULL              -- 'secret' or 'publishable'
+  permissions     JSONB NOT NULL DEFAULT '["*"]'  -- granular permissions (see below)
+  rate_limit_tier TEXT DEFAULT 'standard'    -- 'standard', 'elevated', 'unlimited'
+  last_used_at    TIMESTAMP
+  expires_at      TIMESTAMP                 -- optional expiry
+  is_active       BOOLEAN DEFAULT true
+  created_at      TIMESTAMP DEFAULT NOW()
+  revoked_at      TIMESTAMP
+```
+
+**Key creation flow:**
+1. Admin goes to Settings → API Keys → Create New Key
+2. Selects name, environment, type, permissions, and optional expiry
+3. System generates key, shows it ONCE (never shown again), stores hash
+4. Admin copies key and configures it in the third-party system
+
+#### Method 2: JWT Cookies (Browser/Portal)
+
+For the member-facing portal frontend. Already implemented in the Auth build spec. Not used by third-party integrations.
+
+```
+Cookie: access_token=eyJhbGciOiJIUzI1NiIs...
+```
+
+#### Method 3: OAuth 2.0 (Partner Applications) — Future
+
+For partner applications that act on behalf of members (e.g., a mobile app, a third-party dashboard, or a white-label integration).
+
+Not built in v1. Spec reserved for future implementation. When added:
+- Authorization Code flow with PKCE
+- Scopes map to entitlement-like permissions
+- Refresh token rotation
+- Consent screen for member authorization
+
+---
+
+### Granular Permissions
+
+API keys can be scoped to specific resources and actions:
+
+```json
+// Full access (admin)
+["*"]
+
+// Read-only access to members and training
+["members:read", "training:read"]
+
+// Webhook management only
+["webhooks:read", "webhooks:write"]
+
+// Commission data access
+["commissions:read", "commissions:write", "affiliates:read"]
+```
+
+**Permission format:** `{resource}:{action}`
+
+**Resources:** `members`, `products`, `training`, `coaching`, `community`, `support`, `chat`, `tools`, `commissions`, `communications`, `webhooks`, `admin`, `system`
+
+**Actions:** `read`, `write`, `delete`, `admin`
+
+The API middleware checks the key's permissions before allowing access to any endpoint. Missing permission → 403.
+
+---
+
+## Rate Limiting
+
+### Tiers
+
+| Tier | Requests/Minute | Requests/Hour | Requests/Day | Who Gets It |
+|------|----------------|---------------|-------------|-------------|
+| Standard | 60 | 1,000 | 10,000 | Default for all API keys |
+| Elevated | 300 | 5,000 | 50,000 | Partners with approved integration |
+| Unlimited | No limit | No limit | No limit | Internal services, super admin |
+
+### Headers
+
+Every API response includes rate limit headers:
+
+```
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1711065600
+X-RateLimit-Tier: standard
+```
+
+When rate limited (429):
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Retry after 2026-03-22T10:00:00Z.",
+    "retryAfter": "2026-03-22T10:00:00Z",
+    "limit": 60,
+    "window": "1m"
+  }
+}
+```
+
+### Implementation
+
+Redis-backed sliding window counter keyed by API key ID. Each request increments the counter. Counter expires at the window boundary.
+
+---
+
+## Versioning
+
+All API endpoints are prefixed with `/api/v1/`. When breaking changes are needed, a new version (`/api/v2/`) is created. The old version continues to work for a deprecation period (minimum 6 months).
+
+**What constitutes a breaking change:**
+- Removing a field from a response
+- Changing a field's type
+- Removing an endpoint
+- Changing required parameters
+- Changing error codes
+
+**What does NOT constitute a breaking change (additive, safe):**
+- Adding a new field to a response
+- Adding a new optional parameter
+- Adding a new endpoint
+- Adding a new enum value
+
+---
+
+## Error Handling
+
+Every error response follows the same format:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Human-readable error description.",
+    "details": [
+      { "field": "email", "message": "Invalid email format" },
+      { "field": "name", "message": "Name is required" }
+    ],
+    "requestId": "req_a1b2c3d4e5"
+  }
+}
+```
+
+### Standard Error Codes
+
+| HTTP Status | Code | Meaning |
+|-------------|------|---------|
+| 400 | `bad_request` | Malformed request body or params |
+| 400 | `validation_error` | Input validation failed (details array included) |
+| 401 | `unauthorized` | Missing or invalid authentication |
+| 401 | `token_expired` | JWT access token has expired |
+| 403 | `forbidden` | Authenticated but insufficient permissions |
+| 403 | `entitlement_required` | Member lacks required entitlement (includes `upgradeProduct`) |
+| 404 | `not_found` | Resource does not exist |
+| 409 | `conflict` | Resource already exists or state conflict |
+| 409 | `duplicate` | Duplicate operation (idempotency check) |
+| 422 | `unprocessable_entity` | Valid JSON but semantically invalid |
+| 429 | `rate_limit_exceeded` | Too many requests |
+| 500 | `internal_error` | Server error (details logged, not exposed) |
+| 503 | `service_unavailable` | Temporary outage (retry with backoff) |
+
+### Request IDs
+
+Every request gets a unique `requestId` (UUID v4) returned in the response body and as a header (`X-Request-Id`). Include this in support requests for debugging.
+
+---
+
+## Pagination
+
+All list endpoints use **cursor-based pagination** (not offset-based) for consistency and performance with large datasets.
+
+### Request
+
+```
+GET /api/v1/members?limit=20&cursor=eyJpZCI6MTAwfQ==&sort=created_at:desc
+```
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | integer | 20 | Results per page (max 100) |
+| `cursor` | string | null | Opaque cursor from previous response |
+| `sort` | string | varies | Sort field and direction (`field:asc` or `field:desc`) |
+
+### Response
+
+```json
+{
+  "data": [ ... ],
+  "pagination": {
+    "hasMore": true,
+    "nextCursor": "eyJpZCI6MTIwfQ==",
+    "previousCursor": "eyJpZCI6MTAwfQ==",
+    "total": 1247
+  }
+}
+```
+
+**Cursor format:** Base64-encoded JSON containing the sort field value and ID of the last item. Opaque to the client — they should never decode or construct cursors manually.
+
+---
+
+## API Resources & Endpoints
+
+### Members
+
+```
+GET    /api/v1/members                    → List members
+GET    /api/v1/members/:id                → Get member by ID
+GET    /api/v1/members/by-email/:email    → Get member by email
+POST   /api/v1/members                    → Create member (admin/API key only)
+PATCH  /api/v1/members/:id                → Update member
+DELETE /api/v1/members/:id                → Deactivate member (soft delete)
+
+GET    /api/v1/members/:id/products       → List member's products
+POST   /api/v1/members/:id/products       → Grant product to member
+DELETE /api/v1/members/:id/products/:productId → Revoke product
+
+GET    /api/v1/members/:id/entitlements   → Get resolved entitlements
+GET    /api/v1/members/:id/progress       → Training progress summary
+GET    /api/v1/members/:id/sessions       → Coaching session history
+GET    /api/v1/members/:id/tickets        → Support ticket history
+GET    /api/v1/members/:id/commissions    → Commission history
+GET    /api/v1/members/:id/communications → Communication log
+GET    /api/v1/members/:id/activity       → Activity timeline
+```
+
+#### List Members — Filtering
+
+```
+GET /api/v1/members?product=6month&onboarding_complete=true&last_login_after=2026-03-01&sort=created_at:desc&limit=50
+```
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| `product` | string | Filter by product slug (members who own this product) |
+| `entitlement` | string | Filter by entitlement key |
+| `onboarding_complete` | boolean | Onboarding status |
+| `status` | string | `active`, `deactivated` |
+| `last_login_before` / `after` | ISO date | Login activity window |
+| `created_before` / `after` | ISO date | Registration date window |
+| `experience_level` | string | `beginner`, `some_experience`, `intermediate`, `advanced` |
+| `search` | string | Full-text search on name and email |
+
+#### Member Object
+
+```json
+{
+  "id": 42,
+  "email": "marcus@example.com",
+  "name": "Marcus Johnson",
+  "phone": "+15551234567",
+  "timezone": "America/Chicago",
+  "experienceLevel": "some_experience",
+  "primaryGoal": "scale",
+  "status": "active",
+  "onboardingComplete": true,
+  "onboardingCompletedAt": "2026-01-20T14:30:00Z",
+  "smsOptIn": true,
+  "emailVerified": true,
+  "lastLoginAt": "2026-03-12T08:00:00Z",
+  "createdAt": "2026-01-15T10:00:00Z",
+  "updatedAt": "2026-03-12T08:00:00Z",
+  "products": [
+    {
+      "id": 2,
+      "slug": "backroad",
+      "name": "The Backroad System",
+      "status": "active",
+      "purchasedAt": "2026-01-15T10:00:00Z",
+      "expiresAt": null
+    },
+    {
+      "id": 6,
+      "slug": "6month",
+      "name": "BTS 6-Month Mentorship",
+      "status": "active",
+      "purchasedAt": "2026-02-01T12:00:00Z",
+      "expiresAt": "2026-08-01T12:00:00Z"
+    }
+  ],
+  "entitlements": ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:mid", "support:unlimited", "chat:full"],
+  "highestProduct": "BTS 6-Month Mentorship",
+  "ghlContactId": "ghl_abc123"
+}
+```
+
+---
+
+### Products
+
+```
+GET    /api/v1/products                   → List all products
+GET    /api/v1/products/:id               → Get product details
+GET    /api/v1/products/:id/members       → List members who own this product
+```
+
+#### Product Object
+
+```json
+{
+  "id": 6,
+  "slug": "6month",
+  "name": "BTS 6-Month Mentorship",
+  "type": "backend",
+  "priceDisplay": "$497",
+  "durationDays": 180,
+  "entitlementKeys": ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:mid", "support:unlimited", "chat:full"],
+  "thrivecartProductIds": ["tc_6month"],
+  "activeMemberCount": 234,
+  "isActive": true,
+  "createdAt": "2026-01-01T00:00:00Z"
+}
+```
+
+---
+
+### Training
+
+```
+GET    /api/v1/training/tracks            → List tracks (with module/lesson counts)
+GET    /api/v1/training/tracks/:id        → Track detail with modules
+GET    /api/v1/training/modules/:id       → Module detail with lessons
+GET    /api/v1/training/lessons/:id       → Lesson content
+POST   /api/v1/training/progress          → Record lesson completion
+GET    /api/v1/training/progress/:userId  → Member's training progress
+
+# Admin / API key with training:write
+POST   /api/v1/training/tracks            → Create track
+PATCH  /api/v1/training/tracks/:id        → Update track
+POST   /api/v1/training/modules           → Create module
+PATCH  /api/v1/training/modules/:id       → Update module
+POST   /api/v1/training/lessons           → Create lesson
+PATCH  /api/v1/training/lessons/:id       → Update lesson
+POST   /api/v1/training/lessons/:id/resources → Upload resource
+```
+
+---
+
+### Coaching (Group Calls)
+
+```
+GET    /api/v1/coaching/calls             → List upcoming calls
+GET    /api/v1/coaching/calls/:id         → Call detail
+GET    /api/v1/coaching/recordings        → List recordings
+GET    /api/v1/coaching/coaches           → List coaches
+
+# Admin
+POST   /api/v1/coaching/calls             → Create call
+PATCH  /api/v1/coaching/calls/:id         → Update call
+POST   /api/v1/coaching/calls/:id/recording → Attach recording
+```
+
+---
+
+### Coaching (1-on-1 Sessions)
+
+```
+GET    /api/v1/coaching/sessions                    → List sessions (filterable by member, coach, status, date)
+GET    /api/v1/coaching/sessions/:id                → Session detail with notes
+POST   /api/v1/coaching/sessions                    → Book session
+POST   /api/v1/coaching/sessions/:id/cancel         → Cancel session
+POST   /api/v1/coaching/sessions/:id/reschedule     → Reschedule session
+PATCH  /api/v1/coaching/sessions/:id/notes          → Add/update coach notes
+POST   /api/v1/coaching/sessions/:id/feedback       → Submit member feedback
+GET    /api/v1/coaching/sessions/availability        → Get available slots for a coach
+
+GET    /api/v1/coaching/coaches/:id/availability     → Coach's schedule
+PATCH  /api/v1/coaching/coaches/:id/availability     → Update availability (admin)
+POST   /api/v1/coaching/coaches/:id/overrides        → Add date override (admin)
+```
+
+---
+
+### Community
+
+```
+GET    /api/v1/community/posts            → Feed (filterable by category, sort, search)
+GET    /api/v1/community/posts/:id        → Post detail with comments
+POST   /api/v1/community/posts            → Create post
+PATCH  /api/v1/community/posts/:id        → Edit post
+DELETE /api/v1/community/posts/:id        → Delete post
+
+GET    /api/v1/community/posts/:id/comments → Comments on a post
+POST   /api/v1/community/posts/:id/comments → Add comment
+PATCH  /api/v1/community/comments/:id     → Edit comment
+DELETE /api/v1/community/comments/:id     → Delete comment
+
+POST   /api/v1/community/reactions        → Toggle reaction
+GET    /api/v1/community/categories       → List categories
+GET    /api/v1/community/members          → Member directory
+GET    /api/v1/community/members/:id      → Member profile
+
+GET    /api/v1/community/notifications    → List notifications
+PATCH  /api/v1/community/notifications/read-all → Mark all read
+
+# Admin
+POST   /api/v1/community/posts/:id/pin   → Pin/unpin post
+POST   /api/v1/community/members/:id/mute → Mute member
+POST   /api/v1/community/members/:id/ban  → Ban member
+GET    /api/v1/community/moderation       → Moderation queue
+PATCH  /api/v1/community/moderation/:id   → Action on flagged content
+```
+
+---
+
+### Support Tickets
+
+```
+GET    /api/v1/tickets                    → List tickets (filterable)
+GET    /api/v1/tickets/:id               → Ticket detail with messages
+POST   /api/v1/tickets                    → Create ticket
+POST   /api/v1/tickets/:id/messages       → Add message (or internal note with is_internal flag)
+PATCH  /api/v1/tickets/:id               → Update status, assign, change category
+POST   /api/v1/tickets/:id/satisfaction   → Submit satisfaction rating
+
+# Admin
+GET    /api/v1/tickets/sla-dashboard      → SLA compliance overview
+POST   /api/v1/tickets/merge              → Merge duplicate tickets
+GET    /api/v1/tickets/analytics           → Support analytics
+```
+
+#### Ticket Filtering
+
+```
+GET /api/v1/tickets?status=open&category=billing&priority=high&assigned_to=5&sla_status=breached&sort=created_at:asc
+```
+
+---
+
+### AI Chat
+
+```
+POST   /api/v1/chat                       → Send message (SSE streaming response)
+GET    /api/v1/chat/sessions              → List chat sessions
+GET    /api/v1/chat/sessions/:id          → Session with full message history
+DELETE /api/v1/chat/sessions/:id          → Delete session
+GET    /api/v1/chat/status                → Usage limits and remaining messages
+
+# Lifetime only
+GET    /api/v1/chat/prompts               → List saved prompts
+POST   /api/v1/chat/prompts               → Create saved prompt
+PATCH  /api/v1/chat/prompts/:id           → Update prompt
+DELETE /api/v1/chat/prompts/:id           → Delete prompt
+
+# Admin
+GET    /api/v1/chat/transcripts           → Browse all chat sessions
+PATCH  /api/v1/chat/system-prompt         → Update system prompt
+CRUD   /api/v1/chat/knowledgebase         → Manage RAG documents
+```
+
+---
+
+### Software & Tools
+
+```
+GET    /api/v1/tools                      → List tools (with access state per member)
+GET    /api/v1/tools/:slug                → Tool detail
+GET    /api/v1/tools/:id/data             → List saved data for tool + user
+POST   /api/v1/tools/:id/data             → Save tool data
+PUT    /api/v1/tools/:id/data/:key        → Update saved data
+DELETE /api/v1/tools/:id/data/:key        → Delete saved data
+POST   /api/v1/tools/:id/usage            → Log usage event
+
+# Tool-specific
+POST   /api/v1/tools/headline-generator/generate → Generate headlines
+POST   /api/v1/tools/campaign-calculator/analyze  → AI analysis of campaign numbers
+
+# Admin
+CRUD   /api/v1/tools/admin/tools          → Manage tool registry
+CRUD   /api/v1/tools/admin/categories     → Manage tool categories
+GET    /api/v1/tools/admin/analytics      → Tool usage analytics
+```
+
+---
+
+### Commissions
+
+```
+GET    /api/v1/commissions/dashboard      → Summary stats
+GET    /api/v1/commissions/earnings       → Commission list (paginated, filterable)
+GET    /api/v1/commissions/referral-links → Referral links with per-link stats
+GET    /api/v1/commissions/payouts        → Payout history
+GET    /api/v1/commissions/leaderboard    → Top affiliates
+GET    /api/v1/commissions/rates          → Commission rate table
+GET    /api/v1/commissions/resources      → Promotional resources
+GET    /api/v1/commissions/profile        → Affiliate profile
+PATCH  /api/v1/commissions/profile        → Update payout settings
+POST   /api/v1/commissions/profile/tax-form → Upload W-9/W-8BEN
+GET    /api/v1/commissions/chart          → Earnings chart data
+
+# Admin
+GET    /api/v1/commissions/admin/all      → All commissions with filters
+PATCH  /api/v1/commissions/admin/:id      → Update commission status
+GET    /api/v1/commissions/admin/payouts  → All payouts
+POST   /api/v1/commissions/admin/payouts/generate → Generate payout batch
+PATCH  /api/v1/commissions/admin/payouts/:id → Update payout status
+POST   /api/v1/commissions/admin/run-approval → Run approval job
+CRUD   /api/v1/commissions/admin/rates    → Manage commission rates
+CRUD   /api/v1/commissions/admin/resources → Manage promo resources
+GET    /api/v1/commissions/admin/fraud    → Fraud alerts
+```
+
+---
+
+### Communications
+
+```
+# Admin / API key with communications:write
+POST   /api/v1/communications/send-email  → Send a one-off email
+POST   /api/v1/communications/send-sms    → Send a one-off SMS
+GET    /api/v1/communications/log         → Communication log (filterable)
+GET    /api/v1/communications/log/:userId → Per-member communication history
+
+CRUD   /api/v1/communications/email-templates  → Manage email templates
+CRUD   /api/v1/communications/sms-templates    → Manage SMS templates
+CRUD   /api/v1/communications/sequences        → Manage sequences
+POST   /api/v1/communications/sequences/:id/enroll   → Enroll member in sequence
+POST   /api/v1/communications/sequences/:id/cancel    → Cancel enrollment
+CRUD   /api/v1/communications/broadcasts       → Create and manage broadcasts
+POST   /api/v1/communications/broadcasts/:id/send     → Send broadcast
+
+GET    /api/v1/communications/analytics   → Delivery and engagement stats
+GET    /api/v1/communications/bounces     → Bounced email list
+```
+
+---
+
+### Documents
+
+```
+GET    /api/v1/documents                  → List legal document templates
+GET    /api/v1/documents/:userId          → Member's signed documents
+POST   /api/v1/documents/sign             → Submit signed document
+```
+
+---
+
+### Webhooks (Incoming — Third Parties → BTS)
+
+These already exist from previous build specs:
+
+```
+POST   /api/v1/webhooks/thrivecart       → ThriveCart events
+POST   /api/v1/webhooks/ghl              → GHL tag/pipeline events
+POST   /api/v1/webhooks/sendgrid         → SendGrid delivery events
+POST   /api/v1/webhooks/twilio           → Twilio delivery status
+```
+
+---
+
+### Webhooks (Outgoing — BTS → Third Parties)
+
+This is new. Allow third-party systems to subscribe to BTS events and receive real-time notifications.
+
+#### Webhook Subscription Management
+
+```
+GET    /api/v1/webhooks/subscriptions              → List subscriptions
+POST   /api/v1/webhooks/subscriptions              → Create subscription
+GET    /api/v1/webhooks/subscriptions/:id          → Subscription detail
+PATCH  /api/v1/webhooks/subscriptions/:id          → Update subscription
+DELETE /api/v1/webhooks/subscriptions/:id          → Delete subscription
+GET    /api/v1/webhooks/subscriptions/:id/deliveries → Delivery history
+POST   /api/v1/webhooks/subscriptions/:id/test     → Send test event
+```
+
+#### Subscription Object
+
+```json
+{
+  "id": "wh_abc123",
+  "url": "https://partner.example.com/bts-webhook",
+  "events": ["member.created", "member.upgraded", "commission.earned"],
+  "secret": "whsec_a1b2c3...",
+  "isActive": true,
+  "metadata": { "partner": "Analytics Dashboard" },
+  "createdAt": "2026-03-01T00:00:00Z"
+}
+```
+
+#### Subscribable Events
+
+**Member Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `member.created` | Full member object | New account created (ThriveCart purchase or API) |
+| `member.updated` | Member object with changed fields | Profile updated |
+| `member.product_granted` | Member ID + product object | Product added to member |
+| `member.product_revoked` | Member ID + product object + reason | Product removed (refund, expiration, admin) |
+| `member.upgraded` | Member ID + old products + new product | Higher-tier product purchased |
+| `member.onboarding_completed` | Member ID + completion timestamp | Onboarding wizard finished |
+| `member.login` | Member ID + timestamp (debounced daily) | Member logs in |
+| `member.deactivated` | Member ID + reason | Account deactivated |
+
+**Training Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `training.lesson_completed` | Member ID + lesson + module + track | Lesson marked complete |
+| `training.module_completed` | Member ID + module + track + progress % | All lessons in module done |
+| `training.track_completed` | Member ID + track + overall progress % | All modules in track done |
+
+**Coaching Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `coaching.session_booked` | Session object | 1-on-1 session booked |
+| `coaching.session_completed` | Session object + notes | Session marked completed |
+| `coaching.session_cancelled` | Session object + reason + cancelled_by | Session cancelled |
+| `coaching.call_reminder` | Call object + member ID | Call reminder sent (24hr/1hr) |
+
+**Commission Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `commission.earned` | Commission object | New commission recorded |
+| `commission.approved` | Commission object | Commission passed refund window |
+| `commission.reversed` | Commission object + reason | Commission reversed (refund) |
+| `commission.payout_created` | Payout object | Payout batch generated |
+| `commission.payout_completed` | Payout object + reference | Payout processed |
+
+**Support Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `ticket.created` | Ticket object | New ticket submitted |
+| `ticket.responded` | Ticket ID + message | Staff response added |
+| `ticket.resolved` | Ticket object | Ticket resolved |
+| `ticket.sla_breached` | Ticket object + SLA details | SLA target missed |
+
+**Community Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `community.post_created` | Post object | New community post |
+| `community.post_flagged` | Post object + report count | Post reaches flag threshold |
+
+**System Events:**
+
+| Event | Payload | Triggered When |
+|-------|---------|----------------|
+| `webhook.test` | Test payload | Manual test from admin |
+| `system.error` | Error details | Critical system error |
+
+#### Webhook Delivery
+
+```
+POST https://partner.example.com/bts-webhook
+Content-Type: application/json
+X-BTS-Webhook-Id: evt_a1b2c3d4
+X-BTS-Webhook-Timestamp: 1711065600
+X-BTS-Webhook-Signature: sha256=a1b2c3d4e5f6...
+User-Agent: BTS-Webhook/1.0
+
+{
+  "id": "evt_a1b2c3d4",
+  "type": "member.upgraded",
+  "timestamp": "2026-03-22T10:00:00Z",
+  "data": {
+    "memberId": 42,
+    "previousProducts": ["backroad"],
+    "newProduct": {
+      "id": 6,
+      "slug": "6month",
+      "name": "BTS 6-Month Mentorship"
+    }
+  }
+}
+```
+
+#### Webhook Signature Verification
+
+Partners verify webhook authenticity using HMAC-SHA256:
+
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhook(payload, signature, secret) {
+  const timestamp = headers['x-bts-webhook-timestamp'];
+  const signedPayload = `${timestamp}.${payload}`;
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(signedPayload)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(`sha256=${expected}`),
+    Buffer.from(signature)
+  );
+}
+```
+
+#### Delivery & Retry
+
+- Webhook deliveries are queued via BullMQ
+- Timeout: 10 seconds per delivery attempt
+- Retry schedule: 5 attempts with exponential backoff (30s, 2m, 15m, 1h, 6h)
+- After all retries fail: subscription is marked as `failing`, admin is notified
+- After 3 consecutive days of failures: subscription is auto-disabled
+- Admin can view delivery history, see response codes, and retry individual deliveries
+
+#### Delivery Log
+
+```sql
+webhook_deliveries
+  id                  SERIAL PRIMARY KEY
+  subscription_id     INTEGER REFERENCES webhook_subscriptions(id) NOT NULL
+  event_type          TEXT NOT NULL
+  event_id            TEXT NOT NULL UNIQUE       -- evt_xxx
+  payload             JSONB NOT NULL
+  url                 TEXT NOT NULL
+  
+  -- Delivery status
+  status              TEXT NOT NULL              -- 'pending', 'delivered', 'failed', 'retrying'
+  response_status     INTEGER                   -- HTTP status code from partner
+  response_body       TEXT                       -- first 1000 chars of response (for debugging)
+  error_message       TEXT
+  
+  -- Retry tracking
+  attempt_count       INTEGER DEFAULT 0
+  next_retry_at       TIMESTAMP
+  
+  created_at          TIMESTAMP DEFAULT NOW()
+  delivered_at        TIMESTAMP
+```
+
+---
+
+### Admin & System
+
+```
+# Dashboard
+GET    /api/v1/admin/dashboard            → Business KPIs and metrics
+GET    /api/v1/admin/activity             → Recent activity feed
+
+# Search
+GET    /api/v1/admin/search?q=xxx         → Global search
+
+# Audit
+GET    /api/v1/admin/audit-log            → Audit log (filterable)
+
+# Impersonation
+POST   /api/v1/admin/impersonate/:userId  → Start impersonation
+POST   /api/v1/admin/stop-impersonation   → End impersonation
+
+# Export
+GET    /api/v1/admin/export/:entity       → Export data (CSV/JSON)
+
+# System
+GET    /api/v1/admin/system/health        → Service health check
+GET    /api/v1/admin/system/queues        → Queue status
+
+# API Key Management
+GET    /api/v1/admin/api-keys             → List API keys
+POST   /api/v1/admin/api-keys             → Create API key
+PATCH  /api/v1/admin/api-keys/:id         → Update key (name, permissions, active)
+DELETE /api/v1/admin/api-keys/:id         → Revoke key
+
+# Settings
+GET    /api/v1/admin/settings             → All settings
+PATCH  /api/v1/admin/settings             → Update settings
+
+# GHL
+GET    /api/v1/admin/ghl/status           → GHL sync status
+POST   /api/v1/admin/ghl/sync/:userId     → Force sync member
+POST   /api/v1/admin/ghl/sync-all         → Bulk re-sync
+GET    /api/v1/admin/ghl/log              → Sync log
+```
+
+---
+
+### Referral Tracking (Public, No Auth)
+
+```
+GET    /go/:productSlug?ref=:code         → Referral redirect (sets cookie, logs click, 302 redirect)
+```
+
+This is the only endpoint that requires no authentication. It must respond in < 100ms.
+
+---
+
+### Health Check (Public, No Auth)
+
+```
+GET    /api/v1/health
+
+Response:
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2026-03-22T10:00:00Z",
+  "services": {
+    "database": "connected",
+    "redis": "connected",
+    "sendgrid": "operational",
+    "twilio": "operational"
+  }
+}
+```
+
+---
+
+## OpenAPI / Documentation
+
+### Auto-Generated Documentation
+
+The API is documented using **OpenAPI 3.1** spec, generated from route definitions using a library like `swagger-jsdoc` or hand-maintained as a YAML file.
+
+**Interactive docs** served at `/api/docs` using Swagger UI or Redocly. Includes:
+- All endpoints with request/response schemas
+- Authentication instructions
+- Code examples in cURL, JavaScript, Python, and Ruby
+- Try-it-out functionality (with test API key)
+
+### Developer Portal (`/developers` or `docs.buildtestscale.com`)
+
+A separate documentation site (future) with:
+- Getting started guide
+- Authentication setup
+- Webhook integration guide
+- Rate limit explanation
+- Code samples for common integrations
+- Changelog (API version history)
+- SDKs (JavaScript, Python — future)
+
+For v1, Swagger UI at `/api/docs` is sufficient.
+
+---
+
+## Database Additions
+
+```sql
+-- API Keys
+api_keys (
+  id, user_id, name, key_hash, key_prefix, environment, key_type,
+  permissions, rate_limit_tier, last_used_at, expires_at,
+  is_active, created_at, revoked_at
+)
+
+-- Outgoing Webhook Subscriptions
+webhook_subscriptions (
+  id, api_key_id, url, events, secret_hash, is_active,
+  metadata, failure_count, last_success_at, last_failure_at,
+  disabled_at, created_at, updated_at
+)
+
+-- Webhook Delivery Log
+webhook_deliveries (
+  id, subscription_id, event_type, event_id, payload, url,
+  status, response_status, response_body, error_message,
+  attempt_count, next_retry_at, created_at, delivered_at
+)
+
+-- API Request Log (for analytics and debugging)
+api_request_log (
+  id, api_key_id, method, path, status_code, response_time_ms,
+  request_id, ip_address, user_agent, created_at
+)
+```
+
+---
+
+## Implementation Priority
+
+### Phase 1: API Foundation (build with auth system)
+- API key creation/management in admin panel
+- Key authentication middleware
+- Rate limiting middleware
+- Standard error handling
+- Pagination helpers
+- Request logging
+- Health check endpoint
+
+### Phase 2: Core Resource Endpoints (build with each feature)
+- Member endpoints (with member management)
+- Product endpoints (with entitlement system)
+- Training endpoints (with training CMS)
+- Ticket endpoints (with support system)
+
+### Phase 3: Advanced Endpoints (after core features)
+- Coaching endpoints
+- Community endpoints
+- Commission endpoints
+- Communication endpoints
+- Tool endpoints
+- Chat endpoints
+
+### Phase 4: Outgoing Webhooks & Documentation
+- Webhook subscription management
+- Event firing from all modules
+- Delivery queue with retry
+- OpenAPI spec generation
+- Swagger UI at /api/docs
+
+---
+
+## Environment Variables
+
+```
+# API
+API_KEY_SALT=<for key hashing>
+API_RATE_LIMIT_STANDARD=60        # requests per minute
+API_RATE_LIMIT_ELEVATED=300
+API_REQUEST_LOG_ENABLED=true
+API_DOCS_ENABLED=true             # serve Swagger UI
+
+# Outgoing Webhooks
+WEBHOOK_DELIVERY_TIMEOUT_MS=10000
+WEBHOOK_MAX_RETRY_ATTEMPTS=5
+WEBHOOK_DISABLE_AFTER_FAILURE_DAYS=3
+```
+
+---
+
+## What NOT to Build Yet
+
+- OAuth 2.0 / PKCE for partner applications (API keys are sufficient for v1)
+- GraphQL endpoint (REST is sufficient)
+- JavaScript/Python SDKs (direct HTTP calls with docs)
+- Dedicated developer portal (Swagger UI is sufficient for v1)
+- API usage billing (all access is included with admin accounts)
+- Webhook replay (retry individual deliveries is sufficient)
+- API versioning infrastructure beyond /v1/ prefix (cross that bridge when v2 is needed)
+- gRPC or WebSocket API (REST + SSE covers all use cases)
+
+---
+
+## Definition of Done
+
+1. API keys can be created, managed, and revoked from the admin panel
+2. Key authentication middleware validates keys, checks permissions, and enforces rate limits
+3. Rate limit headers are present on every response with accurate remaining counts
+4. All resource endpoints return consistent JSON with standard error format
+5. Cursor-based pagination works on all list endpoints with filtering and sorting
+6. Outgoing webhooks can be subscribed to, and events fire for all documented triggers
+7. Webhook deliveries retry with exponential backoff and auto-disable after persistent failures
+8. Webhook signatures allow partners to verify authenticity
+9. Request logging captures method, path, status, response time, and API key for every request
+10. OpenAPI spec is auto-generated and Swagger UI is served at /api/docs
+11. Health check endpoint returns service status without authentication
+12. Every endpoint documented with request/response schemas, auth requirements, and permissions
+13. Test API keys work in a sandbox environment without affecting production data
+14. All internal API routes from previous build specs are accessible through the versioned /api/v1/ prefix
