@@ -223,10 +223,10 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `progress` — User lesson completion tracking
 - `coaches` — Coach profiles with timezone, max_daily_sessions, one_on_one_enabled, meet_link, average_rating, total_ratings
 - `coaching_calls` — Scheduled group coaching sessions with `required_entitlement`
-- `coach_availability` — Recurring weekly availability windows per coach (day_of_week, start_time, end_time, timezone)
-- `coach_availability_overrides` — Date-specific availability overrides (blocked days, custom hours)
-- `coaching_sessions` — 1-on-1 coaching sessions with booking, cancellation, rescheduling, notes, action items, reminders
-- `coaching_ratings` — Session ratings (1-5) with denormalized average on coaches
+- `coach_availability` — Recurring weekly availability windows per coach (day_of_week, start_time, end_time, timezone, session_duration_minutes, buffer_minutes)
+- `coach_availability_overrides` — Date-specific availability overrides (override_type: blocked/extra, custom hours, reason)
+- `coaching_sessions` — 1-on-1 coaching sessions with booking, cancellation, rescheduling, notes, rating, action items (JSONB), reminders, credit return
+- `coaching_action_items` — Structured action items from coaching sessions with due dates and completion tracking
 - `tickets` — Support tickets (with `assigned_to` column for agent assignment)
 - `ticket_messages` — Message threads on tickets (with `is_internal` flag for internal notes)
 - `ticket_sla` — SLA tracking per ticket (tier-based targets, breach/warning flags, business-hours clock)
@@ -337,7 +337,6 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `PATCH /coaching/one-on-one/sessions/:id/action-items` — Toggle action item completion
 - `POST /coaching/one-on-one/sessions/:id/rate` — Rate a completed session (1-5)
 - `POST /admin/run-expiration-check` — Nightly expiration check for time-limited products (admin-only)
-<<<<<<< HEAD
 - `GET /admin/tickets` — List all tickets with filters (admin-only)
 - `GET /admin/tickets/:id` — Get ticket with all messages including internal notes (admin-only)
 - `PUT /admin/tickets/:id/status` — Update ticket status with SLA pause/resume (admin-only)
@@ -539,6 +538,21 @@ The portal includes a community discussion feature gated behind the `community:a
   - `GET/POST/PUT/DELETE /admin/commissions/rates` — CRUD commission rates
   - `GET/POST/PUT/DELETE /admin/commissions/resources` — CRUD affiliate resources
   - `GET /admin/commissions/fraud-alerts` — Flagged commissions and affiliates
+
+- **1-on-1 Coaching Admin Routes** (require admin session auth, no API key):
+  - `GET /admin/coaching/coaches` — List all coaches
+  - `GET /admin/coaching/coaches/:id` — Coach detail with availability and overrides
+  - `PATCH /admin/coaching/coaches/:id` — Update coach 1-on-1 settings (enabled, meet link, timezone, max daily)
+  - `POST/PATCH/DELETE /admin/coaching/availability` — CRUD recurring availability windows
+  - `POST/PATCH/DELETE /admin/coaching/overrides` — CRUD date-specific availability overrides
+  - `GET /admin/coaching/sessions` — List sessions with filters (status, coach, member, date, needs-notes, no-show)
+  - `GET /admin/coaching/sessions/:id` — Session detail with action items
+  - `PATCH /admin/coaching/sessions/:id` — Update session (status, notes, rating)
+  - `POST /admin/coaching/sessions/:id/return-credit` — Return credit for no-show sessions
+  - `POST /admin/coaching/sessions/:id/action-items` — Add action item
+  - `PATCH /admin/coaching/action-items/:id/complete` — Mark action item complete
+  - `DELETE /admin/coaching/action-items/:id` — Delete action item
+  - `GET /admin/coaching/analytics` — Coaching analytics dashboard data
 
 ### Commission System
 

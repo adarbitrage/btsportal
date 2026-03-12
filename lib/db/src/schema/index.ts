@@ -52,3 +52,4 @@ export * from "./vault-collections";
 export * from "./vault-resources";
 export * from "./vault-favorites";
 export * from "./vault-resource-relations";
+export * from "./coaching-action-items";

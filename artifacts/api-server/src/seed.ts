@@ -281,8 +281,8 @@ async function seed() {
   const overrideDateStr = overrideDate.toISOString().split("T")[0];
 
   await db.insert(coachAvailabilityOverridesTable).values([
-    { coachId: coach1.id, overrideDate: nextMondayStr, isBlocked: true, reason: "Personal day off" },
-    { coachId: coach2.id, overrideDate: overrideDateStr, isBlocked: false, startTime: "10:00", endTime: "12:00", reason: "Shortened schedule - dentist appointment" },
+    { coachId: coach1.id, overrideDate: nextMondayStr, overrideType: "blocked", reason: "Personal day off" },
+    { coachId: coach2.id, overrideDate: overrideDateStr, overrideType: "extra", startTime: "10:00", endTime: "12:00", reason: "Shortened schedule - dentist appointment" },
   ]);
 
   const now = new Date();

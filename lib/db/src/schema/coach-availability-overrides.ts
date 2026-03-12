@@ -5,7 +5,7 @@ export const coachAvailabilityOverridesTable = pgTable("coach_availability_overr
   id: serial("id").primaryKey(),
   coachId: integer("coach_id").notNull().references(() => coachesTable.id),
   overrideDate: date("override_date").notNull(),
-  isBlocked: boolean("is_blocked").notNull().default(false),
+  overrideType: text("override_type").notNull().default("blocked"),
   startTime: time("start_time"),
   endTime: time("end_time"),
   reason: text("reason"),

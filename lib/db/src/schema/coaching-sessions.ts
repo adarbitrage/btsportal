@@ -12,6 +12,7 @@ export const coachingSessionsTable = pgTable("coaching_sessions", {
   meetLink: text("meet_link"),
   coachNotes: text("coach_notes"),
   memberNotes: text("member_notes"),
+  rating: integer("rating"),
   actionItems: jsonb("action_items").$type<ActionItem[]>().default([]),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelledBy: text("cancelled_by"),

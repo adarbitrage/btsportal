@@ -75,6 +75,12 @@ import AdminWins from "@/pages/admin/AdminWins";
 import OneOnOneCoaching from "@/pages/coaching/OneOnOneCoaching";
 import BookCoaching from "@/pages/coaching/BookCoaching";
 import CoachingSessionDetail from "@/pages/coaching/CoachingSessionDetail";
+import CoachingCoaches from "@/pages/admin/CoachingCoaches";
+import CoachingAvailability from "@/pages/admin/CoachingAvailability";
+import CoachingOverrides from "@/pages/admin/CoachingOverrides";
+import CoachingSessions from "@/pages/admin/CoachingSessions";
+import CoachingNotes from "@/pages/admin/CoachingNotes";
+import CoachingAnalytics from "@/pages/admin/CoachingAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -363,6 +369,12 @@ function Router() {
       <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} />}</Route>
+      <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} />}</Route>
+      <Route path="/admin/coaching/availability">{() => <AdminRoute component={CoachingAvailability} />}</Route>
+      <Route path="/admin/coaching/overrides">{() => <AdminRoute component={CoachingOverrides} />}</Route>
+      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={CoachingSessions} />}</Route>
+      <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} />}</Route>
+      <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

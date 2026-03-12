@@ -92,6 +92,10 @@ const adminCommissionItems = [
   { href: "/admin/commissions", label: "Commissions", icon: DollarSign },
 ];
 
+const adminCoachingItems = [
+  { href: "/admin/coaching", label: "1-on-1 Coaching", icon: Video },
+];
+
 const adminChatItems = [
   { href: "/admin/chat/analytics", label: "Chat Analytics", icon: BarChart3 },
   { href: "/admin/chat/transcripts", label: "Transcripts", icon: MessageSquare },
@@ -177,7 +181,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminChatItems, ...adminWinsItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>
