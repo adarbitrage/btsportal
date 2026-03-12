@@ -5,6 +5,7 @@ import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile, resolveUserCommissionTier } from "./commissions";
 import { enrollInSequence } from "./sequence-helpers";
+import { emitWebhookEvent } from "./webhook-events";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -771,6 +772,18 @@ async function handleCommissionAttribution(
   }
 
   console.log(`[Webhook] Commission created: $${(commissionAmount / 100).toFixed(2)} for affiliate ${affiliateCode} on order ${orderId}`);
+
+  emitWebhookEvent("commission.earned", {
+    commission_id: commission.id,
+    affiliate_id: affiliate.id,
+    affiliate_code: affiliateCode,
+    product_id: product.id,
+    order_id: orderId,
+    sale_amount: saleAmount,
+    commission_amount: commissionAmount,
+    rate_percent: ratePercent,
+    fraud_flag: fraudFlag,
+  }).catch(() => {});
 
   return {
     action: "commission_created",

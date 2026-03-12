@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
+import { emitWebhookEvent } from "../lib/webhook-events";
 
 const router = Router();
 
@@ -641,6 +642,20 @@ router.put("/admin/tickets/:id/status", requireAdmin, async (req: Request, res: 
 
     if (status === "resolved") {
       console.log(`[STUB:SatisfactionSurvey] Trigger satisfaction survey for ticket #${updated.ticketNumber}`);
+      emitWebhookEvent("ticket.resolved", {
+        ticket_id: updated.id,
+        ticket_number: updated.ticketNumber,
+        user_id: updated.userId,
+        resolved_at: updated.resolvedAt,
+      }).catch(() => {});
+    }
+
+    if (status === "closed") {
+      emitWebhookEvent("ticket.closed", {
+        ticket_id: updated.id,
+        ticket_number: updated.ticketNumber,
+        user_id: updated.userId,
+      }).catch(() => {});
     }
 
     res.json(updated);

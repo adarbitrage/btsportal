@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { emitWebhookEvent } from "../lib/webhook-events";
 import {
   ListTicketsResponse,
   CreateTicketBody,
@@ -97,6 +98,15 @@ router.post("/tickets", async (req, res): Promise<void> => {
   }
 
   const [updatedTicket] = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticket.id));
+
+  emitWebhookEvent("ticket.created", {
+    ticket_id: ticket.id,
+    ticket_number: ticket.ticketNumber,
+    user_id: userId,
+    category: parsed.data.category,
+    subject: parsed.data.subject,
+  }).catch(() => {});
+
   res.status(201).json(updatedTicket);
 });
 

@@ -251,6 +251,8 @@ Admin-facing support ticket management pages accessible at `/admin/*` routes. Al
 - `tool_user_data` — Per-user per-tool saved data
 - `tool_usage_log` — Tool usage event log
 - `tool_daily_usage` — Daily rate limit counters per user per action
+- `webhook_subscriptions` — Outgoing webhook subscriptions (name, target_url, secret, event_types, auto-disable after 3 days of failures)
+- `webhook_deliveries` — Outgoing webhook delivery log (subscription_id, event_type, event_id, payload, status, http_status, response_body, retry tracking)
 
 ### Onboarding Flow
 
@@ -341,6 +343,35 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET/POST /chat/prompts` — List/create saved prompt templates (chat:custom only, max 20)
 - `PATCH/DELETE /chat/prompts/:promptId` — Update/delete saved prompt templates
 - `POST /chat/create-ticket` — Create support ticket from chat session (chat:full/chat:custom only)
+- **Outgoing Webhooks (admin-only):**
+  - `GET /admin/outgoing-webhooks/event-types` — List available event types
+  - `GET /admin/outgoing-webhooks` — List subscriptions with delivery stats
+  - `POST /admin/outgoing-webhooks` — Create subscription (generates HMAC secret)
+  - `GET /admin/outgoing-webhooks/:id` — Get subscription details
+  - `PUT /admin/outgoing-webhooks/:id` — Update subscription (name, URL, events, active)
+  - `DELETE /admin/outgoing-webhooks/:id` — Delete subscription (cascade deletes deliveries)
+  - `POST /admin/outgoing-webhooks/:id/rotate-secret` — Rotate signing secret
+  - `POST /admin/outgoing-webhooks/:id/test` — Send test ping event
+  - `GET /admin/outgoing-webhooks/:id/deliveries` — Delivery history per subscription (filtered)
+  - `GET /admin/outgoing-webhook-deliveries` — All deliveries across subscriptions (filtered)
+  - `POST /admin/outgoing-webhook-deliveries/:id/retry` — Retry a failed delivery
+
+### Outgoing Webhooks System
+
+BullMQ-based outgoing webhook delivery engine. When events fire in the BTS system, matching webhook subscriptions receive signed HTTP POST payloads.
+
+**Event Types:** `member.created`, `member.verified`, `training.lesson_completed`, `training.module_completed`, `commission.earned`, `commission.paid`, `ticket.created`, `ticket.resolved`, `ticket.closed`, `community.post_created`, `community.comment_created`, `test.ping`
+
+**Signature:** HMAC-SHA256 with headers `X-BTS-Webhook-Id`, `X-BTS-Webhook-Timestamp`, `X-BTS-Webhook-Signature`
+
+**Retry:** Exponential backoff (30s, 2m, 15m, 1h, 6h — up to 5 attempts). Auto-disables subscription after 3 consecutive days of failures.
+
+**Key files:**
+- `lib/db/src/schema/webhook-subscriptions.ts` — Subscription table schema
+- `lib/db/src/schema/webhook-deliveries.ts` — Delivery log table schema
+- `artifacts/api-server/src/lib/webhook-events.ts` — Event emitter (`emitWebhookEvent()`)
+- `artifacts/api-server/src/lib/outgoing-webhook-queue.ts` — BullMQ delivery engine
+- `artifacts/api-server/src/routes/admin-outgoing-webhooks.ts` — Admin API routes
 
 ### AI Chat System
 

@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, or, isNull, gte, ilike, count, ne } from "drizzle-orm";
 import { hasEntitlement, getHighestProductLabel, getUserEntitlements, getEditWindowMinutes } from "../lib/entitlements";
+import { emitWebhookEvent } from "../lib/webhook-events";
 
 const router: IRouter = Router();
 
@@ -269,6 +270,12 @@ router.post("/community/posts", async (req, res): Promise<void> => {
     }
   }
 
+  emitWebhookEvent("community.post_created", {
+    post_id: post.id,
+    author_id: userId,
+    category_id: categoryId,
+  }).catch(() => {});
+
   res.status(201).json(post);
 });
 
@@ -517,6 +524,13 @@ router.post("/community/posts/:postId/comments", async (req, res): Promise<void>
   }
 
   await checkAndAwardBadges(userId);
+
+  emitWebhookEvent("community.comment_created", {
+    comment_id: comment.id,
+    post_id: postId,
+    author_id: userId,
+    parent_id: parentId || null,
+  }).catch(() => {});
 
   res.status(201).json(comment);
 });

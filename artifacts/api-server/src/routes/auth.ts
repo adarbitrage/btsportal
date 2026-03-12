@@ -6,6 +6,7 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
+import { emitWebhookEvent } from "../lib/webhook-events";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -106,6 +107,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
+
+  emitWebhookEvent("member.created", {
+    user_id: user.id,
+    email: user.email,
+    name: user.name,
+  }).catch(() => {});
 
   res.status(201).json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
 });
@@ -304,6 +311,11 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
     emailVerifyToken: null,
     emailVerifyExpires: null,
   }).where(eq(usersTable.id, user.id));
+
+  emitWebhookEvent("member.verified", {
+    user_id: user.id,
+    email: user.email,
+  }).catch(() => {});
 
   res.json({ message: "Email verified successfully" });
 });

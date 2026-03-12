@@ -38,3 +38,5 @@ export * from "./api-request-log";
 export * from "./sequences";
 export * from "./wins";
 export * from "./tools";
+export * from "./webhook-subscriptions";
+export * from "./webhook-deliveries";

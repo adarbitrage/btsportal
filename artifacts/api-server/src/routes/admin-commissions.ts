@@ -5,6 +5,7 @@ import {
   productsTable, usersTable
 } from "@workspace/db";
 import { eq, and, desc, sql, lte, asc, ne } from "drizzle-orm";
+import { emitWebhookEvent } from "../lib/webhook-events";
 
 const router = Router();
 
@@ -296,6 +297,14 @@ router.post("/admin/commissions/payouts/:id/mark-paid", async (req: Request, res
       totalPaid: sql`total_paid + ${payout.amount}`,
     })
     .where(eq(affiliateProfilesTable.id, payout.affiliateId));
+
+  emitWebhookEvent("commission.paid", {
+    payout_id: payout.id,
+    affiliate_id: payout.affiliateId,
+    amount: payout.amount,
+    commission_count: payout.commissionCount,
+    paid_at: new Date().toISOString(),
+  }).catch(() => {});
 
   res.json({ payout });
 });

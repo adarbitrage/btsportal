@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { ListProgressResponse, MarkLessonCompleteBody } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { emitWebhookEvent } from "../lib/webhook-events";
 
 const router: IRouter = Router();
 
@@ -48,6 +49,12 @@ router.post("/progress", async (req, res): Promise<void> => {
     .values({ userId, lessonId: parsed.data.lessonId })
     .returning();
 
+  emitWebhookEvent("training.lesson_completed", {
+    user_id: userId,
+    lesson_id: parsed.data.lessonId,
+    module_id: lesson.moduleId,
+  }).catch(() => {});
+
   const allProgress = await db
     .select()
     .from(progressTable)
@@ -74,6 +81,12 @@ router.post("/progress", async (req, res): Promise<void> => {
       userId,
       noteBody: `Completed training module ${lesson.moduleId} (${moduleLessons.length} lessons)`,
     });
+
+    emitWebhookEvent("training.module_completed", {
+      user_id: userId,
+      module_id: lesson.moduleId,
+      lessons_completed: moduleLessons.length,
+    }).catch(() => {});
   }
 
   const milestones = [5, 10, 25, 50, 100];

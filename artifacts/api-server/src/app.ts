@@ -10,6 +10,7 @@ import { rateLimiter } from "./middleware/rate-limiter";
 import { apiRequestLogger } from "./middleware/api-request-logger";
 import { startTicketJobs } from "./lib/ticket-jobs";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
+import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 
 declare global {
   namespace Express {
@@ -57,5 +58,6 @@ app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 startTicketJobs();
+startOutgoingWebhookWorker();
 
 export default app;
