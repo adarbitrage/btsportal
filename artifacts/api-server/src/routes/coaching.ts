@@ -3,6 +3,7 @@ import { db, coachingCallsTable, coachesTable } from "@workspace/db";
 import { eq, gte } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 

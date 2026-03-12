@@ -3,6 +3,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import { GetCurrentMemberResponse, GetMemberProductsResponse, GetMemberEntitlementsResponse } from "@workspace/api-zod";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 
@@ -39,6 +40,40 @@ router.get("/members/me", async (req, res): Promise<void> => {
     products,
     ticketLimit,
   }));
+});
+
+router.post("/members/me/onboarding-complete", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (user.onboardingComplete) {
+    res.json({ message: "Onboarding already completed" });
+    return;
+  }
+
+  await db.update(usersTable).set({ onboardingComplete: true }).where(eq(usersTable.id, userId));
+
+  await queueGHLSync({
+    action: "add_tags",
+    userId,
+    tags: ["onboarding_complete"],
+    customFields: {
+      onboarding_complete: "true",
+      onboarding_completed_at: new Date().toISOString(),
+    },
+  });
+
+  await queueGHLSync({
+    action: "add_note",
+    userId,
+    noteBody: "Portal onboarding completed",
+  });
+
+  res.json({ message: "Onboarding marked as complete" });
 });
 
 router.get("/members/me/products", async (req, res): Promise<void> => {

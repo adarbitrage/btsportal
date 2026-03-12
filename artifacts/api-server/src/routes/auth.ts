@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -134,11 +135,25 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  const now = new Date();
   await db.update(usersTable).set({
     failedLoginCount: 0,
     lockedUntil: null,
-    lastLoginAt: new Date(),
+    lastLoginAt: now,
   }).where(eq(usersTable.id, user.id));
+
+  const lastLogin = user.lastLoginAt;
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (!lastLogin || lastLogin < oneDayAgo) {
+    await queueGHLSync({
+      action: "update_contact",
+      userId: user.id,
+      email: user.email,
+      customFields: {
+        last_portal_login: now.toISOString(),
+      },
+    });
+  }
 
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);

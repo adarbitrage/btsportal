@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
 import { eq, and, lt, lte, gte, isNotNull } from "drizzle-orm";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router = Router();
 
@@ -83,16 +84,50 @@ router.post("/admin/run-expiration-check", requireAdmin, async (_req: Request, r
     for (const item of expiring30Days) {
       const isUrgent = expiring7Days.includes(item);
       console.log(`[STUB:Notification] ${isUrgent ? "URGENT" : "WARNING"}: User ${item.userId}'s "${item.productName}" expires at ${item.expiresAt?.toISOString()}`);
+
+      if (isUrgent) {
+        await queueGHLSync({
+          action: "add_tags",
+          userId: item.userId,
+          tags: ["expiring_7_days", `expiring_${item.productName.toLowerCase().replace(/\s+/g, "_")}`],
+        });
+      } else {
+        await queueGHLSync({
+          action: "add_tags",
+          userId: item.userId,
+          tags: ["expiring_30_days"],
+        });
+      }
     }
 
     for (const item of expiredActive) {
       console.log(`[Expiration] Expired active product (user_product ID: ${item.id}) for user ${item.userId}`);
+      await queueGHLSync({
+        action: "add_tags",
+        userId: item.userId,
+        tags: ["expired", "access_revoked"],
+      });
+      await queueGHLSync({
+        action: "add_note",
+        userId: item.userId,
+        noteBody: `Product access expired (user_product ID: ${item.id})`,
+      });
     }
     for (const item of expiredCancelled) {
       console.log(`[Expiration] Expired cancelled product (user_product ID: ${item.id}) for user ${item.userId}`);
+      await queueGHLSync({
+        action: "add_tags",
+        userId: item.userId,
+        tags: ["expired"],
+      });
     }
     for (const item of expiredPastDue) {
       console.log(`[Expiration] Expired past-due product (user_product ID: ${item.id}) for user ${item.userId}`);
+      await queueGHLSync({
+        action: "add_tags",
+        userId: item.userId,
+        tags: ["expired", "payment_failed_expired"],
+      });
     }
 
     res.json({

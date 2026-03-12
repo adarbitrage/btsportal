@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { db, webhookLogsTable, productsTable, userProductsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { queueGHLSync } from "./ghl-queue";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -214,7 +215,18 @@ async function findOrCreateUser(email: string, name: string): Promise<{ id: numb
 
   console.log(`[Webhook] Created new user: ${email} (temp password generated)`);
   console.log(`[STUB:Email] Would send welcome email to ${email} with temporary password`);
-  console.log(`[STUB:GHL] Would sync new contact to GHL: ${email}, ${name}`);
+
+  await queueGHLSync({
+    action: "create_contact",
+    userId: newUser.id,
+    email,
+    name,
+    tags: ["new_member", "thrivecart_signup"],
+    customFields: {
+      portal_member_since: new Date().toISOString(),
+      source: "thrivecart",
+    },
+  });
 
   return { id: newUser.id, isNew: true };
 }
@@ -273,8 +285,25 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
   });
 
   console.log(`[Webhook] Granted product "${product.name}" to user ${email}`);
-  console.log(`[STUB:GHL] Would update GHL contact ${email} with product: ${product.name}`);
   console.log(`[STUB:SMS] Would send SMS notification for purchase to ${email}`);
+
+  await queueGHLSync({
+    action: "add_tags",
+    userId,
+    email,
+    tags: [`product_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`, "active_customer"],
+    customFields: {
+      last_purchase: product.name,
+      last_purchase_date: new Date().toISOString(),
+    },
+  });
+
+  await queueGHLSync({
+    action: "add_note",
+    userId,
+    email,
+    noteBody: `Purchased ${product.name} via ThriveCart (Order: ${orderId || "N/A"})`,
+  });
 
   return {
     action: "granted",
@@ -341,7 +370,27 @@ async function handleOrderRefund(payload: ThrivecartPayload, body: Record<string
   }
 
   console.log(`[Webhook] Refunded product "${product.name}" for user ${email}`);
-  console.log(`[STUB:GHL] Would update GHL contact ${email}: refund for ${product.name}`);
+
+  await queueGHLSync({
+    action: "add_tags",
+    userId: user.id,
+    email,
+    tags: ["refunded", `refund_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`],
+  });
+
+  await queueGHLSync({
+    action: "remove_tags",
+    userId: user.id,
+    email,
+    removeTags: [`product_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`],
+  });
+
+  await queueGHLSync({
+    action: "add_note",
+    userId: user.id,
+    email,
+    noteBody: `Refunded: ${product.name}`,
+  });
 
   return {
     action: "refunded",
@@ -380,7 +429,20 @@ async function handleSubscriptionCancelled(payload: ThrivecartPayload, body: Rec
     .returning();
 
   console.log(`[Webhook] Cancelled subscription for "${product.name}" for user ${email} (access continues until expiry)`);
-  console.log(`[STUB:GHL] Would update GHL contact ${email}: cancellation for ${product.name}`);
+
+  await queueGHLSync({
+    action: "add_tags",
+    userId: user.id,
+    email,
+    tags: ["cancelled", `cancel_${product.slug || product.name.toLowerCase().replace(/\s+/g, "_")}`],
+  });
+
+  await queueGHLSync({
+    action: "add_note",
+    userId: user.id,
+    email,
+    noteBody: `Subscription cancelled: ${product.name}. Access continues until expiry.`,
+  });
 
   return {
     action: "cancelled",

@@ -19,6 +19,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Routing**: wouter
 - **Data fetching**: React Query (via Orval-generated hooks)
 - **Auth**: Custom email/password with JWT access tokens + refresh tokens (httpOnly cookies), bcryptjs
+- **CRM Sync**: GoHighLevel (GHL) bidirectional sync via BullMQ queue + ioredis (rate-limited 90 req/min, exponential backoff retries)
 
 ## Structure
 
@@ -121,7 +122,10 @@ The portal uses a **product-based entitlement model** (not simple tiers). Users 
 - `ticket_messages` — Message threads on tickets
 - `announcements` — Portal announcements
 - `webhook_logs` — ThriveCart webhook event log with payload, status, and idempotency tracking
+- `ghl_sync_log` — GHL sync event log (user_id, action, direction, payload, ghl_contact_id, status, error_message, attempts)
+- `ghl_config` — GHL configuration key-value store (sync_enabled flag, pipeline/stage IDs, tag prefix)
 - `tiers` — Legacy tier definitions (kept for backward compat)
+- `users.ghl_contact_id` — GHL contact ID cross-reference on user record
 
 ### Onboarding Flow
 
@@ -167,6 +171,15 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET /admin/webhook-logs/:id` — Single webhook log with full payload (admin-only)
 - `GET /admin/product-mappings` — List ThriveCart product ID mappings (admin-only)
 - `PUT /admin/product-mappings/:id` — Update ThriveCart product ID mapping (admin-only)
+- `POST /webhooks/ghl` — GHL inbound webhook (tag/pipeline triggers: vip_override, force_expire, manual_upgrade_{product})
+- `POST /members/me/onboarding-complete` — Mark onboarding complete (with GHL sync)
+- `GET /admin/ghl/status` — GHL sync system status (queue counts, sync log stats)
+- `GET /admin/ghl/log` — GHL sync log with pagination and filters (?status, ?userId, ?limit, ?offset)
+- `POST /admin/ghl/sync/:userId` — Manually sync a single user to GHL
+- `POST /admin/ghl/sync-all` — Bulk sync all users to GHL
+- `GET /admin/ghl/config` — List GHL config key-value pairs
+- `PATCH /admin/ghl/config` — Upsert a GHL config value (sync_enabled, pipeline_id, etc.)
+- `POST /admin/ghl/retry/:jobId` — Retry a failed BullMQ job
 
 ### Community System
 

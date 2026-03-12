@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { queueGHLSync } from "../lib/ghl-queue";
 import {
   ListTicketsResponse,
   CreateTicketBody,
@@ -64,6 +65,18 @@ router.post("/tickets", async (req, res): Promise<void> => {
     ticketId: ticket.id,
     senderType: "member",
     body: parsed.data.description,
+  });
+
+  await queueGHLSync({
+    action: "add_tags",
+    userId,
+    tags: ["support_ticket_open"],
+  });
+
+  await queueGHLSync({
+    action: "add_note",
+    userId,
+    noteBody: `Support ticket opened: ${parsed.data.subject} (${ticket.ticketNumber}) — Category: ${parsed.data.category}`,
   });
 
   res.status(201).json(ticket);

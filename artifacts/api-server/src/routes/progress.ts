@@ -3,6 +3,7 @@ import { db, progressTable, lessonsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ListProgressResponse, MarkLessonCompleteBody } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 
@@ -46,6 +47,44 @@ router.post("/progress", async (req, res): Promise<void> => {
     .insert(progressTable)
     .values({ userId, lessonId: parsed.data.lessonId })
     .returning();
+
+  const allProgress = await db
+    .select()
+    .from(progressTable)
+    .where(eq(progressTable.userId, userId));
+
+  const moduleLessons = await db
+    .select({ id: lessonsTable.id, moduleId: lessonsTable.moduleId })
+    .from(lessonsTable)
+    .where(eq(lessonsTable.moduleId, lesson.moduleId));
+
+  const completedInModule = moduleLessons.filter(
+    (ml) => allProgress.some((p) => p.lessonId === ml.id)
+  );
+
+  if (completedInModule.length === moduleLessons.length && moduleLessons.length > 0) {
+    await queueGHLSync({
+      action: "add_tags",
+      userId,
+      tags: [`module_complete_${lesson.moduleId}`],
+    });
+
+    await queueGHLSync({
+      action: "add_note",
+      userId,
+      noteBody: `Completed training module ${lesson.moduleId} (${moduleLessons.length} lessons)`,
+    });
+  }
+
+  const milestones = [5, 10, 25, 50, 100];
+  const totalCompleted = allProgress.length;
+  if (milestones.includes(totalCompleted)) {
+    await queueGHLSync({
+      action: "add_tags",
+      userId,
+      tags: [`lessons_${totalCompleted}`],
+    });
+  }
 
   res.status(201).json(entry);
 });

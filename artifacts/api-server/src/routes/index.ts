@@ -10,12 +10,14 @@ import coachingRouter from "./coaching";
 import ticketsRouter from "./tickets";
 import announcementsRouter from "./announcements";
 import webhooksRouter from "./webhooks";
+import webhooksGhlRouter from "./webhooks-ghl";
 import devSimulateRouter from "./dev-simulate";
 import adminWebhooksRouter from "./admin-webhooks";
 import adminExpirationRouter from "./admin-expiration";
 import onboardingRouter from "./onboarding";
 import documentsRouter from "./documents";
 import communityRouter from "./community";
+import adminGhlRouter from "./admin-ghl";
 
 const router: IRouter = Router();
 
@@ -30,11 +32,13 @@ router.use(coachingRouter);
 router.use(ticketsRouter);
 router.use(announcementsRouter);
 router.use(webhooksRouter);
+router.use(webhooksGhlRouter);
 router.use(devSimulateRouter);
 router.use(adminWebhooksRouter);
 router.use(adminExpirationRouter);
 router.use(onboardingRouter);
 router.use(documentsRouter);
 router.use(communityRouter);
+router.use(adminGhlRouter);
 
 export default router;

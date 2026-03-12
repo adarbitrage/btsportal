@@ -16,3 +16,5 @@ export * from "./webhook-logs";
 export * from "./legal-documents";
 export * from "./signed-documents";
 export * from "./community";
+export * from "./ghl-sync-log";
+export * from "./ghl-config";
