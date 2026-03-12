@@ -1,37 +1,67 @@
-import { pgTable, text, serial, integer, timestamp, boolean, index } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { vaultCollectionsTable } from "./vault-collections";
 
 export const vaultResourcesTable = pgTable("vault_resources", {
   id: serial("id").primaryKey(),
-  collectionId: integer("collection_id").notNull().references(() => vaultCollectionsTable.id),
+  collectionId: integer("collection_id").references(() => vaultCollectionsTable.id),
   title: text("title").notNull(),
-  slug: text("slug").notNull(),
-  description: text("description").notNull().default(""),
-  type: text("type").notNull().default("file"),
+  description: text("description"),
+  longDescription: text("long_description"),
+  resourceType: text("resource_type").notNull().default("document"),
   fileUrl: text("file_url"),
-  fileSize: integer("file_size").notNull().default(0),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
   fileType: text("file_type"),
+  previewImageUrl: text("preview_image_url"),
+  contentHtml: text("content_html"),
   externalUrl: text("external_url"),
   videoUrl: text("video_url"),
-  markdownContent: text("markdown_content"),
-  thumbnailUrl: text("thumbnail_url"),
-  tags: text("tags").notNull().default("[]"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  requiredEntitlement: text("required_entitlement").default("content:frontend"),
   isFeatured: boolean("is_featured").notNull().default(false),
-  requiredEntitlement: text("required_entitlement").notNull().default("content:frontend"),
-  sortOrder: integer("sort_order").notNull().default(0),
-  viewCount: integer("view_count").notNull().default(0),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  isNew: boolean("is_new").notNull().default(true),
+  status: text("status").notNull().default("draft"),
+  version: text("version"),
+  updateNote: text("update_note"),
   downloadCount: integer("download_count").notNull().default(0),
+  favoriteCount: integer("favorite_count").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  index("vault_resources_collection_idx").on(table.collectionId),
-  index("vault_resources_type_idx").on(table.type),
-  index("vault_resources_featured_idx").on(table.isFeatured),
-]);
+});
 
-export const insertVaultResourceSchema = createInsertSchema(vaultResourcesTable).omit({ id: true, createdAt: true, updatedAt: true, viewCount: true, downloadCount: true });
+export const insertVaultResourceSchema = createInsertSchema(vaultResourcesTable).omit({ id: true, createdAt: true, updatedAt: true, downloadCount: true, favoriteCount: true });
 export type InsertVaultResource = z.infer<typeof insertVaultResourceSchema>;
 export type VaultResource = typeof vaultResourcesTable.$inferSelect;
+
+export const vaultResourceDownloadsTable = pgTable("vault_resource_downloads", {
+  id: serial("id").primaryKey(),
+  resourceId: integer("resource_id").notNull().references(() => vaultResourcesTable.id),
+  userId: integer("user_id").notNull(),
+  downloadedAt: timestamp("downloaded_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const vaultResourceFavoritesTable = pgTable("vault_resource_favorites", {
+  id: serial("id").primaryKey(),
+  resourceId: integer("resource_id").notNull().references(() => vaultResourcesTable.id),
+  userId: integer("user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const vaultResourceLessonRelationsTable = pgTable("vault_resource_lesson_relations", {
+  id: serial("id").primaryKey(),
+  resourceId: integer("resource_id").notNull().references(() => vaultResourcesTable.id),
+  lessonId: integer("lesson_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const vaultSearchQueriesTable = pgTable("vault_search_queries", {
+  id: serial("id").primaryKey(),
+  query: text("query").notNull(),
+  resultCount: integer("result_count").notNull().default(0),
+  userId: integer("user_id"),
+  searchedAt: timestamp("searched_at", { withTimezone: true }).notNull().defaultNow(),
+});

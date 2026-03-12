@@ -67,6 +67,10 @@ import CommissionAffiliates from "@/pages/admin/CommissionAffiliates";
 import CommissionRates from "@/pages/admin/CommissionRates";
 import CommissionResources from "@/pages/admin/CommissionResources";
 import CommissionFraudAlerts from "@/pages/admin/CommissionFraudAlerts";
+import VaultResources from "@/pages/admin/VaultResources";
+import VaultResourceEditor from "@/pages/admin/VaultResourceEditor";
+import VaultCollections from "@/pages/admin/VaultCollections";
+import VaultAnalytics from "@/pages/admin/VaultAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -332,6 +336,11 @@ function Router() {
       <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} />}</Route>
       <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} />}</Route>
       <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} />}</Route>
+      <Route path="/admin/resources">{() => <AdminRoute component={VaultResources} />}</Route>
+      <Route path="/admin/resources/new">{() => <AdminRoute component={VaultResourceEditor} />}</Route>
+      <Route path="/admin/resources/:id/edit">{() => <AdminRoute component={VaultResourceEditor} />}</Route>
+      <Route path="/admin/collections">{() => <AdminRoute component={VaultCollections} />}</Route>
+      <Route path="/admin/vault/analytics">{() => <AdminRoute component={VaultAnalytics} />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
       <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} />}</Route>

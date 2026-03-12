@@ -1,15 +1,16 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const vaultCollectionsTable = pgTable("vault_collections", {
   id: serial("id").primaryKey(),
+  parentId: integer("parent_id"),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
-  description: text("description").notNull().default(""),
-  icon: text("icon").notNull().default("folder"),
-  parentId: integer("parent_id"),
-  requiredEntitlement: text("required_entitlement").notNull().default("content:frontend"),
+  description: text("description"),
+  icon: text("icon"),
+  coverImageUrl: text("cover_image_url"),
+  requiredEntitlement: text("required_entitlement").default("content:frontend"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

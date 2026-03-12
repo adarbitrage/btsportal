@@ -160,6 +160,21 @@ Custom React Query hooks for admin content CRUD operations (tracks, modules, les
 - `AdminRoute` component in `App.tsx` checks user's role === "admin"
 - Admin nav section in Sidebar only visible to admin role users
 
+### Resource Vault Admin
+Admin pages for managing the Resource Vault — downloadable resources, collections, and analytics:
+
+**Admin Pages:**
+- **Resource Vault** (`/admin/resources`) — Data table listing all resources, filterable by type/collection/status, with actions to edit, duplicate, archive
+- **Resource Editor** (`/admin/resources/:id/edit`, `/admin/resources/new`) — Full resource form with title, descriptions, file upload (Object Storage), preview image, content HTML editor, tag input with autocomplete, related resources/lessons search+select, display flags, versioning, status management
+- **Collections** (`/admin/collections`) — CRUD for collections and sub-collections (name, slug, description, icon, entitlement, sort order)
+- **Vault Analytics** (`/admin/vault/analytics`) — Most downloaded, most favorited, download trends chart, zero-engagement resources, search gap analysis
+
+**Database Tables:** `vault_collections`, `vault_resources`, `vault_resource_downloads`, `vault_resource_favorites`, `vault_resource_relations`, `vault_resource_lesson_relations`, `vault_search_queries`
+
+**API Routes:** `artifacts/api-server/src/routes/admin-vault.ts` — Full CRUD for resources/collections, file upload URL generation, relation management, analytics queries, search/tag endpoints
+
+**Frontend Hooks:** Added to `artifacts/portal/src/lib/admin-api.ts` — `useAdminVaultResources`, `useAdminVaultResource`, `useAdminVaultCollections`, `useAdminVaultAnalytics`, and mutation hooks for create/update/delete/duplicate/archive resources and collections
+
 **Member Lesson View** (`/training/lessons/:id`):
 - `LessonView.tsx` — Renders TipTap JSON content as styled HTML, responsive video embeds, downloadable resources with entitlement checks, action item checklists
 

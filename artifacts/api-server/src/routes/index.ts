@@ -43,6 +43,7 @@ import adminOutgoingWebhooksRouter from "./admin-outgoing-webhooks";
 import vaultRouter from "./vault";
 import coachingOneOnOneRouter from "./coaching-one-on-one";
 import adminCoachingRouter from "./admin-coaching";
+import adminVaultRouter from "./admin-vault";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use(toolsRouter);
 router.use(adminOutgoingWebhooksRouter);
 router.use(vaultRouter);
 router.use(adminCoachingRouter);
+router.use(adminVaultRouter);
 
 export default router;

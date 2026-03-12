@@ -8,6 +8,9 @@ import {
   Users,
   BarChart3,
   ArrowLeft,
+  Vault,
+  FolderOpen,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -18,6 +21,9 @@ const adminNav = [
   { href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquareText },
   { href: "/admin/agent-performance", label: "Agent Performance", icon: Users },
   { href: "/admin/analytics", label: "Support Analytics", icon: BarChart3 },
+  { href: "/admin/resources", label: "Resource Vault", icon: Vault },
+  { href: "/admin/collections", label: "Collections", icon: FolderOpen },
+  { href: "/admin/vault/analytics", label: "Vault Analytics", icon: TrendingUp },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {

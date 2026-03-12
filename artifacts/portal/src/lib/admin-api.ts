@@ -518,3 +518,223 @@ export function updateRateLimits(limits: Array<{ tier: string; dailyLimit: numbe
     body: JSON.stringify({ limits }),
   });
 }
+
+export interface VaultCollection {
+  id: number;
+  parentId: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  coverImageUrl: string | null;
+  requiredEntitlement: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultResource {
+  id: number;
+  collectionId: number | null;
+  title: string;
+  description: string | null;
+  longDescription: string | null;
+  resourceType: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  fileType: string | null;
+  previewImageUrl: string | null;
+  contentHtml: string | null;
+  externalUrl: string | null;
+  videoUrl: string | null;
+  tags: string[];
+  requiredEntitlement: string | null;
+  isFeatured: boolean;
+  isPinned: boolean;
+  isNew: boolean;
+  status: string;
+  version: string | null;
+  updateNote: string | null;
+  downloadCount: number;
+  favoriteCount: number;
+  sortOrder: number;
+  collectionName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  relatedResources?: { relationId: number; resourceId: number; title: string; resourceType: string }[];
+  relatedLessons?: { relationId: number; lessonId: number; title: string }[];
+}
+
+export interface VaultAnalytics {
+  mostDownloaded: { id: number; title: string; resourceType: string; downloadCount: number; collectionName: string | null }[];
+  mostFavorited: { id: number; title: string; resourceType: string; favoriteCount: number; collectionName: string | null }[];
+  zeroDownloads: { id: number; title: string; resourceType: string; createdAt: string; collectionName: string | null }[];
+  downloadTrends: { date: string; downloads: number }[];
+  searchGaps: { query: string; searchCount: number; avgResults: number }[];
+  totalResources: number;
+  totalCollections: number;
+}
+
+export function useAdminVaultCollections() {
+  return useQuery({
+    queryKey: ["/api/admin/vault/collections"],
+    queryFn: () => adminFetch<VaultCollection[]>("/admin/vault/collections"),
+  });
+}
+
+export function useAdminCreateVaultCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<VaultCollection>) =>
+      adminFetch<VaultCollection>("/admin/vault/collections", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/collections"] }),
+  });
+}
+
+export function useAdminUpdateVaultCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number } & Partial<VaultCollection>) =>
+      adminFetch<VaultCollection>(`/admin/vault/collections/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/collections"] }),
+  });
+}
+
+export function useAdminDeleteVaultCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch(`/admin/vault/collections/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/collections"] }),
+  });
+}
+
+export function useAdminVaultResources(params: { type?: string; collection?: string; status?: string; search?: string; page?: number }) {
+  const qs = new URLSearchParams();
+  if (params.type && params.type !== "all") qs.set("type", params.type);
+  if (params.collection && params.collection !== "all") qs.set("collection", params.collection);
+  if (params.status && params.status !== "all") qs.set("status", params.status);
+  if (params.search) qs.set("search", params.search);
+  if (params.page) qs.set("page", String(params.page));
+  return useQuery({
+    queryKey: ["/api/admin/vault/resources", params],
+    queryFn: () => adminFetch<{ resources: VaultResource[]; total: number; page: number; limit: number }>(`/admin/vault/resources?${qs.toString()}`),
+  });
+}
+
+export function useAdminVaultResource(id: number) {
+  return useQuery({
+    queryKey: ["/api/admin/vault/resources", id],
+    queryFn: () => adminFetch<VaultResource>(`/admin/vault/resources/${id}`),
+    enabled: id > 0,
+  });
+}
+
+export function useAdminCreateVaultResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<VaultResource>) =>
+      adminFetch<VaultResource>("/admin/vault/resources", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources"] }),
+  });
+}
+
+export function useAdminUpdateVaultResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number } & Partial<VaultResource>) =>
+      adminFetch<VaultResource>(`/admin/vault/resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources", vars.id] });
+    },
+  });
+}
+
+export function useAdminDuplicateVaultResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<VaultResource>(`/admin/vault/resources/${id}/duplicate`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources"] }),
+  });
+}
+
+export function useAdminArchiveVaultResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<VaultResource>(`/admin/vault/resources/${id}/archive`, { method: "PATCH" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources"] }),
+  });
+}
+
+export function useAdminAddVaultRelation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resourceId, relatedResourceId }: { resourceId: number; relatedResourceId: number }) =>
+      adminFetch(`/admin/vault/resources/${resourceId}/relations`, { method: "POST", body: JSON.stringify({ relatedResourceId }) }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources", vars.resourceId] }),
+  });
+}
+
+export function useAdminRemoveVaultRelation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resourceId, relationId }: { resourceId: number; relationId: number }) =>
+      adminFetch(`/admin/vault/resources/${resourceId}/relations/${relationId}`, { method: "DELETE" }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources", vars.resourceId] }),
+  });
+}
+
+export function useAdminAddVaultLessonRelation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resourceId, lessonId }: { resourceId: number; lessonId: number }) =>
+      adminFetch(`/admin/vault/resources/${resourceId}/lesson-relations`, { method: "POST", body: JSON.stringify({ lessonId }) }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources", vars.resourceId] }),
+  });
+}
+
+export function useAdminRemoveVaultLessonRelation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resourceId, relationId }: { resourceId: number; relationId: number }) =>
+      adminFetch(`/admin/vault/resources/${resourceId}/lesson-relations/${relationId}`, { method: "DELETE" }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["/api/admin/vault/resources", vars.resourceId] }),
+  });
+}
+
+export function useAdminVaultUploadUrl() {
+  return useMutation({
+    mutationFn: () => adminFetch<{ uploadURL: string; objectPath: string }>("/admin/vault/upload-url", { method: "POST" }),
+  });
+}
+
+export function useAdminSearchVaultResources() {
+  return useMutation({
+    mutationFn: (q: string) => adminFetch<{ id: number; title: string; resourceType: string }[]>(`/admin/vault/resources/search?q=${encodeURIComponent(q)}`),
+  });
+}
+
+export function useAdminSearchLessons() {
+  return useMutation({
+    mutationFn: (q: string) => adminFetch<{ id: number; title: string }[]>(`/admin/vault/lessons/search?q=${encodeURIComponent(q)}`),
+  });
+}
+
+export function useAdminVaultTags() {
+  return useQuery({
+    queryKey: ["/api/admin/vault/tags"],
+    queryFn: () => adminFetch<string[]>("/admin/vault/tags"),
+  });
+}
+
+export function useAdminVaultAnalytics() {
+  return useQuery({
+    queryKey: ["/api/admin/vault/analytics"],
+    queryFn: () => adminFetch<VaultAnalytics>("/admin/vault/analytics"),
+  });
+}
