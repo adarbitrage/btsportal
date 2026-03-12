@@ -3,6 +3,7 @@ import { startWorker, shutdown } from "./lib/ghl-queue";
 import { startCommunicationWorkers, stopCommunicationWorkers } from "./lib/communication-worker";
 import { startSequenceEngine, shutdownSequenceEngine } from "./lib/sequence-engine";
 import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-comms";
+import { startRevenuePipeline, shutdownRevenuePipeline } from "./lib/revenue-pipeline";
 
 const rawPort = process.env["PORT"];
 
@@ -38,6 +39,9 @@ if (process.env.REDIS_URL) {
   startScheduledComms().catch((err) => {
     console.warn("[Scheduled Comms] Could not start:", err);
   });
+  startRevenuePipeline().catch((err) => {
+    console.warn("[Revenue Pipeline] Could not start:", err);
+  });
 }
 
 const server = app.listen(port, () => {
@@ -51,6 +55,7 @@ async function gracefulShutdown(signal: string) {
   await stopCommunicationWorkers();
   await shutdownSequenceEngine();
   await shutdownScheduledComms();
+  await shutdownRevenuePipeline();
   process.exit(0);
 }
 

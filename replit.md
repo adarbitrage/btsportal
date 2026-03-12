@@ -679,6 +679,38 @@ Key files: `src/lib/commission-admin-api.ts` (API layer), `src/components/layout
 
 Database layer using Drizzle ORM with PostgreSQL. Schema files in `src/schema/`.
 
+### Revenue Metrics Engine
+
+Backend data engine for revenue intelligence. Computes, caches, and serves all revenue metrics via admin API endpoints (`/admin/revenue/*`).
+
+**DB Tables:**
+- `revenue_metrics_cache` — Cached computed metrics with period+key indexing and TTL
+- `revenue_manual_entries` — Manual data entry (ad spend, external metrics) for CAC calculation
+- `member_health_scores` — Per-member health scores (0-100) with component signals and trend tracking
+
+**Services** (`artifacts/api-server/src/lib/`):
+- `revenue-metrics.ts` — Core 16+ metrics: MRR, ARR, new/expansion/churned revenue, LTV, CAC, ARPU, churn/retention/upgrade/refund rates
+- `cohort-analysis.ts` — Cohort analysis by signup month, source funnel, first product, or experience level
+- `member-health.ts` — Health score computation with weighted signals (login 25%, training 20%, coaching 15%, community 10%, tools 10%, support 10%, recency 10%). GHL tag updates on risk level changes
+- `churn-upgrade-scoring.ts` — Churn probability for expiring memberships, upgrade probability for frontend/LaunchPad members
+- `funnel-performance.ts` — Funnel comparison (purchases, revenue, refund rate, upgrade rate, avg LTV) and LTV segmentation
+- `revenue-forecasting.ts` — Conservative/base/optimistic projections based on growth rate, churn, upgrade trends
+- `revenue-pipeline.ts` — BullMQ orchestration with nightly job at 2 AM (`computeRevenueMetrics`) and force-recompute support
+
+**Admin API Endpoints** (`artifacts/api-server/src/routes/admin-revenue.ts`):
+- `GET /admin/revenue/overview` — Core revenue metrics (with optional period)
+- `GET /admin/revenue/trend` — Historical metrics trend
+- `GET /admin/revenue/cohorts` — Cohort analysis with dimension parameter
+- `GET /admin/revenue/health-scores` — Health score distribution + recent scores
+- `GET /admin/revenue/health-scores/:userId` — Individual health score history
+- `GET /admin/revenue/churn-risks` — Churn risk analysis
+- `GET /admin/revenue/upgrade-candidates` — Upgrade opportunity candidates
+- `GET /admin/revenue/funnels` — Funnel performance comparison
+- `GET /admin/revenue/ltv` — LTV analysis with segmentation
+- `GET /admin/revenue/forecast` — Revenue forecasting
+- `POST /admin/revenue/manual-entry` — Manual data entry (ad spend, etc.)
+- `POST /admin/revenue/recompute` — Force full pipeline recompute
+
 ### `lib/api-spec` (`@workspace/api-spec`)
 
 OpenAPI 3.1 spec and Orval codegen config. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
