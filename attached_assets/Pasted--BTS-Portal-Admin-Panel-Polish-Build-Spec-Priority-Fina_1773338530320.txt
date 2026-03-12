@@ -1,0 +1,396 @@
+# BTS Portal — Admin Panel Polish Build Spec
+
+**Priority:** Final phase (after all other features are built)
+**Status:** Not started
+**Depends on:** All other features complete
+**Reference:** BTS PRD v2.0, Section 21
+
+---
+
+## Context
+
+Each previous build spec added admin modules incrementally: member management, content management, coaching, support, commissions, communications, GHL sync, and tool management. This spec ties them all together into a polished, cohesive admin experience with a unified dashboard, global search, audit logging, bulk operations, role-based access, and operational analytics.
+
+---
+
+## What to Build
+
+### 1. Admin Dashboard (`/admin`)
+
+The admin home screen — a single-page overview of the entire business.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  BTS ADMIN DASHBOARD                     Last updated: Just now  │
+│                                                                  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
+│  │ MEMBERS  │ │ REVENUE  │ │ TICKETS  │ │ CHURN    │           │
+│  │ 1,247    │ │ $47,230  │ │ 23 open  │ │ 4.2%    │           │
+│  │ ↑ 12%    │ │ ↑ 18%    │ │ 3 breach │ │ ↓ 1.1%  │           │
+│  │ this mo  │ │ this mo  │ │          │ │ this mo  │           │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
+│                                                                  │
+│  ── QUICK ACTIONS ───────────────────────────────────────────    │
+│  [View Open Tickets] [Pending Commissions] [Expiring Members]   │
+│  [Broadcast Email] [GHL Sync Status] [Webhook Logs]             │
+│                                                                  │
+│  ── MEMBER ACTIVITY (30 days) ───────────────────────────────    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ [Line chart: daily active members, new signups, churns]  │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ── REVENUE BY PRODUCT ──────────────────────────────────────    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ [Bar chart: revenue breakdown by product, this month]    │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ── NEEDS ATTENTION ─────────────────────────────────────────    │
+│  🔴 3 support tickets breaching SLA                              │
+│  🟡 12 members with mentorships expiring in 7 days               │
+│  🟡 5 coaching sessions missing coach notes                      │
+│  🟡 2 failed webhook deliveries in last 24 hours                 │
+│  🟢 GHL sync healthy (last sync: 2 minutes ago)                  │
+│  🟢 SendGrid deliverability: 98.3%                               │
+│                                                                  │
+│  ── RECENT ACTIVITY ─────────────────────────────────────────    │
+│  • Marcus J. upgraded to 6-Month Mentorship (2 min ago)          │
+│  • Sarah C. completed Module 3 (15 min ago)                      │
+│  • New signup: Alex R. via Reserve Income funnel (1 hr ago)      │
+│  • Commission payout batch generated: $4,230 (3 hr ago)          │
+│  [View all activity →]                                           │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Data sources:** This dashboard pulls from every subsystem. Each stat widget calls a dedicated analytics endpoint that aggregates data efficiently (pre-computed where possible, cached for 5 minutes).
+
+### 2. Global Search
+
+A search bar at the top of every admin page that searches across all entities:
+
+```
+[🔍 Search members, tickets, products, sessions...___________]
+
+Results (grouped by type):
+
+MEMBERS
+  Marcus Johnson (marcus@example.com) — 6-Month Mentorship
+  Maria Johnson (maria@example.com) — Reserve Income
+
+SUPPORT TICKETS
+  #BTS-001234: "Billing question about upgrade" — Marcus J.
+
+COACHING SESSIONS
+  Mar 20: Marcus J. + Coach Taylor — Scheduled
+
+COMMUNITY POSTS
+  "Just hit my first $1K day!" — Marcus J. (Wins)
+```
+
+**Implementation:** Server-side search across users, tickets, sessions, and posts. A single endpoint (`GET /api/admin/search?q=marcus`) that queries each table in parallel and returns grouped results. Full-text search via PostgreSQL `tsvector` on key fields.
+
+### 3. Audit Log
+
+Every admin action is logged for accountability and debugging.
+
+```sql
+audit_log
+  id              SERIAL PRIMARY KEY
+  admin_user_id   INTEGER REFERENCES users(id) NOT NULL  -- who did it
+  action          TEXT NOT NULL              -- 'member.update', 'ticket.assign', 'content.publish', etc.
+  entity_type     TEXT NOT NULL              -- 'user', 'ticket', 'lesson', 'product', 'commission', etc.
+  entity_id       INTEGER                   -- ID of the affected entity
+  changes         JSONB                      -- { field: { old: x, new: y } }
+  ip_address      TEXT
+  user_agent      TEXT
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+**What to log:**
+- Member profile edits (by admin)
+- Product/entitlement changes
+- Tier overrides
+- Ticket assignments, status changes, internal notes
+- Content publishes, edits, deletes
+- Commission approvals, rejections, payout processing
+- Coaching session cancellations, no-show marks
+- Community moderation actions (post removal, member mute/ban)
+- Configuration changes (commission rates, SLA targets, routing rules)
+- GHL manual syncs
+- Broadcast sends
+
+**Audit log viewer** (`/admin/audit-log`):
+- Filterable by: admin user, action type, entity type, date range
+- Click an entry to see full change details (before/after)
+- Export as CSV for compliance records
+
+### 4. Role-Based Access Control (RBAC)
+
+Enforce the admin roles defined in the PRD.
+
+```sql
+-- Add to users table
+ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'member';
+-- Values: 'member', 'support_agent', 'content_manager', 'admin', 'super_admin'
+```
+
+**Permission matrix:**
+
+| Module | Super Admin | Admin | Support Agent | Content Manager |
+|--------|-------------|-------|---------------|-----------------|
+| Admin Dashboard | ✓ | ✓ | Limited view | Limited view |
+| Member Management | Full | Full | Read-only + ticket link | — |
+| Product Management | Full | — | — | — |
+| Content Management | Full | Full | — | Full |
+| Coaching Calls | Full | Full | Read-only | — |
+| 1-on-1 Sessions | Full | Full | Read-only | — |
+| Support Tickets | Full | Full | Full | — |
+| AI Knowledgebase | Full | Full | — | Full |
+| Communications | Full | Full | View logs only | — |
+| Commission Mgmt | Full | Full (no rates) | — | — |
+| Community Moderation | Full | Full | Flag review only | — |
+| Tool Management | Full | Full | — | — |
+| GHL Sync | Full | — | — | — |
+| Settings & Config | Full | — | — | — |
+| Audit Log | Full | View only | — | — |
+
+**Implementation:** Middleware that checks `req.user.role` against required permissions for each admin route. Return 403 if insufficient. Frontend conditionally renders admin navigation items based on role.
+
+### 5. Member Detail Page (`/admin/members/:id`)
+
+A comprehensive profile page showing everything about a member in one place.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← All Members                        [Impersonate] [Edit] [⋮]  │
+│                                                                  │
+│  MARCUS JOHNSON                                                  │
+│  marcus@example.com · +1 (555) 123-4567 · Central Time          │
+│  Member since: Jan 15, 2026 · Last login: 2 hours ago           │
+│  GHL: [View in GHL ↗]                                           │
+│                                                                  │
+│  ── PRODUCTS & ENTITLEMENTS ─────────────────────────────────    │
+│  🟠 6-Month Mentorship (expires: Jul 15, 2026 — 125 days)       │
+│  🔵 The Backroad System (no expiration)                          │
+│  Entitlements: content:frontend, content:advanced, software:base,│
+│  software:expanded, coaching:group, coaching:mastermind, ...      │
+│  [Grant Product] [Revoke Product]                                │
+│                                                                  │
+│  ── TRAINING PROGRESS ───────────────────────────────────────    │
+│  Overall: 67% (22/33 lessons)                                    │
+│  Module 4: Ad Creative Testing — In Progress (5/8 lessons)       │
+│  Last activity: Completed Lesson 4.5 yesterday                   │
+│                                                                  │
+│  ── SUPPORT TICKETS ─────────────────────────────────────────    │
+│  2 total (1 open, 1 resolved)                                    │
+│  #BTS-001234: "Billing question" — Open (3 hours ago)            │
+│                                                                  │
+│  ── COACHING ────────────────────────────────────────────────    │
+│  Next session: Mar 20 with Coach Taylor                          │
+│  Past sessions: 3 completed (avg rating: 4.7)                    │
+│                                                                  │
+│  ── COMMISSIONS ─────────────────────────────────────────────    │
+│  Tier: Mid · Earned: $1,247.50 · Pending: $340.00               │
+│  Referrals: 14 total                                             │
+│                                                                  │
+│  ── COMMUNITY ───────────────────────────────────────────────    │
+│  34 posts · 128 comments · Badges: Pro Member, Mentor            │
+│                                                                  │
+│  ── COMMUNICATIONS ──────────────────────────────────────────    │
+│  Last email: "Session reminder" — Opened (yesterday)             │
+│  Last SMS: "Call reminder" — Delivered (yesterday)               │
+│  [View full history →]                                           │
+│                                                                  │
+│  ── AUDIT LOG ───────────────────────────────────────────────    │
+│  Admin actions on this member (last 5):                          │
+│  • Admin changed tier from 3-Month to 6-Month (Mar 1)           │
+│  • Admin added internal note to ticket #1234 (Feb 28)            │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Admin actions on this page:**
+- Edit profile (name, email, phone, timezone)
+- Grant/revoke products manually (bypass ThriveCart for comp/gifts/corrections)
+- Impersonate login (view the portal exactly as this member sees it)
+- Force password reset
+- Force GHL re-sync
+- View/manage their tickets, sessions, commissions
+- Add admin notes
+- Mute/ban from community
+
+### 6. Impersonation
+
+Admin can view the portal as any member to debug issues or verify their experience.
+
+```
+POST /api/admin/impersonate/:userId
+
+Logic:
+1. Verify super_admin or admin role
+2. Create a temporary impersonation session (store admin's real userId and the impersonated userId)
+3. Set a special cookie/header that makes the portal load as the impersonated user
+4. Show a persistent banner at the top: "You are viewing as Marcus Johnson [Stop Impersonating]"
+5. All actions during impersonation are logged to audit_log with both admin and impersonated user IDs
+6. "Stop Impersonating" reverts to the admin's session
+```
+
+**Safety:**
+- Impersonation sessions auto-expire after 30 minutes
+- Destructive actions (delete account, change password, make purchases) are blocked during impersonation
+- All impersonation starts/stops logged in audit_log
+
+### 7. Data Export
+
+Admin can export data for reporting, compliance, or migration.
+
+**Export endpoints:**
+
+```
+GET /api/admin/export/members?format=csv
+GET /api/admin/export/members?format=json
+GET /api/admin/export/commissions?from=2026-01-01&to=2026-03-31&format=csv
+GET /api/admin/export/tickets?status=resolved&format=csv
+GET /api/admin/export/communications?channel=email&from=...&to=...&format=csv
+```
+
+- CSV and JSON formats
+- Date range filtering
+- Async generation for large exports (queue the job, notify admin when ready, download from admin panel)
+- Export history: track what was exported, by whom, and when (audit compliance)
+
+### 8. System Health Page (`/admin/system`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  SYSTEM HEALTH                                                   │
+│                                                                  │
+│  ── SERVICES ────────────────────────────────────────────────    │
+│  🟢 Portal API: Healthy (response: 45ms)                         │
+│  🟢 PostgreSQL (Neon): Connected (queries: 23ms avg)             │
+│  🟢 Redis (Upstash): Connected (ping: 8ms)                       │
+│  🟢 SendGrid: Operational (deliverability: 98.3%)                │
+│  🟢 Twilio: Operational                                          │
+│  🟡 GHL Sync: 2 failed jobs in queue (last success: 5 min ago)   │
+│  🟢 Cloudflare R2: Operational                                   │
+│                                                                  │
+│  ── QUEUES ──────────────────────────────────────────────────    │
+│  Email queue: 3 pending · 0 failed · 1,247 completed today       │
+│  SMS queue: 0 pending · 0 failed · 89 completed today            │
+│  GHL queue: 2 pending · 2 failed · 456 completed today           │
+│  Webhook queue: 0 pending · 0 failed · 67 completed today        │
+│                                                                  │
+│  ── DATABASE ────────────────────────────────────────────────    │
+│  Users: 1,247 · Products: 8 · Lessons: 35 · Tickets: 234        │
+│  Sessions: 189 · Commissions: 467 · Community posts: 1,890      │
+│                                                                  │
+│  ── WEBHOOK LOGS (last 24 hours) ────────────────────────────    │
+│  ThriveCart: 12 received, 12 processed, 0 failed                 │
+│  SendGrid: 89 events received                                    │
+│  GHL: 3 received, 3 processed                                    │
+│  [View all webhook logs →]                                       │
+│                                                                  │
+│  ── ERRORS (last 24 hours) ──────────────────────────────────    │
+│  2 GHL sync failures (rate limit exceeded — auto-retrying)       │
+│  0 email failures                                                │
+│  0 webhook processing errors                                     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 9. Notification Center for Admins
+
+Admin-specific notifications for events that need attention:
+
+- SLA breach on a support ticket
+- Failed webhook processing
+- GHL sync failures
+- New VIP (Lifetime) member signup
+- Commission payout batch ready for approval
+- Member complaint or high-priority ticket
+- Community content flagged for moderation
+
+Notifications appear in the admin header (separate from member notifications) with a bell icon and unread count.
+
+### 10. Settings Page (`/admin/settings`)
+
+Centralized configuration for all admin-manageable settings:
+
+| Section | Settings |
+|---------|----------|
+| General | Portal name, URL, support email, timezone |
+| Products | ThriveCart product ID mappings, pricing display, expiration rules |
+| Commissions | Rate table, refund window, payout threshold, payout schedule |
+| Support | SLA targets per tier, auto-close days, routing rules, canned responses |
+| Communications | SendGrid config, Twilio config, sequence management, broadcast settings |
+| GHL | API key, location ID, custom field mapping, pipeline mapping, sync toggle |
+| Coaching | Default session duration, buffer, booking notice, coach management |
+| Community | Moderation word list, report threshold, category management |
+| Tools | Tool registry, category management, rate limits |
+| Security | JWT settings, CSRF config, rate limit thresholds |
+
+All settings stored in a `system_settings` key-value table:
+
+```sql
+system_settings
+  id              SERIAL PRIMARY KEY
+  key             TEXT NOT NULL UNIQUE
+  value           JSONB NOT NULL
+  description     TEXT
+  updated_by      INTEGER REFERENCES users(id)
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+---
+
+## API Endpoints
+
+```
+# Dashboard
+GET    /api/admin/dashboard                     → Aggregated dashboard data
+GET    /api/admin/dashboard/activity             → Recent activity feed
+
+# Search
+GET    /api/admin/search?q=xxx                  → Global search
+
+# Audit Log
+GET    /api/admin/audit-log                     → Audit log with filters
+GET    /api/admin/audit-log/export               → Export as CSV
+
+# Member Detail
+GET    /api/admin/members/:id/full               → Full member profile (all data)
+POST   /api/admin/members/:id/grant-product      → Manually grant product
+POST   /api/admin/members/:id/revoke-product     → Revoke product
+POST   /api/admin/members/:id/force-sync         → Force GHL re-sync
+
+# Impersonation
+POST   /api/admin/impersonate/:userId            → Start impersonation
+POST   /api/admin/stop-impersonation             → Stop impersonation
+
+# Export
+GET    /api/admin/export/:entity                 → Export data
+
+# System
+GET    /api/admin/system/health                  → System health check
+GET    /api/admin/system/queues                  → Queue status
+
+# Settings
+GET    /api/admin/settings                       → All settings
+PATCH  /api/admin/settings                       → Update settings
+```
+
+---
+
+## Definition of Done
+
+1. Admin dashboard shows business KPIs, revenue, member activity, and "Needs Attention" alerts
+2. Global search finds members, tickets, sessions, and posts from a single search bar
+3. Every admin action is logged to the audit trail with who, what, when, and change details
+4. RBAC enforces role-based permissions: super admin, admin, support agent, content manager
+5. Member detail page shows a comprehensive 360° view of any member
+6. Impersonation allows admin to view the portal as any member with safety guardrails
+7. Data export works for members, commissions, tickets, and communications in CSV and JSON
+8. System health page shows service status, queue depths, and error counts
+9. Admin notification center surfaces events needing attention
+10. Settings page centralizes all configurable values without code changes
+11. All admin pages are responsive and functional on tablet (1024px+)

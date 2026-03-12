@@ -1,0 +1,469 @@
+# BTS Portal — GoHighLevel Bidirectional Sync Build Spec
+
+**Priority:** After SendGrid + Twilio Communications
+**Status:** Not started
+**Depends on:** Auth, ThriveCart Webhooks, Entitlement system, Communications
+**Reference:** BTS PRD v2.0, Sections 14.1–14.4
+
+---
+
+## Context
+
+GHL is the backend CRM and automation engine. The portal handles all member-facing interactions while GHL manages pipelines, lead scoring, internal team workflows, and automations. This spec builds the bidirectional sync layer so both systems stay in sync.
+
+Every previous build spec has "TODO: sync to GHL" stubs. This spec replaces them all.
+
+---
+
+## GHL's Role (What It Does NOT Do)
+
+- GHL does NOT power the member portal UI
+- GHL does NOT handle authentication or access control
+- GHL does NOT send member-facing emails/SMS (that's SendGrid/Twilio)
+- GHL DOES manage CRM contacts, pipelines, automations, internal team notifications, and lead scoring
+
+---
+
+## What to Build
+
+### 1. GHL API Client
+
+A service module that wraps all GHL API calls. No other code should call the GHL API directly.
+
+```typescript
+// services/ghl.ts
+
+class GHLClient {
+  private apiKey: string;
+  private locationId: string;
+  private baseUrl = 'https://services.leadconnectorhq.com';
+  
+  // Contact management
+  async createContact(data: GHLContactData): Promise<GHLContact>
+  async updateContact(contactId: string, data: Partial<GHLContactData>): Promise<GHLContact>
+  async findContactByEmail(email: string): Promise<GHLContact | null>
+  async addTags(contactId: string, tags: string[]): Promise<void>
+  async removeTags(contactId: string, tags: string[]): Promise<void>
+  
+  // Pipeline management
+  async moveToStage(contactId: string, pipelineId: string, stageId: string): Promise<void>
+  async createOpportunity(contactId: string, pipelineId: string, stageId: string, data: any): Promise<void>
+  
+  // Custom fields
+  async updateCustomFields(contactId: string, fields: Record<string, any>): Promise<void>
+  
+  // Notes
+  async addNote(contactId: string, body: string): Promise<void>
+  
+  // Tasks
+  async createTask(contactId: string, data: GHLTaskData): Promise<void>
+}
+```
+
+All GHL API calls go through BullMQ queue for async processing with retry logic (GHL rate limits: 100 requests/minute for API v2).
+
+---
+
+### 2. Portal → GHL Sync Events
+
+Every significant portal event triggers a GHL sync. These replace all the "TODO: sync to GHL" stubs.
+
+#### Contact Creation (New User)
+
+**Trigger:** ThriveCart webhook creates a new user account
+
+```
+GHL Action:
+- Create contact: name, email, phone
+- Custom fields:
+  - bts_user_id: portal user ID
+  - source_product: which front-end brought them in
+  - source_funnel: 'reserve_income', 'backroad', or 'offmarket'
+  - utm_source, utm_medium, utm_campaign: from checkout URL
+  - signup_date: ISO date
+  - products_owned: comma-separated list of product slugs
+  - highest_product: highest product name
+  - onboarding_complete: false
+  - experience_level: '' (not yet collected)
+  - primary_goal: '' (not yet collected)
+- Tags: 'new_member', 'product:{product_slug}', 'funnel:{funnel_slug}'
+- Pipeline: Move to "New Customer" pipeline → "Just Purchased" stage
+```
+
+#### Product Purchase / Upgrade
+
+**Trigger:** ThriveCart webhook adds new product to existing user
+
+```
+GHL Action:
+- Update contact custom fields: products_owned, highest_product
+- Add tags: 'product:{new_product_slug}', 'upgraded'
+- Remove tag: 'product:{old_product_slug}' (if upgrade replaced it)
+- Pipeline: Move to "Upgrade" pipeline → "Upgraded" stage
+- Note: "Upgraded to {product_name} on {date}"
+```
+
+#### Onboarding Completed
+
+**Trigger:** Member completes onboarding wizard Step 5
+
+```
+GHL Action:
+- Update custom fields:
+  - onboarding_complete: true
+  - onboarding_completed_at: ISO date
+  - experience_level: value from profile setup
+  - primary_goal: value from profile setup
+  - timezone: member's timezone
+- Add tag: 'onboarding_complete'
+- Remove tag: 'needs_onboarding'
+- Pipeline: Move from "New Customer" → "Onboarded" stage
+```
+
+#### Training Milestone
+
+**Trigger:** Member completes a module
+
+```
+GHL Action:
+- Update custom fields:
+  - modules_completed: count
+  - current_module: module name
+  - training_progress_pct: percentage
+- Add tag: 'completed_module_{N}'
+- If first module completed: add tag 'first_module_complete'
+- Note: "Completed Module {N}: {module_name}"
+```
+
+#### Login Activity
+
+**Trigger:** Member logs in (debounced to once per day)
+
+```
+GHL Action:
+- Update custom field: last_login_date
+- If first login in > 7 days: add tag 'reengaged'
+```
+
+#### Support Ticket
+
+**Trigger:** Member creates a support ticket
+
+```
+GHL Action:
+- Add tag: 'has_open_ticket'
+- Note: "Support ticket #{ticket_id}: {subject} (Category: {category})"
+- Task: Create follow-up task assigned to support team
+```
+
+#### Support Ticket Resolved
+
+**Trigger:** Ticket status changes to resolved/closed
+
+```
+GHL Action:
+- Remove tag: 'has_open_ticket' (only if no other open tickets)
+- Note: "Ticket #{ticket_id} resolved"
+```
+
+#### Mentorship Expiration
+
+**Trigger:** Nightly job detects upcoming or actual expiration
+
+```
+GHL Action (30 days before):
+- Add tag: 'expiring_30d'
+- Pipeline: Move to "Retention" pipeline → "Expiring Soon" stage
+
+GHL Action (7 days before):
+- Add tag: 'expiring_7d'
+- Pipeline: Move to "Retention" → "Urgent Renewal" stage
+- Task: Create follow-up task for retention team
+
+GHL Action (on expiration):
+- Add tag: 'expired'
+- Remove tags: 'product:{expired_product}', 'expiring_30d', 'expiring_7d'
+- Update custom fields: products_owned, highest_product
+- Pipeline: Move to "Retention" → "Expired" stage
+```
+
+#### Commission Earned
+
+**Trigger:** New commission recorded
+
+```
+GHL Action:
+- Update custom fields: total_commissions_earned, commission_tier
+- Add tag: 'active_affiliate'
+- Note: "Earned ${amount} commission from {referred_name} purchase"
+```
+
+#### Coaching Session
+
+**Trigger:** 1-on-1 session booked, completed, or cancelled
+
+```
+GHL Action (booked):
+- Note: "1-on-1 session booked with Coach {name} for {date}"
+- Add tag: 'session_scheduled'
+
+GHL Action (completed):
+- Remove tag: 'session_scheduled'
+- Add tag: 'session_completed'
+- Note: "1-on-1 session completed with Coach {name}"
+
+GHL Action (cancelled):
+- Remove tag: 'session_scheduled'
+- Note: "1-on-1 session cancelled (Reason: {reason})"
+```
+
+#### Refund / Cancellation
+
+**Trigger:** ThriveCart refund or cancellation webhook
+
+```
+GHL Action (refund):
+- Add tag: 'refunded'
+- Remove product-specific tags
+- Update custom fields: products_owned, highest_product
+- Pipeline: Move to "Refund" pipeline
+- Note: "Refunded {product_name} on {date}"
+
+GHL Action (cancellation):
+- Add tag: 'cancelled'
+- Pipeline: Move to "Retention" → "Cancelled" stage
+- Task: Create win-back task for retention team
+- Note: "Cancelled {product_name} subscription on {date}"
+```
+
+---
+
+### 3. GHL → Portal Sync (Webhook)
+
+GHL can trigger portal actions via webhook when certain events occur in GHL.
+
+#### Webhook Endpoint
+
+```
+POST /api/webhooks/ghl
+
+Payload: GHL webhook payload (varies by trigger)
+Security: Verify webhook using GHL's webhook secret or API key in headers
+```
+
+#### Supported GHL → Portal Triggers
+
+| GHL Event | Portal Action |
+|-----------|---------------|
+| Tag added: `vip_override` | Grant temporary entitlement override (admin applies in GHL for special access) |
+| Tag added: `force_expire` | Immediately expire a member's mentorship (admin action in GHL) |
+| Pipeline stage: "Scheduled Call" | Create a portal notification for the member: "Your coach wants to schedule a call" |
+| Tag added: `manual_upgrade_{product}` | Grant product entitlement without ThriveCart purchase (admin comp/gift) |
+
+**Implementation:** The webhook handler checks the event type and tag/pipeline values, then calls the appropriate portal service function.
+
+```
+POST /api/webhooks/ghl
+
+Logic:
+1. Verify webhook authenticity
+2. Extract contact email from payload
+3. Find portal user by email
+4. Check event type:
+   - If tag_added: check tag name against known triggers
+   - If pipeline_stage_changed: check pipeline + stage against known triggers
+5. Execute the portal action
+6. Log to webhook_logs
+```
+
+---
+
+### 4. GHL Custom Fields Setup
+
+These custom fields must be created in GHL before the sync works. Document them for the admin to set up manually in GHL's settings.
+
+| Field Name | Field Key | Type | Description |
+|------------|-----------|------|-------------|
+| BTS User ID | bts_user_id | Number | Portal user ID for cross-reference |
+| Source Product | source_product | Text | First product purchased |
+| Source Funnel | source_funnel | Text | Which VSL/funnel brought them in |
+| Products Owned | products_owned | Text | Comma-separated product slugs |
+| Highest Product | highest_product | Text | Highest tier product name |
+| Onboarding Complete | onboarding_complete | Checkbox | Has completed onboarding |
+| Onboarding Date | onboarding_completed_at | Date | When onboarding was completed |
+| Experience Level | experience_level | Text | beginner, some_experience, intermediate, advanced |
+| Primary Goal | primary_goal | Text | learn_fundamentals, launch_first, scale, etc. |
+| Timezone | member_timezone | Text | IANA timezone |
+| Modules Completed | modules_completed | Number | Count of completed modules |
+| Current Module | current_module | Text | Name of current module |
+| Training Progress | training_progress_pct | Number | Overall % complete |
+| Last Login | last_login_date | Date | Most recent portal login |
+| Total Commissions | total_commissions_earned | Number | Lifetime commission earnings |
+| Commission Tier | commission_tier | Text | entry, mid, premium, top |
+| Signup Date | signup_date | Date | Account creation date |
+
+**GHL Pipelines to Create:**
+
+| Pipeline | Stages |
+|----------|--------|
+| New Customer | Just Purchased → Onboarding → Onboarded → Engaged |
+| Upgrade | Considering → Upgraded → Active |
+| Retention | Active → Expiring Soon → Urgent Renewal → Expired → Cancelled → Win-Back |
+| Refund | Requested → Processed |
+
+---
+
+### 5. Sync Queue & Error Handling
+
+All GHL syncs go through a dedicated BullMQ queue:
+
+```typescript
+// queues/ghl-sync.ts
+
+const ghlQueue = new Queue('ghl-sync', { connection: redis });
+
+// Add job to queue
+async function queueGHLSync(action: string, data: any): Promise<void> {
+  await ghlQueue.add(action, data, {
+    attempts: 5,                    // retry 5 times
+    backoff: { type: 'exponential', delay: 30000 },  // 30s, 60s, 120s, 240s, 480s
+    removeOnComplete: 1000,         // keep last 1000 completed jobs
+    removeOnFail: 5000,             // keep last 5000 failed jobs
+  });
+}
+
+// Worker processes jobs
+const worker = new Worker('ghl-sync', async (job) => {
+  const ghl = new GHLClient();
+  
+  switch (job.name) {
+    case 'create_contact': await ghl.createContact(job.data); break;
+    case 'update_contact': await ghl.updateContact(job.data.contactId, job.data); break;
+    case 'add_tags': await ghl.addTags(job.data.contactId, job.data.tags); break;
+    case 'move_pipeline': await ghl.moveToStage(...job.data); break;
+    case 'add_note': await ghl.addNote(job.data.contactId, job.data.body); break;
+    // ... etc
+  }
+}, { connection: redis, concurrency: 5, limiter: { max: 90, duration: 60000 } });
+// Rate limit: 90 requests per minute (under GHL's 100/min limit)
+```
+
+#### GHL Sync Log
+
+```sql
+ghl_sync_log
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id)
+  action          TEXT NOT NULL              -- 'create_contact', 'add_tags', 'move_pipeline', etc.
+  direction       TEXT NOT NULL              -- 'portal_to_ghl' or 'ghl_to_portal'
+  payload         JSONB NOT NULL             -- what was sent/received
+  ghl_contact_id  TEXT                       -- GHL's contact ID
+  status          TEXT NOT NULL              -- 'queued', 'sent', 'success', 'failed', 'retrying'
+  error_message   TEXT
+  attempts        INTEGER DEFAULT 0
+  created_at      TIMESTAMP DEFAULT NOW()
+  completed_at    TIMESTAMP
+```
+
+Store the GHL contact ID on the user record for fast lookups:
+
+```sql
+ALTER TABLE users ADD COLUMN ghl_contact_id TEXT;
+```
+
+---
+
+### 6. Contact ID Mapping
+
+The first time a portal user syncs to GHL, we need to either create a new contact or find an existing one.
+
+```
+On first sync for a user:
+1. Search GHL by email: GET /contacts/lookup?email={email}
+2. If found: store GHL contact ID on portal user record
+3. If not found: create new contact, store returned ID
+4. All subsequent syncs use the stored contact ID (no lookup needed)
+```
+
+---
+
+### 7. Admin Panel Additions
+
+#### GHL Sync Dashboard
+
+- Sync status: last successful sync, queue depth, failed jobs count
+- Recent sync activity: last 50 sync events with status
+- Failed syncs: list of failed jobs with error details and retry button
+- Contact mapping: list of portal users with their GHL contact IDs (or "Not synced" flag)
+- Manual sync: button to force-sync a specific member to GHL
+- Bulk sync: button to re-sync all members (for initial setup or after GHL changes)
+
+#### GHL Configuration
+
+- GHL API key and location ID settings
+- Pipeline and stage ID mapping (map portal events to GHL pipeline/stage IDs)
+- Custom field key mapping (map portal field names to GHL custom field keys)
+- Tag prefix configuration (e.g., all BTS tags prefixed with "bts_")
+- Webhook secret for GHL → Portal webhooks
+- Enable/disable sync globally (kill switch for debugging)
+
+---
+
+### 8. API Endpoints
+
+```
+POST   /api/webhooks/ghl                       → GHL → Portal webhook
+GET    /api/admin/ghl/status                    → Sync dashboard data
+GET    /api/admin/ghl/log                       → Sync log with filters
+POST   /api/admin/ghl/sync/:userId              → Force sync a specific user
+POST   /api/admin/ghl/sync-all                  → Bulk re-sync all users
+GET    /api/admin/ghl/config                    → View GHL configuration
+PATCH  /api/admin/ghl/config                    → Update GHL configuration
+POST   /api/admin/ghl/retry/:jobId              → Retry a failed sync job
+```
+
+---
+
+### 9. Environment Variables
+
+```
+GHL_API_KEY=xxx
+GHL_LOCATION_ID=xxx
+GHL_WEBHOOK_SECRET=xxx
+GHL_API_BASE_URL=https://services.leadconnectorhq.com
+GHL_SYNC_ENABLED=true
+GHL_TAG_PREFIX=bts_
+GHL_RATE_LIMIT_PER_MINUTE=90
+```
+
+---
+
+### 10. Replacing All GHL Stubs
+
+| Location | Stub | Replace With |
+|----------|------|-------------|
+| ThriveCart webhook (new user) | Log GHL data | `queueGHLSync('create_contact', ...)` |
+| ThriveCart webhook (upgrade) | Log tags | `queueGHLSync('update_contact', ...) + queueGHLSync('add_tags', ...)` |
+| ThriveCart webhook (refund) | Log pipeline | `queueGHLSync('move_pipeline', ...) + queueGHLSync('add_tags', ...)` |
+| Onboarding complete | Log profile | `queueGHLSync('update_contact', ...) + queueGHLSync('move_pipeline', ...)` |
+| Training milestone | Log progress | `queueGHLSync('update_contact', ...) + queueGHLSync('add_tags', ...)` |
+| Login activity | Log date | `queueGHLSync('update_contact', { last_login_date })` (debounced daily) |
+| Support ticket | Log note | `queueGHLSync('add_note', ...) + queueGHLSync('add_tags', ...)` |
+| Mentorship expiration | Log warning | `queueGHLSync('add_tags', ...) + queueGHLSync('move_pipeline', ...)` |
+| Commission earned | Log data | `queueGHLSync('update_contact', ...) + queueGHLSync('add_note', ...)` |
+| Coaching session | Log booking | `queueGHLSync('add_note', ...) + queueGHLSync('add_tags', ...)` |
+
+---
+
+## Definition of Done
+
+1. GHL contacts are auto-created on new portal user registration with all custom fields populated
+2. Product purchases, upgrades, and refunds update GHL tags, custom fields, and pipeline stages
+3. Onboarding completion, training progress, and login activity sync to GHL custom fields
+4. Support tickets, coaching sessions, and commission events create GHL notes
+5. GHL → Portal webhook handles tag-based triggers (vip_override, manual upgrades)
+6. All syncs are queued via BullMQ with retry logic and rate limiting (< 100 req/min)
+7. Sync log records every GHL interaction with status and error details
+8. Admin can view sync status, retry failed jobs, force-sync individual members, and bulk re-sync
+9. GHL contact ID is stored on the portal user record for fast lookups
+10. Kill switch allows disabling GHL sync globally without code changes

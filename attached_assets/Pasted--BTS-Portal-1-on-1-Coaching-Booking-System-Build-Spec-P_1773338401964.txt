@@ -1,0 +1,847 @@
+# BTS Portal — 1-on-1 Coaching Booking System Build Spec
+
+**Priority:** After Auth + ThriveCart + Onboarding + AI Chat + Community + Tools + Commissions
+**Status:** Not started
+**Depends on:** Entitlement system (done), Auth system, Coach management (partially built with group calls)
+**Reference:** BTS PRD v2.0, Sections 8.2, 11.4, 11.5
+
+---
+
+## Context
+
+The entitlement system defines two levels of 1-on-1 coaching access:
+
+```
+coaching:one_on_one:monthly  → 1-Year Mentorship (one 30–60 min session per month)
+coaching:one_on_one:weekly   → Lifetime Mentorship (one 60 min session per week)
+```
+
+The group coaching call system (calendar, recordings, coach management) already exists. This spec adds the 1-on-1 booking layer: coach availability management, member self-service scheduling, session frequency enforcement, Google Meet link generation, automated reminders, and session notes.
+
+---
+
+## Architecture Overview
+
+```
+MEMBER EXPERIENCE:
+  /coaching/one-on-one → See available coaches → Pick a coach → Pick a time slot
+  → Confirm booking → Receive confirmation email + calendar invite
+  → Join session via Google Meet → Coach adds notes post-session
+
+COACH MANAGEMENT (Admin):
+  Admin sets each coach's availability windows (recurring weekly schedule)
+  Admin assigns coaches to 1-on-1 eligible tiers
+  Coach availability is blocked when booked
+
+SCHEDULING ENGINE:
+  Generates available time slots from coach availability minus existing bookings
+  Enforces session frequency limits (monthly for 1-Year, weekly for Lifetime)
+  Handles timezone conversion (display in member's timezone, store in UTC)
+  Prevents double-booking
+```
+
+---
+
+## What to Build
+
+### 1. Coach Availability System
+
+The `coaches` table already exists from the group coaching call system. Extend it with availability configuration for 1-on-1 sessions.
+
+#### Coach Availability Schema
+
+```sql
+coach_availability
+  id                  SERIAL PRIMARY KEY
+  coach_id            INTEGER REFERENCES coaches(id) NOT NULL
+  day_of_week         INTEGER NOT NULL       -- 0=Sunday, 1=Monday, ..., 6=Saturday
+  start_time          TIME NOT NULL           -- e.g., '09:00' (in coach's timezone)
+  end_time            TIME NOT NULL           -- e.g., '17:00'
+  session_duration    INTEGER NOT NULL DEFAULT 60  -- minutes per session
+  buffer_minutes      INTEGER NOT NULL DEFAULT 15  -- gap between sessions
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMP DEFAULT NOW()
+  UNIQUE(coach_id, day_of_week, start_time)   -- no overlapping windows per coach per day
+```
+
+**How it works:**
+- Each row defines a recurring weekly window when the coach is available
+- A coach can have multiple windows per day (e.g., 9–12 and 2–5)
+- Session duration + buffer determines the slot grid (60 min session + 15 min buffer = 75 min per slot)
+- A Monday window of 9:00–17:00 with 75 min slots generates: 9:00, 10:15, 11:30, 12:45, 2:00, 3:15, 4:30
+
+#### Coach Timezone
+
+Add to the `coaches` table:
+
+```sql
+ALTER TABLE coaches ADD COLUMN timezone TEXT NOT NULL DEFAULT 'America/New_York';
+ALTER TABLE coaches ADD COLUMN max_daily_sessions INTEGER DEFAULT 6;
+ALTER TABLE coaches ADD COLUMN one_on_one_enabled BOOLEAN DEFAULT false;
+```
+
+**Important:** Availability times are stored in the coach's local timezone. The scheduling engine converts to UTC for storage and to the member's timezone for display.
+
+#### Availability Overrides (Date-Specific)
+
+Coaches need to block specific dates (holidays, sick days, vacations) or add extra availability for a specific date.
+
+```sql
+coach_availability_overrides
+  id                  SERIAL PRIMARY KEY
+  coach_id            INTEGER REFERENCES coaches(id) NOT NULL
+  override_date       DATE NOT NULL           -- the specific date
+  override_type       TEXT NOT NULL            -- 'blocked' or 'available'
+  start_time          TIME                     -- null for 'blocked' (blocks whole day)
+  end_time            TIME                     -- null for 'blocked'
+  reason              TEXT                     -- 'Holiday', 'Vacation', 'Extra hours', etc.
+  created_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Override logic:**
+- `blocked` + no times = entire day is unavailable
+- `blocked` + times = specific window is blocked (e.g., 12:00–2:00 for a lunch meeting)
+- `available` + times = extra window added for that date only (not recurring)
+- Overrides take precedence over recurring availability
+
+---
+
+### 2. Slot Generation Engine
+
+The core scheduling logic that generates bookable time slots for a given coach and date range.
+
+```
+generateAvailableSlots(coachId, startDate, endDate, memberTimezone):
+
+  For each date in range:
+    1. Get the day of week
+    2. Load recurring availability windows for this day + coach
+    3. Load any overrides for this specific date
+    4. Apply overrides:
+       - If 'blocked' override for the whole day → skip entire day
+       - If 'blocked' override for a window → remove that window
+       - If 'available' override → add that window
+    5. For each remaining availability window:
+       a. Generate slot start times based on (session_duration + buffer_minutes)
+       b. Convert each slot from coach's timezone to UTC
+       c. Filter out slots that are in the past (< now + 2 hours minimum booking lead time)
+       d. Filter out slots that conflict with existing bookings for this coach
+       e. Filter out slots that conflict with this coach's group call schedule
+    6. Convert remaining slots to member's timezone for display
+    7. Return available slots grouped by date
+
+  Return: [
+    {
+      date: "2026-03-15",
+      dayOfWeek: "Saturday",
+      slots: [
+        { startTime: "9:00 AM", endTime: "10:00 AM", startUtc: "2026-03-15T14:00:00Z" },
+        { startTime: "10:15 AM", endTime: "11:15 AM", startUtc: "2026-03-15T15:15:00Z" },
+        ...
+      ]
+    },
+    ...
+  ]
+```
+
+**Critical edge cases:**
+- Timezone differences can shift slots across date boundaries (a 9 PM slot in the coach's timezone might be the next day in the member's timezone)
+- DST transitions: use a proper timezone library (date-fns-tz or luxon) — never calculate offsets manually
+- Race condition: two members booking the same slot simultaneously — use database-level locking (see Section 3)
+
+---
+
+### 3. Booking System
+
+#### Session Schema
+
+```sql
+coaching_sessions
+  id                  SERIAL PRIMARY KEY
+  user_id             INTEGER REFERENCES users(id) NOT NULL
+  coach_id            INTEGER REFERENCES coaches(id) NOT NULL
+  
+  -- Scheduling
+  scheduled_at        TIMESTAMP NOT NULL      -- UTC start time
+  duration_minutes    INTEGER NOT NULL         -- 30 or 60
+  end_at              TIMESTAMP NOT NULL       -- UTC end time (scheduled_at + duration)
+  timezone_booked     TEXT NOT NULL             -- member's timezone at time of booking
+  
+  -- Meeting
+  meet_link           TEXT                     -- Google Meet link (auto-generated)
+  
+  -- Status
+  status              TEXT NOT NULL DEFAULT 'scheduled'
+    -- 'scheduled'   → confirmed, upcoming
+    -- 'completed'   → session happened
+    -- 'cancelled_by_member'   → member cancelled
+    -- 'cancelled_by_admin'    → admin/coach cancelled
+    -- 'no_show_member'        → member didn't show
+    -- 'no_show_coach'         → coach didn't show
+    -- 'rescheduled'           → replaced by a new session
+  
+  rescheduled_from_id INTEGER REFERENCES coaching_sessions(id)  -- link to original session if rescheduled
+  
+  -- Session notes (added post-session)
+  coach_notes         TEXT                     -- coach's private notes (visible to admin)
+  member_notes        TEXT                     -- shared notes (visible to member + admin)
+  action_items        JSONB                    -- structured action items from the session
+  
+  -- Cancellation
+  cancelled_at        TIMESTAMP
+  cancellation_reason TEXT
+  
+  -- Reminders
+  reminder_24h_sent   BOOLEAN DEFAULT false
+  reminder_1h_sent    BOOLEAN DEFAULT false
+  
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Indexes:**
+- `(coach_id, scheduled_at)` — for availability conflict checks
+- `(user_id, scheduled_at)` — for member's booking history
+- `(status, scheduled_at)` — for upcoming sessions queries
+
+#### Booking Flow
+
+```
+POST /api/coaching/sessions
+
+Request:
+{
+  "coachId": 3,
+  "slotStartUtc": "2026-03-15T14:00:00Z",
+  "notes": "I want to discuss my campaign scaling strategy"  // optional pre-session notes
+}
+
+Backend logic:
+
+Step 1: AUTHENTICATE + CHECK ENTITLEMENT
+  - Verify coaching:one_on_one:monthly OR coaching:one_on_one:weekly
+
+Step 2: ENFORCE SESSION FREQUENCY
+  - If coaching:one_on_one:monthly:
+    - Count sessions this calendar month with status 'scheduled' or 'completed'
+    - If count >= 1 → 429: "You've used your monthly session. Next available: [first day of next month]"
+  - If coaching:one_on_one:weekly:
+    - Count sessions this calendar week (Mon–Sun) with status 'scheduled' or 'completed'
+    - If count >= 1 → 429: "You've used your weekly session. Next available: [next Monday]"
+
+Step 3: VALIDATE SLOT AVAILABILITY
+  - Confirm the requested slot falls within coach's availability (recurring + overrides)
+  - Use SELECT ... FOR UPDATE to lock the slot row and prevent double-booking:
+    
+    BEGIN;
+    SELECT id FROM coaching_sessions 
+    WHERE coach_id = :coachId 
+    AND scheduled_at < :slotEnd 
+    AND end_at > :slotStart 
+    AND status NOT IN ('cancelled_by_member', 'cancelled_by_admin', 'rescheduled')
+    FOR UPDATE;
+    
+    If any rows returned → 409: "This slot was just booked. Please choose another time."
+    
+    INSERT INTO coaching_sessions (...) VALUES (...);
+    COMMIT;
+
+Step 4: GENERATE GOOGLE MEET LINK
+  - Option A: Use Google Calendar API to create an event with Meet link (recommended)
+  - Option B: Generate a static Meet link format (less reliable)
+  - Option C: Admin pre-generates Meet links per coach (manual but simple)
+  - For v1: Use Option C — store a reusable Meet link on the coach record.
+    Each coach has one persistent Meet room. Add to coaches table:
+    ALTER TABLE coaches ADD COLUMN meet_link TEXT;
+
+Step 5: SET SESSION DURATION
+  - coaching:one_on_one:monthly → 60 minutes (configurable, could be 30–60)
+  - coaching:one_on_one:weekly → 60 minutes
+
+Step 6: SEND CONFIRMATION
+  - TODO: SendGrid confirmation email to member with:
+    - Coach name, date/time (member's timezone), duration, Meet link
+    - Calendar attachment (.ics file) for adding to their calendar
+    - Reschedule/cancel link
+  - TODO: Notification to coach (email or admin panel alert)
+  - For now: log to console + create portal notification
+
+Step 7: RETURN BOOKING CONFIRMATION
+  Response: {
+    id: 42,
+    coachName: "Coach Sarah",
+    scheduledAt: "2026-03-15T14:00:00Z",
+    displayTime: "Saturday, March 15 at 9:00 AM CT",
+    duration: 60,
+    meetLink: "https://meet.google.com/abc-defg-hij",
+    status: "scheduled"
+  }
+```
+
+#### Cancellation Policy
+
+```
+PATCH /api/coaching/sessions/:id/cancel
+
+Rules:
+- Member can cancel up to 24 hours before the session → status: 'cancelled_by_member'
+  - Session frequency credit is returned (they can book again this period)
+- Member cancels within 24 hours → status: 'cancelled_by_member'
+  - Session credit is NOT returned (counts as used for this period)
+  - Exception: admin can override and return the credit
+- Admin can cancel any session at any time → status: 'cancelled_by_admin'
+  - Session credit is always returned
+  - Member receives notification with apology and rebooking prompt
+
+Request:
+{
+  "reason": "Scheduling conflict — I'll rebook for next week"
+}
+```
+
+#### Rescheduling
+
+```
+POST /api/coaching/sessions/:id/reschedule
+
+Request:
+{
+  "newSlotStartUtc": "2026-03-16T15:15:00Z"
+}
+
+Logic:
+- Same 24-hour policy as cancellation
+- If within policy: cancel old session (status: 'rescheduled'), create new one
+- Link new session to old via rescheduled_from_id
+- Does NOT consume an additional session credit (it's a swap, not a new booking)
+- Same validation as new booking (availability, double-booking prevention)
+```
+
+---
+
+### 4. Session Notes System
+
+After a session completes, coaches add notes and action items that the member can reference later.
+
+#### Post-Session Flow
+
+```
+1. Session time passes
+2. A nightly job (or scheduled task) checks for sessions where:
+   - end_at < NOW() - 30 minutes
+   - status = 'scheduled'
+   → Updates status to 'completed'
+   → Sends notification to coach: "Please add session notes for [Member Name]"
+
+3. Coach adds notes via admin panel:
+   PATCH /api/admin/coaching/sessions/:id/notes
+   {
+     "coachNotes": "Marcus is struggling with headline testing. Recommended the split test 
+                    framework from Module 4. He's running health supplements on NewsBreak.",
+     "memberNotes": "We discussed your headline testing approach. Key takeaways:\n
+                     1. Test 5 headlines minimum before picking a winner\n
+                     2. Use the 'curiosity + specificity' formula from Module 4\n
+                     3. Set a $50/headline minimum spend before judging results",
+     "actionItems": [
+       { "item": "Complete Module 4 lessons on split testing", "dueDate": "2026-03-22" },
+       { "item": "Launch 5 headline variants for the health supplement campaign", "dueDate": "2026-03-25" },
+       { "item": "Report back with results at next session", "dueDate": "2026-04-15" }
+     ]
+   }
+
+4. Member receives notification: "Your coach added notes from your session. View them now."
+
+5. Member views notes on their coaching page:
+   - member_notes (shared) are visible
+   - coach_notes (private) are NOT visible to the member
+   - Action items with due dates are visible and trackable
+```
+
+#### Action Item Tracking
+
+Members can mark action items as complete from their coaching page:
+
+```
+PATCH /api/coaching/sessions/:sessionId/action-items/:index
+{
+  "completed": true,
+  "completedAt": "2026-03-20T10:00:00Z"
+}
+```
+
+Action items show on the member's dashboard as a checklist widget (if they have upcoming or recent action items).
+
+---
+
+### 5. Member-Facing UI
+
+#### Navigation
+
+"1-on-1 Coaching" appears in the sidebar when `coaching:one_on_one:monthly` or `coaching:one_on_one:weekly` is present. It's a sub-item under "Coaching Calls" or a separate nav item — depends on the existing nav structure.
+
+#### Coaching Page (`/coaching/one-on-one`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  1-ON-1 COACHING                                                 │
+│                                                                  │
+│  Your plan: Monthly sessions (60 min) with a BTS coach           │
+│  Sessions used this month: 0 of 1  ·  [Book a Session →]        │
+│                                                                  │
+│  ── UPCOMING SESSION ────────────────────────────────────────    │
+│  (if one is booked)                                              │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  📅 Saturday, March 15 at 9:00 AM CT                     │    │
+│  │  Coach: Sarah Martinez                                   │    │
+│  │  Duration: 60 minutes                                    │    │
+│  │                                                          │    │
+│  │  Your pre-session notes:                                 │    │
+│  │  "I want to discuss my campaign scaling strategy"        │    │
+│  │                                                          │    │
+│  │  [Join Session ↗]  [Reschedule]  [Cancel]                │    │
+│  │                                                          │    │
+│  │  Join button activates 5 minutes before start            │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ── ACTION ITEMS ────────────────────────────────────────────    │
+│  From your last session with Coach Sarah (March 1):              │
+│                                                                  │
+│  ☑ Complete Module 4 lessons on split testing                    │
+│  ☐ Launch 5 headline variants for health supplement campaign     │
+│  ☐ Report back with results at next session                      │
+│                                                                  │
+│  ── PAST SESSIONS ───────────────────────────────────────────    │
+│                                                                  │
+│  March 1, 2026 · Coach Sarah · Completed                        │
+│  "We discussed headline testing approach..."  [View Notes →]     │
+│                                                                  │
+│  February 1, 2026 · Coach Sarah · Completed                     │
+│  "Campaign setup review and niche selection..." [View Notes →]   │
+│                                                                  │
+│  [Load more sessions...]                                         │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Booking Flow UI (`/coaching/one-on-one/book`)
+
+```
+Step 1: Choose a Coach
+┌──────────────────────────────────────────────────────────────────┐
+│  BOOK A SESSION                                     Step 1 of 3  │
+│                                                                  │
+│  Choose your coach:                                              │
+│                                                                  │
+│  ┌──────────────────────────┐  ┌──────────────────────────┐     │
+│  │  [Photo]                 │  │  [Photo]                 │     │
+│  │  Sarah Martinez          │  │  James Williams          │     │
+│  │  ⭐ 4.9 (23 sessions)   │  │  ⭐ 4.8 (18 sessions)   │     │
+│  │                          │  │                          │     │
+│  │  Specialties:            │  │  Specialties:            │     │
+│  │  Native ads, scaling,    │  │  Copywriting, creative   │     │
+│  │  NewsBreak campaigns     │  │  testing, offer selection│     │
+│  │                          │  │                          │     │
+│  │  Next available:         │  │  Next available:         │     │
+│  │  March 15 at 9:00 AM    │  │  March 14 at 2:00 PM    │     │
+│  │                          │  │                          │     │
+│  │  [Select Coach →]        │  │  [Select Coach →]        │     │
+│  └──────────────────────────┘  └──────────────────────────┘     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+Step 2: Pick a Time
+┌──────────────────────────────────────────────────────────────────┐
+│  BOOK A SESSION                                     Step 2 of 3  │
+│  Coach: Sarah Martinez                                           │
+│                                                                  │
+│  Select a date and time (showing times in Central Time):         │
+│                                                                  │
+│  ◀  March 2026  ▶                                                │
+│  ┌────┬────┬────┬────┬────┬────┬────┐                            │
+│  │ Su │ Mo │ Tu │ We │ Th │ Fr │ Sa │                            │
+│  ├────┼────┼────┼────┼────┼────┼────┤                            │
+│  │    │    │    │    │ 12 │ 13 │[14]│  ← dates with availability │
+│  │[15]│ 16 │[17]│ 18 │[19]│ 20 │[21]│    are highlighted/bold   │
+│  │    │    │    │    │    │    │    │    grayed = no availability │
+│  └────┴────┴────┴────┴────┴────┴────┘                            │
+│                                                                  │
+│  Saturday, March 15:                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │ 9:00 AM  │ │ 10:15 AM │ │ 11:30 AM │ │ 2:00 PM  │            │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
+│  ┌──────────┐ ┌──────────┐                                       │
+│  │ 3:15 PM  │ │ 4:30 PM  │                                       │
+│  └──────────┘ └──────────┘                                       │
+│                                                                  │
+│  [← Back]                                                        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+Step 3: Confirm
+┌──────────────────────────────────────────────────────────────────┐
+│  BOOK A SESSION                                     Step 3 of 3  │
+│                                                                  │
+│  📅 Saturday, March 15, 2026                                     │
+│  ⏰ 9:00 AM – 10:00 AM (Central Time)                            │
+│  👤 Coach: Sarah Martinez                                        │
+│  🔗 Google Meet (link will be provided on confirmation)          │
+│                                                                  │
+│  Pre-session notes (optional):                                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ I want to discuss my campaign scaling strategy.          │    │
+│  │ Specifically, how to go from $50/day to $500/day on      │    │
+│  │ NewsBreak without losing profitability.                   │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  Cancellation policy: Free cancellation up to 24 hours before.   │
+│  Late cancellations count toward your monthly/weekly session.    │
+│                                                                  │
+│  [← Back]                    [Confirm Booking ✓]                 │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Session Notes View (`/coaching/one-on-one/sessions/:id`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to 1-on-1 Coaching                                      │
+│                                                                  │
+│  SESSION NOTES                                                   │
+│  March 1, 2026 · Coach Sarah Martinez · 60 minutes               │
+│  Status: Completed ✅                                             │
+│                                                                  │
+│  ── NOTES ───────────────────────────────────────────────────    │
+│                                                                  │
+│  We discussed your headline testing approach. Key takeaways:     │
+│                                                                  │
+│  1. Test 5 headlines minimum before picking a winner             │
+│  2. Use the "curiosity + specificity" formula from Module 4      │
+│  3. Set a $50/headline minimum spend before judging results      │
+│                                                                  │
+│  ── ACTION ITEMS ────────────────────────────────────────────    │
+│                                                                  │
+│  ☑ Complete Module 4 lessons on split testing        Due: Mar 8  │
+│  ☐ Launch 5 headline variants for health supplement  Due: Mar 11 │
+│  ☐ Report back with results at next session          Due: Mar 15 │
+│                                                                  │
+│  ── YOUR PRE-SESSION NOTES ──────────────────────────────────    │
+│                                                                  │
+│  "I want to discuss my campaign scaling strategy. Specifically,  │
+│   how to go from $50/day to $500/day on NewsBreak."              │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 6. Coach Rating System
+
+After each completed session, the member is prompted to rate their coach. Simple 1–5 star rating with optional comment.
+
+```sql
+coaching_ratings
+  id              SERIAL PRIMARY KEY
+  session_id      INTEGER REFERENCES coaching_sessions(id) NOT NULL UNIQUE
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  coach_id        INTEGER REFERENCES coaches(id) NOT NULL
+  rating          INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5)
+  comment         TEXT
+  is_visible      BOOLEAN DEFAULT true    -- admin can hide inappropriate comments
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Flow:**
+1. Session marked as completed
+2. Member receives notification: "How was your session with Coach Sarah? Rate it now."
+3. Rating modal appears on next visit to the coaching page (or via notification click)
+4. Simple UI: 5 stars + optional text comment + submit
+5. Average rating displayed on coach profile cards in the booking flow
+
+**API:**
+
+```
+POST /api/coaching/sessions/:id/rate
+{ "rating": 5, "comment": "Sarah was incredibly helpful with my scaling strategy." }
+
+GET /api/coaching/coaches/:id/ratings
+→ Paginated list of ratings (comment text visible to coach selection UI)
+```
+
+Add to coaches table:
+
+```sql
+ALTER TABLE coaches ADD COLUMN average_rating DECIMAL(3,2) DEFAULT 0;
+ALTER TABLE coaches ADD COLUMN total_ratings INTEGER DEFAULT 0;
+```
+
+Update these denormalized fields on each new rating.
+
+---
+
+### 7. Dashboard Integration
+
+Add a "1-on-1 Coaching" widget to the member dashboard (visible when `coaching:one_on_one:*` is present):
+
+```
+┌─ 1-ON-1 COACHING ───────────────────────────────────┐
+│                                                      │
+│  IF upcoming session:                                │
+│  Next session: Saturday, March 15 at 9:00 AM CT     │
+│  Coach: Sarah Martinez                               │
+│  [Join Session ↗]  (activates 5 min before)         │
+│                                                      │
+│  IF no upcoming session:                             │
+│  You have 1 session available this month.            │
+│  [Book a Session →]                                  │
+│                                                      │
+│  IF action items pending:                            │
+│  2 action items due this week                        │
+│  [View Action Items →]                               │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+### 8. Reminders
+
+| Timing | Channel | Message |
+|--------|---------|---------|
+| 24 hours before | Email (SendGrid) | "Your 1-on-1 session with [Coach] is tomorrow at [time]. Here's your Meet link: [link]" |
+| 24 hours before | Portal notification | Same message |
+| 1 hour before | SMS (Twilio) | "Reminder: Your coaching session starts in 1 hour. Join here: [link]" |
+| 1 hour before | Portal notification | Same message |
+| 5 min before | Portal banner | "Your session starts in 5 minutes" + prominent Join button |
+
+**Reminder job:** Runs every 15 minutes (or via BullMQ scheduled jobs). Checks for upcoming sessions and sends reminders where the flag (`reminder_24h_sent`, `reminder_1h_sent`) is false.
+
+For v1: portal notifications only. SendGrid/Twilio stubs logged to console.
+
+---
+
+### 9. Admin Panel Additions
+
+#### Coach Availability Management
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  COACH: Sarah Martinez                          [Edit Profile]   │
+│                                                                  │
+│  ── WEEKLY AVAILABILITY ─────────────────────────────────────    │
+│                                                                  │
+│  Monday:     9:00 AM – 12:00 PM, 2:00 PM – 5:00 PM             │
+│  Tuesday:    OFF                                                 │
+│  Wednesday:  9:00 AM – 5:00 PM                                   │
+│  Thursday:   9:00 AM – 12:00 PM                                  │
+│  Friday:     10:00 AM – 3:00 PM                                  │
+│  Saturday:   9:00 AM – 5:00 PM                                   │
+│  Sunday:     OFF                                                 │
+│                                                                  │
+│  [Edit Availability]                                             │
+│                                                                  │
+│  ── UPCOMING OVERRIDES ──────────────────────────────────────    │
+│  March 20: BLOCKED (Vacation)                                    │
+│  March 21: BLOCKED (Vacation)                                    │
+│  April 5:  Extra hours 6:00 PM – 9:00 PM                        │
+│                                                                  │
+│  [Add Override]                                                  │
+│                                                                  │
+│  ── UPCOMING SESSIONS ───────────────────────────────────────    │
+│  Mar 15, 9:00 AM  · Marcus Johnson · 1-Year     [View] [Cancel] │
+│  Mar 15, 10:15 AM · Alex Rivera    · Lifetime   [View] [Cancel] │
+│  Mar 17, 2:00 PM  · Jordan Taylor  · Lifetime   [View] [Cancel] │
+│                                                                  │
+│  ── SESSION HISTORY ─────────────────────────────────────────    │
+│  [View all past sessions with notes →]                           │
+│                                                                  │
+│  ── RATINGS ─────────────────────────────────────────────────    │
+│  Average: ⭐ 4.9 (23 ratings)                                    │
+│  [View all ratings →]                                            │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Session Management
+
+| View | Content |
+|------|---------|
+| All Sessions | Table: date, member, coach, status, has notes. Filters: date range, coach, status, member |
+| Upcoming | Sessions in the next 7 days. Actions: cancel, reassign coach |
+| Needs Notes | Completed sessions where coach hasn't added notes yet (coach accountability) |
+| No-Shows | Sessions marked as no-show. Actions: return member credit, contact member |
+
+#### Add Notes (Admin/Coach View)
+
+```
+PATCH /api/admin/coaching/sessions/:id/notes
+{
+  "coachNotes": "Private notes...",
+  "memberNotes": "Shared notes...",
+  "actionItems": [
+    { "item": "Description", "dueDate": "2026-03-22" }
+  ]
+}
+```
+
+#### Coaching Analytics
+
+- Sessions booked this month (vs last month)
+- Sessions completed vs cancelled vs no-show rates
+- Average coach rating
+- Most popular coaches (by bookings)
+- Members who haven't used their sessions this period
+- Action item completion rate
+
+---
+
+### 10. API Endpoints Summary
+
+**Member-facing:**
+
+```
+GET    /api/coaching/one-on-one                    → Current status (sessions used, available, upcoming)
+GET    /api/coaching/one-on-one/coaches             → Available coaches for 1-on-1 (with ratings, next availability)
+GET    /api/coaching/one-on-one/slots               → Available time slots (?coachId=3&startDate=&endDate=)
+POST   /api/coaching/one-on-one/sessions            → Book a session
+GET    /api/coaching/one-on-one/sessions             → Member's session history (paginated)
+GET    /api/coaching/one-on-one/sessions/:id         → Session detail with notes and action items
+PATCH  /api/coaching/one-on-one/sessions/:id/cancel  → Cancel a session
+POST   /api/coaching/one-on-one/sessions/:id/reschedule → Reschedule
+PATCH  /api/coaching/one-on-one/sessions/:id/action-items/:index → Mark action item complete
+POST   /api/coaching/one-on-one/sessions/:id/rate    → Rate a session
+GET    /api/coaching/coaches/:id/ratings              → Coach ratings (for selection UI)
+```
+
+**Admin:**
+
+```
+CRUD   /api/admin/coaching/coaches                   → Manage coaches (including 1-on-1 settings)
+CRUD   /api/admin/coaching/availability/:coachId     → Manage recurring availability
+CRUD   /api/admin/coaching/overrides/:coachId        → Manage date-specific overrides
+GET    /api/admin/coaching/sessions                   → All sessions with filters
+PATCH  /api/admin/coaching/sessions/:id               → Update status (no-show, cancel)
+PATCH  /api/admin/coaching/sessions/:id/notes         → Add/edit session notes
+GET    /api/admin/coaching/sessions/needs-notes        → Sessions awaiting notes
+GET    /api/admin/coaching/analytics                   → Coaching analytics dashboard
+POST   /api/admin/coaching/sessions/:id/return-credit  → Return session credit to member
+```
+
+---
+
+### 11. Database Schema Summary
+
+```sql
+-- Coach availability (recurring weekly)
+coach_availability (
+  id, coach_id, day_of_week, start_time, end_time,
+  session_duration, buffer_minutes, is_active, created_at
+  UNIQUE(coach_id, day_of_week, start_time)
+)
+
+-- Coach availability overrides (date-specific)
+coach_availability_overrides (
+  id, coach_id, override_date, override_type, start_time,
+  end_time, reason, created_at
+)
+
+-- Coaching sessions (bookings)
+coaching_sessions (
+  id, user_id, coach_id, scheduled_at, duration_minutes, end_at,
+  timezone_booked, meet_link, status, rescheduled_from_id,
+  coach_notes, member_notes, action_items,
+  cancelled_at, cancellation_reason,
+  reminder_24h_sent, reminder_1h_sent,
+  created_at, updated_at
+)
+
+-- Coaching ratings
+coaching_ratings (
+  id, session_id, user_id, coach_id, rating, comment,
+  is_visible, created_at
+)
+
+-- Coaches table additions
+ALTER TABLE coaches ADD COLUMN timezone TEXT DEFAULT 'America/New_York';
+ALTER TABLE coaches ADD COLUMN max_daily_sessions INTEGER DEFAULT 6;
+ALTER TABLE coaches ADD COLUMN one_on_one_enabled BOOLEAN DEFAULT false;
+ALTER TABLE coaches ADD COLUMN meet_link TEXT;
+ALTER TABLE coaches ADD COLUMN average_rating DECIMAL(3,2) DEFAULT 0;
+ALTER TABLE coaches ADD COLUMN total_ratings INTEGER DEFAULT 0;
+```
+
+---
+
+### 12. Frontend Routes
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/coaching/one-on-one` | OneOnOneCoaching | Status, upcoming session, action items, history |
+| `/coaching/one-on-one/book` | BookSession | 3-step wizard (coach → time → confirm) |
+| `/coaching/one-on-one/sessions/:id` | SessionDetail | Notes, action items, rating |
+
+---
+
+### 13. Seed Data
+
+**Coach availability:** Set up 2 coaches with realistic weekly schedules (M/W/F 9–5, Tu/Th 10–3, etc.)
+
+**Overrides:** One blocked day (holiday) and one extra-hours day per coach.
+
+**Sessions:** Seed 5–8 sessions for the demo user across the last 3 months:
+- 2 completed with notes and action items
+- 1 upcoming (scheduled)
+- 1 cancelled by member
+- 1 no-show
+
+**Ratings:** 3–4 ratings on each coach from different demo users.
+
+---
+
+### 14. Environment Variables
+
+```
+SESSION_FREQUENCY_MONTHLY=1
+SESSION_FREQUENCY_WEEKLY=1
+SESSION_DURATION_MINUTES=60
+SESSION_BUFFER_MINUTES=15
+SESSION_MIN_BOOKING_LEAD_HOURS=2
+SESSION_CANCELLATION_WINDOW_HOURS=24
+REMINDER_CHECK_INTERVAL_MINUTES=15
+```
+
+---
+
+## What NOT to Build Yet
+
+- Google Calendar API integration for auto-creating calendar events with Meet links (use static coach Meet links for v1)
+- .ics calendar file generation for email confirmations (add with SendGrid integration later)
+- Coach login portal (coaches don't log in — admin manages everything)
+- Video session recording or automatic transcription
+- Multi-coach sessions (group 1-on-1s — just regular 1:1 for now)
+- Session packages (buy extra sessions beyond tier allowance)
+- Coach-initiated scheduling (coach books time with a member)
+- Automated coach assignment (member must choose their coach)
+- GHL sync of session data (log for now)
+- Real-time availability updates via WebSocket (page refresh shows current availability)
+
+---
+
+## Definition of Done
+
+1. Members with `coaching:one_on_one:monthly` can book 1 session per month
+2. Members with `coaching:one_on_one:weekly` can book 1 session per week
+3. 3-step booking wizard works: choose coach → pick time → confirm
+4. Available time slots correctly reflect coach availability minus existing bookings and overrides
+5. Double-booking is impossible (database-level locking)
+6. Times display in the member's timezone throughout the entire flow
+7. Cancellation and rescheduling work with 24-hour policy enforcement
+8. Session notes (shared + private) and action items are addable by admin and viewable by member
+9. Action items are trackable (member can mark complete)
+10. Coach ratings collected post-session and displayed in coach selection
+11. Dashboard widget shows upcoming session or booking prompt
+12. Admin can manage coach availability, overrides, sessions, notes, and view analytics
+13. Reminder notifications fire at 24h and 1h before sessions
+14. No coaching:one_on_one entitlement → nav item hidden, all routes return 403
+15. Session frequency limits are strictly enforced with clear messaging when exceeded

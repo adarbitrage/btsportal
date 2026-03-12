@@ -1,0 +1,266 @@
+# BTS Portal — Training Content CMS Build Spec
+
+**Priority:** After Marketing Site
+**Status:** Not started
+**Depends on:** Training module system (built), Auth, Entitlement system
+**Reference:** BTS PRD v2.0, Sections 10.1–10.4
+
+---
+
+## Context
+
+The training module system (tracks → modules → lessons) is built with entitlement gating and progress tracking. But content is currently managed via seed data and direct database edits. This spec builds a full content management system so admin can create, edit, organize, and publish training content without touching code.
+
+---
+
+## What to Build
+
+### 1. Rich Text Editor
+
+Lessons contain both video and text content. The text editor must support:
+
+- **Formatting:** Bold, italic, underline, strikethrough, headings (H2–H4), blockquotes
+- **Lists:** Bullet and numbered lists, nested lists
+- **Media:** Image upload (drag-and-drop, paste from clipboard) → stored in Cloudflare R2
+- **Links:** URL links with optional "open in new tab"
+- **Embeds:** YouTube/Vimeo embed via URL paste
+- **Code blocks:** Syntax-highlighted code blocks (for technical training content)
+- **Callout boxes:** Tip, warning, important, and note callouts (styled blocks)
+- **Tables:** Simple table creation
+- **Dividers:** Horizontal rule
+
+**Recommended library:** TipTap (built on ProseMirror) — highly extensible, great React integration, supports all features above. Alternative: Lexical (Meta's editor).
+
+**Content stored as:** JSON (TipTap's native format) in the database. Rendered to HTML on the frontend. This preserves structure for future transformations (PDF export, mobile app rendering, etc.).
+
+### 2. Admin Content Pages
+
+#### Track Management (`/admin/content/tracks`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  TRAINING CONTENT                                    [+ New Track]│
+│                                                                  │
+│  Drag tracks to reorder. Click to expand modules.                │
+│                                                                  │
+│  ┌─ 📚 Foundational Training ──────────── [Edit] [⋮] ─────┐    │
+│  │  Entitlement: content:frontend · 6 modules · Published  │    │
+│  │                                                          │    │
+│  │  ├─ Module 1: The Affiliate Marketing Landscape (5 lessons)│  │
+│  │  ├─ Module 2: Choosing Your Niche (7 lessons)            │    │
+│  │  ├─ Module 3: Building Your Foundation (6 lessons)       │    │
+│  │  ├─ Module 4: Content That Converts (8 lessons)          │    │
+│  │  ├─ Module 5: Traffic Fundamentals (6 lessons)           │    │
+│  │  └─ Module 6: Your Next Steps (3 lessons)                │    │
+│  │                                                          │    │
+│  │  [+ Add Module]                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─ 🎓 Advanced Strategies ──────────── [Edit] [⋮] ────────┐   │
+│  │  Entitlement: content:advanced · 4 modules · Draft       │    │
+│  │  ...                                                     │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Track CRUD:**
+- Create: name, description, required entitlement (dropdown), sort order, status (draft/published)
+- Edit: same fields, inline or modal
+- Reorder: drag-and-drop to change sort order
+- Delete: soft delete (archive). Only if no members have progress in this track.
+- Duplicate: create a copy of a track with all modules and lessons (as drafts)
+
+#### Module Management
+
+**Module CRUD:**
+- Create: title, description, sort order within track
+- Edit: title, description
+- Reorder: drag-and-drop within the parent track
+- Move: move a module to a different track
+- Delete: soft delete. Warn if members have progress.
+
+#### Lesson Editor (`/admin/content/lessons/:id/edit`)
+
+The core content creation experience.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to Module 4                      [Save Draft] [Publish]  │
+│                                                                  │
+│  LESSON EDITOR                                                   │
+│                                                                  │
+│  Title: [Writing Headlines That Convert_______________________]  │
+│                                                                  │
+│  Content Type: (•) Video + Text  ( ) Video Only  ( ) Text Only   │
+│                                                                  │
+│  ── VIDEO ───────────────────────────────────────────────────    │
+│  Video URL: [https://vimeo.com/123456789__________________]      │
+│  (Supports Vimeo and Wistia embed URLs)                          │
+│  [Preview Video]                                                 │
+│                                                                  │
+│  ── TEXT CONTENT ────────────────────────────────────────────    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  B  I  U  H2 H3  •  1.  ""  </>  📷  ─  📎  💡  ⚠️     │    │
+│  │──────────────────────────────────────────────────────────│    │
+│  │                                                          │    │
+│  │  [Rich text editor area]                                 │    │
+│  │                                                          │    │
+│  │  Write lesson content here with full formatting...       │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ── RESOURCES ───────────────────────────────────────────────    │
+│  Downloadable files attached to this lesson.                     │
+│  [+ Upload Resource]                                             │
+│  📎 headline-swipe-file.pdf (245 KB)  [Remove]                   │
+│  📎 split-test-template.xlsx (89 KB)  [Remove]                   │
+│                                                                  │
+│  ── ACTION ITEMS ────────────────────────────────────────────    │
+│  Checklist items members complete after the lesson.              │
+│  [+ Add Item]                                                    │
+│  ☐ Write 10 headline variations for your offer                   │
+│  ☐ Identify your top 3 headline angles                          │
+│  ☐ Draft one complete advertorial headline                       │
+│                                                                  │
+│  ── SETTINGS ────────────────────────────────────────────────    │
+│  Status: [Published ▼]     Sort order: [2]                       │
+│  Estimated time: [15] minutes                                    │
+│                                                                  │
+│  ── PREVIEW ─────────────────────────────────────────────────    │
+│  [Preview as member →] (opens lesson as a member would see it)   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Lesson CRUD:**
+- Create: title, content type, video URL, text content (rich editor), sort order, status
+- Edit: full editor with autosave (save draft every 30 seconds)
+- Resources: upload files (PDF, Excel, images) → stored in R2 → linked to lesson
+- Action items: ordered checklist strings, stored as JSON array on the lesson record
+- Preview: renders the lesson exactly as a member would see it (including video embed)
+- Version history: each publish creates a version snapshot. Admin can view and restore previous versions.
+- Duplicate: create a copy of a lesson (as draft) within the same module or another module
+
+### 3. Resource Management
+
+```sql
+lesson_resources
+  id              SERIAL PRIMARY KEY
+  lesson_id       INTEGER REFERENCES lessons(id) NOT NULL
+  file_name       TEXT NOT NULL
+  file_url        TEXT NOT NULL              -- R2 URL
+  file_size       INTEGER NOT NULL           -- bytes
+  file_type       TEXT NOT NULL              -- MIME type
+  sort_order      INTEGER DEFAULT 0
+  download_count  INTEGER DEFAULT 0
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Upload endpoint:** `POST /api/admin/content/lessons/:id/resources` (multipart/form-data)
+- Max 50MB per file
+- Allowed types: PDF, XLSX, DOCX, PNG, JPG, ZIP
+- Stored in R2: `content/resources/{lesson_id}/{filename}`
+
+**Member download endpoint:** `GET /api/lessons/:lessonId/resources/:resourceId/download`
+- Checks entitlement before allowing download
+- Increments download_count
+- Returns signed R2 URL or streams the file
+
+### 4. Image Upload for Text Content
+
+The rich text editor needs inline image upload:
+
+**Endpoint:** `POST /api/admin/content/images`
+- Accepts image via multipart/form-data or base64
+- Resize to max 1200px width (preserve aspect ratio) using `sharp`
+- Store in R2: `content/images/{uuid}.{ext}`
+- Return the R2 URL for embedding in the editor
+
+### 5. Video Integration
+
+For v1, video hosting is external (Vimeo or Wistia). The CMS stores the video URL and renders an embedded player.
+
+**Supported URL formats:**
+- Vimeo: `https://vimeo.com/123456789` or `https://player.vimeo.com/video/123456789`
+- Wistia: `https://fast.wistia.com/medias/abc123`
+- YouTube: `https://www.youtube.com/watch?v=xxx` (as fallback)
+
+**Embed rendering:** Parse the URL, generate the appropriate iframe embed code. Use the responsive embed pattern (16:9 aspect ratio wrapper).
+
+### 6. Content Versioning
+
+```sql
+lesson_versions
+  id              SERIAL PRIMARY KEY
+  lesson_id       INTEGER REFERENCES lessons(id) NOT NULL
+  version_number  INTEGER NOT NULL
+  title           TEXT NOT NULL
+  content_type    TEXT NOT NULL
+  video_url       TEXT
+  text_content    JSONB                     -- TipTap JSON
+  action_items    JSONB
+  published_by    INTEGER REFERENCES users(id)
+  published_at    TIMESTAMP DEFAULT NOW()
+  change_summary  TEXT                       -- optional admin note about what changed
+```
+
+- Every "Publish" creates a new version snapshot
+- Admin can view version history and restore any previous version
+- Restoring creates a NEW version (non-destructive)
+- Keep last 20 versions per lesson
+
+### 7. Bulk Operations
+
+- **Bulk publish:** Select multiple draft lessons → publish all at once
+- **Bulk move:** Select lessons → move to a different module
+- **Bulk reorder:** Drag-and-drop reordering for lessons within a module
+- **Export:** Export track/module/lesson structure as JSON (for backup or migration)
+- **Import:** Import from JSON (for restoring backups or copying between environments)
+
+---
+
+## API Endpoints
+
+```
+# Tracks
+CRUD   /api/admin/content/tracks
+
+# Modules
+CRUD   /api/admin/content/tracks/:trackId/modules
+
+# Lessons
+CRUD   /api/admin/content/lessons
+GET    /api/admin/content/lessons/:id/edit          → Full lesson data for editor
+PATCH  /api/admin/content/lessons/:id/publish       → Publish lesson (creates version)
+GET    /api/admin/content/lessons/:id/versions       → Version history
+POST   /api/admin/content/lessons/:id/restore/:versionId → Restore a version
+
+# Resources
+POST   /api/admin/content/lessons/:id/resources     → Upload resource
+DELETE /api/admin/content/lessons/:id/resources/:rid → Remove resource
+
+# Images
+POST   /api/admin/content/images                    → Upload inline image
+
+# Bulk
+POST   /api/admin/content/bulk/publish              → Bulk publish
+POST   /api/admin/content/bulk/move                 → Bulk move lessons
+POST   /api/admin/content/export                    → Export structure as JSON
+POST   /api/admin/content/import                    → Import from JSON
+```
+
+---
+
+## Definition of Done
+
+1. Admin can create and manage tracks, modules, and lessons without code changes
+2. Rich text editor supports all specified formatting (bold, lists, images, callouts, code blocks, tables)
+3. Video URLs from Vimeo/Wistia render as embedded players in lesson preview and member view
+4. File resources can be uploaded, attached to lessons, and downloaded by entitled members
+5. Inline images can be uploaded via drag-and-drop in the editor and stored in R2
+6. Lesson versioning works: every publish creates a snapshot, admin can view history and restore
+7. Drag-and-drop reordering works for tracks, modules, and lessons
+8. Action items (checklists) can be added to lessons and rendered in the member view
+9. Content preview shows exactly what members see (including entitlement gating simulation)
+10. Autosave preserves work-in-progress every 30 seconds

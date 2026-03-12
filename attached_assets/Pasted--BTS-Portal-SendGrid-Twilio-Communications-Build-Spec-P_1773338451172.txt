@@ -1,0 +1,792 @@
+# BTS Portal — SendGrid + Twilio Communications Build Spec
+
+**Priority:** After Coaching Booking System
+**Status:** Not started
+**Depends on:** Auth system, ThriveCart Webhooks, Onboarding flow
+**Reference:** BTS PRD v2.0, Sections 15, 16
+
+---
+
+## Context
+
+Multiple build specs reference email and SMS sending with "TODO: log to console for now" stubs. This spec replaces all those stubs with real SendGrid (email) and Twilio (SMS) integrations, plus builds the template system, sequence engine, and broadcast tools.
+
+Every communication the portal sends flows through this system — transactional emails, marketing sequences, SMS reminders, and admin broadcasts.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│  BTS PORTAL API                                     │
+│                                                     │
+│  Event occurs (purchase, login, call reminder, etc.)│
+│         │                                           │
+│         ▼                                           │
+│  ┌─────────────────────┐                            │
+│  │  Communication       │                           │
+│  │  Service             │                           │
+│  │  (central router)    │                           │
+│  └──────────┬──────────┘                            │
+│         ┌───┴───┐                                   │
+│         ▼       ▼                                   │
+│  ┌──────────┐ ┌──────────┐                          │
+│  │ SendGrid │ │ Twilio   │                          │
+│  │ (Email)  │ │ (SMS)    │                          │
+│  └──────────┘ └──────────┘                          │
+│                                                     │
+│  Queued via BullMQ for async processing             │
+│  All sends logged to communication_log table        │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## What to Build
+
+### 1. Communication Service (Central Router)
+
+A service module that all other parts of the portal call to send communications. No other code should import SendGrid or Twilio directly — everything goes through this service.
+
+```typescript
+// services/communications.ts
+
+interface SendEmailParams {
+  to: string;
+  templateSlug: string;          // references an email_templates record
+  variables: Record<string, any>; // template variable replacements
+  userId?: number;               // for logging and unsubscribe tracking
+  category?: string;             // 'transactional' or 'marketing'
+}
+
+interface SendSmsParams {
+  to: string;                    // E.164 format: +15551234567
+  templateSlug: string;          // references an sms_templates record
+  variables: Record<string, any>;
+  userId?: number;
+}
+
+// Queue-based sending (recommended — non-blocking)
+async function queueEmail(params: SendEmailParams): Promise<void>
+async function queueSms(params: SendSmsParams): Promise<void>
+
+// Direct sending (for time-critical: password resets, verification)
+async function sendEmailNow(params: SendEmailParams): Promise<void>
+async function sendSmsNow(params: SendSmsParams): Promise<void>
+
+// Batch sending (for broadcasts)
+async function queueBroadcastEmail(params: BroadcastParams): Promise<void>
+```
+
+**All sends go through BullMQ** (except direct sends for time-critical auth flows). This prevents email/SMS sending from blocking API responses and allows retry on failure.
+
+---
+
+### 2. Email Templates (SendGrid)
+
+#### Template Schema
+
+```sql
+email_templates
+  id              SERIAL PRIMARY KEY
+  slug            TEXT NOT NULL UNIQUE       -- 'welcome_email', 'password_reset', etc.
+  name            TEXT NOT NULL              -- display name for admin
+  subject         TEXT NOT NULL              -- email subject (supports {{variables}})
+  body_html       TEXT NOT NULL              -- HTML email body (supports {{variables}})
+  body_text       TEXT                       -- plain text fallback
+  category        TEXT NOT NULL              -- 'transactional' or 'marketing'
+  description     TEXT                       -- admin notes about when this template is used
+  is_active       BOOLEAN DEFAULT true
+  sendgrid_template_id TEXT                  -- optional: use SendGrid's hosted template instead
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Variable syntax:** `{{variable_name}}` — replaced at send time. Common variables available to all templates:
+
+```
+{{member_name}}        — member's full name
+{{member_email}}       — member's email
+{{member_first_name}}  — first name only
+{{product_name}}       — name of the relevant product
+{{portal_url}}         — https://portal.buildtestscale.com (or configured URL)
+{{support_email}}      — support@buildtestscale.com
+{{current_year}}       — 2026
+{{unsubscribe_url}}    — one-click unsubscribe link (marketing only)
+```
+
+#### Default Templates to Seed
+
+**Transactional (cannot be unsubscribed):**
+
+| Slug | Subject | When Sent |
+|------|---------|-----------|
+| `welcome_new_member` | Welcome to Build, Test, Scale, {{member_first_name}}! | After account creation (ThriveCart webhook) |
+| `welcome_upgrade` | You've been upgraded, {{member_first_name}}! | After purchasing additional product |
+| `email_verification` | Verify your email address | After registration |
+| `password_reset` | Reset your password | After forgot-password request |
+| `purchase_receipt` | Your BTS purchase receipt | After successful purchase |
+| `session_booked` | Your coaching session is confirmed | After booking 1-on-1 session |
+| `session_cancelled` | Your coaching session has been cancelled | After cancellation |
+| `session_reminder_24h` | Coaching session tomorrow with {{coach_name}} | 24 hours before session |
+| `session_notes_ready` | Your session notes are ready | After coach adds notes |
+| `ticket_created` | Support ticket #{{ticket_id}} received | After member submits ticket |
+| `ticket_response` | Update on your support ticket #{{ticket_id}} | After support team responds |
+| `payout_processed` | Your commission payout of ${{amount}} has been sent | After payout completed |
+| `mentorship_expiring_30d` | Your mentorship expires in 30 days | 30 days before expiration |
+| `mentorship_expiring_7d` | Your mentorship expires in 7 days | 7 days before expiration |
+| `mentorship_expired` | Your mentorship access has expired | On expiration day |
+| `payment_failed` | Action needed: payment failed | On ThriveCart payment failure |
+| `document_signed` | Your signed documents are attached | After document signing |
+
+**Marketing (can be unsubscribed):**
+
+| Slug | Subject | When Sent |
+|------|---------|-----------|
+| `onboard_day1_frontendbuyer` | Here's what to do first in BTS | Day 1 evening (front-end) |
+| `onboard_day2_socialproof` | See what's possible with BTS | Day 2 morning (front-end) |
+| `onboard_day3_progress` | You're 1 module away from a breakthrough | Day 3 morning (front-end) |
+| `onboard_day1_mentorship` | Your first coaching call is {{call_date}} | Day 1 evening (mentorship) |
+| `onboard_day2_community` | Meet your BTS community | Day 2 afternoon (mentorship) |
+| `onboard_day3_checklist` | Your 3-day checklist for success | Day 3 morning (mentorship) |
+| `nurture_upgrade_launchpad` | Ready for the tools to match your knowledge? | Nurture: front-end → LaunchPad |
+| `nurture_upgrade_mentorship` | What if you had a coach in your corner? | Nurture: front-end → mentorship |
+| `reengagement_7day` | We miss you, {{member_first_name}} | 7 days inactive |
+| `reengagement_30day` | Your BTS account is waiting for you | 30 days inactive |
+| `call_reminder_24h` | Coaching call tomorrow: {{call_title}} | 24 hours before group call |
+| `commission_earned` | You just earned ${{amount}} in commissions! | After commission recorded |
+
+---
+
+### 3. SMS Templates (Twilio)
+
+#### Template Schema
+
+```sql
+sms_templates
+  id              SERIAL PRIMARY KEY
+  slug            TEXT NOT NULL UNIQUE
+  name            TEXT NOT NULL
+  body            TEXT NOT NULL              -- SMS body (supports {{variables}}, max 160 chars per segment)
+  description     TEXT
+  is_active       BOOLEAN DEFAULT true
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+#### Default SMS Templates
+
+| Slug | Body | When Sent |
+|------|------|-----------|
+| `welcome_sms` | Welcome to BTS, {{member_first_name}}! Your account is ready. Log in: {{portal_url}} | After account creation |
+| `onboard_day2_sms` | How's the training going, {{member_first_name}}? Module 2 is where it gets good. | Day 2 evening |
+| `onboard_day3_sms` | Questions about BTS? We're here to help. Reply anytime or visit {{portal_url}}/support | Day 3 evening |
+| `call_reminder_1h` | Your BTS coaching call starts in 1 hour! Join: {{meet_link}} | 1 hour before call |
+| `session_reminder_1h` | Your 1-on-1 with Coach {{coach_name}} starts in 1 hour! Join: {{meet_link}} | 1 hour before 1-on-1 |
+| `payment_failed_sms` | BTS payment issue — update your payment method to keep access: {{payment_url}} | On payment failure |
+| `mentorship_expiring_sms` | Your BTS mentorship expires in {{days}} days. Renew now: {{renewal_url}} | 7 days before expiration |
+
+**SMS opt-in required:** Only send to members who have `sms_opt_in: true` in their profile. Always check before queuing.
+
+---
+
+### 4. SendGrid Integration
+
+#### Setup
+
+```javascript
+import sgMail from '@sendgrid/mail';
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+async function sendEmail(params: SendEmailParams): Promise<void> {
+  const template = await db.email_templates.findBySlug(params.templateSlug);
+  if (!template || !template.is_active) throw new Error(`Template ${params.templateSlug} not found or inactive`);
+  
+  // Check unsubscribe for marketing emails
+  if (template.category === 'marketing' && params.userId) {
+    const unsub = await db.email_unsubscribes.findByUser(params.userId);
+    if (unsub) {
+      await logCommunication(params, 'skipped', 'unsubscribed');
+      return;
+    }
+  }
+  
+  // Replace variables
+  const subject = replaceVariables(template.subject, params.variables);
+  const html = replaceVariables(template.body_html, params.variables);
+  const text = template.body_text ? replaceVariables(template.body_text, params.variables) : undefined;
+  
+  // Add unsubscribe link for marketing emails
+  if (template.category === 'marketing') {
+    const unsubUrl = `${process.env.PORTAL_URL}/api/email/unsubscribe?token=${generateUnsubToken(params.userId)}`;
+    params.variables.unsubscribe_url = unsubUrl;
+  }
+  
+  const msg = {
+    to: params.to,
+    from: {
+      email: template.category === 'transactional' 
+        ? process.env.SENDGRID_FROM_TRANSACTIONAL    // noreply@buildtestscale.com
+        : process.env.SENDGRID_FROM_MARKETING,       // hello@buildtestscale.com
+      name: 'Build, Test, Scale'
+    },
+    subject,
+    html,
+    text,
+    categories: [template.category, template.slug],
+    customArgs: { userId: String(params.userId), templateSlug: template.slug }
+  };
+  
+  await sgMail.send(msg);
+  await logCommunication(params, 'sent');
+}
+```
+
+#### SendGrid Configuration Requirements
+
+- Dedicated sending domain with DKIM, SPF, and DMARC authentication
+- Separate sender identities for transactional vs marketing
+- Event webhook configured to receive: delivered, opened, clicked, bounced, unsubscribed, spam_report
+- Suppression groups for CAN-SPAM compliance
+
+#### SendGrid Event Webhook Handler
+
+```
+POST /api/webhooks/sendgrid
+
+Receives delivery events from SendGrid. Update communication_log:
+
+- 'delivered' → update status to 'delivered'
+- 'open' → increment open_count, set first_opened_at
+- 'click' → increment click_count
+- 'bounce' → update status to 'bounced', flag email address
+- 'unsubscribe' → create email_unsubscribes record
+- 'spam_report' → create email_unsubscribes record + flag for review
+```
+
+---
+
+### 5. Twilio Integration
+
+#### Setup
+
+```javascript
+import twilio from 'twilio';
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+async function sendSms(params: SendSmsParams): Promise<void> {
+  const template = await db.sms_templates.findBySlug(params.templateSlug);
+  if (!template || !template.is_active) throw new Error(`SMS template ${params.templateSlug} not found`);
+  
+  // Check SMS opt-in
+  if (params.userId) {
+    const user = await db.users.findById(params.userId);
+    if (!user.sms_opt_in) {
+      await logCommunication(params, 'skipped', 'not_opted_in');
+      return;
+    }
+  }
+  
+  const body = replaceVariables(template.body, params.variables);
+  
+  const message = await client.messages.create({
+    to: params.to,
+    from: process.env.TWILIO_PHONE_NUMBER,
+    body
+  });
+  
+  await logCommunication(params, 'sent', null, message.sid);
+}
+```
+
+#### Twilio Configuration
+
+- Dedicated phone number for BTS
+- STOP keyword auto-handling enabled (Twilio manages opt-out automatically)
+- Delivery status webhook: POST /api/webhooks/twilio
+- One-way messaging only in v1 (no inbound message handling)
+
+---
+
+### 6. Communication Log
+
+Every email and SMS sent (or skipped) is logged for auditing, debugging, and analytics.
+
+```sql
+communication_log
+  id                  SERIAL PRIMARY KEY
+  user_id             INTEGER REFERENCES users(id)
+  channel             TEXT NOT NULL              -- 'email' or 'sms'
+  template_slug       TEXT NOT NULL
+  recipient           TEXT NOT NULL              -- email address or phone number
+  subject             TEXT                       -- email subject (null for SMS)
+  status              TEXT NOT NULL              -- 'queued', 'sent', 'delivered', 'bounced', 'failed', 'skipped'
+  skip_reason         TEXT                       -- 'unsubscribed', 'not_opted_in', 'bounced_address', etc.
+  
+  -- Engagement tracking (email only)
+  open_count          INTEGER DEFAULT 0
+  click_count         INTEGER DEFAULT 0
+  first_opened_at     TIMESTAMP
+  
+  -- External references
+  external_id         TEXT                       -- SendGrid message ID or Twilio message SID
+  
+  -- Sequence tracking
+  sequence_id         TEXT                       -- which sequence this belongs to (if any)
+  sequence_step       INTEGER                    -- step number in the sequence
+  
+  -- Metadata
+  variables           JSONB                      -- template variables used (for debugging)
+  error_message       TEXT                       -- error details if failed
+  created_at          TIMESTAMP DEFAULT NOW()
+  updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Index:** `(user_id, created_at DESC)` for per-member history. `(template_slug, created_at)` for template analytics.
+
+---
+
+### 7. Unsubscribe System
+
+CAN-SPAM compliance requires one-click unsubscribe in all marketing emails.
+
+```sql
+email_unsubscribes
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL UNIQUE
+  unsubscribed_at TIMESTAMP DEFAULT NOW()
+  source          TEXT NOT NULL              -- 'one_click', 'sendgrid', 'manual', 'spam_report'
+  resubscribed_at TIMESTAMP                 -- if they opt back in
+```
+
+#### Unsubscribe Endpoint
+
+```
+GET /api/email/unsubscribe?token=xxx
+
+Logic:
+1. Decode the token to get userId
+2. Create email_unsubscribes record (or update if exists)
+3. Render a simple confirmation page: "You've been unsubscribed from BTS marketing emails. 
+   You'll still receive important account notifications (receipts, password resets, etc.)."
+4. Include a "Resubscribe" link
+```
+
+**Transactional emails are never affected by unsubscribe.** Members always receive: password resets, purchase receipts, session confirmations, ticket responses, and other critical account notifications.
+
+---
+
+### 8. Sequence Engine
+
+Automated email/SMS sequences triggered by events (purchase, onboarding, inactivity, expiration). The engine manages timing, conditional logic, and step progression.
+
+#### Sequence Schema
+
+```sql
+sequences
+  id              SERIAL PRIMARY KEY
+  slug            TEXT NOT NULL UNIQUE       -- 'onboarding_frontend', 'onboarding_mentorship', etc.
+  name            TEXT NOT NULL
+  description     TEXT
+  trigger_event   TEXT NOT NULL              -- what starts this sequence
+  is_active       BOOLEAN DEFAULT true
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+
+sequence_steps
+  id              SERIAL PRIMARY KEY
+  sequence_id     INTEGER REFERENCES sequences(id) NOT NULL
+  step_number     INTEGER NOT NULL
+  channel         TEXT NOT NULL              -- 'email' or 'sms'
+  template_slug   TEXT NOT NULL              -- references email_templates or sms_templates
+  delay_minutes   INTEGER NOT NULL           -- delay from sequence start (not from previous step)
+  
+  -- Conditional logic
+  condition_type  TEXT                       -- 'none', 'if_not_completed', 'if_not_logged_in', 'if_product_level'
+  condition_value TEXT                       -- depends on condition_type
+  
+  -- Skip logic
+  skip_if_completed TEXT                    -- skip this step if member completed this action
+  
+  sort_order      INTEGER NOT NULL
+  is_active       BOOLEAN DEFAULT true
+  created_at      TIMESTAMP DEFAULT NOW()
+
+sequence_enrollments
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  sequence_id     INTEGER REFERENCES sequences(id) NOT NULL
+  status          TEXT NOT NULL DEFAULT 'active'  -- 'active', 'completed', 'cancelled', 'paused'
+  current_step    INTEGER DEFAULT 0
+  started_at      TIMESTAMP DEFAULT NOW()
+  completed_at    TIMESTAMP
+  cancelled_at    TIMESTAMP
+  cancel_reason   TEXT
+  UNIQUE(user_id, sequence_id)
+```
+
+#### Sequence Processing
+
+A BullMQ repeatable job runs every 5 minutes:
+
+```
+processSequences():
+
+1. Find all active enrollments where status = 'active'
+2. For each enrollment:
+   a. Get the next step (step_number > current_step, is_active = true)
+   b. Check if enough time has elapsed: NOW() - started_at >= delay_minutes
+   c. Evaluate conditions:
+      - 'if_not_completed': check if member has NOT completed onboarding (or other condition)
+      - 'if_not_logged_in': check if member has NOT logged in since enrollment
+      - 'if_product_level': check member's product level matches
+      - If condition fails → skip this step, advance to next
+   d. Check skip_if_completed:
+      - If member has already completed the action (e.g., 'onboarding_complete') → skip
+   e. If all checks pass: queue the email or SMS
+   f. Update current_step to this step's step_number
+   g. If no more steps remain: mark enrollment as 'completed'
+```
+
+#### Default Sequences to Seed
+
+**Sequence: `onboarding_frontend` (trigger: front-end product purchase)**
+
+| Step | Delay | Channel | Template | Condition |
+|------|-------|---------|----------|-----------|
+| 1 | 0 min | Email | `welcome_new_member` | None (immediate) |
+| 2 | 30 min | SMS | `welcome_sms` | None |
+| 3 | 12 hours | Email | `onboard_day1_frontendbuyer` | Skip if onboarding complete |
+| 4 | 36 hours | Email | `onboard_day2_socialproof` | Skip if onboarding complete |
+| 5 | 36 hours | SMS | `onboard_day2_sms` | Skip if logged in today |
+| 6 | 60 hours | Email | `onboard_day3_progress` | Skip if onboarding complete |
+| 7 | 72 hours | SMS | `onboard_day3_sms` | None |
+
+**Sequence: `onboarding_mentorship` (trigger: mentorship product purchase)**
+
+| Step | Delay | Channel | Template | Condition |
+|------|-------|---------|----------|-----------|
+| 1 | 0 min | Email | `welcome_new_member` | None |
+| 2 | 30 min | SMS | `welcome_sms` | None |
+| 3 | 12 hours | Email | `onboard_day1_mentorship` | Skip if onboarding complete |
+| 4 | 30 hours | SMS | `call_reminder_1h` | Only if call within 24hr |
+| 5 | 36 hours | Email | `onboard_day2_community` | Skip if onboarding complete |
+| 6 | 60 hours | Email | `onboard_day3_checklist` | None |
+| 7 | 72 hours | SMS | `onboard_day3_sms` | None |
+
+**Sequence: `nurture_frontend_to_upgrade` (trigger: 3 days after onboarding complete, front-end only)**
+
+| Step | Delay | Channel | Template | Condition |
+|------|-------|---------|----------|-----------|
+| 1 | 0 min | Email | `nurture_upgrade_launchpad` | Skip if already upgraded |
+| 2 | 3 days | Email | `nurture_upgrade_mentorship` | Skip if already upgraded |
+| 3 | 7 days | Email | Social proof / case study | Skip if already upgraded |
+| 4 | 10 days | SMS | "Seen the results others are getting?" | Skip if already upgraded |
+| 5 | 14 days | Email | Final push / limited-time offer | Skip if already upgraded |
+
+**Sequence: `reengagement` (trigger: 7 days without login)**
+
+| Step | Delay | Channel | Template | Condition |
+|------|-------|---------|----------|-----------|
+| 1 | 0 min | Email | `reengagement_7day` | Skip if logged in |
+| 2 | 7 days | SMS | "We miss you!" | Skip if logged in |
+| 3 | 23 days | Email | `reengagement_30day` | Skip if logged in |
+
+#### Sequence Enrollment Triggers
+
+```javascript
+// In ThriveCart webhook handler:
+await enrollInSequence(userId, 'onboarding_frontend'); // or 'onboarding_mentorship'
+
+// In onboarding completion handler:
+await cancelSequence(userId, 'onboarding_frontend', 'completed_early');
+await enrollInSequence(userId, 'nurture_frontend_to_upgrade'); // 3-day delay built into step 1
+
+// In nightly job:
+// Check for inactive users (no login in 7 days, not already enrolled in reengagement)
+await enrollInSequence(userId, 'reengagement');
+```
+
+---
+
+### 9. Broadcast System
+
+Admin can send one-off emails or SMS to segments of the member base.
+
+#### Broadcast Schema
+
+```sql
+broadcasts
+  id              SERIAL PRIMARY KEY
+  name            TEXT NOT NULL              -- admin label
+  channel         TEXT NOT NULL              -- 'email' or 'sms'
+  template_slug   TEXT                       -- use existing template
+  custom_subject  TEXT                       -- or custom subject (email only)
+  custom_body     TEXT                       -- or custom body
+  
+  -- Targeting
+  segment_filter  JSONB NOT NULL             -- targeting criteria (see below)
+  estimated_recipients INTEGER               -- calculated before send
+  actual_sent     INTEGER DEFAULT 0
+  
+  -- Scheduling
+  status          TEXT NOT NULL DEFAULT 'draft'  -- 'draft', 'scheduled', 'sending', 'sent', 'cancelled'
+  scheduled_for   TIMESTAMP                  -- null = send immediately when approved
+  sent_at         TIMESTAMP
+  
+  -- Results
+  delivered_count INTEGER DEFAULT 0
+  open_count      INTEGER DEFAULT 0
+  click_count     INTEGER DEFAULT 0
+  bounce_count    INTEGER DEFAULT 0
+  
+  created_by      INTEGER REFERENCES users(id)
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+#### Segment Filters
+
+```json
+{
+  "products": ["reserve_income", "backroad"],      // members who own these products
+  "products_exclude": ["lifetime"],                 // exclude these product owners
+  "has_entitlement": "community:access",            // members with this entitlement
+  "onboarding_complete": true,                      // only onboarded members
+  "last_login_within_days": 30,                     // active in last 30 days
+  "registered_after": "2026-01-01",                 // registered after date
+  "experience_level": ["beginner", "some_experience"], // from profile
+  "sms_opt_in": true                                // for SMS broadcasts only
+}
+```
+
+**Admin flow:**
+1. Create broadcast (select channel, choose/create template, set segment filters)
+2. Preview: system calculates estimated recipients and shows a sample of 5 matching members
+3. Schedule or send immediately
+4. Confirm (double confirmation for broadcasts to > 100 recipients)
+5. System queues individual sends via BullMQ (batched to respect SendGrid/Twilio rate limits)
+6. Results populate as deliveries and engagement events come in
+
+---
+
+### 10. Scheduled Sends (Reminders & Recurring)
+
+Some communications are triggered by time-based events. A BullMQ repeatable job handles these.
+
+```
+processScheduledCommunications() — runs every 15 minutes:
+
+1. COACHING CALL REMINDERS (group calls)
+   - Find calls starting in 23–25 hours → send 24hr email reminder
+   - Find calls starting in 55–65 minutes → send 1hr SMS reminder
+
+2. 1-ON-1 SESSION REMINDERS
+   - Find sessions starting in 23–25 hours → send 24hr email reminder
+   - Find sessions starting in 55–65 minutes → send 1hr SMS reminder
+
+3. MENTORSHIP EXPIRATION WARNINGS
+   - Find user_products expiring in 29–31 days → send 30-day warning email
+   - Find user_products expiring in 6–8 days → send 7-day warning email + SMS
+   - Find user_products expired today → send expired email
+
+4. SESSION FEEDBACK PROMPTS
+   - Find completed sessions from 23–25 hours ago with no member_rating → send feedback prompt
+
+5. COMMISSION NOTIFICATIONS
+   - Find new commissions from last 15 min → send commission earned email
+```
+
+---
+
+### 11. Bounced Email Handling
+
+Protect sender reputation by handling bounces:
+
+```sql
+email_bounces
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id)
+  email           TEXT NOT NULL
+  bounce_type     TEXT NOT NULL              -- 'hard' or 'soft'
+  bounce_count    INTEGER DEFAULT 1
+  first_bounced_at TIMESTAMP DEFAULT NOW()
+  last_bounced_at  TIMESTAMP DEFAULT NOW()
+  is_suppressed   BOOLEAN DEFAULT false      -- hard bounce = auto-suppress
+```
+
+**Rules:**
+- Hard bounce → immediately suppress email address, no further sends
+- Soft bounce → allow retries, suppress after 3 soft bounces in 7 days
+- Suppressed addresses: all email sends check `email_bounces.is_suppressed` before sending
+- Admin can view and manually unsuppress if address was corrected
+
+---
+
+### 12. Admin Panel Additions
+
+#### Template Management
+
+- View all email and SMS templates with: slug, name, category, last edited
+- Edit template content in a rich text editor (HTML for email, plain text for SMS)
+- Preview: render template with sample data and show how it looks
+- Variable reference: show available variables for each template
+- Template versioning: each save creates a version (keep last 10 versions)
+
+#### Sequence Management
+
+- View all sequences with: name, trigger event, step count, active enrollments, status
+- Edit sequence steps: reorder, add/remove steps, change delays and conditions
+- View active enrollments: who's in which sequence at which step
+- Manually enroll or cancel a member from a sequence
+- Pause/resume a sequence globally (all enrollments paused)
+
+#### Broadcast Management
+
+- Create new broadcast: choose template or write custom, set segment, schedule
+- Preview recipients before sending
+- Send history with delivery and engagement stats
+- Duplicate a past broadcast as a starting point for new ones
+
+#### Communication Log
+
+- Searchable log of all sent communications with filters: channel, template, status, date, member
+- Click a log entry to see: full rendered content, delivery status, engagement events
+- Per-member communication history (link from member management page)
+
+#### Analytics Dashboard
+
+- Emails sent / delivered / opened / clicked / bounced (today, week, month)
+- SMS sent / delivered / failed (today, week, month)
+- Top-performing templates by open rate and click rate
+- Bounce rate trend
+- Unsubscribe rate trend
+- Sequence completion rates
+- Estimated monthly cost (SendGrid: emails × price per email, Twilio: SMS × price per SMS)
+
+---
+
+### 13. Replacing All Console.log Stubs
+
+Every previous build spec has "TODO: log to console for now" stubs. This spec replaces all of them:
+
+| Location | Stub | Replace With |
+|----------|------|-------------|
+| ThriveCart webhook (new user) | Log temp password | `queueEmail('welcome_new_member', ...)` + `queueSms('welcome_sms', ...)` + enroll in onboarding sequence |
+| ThriveCart webhook (upgrade) | Log upgrade | `queueEmail('welcome_upgrade', ...)` |
+| ThriveCart webhook (refund) | Log refund | `queueEmail('refund_confirmation', ...)` |
+| ThriveCart webhook (payment failed) | Log failure | `queueEmail('payment_failed', ...)` + `queueSms('payment_failed_sms', ...)` |
+| Auth: password reset | Log token | `sendEmailNow('password_reset', { resetUrl })` |
+| Auth: email verification | Log token | `sendEmailNow('email_verification', { verifyUrl })` |
+| Onboarding: document signed | Log docs | `queueEmail('document_signed', ...)` |
+| Coaching: session booked | Log booking | `queueEmail('session_booked', ...)` |
+| Coaching: session cancelled | Log cancel | `queueEmail('session_cancelled', ...)` |
+| Support: ticket created | Log ticket | `queueEmail('ticket_created', ...)` |
+| Support: ticket response | Log response | `queueEmail('ticket_response', ...)` |
+| Commission: earned | Log commission | `queueEmail('commission_earned', ...)` |
+| Commission: payout | Log payout | `queueEmail('payout_processed', ...)` |
+| Expiration: mentorship | Log warning | `queueEmail('mentorship_expiring_30d', ...)` |
+
+---
+
+### 14. API Endpoints Summary
+
+**Webhook receivers:**
+
+```
+POST   /api/webhooks/sendgrid                  → SendGrid event webhook (delivery, open, click, bounce)
+POST   /api/webhooks/twilio                    → Twilio delivery status webhook
+```
+
+**Member-facing:**
+
+```
+GET    /api/email/unsubscribe?token=xxx        → One-click unsubscribe (renders confirmation page)
+POST   /api/email/resubscribe                  → Opt back in to marketing emails
+GET    /api/members/me/communications           → Member's communication history
+```
+
+**Admin:**
+
+```
+CRUD   /api/admin/email-templates              → Manage email templates
+CRUD   /api/admin/sms-templates                → Manage SMS templates
+CRUD   /api/admin/sequences                    → Manage sequences and steps
+GET    /api/admin/sequences/:id/enrollments     → View active enrollments
+POST   /api/admin/sequences/:id/enroll          → Manually enroll a member
+POST   /api/admin/sequences/:id/cancel          → Cancel enrollment
+CRUD   /api/admin/broadcasts                   → Create, schedule, send broadcasts
+GET    /api/admin/broadcasts/:id/preview        → Preview recipients and content
+POST   /api/admin/broadcasts/:id/send           → Send or schedule broadcast
+GET    /api/admin/communications/log            → Communication log with filters
+GET    /api/admin/communications/analytics      → Email/SMS analytics dashboard
+GET    /api/admin/communications/bounces        → Bounced email management
+```
+
+---
+
+### 15. Environment Variables
+
+```
+# SendGrid
+SENDGRID_API_KEY=SG.xxxx
+SENDGRID_FROM_TRANSACTIONAL=noreply@buildtestscale.com
+SENDGRID_FROM_MARKETING=hello@buildtestscale.com
+SENDGRID_WEBHOOK_VERIFICATION_KEY=xxx
+
+# Twilio
+TWILIO_ACCOUNT_SID=ACxxxx
+TWILIO_AUTH_TOKEN=xxxx
+TWILIO_PHONE_NUMBER=+15551234567
+
+# General
+PORTAL_URL=https://portal.buildtestscale.com
+SUPPORT_EMAIL=support@buildtestscale.com
+UNSUBSCRIBE_TOKEN_SECRET=xxx
+EMAIL_BATCH_SIZE=100
+EMAIL_BATCH_DELAY_MS=1000
+```
+
+---
+
+### 16. Seed Data
+
+- All email templates from Section 2
+- All SMS templates from Section 3
+- All sequences from Section 8 with steps
+- Sample communication_log entries for demo users (10–15 emails, 5 SMS)
+- One sample broadcast (sent status) targeting all members
+
+---
+
+## What NOT to Build Yet
+
+- SendGrid dynamic templates (use portal-stored templates for full control in v1)
+- 2-way SMS conversations (inbound message handling)
+- WhatsApp messaging
+- Push notifications (browser or mobile)
+- Email A/B testing (subject line split tests)
+- Advanced segmentation builder UI (use JSON segment filters for v1)
+- Email design builder (WYSIWYG drag-and-drop) — use code-based HTML templates
+- Automated campaign triggers based on GHL pipeline changes (GHL sync is next spec)
+- Webhooks for external services to trigger communications
+
+---
+
+## Definition of Done
+
+1. SendGrid sends real emails: transactional (receipts, password resets) and marketing (sequences, broadcasts)
+2. Twilio sends real SMS: onboarding reminders, call reminders, payment alerts
+3. All console.log stubs across the codebase are replaced with actual communication calls
+4. Email templates are database-stored and admin-editable without code changes
+5. SMS templates are database-stored and admin-editable
+6. 3-day onboarding sequences run automatically for front-end and mentorship buyers
+7. Nurture and re-engagement sequences run with conditional logic (skip if upgraded, skip if logged in)
+8. Broadcasts can target member segments and be scheduled or sent immediately
+9. Unsubscribe system works: one-click unsubscribe in marketing emails, transactional unaffected
+10. Communication log records every send with delivery status and engagement tracking
+11. Bounced emails are auto-suppressed to protect sender reputation
+12. Scheduled reminders fire for coaching calls, 1-on-1 sessions, and mentorship expirations
+13. Admin can manage templates, sequences, broadcasts, and view analytics
+14. SMS respects opt-in: only sends to members who opted in during profile setup

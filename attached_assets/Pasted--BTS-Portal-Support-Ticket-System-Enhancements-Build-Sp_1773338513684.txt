@@ -1,0 +1,215 @@
+# BTS Portal — Support Ticket System Enhancements Build Spec
+
+**Priority:** After Training CMS
+**Status:** Not started
+**Depends on:** Existing ticket system, Auth, Entitlement system, Communications
+**Reference:** BTS PRD v2.0, Sections 18.1–18.2
+
+---
+
+## Context
+
+Basic support tickets exist (create, list, respond, status management). This spec adds SLA tracking, canned responses, auto-routing, internal notes, satisfaction surveys, and admin workflow tools to make the support system production-ready for a multi-tier membership.
+
+---
+
+## What to Build
+
+### 1. SLA Tracking
+
+Track whether tickets are responded to and resolved within SLA targets.
+
+```sql
+ticket_sla
+  id              SERIAL PRIMARY KEY
+  ticket_id       INTEGER REFERENCES support_tickets(id) NOT NULL UNIQUE
+  product_tier    TEXT NOT NULL              -- tier at time of ticket creation
+  first_response_target INTERVAL NOT NULL    -- e.g., '4 hours'
+  resolution_target     INTERVAL NOT NULL    -- e.g., '24 hours'
+  first_response_at     TIMESTAMP            -- when first staff response was sent
+  resolved_at           TIMESTAMP            -- when status changed to resolved
+  first_response_met    BOOLEAN              -- was SLA met?
+  resolution_met        BOOLEAN
+  is_breached           BOOLEAN DEFAULT false -- true if any SLA was missed
+```
+
+**SLA targets by tier (from PRD):**
+
+| Product Level | First Response | Resolution |
+|---------------|----------------|------------|
+| Front-End Only | 24 hours | 5 business days |
+| LaunchPad | 12 hours | 72 hours |
+| 3-Month | 8 hours | 48 hours |
+| 6-Month / 1-Year | 4 hours | 24 hours |
+| Lifetime (VIP) | 2 hours | 12 hours |
+
+**SLA clock:** Runs on business hours only (Mon–Fri, 9 AM – 6 PM ET, configurable). Paused on weekends and configured holidays. Paused when status is "Awaiting Response" (waiting on member).
+
+**SLA breach alerts:** When a ticket approaches its SLA deadline (80% of time elapsed), notify the assigned agent and admin. On breach, flag the ticket prominently in the admin queue.
+
+### 2. Canned Responses
+
+Pre-written response templates that agents can insert with one click, then customize before sending.
+
+```sql
+canned_responses
+  id              SERIAL PRIMARY KEY
+  title           TEXT NOT NULL              -- 'Billing Question - Refund Process'
+  category        TEXT NOT NULL              -- 'billing', 'technical', 'training', 'account', 'general'
+  body            TEXT NOT NULL              -- markdown with {{variables}}
+  variables       JSONB                      -- list of variables used
+  usage_count     INTEGER DEFAULT 0
+  sort_order      INTEGER DEFAULT 0
+  is_active       BOOLEAN DEFAULT true
+  created_by      INTEGER REFERENCES users(id)
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Usage flow:**
+1. Agent opens a ticket and clicks "Canned Response"
+2. Modal shows categorized list of responses with search
+3. Agent selects one → body is inserted into the reply editor
+4. Variables are auto-replaced where possible (member name, ticket ID, product name)
+5. Agent edits the response as needed and sends
+
+**Seed 15–20 canned responses** covering common scenarios: refund process, password reset help, how to access training, coaching call schedule, upgrade options, technical issues, etc.
+
+### 3. Auto-Routing & Assignment
+
+Automatically route tickets to the right agent based on category and tier.
+
+```sql
+ticket_routing_rules
+  id              SERIAL PRIMARY KEY
+  category        TEXT                       -- 'billing', 'technical', etc. (null = all)
+  min_tier_level  INTEGER                    -- minimum product tier (null = all)
+  assigned_to     INTEGER REFERENCES users(id) -- agent user ID
+  priority_boost  INTEGER DEFAULT 0          -- additional priority bump
+  is_active       BOOLEAN DEFAULT true
+  sort_order      INTEGER DEFAULT 0          -- rules evaluated in order, first match wins
+```
+
+**Auto-assignment logic (on ticket creation):**
+1. Evaluate routing rules in sort_order
+2. First matching rule assigns the ticket to that agent
+3. If no rule matches: assign to a default queue (unassigned)
+4. VIP tickets (Lifetime) always get the highest-priority routing regardless of category
+
+**Round-robin within agents:** If multiple agents handle the same category, rotate assignments evenly based on current open ticket count.
+
+### 4. Internal Notes
+
+Staff-only notes on tickets that members cannot see. For internal discussion, escalation context, and handoff notes.
+
+```sql
+-- Add to existing ticket_messages table:
+ALTER TABLE ticket_messages ADD COLUMN is_internal BOOLEAN DEFAULT false;
+```
+
+**UI:** Internal notes are displayed in a different color (yellow background) in the admin ticket view. They are completely hidden from the member's ticket view. An "Internal Note" toggle or separate button in the reply editor.
+
+### 5. Ticket Satisfaction Survey
+
+After a ticket is resolved, prompt the member for feedback.
+
+```sql
+ticket_satisfaction
+  id              SERIAL PRIMARY KEY
+  ticket_id       INTEGER REFERENCES support_tickets(id) NOT NULL UNIQUE
+  rating          INTEGER NOT NULL           -- 1–5
+  feedback        TEXT
+  submitted_at    TIMESTAMP DEFAULT NOW()
+```
+
+**Flow:**
+- When ticket status changes to "Resolved," send a satisfaction survey email (SendGrid) with a 1-click rating link
+- Member clicks a rating (1–5) → lands on a page with optional text feedback
+- Results visible in admin ticket detail and aggregated on the support analytics dashboard
+
+### 6. Auto-Close & Follow-Up
+
+- **Auto-close:** Tickets in "Awaiting Response" status for 7 days → auto-close with message: "This ticket has been automatically closed. If you still need help, please reply or open a new ticket."
+- **Follow-up:** 24 hours after resolving a ticket, send a brief email: "Was your issue fully resolved? Reply if you need more help."
+- Both handled by a BullMQ repeatable job.
+
+### 7. Ticket Merging
+
+Admin can merge duplicate tickets from the same member:
+- Select a primary ticket and one or more tickets to merge into it
+- Messages from merged tickets are appended to the primary ticket (chronologically)
+- Merged tickets are marked as "Merged into #[primary_id]" and closed
+- Member only sees the primary ticket going forward
+
+### 8. Admin Enhancements
+
+**Priority queue view:**
+- Default view sorts by: SLA urgency (nearest breach first), then priority (VIP first), then age
+- Color-coded: red (SLA breached), orange (approaching breach), green (within SLA)
+- Filter by: status, category, assigned agent, tier, SLA status
+
+**Bulk actions:**
+- Bulk assign (select multiple tickets → assign to agent)
+- Bulk close (select multiple resolved tickets → close)
+- Bulk categorize (select → change category)
+
+**Agent performance dashboard:**
+- Tickets handled per agent (this week/month)
+- Average first response time per agent
+- Average resolution time per agent
+- SLA compliance rate per agent
+- Satisfaction rating per agent
+
+**Support analytics dashboard:**
+- Total tickets (open, in progress, resolved, closed) with trend
+- SLA compliance rate overall and by tier
+- Average satisfaction rating
+- Most common categories
+- Busiest days/hours
+- Ticket volume trend (daily/weekly)
+
+---
+
+## API Endpoints
+
+```
+# SLA
+GET    /api/admin/tickets/sla-dashboard            → SLA compliance overview
+GET    /api/admin/tickets/:id/sla                  → SLA details for a ticket
+
+# Canned Responses
+CRUD   /api/admin/canned-responses
+GET    /api/admin/canned-responses?category=billing → Filtered list
+
+# Routing
+CRUD   /api/admin/ticket-routing
+
+# Internal Notes
+POST   /api/admin/tickets/:id/internal-note        → Add internal note
+
+# Satisfaction
+GET    /api/tickets/:id/satisfaction               → Check if survey needed
+POST   /api/tickets/:id/satisfaction               → Submit rating + feedback
+
+# Merge
+POST   /api/admin/tickets/merge                    → Merge tickets
+
+# Analytics
+GET    /api/admin/tickets/analytics                → Support analytics dashboard
+GET    /api/admin/tickets/agent-performance         → Per-agent metrics
+```
+
+---
+
+## Definition of Done
+
+1. SLA clock tracks first response and resolution time against tier-specific targets
+2. SLA breaches are flagged visually in the admin queue with approaching/breached indicators
+3. Canned responses can be inserted into replies with one click and customized before sending
+4. Auto-routing assigns tickets to the correct agent based on category and tier rules
+5. Internal notes are visible to staff only, completely hidden from members
+6. Satisfaction survey is sent after resolution; results visible in admin
+7. Tickets auto-close after 7 days of member inactivity with notification
+8. Ticket merging works for duplicate tickets from the same member
+9. Admin priority queue sorts by SLA urgency with color-coded status
+10. Agent performance and support analytics dashboards show real-time metrics
