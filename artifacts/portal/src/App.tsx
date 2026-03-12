@@ -24,6 +24,9 @@ import GhlDashboard from "@/pages/admin/GhlDashboard";
 import GhlContacts from "@/pages/admin/GhlContacts";
 import GhlConfig from "@/pages/admin/GhlConfig";
 import AdminApiKeys from "@/pages/AdminApiKeys";
+import CommissionsDashboard from "@/pages/commissions/CommissionsDashboard";
+import CommissionsResources from "@/pages/commissions/CommissionsResources";
+import CommissionsRates from "@/pages/commissions/CommissionsRates";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
@@ -141,7 +144,10 @@ function EntitlementRoute({ component: Component, entitlement }: { component: Re
   }
 
   const entitlements = new Set(member?.entitlements ?? []);
-  if (!entitlements.has(entitlement)) {
+  const hasEntitlement = entitlement.endsWith(":*")
+    ? Array.from(entitlements).some((e: string) => e.startsWith(entitlement.replace(":*", ":")))
+    : entitlements.has(entitlement);
+  if (!hasEntitlement) {
     return <Redirect to="/" />;
   }
 
@@ -269,6 +275,9 @@ function Router() {
       <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
+      <Route path="/commissions">{() => <EntitlementRoute component={CommissionsDashboard} entitlement="commissions:*" />}</Route>
+      <Route path="/commissions/resources">{() => <EntitlementRoute component={CommissionsResources} entitlement="commissions:*" />}</Route>
+      <Route path="/commissions/rates">{() => <EntitlementRoute component={CommissionsRates} entitlement="commissions:*" />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>

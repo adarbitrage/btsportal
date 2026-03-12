@@ -1,4 +1,4 @@
-import { useGetDashboard } from "@workspace/api-client-react";
+import { useGetDashboard, useGetCurrentMember } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,13 @@ import { Progress } from "@/components/ui/progress";
 import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
+  const { data: member } = useGetCurrentMember();
+  const memberEntitlements = new Set(member?.entitlements ?? []);
+  const hasCommissions = Array.from(memberEntitlements).some((e: string) => e.startsWith("commissions:"));
 
   if (isLoading) {
     return (
@@ -170,6 +174,8 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-8">
+            {hasCommissions && <CommissionsSummaryWidget />}
+
             <Card>
               <CardHeader className="pb-4 border-b border-border/50">
                 <div className="flex items-center gap-2 text-foreground font-semibold">

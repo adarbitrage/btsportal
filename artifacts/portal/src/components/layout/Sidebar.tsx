@@ -19,7 +19,8 @@ import {
   Network,
   MessageSquare,
   Users2,
-  PieChart
+  PieChart,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { href: "/training", label: "Training Library", icon: BookOpen },
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
+  { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
 ];
@@ -104,7 +106,12 @@ export function Sidebar() {
       <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-          const isLocked = item.requiredEntitlement && !entitlements.has(item.requiredEntitlement);
+          const hasEntitlement = !item.requiredEntitlement
+            || (item.requiredEntitlement.endsWith(":*")
+              ? Array.from(entitlements).some((e: string) => e.startsWith(item.requiredEntitlement!.replace(":*", ":")))
+              : entitlements.has(item.requiredEntitlement));
+          const isLocked = item.requiredEntitlement && !hasEntitlement;
+          if (item.requiredEntitlement?.endsWith(":*") && isLocked) return null;
           return (
             <Link key={item.href} href={item.href}>
               <div
