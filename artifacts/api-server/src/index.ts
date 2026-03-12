@@ -1,5 +1,6 @@
 import app from "./app";
 import { startWorker, shutdown } from "./lib/ghl-queue";
+import { startCommunicationWorkers, stopCommunicationWorkers } from "./lib/communication-worker";
 
 const rawPort = process.env["PORT"];
 
@@ -23,6 +24,14 @@ if (process.env.REDIS_URL || process.env.GHL_API_KEY) {
   }
 }
 
+if (process.env.REDIS_URL) {
+  try {
+    startCommunicationWorkers();
+  } catch (err) {
+    console.warn("[Server] Could not start communication workers (Redis may be unavailable):", err);
+  }
+}
+
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });
@@ -31,6 +40,7 @@ async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received — shutting down gracefully`);
   server.close();
   await shutdown();
+  await stopCommunicationWorkers();
   process.exit(0);
 }
 

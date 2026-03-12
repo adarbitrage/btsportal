@@ -5,6 +5,7 @@ import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { CommunicationService } from "../lib/communication-service";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -96,6 +97,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }).returning();
 
   console.log(`[AUTH] Email verification token for ${email}: ${emailVerifyToken}`);
+  CommunicationService.sendEmailNow({
+    templateSlug: "email_verification",
+    to: email.toLowerCase(),
+    variables: { member_name: name, verify_token: emailVerifyToken },
+    userId: user.id,
+  });
 
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
@@ -227,6 +234,12 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
   }).where(eq(usersTable.id, user.id));
 
   console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
+  CommunicationService.sendEmailNow({
+    templateSlug: "password_reset",
+    to: email.toLowerCase(),
+    variables: { member_name: user.name, reset_token: resetToken },
+    userId: user.id,
+  });
 });
 
 router.post("/auth/reset-password", async (req, res): Promise<void> => {

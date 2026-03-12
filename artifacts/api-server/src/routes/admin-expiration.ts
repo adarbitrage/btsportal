@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { db, userProductsTable, productsTable } from "@workspace/db";
+import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
 import { eq, and, lt, lte, gte, isNotNull } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { requireAdmin } from "../middleware/auth";
+import { CommunicationService } from "../lib/communication-service";
 
 const router = Router();
 
@@ -62,7 +63,21 @@ router.post("/admin/run-expiration-check", requireAdmin, async (_req: Request, r
 
     for (const item of expiring30Days) {
       const isUrgent = expiring7Days.includes(item);
-      console.log(`[STUB:Notification] ${isUrgent ? "URGENT" : "WARNING"}: User ${item.userId}'s "${item.productName}" expires at ${item.expiresAt?.toISOString()}`);
+      const [expiringUser] = await db.select({ email: usersTable.email, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, item.userId)).limit(1);
+      if (expiringUser) {
+        const templateSlug = isUrgent ? "mentorship_expiring_urgent" : "mentorship_expiring_warning";
+        CommunicationService.queueEmail({
+          templateSlug,
+          to: expiringUser.email,
+          variables: {
+            member_name: expiringUser.name,
+            product_name: item.productName,
+            expiration_date: item.expiresAt?.toLocaleDateString() || "",
+          },
+          userId: item.userId,
+        });
+      }
+      console.log(`[Expiration] ${isUrgent ? "URGENT" : "WARNING"}: User ${item.userId}'s "${item.productName}" expires at ${item.expiresAt?.toISOString()}`);
 
       if (isUrgent) {
         await queueGHLSync({

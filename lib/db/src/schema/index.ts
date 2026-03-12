@@ -25,3 +25,4 @@ export * from "./chat-daily-usage";
 export * from "./chat-prompts";
 export * from "./chat-system-prompts";
 export * from "./knowledgebase-docs";
+export * from "./communications";

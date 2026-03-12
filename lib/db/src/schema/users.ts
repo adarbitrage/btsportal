@@ -28,6 +28,7 @@ export const usersTable = pgTable("users", {
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
   communityBio: text("community_bio"),
   ghlContactId: text("ghl_contact_id"),
+  marketingOptIn: boolean("marketing_opt_in").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

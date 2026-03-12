@@ -128,7 +128,7 @@ The community frontend is a UI layer built for integration with community backen
 - Product badge colors: Frontend=#6b7280, LaunchPad=#92400e, 3-Month=#b45309, 6-Month=#d97706, 1-Year=#0891b2, Lifetime=purple gradient
 
 ### Database Tables
-- `users` — Member profiles with auth fields, onboarding state (`onboarding_complete`, `onboarding_step`, `experience_level`, `primary_goal`, `sms_opt_in`)
+- `users` — Member profiles with auth fields, onboarding state, GHL contact ID, communication preferences (sms_opt_in, marketing_opt_in)
 - `sessions` — JWT refresh token sessions (refresh_token_hash, expires_at, revoked_at, ip_address, user_agent)
 - `products` — Product definitions with entitlement key mappings (JSON)
 - `user_products` — User-product ownership with status and expiration
@@ -173,7 +173,14 @@ New members (`onboarding_complete === false`) are redirected to a 5-step onboard
 
 Progress is saved per step (`onboarding_step` column). Server-side validates prerequisites (docs must be signed before step 2 advances, profile fields required before step 3). Step 5 completion sets `onboarding_complete = true`.
 
-**Out of scope (TODO placeholders):** PDF generation, SendGrid email delivery, canvas signature, GHL contact sync, admin panel for document editing.
+**Out of scope (TODO placeholders):** PDF generation, canvas signature, admin panel for document editing.
+
+### Communication Tables
+- `email_templates` — Email templates with slug, subject, html/text body, category (transactional/marketing)
+- `sms_templates` — SMS templates with slug, body, variables
+- `communication_log` — Log of all sent emails/SMS with status tracking (queued, sent, delivered, bounced, etc.)
+- `email_unsubscribes` — Marketing email unsubscribe records with resubscribe support
+- `email_bounces` — Email bounce tracking (hard/soft) with auto-suppression logic
 
 ### API Routes (all under `/api`)
 - Auth: `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`, `GET /auth/me`
@@ -200,6 +207,11 @@ Progress is saved per step (`onboarding_step` column). Server-side validates pre
 - `GET /tickets/:id/satisfaction` — Check satisfaction survey status
 - `GET /announcements` — List announcements
 - `POST /webhooks/thrivecart` — ThriveCart webhook receiver (public, signature-verified)
+- `POST /webhooks/sendgrid` — SendGrid event webhook (delivery, open, click, bounce, unsubscribe, spam)
+- `POST /webhooks/twilio` — Twilio delivery status webhook
+- `GET /email/unsubscribe` — One-click unsubscribe (public, token-verified, CAN-SPAM compliant)
+- `POST /email/resubscribe` — Opt back into marketing emails (authenticated, own email only)
+- `GET /members/me/communications` — Member communication history (authenticated)
 - `POST /dev/simulate-purchase` — Dev-only simulated purchase (disabled in production)
 - `POST /dev/simulate-refund` — Dev-only simulated refund (disabled in production)
 - `POST /dev/simulate-cancellation` — Dev-only simulated cancellation (disabled in production)
@@ -318,6 +330,35 @@ The portal includes a community discussion feature gated behind the `community:a
 
 **Rate Limits:** 10 posts/day, 30 comments/day per user.
 **Validation:** Post content 10-5000 chars, comment max 2000 chars.
+
+### Communications Infrastructure
+
+Central communication system using SendGrid (email) and Twilio (SMS) with BullMQ queue processing.
+
+**Key files:**
+- `artifacts/api-server/src/lib/communication-service.ts` — Central `CommunicationService` with `queueEmail`, `queueSms`, `sendEmailNow`, `queueBroadcastEmail`
+- `artifacts/api-server/src/lib/communication-worker.ts` — BullMQ workers for async email/SMS processing (3 retries, exponential backoff)
+- `artifacts/api-server/src/lib/redis.ts` — Redis/IORedis connection management
+- `artifacts/api-server/src/lib/seed-templates.ts` — Seeds 28 email templates (16 transactional + 12 marketing) + 7 SMS templates
+- `artifacts/api-server/src/routes/communication-webhooks.ts` — SendGrid/Twilio event webhooks
+- `artifacts/api-server/src/routes/email.ts` — Unsubscribe/resubscribe endpoints
+- `artifacts/api-server/src/routes/member-communications.ts` — Member communication history
+- `lib/db/src/schema/communications.ts` — Drizzle schema for all communication tables
+
+**Environment variables (required for real sends):**
+- `SENDGRID_API_KEY` — SendGrid API key
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` — Twilio credentials
+- `REDIS_URL` — Redis connection URL (required for BullMQ workers)
+- `FROM_EMAIL_TRANSACTIONAL` — Transactional email from address (default: noreply@buildtestscale.com)
+- `FROM_EMAIL_MARKETING` — Marketing email from address (default: team@buildtestscale.com)
+- `PORTAL_URL` — Portal base URL for links in emails
+- `UNSUBSCRIBE_SECRET` — HMAC secret for unsubscribe token generation
+
+**Behavior without env vars:** All email/SMS calls gracefully skip sending and log to console. BullMQ workers only start if `REDIS_URL` is set. The system falls back to direct sends if Redis/BullMQ is unavailable.
+
+**Template variable syntax:** `{{variable_name}}` — Common vars: `member_name`, `portal_url`, `support_email`, `company_name`, `current_year`
+
+**Bounce handling:** Hard bounce → immediate suppression. Soft bounce → suppress after 3 in 7 days. All marketing sends check suppression before sending.
 
 ### Seed Data
 Demo users (all password: Demo1234):

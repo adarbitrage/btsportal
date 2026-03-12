@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { db, webhookLogsTable, productsTable, userProductsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { queueGHLSync } from "./ghl-queue";
+import { CommunicationService } from "./communication-service";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -214,7 +215,12 @@ async function findOrCreateUser(email: string, name: string): Promise<{ id: numb
   }).returning();
 
   console.log(`[Webhook] Created new user: ${email} (temp password generated)`);
-  console.log(`[STUB:Email] Would send welcome email to ${email} with temporary password`);
+  CommunicationService.queueEmail({
+    templateSlug: "welcome",
+    to: email,
+    variables: { member_name: name, temp_password: tempPassword },
+    userId: newUser.id,
+  });
 
   await queueGHLSync({
     action: "create_contact",
@@ -285,7 +291,21 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
   });
 
   console.log(`[Webhook] Granted product "${product.name}" to user ${email}`);
-  console.log(`[STUB:SMS] Would send SMS notification for purchase to ${email}`);
+  CommunicationService.queueEmail({
+    templateSlug: "purchase_confirmation",
+    to: email,
+    variables: { member_name: name, product_name: product.name },
+    userId,
+  });
+  const [purchaseUser] = await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (purchaseUser?.phone) {
+    CommunicationService.queueSms({
+      templateSlug: "purchase_confirmation",
+      to: purchaseUser.phone,
+      variables: { member_name: name, product_name: product.name },
+      userId,
+    });
+  }
 
   await queueGHLSync({
     action: "add_tags",
@@ -370,6 +390,12 @@ async function handleOrderRefund(payload: ThrivecartPayload, body: Record<string
   }
 
   console.log(`[Webhook] Refunded product "${product.name}" for user ${email}`);
+  CommunicationService.queueEmail({
+    templateSlug: "refund_processed",
+    to: email,
+    variables: { member_name: email, product_name: product.name },
+    userId: user.id,
+  });
 
   await queueGHLSync({
     action: "add_tags",
@@ -429,6 +455,12 @@ async function handleSubscriptionCancelled(payload: ThrivecartPayload, body: Rec
     .returning();
 
   console.log(`[Webhook] Cancelled subscription for "${product.name}" for user ${email} (access continues until expiry)`);
+  CommunicationService.queueEmail({
+    templateSlug: "subscription_cancelled",
+    to: email,
+    variables: { member_name: email, product_name: product.name },
+    userId: user.id,
+  });
 
   await queueGHLSync({
     action: "add_tags",
@@ -485,8 +517,21 @@ async function handlePaymentFailed(payload: ThrivecartPayload, body: Record<stri
     .returning();
 
   console.log(`[Webhook] Payment failed for "${product.name}" for user ${email}, grace period until ${graceExpiresAt.toISOString()}`);
-  console.log(`[STUB:Email] Would send payment failed notification to ${email}`);
-  console.log(`[STUB:SMS] Would send payment failed SMS to ${email}`);
+  const [failedPaymentUser] = await db.select({ phone: usersTable.phone, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+  CommunicationService.queueEmail({
+    templateSlug: "payment_failed",
+    to: email,
+    variables: { member_name: failedPaymentUser?.name || email, product_name: product.name, grace_date: graceExpiresAt.toLocaleDateString() },
+    userId: user.id,
+  });
+  if (failedPaymentUser?.phone) {
+    CommunicationService.queueSms({
+      templateSlug: "payment_failed",
+      to: failedPaymentUser.phone,
+      variables: { product_name: product.name },
+      userId: user.id,
+    });
+  }
 
   return {
     action: "past_due",
@@ -526,7 +571,13 @@ async function handlePaymentRecovered(payload: ThrivecartPayload, body: Record<s
     .returning();
 
   console.log(`[Webhook] Payment recovered for "${product.name}" for user ${email}`);
-  console.log(`[STUB:Email] Would send payment recovered confirmation to ${email}`);
+  const [recoveredUser] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+  CommunicationService.queueEmail({
+    templateSlug: "payment_recovered",
+    to: email,
+    variables: { member_name: recoveredUser?.name || email, product_name: product.name },
+    userId: user.id,
+  });
 
   return {
     action: "recovered",

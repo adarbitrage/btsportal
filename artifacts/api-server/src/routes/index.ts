@@ -26,6 +26,9 @@ import adminLessonsRouter from "./admin-lessons";
 import adminResourcesRouter from "./admin-resources";
 import adminBulkRouter from "./admin-bulk";
 import storageRouter from "./storage";
+import communicationWebhooksRouter from "./communication-webhooks";
+import emailRouter from "./email";
+import memberCommunicationsRouter from "./member-communications";
 
 const router: IRouter = Router();
 
@@ -41,6 +44,9 @@ router.use(ticketsRouter);
 router.use(announcementsRouter);
 router.use(webhooksRouter);
 router.use(webhooksGhlRouter);
+router.use(communicationWebhooksRouter);
+router.use(emailRouter);
+router.use(memberCommunicationsRouter);
 router.use(devSimulateRouter);
 router.use(adminWebhooksRouter);
 router.use(adminExpirationRouter);

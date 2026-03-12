@@ -25,6 +25,7 @@ const PUBLIC_PATHS = [
   "/healthz",
   "/products",
   "/announcements",
+  "/email/unsubscribe",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
