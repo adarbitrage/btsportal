@@ -44,40 +44,62 @@ artifacts-monorepo/
 
 The main application is a customer member portal for "Build Test Scale" (BTS), an affiliate marketing mentorship platform.
 
+### Product-Based Entitlement System
+
+The portal uses a **product-based entitlement model** (not simple tiers). Users purchase products, each product grants a set of entitlement keys, and access is determined by the union of all active entitlements.
+
+**8 Products:**
+1. Reserve Income System (front-end) — `content:frontend`, `support:basic`, `chat:basic`
+2. Backroad System (front-end) — `content:frontend`, `support:basic`, `chat:basic`
+3. Off-Market Affiliate System (front-end) — `content:frontend`, `support:basic`, `chat:basic`
+4. BTS LaunchPad (back-end) — `content:frontend`, `content:advanced`, `software:base`, `support:standard`, `chat:full`
+5. 3-Month Mentorship — adds `coaching:group`, `community:access`, `commissions:entry`, `support:enhanced`
+6. 6-Month Mentorship — adds `coaching:mastermind`, `software:expanded`, `commissions:mid`, `support:unlimited`
+7. 1-Year Mentorship — adds `coaching:one_on_one:monthly`, `commissions:premium`
+8. Lifetime Mentorship — adds `coaching:one_on_one:weekly`, `commissions:top`, `support:vip`, `chat:custom`, `access:lifetime`
+
+**Entitlement resolution:** `artifacts/api-server/src/lib/entitlements.ts` — loads user's active products, unions their entitlement keys, and provides helpers (`getUserEntitlements`, `hasEntitlement`, `getHighestProductLabel`, `getSupportTicketLimit`).
+
 ### Pages
-- **Dashboard** (`/`) — Welcome banner, stats cards, training progress, upcoming calls, announcements
-- **Training Library** (`/training`) — Tracks, modules, lessons with progress tracking
-- **Coaching Calls** (`/coaching`) — Upcoming/past calls, coach profiles, tier-gated access
-- **Support Center** (`/support`) — Ticket management with message threads
+- **Dashboard** (`/`) — Welcome banner with product badge, stats cards, training progress, upcoming calls, entitlement display, announcements
+- **Training Library** (`/training`) — Tracks with locked/unlocked state based on `requiredEntitlement`, modules with progress
+- **Coaching Calls** (`/coaching`) — Calls gated by entitlement (coaching:group, coaching:mastermind, etc.)
+- **Support Center** (`/support`) — Ticket management with entitlement-based limits
 
 ### Design
 - Primary brand color: BTS blue (#1a56db)
 - Background: warm off-white (#faf9f7)
 - Font: Roboto (modern sans-serif)
 - Editorial card layout with warm borders (#e8e4dc)
-- Tier system: Bronze, Silver, Gold, Diamond
+- Product badge colors: Frontend=#6b7280, LaunchPad=#92400e, 3-Month=#b45309, 6-Month=#d97706, 1-Year=#0891b2, Lifetime=purple gradient
 
 ### Database Tables
-- `tiers` — Membership tier definitions
-- `users` — Member profiles with tier references
-- `tracks` — Training tracks
+- `products` — Product definitions with entitlement key mappings (JSON)
+- `user_products` — User-product ownership with status and expiration
+- `entitlements` — Reference table of all entitlement keys
+- `users` — Member profiles (no tier reference; products determine access)
+- `tracks` — Training tracks with `required_entitlement` key
 - `modules` — Modules within tracks
-- `lessons` — Individual lessons within modules
+- `lessons` — Lessons with `required_entitlement` key and `content_type`
 - `progress` — User lesson completion tracking
 - `coaches` — Coach profiles
-- `coaching_calls` — Scheduled coaching sessions
+- `coaching_calls` — Scheduled coaching sessions with `required_entitlement`
 - `tickets` — Support tickets
 - `ticket_messages` — Message threads on tickets
 - `announcements` — Portal announcements
+- `tiers` — Legacy tier definitions (kept for backward compat)
 
 ### API Routes (all under `/api`)
-- `GET /dashboard` — Aggregated dashboard data
-- `GET /tiers` — List membership tiers
-- `GET /tracks` — List tracks with modules and progress
-- `GET /modules/:id` — Module detail with lessons
-- `GET /lessons/:id` — Single lesson
+- `GET /members/me` — Current member profile with entitlements and products
+- `GET /members/me/products` — List owned products
+- `GET /members/me/entitlements` — Resolved entitlement set
+- `GET /products` — List all available products
+- `GET /dashboard` — Aggregated dashboard data with entitlements
+- `GET /tracks` — List tracks with modules, progress, and locked state
+- `GET /modules/:id` — Module detail with lessons (locked/unlocked)
+- `GET /lessons/:id` — Single lesson with locked state
 - `GET/POST /progress` — Track/mark lesson completion
-- `GET /coaching-calls` — List coaching calls (supports `?upcoming=true`)
+- `GET /coaching-calls` — List coaching calls with accessibility flag
 - `GET /coaches` — List coaches
 - `GET/POST /tickets` — List/create support tickets
 - `GET /tickets/:id` — Ticket with message thread
@@ -85,7 +107,7 @@ The main application is a customer member portal for "Build Test Scale" (BTS), a
 - `GET /announcements` — List announcements
 
 ### Seed Data
-Demo user: Marcus Johnson (Gold tier, 12 of 20 lessons completed, 5-day streak)
+Demo user: Marcus Johnson (Backroad System + 6-Month Mentorship, 12 of 25 lessons completed, 5-day streak)
 
 ## TypeScript & Composite Projects
 
@@ -104,7 +126,7 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence. Entitlement resolution in `src/lib/entitlements.ts`.
 
 ### `artifacts/portal` (`@workspace/portal`)
 

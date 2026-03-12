@@ -1,42 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
+  version: 0.2.0
   description: BTS Member Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: dashboard
-    description: Dashboard summary
-  - name: tiers
-    description: Membership tiers
+  - name: members
+  - name: products
   - name: tracks
-    description: Training tracks
   - name: modules
-    description: Training modules
   - name: lessons
-    description: Training lessons
   - name: progress
-    description: Lesson progress
   - name: coaching
-    description: Coaching calls
   - name: coaches
-    description: Coach profiles
   - name: tickets
-    description: Support tickets
   - name: announcements
-    description: Portal announcements
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -45,12 +33,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /members/me:
+    get:
+      operationId: getCurrentMember
+      tags: [members]
+      summary: Get current member profile with entitlements
+      responses:
+        "200":
+          description: Member profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberProfile"
+
+  /members/me/products:
+    get:
+      operationId: getMemberProducts
+      tags: [members]
+      summary: List all products owned by current member
+      responses:
+        "200":
+          description: List of owned products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnedProduct"
+
+  /members/me/entitlements:
+    get:
+      operationId: getMemberEntitlements
+      tags: [members]
+      summary: Get resolved entitlement set
+      responses:
+        "200":
+          description: Entitlement set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementSet"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all available products
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductInfo"
+
   /dashboard:
     get:
       operationId: getDashboard
       tags: [dashboard]
       summary: Get dashboard summary
-      description: Returns personalized dashboard data for the current member
       responses:
         "200":
           description: Dashboard data
@@ -58,21 +101,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardData"
-
-  /tiers:
-    get:
-      operationId: listTiers
-      tags: [tiers]
-      summary: List all membership tiers
-      responses:
-        "200":
-          description: List of tiers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Tier"
 
   /tracks:
     get:
@@ -312,38 +340,112 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
-    Tier:
+    MemberProfile:
       type: object
       properties:
         id:
           type: integer
         name:
           type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+        sourceProduct:
+          type: ["string", "null"]
+        onboardingComplete:
+          type: boolean
+        currentStreak:
+          type: integer
+        memberSince:
+          type: string
+        highestProductName:
+          type: string
+        highestProductSlug:
+          type: string
+        entitlements:
+          type: array
+          items:
+            type: string
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnedProduct"
+        ticketLimit:
+          type: integer
+      required: [id, name, email, onboardingComplete, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+
+    OwnedProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productSlug:
+          type: string
+        productName:
+          type: string
+        productType:
+          type: string
+        purchasedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          type: string
+      required: [id, productId, productSlug, productName, productType, purchasedAt, status]
+
+    EntitlementSet:
+      type: object
+      properties:
+        entitlements:
+          type: array
+          items:
+            type: string
+        highestProductName:
+          type: string
+        highestProductSlug:
+          type: string
+        ticketLimit:
+          type: integer
+      required: [entitlements, highestProductName, highestProductSlug, ticketLimit]
+
+    ProductInfo:
+      type: object
+      properties:
+        id:
+          type: integer
         slug:
           type: string
-        level:
-          type: integer
-        priceMonthly:
-          type: number
-        features:
-          type: object
-        maxSupportTickets:
-          type: integer
-        callAccessLevel:
+        name:
           type: string
-      required: [id, name, slug, level, priceMonthly, maxSupportTickets, callAccessLevel]
+        type:
+          type: string
+        priceDisplay:
+          type: ["string", "null"]
+        entitlementKeys:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+      required: [id, slug, name, type, sortOrder]
 
     DashboardData:
       type: object
       properties:
         memberName:
           type: string
-        tierName:
+        highestProductName:
           type: string
-        tierSlug:
+        highestProductSlug:
           type: string
         memberSince:
           type: string
@@ -361,6 +463,14 @@ components:
           type: integer
         overallProgress:
           type: number
+        entitlements:
+          type: array
+          items:
+            type: string
+        ownedProducts:
+          type: array
+          items:
+            type: string
         nextLesson:
           $ref: "#/components/schemas/NextLesson"
         upcomingCalls:
@@ -371,10 +481,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Announcement"
+        ticketLimit:
+          type: integer
       required:
         - memberName
-        - tierName
-        - tierSlug
+        - highestProductName
+        - highestProductSlug
         - memberSince
         - daysSinceJoined
         - lessonsCompleted
@@ -383,8 +495,11 @@ components:
         - currentStreak
         - openTickets
         - overallProgress
+        - entitlements
+        - ownedProducts
         - upcomingCalls
         - recentAnnouncements
+        - ticketLimit
 
     NextLesson:
       type: object
@@ -410,6 +525,10 @@ components:
           type: string
         description:
           type: string
+        requiredEntitlement:
+          type: string
+        isLocked:
+          type: boolean
         sortOrder:
           type: integer
         totalModules:
@@ -426,7 +545,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ModuleSummary"
-      required: [id, title, description, sortOrder, totalModules, totalLessons, estimatedMinutes, progress, isCurrent, modules]
+      required: [id, title, description, requiredEntitlement, isLocked, sortOrder, totalModules, totalLessons, estimatedMinutes, progress, isCurrent, modules]
 
     ModuleSummary:
       type: object
@@ -477,9 +596,11 @@ components:
           type: string
         videoUrl:
           type: ["string", "null"]
+        contentType:
+          type: string
         durationMinutes:
           type: integer
-        minimumTier:
+        requiredEntitlement:
           type: string
         sortOrder:
           type: integer
@@ -487,7 +608,7 @@ components:
           type: boolean
         isLocked:
           type: boolean
-      required: [id, moduleId, title, description, durationMinutes, minimumTier, sortOrder, isCompleted, isLocked]
+      required: [id, moduleId, title, description, contentType, durationMinutes, requiredEntitlement, sortOrder, isCompleted, isLocked]
 
     Progress:
       type: object
@@ -533,7 +654,7 @@ components:
           format: date-time
         durationMinutes:
           type: integer
-        minimumTier:
+        requiredEntitlement:
           type: string
         recordingUrl:
           type: ["string", "null"]
@@ -541,7 +662,7 @@ components:
           type: integer
         isAccessible:
           type: boolean
-      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, minimumTier, registeredCount, isAccessible]
+      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, isAccessible]
 
     Coach:
       type: object

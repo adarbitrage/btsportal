@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export * from "./announcement";
@@ -16,15 +16,19 @@ export * from "./createTicket";
 export * from "./createTicketCategory";
 export * from "./createTicketMessage";
 export * from "./dashboardData";
+export * from "./entitlementSet";
 export * from "./healthStatus";
 export * from "./lesson";
 export * from "./listAnnouncementsParams";
 export * from "./listCoachingCallsParams";
 export * from "./listTicketsParams";
 export * from "./listTicketsStatus";
+export * from "./memberProfile";
 export * from "./moduleSummary";
 export * from "./moduleWithLessons";
 export * from "./nextLesson";
+export * from "./ownedProduct";
+export * from "./productInfo";
 export * from "./progress";
 export * from "./ticket";
 export * from "./ticketCategory";
@@ -33,6 +37,4 @@ export * from "./ticketMessageSenderType";
 export * from "./ticketPriority";
 export * from "./ticketStatus";
 export * from "./ticketWithMessages";
-export * from "./tier";
-export * from "./tierFeatures";
 export * from "./trackWithModules";

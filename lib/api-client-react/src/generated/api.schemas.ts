@@ -3,23 +3,60 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
 }
 
-export type TierFeatures = { [key: string]: unknown };
+export interface OwnedProduct {
+  id: number;
+  productId: number;
+  productSlug: string;
+  productName: string;
+  productType: string;
+  purchasedAt: string;
+  /** @nullable */
+  expiresAt?: string | null;
+  status: string;
+}
 
-export interface Tier {
+export interface MemberProfile {
   id: number;
   name: string;
+  email: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  timezone?: string | null;
+  /** @nullable */
+  sourceProduct?: string | null;
+  onboardingComplete: boolean;
+  currentStreak: number;
+  memberSince: string;
+  highestProductName: string;
+  highestProductSlug: string;
+  entitlements: string[];
+  products: OwnedProduct[];
+  ticketLimit: number;
+}
+
+export interface EntitlementSet {
+  entitlements: string[];
+  highestProductName: string;
+  highestProductSlug: string;
+  ticketLimit: number;
+}
+
+export interface ProductInfo {
+  id: number;
   slug: string;
-  level: number;
-  priceMonthly: number;
-  features?: TierFeatures;
-  maxSupportTickets: number;
-  callAccessLevel: string;
+  name: string;
+  type: string;
+  /** @nullable */
+  priceDisplay?: string | null;
+  entitlementKeys?: string[];
+  sortOrder: number;
 }
 
 export interface NextLesson {
@@ -51,7 +88,7 @@ export interface CoachingCall {
   meetLink?: string | null;
   scheduledAt: string;
   durationMinutes: number;
-  minimumTier: string;
+  requiredEntitlement: string;
   /** @nullable */
   recordingUrl?: string | null;
   registeredCount: number;
@@ -78,8 +115,8 @@ export interface Announcement {
 
 export interface DashboardData {
   memberName: string;
-  tierName: string;
-  tierSlug: string;
+  highestProductName: string;
+  highestProductSlug: string;
   memberSince: string;
   daysSinceJoined: number;
   lessonsCompleted: number;
@@ -88,9 +125,12 @@ export interface DashboardData {
   currentStreak: number;
   openTickets: number;
   overallProgress: number;
+  entitlements: string[];
+  ownedProducts: string[];
   nextLesson?: NextLesson;
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
+  ticketLimit: number;
 }
 
 export interface ModuleSummary {
@@ -106,6 +146,8 @@ export interface TrackWithModules {
   id: number;
   title: string;
   description: string;
+  requiredEntitlement: string;
+  isLocked: boolean;
   sortOrder: number;
   totalModules: number;
   totalLessons: number;
@@ -122,8 +164,9 @@ export interface Lesson {
   description: string;
   /** @nullable */
   videoUrl?: string | null;
+  contentType: string;
   durationMinutes: number;
-  minimumTier: string;
+  requiredEntitlement: string;
   sortOrder: number;
   isCompleted: boolean;
   isLocked: boolean;

@@ -2,16 +2,18 @@ import { Router, type IRouter } from "express";
 import { db, tracksTable, modulesTable, lessonsTable, progressTable } from "@workspace/db";
 import { eq, count, sql } from "drizzle-orm";
 import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams, GetLessonResponse } from "@workspace/api-zod";
+import { getUserEntitlements } from "../lib/entitlements";
 
 const router: IRouter = Router();
-
 const userId = 1;
 
 router.get("/tracks", async (_req, res): Promise<void> => {
+  const entitlements = await getUserEntitlements(userId);
   const tracks = await db.select().from(tracksTable).orderBy(tracksTable.sortOrder);
 
   const result = [];
   for (const track of tracks) {
+    const isLocked = !entitlements.has(track.requiredEntitlement);
     const modules = await db.select().from(modulesTable).where(eq(modulesTable.trackId, track.id)).orderBy(modulesTable.sortOrder);
 
     let totalLessons = 0;
@@ -52,6 +54,8 @@ router.get("/tracks", async (_req, res): Promise<void> => {
       id: track.id,
       title: track.title,
       description: track.description,
+      requiredEntitlement: track.requiredEntitlement,
+      isLocked,
       sortOrder: track.sortOrder,
       totalModules: modules.length,
       totalLessons,
@@ -78,6 +82,7 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const entitlements = await getUserEntitlements(userId);
   const lessons = await db.select().from(lessonsTable).where(eq(lessonsTable.moduleId, mod.id)).orderBy(lessonsTable.sortOrder);
 
   const completedIds = await db
@@ -86,13 +91,10 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
     .where(eq(progressTable.userId, userId));
   const completedSet = new Set(completedIds.map((p) => p.lessonId));
 
-  const tierLevel = 3;
-  const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
-
   const mappedLessons = lessons.map((l) => ({
     ...l,
     isCompleted: completedSet.has(l.id),
-    isLocked: tierLevel < (tierLevels[l.minimumTier] ?? 0),
+    isLocked: !entitlements.has(l.requiredEntitlement),
   }));
 
   res.json(GetModuleResponse.parse({ ...mod, lessons: mappedLessons }));
@@ -111,19 +113,24 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const entitlements = await getUserEntitlements(userId);
+  const isLocked = !entitlements.has(lesson.requiredEntitlement);
+
+  if (isLocked) {
+    res.status(403).json({ error: "You do not have access to this lesson. Upgrade your plan to unlock it." });
+    return;
+  }
+
   const [progress] = await db
     .select()
     .from(progressTable)
     .where(sql`${progressTable.userId} = ${userId} AND ${progressTable.lessonId} = ${lesson.id}`);
 
-  const tierLevel = 3;
-  const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
-
   res.json(
     GetLessonResponse.parse({
       ...lesson,
       isCompleted: !!progress,
-      isLocked: tierLevel < (tierLevels[lesson.minimumTier] ?? 0),
+      isLocked: false,
     })
   );
 });

@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export interface Lesson {
@@ -13,8 +13,9 @@ export interface Lesson {
   description: string;
   /** @nullable */
   videoUrl?: string | null;
+  contentType: string;
   durationMinutes: number;
-  minimumTier: string;
+  requiredEntitlement: string;
   sortOrder: number;
   isCompleted: boolean;
   isLocked: boolean;

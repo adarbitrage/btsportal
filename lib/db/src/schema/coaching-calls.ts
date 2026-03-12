@@ -12,7 +12,7 @@ export const coachingCallsTable = pgTable("coaching_calls", {
   meetLink: text("meet_link"),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(60),
-  minimumTier: text("minimum_tier").notNull().default("bronze"),
+  requiredEntitlement: text("required_entitlement").notNull().default("coaching:group"),
   recordingUrl: text("recording_url"),
   registeredCount: integer("registered_count").notNull().default(0),
 });

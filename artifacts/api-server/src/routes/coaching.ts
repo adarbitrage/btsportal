@@ -1,66 +1,43 @@
 import { Router, type IRouter } from "express";
-import { db, coachingCallsTable, coachesTable, tiersTable, usersTable } from "@workspace/db";
-import { eq, gte, lt } from "drizzle-orm";
+import { db, coachingCallsTable, coachesTable } from "@workspace/db";
+import { eq, gte } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
+import { getUserEntitlements } from "../lib/entitlements";
 
 const router: IRouter = Router();
-
 const userId = 1;
-const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
 
 router.get("/coaching-calls", async (req, res): Promise<void> => {
   const upcoming = req.query.upcoming === "true";
   const now = new Date();
+  const entitlements = await getUserEntitlements(userId);
 
-  let calls;
-  if (upcoming) {
-    calls = await db
-      .select({
-        id: coachingCallsTable.id,
-        title: coachingCallsTable.title,
-        description: coachingCallsTable.description,
-        callType: coachingCallsTable.callType,
-        coachId: coachingCallsTable.coachId,
-        coachName: coachesTable.name,
-        meetLink: coachingCallsTable.meetLink,
-        scheduledAt: coachingCallsTable.scheduledAt,
-        durationMinutes: coachingCallsTable.durationMinutes,
-        minimumTier: coachingCallsTable.minimumTier,
-        recordingUrl: coachingCallsTable.recordingUrl,
-        registeredCount: coachingCallsTable.registeredCount,
-      })
-      .from(coachingCallsTable)
-      .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
-      .where(gte(coachingCallsTable.scheduledAt, now))
-      .orderBy(coachingCallsTable.scheduledAt);
-  } else {
-    calls = await db
-      .select({
-        id: coachingCallsTable.id,
-        title: coachingCallsTable.title,
-        description: coachingCallsTable.description,
-        callType: coachingCallsTable.callType,
-        coachId: coachingCallsTable.coachId,
-        coachName: coachesTable.name,
-        meetLink: coachingCallsTable.meetLink,
-        scheduledAt: coachingCallsTable.scheduledAt,
-        durationMinutes: coachingCallsTable.durationMinutes,
-        minimumTier: coachingCallsTable.minimumTier,
-        recordingUrl: coachingCallsTable.recordingUrl,
-        registeredCount: coachingCallsTable.registeredCount,
-      })
-      .from(coachingCallsTable)
-      .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
-      .orderBy(coachingCallsTable.scheduledAt);
-  }
+  let query = db
+    .select({
+      id: coachingCallsTable.id,
+      title: coachingCallsTable.title,
+      description: coachingCallsTable.description,
+      callType: coachingCallsTable.callType,
+      coachId: coachingCallsTable.coachId,
+      coachName: coachesTable.name,
+      meetLink: coachingCallsTable.meetLink,
+      scheduledAt: coachingCallsTable.scheduledAt,
+      durationMinutes: coachingCallsTable.durationMinutes,
+      requiredEntitlement: coachingCallsTable.requiredEntitlement,
+      recordingUrl: coachingCallsTable.recordingUrl,
+      registeredCount: coachingCallsTable.registeredCount,
+    })
+    .from(coachingCallsTable)
+    .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
+    .orderBy(coachingCallsTable.scheduledAt);
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  const [tier] = user ? await db.select().from(tiersTable).where(eq(tiersTable.id, user.tierId)) : [null];
-  const userTierLevel = tier ? tier.level : 1;
+  const calls = upcoming
+    ? await query.where(gte(coachingCallsTable.scheduledAt, now))
+    : await query;
 
   const mapped = calls.map((c) => ({
     ...c,
-    isAccessible: userTierLevel >= (tierLevels[c.minimumTier] ?? 0),
+    isAccessible: entitlements.has(c.requiredEntitlement),
   }));
 
   res.json(ListCoachingCallsResponse.parse(mapped));

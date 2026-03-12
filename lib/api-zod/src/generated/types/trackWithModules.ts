@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { ModuleSummary } from "./moduleSummary";
 
@@ -11,6 +11,8 @@ export interface TrackWithModules {
   id: number;
   title: string;
   description: string;
+  requiredEntitlement: string;
+  isLocked: boolean;
   sortOrder: number;
   totalModules: number;
   totalLessons: number;

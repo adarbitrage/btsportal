@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video } from "lucide-react";
+import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
@@ -37,19 +37,28 @@ export default function Dashboard() {
     );
   }
 
+  const ticketLimitText = dashboard.ticketLimit === -1 ? "Unlimited" : `${dashboard.ticketLimit}/month`;
+
   return (
     <AppLayout>
       <div className="space-y-8">
-        {/* Welcome Banner */}
         <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-foreground">Welcome back, {dashboard.memberName}.</h1>
-              <Badge variant={dashboard.tierSlug as any}>{dashboard.tierName} TIER</Badge>
+              <Badge variant={dashboard.highestProductSlug as any}>{dashboard.highestProductName}</Badge>
             </div>
             <p className="text-muted-foreground">
               Member since {format(new Date(dashboard.memberSince), 'MMMM yyyy')} <span className="mx-2 opacity-50">•</span> Day {dashboard.daysSinceJoined} in the program
             </p>
+            {dashboard.ownedProducts && dashboard.ownedProducts.length > 1 && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-muted-foreground">Products:</span>
+                {dashboard.ownedProducts.map(slug => (
+                  <Badge key={slug} variant={slug as any} className="text-[9px] px-2 py-0">{slug}</Badge>
+                ))}
+              </div>
+            )}
           </div>
           {dashboard.nextLesson && (
             <Link href={`/training/modules/${dashboard.nextLesson.moduleName}`}>
@@ -61,12 +70,11 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard 
             title="LESSONS COMPLETED" 
             value={dashboard.lessonsCompleted.toString()} 
-            subtext={`of ${dashboard.totalLessons} total`}
+            subtext={`of ${dashboard.totalLessons} accessible`}
             icon={BookOpen}
           />
           <StatCard 
@@ -85,15 +93,13 @@ export default function Dashboard() {
           <StatCard 
             title="TICKETS OPEN" 
             value={dashboard.openTickets.toString()} 
-            subtext={dashboard.openTickets > 0 ? "Awaiting reply" : "All clear!"}
+            subtext={`Limit: ${ticketLimitText}`}
             icon={TicketIcon}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content Area */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Training Progress */}
             <Card>
               <CardHeader className="pb-4 flex flex-row items-center justify-between border-b border-border/50">
                 <div className="flex items-center gap-2 text-foreground font-semibold">
@@ -120,7 +126,26 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Announcements */}
+            {dashboard.entitlements && dashboard.entitlements.length > 0 && (
+              <Card>
+                <CardHeader className="pb-4 border-b border-border/50">
+                  <div className="flex items-center gap-2 text-foreground font-semibold">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    Your Access
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {dashboard.entitlements.map(ent => (
+                      <span key={ent} className="text-[10px] font-mono bg-primary/5 text-primary border border-primary/10 px-2 py-1 rounded">
+                        {ent}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {dashboard.recentAnnouncements.length > 0 && (
               <div>
                 <h3 className="text-lg font-bold mb-4 text-foreground flex items-center gap-2">
@@ -144,7 +169,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Sidebar Area */}
           <div className="space-y-8">
             <Card>
               <CardHeader className="pb-4 border-b border-border/50">
@@ -173,7 +197,11 @@ export default function Dashboard() {
                             </div>
                             <span className="text-xs text-muted-foreground">Coach {call.coachName.split(' ')[0]}</span>
                           </div>
-                          <Button size="sm" variant="default" className="h-7 text-xs px-3">RSVP</Button>
+                          {call.isAccessible ? (
+                            <Button size="sm" variant="default" className="h-7 text-xs px-3">RSVP</Button>
+                          ) : (
+                            <Badge variant="locked" className="text-[10px]">Locked</Badge>
+                          )}
                         </div>
                       </div>
                     ))}

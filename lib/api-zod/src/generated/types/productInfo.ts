@@ -6,12 +6,13 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface Coach {
+export interface ProductInfo {
   id: number;
+  slug: string;
   name: string;
-  bio: string;
+  type: string;
   /** @nullable */
-  photoUrl?: string | null;
-  specialties: string;
-  callTypes: string[];
+  priceDisplay?: string | null;
+  entitlementKeys?: string[];
+  sortOrder: number;
 }

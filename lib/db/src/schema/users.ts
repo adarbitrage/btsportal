@@ -1,15 +1,18 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { tiersTable } from "./tiers";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  tierId: integer("tier_id").notNull().references(() => tiersTable.id),
+  phone: text("phone"),
+  timezone: text("timezone").default("America/New_York"),
+  sourceProduct: text("source_product"),
+  onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   currentStreak: integer("current_streak").notNull().default(0),
   memberSince: timestamp("member_since", { withTimezone: true }).notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

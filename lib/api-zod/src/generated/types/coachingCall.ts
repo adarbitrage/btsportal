@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { CoachingCallCallType } from "./coachingCallCallType";
 
@@ -18,7 +18,7 @@ export interface CoachingCall {
   meetLink?: string | null;
   scheduledAt: Date;
   durationMinutes: number;
-  minimumTier: string;
+  requiredEntitlement: string;
   /** @nullable */
   recordingUrl?: string | null;
   registeredCount: number;

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, tiersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable } from "@workspace/db";
+import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable } from "@workspace/db";
 import { eq, count, gte, and, sql, desc } from "drizzle-orm";
 import { GetDashboardResponse } from "@workspace/api-zod";
+import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 
 const router: IRouter = Router();
 
@@ -14,21 +15,23 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
     return;
   }
 
-  const [tier] = await db.select().from(tiersTable).where(eq(tiersTable.id, user.tierId));
+  const entitlements = await getUserEntitlements(userId);
+  const ownedProducts = await getUserProducts(userId);
+  const highest = getHighestProductLabel(entitlements);
+  const ticketLimit = getSupportTicketLimit(entitlements);
 
-  const [totalLessonsResult] = await db.select({ count: count() }).from(lessonsTable);
-  const totalLessons = totalLessonsResult?.count ?? 0;
+  const accessibleLessons = await db.select().from(lessonsTable);
+  const accessible = accessibleLessons.filter(l => entitlements.has(l.requiredEntitlement));
+  const totalLessons = accessible.length;
 
   const [completedResult] = await db.select({ count: count() }).from(progressTable).where(eq(progressTable.userId, userId));
-  const lessonsCompleted = completedResult?.count ?? 0;
+  const lessonsCompleted = Math.min(completedResult?.count ?? 0, totalLessons);
 
   const [openTicketsResult] = await db.select({ count: count() }).from(ticketsTable).where(and(eq(ticketsTable.userId, userId), sql`${ticketsTable.status} NOT IN ('resolved', 'closed')`));
   const openTickets = openTicketsResult?.count ?? 0;
 
   const daysSinceJoined = Math.floor((Date.now() - new Date(user.memberSince).getTime()) / (1000 * 60 * 60 * 24));
-
   const overallProgress = totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0;
-
   const hoursLearned = lessonsCompleted * 0.5;
 
   const now = new Date();
@@ -43,7 +46,7 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
       meetLink: coachingCallsTable.meetLink,
       scheduledAt: coachingCallsTable.scheduledAt,
       durationMinutes: coachingCallsTable.durationMinutes,
-      minimumTier: coachingCallsTable.minimumTier,
+      requiredEntitlement: coachingCallsTable.requiredEntitlement,
       recordingUrl: coachingCallsTable.recordingUrl,
       registeredCount: coachingCallsTable.registeredCount,
     })
@@ -53,12 +56,9 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
     .orderBy(coachingCallsTable.scheduledAt)
     .limit(3);
 
-  const tierLevel = tier?.level ?? 0;
-  const tierLevels: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 4 };
-
   const upcomingCallsMapped = upcomingCalls.map((c) => ({
     ...c,
-    isAccessible: tierLevel >= (tierLevels[c.minimumTier] ?? 0),
+    isAccessible: entitlements.has(c.requiredEntitlement),
   }));
 
   const recentAnnouncements = await db.select().from(announcementsTable).orderBy(desc(announcementsTable.createdAt)).limit(5);
@@ -69,31 +69,30 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
     .where(
       sql`${lessonsTable.id} NOT IN (SELECT ${progressTable.lessonId} FROM ${progressTable} WHERE ${progressTable.userId} = ${userId})`
     )
-    .orderBy(lessonsTable.moduleId, lessonsTable.sortOrder)
-    .limit(1);
+    .orderBy(lessonsTable.moduleId, lessonsTable.sortOrder);
 
   let nextLesson = undefined;
-  if (nextLessonData.length > 0) {
-    const nl = nextLessonData[0];
-    const [mod] = await db.select().from(modulesTable).where(eq(modulesTable.id, nl.moduleId));
+  const nextAccessible = nextLessonData.find(l => entitlements.has(l.requiredEntitlement));
+  if (nextAccessible) {
+    const [mod] = await db.select().from(modulesTable).where(eq(modulesTable.id, nextAccessible.moduleId));
     let trackName = "Unknown";
     if (mod) {
       const [trk] = await db.select().from(tracksTable).where(eq(tracksTable.id, mod.trackId));
       trackName = trk?.title ?? "Unknown";
     }
     nextLesson = {
-      lessonId: nl.id,
-      lessonTitle: nl.title,
+      lessonId: nextAccessible.id,
+      lessonTitle: nextAccessible.title,
       moduleName: mod?.title ?? "Unknown",
       trackName,
-      durationMinutes: nl.durationMinutes,
+      durationMinutes: nextAccessible.durationMinutes,
     };
   }
 
   const result = {
     memberName: user.name,
-    tierName: tier?.name ?? "Bronze",
-    tierSlug: tier?.slug ?? "bronze",
+    highestProductName: highest.name,
+    highestProductSlug: highest.slug,
     memberSince: user.memberSince.toISOString().split("T")[0],
     daysSinceJoined,
     lessonsCompleted,
@@ -102,9 +101,12 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
     currentStreak: user.currentStreak,
     openTickets,
     overallProgress,
+    entitlements: getEntitlementsList(entitlements),
+    ownedProducts: ownedProducts.map(p => p.productSlug),
     nextLesson,
     upcomingCalls: upcomingCallsMapped,
     recentAnnouncements,
+    ticketLimit,
   };
 
   res.json(GetDashboardResponse.parse(result));

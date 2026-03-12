@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -24,17 +24,20 @@ import type {
   CreateTicket,
   CreateTicketMessage,
   DashboardData,
+  EntitlementSet,
   HealthStatus,
   Lesson,
   ListAnnouncementsParams,
   ListCoachingCallsParams,
   ListTicketsParams,
+  MemberProfile,
   ModuleWithLessons,
+  OwnedProduct,
+  ProductInfo,
   Progress,
   Ticket,
   TicketMessage,
   TicketWithMessages,
-  Tier,
   TrackWithModules,
 } from "./api.schemas";
 
@@ -48,7 +51,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -124,7 +126,306 @@ export function useHealthCheck<
 }
 
 /**
- * Returns personalized dashboard data for the current member
+ * @summary Get current member profile with entitlements
+ */
+export const getGetCurrentMemberUrl = () => {
+  return `/api/members/me`;
+};
+
+export const getCurrentMember = async (
+  options?: RequestInit,
+): Promise<MemberProfile> => {
+  return customFetch<MemberProfile>(getGetCurrentMemberUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCurrentMemberQueryKey = () => {
+  return [`/api/members/me`] as const;
+};
+
+export const getGetCurrentMemberQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCurrentMember>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentMember>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCurrentMemberQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCurrentMember>>
+  > = ({ signal }) => getCurrentMember({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentMember>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCurrentMemberQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCurrentMember>>
+>;
+export type GetCurrentMemberQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current member profile with entitlements
+ */
+
+export function useGetCurrentMember<
+  TData = Awaited<ReturnType<typeof getCurrentMember>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentMember>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCurrentMemberQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all products owned by current member
+ */
+export const getGetMemberProductsUrl = () => {
+  return `/api/members/me/products`;
+};
+
+export const getMemberProducts = async (
+  options?: RequestInit,
+): Promise<OwnedProduct[]> => {
+  return customFetch<OwnedProduct[]>(getGetMemberProductsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMemberProductsQueryKey = () => {
+  return [`/api/members/me/products`] as const;
+};
+
+export const getGetMemberProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMemberProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMemberProductsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMemberProducts>>
+  > = ({ signal }) => getMemberProducts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberProducts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMemberProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMemberProducts>>
+>;
+export type GetMemberProductsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all products owned by current member
+ */
+
+export function useGetMemberProducts<
+  TData = Awaited<ReturnType<typeof getMemberProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMemberProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get resolved entitlement set
+ */
+export const getGetMemberEntitlementsUrl = () => {
+  return `/api/members/me/entitlements`;
+};
+
+export const getMemberEntitlements = async (
+  options?: RequestInit,
+): Promise<EntitlementSet> => {
+  return customFetch<EntitlementSet>(getGetMemberEntitlementsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMemberEntitlementsQueryKey = () => {
+  return [`/api/members/me/entitlements`] as const;
+};
+
+export const getGetMemberEntitlementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMemberEntitlements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberEntitlements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMemberEntitlementsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMemberEntitlements>>
+  > = ({ signal }) => getMemberEntitlements({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberEntitlements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMemberEntitlementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMemberEntitlements>>
+>;
+export type GetMemberEntitlementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get resolved entitlement set
+ */
+
+export function useGetMemberEntitlements<
+  TData = Awaited<ReturnType<typeof getMemberEntitlements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberEntitlements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMemberEntitlementsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all available products
+ */
+export const getListProductsUrl = () => {
+  return `/api/products`;
+};
+
+export const listProducts = async (
+  options?: RequestInit,
+): Promise<ProductInfo[]> => {
+  return customFetch<ProductInfo[]>(getListProductsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListProductsQueryKey = () => {
+  return [`/api/products`] as const;
+};
+
+export const getListProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListProductsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listProducts>>> = ({
+    signal,
+  }) => listProducts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProducts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProducts>>
+>;
+export type ListProductsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all available products
+ */
+
+export function useListProducts<
+  TData = Awaited<ReturnType<typeof listProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get dashboard summary
  */
 export const getGetDashboardUrl = () => {
@@ -191,71 +492,6 @@ export function useGetDashboard<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary List all membership tiers
- */
-export const getListTiersUrl = () => {
-  return `/api/tiers`;
-};
-
-export const listTiers = async (options?: RequestInit): Promise<Tier[]> => {
-  return customFetch<Tier[]>(getListTiersUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getListTiersQueryKey = () => {
-  return [`/api/tiers`] as const;
-};
-
-export const getListTiersQueryOptions = <
-  TData = Awaited<ReturnType<typeof listTiers>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listTiers>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getListTiersQueryKey();
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTiers>>> = ({
-    signal,
-  }) => listTiers({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listTiers>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type ListTiersQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listTiers>>
->;
-export type ListTiersQueryError = ErrorType<unknown>;
-
-/**
- * @summary List all membership tiers
- */
-
-export function useListTiers<
-  TData = Awaited<ReturnType<typeof listTiers>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listTiers>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListTiersQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

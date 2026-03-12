@@ -67,7 +67,7 @@ export default function ModuleDetail() {
                         <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {formatDuration(lesson.durationMinutes)}</span>
                         {lesson.isLocked && (
                           <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 uppercase tracking-wide">
-                            Requires {lesson.minimumTier} Tier
+                            Upgrade Required
                           </span>
                         )}
                       </div>

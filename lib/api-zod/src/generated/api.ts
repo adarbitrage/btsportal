@@ -3,12 +3,11 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,13 +15,84 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns personalized dashboard data for the current member
+ * @summary Get current member profile with entitlements
+ */
+export const GetCurrentMemberResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  timezone: zod.string().nullish(),
+  sourceProduct: zod.string().nullish(),
+  onboardingComplete: zod.boolean(),
+  currentStreak: zod.number(),
+  memberSince: zod.string(),
+  highestProductName: zod.string(),
+  highestProductSlug: zod.string(),
+  entitlements: zod.array(zod.string()),
+  products: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      productSlug: zod.string(),
+      productName: zod.string(),
+      productType: zod.string(),
+      purchasedAt: zod.date(),
+      expiresAt: zod.date().nullish(),
+      status: zod.string(),
+    }),
+  ),
+  ticketLimit: zod.number(),
+});
+
+/**
+ * @summary List all products owned by current member
+ */
+export const GetMemberProductsResponseItem = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productSlug: zod.string(),
+  productName: zod.string(),
+  productType: zod.string(),
+  purchasedAt: zod.date(),
+  expiresAt: zod.date().nullish(),
+  status: zod.string(),
+});
+export const GetMemberProductsResponse = zod.array(
+  GetMemberProductsResponseItem,
+);
+
+/**
+ * @summary Get resolved entitlement set
+ */
+export const GetMemberEntitlementsResponse = zod.object({
+  entitlements: zod.array(zod.string()),
+  highestProductName: zod.string(),
+  highestProductSlug: zod.string(),
+  ticketLimit: zod.number(),
+});
+
+/**
+ * @summary List all available products
+ */
+export const ListProductsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  type: zod.string(),
+  priceDisplay: zod.string().nullish(),
+  entitlementKeys: zod.array(zod.string()).optional(),
+  sortOrder: zod.number(),
+});
+export const ListProductsResponse = zod.array(ListProductsResponseItem);
+
+/**
  * @summary Get dashboard summary
  */
 export const GetDashboardResponse = zod.object({
   memberName: zod.string(),
-  tierName: zod.string(),
-  tierSlug: zod.string(),
+  highestProductName: zod.string(),
+  highestProductSlug: zod.string(),
   memberSince: zod.string(),
   daysSinceJoined: zod.number(),
   lessonsCompleted: zod.number(),
@@ -31,6 +101,8 @@ export const GetDashboardResponse = zod.object({
   currentStreak: zod.number(),
   openTickets: zod.number(),
   overallProgress: zod.number(),
+  entitlements: zod.array(zod.string()),
+  ownedProducts: zod.array(zod.string()),
   nextLesson: zod
     .object({
       lessonId: zod.number(),
@@ -56,7 +128,7 @@ export const GetDashboardResponse = zod.object({
       meetLink: zod.string().nullish(),
       scheduledAt: zod.date(),
       durationMinutes: zod.number(),
-      minimumTier: zod.string(),
+      requiredEntitlement: zod.string(),
       recordingUrl: zod.string().nullish(),
       registeredCount: zod.number(),
       isAccessible: zod.boolean(),
@@ -71,22 +143,8 @@ export const GetDashboardResponse = zod.object({
       createdAt: zod.date(),
     }),
   ),
+  ticketLimit: zod.number(),
 });
-
-/**
- * @summary List all membership tiers
- */
-export const ListTiersResponseItem = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  slug: zod.string(),
-  level: zod.number(),
-  priceMonthly: zod.number(),
-  features: zod.object({}).passthrough().optional(),
-  maxSupportTickets: zod.number(),
-  callAccessLevel: zod.string(),
-});
-export const ListTiersResponse = zod.array(ListTiersResponseItem);
 
 /**
  * @summary List all training tracks with modules
@@ -95,6 +153,8 @@ export const ListTracksResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
   description: zod.string(),
+  requiredEntitlement: zod.string(),
+  isLocked: zod.boolean(),
   sortOrder: zod.number(),
   totalModules: zod.number(),
   totalLessons: zod.number(),
@@ -134,8 +194,9 @@ export const GetModuleResponse = zod.object({
       title: zod.string(),
       description: zod.string(),
       videoUrl: zod.string().nullish(),
+      contentType: zod.string(),
       durationMinutes: zod.number(),
-      minimumTier: zod.string(),
+      requiredEntitlement: zod.string(),
       sortOrder: zod.number(),
       isCompleted: zod.boolean(),
       isLocked: zod.boolean(),
@@ -156,8 +217,9 @@ export const GetLessonResponse = zod.object({
   title: zod.string(),
   description: zod.string(),
   videoUrl: zod.string().nullish(),
+  contentType: zod.string(),
   durationMinutes: zod.number(),
-  minimumTier: zod.string(),
+  requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
   isCompleted: zod.boolean(),
   isLocked: zod.boolean(),
@@ -198,7 +260,7 @@ export const ListCoachingCallsResponseItem = zod.object({
   meetLink: zod.string().nullish(),
   scheduledAt: zod.date(),
   durationMinutes: zod.number(),
-  minimumTier: zod.string(),
+  requiredEntitlement: zod.string(),
   recordingUrl: zod.string().nullish(),
   registeredCount: zod.number(),
   isAccessible: zod.boolean(),

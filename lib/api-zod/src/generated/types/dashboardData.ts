@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * BTS Member Portal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { Announcement } from "./announcement";
 import type { CoachingCall } from "./coachingCall";
@@ -11,8 +11,8 @@ import type { NextLesson } from "./nextLesson";
 
 export interface DashboardData {
   memberName: string;
-  tierName: string;
-  tierSlug: string;
+  highestProductName: string;
+  highestProductSlug: string;
   memberSince: string;
   daysSinceJoined: number;
   lessonsCompleted: number;
@@ -21,7 +21,10 @@ export interface DashboardData {
   currentStreak: number;
   openTickets: number;
   overallProgress: number;
+  entitlements: string[];
+  ownedProducts: string[];
   nextLesson?: NextLesson;
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
+  ticketLimit: number;
 }

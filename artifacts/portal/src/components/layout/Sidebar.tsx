@@ -2,17 +2,34 @@ import { Link, useLocation } from "wouter";
 import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useGetCurrentMember } from "@workspace/api-client-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/training", label: "Training Library", icon: BookOpen },
-  { href: "/coaching", label: "Coaching Calls", icon: Video },
+  { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/support", label: "Support", icon: LifeBuoy },
 ];
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { data: member } = useGetCurrentMember();
+
+  const entitlements = new Set(member?.entitlements ?? []);
+  const hasLifetime = entitlements.has("access:lifetime");
+  const highestSlug = member?.highestProductSlug ?? "free";
+
+  const productDisplayNames: Record<string, string> = {
+    frontend: "Front-End Member",
+    launchpad: "LaunchPad Member",
+    "3month": "3-Month Mentorship",
+    "6month": "6-Month Mentorship",
+    "1year": "1-Year Mentorship",
+    lifetime: "Lifetime Member",
+    free: "Free Member",
+  };
 
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-white border-r border-border min-h-screen sticky top-0">
@@ -33,6 +50,7 @@ export function Sidebar() {
       <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const isLocked = item.requiredEntitlement && !entitlements.has(item.requiredEntitlement);
           return (
             <Link key={item.href} href={item.href}>
               <div
@@ -40,11 +58,14 @@ export function Sidebar() {
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
                   isActive 
                     ? "bg-primary/10 text-primary" 
+                    : isLocked
+                    ? "text-muted-foreground/50 hover:bg-secondary/50"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-primary" : "")} />
+                <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-primary" : isLocked ? "opacity-50" : "")} />
                 {item.label}
+                {isLocked && <span className="ml-auto text-[9px] text-muted-foreground/60 bg-secondary px-1.5 py-0.5 rounded">Upgrade</span>}
               </div>
             </Link>
           );
@@ -52,26 +73,30 @@ export function Sidebar() {
       </div>
 
       <div className="p-4 mt-auto">
-        <Card className="bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] border-blue-100/50 mb-4 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Crown className="w-4 h-4 text-primary" />
-              <h4 className="font-semibold text-sm text-foreground">Upgrade to Diamond</h4>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-              Get weekly 1-on-1 coaching and priority technical support.
-            </p>
-            <Button className="w-full text-xs h-8" variant="default">View Plans</Button>
-          </CardContent>
-        </Card>
+        {!hasLifetime && (
+          <Card className="bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] border-blue-100/50 mb-4 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Crown className="w-4 h-4 text-primary" />
+                <h4 className="font-semibold text-sm text-foreground">Upgrade Your Access</h4>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                Unlock more content, coaching, and priority support.
+              </p>
+              <Button className="w-full text-xs h-8" variant="default">View Plans</Button>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-8 h-8 rounded-full bg-[#fcd34d] text-[#b45309] flex items-center justify-center font-bold text-xs shrink-0">
-            MJ
+          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+            {member?.name?.split(' ').map(n => n[0]).join('') ?? '??'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">Marcus Johnson</p>
-            <p className="text-xs text-[#b45309] font-medium truncate">Gold Member</p>
+            <p className="text-sm font-medium text-foreground truncate">{member?.name ?? 'Loading...'}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {productDisplayNames[highestSlug] ?? highestSlug}
+            </p>
           </div>
         </div>
       </div>

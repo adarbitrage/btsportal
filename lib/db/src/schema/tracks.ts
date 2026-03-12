@@ -6,6 +6,7 @@ export const tracksTable = pgTable("tracks", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
+  requiredEntitlement: text("required_entitlement").notNull().default("content:frontend"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

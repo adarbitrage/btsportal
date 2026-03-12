@@ -9,8 +9,10 @@ export const lessonsTable = pgTable("lessons", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   videoUrl: text("video_url"),
+  contentType: text("content_type").notNull().default("video"),
+  textContent: text("text_content"),
   durationMinutes: integer("duration_minutes").notNull().default(10),
-  minimumTier: text("minimum_tier").notNull().default("bronze"),
+  requiredEntitlement: text("required_entitlement").notNull().default("content:frontend"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

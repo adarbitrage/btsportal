@@ -4,8 +4,15 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Users, Video } from "lucide-react";
+import { Calendar, Clock, Users, Video, Lock } from "lucide-react";
 import { format } from "date-fns";
+
+const entitlementLabels: Record<string, string> = {
+  "coaching:group": "Group Coaching",
+  "coaching:mastermind": "Mastermind",
+  "coaching:one_on_one:monthly": "Monthly 1-on-1",
+  "coaching:one_on_one:weekly": "Weekly 1-on-1",
+};
 
 export default function Coaching() {
   const [tab, setTab] = useState<'upcoming' | 'past' | 'coaches'>('upcoming');
@@ -18,9 +25,7 @@ export default function Coaching() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Coaching Calls</h1>
-            <div className="flex items-center gap-2 text-sm text-[#b45309] font-medium bg-[#fef3c7] px-3 py-1.5 rounded-md inline-flex border border-[#fde68a]">
-               👑 Gold members: Access to all call types except VIP
-            </div>
+            <p className="text-muted-foreground">Live sessions with your BTS coaches. Access depends on your active products.</p>
           </div>
           
           <div className="flex bg-card border border-border p-1 rounded-lg shadow-sm">
@@ -51,7 +56,7 @@ export default function Coaching() {
             ) : tab !== 'coaches' ? (
               <div className="space-y-4">
                 {calls?.map(call => (
-                  <Card key={call.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <Card key={call.id} className={`overflow-hidden hover:shadow-md transition-shadow ${!call.isAccessible ? 'opacity-75' : ''}`}>
                     <div className="flex flex-col sm:flex-row">
                       <div className="bg-secondary/30 p-6 flex flex-col items-center justify-center sm:w-40 border-b sm:border-b-0 sm:border-r border-border shrink-0">
                         <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{format(new Date(call.scheduledAt), 'MMM')}</span>
@@ -65,7 +70,14 @@ export default function Coaching() {
                               <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] tracking-widest">{call.callType.replace('_', ' ')}</Badge>
                               <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Clock className="w-3 h-3" /> {format(new Date(call.scheduledAt), 'h:mm a')}</span>
                             </div>
-                            <Badge variant={call.minimumTier.toLowerCase() as any}>{call.minimumTier}+</Badge>
+                            {call.isAccessible ? (
+                              <Badge variant="success">{entitlementLabels[call.requiredEntitlement] ?? call.requiredEntitlement}</Badge>
+                            ) : (
+                              <Badge variant="locked" className="flex items-center gap-1">
+                                <Lock className="w-3 h-3" />
+                                {entitlementLabels[call.requiredEntitlement] ?? "Locked"}
+                              </Badge>
+                            )}
                           </div>
                           <h3 className="text-xl font-bold text-foreground mb-2">{call.title}</h3>
                           <div className="flex items-center gap-2 mb-4">
@@ -79,10 +91,17 @@ export default function Coaching() {
                           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                             <Users className="w-4 h-4" /> {call.registeredCount} registered
                           </span>
-                          <Button disabled={!call.isAccessible}>
-                            <Video className="w-4 h-4 mr-2" />
-                            {tab === 'upcoming' ? 'Register' : 'Watch Replay'}
-                          </Button>
+                          {call.isAccessible ? (
+                            <Button>
+                              <Video className="w-4 h-4 mr-2" />
+                              {tab === 'upcoming' ? 'Register' : call.recordingUrl ? 'Watch Replay' : 'Details'}
+                            </Button>
+                          ) : (
+                            <Button variant="outline" disabled>
+                              <Lock className="w-4 h-4 mr-2" />
+                              Upgrade to Access
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
