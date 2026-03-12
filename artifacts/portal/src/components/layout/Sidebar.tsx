@@ -24,7 +24,10 @@ import {
   Key,
   Globe,
   FileEdit,
-  Wrench
+  Wrench,
+  FileText,
+  Database,
+  Gauge
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,6 +86,14 @@ const adminCommunityItems = [
 
 const adminCommissionItems = [
   { href: "/admin/commissions", label: "Commissions", icon: DollarSign },
+];
+
+const adminChatItems = [
+  { href: "/admin/chat/analytics", label: "Chat Analytics", icon: BarChart3 },
+  { href: "/admin/chat/transcripts", label: "Transcripts", icon: MessageSquare },
+  { href: "/admin/chat/prompts", label: "System Prompts", icon: FileText },
+  { href: "/admin/chat/knowledgebase", label: "Knowledgebase", icon: Database },
+  { href: "/admin/chat/rate-limits", label: "Rate Limits", icon: Gauge },
 ];
 
 export function Sidebar() {
@@ -158,7 +169,7 @@ export function Sidebar() {
               </div>
             </div>
             
-            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems].map((item) => {
+            {[...adminNavItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminChatItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>

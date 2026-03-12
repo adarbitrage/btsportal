@@ -30,6 +30,7 @@ tags:
   - name: community-members
   - name: community-notifications
   - name: chat
+  - name: admin-chat
 paths:
   /healthz:
     get:
@@ -1377,6 +1378,368 @@ paths:
                 $ref: "#/components/schemas/Ticket"
         "403":
           description: Not chat:full or chat:custom tier
+
+  /admin/chat/analytics:
+    get:
+      operationId: adminGetChatAnalytics
+      tags: [admin-chat]
+      summary: Get chat analytics dashboard data
+      responses:
+        "200":
+          description: Chat analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatAnalytics"
+
+  /admin/chat/sessions:
+    get:
+      operationId: adminListChatSessions
+      tags: [admin-chat]
+      summary: List chat sessions with filters
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+        - name: flagged
+          in: query
+          schema:
+            type: string
+        - name: ticketCreated
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated chat sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChatSessionList"
+
+  /admin/chat/sessions/{sessionId}:
+    get:
+      operationId: adminGetChatSession
+      tags: [admin-chat]
+      summary: Get chat session with full transcript
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chat session with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChatSessionDetail"
+        "404":
+          description: Not found
+
+  /admin/chat/messages/{messageId}/flag:
+    patch:
+      operationId: adminFlagChatMessage
+      tags: [admin-chat]
+      summary: Flag or unflag a chat message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                flagged:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageAdmin"
+
+  /admin/chat/messages/{messageId}/notes:
+    patch:
+      operationId: adminUpdateMessageNotes
+      tags: [admin-chat]
+      summary: Add or update admin notes on a chat message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Updated message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageAdmin"
+
+  /admin/chat/system-prompts:
+    get:
+      operationId: adminListSystemPrompts
+      tags: [admin-chat]
+      summary: List all system prompt versions
+      responses:
+        "200":
+          description: System prompts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemPromptVersion"
+    post:
+      operationId: adminCreateSystemPrompt
+      tags: [admin-chat]
+      summary: Create a new system prompt version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name:
+                  type: string
+                content:
+                  type: string
+      responses:
+        "201":
+          description: Created system prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemPromptVersion"
+
+  /admin/chat/system-prompts/{id}/activate:
+    patch:
+      operationId: adminActivateSystemPrompt
+      tags: [admin-chat]
+      summary: Activate a system prompt version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemPromptVersion"
+
+  /admin/chat/system-prompts/preview:
+    post:
+      operationId: adminPreviewSystemPrompt
+      tags: [admin-chat]
+      summary: Preview a system prompt with a test message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content, testMessage]
+              properties:
+                content:
+                  type: string
+                testMessage:
+                  type: string
+      responses:
+        "200":
+          description: Preview response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+
+  /admin/chat/knowledgebase:
+    get:
+      operationId: adminListKnowledgebaseDocs
+      tags: [admin-chat]
+      summary: List knowledgebase documents
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgebaseDocAdmin"
+    post:
+      operationId: adminCreateKnowledgebaseDoc
+      tags: [admin-chat]
+      summary: Create a knowledgebase document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                content:
+                  type: string
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgebaseDocAdmin"
+
+  /admin/chat/knowledgebase/{id}:
+    put:
+      operationId: adminUpdateKnowledgebaseDoc
+      tags: [admin-chat]
+      summary: Update a knowledgebase document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                content:
+                  type: string
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgebaseDocAdmin"
+    delete:
+      operationId: adminDeleteKnowledgebaseDoc
+      tags: [admin-chat]
+      summary: Delete a knowledgebase document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /admin/chat/rate-limits:
+    get:
+      operationId: adminGetRateLimits
+      tags: [admin-chat]
+      summary: Get rate limit configuration per tier
+      responses:
+        "200":
+          description: Rate limits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatRateLimit"
+    put:
+      operationId: adminUpdateRateLimits
+      tags: [admin-chat]
+      summary: Update rate limit configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [limits]
+              properties:
+                limits:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ChatRateLimitInput"
+      responses:
+        "200":
+          description: Updated rate limits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatRateLimit"
 
   /storage/uploads/request-url:
     post:
@@ -4245,6 +4608,81 @@ components:
           format: date-time
       required: [id, toolId, dataKey, dataValue, createdAt, updatedAt]
 
+    ChatAnalytics:
+      type: object
+      properties:
+        messages:
+          type: object
+          properties:
+            today:
+              type: integer
+            week:
+              type: integer
+            month:
+              type: integer
+            total:
+              type: integer
+        tierBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              tier:
+                type: string
+              totalMessages:
+                type: integer
+              uniqueUsers:
+                type: integer
+        avgMessagesPerUserPerDay:
+          type: number
+        peakHours:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: integer
+              count:
+                type: integer
+        totalSessions:
+          type: integer
+        flaggedMessages:
+          type: integer
+
+    AdminChatSessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChatSessionSummary"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    AdminChatSessionSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        userName:
+          type: string
+        userEmail:
+          type: string
+        messageCount:
+          type: integer
+        flaggedCount:
+          type: integer
+
     SaveToolDataBody:
       type: object
       properties:
@@ -4350,3 +4788,113 @@ components:
         isFeatured:
           type: boolean
       required: [id, slug, name, shortDescription, isFeatured]
+
+    AdminChatSessionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        userName:
+          type: string
+        userEmail:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageAdmin"
+
+    ChatMessageAdmin:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        flagged:
+          type: boolean
+        adminNotes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    SystemPromptVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        content:
+          type: string
+        version:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    KnowledgebaseDocAdmin:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        content:
+          type: string
+        chunkCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ChatRateLimit:
+      type: object
+      properties:
+        id:
+          type: integer
+        tier:
+          type: string
+        dailyLimit:
+          type: integer
+        maxOutputTokens:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+
+    ChatRateLimitInput:
+      type: object
+      required: [tier, dailyLimit, maxOutputTokens]
+      properties:
+        tier:
+          type: string
+        dailyLimit:
+          type: integer
+        maxOutputTokens:
+          type: integer

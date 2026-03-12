@@ -1324,6 +1324,307 @@ export const CreateTicketFromChatBody = zod.object({
 });
 
 /**
+ * @summary Get chat analytics dashboard data
+ */
+export const AdminGetChatAnalyticsResponse = zod.object({
+  messages: zod
+    .object({
+      today: zod.number().optional(),
+      week: zod.number().optional(),
+      month: zod.number().optional(),
+      total: zod.number().optional(),
+    })
+    .optional(),
+  tierBreakdown: zod
+    .array(
+      zod.object({
+        tier: zod.string().optional(),
+        totalMessages: zod.number().optional(),
+        uniqueUsers: zod.number().optional(),
+      }),
+    )
+    .optional(),
+  avgMessagesPerUserPerDay: zod.number().optional(),
+  peakHours: zod
+    .array(
+      zod.object({
+        hour: zod.number().optional(),
+        count: zod.number().optional(),
+      }),
+    )
+    .optional(),
+  totalSessions: zod.number().optional(),
+  flaggedMessages: zod.number().optional(),
+});
+
+/**
+ * @summary List chat sessions with filters
+ */
+export const AdminListChatSessionsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+  userId: zod.coerce.number().optional(),
+  dateFrom: zod.coerce.string().optional(),
+  dateTo: zod.coerce.string().optional(),
+  flagged: zod.coerce.string().optional(),
+  ticketCreated: zod.coerce.string().optional(),
+});
+
+export const AdminListChatSessionsResponse = zod.object({
+  sessions: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        title: zod.string().optional(),
+        createdAt: zod.date().optional(),
+        updatedAt: zod.date().optional(),
+        userName: zod.string().optional(),
+        userEmail: zod.string().optional(),
+        messageCount: zod.number().optional(),
+        flaggedCount: zod.number().optional(),
+      }),
+    )
+    .optional(),
+  pagination: zod
+    .object({
+      page: zod.number(),
+      limit: zod.number(),
+      total: zod.number(),
+      totalPages: zod.number(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Get chat session with full transcript
+ */
+export const AdminGetChatSessionParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const AdminGetChatSessionResponse = zod.object({
+  id: zod.number().optional(),
+  userId: zod.number().optional(),
+  title: zod.string().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+  userName: zod.string().optional(),
+  userEmail: zod.string().optional(),
+  messages: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        sessionId: zod.number().optional(),
+        role: zod.string().optional(),
+        content: zod.string().optional(),
+        flagged: zod.boolean().optional(),
+        adminNotes: zod.string().nullish(),
+        createdAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Flag or unflag a chat message
+ */
+export const AdminFlagChatMessageParams = zod.object({
+  messageId: zod.coerce.number(),
+});
+
+export const AdminFlagChatMessageBody = zod.object({
+  flagged: zod.boolean().optional(),
+});
+
+export const AdminFlagChatMessageResponse = zod.object({
+  id: zod.number().optional(),
+  sessionId: zod.number().optional(),
+  role: zod.string().optional(),
+  content: zod.string().optional(),
+  flagged: zod.boolean().optional(),
+  adminNotes: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+});
+
+/**
+ * @summary Add or update admin notes on a chat message
+ */
+export const AdminUpdateMessageNotesParams = zod.object({
+  messageId: zod.coerce.number(),
+});
+
+export const AdminUpdateMessageNotesBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const AdminUpdateMessageNotesResponse = zod.object({
+  id: zod.number().optional(),
+  sessionId: zod.number().optional(),
+  role: zod.string().optional(),
+  content: zod.string().optional(),
+  flagged: zod.boolean().optional(),
+  adminNotes: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+});
+
+/**
+ * @summary List all system prompt versions
+ */
+export const AdminListSystemPromptsResponseItem = zod.object({
+  id: zod.number().optional(),
+  name: zod.string().optional(),
+  content: zod.string().optional(),
+  version: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const AdminListSystemPromptsResponse = zod.array(
+  AdminListSystemPromptsResponseItem,
+);
+
+/**
+ * @summary Create a new system prompt version
+ */
+export const AdminCreateSystemPromptBody = zod.object({
+  name: zod.string(),
+  content: zod.string(),
+});
+
+/**
+ * @summary Activate a system prompt version
+ */
+export const AdminActivateSystemPromptParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminActivateSystemPromptResponse = zod.object({
+  id: zod.number().optional(),
+  name: zod.string().optional(),
+  content: zod.string().optional(),
+  version: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+
+/**
+ * @summary Preview a system prompt with a test message
+ */
+export const AdminPreviewSystemPromptBody = zod.object({
+  content: zod.string(),
+  testMessage: zod.string(),
+});
+
+export const AdminPreviewSystemPromptResponse = zod.object({
+  response: zod.string().optional(),
+});
+
+/**
+ * @summary List knowledgebase documents
+ */
+export const AdminListKnowledgebaseDocsQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const AdminListKnowledgebaseDocsResponseItem = zod.object({
+  id: zod.number().optional(),
+  title: zod.string().optional(),
+  category: zod.string().optional(),
+  content: zod.string().optional(),
+  chunkCount: zod.number().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const AdminListKnowledgebaseDocsResponse = zod.array(
+  AdminListKnowledgebaseDocsResponseItem,
+);
+
+/**
+ * @summary Create a knowledgebase document
+ */
+export const AdminCreateKnowledgebaseDocBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  content: zod.string(),
+});
+
+/**
+ * @summary Update a knowledgebase document
+ */
+export const AdminUpdateKnowledgebaseDocParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateKnowledgebaseDocBody = zod.object({
+  title: zod.string().optional(),
+  category: zod.string().optional(),
+  content: zod.string().optional(),
+});
+
+export const AdminUpdateKnowledgebaseDocResponse = zod.object({
+  id: zod.number().optional(),
+  title: zod.string().optional(),
+  category: zod.string().optional(),
+  content: zod.string().optional(),
+  chunkCount: zod.number().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+
+/**
+ * @summary Delete a knowledgebase document
+ */
+export const AdminDeleteKnowledgebaseDocParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteKnowledgebaseDocResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get rate limit configuration per tier
+ */
+export const AdminGetRateLimitsResponseItem = zod.object({
+  id: zod.number().optional(),
+  tier: zod.string().optional(),
+  dailyLimit: zod.number().optional(),
+  maxOutputTokens: zod.number().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const AdminGetRateLimitsResponse = zod.array(
+  AdminGetRateLimitsResponseItem,
+);
+
+/**
+ * @summary Update rate limit configuration
+ */
+export const AdminUpdateRateLimitsBody = zod.object({
+  limits: zod.array(
+    zod.object({
+      tier: zod.string(),
+      dailyLimit: zod.number(),
+      maxOutputTokens: zod.number(),
+    }),
+  ),
+});
+
+export const AdminUpdateRateLimitsResponseItem = zod.object({
+  id: zod.number().optional(),
+  tier: zod.string().optional(),
+  dailyLimit: zod.number().optional(),
+  maxOutputTokens: zod.number().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const AdminUpdateRateLimitsResponse = zod.array(
+  AdminUpdateRateLimitsResponseItem,
+);
+
+/**
  * @summary Request a presigned upload URL
  */
 export const RequestUploadUrlBody = zod.object({

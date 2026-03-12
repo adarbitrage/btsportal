@@ -21,6 +21,8 @@ export const chatMessagesTable = pgTable("chat_messages", {
   sessionId: integer("session_id").notNull().references(() => chatSessionsTable.id),
   role: text("role").notNull(),
   content: text("content").notNull(),
+  flagged: boolean("flagged").notNull().default(false),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

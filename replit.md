@@ -376,15 +376,31 @@ BullMQ-based outgoing webhook delivery engine. When events fire in the BTS syste
 ### AI Chat System
 
 Uses Anthropic Claude (via Replit AI Integrations) for an AI chat assistant with:
-- **3 chat tiers**: `chat:basic` (20/day, 1000 tokens), `chat:full` (50/day, 2000 tokens), `chat:custom` (100/day, 4000 tokens)
+- **3 chat tiers**: configurable per-tier rate limits stored in `chat_rate_limits` table (defaults: basic 20/day 1000 tokens, full 50/day 2000 tokens, custom 100/day 4000 tokens)
 - **RAG retrieval**: PostgreSQL full-text search (tsvector/GIN) on knowledgebase_docs, filtered by tier-accessible categories
 - **SSE streaming**: Real-time response streaming via `POST /chat`
 - **Session management**: Conversation history with configurable depth per tier
 - **Saved prompts**: Custom prompt templates for chat:custom users (max 20)
 - **Ticket creation**: Create support tickets from chat context (chat:full/chat:custom)
-- **System prompt**: Admin-editable, stored in DB with template variables ({{member_name}}, {{chat_tier}}, {{daily_limit}})
+- **System prompt**: Admin-editable, stored in DB with template variables ({{member_name}}, {{chat_tier}}, {{daily_limit}}), version history support
 
 Integration package: `lib/integrations-anthropic-ai` (`@workspace/integrations-anthropic-ai`)
+
+- **Admin Chat Panel** (`/admin/chat/*` routes, `admin-chat.ts`):
+  - `GET /admin/chat/analytics` — Chat usage metrics (today/week/month/total counts, tier breakdown, peak hours, flagged count)
+  - `GET /admin/chat/sessions` — Browse transcripts (paginated, filterable by search/userId/date/flagged/ticketCreated)
+  - `GET /admin/chat/sessions/:id` — Full transcript with messages
+  - `PATCH /admin/chat/messages/:id/flag` — Flag/unflag a message
+  - `PATCH /admin/chat/messages/:id/notes` — Add admin notes to a message
+  - `GET /admin/chat/system-prompts` — List all prompt versions
+  - `POST /admin/chat/system-prompts` — Create new prompt version
+  - `PATCH /admin/chat/system-prompts/:id/activate` — Activate prompt (transactional)
+  - `POST /admin/chat/system-prompts/preview` — Preview prompt with test message
+  - `GET /admin/chat/knowledgebase` — List knowledgebase docs
+  - `POST/PUT/DELETE /admin/chat/knowledgebase` — CRUD for knowledgebase docs
+  - `GET /admin/chat/rate-limits` — Get per-tier rate limit config
+  - `PUT /admin/chat/rate-limits/:id` — Update rate limit config
+  - Frontend pages: `ChatAnalytics.tsx`, `ChatTranscripts.tsx`, `SystemPrompts.tsx`, `Knowledgebase.tsx`, `RateLimits.tsx`
 
 - **Admin Content Management (all admin-only):**
   - `GET/POST /admin/tracks` — List all tracks (with counts) / Create track

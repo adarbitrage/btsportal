@@ -21,28 +21,41 @@ import type {
   AdminBulkMoveLessonsBody,
   AdminBulkPublishLessons200,
   AdminBulkPublishLessonsBody,
+  AdminChatSessionDetail,
+  AdminChatSessionList,
+  AdminCreateKnowledgebaseDocBody,
   AdminCreateLesson,
   AdminCreateModule,
+  AdminCreateSystemPromptBody,
   AdminCreateTrack,
   AdminDeleteCannedResponse200,
+  AdminDeleteKnowledgebaseDoc200,
   AdminDeleteRoutingRule200,
   AdminDuplicateLessonBody,
+  AdminFlagChatMessageBody,
   AdminImportContent201,
   AdminImportContentBody,
   AdminLesson,
   AdminListCannedResponsesParams,
+  AdminListChatSessionsParams,
+  AdminListKnowledgebaseDocsParams,
   AdminListTicketsParams,
   AdminModule,
   AdminModuleDetail,
   AdminMoveModuleBody,
+  AdminPreviewSystemPrompt200,
+  AdminPreviewSystemPromptBody,
   AdminPublishLessonBody,
   AdminTicket,
   AdminTicketMessage,
   AdminTicketWithMessages,
   AdminTrack,
   AdminTrackDetail,
+  AdminUpdateKnowledgebaseDocBody,
   AdminUpdateLesson,
+  AdminUpdateMessageNotesBody,
   AdminUpdateModule,
+  AdminUpdateRateLimitsBody,
   AdminUpdateTicketStatusBody,
   AdminUpdateTrack,
   AgentPerformance,
@@ -50,7 +63,10 @@ import type {
   AnalyzeCampaignResponse,
   Announcement,
   CannedResponse,
+  ChatAnalytics,
+  ChatMessageAdmin,
   ChatPrompt,
+  ChatRateLimit,
   ChatSessionList,
   ChatSessionWithMessages,
   ChatStatus,
@@ -84,6 +100,7 @@ import type {
   GenerateHeadlinesResponse,
   GetLegalDocumentsParams,
   HealthStatus,
+  KnowledgebaseDocAdmin,
   LegalDocument,
   Lesson,
   LessonResource,
@@ -122,6 +139,7 @@ import type {
   SignDocumentResponse,
   SlaDashboard,
   SuccessResponse,
+  SystemPromptVersion,
   Ticket,
   TicketAnalytics,
   TicketMessage,
@@ -5962,6 +5980,1331 @@ export const useCreateTicketFromChat = <
   TContext
 > => {
   return useMutation(getCreateTicketFromChatMutationOptions(options));
+};
+
+/**
+ * @summary Get chat analytics dashboard data
+ */
+export const getAdminGetChatAnalyticsUrl = () => {
+  return `/api/admin/chat/analytics`;
+};
+
+export const adminGetChatAnalytics = async (
+  options?: RequestInit,
+): Promise<ChatAnalytics> => {
+  return customFetch<ChatAnalytics>(getAdminGetChatAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetChatAnalyticsQueryKey = () => {
+  return [`/api/admin/chat/analytics`] as const;
+};
+
+export const getAdminGetChatAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetChatAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetChatAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetChatAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetChatAnalytics>>
+  > = ({ signal }) => adminGetChatAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetChatAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetChatAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetChatAnalytics>>
+>;
+export type AdminGetChatAnalyticsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get chat analytics dashboard data
+ */
+
+export function useAdminGetChatAnalytics<
+  TData = Awaited<ReturnType<typeof adminGetChatAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetChatAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetChatAnalyticsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List chat sessions with filters
+ */
+export const getAdminListChatSessionsUrl = (
+  params?: AdminListChatSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/chat/sessions?${stringifiedParams}`
+    : `/api/admin/chat/sessions`;
+};
+
+export const adminListChatSessions = async (
+  params?: AdminListChatSessionsParams,
+  options?: RequestInit,
+): Promise<AdminChatSessionList> => {
+  return customFetch<AdminChatSessionList>(
+    getAdminListChatSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListChatSessionsQueryKey = (
+  params?: AdminListChatSessionsParams,
+) => {
+  return [`/api/admin/chat/sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListChatSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListChatSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListChatSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListChatSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListChatSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListChatSessions>>
+  > = ({ signal }) =>
+    adminListChatSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListChatSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListChatSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListChatSessions>>
+>;
+export type AdminListChatSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List chat sessions with filters
+ */
+
+export function useAdminListChatSessions<
+  TData = Awaited<ReturnType<typeof adminListChatSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListChatSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListChatSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListChatSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get chat session with full transcript
+ */
+export const getAdminGetChatSessionUrl = (sessionId: number) => {
+  return `/api/admin/chat/sessions/${sessionId}`;
+};
+
+export const adminGetChatSession = async (
+  sessionId: number,
+  options?: RequestInit,
+): Promise<AdminChatSessionDetail> => {
+  return customFetch<AdminChatSessionDetail>(
+    getAdminGetChatSessionUrl(sessionId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminGetChatSessionQueryKey = (sessionId: number) => {
+  return [`/api/admin/chat/sessions/${sessionId}`] as const;
+};
+
+export const getAdminGetChatSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetChatSession>>,
+  TError = ErrorType<void>,
+>(
+  sessionId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetChatSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetChatSessionQueryKey(sessionId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetChatSession>>
+  > = ({ signal }) =>
+    adminGetChatSession(sessionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!sessionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetChatSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetChatSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetChatSession>>
+>;
+export type AdminGetChatSessionQueryError = ErrorType<void>;
+
+/**
+ * @summary Get chat session with full transcript
+ */
+
+export function useAdminGetChatSession<
+  TData = Awaited<ReturnType<typeof adminGetChatSession>>,
+  TError = ErrorType<void>,
+>(
+  sessionId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetChatSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetChatSessionQueryOptions(sessionId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Flag or unflag a chat message
+ */
+export const getAdminFlagChatMessageUrl = (messageId: number) => {
+  return `/api/admin/chat/messages/${messageId}/flag`;
+};
+
+export const adminFlagChatMessage = async (
+  messageId: number,
+  adminFlagChatMessageBody: AdminFlagChatMessageBody,
+  options?: RequestInit,
+): Promise<ChatMessageAdmin> => {
+  return customFetch<ChatMessageAdmin>(getAdminFlagChatMessageUrl(messageId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminFlagChatMessageBody),
+  });
+};
+
+export const getAdminFlagChatMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminFlagChatMessage>>,
+    TError,
+    { messageId: number; data: BodyType<AdminFlagChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminFlagChatMessage>>,
+  TError,
+  { messageId: number; data: BodyType<AdminFlagChatMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["adminFlagChatMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminFlagChatMessage>>,
+    { messageId: number; data: BodyType<AdminFlagChatMessageBody> }
+  > = (props) => {
+    const { messageId, data } = props ?? {};
+
+    return adminFlagChatMessage(messageId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminFlagChatMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminFlagChatMessage>>
+>;
+export type AdminFlagChatMessageMutationBody =
+  BodyType<AdminFlagChatMessageBody>;
+export type AdminFlagChatMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Flag or unflag a chat message
+ */
+export const useAdminFlagChatMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminFlagChatMessage>>,
+    TError,
+    { messageId: number; data: BodyType<AdminFlagChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminFlagChatMessage>>,
+  TError,
+  { messageId: number; data: BodyType<AdminFlagChatMessageBody> },
+  TContext
+> => {
+  return useMutation(getAdminFlagChatMessageMutationOptions(options));
+};
+
+/**
+ * @summary Add or update admin notes on a chat message
+ */
+export const getAdminUpdateMessageNotesUrl = (messageId: number) => {
+  return `/api/admin/chat/messages/${messageId}/notes`;
+};
+
+export const adminUpdateMessageNotes = async (
+  messageId: number,
+  adminUpdateMessageNotesBody: AdminUpdateMessageNotesBody,
+  options?: RequestInit,
+): Promise<ChatMessageAdmin> => {
+  return customFetch<ChatMessageAdmin>(
+    getAdminUpdateMessageNotesUrl(messageId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminUpdateMessageNotesBody),
+    },
+  );
+};
+
+export const getAdminUpdateMessageNotesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMessageNotes>>,
+    TError,
+    { messageId: number; data: BodyType<AdminUpdateMessageNotesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateMessageNotes>>,
+  TError,
+  { messageId: number; data: BodyType<AdminUpdateMessageNotesBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateMessageNotes"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateMessageNotes>>,
+    { messageId: number; data: BodyType<AdminUpdateMessageNotesBody> }
+  > = (props) => {
+    const { messageId, data } = props ?? {};
+
+    return adminUpdateMessageNotes(messageId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateMessageNotesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateMessageNotes>>
+>;
+export type AdminUpdateMessageNotesMutationBody =
+  BodyType<AdminUpdateMessageNotesBody>;
+export type AdminUpdateMessageNotesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add or update admin notes on a chat message
+ */
+export const useAdminUpdateMessageNotes = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMessageNotes>>,
+    TError,
+    { messageId: number; data: BodyType<AdminUpdateMessageNotesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateMessageNotes>>,
+  TError,
+  { messageId: number; data: BodyType<AdminUpdateMessageNotesBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateMessageNotesMutationOptions(options));
+};
+
+/**
+ * @summary List all system prompt versions
+ */
+export const getAdminListSystemPromptsUrl = () => {
+  return `/api/admin/chat/system-prompts`;
+};
+
+export const adminListSystemPrompts = async (
+  options?: RequestInit,
+): Promise<SystemPromptVersion[]> => {
+  return customFetch<SystemPromptVersion[]>(getAdminListSystemPromptsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListSystemPromptsQueryKey = () => {
+  return [`/api/admin/chat/system-prompts`] as const;
+};
+
+export const getAdminListSystemPromptsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSystemPrompts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSystemPrompts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListSystemPromptsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListSystemPrompts>>
+  > = ({ signal }) => adminListSystemPrompts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSystemPrompts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSystemPromptsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSystemPrompts>>
+>;
+export type AdminListSystemPromptsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all system prompt versions
+ */
+
+export function useAdminListSystemPrompts<
+  TData = Awaited<ReturnType<typeof adminListSystemPrompts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSystemPrompts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSystemPromptsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new system prompt version
+ */
+export const getAdminCreateSystemPromptUrl = () => {
+  return `/api/admin/chat/system-prompts`;
+};
+
+export const adminCreateSystemPrompt = async (
+  adminCreateSystemPromptBody: AdminCreateSystemPromptBody,
+  options?: RequestInit,
+): Promise<SystemPromptVersion> => {
+  return customFetch<SystemPromptVersion>(getAdminCreateSystemPromptUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminCreateSystemPromptBody),
+  });
+};
+
+export const getAdminCreateSystemPromptMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateSystemPrompt>>,
+    TError,
+    { data: BodyType<AdminCreateSystemPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateSystemPrompt>>,
+  TError,
+  { data: BodyType<AdminCreateSystemPromptBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateSystemPrompt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateSystemPrompt>>,
+    { data: BodyType<AdminCreateSystemPromptBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateSystemPrompt(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateSystemPromptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateSystemPrompt>>
+>;
+export type AdminCreateSystemPromptMutationBody =
+  BodyType<AdminCreateSystemPromptBody>;
+export type AdminCreateSystemPromptMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new system prompt version
+ */
+export const useAdminCreateSystemPrompt = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateSystemPrompt>>,
+    TError,
+    { data: BodyType<AdminCreateSystemPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateSystemPrompt>>,
+  TError,
+  { data: BodyType<AdminCreateSystemPromptBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateSystemPromptMutationOptions(options));
+};
+
+/**
+ * @summary Activate a system prompt version
+ */
+export const getAdminActivateSystemPromptUrl = (id: number) => {
+  return `/api/admin/chat/system-prompts/${id}/activate`;
+};
+
+export const adminActivateSystemPrompt = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SystemPromptVersion> => {
+  return customFetch<SystemPromptVersion>(getAdminActivateSystemPromptUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminActivateSystemPromptMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminActivateSystemPrompt>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminActivateSystemPrompt>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminActivateSystemPrompt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminActivateSystemPrompt>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminActivateSystemPrompt(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminActivateSystemPromptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminActivateSystemPrompt>>
+>;
+
+export type AdminActivateSystemPromptMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Activate a system prompt version
+ */
+export const useAdminActivateSystemPrompt = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminActivateSystemPrompt>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminActivateSystemPrompt>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminActivateSystemPromptMutationOptions(options));
+};
+
+/**
+ * @summary Preview a system prompt with a test message
+ */
+export const getAdminPreviewSystemPromptUrl = () => {
+  return `/api/admin/chat/system-prompts/preview`;
+};
+
+export const adminPreviewSystemPrompt = async (
+  adminPreviewSystemPromptBody: AdminPreviewSystemPromptBody,
+  options?: RequestInit,
+): Promise<AdminPreviewSystemPrompt200> => {
+  return customFetch<AdminPreviewSystemPrompt200>(
+    getAdminPreviewSystemPromptUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPreviewSystemPromptBody),
+    },
+  );
+};
+
+export const getAdminPreviewSystemPromptMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPreviewSystemPrompt>>,
+    TError,
+    { data: BodyType<AdminPreviewSystemPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPreviewSystemPrompt>>,
+  TError,
+  { data: BodyType<AdminPreviewSystemPromptBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPreviewSystemPrompt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPreviewSystemPrompt>>,
+    { data: BodyType<AdminPreviewSystemPromptBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminPreviewSystemPrompt(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPreviewSystemPromptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPreviewSystemPrompt>>
+>;
+export type AdminPreviewSystemPromptMutationBody =
+  BodyType<AdminPreviewSystemPromptBody>;
+export type AdminPreviewSystemPromptMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Preview a system prompt with a test message
+ */
+export const useAdminPreviewSystemPrompt = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPreviewSystemPrompt>>,
+    TError,
+    { data: BodyType<AdminPreviewSystemPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPreviewSystemPrompt>>,
+  TError,
+  { data: BodyType<AdminPreviewSystemPromptBody> },
+  TContext
+> => {
+  return useMutation(getAdminPreviewSystemPromptMutationOptions(options));
+};
+
+/**
+ * @summary List knowledgebase documents
+ */
+export const getAdminListKnowledgebaseDocsUrl = (
+  params?: AdminListKnowledgebaseDocsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/chat/knowledgebase?${stringifiedParams}`
+    : `/api/admin/chat/knowledgebase`;
+};
+
+export const adminListKnowledgebaseDocs = async (
+  params?: AdminListKnowledgebaseDocsParams,
+  options?: RequestInit,
+): Promise<KnowledgebaseDocAdmin[]> => {
+  return customFetch<KnowledgebaseDocAdmin[]>(
+    getAdminListKnowledgebaseDocsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListKnowledgebaseDocsQueryKey = (
+  params?: AdminListKnowledgebaseDocsParams,
+) => {
+  return [
+    `/api/admin/chat/knowledgebase`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getAdminListKnowledgebaseDocsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListKnowledgebaseDocsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListKnowledgebaseDocsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>
+  > = ({ signal }) =>
+    adminListKnowledgebaseDocs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListKnowledgebaseDocsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>
+>;
+export type AdminListKnowledgebaseDocsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List knowledgebase documents
+ */
+
+export function useAdminListKnowledgebaseDocs<
+  TData = Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListKnowledgebaseDocsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListKnowledgebaseDocs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListKnowledgebaseDocsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a knowledgebase document
+ */
+export const getAdminCreateKnowledgebaseDocUrl = () => {
+  return `/api/admin/chat/knowledgebase`;
+};
+
+export const adminCreateKnowledgebaseDoc = async (
+  adminCreateKnowledgebaseDocBody: AdminCreateKnowledgebaseDocBody,
+  options?: RequestInit,
+): Promise<KnowledgebaseDocAdmin> => {
+  return customFetch<KnowledgebaseDocAdmin>(
+    getAdminCreateKnowledgebaseDocUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminCreateKnowledgebaseDocBody),
+    },
+  );
+};
+
+export const getAdminCreateKnowledgebaseDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>,
+    TError,
+    { data: BodyType<AdminCreateKnowledgebaseDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>,
+  TError,
+  { data: BodyType<AdminCreateKnowledgebaseDocBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateKnowledgebaseDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>,
+    { data: BodyType<AdminCreateKnowledgebaseDocBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateKnowledgebaseDoc(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateKnowledgebaseDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>
+>;
+export type AdminCreateKnowledgebaseDocMutationBody =
+  BodyType<AdminCreateKnowledgebaseDocBody>;
+export type AdminCreateKnowledgebaseDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a knowledgebase document
+ */
+export const useAdminCreateKnowledgebaseDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>,
+    TError,
+    { data: BodyType<AdminCreateKnowledgebaseDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateKnowledgebaseDoc>>,
+  TError,
+  { data: BodyType<AdminCreateKnowledgebaseDocBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateKnowledgebaseDocMutationOptions(options));
+};
+
+/**
+ * @summary Update a knowledgebase document
+ */
+export const getAdminUpdateKnowledgebaseDocUrl = (id: number) => {
+  return `/api/admin/chat/knowledgebase/${id}`;
+};
+
+export const adminUpdateKnowledgebaseDoc = async (
+  id: number,
+  adminUpdateKnowledgebaseDocBody: AdminUpdateKnowledgebaseDocBody,
+  options?: RequestInit,
+): Promise<KnowledgebaseDocAdmin> => {
+  return customFetch<KnowledgebaseDocAdmin>(
+    getAdminUpdateKnowledgebaseDocUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminUpdateKnowledgebaseDocBody),
+    },
+  );
+};
+
+export const getAdminUpdateKnowledgebaseDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateKnowledgebaseDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateKnowledgebaseDocBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateKnowledgebaseDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>,
+    { id: number; data: BodyType<AdminUpdateKnowledgebaseDocBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateKnowledgebaseDoc(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateKnowledgebaseDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>
+>;
+export type AdminUpdateKnowledgebaseDocMutationBody =
+  BodyType<AdminUpdateKnowledgebaseDocBody>;
+export type AdminUpdateKnowledgebaseDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a knowledgebase document
+ */
+export const useAdminUpdateKnowledgebaseDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>,
+    TError,
+    { id: number; data: BodyType<AdminUpdateKnowledgebaseDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateKnowledgebaseDoc>>,
+  TError,
+  { id: number; data: BodyType<AdminUpdateKnowledgebaseDocBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateKnowledgebaseDocMutationOptions(options));
+};
+
+/**
+ * @summary Delete a knowledgebase document
+ */
+export const getAdminDeleteKnowledgebaseDocUrl = (id: number) => {
+  return `/api/admin/chat/knowledgebase/${id}`;
+};
+
+export const adminDeleteKnowledgebaseDoc = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteKnowledgebaseDoc200> => {
+  return customFetch<AdminDeleteKnowledgebaseDoc200>(
+    getAdminDeleteKnowledgebaseDocUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getAdminDeleteKnowledgebaseDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteKnowledgebaseDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteKnowledgebaseDoc(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteKnowledgebaseDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>
+>;
+
+export type AdminDeleteKnowledgebaseDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a knowledgebase document
+ */
+export const useAdminDeleteKnowledgebaseDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteKnowledgebaseDoc>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteKnowledgebaseDocMutationOptions(options));
+};
+
+/**
+ * @summary Get rate limit configuration per tier
+ */
+export const getAdminGetRateLimitsUrl = () => {
+  return `/api/admin/chat/rate-limits`;
+};
+
+export const adminGetRateLimits = async (
+  options?: RequestInit,
+): Promise<ChatRateLimit[]> => {
+  return customFetch<ChatRateLimit[]>(getAdminGetRateLimitsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetRateLimitsQueryKey = () => {
+  return [`/api/admin/chat/rate-limits`] as const;
+};
+
+export const getAdminGetRateLimitsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetRateLimits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetRateLimits>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetRateLimitsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetRateLimits>>
+  > = ({ signal }) => adminGetRateLimits({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetRateLimits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetRateLimitsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetRateLimits>>
+>;
+export type AdminGetRateLimitsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get rate limit configuration per tier
+ */
+
+export function useAdminGetRateLimits<
+  TData = Awaited<ReturnType<typeof adminGetRateLimits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetRateLimits>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetRateLimitsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update rate limit configuration
+ */
+export const getAdminUpdateRateLimitsUrl = () => {
+  return `/api/admin/chat/rate-limits`;
+};
+
+export const adminUpdateRateLimits = async (
+  adminUpdateRateLimitsBody: AdminUpdateRateLimitsBody,
+  options?: RequestInit,
+): Promise<ChatRateLimit[]> => {
+  return customFetch<ChatRateLimit[]>(getAdminUpdateRateLimitsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminUpdateRateLimitsBody),
+  });
+};
+
+export const getAdminUpdateRateLimitsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateRateLimits>>,
+    TError,
+    { data: BodyType<AdminUpdateRateLimitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateRateLimits>>,
+  TError,
+  { data: BodyType<AdminUpdateRateLimitsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateRateLimits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateRateLimits>>,
+    { data: BodyType<AdminUpdateRateLimitsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminUpdateRateLimits(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateRateLimitsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateRateLimits>>
+>;
+export type AdminUpdateRateLimitsMutationBody =
+  BodyType<AdminUpdateRateLimitsBody>;
+export type AdminUpdateRateLimitsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update rate limit configuration
+ */
+export const useAdminUpdateRateLimits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateRateLimits>>,
+    TError,
+    { data: BodyType<AdminUpdateRateLimitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateRateLimits>>,
+  TError,
+  { data: BodyType<AdminUpdateRateLimitsBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateRateLimitsMutationOptions(options));
 };
 
 /**

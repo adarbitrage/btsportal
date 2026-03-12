@@ -399,3 +399,122 @@ export function useAdminReorderLessons() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/content/tracks"] }),
   });
 }
+
+export function useAdminExportContent() {
+  return useMutation({
+    mutationFn: (trackIds: number[]) =>
+      adminFetch<{ exportData: any }>("/admin/content/export", {
+        method: "POST",
+        body: JSON.stringify({ trackIds }),
+      }),
+  });
+}
+
+export function useAdminImportContent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) =>
+      adminFetch("/admin/content/import", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/content/tracks"] }),
+  });
+}
+
+export function fetchChatAnalytics() {
+  return adminFetch("/admin/chat/analytics");
+}
+
+export function fetchChatSessions(params: {
+  page?: number; limit?: number; search?: string;
+  userId?: number; dateFrom?: string; dateTo?: string;
+  flagged?: boolean; ticketCreated?: boolean;
+}) {
+  const qs = new URLSearchParams();
+  if (params.page) qs.set("page", String(params.page));
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.search) qs.set("search", params.search);
+  if (params.userId) qs.set("userId", String(params.userId));
+  if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
+  if (params.dateTo) qs.set("dateTo", params.dateTo);
+  if (params.flagged) qs.set("flagged", "true");
+  if (params.ticketCreated) qs.set("ticketCreated", "true");
+  return adminFetch(`/admin/chat/sessions?${qs.toString()}`);
+}
+
+export function fetchChatSessionDetail(sessionId: number) {
+  return adminFetch(`/admin/chat/sessions/${sessionId}`);
+}
+
+export function flagChatMessage(messageId: number, flagged: boolean) {
+  return adminFetch(`/admin/chat/messages/${messageId}/flag`, {
+    method: "PATCH",
+    body: JSON.stringify({ flagged }),
+  });
+}
+
+export function updateMessageNotes(messageId: number, notes: string) {
+  return adminFetch(`/admin/chat/messages/${messageId}/notes`, {
+    method: "PATCH",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export function fetchSystemPrompts() {
+  return adminFetch("/admin/chat/system-prompts");
+}
+
+export function createSystemPrompt(data: { name: string; content: string }) {
+  return adminFetch("/admin/chat/system-prompts", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function activateSystemPrompt(id: number) {
+  return adminFetch(`/admin/chat/system-prompts/${id}/activate`, { method: "PATCH" });
+}
+
+export function previewSystemPrompt(data: { content: string; testMessage: string }) {
+  return adminFetch("/admin/chat/system-prompts/preview", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function fetchKnowledgebaseDocs(params?: { category?: string; search?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.category) qs.set("category", params.category);
+  if (params?.search) qs.set("search", params.search);
+  return adminFetch(`/admin/chat/knowledgebase?${qs.toString()}`);
+}
+
+export function createKnowledgebaseDoc(data: { title: string; category: string; content: string }) {
+  return adminFetch("/admin/chat/knowledgebase", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateKnowledgebaseDoc(id: number, data: { title?: string; category?: string; content?: string }) {
+  return adminFetch(`/admin/chat/knowledgebase/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteKnowledgebaseDoc(id: number) {
+  return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
+}
+
+export function fetchRateLimits() {
+  return adminFetch("/admin/chat/rate-limits");
+}
+
+export function updateRateLimits(limits: Array<{ tier: string; dailyLimit: number; maxOutputTokens: number }>) {
+  return adminFetch("/admin/chat/rate-limits", {
+    method: "PUT",
+    body: JSON.stringify({ limits }),
+  });
+}

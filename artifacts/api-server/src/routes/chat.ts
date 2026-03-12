@@ -7,6 +7,7 @@ import {
   chatPromptsTable,
   chatSystemPromptsTable,
   knowledgebaseDocsTable,
+  chatRateLimitsTable,
   ticketsTable,
   ticketMessagesTable,
   usersTable,
@@ -32,41 +33,57 @@ function getChatTier(entitlements: Set<string>): string {
   return "none";
 }
 
-function getTierConfig(tier: string): ChatTierConfig {
-  switch (tier) {
-    case "chat:custom":
+const TIER_DEFAULTS: Record<string, ChatTierConfig> = {
+  "chat:custom": {
+    dailyLimit: 100,
+    maxOutputTokens: 4000,
+    historyDepth: 30,
+    sessionRetentionDays: null,
+    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
+  },
+  "chat:full": {
+    dailyLimit: 50,
+    maxOutputTokens: 2000,
+    historyDepth: 20,
+    sessionRetentionDays: 30,
+    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
+  },
+  "chat:basic": {
+    dailyLimit: 20,
+    maxOutputTokens: 1000,
+    historyDepth: 10,
+    sessionRetentionDays: 7,
+    knowledgebaseCategories: ["faq", "platform_guide"],
+  },
+};
+
+async function getTierConfig(tier: string): Promise<ChatTierConfig> {
+  const defaults = TIER_DEFAULTS[tier] ?? {
+    dailyLimit: 0,
+    maxOutputTokens: 0,
+    historyDepth: 0,
+    sessionRetentionDays: 0,
+    knowledgebaseCategories: [],
+  };
+
+  try {
+    const [dbConfig] = await db
+      .select()
+      .from(chatRateLimitsTable)
+      .where(eq(chatRateLimitsTable.tier, tier))
+      .limit(1);
+
+    if (dbConfig) {
       return {
-        dailyLimit: 100,
-        maxOutputTokens: 4000,
-        historyDepth: 30,
-        sessionRetentionDays: null,
-        knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
+        ...defaults,
+        dailyLimit: dbConfig.dailyLimit,
+        maxOutputTokens: dbConfig.maxOutputTokens,
       };
-    case "chat:full":
-      return {
-        dailyLimit: 50,
-        maxOutputTokens: 2000,
-        historyDepth: 20,
-        sessionRetentionDays: 30,
-        knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
-      };
-    case "chat:basic":
-      return {
-        dailyLimit: 20,
-        maxOutputTokens: 1000,
-        historyDepth: 10,
-        sessionRetentionDays: 7,
-        knowledgebaseCategories: ["faq", "platform_guide"],
-      };
-    default:
-      return {
-        dailyLimit: 0,
-        maxOutputTokens: 0,
-        historyDepth: 0,
-        sessionRetentionDays: 0,
-        knowledgebaseCategories: [],
-      };
+    }
+  } catch {
   }
+
+  return defaults;
 }
 
 function getTodayDate(): string {
@@ -144,7 +161,7 @@ router.post("/chat", async (req, res): Promise<void> => {
     return;
   }
 
-  const config = getTierConfig(chatTier);
+  const config = await getTierConfig(chatTier);
 
   const usageResult = await tryIncrementDailyUsage(userId, chatTier, config.dailyLimit);
   if (!usageResult.allowed) {
@@ -270,7 +287,7 @@ router.get("/chat/sessions", async (req, res): Promise<void> => {
 
   const entitlements = await getUserEntitlements(userId);
   const chatTier = getChatTier(entitlements);
-  const config = getTierConfig(chatTier);
+  const config = await getTierConfig(chatTier);
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
   const conditions = [eq(chatSessionsTable.userId, userId), eq(chatSessionsTable.isDeleted, false)];
@@ -328,7 +345,7 @@ router.get("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
 
   const entitlements = await getUserEntitlements(userId);
   const chatTier = getChatTier(entitlements);
-  const config = getTierConfig(chatTier);
+  const config = await getTierConfig(chatTier);
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
   if (retentionCutoff && session.createdAt < retentionCutoff) {
@@ -382,7 +399,7 @@ router.get("/chat/status", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
   const chatTier = getChatTier(entitlements);
-  const config = getTierConfig(chatTier);
+  const config = await getTierConfig(chatTier);
   const usedToday = await getDailyUsage(userId);
 
   const tomorrow = new Date();

@@ -33,6 +33,11 @@ import AdminApiKeys from "@/pages/AdminApiKeys";
 import CommissionsDashboard from "@/pages/commissions/CommissionsDashboard";
 import CommissionsResources from "@/pages/commissions/CommissionsResources";
 import CommissionsRates from "@/pages/commissions/CommissionsRates";
+import ChatAnalytics from "@/pages/admin/ChatAnalytics";
+import ChatTranscripts from "@/pages/admin/ChatTranscripts";
+import SystemPrompts from "@/pages/admin/SystemPrompts";
+import Knowledgebase from "@/pages/admin/Knowledgebase";
+import RateLimits from "@/pages/admin/RateLimits";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
@@ -326,6 +331,11 @@ function Router() {
       <Route path="/admin/commissions/rates">{() => <AdminRoute component={CommissionRates} />}</Route>
       <Route path="/admin/commissions/resources">{() => <AdminRoute component={CommissionResources} />}</Route>
       <Route path="/admin/commissions/fraud">{() => <AdminRoute component={CommissionFraudAlerts} />}</Route>
+      <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} />}</Route>
+      <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} />}</Route>
+      <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} />}</Route>
+      <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} />}</Route>
+      <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

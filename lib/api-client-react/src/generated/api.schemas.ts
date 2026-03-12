@@ -1256,6 +1256,50 @@ export interface ToolUserDataItem {
   updatedAt: string;
 }
 
+export type ChatAnalyticsMessages = {
+  today?: number;
+  week?: number;
+  month?: number;
+  total?: number;
+};
+
+export type ChatAnalyticsTierBreakdownItem = {
+  tier?: string;
+  totalMessages?: number;
+  uniqueUsers?: number;
+};
+
+export type ChatAnalyticsPeakHoursItem = {
+  hour?: number;
+  count?: number;
+};
+
+export interface ChatAnalytics {
+  messages?: ChatAnalyticsMessages;
+  tierBreakdown?: ChatAnalyticsTierBreakdownItem[];
+  avgMessagesPerUserPerDay?: number;
+  peakHours?: ChatAnalyticsPeakHoursItem[];
+  totalSessions?: number;
+  flaggedMessages?: number;
+}
+
+export interface AdminChatSessionSummary {
+  id?: number;
+  userId?: number;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userName?: string;
+  userEmail?: string;
+  messageCount?: number;
+  flaggedCount?: number;
+}
+
+export interface AdminChatSessionList {
+  sessions?: AdminChatSessionSummary[];
+  pagination?: Pagination;
+}
+
 export type SaveToolDataBodyDataValue = { [key: string]: unknown };
 
 export interface SaveToolDataBody {
@@ -1307,6 +1351,61 @@ export interface AnalyzeCampaignResponse {
   analysis: string;
   remainingToday: number;
   dailyLimit: number;
+}
+
+export interface ChatMessageAdmin {
+  id?: number;
+  sessionId?: number;
+  role?: string;
+  content?: string;
+  flagged?: boolean;
+  adminNotes?: string | null;
+  createdAt?: string;
+}
+
+export interface AdminChatSessionDetail {
+  id?: number;
+  userId?: number;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userName?: string;
+  userEmail?: string;
+  messages?: ChatMessageAdmin[];
+}
+
+export interface SystemPromptVersion {
+  id?: number;
+  name?: string;
+  content?: string;
+  version?: number;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgebaseDocAdmin {
+  id?: number;
+  title?: string;
+  category?: string;
+  content?: string;
+  chunkCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ChatRateLimit {
+  id?: number;
+  tier?: string;
+  dailyLimit?: number;
+  maxOutputTokens?: number;
+  updatedAt?: string;
+}
+
+export interface ChatRateLimitInput {
+  tier: string;
+  dailyLimit: number;
+  maxOutputTokens: number;
 }
 
 export type GetLegalDocumentsParams = {
@@ -1401,6 +1500,64 @@ export const ListCommunityMembersSort = {
 export type ListCommunityNotificationsParams = {
   page?: number;
   limit?: number;
+};
+
+export type AdminListChatSessionsParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  userId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  flagged?: string;
+  ticketCreated?: string;
+};
+
+export type AdminFlagChatMessageBody = {
+  flagged?: boolean;
+};
+
+export type AdminUpdateMessageNotesBody = {
+  notes?: string;
+};
+
+export type AdminCreateSystemPromptBody = {
+  name: string;
+  content: string;
+};
+
+export type AdminPreviewSystemPromptBody = {
+  content: string;
+  testMessage: string;
+};
+
+export type AdminPreviewSystemPrompt200 = {
+  response?: string;
+};
+
+export type AdminListKnowledgebaseDocsParams = {
+  category?: string;
+  search?: string;
+};
+
+export type AdminCreateKnowledgebaseDocBody = {
+  title: string;
+  category?: string;
+  content: string;
+};
+
+export type AdminUpdateKnowledgebaseDocBody = {
+  title?: string;
+  category?: string;
+  content?: string;
+};
+
+export type AdminDeleteKnowledgebaseDoc200 = {
+  success?: boolean;
+};
+
+export type AdminUpdateRateLimitsBody = {
+  limits: ChatRateLimitInput[];
 };
 
 export type AdminMoveModuleBody = {
