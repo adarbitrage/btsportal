@@ -2,14 +2,16 @@ import { db } from "@workspace/db";
 import {
   productsTable, entitlementsTable, userProductsTable,
   usersTable, tracksTable, modulesTable, lessonsTable, progressTable,
-  coachesTable, coachingCallsTable, ticketsTable, ticketMessagesTable, announcementsTable
+  coachesTable, coachingCallsTable, ticketsTable, ticketMessagesTable, announcementsTable,
+  sessionsTable
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE TABLE ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE sessions, ticket_messages, tickets, progress, announcements, coaching_calls, coaches, lessons, modules, tracks, user_products, entitlements, products, users RESTART IDENTITY CASCADE`);
 
   const entitlementData = [
     { key: "content:frontend", description: "Foundational video + text training modules", category: "content" },
@@ -93,23 +95,46 @@ async function seed() {
     productsBySlug[p.slug] = p.id;
   }
 
+  const passwordHash = await bcrypt.hash("Demo1234", 12);
+
   const memberSince = new Date("2026-01-24T00:00:00Z");
-  const [user] = await db.insert(usersTable).values({
+  const [marcus] = await db.insert(usersTable).values({
     name: "Marcus Johnson", email: "marcus@example.com",
+    passwordHash,
     sourceProduct: "backroad", onboardingComplete: true,
+    emailVerified: true,
     currentStreak: 5, memberSince,
+  }).returning();
+
+  const [sarah] = await db.insert(usersTable).values({
+    name: "Sarah Chen", email: "sarah@example.com",
+    passwordHash,
+    sourceProduct: "reserve_income", onboardingComplete: true,
+    emailVerified: true,
+    currentStreak: 2, memberSince: new Date("2026-02-15T00:00:00Z"),
+  }).returning();
+
+  const [admin] = await db.insert(usersTable).values({
+    name: "Admin User", email: "admin@bts.com",
+    passwordHash,
+    role: "admin",
+    sourceProduct: "lifetime", onboardingComplete: true,
+    emailVerified: true,
+    currentStreak: 0, memberSince: new Date("2025-01-01T00:00:00Z"),
   }).returning();
 
   const sixMonthsFromNow = new Date();
   sixMonthsFromNow.setDate(sixMonthsFromNow.getDate() + 120);
   await db.insert(userProductsTable).values([
-    { userId: user.id, productId: productsBySlug["backroad"], status: "active" },
-    { userId: user.id, productId: productsBySlug["6month"], status: "active", expiresAt: sixMonthsFromNow },
+    { userId: marcus.id, productId: productsBySlug["backroad"], status: "active" },
+    { userId: marcus.id, productId: productsBySlug["6month"], status: "active", expiresAt: sixMonthsFromNow },
+    { userId: sarah.id, productId: productsBySlug["reserve_income"], status: "active" },
+    { userId: admin.id, productId: productsBySlug["lifetime"], status: "active" },
   ]);
 
   const [track1] = await db.insert(tracksTable).values({ title: "Affiliate Marketing Foundations", description: "Master the fundamentals of affiliate marketing from choosing a niche to launching your first campaign.", requiredEntitlement: "content:frontend", sortOrder: 1 }).returning();
   const [track2] = await db.insert(tracksTable).values({ title: "Traffic & Audience Building", description: "Learn proven strategies to drive targeted traffic and build an engaged audience.", requiredEntitlement: "content:frontend", sortOrder: 2 }).returning();
-  const [track3] = await db.insert(tracksTable).values({ title: "Advanced Strategies", description: "Advanced pre-recorded training on campaign optimization, scaling, and analytics.", requiredEntitlement: "content:advanced", sortOrder: 3 }).returning();
+  const [track3] = await db.insert(tracksTable).values({ title: "Advanced Strategies", description: "Advanced pre-recorded training for LaunchPad and Mentorship members.", requiredEntitlement: "content:advanced", sortOrder: 3 }).returning();
   const [track4] = await db.insert(tracksTable).values({ title: "Scaling & Optimization", description: "Advanced techniques to scale your campaigns and maximize ROI.", requiredEntitlement: "content:advanced", sortOrder: 4 }).returning();
 
   const [mod1] = await db.insert(modulesTable).values({ trackId: track1.id, title: "The Affiliate Marketing Landscape", description: "How the model works, why it's viable, and what makes it different.", sortOrder: 1 }).returning();
@@ -155,7 +180,7 @@ async function seed() {
   const completedLessonIds = insertedLessons.slice(0, 12).map((l) => l.id);
   for (const lessonId of completedLessonIds) {
     const completedAt = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-    await db.insert(progressTable).values({ userId: user.id, lessonId, completedAt });
+    await db.insert(progressTable).values({ userId: marcus.id, lessonId, completedAt });
   }
 
   const [coach1] = await db.insert(coachesTable).values({ name: "Sarah Mitchell", bio: "10+ years in affiliate marketing. Specialist in Facebook Ads and creative testing.", specialties: "Facebook Ads Expert", callTypes: ["weekly_qa", "vip_roundtable"] }).returning();
@@ -177,13 +202,13 @@ async function seed() {
     { title: "Weekly Q&A Recap", description: "Last week's Q&A recording.", callType: "weekly_qa", coachId: coach1.id, scheduledAt: lastWeek, durationMinutes: 60, requiredEntitlement: "coaching:group", registeredCount: 35, recordingUrl: "https://example.com/recording/1" },
   ]);
 
-  const [ticket1] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100234", userId: user.id, category: "billing", priority: "normal", status: "awaiting_response", subject: "Question about tier upgrade pricing" }).returning();
+  const [ticket1] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100234", userId: marcus.id, category: "billing", priority: "normal", status: "awaiting_response", subject: "Question about tier upgrade pricing" }).returning();
   await db.insert(ticketMessagesTable).values([
     { ticketId: ticket1.id, senderType: "member", body: "I'd like to know if there's a discount when upgrading from 6-Month to 1-Year Mentorship mid-cycle. Do I get prorated billing?" },
     { ticketId: ticket1.id, senderType: "admin", body: "Great question, Marcus! Yes, when upgrading tiers, you'll receive prorated billing. Would you like me to process the upgrade for you?" },
   ]);
 
-  const [ticket2] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100189", userId: user.id, category: "technical", priority: "high", status: "resolved", subject: "Video not loading in Module 3", resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) }).returning();
+  const [ticket2] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100189", userId: marcus.id, category: "technical", priority: "high", status: "resolved", subject: "Video not loading in Module 3", resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) }).returning();
   await db.insert(ticketMessagesTable).values([
     { ticketId: ticket2.id, senderType: "member", body: "The video in the Building Your Foundation module won't load." },
     { ticketId: ticket2.id, senderType: "admin", body: "We've fixed the video encoding issue. Please try again." },
@@ -199,7 +224,10 @@ async function seed() {
 
   console.log("Seeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));
-  console.log("Demo user: Marcus Johnson (6-Month Mentorship + Backroad System)");
+  console.log("Demo users:");
+  console.log("  Marcus Johnson (marcus@example.com / Demo1234) - 6-Month + Backroad");
+  console.log("  Sarah Chen (sarah@example.com / Demo1234) - Reserve Income (frontend only)");
+  console.log("  Admin User (admin@bts.com / Demo1234) - Lifetime");
 }
 
 seed().catch(console.error).finally(() => process.exit(0));

@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User } from "lucide-react";
+import { LayoutDashboard, BookOpen, Video, LifeBuoy, Crown, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGetCurrentMember } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -16,6 +17,7 @@ const navItems = [
 export function Sidebar() {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
+  const { logout } = useAuth();
 
   const entitlements = new Set(member?.entitlements ?? []);
   const hasLifetime = entitlements.has("access:lifetime");
@@ -98,6 +100,13 @@ export function Sidebar() {
               {productDisplayNames[highestSlug] ?? highestSlug}
             </p>
           </div>
+          <button
+            onClick={() => logout()}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

@@ -1,0 +1,490 @@
+# BTS Portal — ThriveCart Webhook Integration Build Spec
+
+**Priority:** Immediate (after Auth system is complete)
+**Status:** Not started
+**Depends on:** Custom Auth System (must be working first)
+**Reference:** BTS PRD v2.0, Sections 4.2, 5.2, 13
+
+---
+
+## Context
+
+The entitlement engine and auth system are built. This spec connects them to real money — when a customer purchases any of the 8 BTS products through ThriveCart, a webhook fires and the portal automatically creates their account (or upgrades an existing one) and grants the correct entitlements.
+
+This is the integration that makes the entire platform live. After this, a real customer can buy on ThriveCart → get an email with login credentials → log in → see exactly the content and features their purchase unlocks.
+
+---
+
+## How ThriveCart Webhooks Work
+
+ThriveCart sends a POST request to your webhook URL when events occur (purchase, refund, subscription change, etc.). The payload is `application/x-www-form-urlencoded` (NOT JSON). Key fields in the payload:
+
+```
+event                    → "order.success", "order.refund", "order.subscription_cancelled", etc.
+thpidr                   → ThriveCart product ID
+customer[email]          → Customer email
+customer[name]           → Customer name (may be first + last combined)
+customer[first_name]     → Customer first name
+customer[last_name]      → Customer last name
+customer[phone]          → Customer phone (if collected)
+order[id]                → Unique order ID (use for idempotency)
+order[total]             → Order total in cents
+order[payment_processor] → e.g. "stripe", "paypal"
+subscription[id]         → Subscription ID (for recurring products)
+subscription[status]     → "active", "cancelled", "past_due"
+```
+
+ThriveCart also supports a webhook secret for signature verification. The secret is configured in ThriveCart's webhook settings and sent as a hash you can verify.
+
+---
+
+## What to Build
+
+### 1. ThriveCart Product ID Mapping
+
+Create a configuration (database-backed, editable via admin panel) that maps each ThriveCart product ID to a BTS product. This is the bridge between "customer bought product X on ThriveCart" and "grant them these entitlements in the portal."
+
+The `products` table already has a `thrivecart_product_ids` column (JSON array). Seed it with actual ThriveCart product IDs once they're created. For now, use placeholder IDs:
+
+```
+BTS Product                    ThriveCart Product ID(s)
+─────────────────────────────  ──────────────────────────
+The Reserve Income System      ["tc_reserve_income"]
+The Backroad System            ["tc_backroad"]
+The Off-Market Affiliate System ["tc_offmarket"]
+BTS LaunchPad                  ["tc_launchpad"]
+BTS 3-Month Mentorship         ["tc_3month"]
+BTS 6-Month Mentorship         ["tc_6month"]
+BTS 1-Year Mentorship          ["tc_1year"]
+BTS Lifetime Mentorship        ["tc_lifetime"]
+```
+
+**Note:** A single ThriveCart product can map to one BTS product. But a ThriveCart order can include bump offers or OTOs that trigger multiple product grants. Handle each product in the order independently.
+
+---
+
+### 2. Webhook Endpoint
+
+#### `POST /api/webhooks/thrivecart`
+
+**This endpoint must NOT require authentication.** ThriveCart calls it directly — there's no logged-in user. Security is handled via webhook signature verification.
+
+**Request:** `application/x-www-form-urlencoded` body from ThriveCart.
+
+**Response:** Always return `200 OK` immediately, even if processing fails internally. ThriveCart will retry on non-200 responses, which can cause duplicate processing. Process the event asynchronously after responding.
+
+```javascript
+// Pseudocode
+app.post('/api/webhooks/thrivecart', express.urlencoded({ extended: true }), async (req, res) => {
+  // 1. Return 200 immediately
+  res.status(200).json({ received: true });
+  
+  // 2. Process async (or queue via BullMQ if available)
+  try {
+    await processThrivecartWebhook(req.body);
+  } catch (err) {
+    console.error('Webhook processing error:', err);
+    // Log to webhook_logs table with status: 'failed'
+  }
+});
+```
+
+---
+
+### 3. Webhook Event Handlers
+
+#### Event: `order.success` (New Purchase)
+
+This is the primary event. It fires when a customer completes a purchase.
+
+**Processing logic:**
+
+```
+Step 1: IDEMPOTENCY CHECK
+  - Look up order[id] in webhook_logs table
+  - If already processed → log duplicate, skip processing, return
+  - If new → create webhook_log record with status: 'processing'
+
+Step 2: SIGNATURE VERIFICATION
+  - Verify the webhook signature using the ThriveCart webhook secret
+  - If invalid → log to webhook_logs with status: 'invalid_signature', return
+  - (See Section 4 for verification details)
+
+Step 3: IDENTIFY PRODUCT
+  - Extract thpidr (ThriveCart product ID) from payload
+  - Look up in products table: find BTS product where thrivecart_product_ids contains this ID
+  - If no matching product → log to webhook_logs with status: 'unknown_product', return
+
+Step 4: FIND OR CREATE USER
+  - Search users table by customer[email] (case-insensitive)
+  
+  IF USER EXISTS:
+    - User already has an account (previous purchase or manual creation)
+    - Skip to Step 5
+  
+  IF USER DOES NOT EXIST:
+    - Create new user record:
+      - email: customer[email]
+      - name: customer[name] or customer[first_name] + ' ' + customer[last_name]
+      - phone: customer[phone] (if provided)
+      - password_hash: generate a random temporary password, hash with bcrypt
+      - email_verified: false
+      - onboarding_complete: false
+      - source_product: the BTS product slug (for analytics — which product brought them in)
+    - Store the temporary plaintext password (you'll need it for the welcome email)
+    - NOTE: In production, the welcome email will contain a "Set your password" link 
+      (basically a password reset flow). For now, log the temp password to console.
+
+Step 5: GRANT PRODUCT ENTITLEMENTS
+  - Check if user already owns this product (user_products table)
+  
+  IF ALREADY OWNS:
+    - Log duplicate purchase, skip granting
+    - (Edge case: could be a renewal — handle renewals separately, see subscription events)
+  
+  IF NEW PRODUCT:
+    - Insert into user_products:
+      - user_id: the user's ID
+      - product_id: the BTS product ID
+      - purchased_at: NOW()
+      - expires_at: calculated based on product type:
+        - Front-end offers: NULL (no expiration, one-time purchase)
+        - LaunchPad: NULL (no expiration, one-time purchase)
+        - 3-Month Mentorship: NOW() + 90 days
+        - 6-Month Mentorship: NOW() + 180 days
+        - 1-Year Mentorship: NOW() + 365 days
+        - Lifetime Mentorship: NULL (no expiration)
+      - status: 'active'
+      - thrivecart_order_id: order[id]
+
+Step 6: GHL SYNC (stub for now)
+  - TODO: Create/update GHL contact via API
+  - For now, log what WOULD be sent to GHL:
+    - Contact: email, name, phone
+    - Tags: product slug (e.g., "product:6month"), source funnel
+    - Custom fields: current_products, highest_tier, purchase_date
+    - Pipeline: "New Customer" or "Upgrade" depending on new vs existing
+
+Step 7: SEND WELCOME COMMUNICATION (stub for now)
+  - TODO: Send welcome email via SendGrid
+  - TODO: Start 3-day onboarding sequence
+  - For now, log to console:
+    - "NEW USER: [email] — temp password: [password] — product: [product_name]"
+    - OR "EXISTING USER: [email] — added product: [product_name]"
+
+Step 8: UPDATE WEBHOOK LOG
+  - Update webhook_logs record: status: 'processed', processed_at: NOW()
+```
+
+#### Event: `order.refund` (Refund Issued)
+
+```
+Step 1: Idempotency check (same as above)
+Step 2: Signature verification
+Step 3: Find user by customer[email]
+Step 4: Find the user_product matching the thrivecart_order_id
+Step 5: Update user_product: status → 'refunded'
+Step 6: Log to webhook_logs
+Step 7: TODO: Send refund confirmation email
+Step 8: TODO: Update GHL contact (move to refund pipeline)
+```
+
+**Important:** Refunding revokes the specific product purchased in that order. If the user owns other products, those remain active. The entitlement engine already handles this — it only considers `status: 'active'` products when resolving entitlements.
+
+#### Event: `order.subscription_cancelled` (Subscription Cancelled)
+
+```
+Step 1: Idempotency check
+Step 2: Signature verification
+Step 3: Find user by customer[email]
+Step 4: Find active user_product matching the subscription
+Step 5: Update user_product: status → 'cancelled'
+  - Option A: Revoke immediately
+  - Option B: Let access continue until expires_at (recommended — they paid for the period)
+  - Decision: Use Option B. Set status to 'cancelled' but don't change expires_at.
+    The nightly expiration job will revoke access when the period ends.
+Step 6: Log to webhook_logs
+Step 7: TODO: Send cancellation confirmation + retention offer email
+Step 8: TODO: Update GHL (move to cancellation pipeline, trigger win-back workflow)
+```
+
+#### Event: `order.subscription_payment_failed` (Payment Failed)
+
+```
+Step 1: Idempotency check
+Step 2: Signature verification
+Step 3: Find user by customer[email]
+Step 4: Find active user_product matching the subscription
+Step 5: Update user_product: status → 'past_due'
+  - Do NOT revoke access yet — give grace period
+  - Set a grace_expires_at field (7 days from now) or use a separate dunning status
+Step 6: Log to webhook_logs
+Step 7: TODO: Send payment failure email with "update payment" link
+Step 8: TODO: Send SMS via Twilio (payment alert)
+Step 9: TODO: Update GHL (trigger payment recovery workflow)
+```
+
+#### Event: `order.subscription_payment_recovered` (Payment Recovered After Failure)
+
+```
+Step 1–2: Standard checks
+Step 3: Find user and user_product
+Step 4: Update user_product: status → 'active', clear grace_expires_at
+Step 5: Log to webhook_logs
+Step 6: TODO: Send "payment successful, access restored" email
+```
+
+---
+
+### 4. Webhook Signature Verification
+
+ThriveCart signs webhooks using a shared secret. The verification method depends on how ThriveCart implements it (HMAC-SHA256 is common).
+
+```javascript
+import crypto from 'crypto';
+
+function verifyThrivecartSignature(payload: string, signature: string, secret: string): boolean {
+  const computed = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(computed, 'hex'),
+    Buffer.from(signature, 'hex')
+  );
+}
+```
+
+**Important:** Check ThriveCart's actual documentation for the exact signature format. The header name and hashing method may vary. Common patterns:
+- Header: `X-TC-Signature` or `Thrivecart-Signature`
+- Method: HMAC-SHA256 of the raw request body using the webhook secret
+
+**If ThriveCart doesn't support signatures** for your plan, implement an alternative:
+- Use a secret URL path: `/api/webhooks/thrivecart/<random-secret-string>`
+- Validate the source IP (if ThriveCart publishes their IP range)
+- Both is better
+
+---
+
+### 5. Webhook Logs Table
+
+The `webhook_logs` table already exists in the schema. Make sure it includes:
+
+```
+id                  SERIAL PRIMARY KEY
+source              TEXT NOT NULL           -- 'thrivecart'
+event_type          TEXT NOT NULL           -- 'order.success', 'order.refund', etc.
+external_id         TEXT NOT NULL           -- order[id] from ThriveCart (for idempotency)
+payload             JSONB NOT NULL          -- full webhook payload (for debugging)
+status              TEXT NOT NULL           -- 'processing', 'processed', 'failed', 'duplicate', 'invalid_signature', 'unknown_product'
+error_message       TEXT                    -- error details if failed
+user_id             INTEGER                 -- linked user (if identified)
+product_id          INTEGER                 -- linked product (if identified)
+processed_at        TIMESTAMP
+created_at          TIMESTAMP DEFAULT NOW()
+```
+
+**Index on** `(source, external_id)` for fast idempotency lookups.
+
+---
+
+### 6. User Products Table Updates
+
+The `user_products` table may need additional fields:
+
+```
+thrivecart_order_id     TEXT                -- ThriveCart order ID for matching refunds/cancellations
+thrivecart_sub_id       TEXT                -- ThriveCart subscription ID for recurring products
+grace_expires_at        TIMESTAMP           -- grace period end for failed payments
+cancelled_at            TIMESTAMP           -- when cancellation was received
+```
+
+Add a `status` enum if not already present:
+```
+'active'        → Full access
+'past_due'      → Access continues during grace period
+'cancelled'     → Access continues until expires_at, then revoked
+'expired'       → Access revoked (set by nightly job when expires_at passes)
+'refunded'      → Access revoked immediately
+```
+
+---
+
+### 7. Nightly Expiration Job
+
+Create a scheduled task (cron job or BullMQ repeatable job) that runs every hour (or nightly at minimum):
+
+```
+1. Find all user_products where:
+   - status = 'active' AND expires_at IS NOT NULL AND expires_at < NOW()
+   → Update status to 'expired'
+
+2. Find all user_products where:
+   - status = 'past_due' AND grace_expires_at IS NOT NULL AND grace_expires_at < NOW()
+   → Update status to 'expired'
+
+3. Find all user_products where:
+   - status = 'active' AND expires_at IS NOT NULL
+   - AND expires_at BETWEEN NOW() AND NOW() + 30 days
+   - AND no expiration_warning_sent flag
+   → Queue expiration warning email (SendGrid) and SMS (Twilio)
+   → Set expiration_warning_sent = true
+
+4. Same for 7-day warning (separate flag)
+```
+
+For now, implement as a simple Express route (`POST /api/admin/run-expiration-check`) that can be called manually or via cron. Production can use BullMQ repeatable jobs later.
+
+---
+
+### 8. Testing Endpoint
+
+Create a dev-only endpoint for simulating ThriveCart webhooks without needing a real ThriveCart account:
+
+#### `POST /api/dev/simulate-purchase` (dev/staging only, remove in production)
+
+```json
+{
+  "email": "newuser@example.com",
+  "name": "New User",
+  "phone": "+15551234567",
+  "product_slug": "tc_6month"
+}
+```
+
+**Logic:** Constructs a fake ThriveCart payload and processes it through the same webhook handler. Skips signature verification. This lets you test the full flow without setting up ThriveCart.
+
+Also create:
+
+#### `POST /api/dev/simulate-refund`
+```json
+{
+  "email": "newuser@example.com",
+  "order_id": "the_order_id_from_purchase"
+}
+```
+
+#### `POST /api/dev/simulate-cancellation`
+```json
+{
+  "email": "newuser@example.com",
+  "order_id": "the_order_id_from_purchase"
+}
+```
+
+**These endpoints MUST be disabled in production.** Gate them behind `NODE_ENV !== 'production'` or a dev secret.
+
+---
+
+### 9. Environment Variables
+
+Add to `.env`:
+```
+THRIVECART_WEBHOOK_SECRET=<from ThriveCart webhook settings>
+THRIVECART_API_KEY=<if using ThriveCart API for verification or data pulls>
+```
+
+---
+
+### 10. Admin Visibility
+
+Add to the existing admin panel:
+
+#### Webhook Logs Viewer
+- Table showing recent webhook events with: timestamp, event type, email, product, status, error (if any)
+- Filter by: status (processed/failed/duplicate), event type, date range
+- Click to expand → shows full payload JSON
+- This is critical for debugging failed provisioning
+
+#### Product-ThriveCart Mapping Editor
+- Show each BTS product with its mapped ThriveCart product ID(s)
+- Allow admin to edit the mapping without code changes
+- Validate that no two BTS products map to the same ThriveCart product ID
+
+---
+
+### 11. Handling Edge Cases
+
+#### Customer buys the same product twice
+- Idempotency check on order[id] catches exact duplicates
+- If it's a genuinely new order for a product they already own: log it, don't create a duplicate user_product. Exception: if the existing product is expired/cancelled/refunded, create a new active one.
+
+#### Customer buys a higher tier (upgrade)
+- This is just a new purchase event for the new product. The entitlement engine already handles cumulative access — both the old and new products are active, and the user gets the union of all entitlements.
+- No need to revoke the old product. If the old one was a subscription, ThriveCart may send a separate cancellation event for it.
+
+#### Customer email doesn't match an existing account
+- For `order.success`: no problem, create a new account.
+- For `order.refund` or `order.subscription_cancelled`: if no user is found with that email, log a warning to webhook_logs and skip. Admin can investigate manually.
+
+#### ThriveCart sends multiple webhooks for the same order
+- The idempotency check (order[id] in webhook_logs) prevents double processing.
+- Return 200 for duplicates so ThriveCart doesn't keep retrying.
+
+#### Customer uses a different email on ThriveCart than their portal account
+- This will create a new account. For now, this is acceptable.
+- Future enhancement: admin merge tool to combine two accounts.
+- Document this as a known limitation.
+
+#### Webhook endpoint is down when ThriveCart fires
+- ThriveCart retries failed webhooks (non-200 responses) on a schedule.
+- When the endpoint comes back up, it processes the retried webhooks normally.
+- Idempotency check handles any duplicates from retries.
+
+---
+
+### 12. Integration Sequence (How It All Connects)
+
+```
+CUSTOMER JOURNEY:
+
+1. Customer watches VSL on landing page (Reserve Income / Backroad / Off-Market)
+2. Clicks "Buy Now" → ThriveCart checkout page
+3. Completes payment
+
+BEHIND THE SCENES:
+
+4. ThriveCart fires webhook → POST /api/webhooks/thrivecart
+5. Portal receives webhook, returns 200 immediately
+6. Async processing begins:
+   a. Verify signature
+   b. Look up ThriveCart product ID → find BTS product
+   c. Find or create user account
+   d. Grant product entitlements (insert into user_products)
+   e. Log to webhook_logs
+   f. (Future) Create GHL contact, send welcome email, start onboarding sequence
+
+CUSTOMER EXPERIENCE:
+
+7. Customer receives welcome email with login link + temp password (or "set password" link)
+8. Customer logs in → onboarding wizard → dashboard
+9. Dashboard shows content and features based on their purchased product's entitlements
+10. If they buy another product later (upgrade), webhook fires again → new entitlements added cumulatively
+```
+
+---
+
+## What NOT to Build Yet
+
+- Actual SendGrid welcome emails (log to console for now)
+- Actual Twilio SMS (log to console for now)
+- GHL contact sync (log what would be sent for now)
+- ThriveCart API calls (webhooks only — no pulling data FROM ThriveCart)
+- Subscription renewal handling beyond basic status updates
+- Customer-facing billing portal (ThriveCart handles this)
+
+---
+
+## Definition of Done
+
+1. `POST /api/webhooks/thrivecart` endpoint accepts ThriveCart-formatted payloads and returns 200
+2. New purchases auto-create user accounts with correct product entitlements
+3. Existing users who buy additional products get entitlements added (not replaced)
+4. Refunds revoke the specific product's access immediately
+5. Cancellations mark the product as cancelled but don't revoke until expiration
+6. All webhook events are logged to webhook_logs with full payload
+7. Idempotency: processing the same webhook twice has no side effects
+8. Dev simulation endpoints work for testing all event types without real ThriveCart
+9. The nightly expiration job correctly expires time-limited mentorships
+10. Admin panel shows webhook logs with filtering and full payload inspection
+11. A simulated purchase → login → dashboard flow works end-to-end (user sees correct entitlements)

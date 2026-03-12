@@ -6,14 +6,14 @@ import { getUserEntitlements } from "../lib/entitlements";
 
 const router: IRouter = Router();
 
-const userId = 1;
-
-router.get("/progress", async (_req, res): Promise<void> => {
+router.get("/progress", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const entries = await db.select().from(progressTable).where(eq(progressTable.userId, userId)).orderBy(progressTable.completedAt);
   res.json(ListProgressResponse.parse(entries));
 });
 
 router.post("/progress", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = MarkLessonCompleteBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

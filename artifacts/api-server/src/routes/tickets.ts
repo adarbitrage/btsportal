@@ -12,8 +12,6 @@ import {
 
 const router: IRouter = Router();
 
-const userId = 1;
-
 function generateTicketNumber(): string {
   const prefix = "BTS";
   const num = Math.floor(100000 + Math.random() * 900000);
@@ -21,6 +19,7 @@ function generateTicketNumber(): string {
 }
 
 router.get("/tickets", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const status = req.query.status as string | undefined;
 
   let tickets;
@@ -42,6 +41,7 @@ router.get("/tickets", async (req, res): Promise<void> => {
 });
 
 router.post("/tickets", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = CreateTicketBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -70,6 +70,7 @@ router.post("/tickets", async (req, res): Promise<void> => {
 });
 
 router.get("/tickets/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const params = GetTicketParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -96,6 +97,7 @@ router.get("/tickets/:id", async (req, res): Promise<void> => {
 });
 
 router.post("/tickets/:id/messages", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const params = AddTicketMessageParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

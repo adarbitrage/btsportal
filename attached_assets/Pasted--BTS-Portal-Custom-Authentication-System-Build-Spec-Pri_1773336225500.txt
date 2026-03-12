@@ -1,0 +1,387 @@
+# BTS Portal — Custom Authentication System Build Spec
+
+**Priority:** Immediate (blocks all other features)
+**Status:** Not started
+**Reference:** BTS PRD v2.0, Section 4
+
+---
+
+## Context
+
+The portal currently hardcodes user ID 1 (`Marcus Johnson`). This spec replaces that with a full custom email/password authentication system so multiple users can register, log in, and see their own products, entitlements, and progress.
+
+The entitlement engine (products, user_products, entitlement resolution) is already built and working. Auth just needs to plug into it — when a user logs in, they get their own entitlements, not the hardcoded demo user's.
+
+---
+
+## What to Build
+
+### 1. Database Schema Changes
+
+**Update the `users` table** to add auth fields:
+
+```
+password_hash       TEXT NOT NULL          -- bcrypt hash (12+ rounds)
+email_verified      BOOLEAN DEFAULT false  -- email verification status
+email_verify_token  TEXT                   -- verification token (nullable)
+email_verify_expires TIMESTAMP             -- token expiry (24 hours)
+reset_token         TEXT                   -- password reset token (nullable)
+reset_token_expires TIMESTAMP             -- reset token expiry (1 hour)
+last_login_at       TIMESTAMP             -- updated on each login
+failed_login_count  INTEGER DEFAULT 0     -- for rate limiting
+locked_until        TIMESTAMP             -- lockout timestamp (nullable)
+```
+
+**Create a `sessions` table** (if using DB-backed refresh tokens instead of stateless JWTs):
+
+```
+id                  SERIAL PRIMARY KEY
+user_id             INTEGER REFERENCES users(id)
+refresh_token       TEXT NOT NULL UNIQUE    -- hashed refresh token
+expires_at          TIMESTAMP NOT NULL     -- 7-day expiry
+created_at          TIMESTAMP DEFAULT NOW()
+revoked_at          TIMESTAMP              -- nullable, for logout/revocation
+ip_address          TEXT
+user_agent          TEXT
+```
+
+### 2. Auth API Endpoints
+
+All endpoints return JSON. Auth tokens are set as httpOnly cookies, NOT returned in response body.
+
+#### `POST /api/auth/register`
+
+Creates a new user account. In production, this will be called by the ThriveCart webhook handler (not directly by users), but for now build it as a public endpoint for testing.
+
+**Request body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "minimum8chars",
+  "name": "John Doe",
+  "phone": "+15551234567"   // optional
+}
+```
+
+**Logic:**
+1. Validate email format and password strength (minimum 8 chars, at least 1 number, 1 letter)
+2. Check if email already exists → 409 Conflict if so
+3. Hash password with bcrypt (12 rounds)
+4. Create user record with `email_verified: false`
+5. Generate email verification token (crypto.randomBytes, 32 bytes, hex encoded)
+6. Store token + expiry (24 hours from now) on user record
+7. TODO: Send verification email via SendGrid (log token to console for now)
+8. Return 201 with `{ id, email, name }` (no password hash, no tokens in body)
+9. Set httpOnly access token cookie (15 min) + refresh token cookie (7 days)
+
+#### `POST /api/auth/login`
+
+**Request body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "their_password"
+}
+```
+
+**Logic:**
+1. Find user by email → 401 "Invalid credentials" if not found (don't reveal which field failed)
+2. Check if account is locked (`locked_until > now`) → 423 "Account temporarily locked"
+3. Compare password with bcrypt → if wrong:
+   - Increment `failed_login_count`
+   - If `failed_login_count >= 5`: set `locked_until` to now + 15 minutes
+   - Return 401 "Invalid credentials"
+4. If correct:
+   - Reset `failed_login_count` to 0, clear `locked_until`
+   - Update `last_login_at`
+   - Generate access token JWT (15 min expiry, payload: `{ userId, email }`)
+   - Generate refresh token (crypto.randomBytes), store hash in sessions table (7 day expiry)
+   - Set both as httpOnly cookies
+   - Return 200 with `{ id, email, name }`
+
+#### `POST /api/auth/refresh`
+
+No request body — reads refresh token from httpOnly cookie.
+
+**Logic:**
+1. Read refresh token from cookie → 401 if missing
+2. Hash the token, look up in sessions table → 401 if not found or expired or revoked
+3. Generate new access token JWT (15 min)
+4. Optionally rotate refresh token (generate new one, revoke old)
+5. Set new access token cookie
+6. Return 200 with `{ id, email, name }`
+
+#### `POST /api/auth/logout`
+
+**Logic:**
+1. Read refresh token from cookie
+2. Revoke it in sessions table (set `revoked_at`)
+3. Clear both cookies
+4. Return 200
+
+#### `POST /api/auth/forgot-password`
+
+**Request body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Logic:**
+1. Find user by email — **always return 200** regardless of whether email exists (prevent enumeration)
+2. If user exists: generate reset token (crypto.randomBytes, 32 bytes), store hash + expiry (1 hour)
+3. TODO: Send reset email via SendGrid (log token to console for now)
+
+#### `POST /api/auth/reset-password`
+
+**Request body:**
+```json
+{
+  "token": "the_reset_token",
+  "password": "new_password"
+}
+```
+
+**Logic:**
+1. Hash the token, find user with matching `reset_token` and `reset_token_expires > now`
+2. If not found → 400 "Invalid or expired token"
+3. Hash new password with bcrypt (12 rounds)
+4. Update password, clear reset_token fields
+5. Revoke all existing sessions for this user (force re-login)
+6. Return 200
+
+#### `POST /api/auth/verify-email`
+
+**Request body:**
+```json
+{
+  "token": "the_verification_token"
+}
+```
+
+**Logic:**
+1. Find user with matching token and `email_verify_expires > now`
+2. Set `email_verified: true`, clear token fields
+3. Return 200
+
+---
+
+### 3. Auth Middleware
+
+Create an `authenticate` middleware that runs on all `/api/*` routes except:
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `POST /api/auth/verify-email`
+- `POST /api/webhooks/*`
+- `GET /api/health`
+
+**Middleware logic:**
+1. Read access token from httpOnly cookie
+2. Verify JWT signature and expiry
+3. Extract `userId` from payload
+4. Attach `userId` to `req.user` (or `req.userId`)
+5. If token is expired or invalid → 401
+
+**CRITICAL:** Replace ALL hardcoded `userId = 1` references across every route with `req.userId` from the middleware. This is the whole point — every route must use the authenticated user's ID.
+
+---
+
+### 4. Cookie Configuration
+
+```javascript
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
+  sameSite: 'strict',
+  path: '/',
+};
+
+// Access token cookie: short-lived
+res.cookie('access_token', jwt, {
+  ...COOKIE_OPTIONS,
+  maxAge: 15 * 60 * 1000,  // 15 minutes
+});
+
+// Refresh token cookie: long-lived
+res.cookie('refresh_token', refreshToken, {
+  ...COOKIE_OPTIONS,
+  maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+  path: '/api/auth',  // only sent to auth endpoints
+});
+```
+
+---
+
+### 5. JWT Configuration
+
+```javascript
+const JWT_SECRET = process.env.JWT_SECRET;  // MUST be set in env vars
+const JWT_EXPIRY = '15m';
+
+// Payload (keep minimal)
+{
+  userId: number,
+  email: string,
+  iat: number,   // issued at (auto)
+  exp: number    // expiry (auto)
+}
+```
+
+**Important:** Generate a strong JWT_SECRET (minimum 256 bits). Add to .env:
+```
+JWT_SECRET=<generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))">
+```
+
+---
+
+### 6. Frontend Auth Pages
+
+Build these pages/components:
+
+#### Login Page (`/login`)
+- Email + password form
+- "Forgot password?" link
+- Submit → `POST /api/auth/login`
+- On success → redirect to `/dashboard`
+- On 401 → show "Invalid credentials" error
+- On 423 → show "Account locked, try again in X minutes"
+- If already authenticated → redirect to `/dashboard`
+
+#### Register Page (`/register`)
+- Name, email, password, confirm password form
+- Password strength indicator (visual feedback)
+- Submit → `POST /api/auth/register`
+- On success → redirect to `/dashboard` with "Check your email to verify" banner
+- On 409 → show "Email already registered" with login link
+
+#### Forgot Password Page (`/forgot-password`)
+- Email input
+- Submit → `POST /api/auth/forgot-password`
+- Always show "If that email exists, we sent a reset link" (no enumeration)
+
+#### Reset Password Page (`/reset-password?token=xxx`)
+- New password + confirm password
+- Submit → `POST /api/auth/reset-password`
+- On success → redirect to `/login` with "Password updated" message
+
+#### Protected Route Wrapper
+- Wrap all authenticated pages (dashboard, training, coaching, etc.)
+- On page load, check auth status (try `/api/auth/refresh` or `/api/members/me`)
+- If not authenticated → redirect to `/login`
+- Show loading spinner while checking auth
+
+#### Logout
+- Button in sidebar/account menu
+- Calls `POST /api/auth/logout`
+- Clears local state
+- Redirects to `/login`
+
+---
+
+### 7. CSRF Protection
+
+Add CSRF protection to all state-changing endpoints (POST, PATCH, DELETE):
+
+**Option A (recommended for simplicity):** Double-submit cookie pattern
+- On login, set a `csrf_token` cookie (NOT httpOnly — JS needs to read it)
+- Frontend reads the cookie and sends it as an `X-CSRF-Token` header on every request
+- Backend middleware compares the cookie value to the header value
+
+**Option B:** csurf middleware (if available and not deprecated in your Express version)
+
+---
+
+### 8. Dependencies to Install
+
+```bash
+npm install bcrypt jsonwebtoken cookie-parser
+npm install -D @types/bcrypt @types/jsonwebtoken @types/cookie-parser
+```
+
+Add `cookie-parser` middleware to Express app (before routes):
+```javascript
+import cookieParser from 'cookie-parser';
+app.use(cookieParser());
+```
+
+---
+
+### 9. Environment Variables
+
+Add to `.env`:
+```
+JWT_SECRET=<64-byte-hex-string>
+BCRYPT_ROUNDS=12
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
+```
+
+---
+
+### 10. Migration Checklist
+
+After implementing auth, verify these work correctly:
+
+- [ ] Register a new user → logs in automatically → sees empty dashboard (no products yet)
+- [ ] Log out → redirected to login page
+- [ ] Log in with correct credentials → sees dashboard
+- [ ] Log in with wrong password → error message, no lockout yet
+- [ ] Fail 5 times → account locked for 15 min
+- [ ] Forgot password → token logged to console → reset works
+- [ ] Two different users log in → each sees their own products/progress/entitlements
+- [ ] Access token expires (15 min) → refresh happens transparently → user stays logged in
+- [ ] Refresh token expires (7 days) → user redirected to login
+- [ ] All API routes use `req.userId` instead of hardcoded ID 1
+- [ ] Unauthenticated requests to protected routes → 401
+- [ ] Webhook endpoints remain publicly accessible (no auth required)
+
+---
+
+### 11. Seed Data Update
+
+After auth is implemented, update the seed script to create demo users with passwords:
+
+```
+User 1: Marcus Johnson (existing demo user)
+  - Email: marcus@example.com
+  - Password: demo1234
+  - Products: Backroad System + 6-Month Mentorship
+
+User 2: Sarah Chen (new demo user)
+  - Email: sarah@example.com
+  - Password: demo1234
+  - Products: Reserve Income System only (front-end buyer)
+
+User 3: Admin User
+  - Email: admin@buildtestscale.com
+  - Password: admin1234
+  - Products: Lifetime Mentorship
+  - Role: admin (add role field to users table if not present)
+```
+
+This lets you test the entitlement system with different product combinations by logging in as different users.
+
+---
+
+## What NOT to Build Yet
+
+- SendGrid email sending (just log tokens/emails to console for now)
+- Social login / OAuth
+- Email verification enforcement (let unverified users in for now, enforce later)
+- Admin role-based access control (just add the role field, enforce later)
+- ThriveCart webhook account provisioning (next task after auth works)
+
+---
+
+## Definition of Done
+
+1. No hardcoded user IDs anywhere in the codebase
+2. Login/register/logout/forgot-password all work end-to-end
+3. Two different users can log in and see completely different dashboards based on their products
+4. JWTs are httpOnly cookies (not localStorage, not response body)
+5. Password hashing uses bcrypt with 12+ rounds
+6. Rate limiting prevents brute force (5 attempts → 15 min lockout)
+7. All existing features (dashboard, training, coaching, support, chat) still work, now using authenticated user context

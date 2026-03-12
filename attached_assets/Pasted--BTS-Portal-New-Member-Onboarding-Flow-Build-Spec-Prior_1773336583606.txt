@@ -1,0 +1,809 @@
+# BTS Portal — New Member Onboarding Flow Build Spec
+
+**Priority:** After Auth + ThriveCart Webhook
+**Status:** Not started
+**Depends on:** Custom Auth System, ThriveCart Webhook Integration
+**Reference:** BTS PRD v2.0, Sections 4.3, 6.3, 16
+
+---
+
+## Context
+
+The `users` table already has an `onboarding_complete` field (boolean, defaults to `false`). When a new member logs in for the first time — whether they registered manually or were auto-provisioned via ThriveCart webhook — they need to be routed through a structured onboarding experience before they can access the main dashboard.
+
+The onboarding flow has two jobs: (1) collect required information and legal agreements, and (2) give the new member a clear, confident path to their first win inside the portal. A member who completes onboarding should know exactly what they bought, what's available to them, and what to do first.
+
+---
+
+## Routing Logic
+
+### Global Route Guard
+
+Every authenticated page in the portal must check `onboarding_complete` before rendering. This is a single check at the top of the protected route wrapper.
+
+```
+IF user is authenticated AND onboarding_complete === false:
+  → Redirect to /onboarding (regardless of what URL they requested)
+  → The ONLY pages accessible are /onboarding/* and /api/auth/logout
+
+IF user is authenticated AND onboarding_complete === true:
+  → Allow normal routing (dashboard, training, coaching, etc.)
+  → Block access to /onboarding (redirect to /dashboard if they try to go back)
+```
+
+**Important:** The onboarding state is fetched from `/api/members/me` on initial auth check. Don't rely on a local flag that could get out of sync — always trust the server.
+
+---
+
+## Onboarding Flow (5 Steps)
+
+The onboarding is a multi-step wizard. Each step is a screen within `/onboarding`. Progress is saved after each step so the member can resume if they close the browser mid-flow.
+
+The URL structure:
+```
+/onboarding/welcome          → Step 1
+/onboarding/documents        → Step 2
+/onboarding/profile          → Step 3
+/onboarding/orientation      → Step 4
+/onboarding/quick-start      → Step 5
+```
+
+A progress indicator (step dots or progress bar) is visible at the top of every step showing 1 of 5, 2 of 5, etc.
+
+Members cannot skip steps or jump ahead. They must complete each step sequentially. The back button is available on steps 2–5 to review previous steps (read-only if already submitted).
+
+---
+
+### Step 1: Welcome Screen (`/onboarding/welcome`)
+
+**Purpose:** Make the member feel good about their purchase and set expectations for what's coming.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────┐
+│  [Progress: Step 1 of 5]                    │
+│                                             │
+│  Welcome to Build, Test, Scale, [Name]!     │
+│                                             │
+│  ┌───────────────────────────────────┐      │
+│  │                                   │      │
+│  │     [Welcome Video Embed]         │      │
+│  │     (from coaching team)          │      │
+│  │                                   │      │
+│  └───────────────────────────────────┘      │
+│                                             │
+│  Here's what you just unlocked:             │
+│                                             │
+│  ✓ [Product Name] — [brief description]     │
+│  ✓ [Product Name] — [brief description]     │
+│    (list all products the member owns)      │
+│                                             │
+│  In the next few minutes, we'll get your    │
+│  account set up and show you exactly where  │
+│  to start.                                  │
+│                                             │
+│              [ Let's Go → ]                 │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+**Data needed from API:**
+- Member's name (from user record)
+- List of owned products with descriptions (from `/api/members/me/products`)
+
+**Welcome video:**
+- Embed a Vimeo/Wistia player (URL configured in admin settings, not hardcoded)
+- If no video URL is configured, skip the video and just show the text welcome
+- Video is optional to watch — the "Let's Go" button is always active
+
+**API call on "Let's Go":**
+```
+PATCH /api/members/me/onboarding
+{ "step": "welcome", "completed": true }
+```
+
+This saves progress so they can resume at Step 2 if they leave.
+
+---
+
+### Step 2: Document Signing (`/onboarding/documents`)
+
+**Purpose:** Collect legally required agreements before granting portal access.
+
+**Documents to sign:**
+1. Membership Agreement
+2. Terms of Service
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────┐
+│  [Progress: Step 2 of 5]                    │
+│                                             │
+│  Before we get started, please review and   │
+│  sign the following agreements.              │
+│                                             │
+│  ┌───────────────────────────────────┐      │
+│  │  MEMBERSHIP AGREEMENT             │      │
+│  │                                   │      │
+│  │  [Scrollable document content]    │      │
+│  │  [Must scroll to bottom to        │      │
+│  │   enable checkbox]                │      │
+│  │                                   │      │
+│  └───────────────────────────────────┘      │
+│                                             │
+│  ☐ I have read and agree to the             │
+│    Membership Agreement                     │
+│                                             │
+│  ┌───────────────────────────────────┐      │
+│  │  TERMS OF SERVICE                 │      │
+│  │                                   │      │
+│  │  [Scrollable document content]    │      │
+│  │  [Must scroll to bottom to        │      │
+│  │   enable checkbox]                │      │
+│  │                                   │      │
+│  └───────────────────────────────────┘      │
+│                                             │
+│  ☐ I have read and agree to the             │
+│    Terms of Service                         │
+│                                             │
+│  ─────────────────────────────────────      │
+│                                             │
+│  Signature: [___________________________]   │
+│             (type your full legal name)      │
+│                                             │
+│  Date: March 12, 2026 (auto-filled)        │
+│                                             │
+│         [ ← Back ]    [ Continue → ]        │
+│         (Continue disabled until both        │
+│          boxes checked + signature entered)  │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+**Scroll-to-read enforcement:**
+- Each document is in a scrollable container with a fixed height (~300px)
+- The checkbox for each document is disabled until the user scrolls to the bottom
+- Use an `IntersectionObserver` or scroll position check on a sentinel element at the bottom of each document
+- This is a UX pattern for legal compliance — it doesn't guarantee they read it, but it demonstrates they had the opportunity
+
+**Document content:**
+- Stored in the database or as markdown files, editable via admin panel
+- Rendered as formatted HTML inside the scrollable container
+- Version-tracked: if the document is updated after a member signs, their signature still references the version they agreed to
+
+**Signature:**
+- For v1: typed signature (member types their full legal name into a text input)
+- Future enhancement: canvas-drawn signature
+- The typed name must match the name on their account (case-insensitive) OR be any non-empty string (depending on legal requirements — for now, just require non-empty)
+
+**On submit:**
+
+```
+POST /api/documents/sign
+{
+  "documents": [
+    {
+      "type": "membership_agreement",
+      "version": "1.0",
+      "agreed": true
+    },
+    {
+      "type": "terms_of_service", 
+      "version": "1.0",
+      "agreed": true
+    }
+  ],
+  "signature": "John Michael Doe",
+  "signed_at": "2026-03-12T14:30:00Z"
+}
+```
+
+**Backend logic:**
+1. Validate all documents are agreed to and signature is non-empty
+2. For each document:
+   - Generate a PDF containing: document content, member name, email, signature, date/time, IP address
+   - Store PDF in Cloudflare R2 (path: `documents/{user_id}/{document_type}_{timestamp}.pdf`)
+   - Insert record into `signed_documents` table
+3. TODO: Email a copy of signed documents to member via SendGrid (log for now)
+4. Save onboarding step progress
+
+**If documents are already signed** (member went back to this step):
+- Show a "You've already signed these documents" message with the date signed
+- Show a "View your signed documents" link
+- "Continue" button is immediately active
+
+---
+
+### Step 3: Profile Setup (`/onboarding/profile`)
+
+**Purpose:** Collect information needed for personalization, timezone handling, and engagement scoring.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────┐
+│  [Progress: Step 3 of 5]                    │
+│                                             │
+│  Let's set up your profile.                 │
+│                                             │
+│  Full Name                                  │
+│  [John Doe_________________________]        │
+│  (pre-filled from account, editable)        │
+│                                             │
+│  Phone Number                               │
+│  [+1 (555) 123-4567________________]        │
+│  (pre-filled if provided at purchase)       │
+│                                             │
+│  Timezone                                   │
+│  [America/Chicago (CT) ____________ ▼]      │
+│  (auto-detected from browser, editable)     │
+│                                             │
+│  ─────────────────────────────────────      │
+│                                             │
+│  How would you describe your affiliate      │
+│  marketing experience?                      │
+│                                             │
+│  ○ Complete beginner — never run an ad      │
+│  ○ Some experience — run a few campaigns    │
+│  ○ Intermediate — consistent but not scaled │
+│  ○ Advanced — scaling and profitable        │
+│                                             │
+│  What's your primary goal with BTS?         │
+│                                             │
+│  ○ Learn the fundamentals                   │
+│  ○ Launch my first campaign                 │
+│  ○ Scale existing campaigns                 │
+│  ○ Build a full-time income                 │
+│  ○ Add affiliate marketing to my business   │
+│                                             │
+│  ☐ I'd like to receive SMS notifications    │
+│    (coaching call reminders, updates)        │
+│                                             │
+│         [ ← Back ]    [ Continue → ]        │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+**Required fields:** Name, timezone, experience level, primary goal
+**Optional fields:** Phone, SMS opt-in
+
+**Timezone detection:**
+- On page load, detect timezone via `Intl.DateTimeFormat().resolvedOptions().timeZone`
+- Pre-select it in the dropdown but let the member change it
+- Store as IANA timezone string (e.g., `America/Chicago`)
+
+**On submit:**
+
+```
+PATCH /api/members/me/profile
+{
+  "name": "John Doe",
+  "phone": "+15551234567",
+  "timezone": "America/Chicago",
+  "experience_level": "some_experience",
+  "primary_goal": "launch_first_campaign",
+  "sms_opt_in": true
+}
+```
+
+**Backend logic:**
+1. Update user record with all fields
+2. Sync to GHL contact (TODO: stub for now — log what would be sent)
+   - Experience level and primary goal are valuable for GHL segmentation/automations
+3. Save onboarding step progress
+
+**Schema additions needed on `users` table:**
+```
+experience_level    TEXT        -- 'beginner', 'some_experience', 'intermediate', 'advanced'
+primary_goal        TEXT        -- 'learn_fundamentals', 'launch_first', 'scale', 'full_time', 'add_to_business'
+sms_opt_in          BOOLEAN DEFAULT false
+onboarding_step     INTEGER DEFAULT 0    -- tracks which step they're on (0-5)
+```
+
+---
+
+### Step 4: Product Orientation (`/onboarding/orientation`)
+
+**Purpose:** Show the member exactly what they have access to and where to find everything. This is the step that prevents "I bought this, now what?" confusion.
+
+**This step is dynamic** — the content changes based on which products the member owns.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────┐
+│  [Progress: Step 4 of 5]                    │
+│                                             │
+│  Here's everything included in your plan.   │
+│                                             │
+│  ┌─ YOUR ACCESS ────────────────────┐       │
+│  │                                  │       │
+│  │  ✅ Foundational Training        │       │
+│  │     6 modules of video + text    │       │
+│  │     training to build your       │       │
+│  │     affiliate marketing base     │       │
+│  │                                  │       │
+│  │  ✅ Advanced Training            │       │
+│  │     Deep-dive modules on         │       │
+│  │     scaling and optimization     │       │
+│  │     (only if LaunchPad+)         │       │
+│  │                                  │       │
+│  │  ✅ Software & Tools             │       │
+│  │     Access to the BTS tool       │       │
+│  │     suite for campaign building  │       │
+│  │     (only if LaunchPad+)         │       │
+│  │                                  │       │
+│  │  ✅ Group Coaching Calls         │       │
+│  │     Weekly Q&A + strategy calls  │       │
+│  │     with BTS coaches             │       │
+│  │     (only if Mentorship)         │       │
+│  │                                  │       │
+│  │  ✅ 1-on-1 Coaching              │       │
+│  │     Monthly private sessions     │       │
+│  │     (only if 1-Year/Lifetime)    │       │
+│  │                                  │       │
+│  │  ✅ AI Assistant                 │       │
+│  │     Get instant answers 24/7     │       │
+│  │                                  │       │
+│  │  ✅ Support                      │       │
+│  │     X tickets/month with Y SLA   │       │
+│  │                                  │       │
+│  └──────────────────────────────────┘       │
+│                                             │
+│  ┌─ AVAILABLE UPGRADES ─────────────┐       │
+│  │  (only shown if not top tier)    │       │
+│  │                                  │       │
+│  │  🔒 [Next tier feature]         │       │
+│  │     Unlock with [Product Name]   │       │
+│  │                                  │       │
+│  │        [ See Upgrade Options ]   │       │
+│  │                                  │       │
+│  └──────────────────────────────────┘       │
+│                                             │
+│         [ ← Back ]    [ Continue → ]        │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+**How to build the orientation content:**
+
+Create an `orientation_items` configuration (database or JSON config file) that maps entitlement keys to orientation cards:
+
+```json
+[
+  {
+    "entitlement": "content:frontend",
+    "title": "Foundational Training",
+    "description": "6 modules of video + text training covering affiliate marketing fundamentals, niche selection, content creation, and traffic basics.",
+    "icon": "book-open",
+    "nav_link": "/training"
+  },
+  {
+    "entitlement": "content:advanced",
+    "title": "Advanced Training",
+    "description": "Deep-dive modules on campaign optimization, scaling strategies, advanced copywriting, and analytics mastery.",
+    "icon": "graduation-cap",
+    "nav_link": "/training"
+  },
+  {
+    "entitlement": "software:base",
+    "title": "Software & Tools",
+    "description": "Access to the BTS tool suite for building and managing campaigns.",
+    "icon": "wrench",
+    "nav_link": "/tools"
+  },
+  {
+    "entitlement": "coaching:group",
+    "title": "Group Coaching Calls",
+    "description": "Weekly Q&A and monthly strategy sessions with BTS coaches. Check the calendar for upcoming calls.",
+    "icon": "video",
+    "nav_link": "/coaching"
+  },
+  {
+    "entitlement": "coaching:one_on_one:monthly",
+    "title": "1-on-1 Coaching (Monthly)",
+    "description": "One private 30–60 minute session with a BTS coach every month. Book your first session now.",
+    "icon": "user-check",
+    "nav_link": "/coaching/one-on-one"
+  },
+  {
+    "entitlement": "coaching:one_on_one:weekly",
+    "title": "1-on-1 Coaching (Weekly)",
+    "description": "One private 60-minute session with a BTS coach every week.",
+    "icon": "user-check",
+    "nav_link": "/coaching/one-on-one"
+  },
+  {
+    "entitlement": "community:access",
+    "title": "Mentorship Community",
+    "description": "Connect with fellow BTS members, share wins, get accountability, and learn from others' experiences.",
+    "icon": "users",
+    "nav_link": "/community"
+  },
+  {
+    "entitlement": "commissions:entry",
+    "title": "Affiliate Commissions",
+    "description": "Earn commissions by referring new members to BTS. Your referral links and earnings dashboard are ready.",
+    "icon": "dollar-sign",
+    "nav_link": "/commissions"
+  }
+]
+```
+
+**Rendering logic:**
+1. Fetch member's resolved entitlements from `/api/members/me/entitlements`
+2. For each orientation item: if the member HAS the entitlement → show as ✅ (green, accessible)
+3. Items the member does NOT have → show in the "Available Upgrades" section as 🔒 (locked) with the product name that would unlock it
+4. If the member has Lifetime (all entitlements) → hide the upgrades section entirely
+
+**No API call needed on "Continue"** — this is a read-only informational step. Just save the onboarding step progress:
+
+```
+PATCH /api/members/me/onboarding
+{ "step": "orientation", "completed": true }
+```
+
+---
+
+### Step 5: Quick Start (`/onboarding/quick-start`)
+
+**Purpose:** Give the member ONE clear action to take right now. Don't overwhelm them with options — tell them exactly what to do first.
+
+**This step is also dynamic** based on products owned.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────┐
+│  [Progress: Step 5 of 5]                    │
+│                                             │
+│  You're all set! Here's your first step.    │
+│                                             │
+│  ┌───────────────────────────────────┐      │
+│  │                                   │      │
+│  │  🎯 YOUR FIRST MISSION           │      │
+│  │                                   │      │
+│  │  [Dynamic based on product:]      │      │
+│  │                                   │      │
+│  │  FRONT-END ONLY:                  │      │
+│  │  "Start Module 1: The Affiliate   │      │
+│  │   Marketing Landscape. It takes   │      │
+│  │   about 20 minutes and will give  │      │
+│  │   you the foundation for          │      │
+│  │   everything that follows."       │      │
+│  │                                   │      │
+│  │  LAUNCHPAD:                       │      │
+│  │  "Start Module 1 to build your    │      │
+│  │   foundation, then check out the  │      │
+│  │   Software & Tools section to     │      │
+│  │   see what's available."          │      │
+│  │                                   │      │
+│  │  MENTORSHIP:                      │      │
+│  │  "Your next coaching call is      │      │
+│  │   [Day, Date at Time]. Start      │      │
+│  │   Module 1 now so you come        │      │
+│  │   prepared with questions."       │      │
+│  │                                   │      │
+│  └───────────────────────────────────┘      │
+│                                             │
+│  ┌─ QUICK LINKS ────────────────────┐       │
+│  │                                  │       │
+│  │  📚 Start Training    (→ link)   │       │
+│  │  📅 View Call Schedule (→ link)  │       │
+│  │     (only if coaching access)    │       │
+│  │  🛠️ Explore Tools     (→ link)   │       │
+│  │     (only if software access)    │       │
+│  │  💬 Ask the AI Assistant         │       │
+│  │  🎫 Get Help (Support)           │       │
+│  │                                  │       │
+│  └──────────────────────────────────┘       │
+│                                             │
+│          [ Go to My Dashboard → ]           │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+**On "Go to My Dashboard":**
+
+```
+PATCH /api/members/me/onboarding
+{ "step": "quick_start", "completed": true }
+```
+
+**Backend logic for this final step:**
+1. Save step progress
+2. Set `onboarding_complete = true` on the user record
+3. Update `onboarding_completed_at` timestamp (add this column if not present)
+4. TODO: Sync to GHL (onboarding_complete = true, onboarding_completed_at, experience_level, primary_goal)
+5. TODO: If the 3-day onboarding email/SMS sequence is running, mark Step 1 (first login + onboarding) as complete — this may trigger skipping subsequent onboarding messages and transitioning to the engagement sequence
+
+After this, the global route guard sees `onboarding_complete = true` and allows normal portal access. The member is redirected to `/dashboard`.
+
+---
+
+## API Endpoints
+
+### New Endpoints
+
+#### `PATCH /api/members/me/onboarding`
+
+Saves progress on each onboarding step.
+
+**Request body:**
+```json
+{
+  "step": "welcome",       // "welcome" | "documents" | "profile" | "orientation" | "quick_start"
+  "completed": true
+}
+```
+
+**Logic:**
+1. Map step name to step number (welcome=1, documents=2, profile=3, orientation=4, quick_start=5)
+2. Verify the member hasn't already completed onboarding (`onboarding_complete` must be false)
+3. Verify the requested step is the next step in sequence (can't skip ahead)
+4. Update `onboarding_step` on user record
+5. If step is "quick_start": also set `onboarding_complete = true` and `onboarding_completed_at = NOW()`
+6. Return 200 with updated user profile
+
+#### `GET /api/members/me/onboarding`
+
+Returns the member's current onboarding status and step.
+
+**Response:**
+```json
+{
+  "onboardingComplete": false,
+  "currentStep": 3,
+  "stepsCompleted": {
+    "welcome": true,
+    "documents": true,
+    "profile": false,
+    "orientation": false,
+    "quick_start": false
+  },
+  "documentsSignedAt": "2026-03-12T14:30:00Z"    // null if not signed
+}
+```
+
+#### `GET /api/onboarding/orientation`
+
+Returns the orientation items filtered by the member's entitlements.
+
+**Response:**
+```json
+{
+  "accessible": [
+    {
+      "title": "Foundational Training",
+      "description": "6 modules of video + text training...",
+      "icon": "book-open",
+      "navLink": "/training"
+    }
+  ],
+  "locked": [
+    {
+      "title": "Group Coaching Calls",
+      "description": "Weekly Q&A and strategy sessions...",
+      "icon": "video",
+      "unlockedBy": "BTS 3-Month Mentorship"
+    }
+  ]
+}
+```
+
+### Updated Endpoints
+
+#### `PATCH /api/members/me/profile`
+
+Add support for the new profile fields:
+
+```json
+{
+  "name": "John Doe",
+  "phone": "+15551234567",
+  "timezone": "America/Chicago",
+  "experience_level": "some_experience",
+  "primary_goal": "launch_first_campaign",
+  "sms_opt_in": true
+}
+```
+
+#### `POST /api/documents/sign`
+
+Already spec'd in the Document Signing section of the PRD. Build it as part of this onboarding flow.
+
+#### `GET /api/members/me`
+
+Make sure this returns `onboarding_complete` and `onboarding_step` so the frontend route guard can make decisions.
+
+---
+
+## Schema Additions
+
+Add to `users` table:
+
+```sql
+experience_level         TEXT              -- 'beginner', 'some_experience', 'intermediate', 'advanced'
+primary_goal             TEXT              -- 'learn_fundamentals', 'launch_first', 'scale', 'full_time', 'add_to_business'
+sms_opt_in               BOOLEAN DEFAULT false
+onboarding_step          INTEGER DEFAULT 0  -- 0=not started, 1=welcome, 2=docs, 3=profile, 4=orientation, 5=complete
+onboarding_completed_at  TIMESTAMP          -- when onboarding was finished
+```
+
+Create `legal_documents` table (for admin-managed document content):
+
+```sql
+id                  SERIAL PRIMARY KEY
+type                TEXT NOT NULL          -- 'membership_agreement', 'terms_of_service'
+version             TEXT NOT NULL          -- '1.0', '1.1', etc.
+title               TEXT NOT NULL          -- display title
+content             TEXT NOT NULL          -- markdown or HTML content
+is_active           BOOLEAN DEFAULT true   -- only one active version per type
+created_at          TIMESTAMP DEFAULT NOW()
+updated_at          TIMESTAMP DEFAULT NOW()
+```
+
+Update `signed_documents` table to include:
+
+```sql
+document_version    TEXT NOT NULL          -- which version they signed
+signature_text      TEXT NOT NULL          -- the typed signature
+```
+
+Create `orientation_items` table (or use a JSON config — either works):
+
+```sql
+id                  SERIAL PRIMARY KEY
+entitlement_key     TEXT NOT NULL          -- matches entitlement key
+title               TEXT NOT NULL
+description         TEXT NOT NULL
+icon                TEXT                   -- lucide icon name
+nav_link            TEXT                   -- portal path
+sort_order          INTEGER DEFAULT 0
+unlocked_by_product TEXT                   -- product name shown in locked state
+is_active           BOOLEAN DEFAULT true
+```
+
+---
+
+## Frontend Components
+
+### OnboardingLayout
+
+A shared layout wrapper for all 5 onboarding steps:
+- Clean, focused design (no sidebar navigation — just the BTS logo and a progress indicator)
+- Progress bar or step dots at the top
+- Consistent padding, max-width container (700–800px centered)
+- Mobile-responsive
+- No access to the main portal navigation (keep them focused)
+
+### ProgressIndicator
+
+Shows steps 1–5 with:
+- Completed steps: filled circle with checkmark
+- Current step: filled circle, highlighted
+- Future steps: empty/gray circle
+- Step labels below each dot (optional on mobile)
+
+### ScrollableDocument
+
+Reusable component for the document signing step:
+- Fixed-height scrollable container
+- Renders markdown/HTML content
+- Tracks scroll position
+- Fires `onScrolledToBottom` callback to enable the agreement checkbox
+- Shows a subtle "Scroll to continue" indicator if they haven't reached the bottom
+
+### ProductOrientationCard
+
+Reusable card for the orientation step:
+- Icon, title, description, link
+- Two variants: "accessible" (green check, clickable link) and "locked" (lock icon, upgrade prompt)
+
+---
+
+## Conditional Logic Details
+
+### Quick Start — Dynamic Content Rules
+
+The "first mission" message on Step 5 depends on the member's highest product level:
+
+```
+IF member has any Mentorship product:
+  - Show next upcoming coaching call date/time
+  - Primary CTA: "Start Module 1 so you're prepared for your first call"
+  - Secondary links: Training, Call Schedule, Community
+
+IF member has LaunchPad (no Mentorship):
+  - Primary CTA: "Start Module 1, then explore the Software & Tools"
+  - Secondary links: Training, Tools, AI Assistant
+
+IF member has Front-End only:
+  - Primary CTA: "Start Module 1: The Affiliate Marketing Landscape"
+  - Secondary links: Training, AI Assistant, Support
+  - Subtle upgrade prompt: "Want hands-on help? See our mentorship options."
+```
+
+### Next Coaching Call Data
+
+For mentorship members, Step 5 needs the next upcoming coaching call. Use the existing `/api/calls` endpoint filtered to the member's entitlements, sorted by date, limit 1.
+
+If no upcoming calls are scheduled, fall back to: "Check the coaching calendar for upcoming sessions."
+
+---
+
+## Admin Requirements
+
+### Document Management
+
+Add to admin panel:
+- View all legal document versions
+- Create a new version of a document (type, version number, content in markdown)
+- Set which version is "active" (shown to new members during onboarding)
+- View which members signed which version and when
+
+### Orientation Item Management
+
+Add to admin panel:
+- CRUD for orientation items (title, description, icon, entitlement key, nav link, sort order)
+- Preview what orientation looks like for each product level
+
+### Onboarding Analytics
+
+Add a simple widget to the admin dashboard:
+- Total members in onboarding (not yet completed)
+- Breakdown by current step (how many stuck at each step)
+- Average time from account creation to onboarding completion
+- Onboarding completion rate (completed / total accounts created, last 30 days)
+- Drop-off rate by step (which step loses the most people)
+
+---
+
+## Seed Data
+
+Seed the following for development:
+
+**Legal documents:**
+```
+Membership Agreement v1.0 — placeholder content covering terms, cancellation, refund, code of conduct
+Terms of Service v1.0 — placeholder content covering usage, IP, liability
+```
+
+**Orientation items:**
+```
+All items from the configuration example in Step 4 above
+```
+
+**Demo users:**
+- Marcus Johnson: `onboarding_complete: true, onboarding_step: 5` (existing user, skip onboarding)
+- Sarah Chen: `onboarding_complete: false, onboarding_step: 0` (test the full onboarding flow)
+- Admin user: `onboarding_complete: true, onboarding_step: 5` (skip onboarding)
+
+---
+
+## What NOT to Build Yet
+
+- SendGrid email for signed document copies (log for now)
+- GHL sync of profile data and onboarding status (log for now)
+- Canvas-drawn signatures (typed signature is fine for v1)
+- Onboarding email/SMS sequence interaction (the 3-day sequence is a separate spec)
+- Welcome video recording/upload (use a placeholder or skip the video embed)
+- PDF generation for signed documents (store the signature record in the database with all metadata; PDF generation can be added later)
+
+---
+
+## Definition of Done
+
+1. New members with `onboarding_complete: false` are always redirected to `/onboarding` regardless of requested URL
+2. Members with `onboarding_complete: true` cannot access `/onboarding` (redirected to dashboard)
+3. All 5 steps render correctly and enforce sequential completion
+4. Document signing captures typed signature, timestamps, and IP address for both documents
+5. Profile setup saves all fields including experience level, primary goal, timezone, and SMS opt-in
+6. Orientation step dynamically shows accessible features vs locked upgrades based on the member's actual entitlements
+7. Quick start step shows product-appropriate first action with correct coaching call data (if applicable)
+8. Onboarding progress is saved per-step — closing the browser and returning resumes at the correct step
+9. Completing Step 5 sets `onboarding_complete: true` and redirects to dashboard
+10. Two demo users demonstrate both states: one who sees the full onboarding flow, one who goes straight to dashboard
+11. Admin panel shows onboarding analytics and document management

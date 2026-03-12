@@ -1,0 +1,303 @@
+import { Router, type IRouter } from "express";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { db, usersTable, sessionsTable } from "@workspace/db";
+import { eq, and, gt, isNull } from "drizzle-orm";
+import { generateAccessToken } from "../middleware/auth";
+
+const router: IRouter = Router();
+const BCRYPT_ROUNDS = 12;
+
+const COOKIE_BASE = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path: "/",
+};
+
+function setAuthCookies(res: any, userId: number, email: string, refreshToken: string) {
+  const accessToken = generateAccessToken(userId, email);
+
+  res.cookie("access_token", accessToken, {
+    ...COOKIE_BASE,
+    maxAge: 15 * 60 * 1000,
+  });
+
+  res.cookie("refresh_token", refreshToken, {
+    ...COOKIE_BASE,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/api/auth",
+  });
+
+  const csrfToken = crypto.randomBytes(32).toString("hex");
+  res.cookie("csrf_token", csrfToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict" as const,
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
+async function createSession(userId: number, req: any): Promise<string> {
+  const refreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  await db.insert(sessionsTable).values({
+    userId,
+    refreshTokenHash,
+    expiresAt,
+    ipAddress: req.ip || req.connection?.remoteAddress,
+    userAgent: req.headers["user-agent"] || null,
+  });
+
+  return refreshToken;
+}
+
+router.post("/auth/register", async (req, res): Promise<void> => {
+  const { email, password, name, phone } = req.body;
+
+  if (!email || !password || !name) {
+    res.status(400).json({ error: "Email, password, and name are required" });
+    return;
+  }
+
+  if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: "Password must be at least 8 characters with at least 1 letter and 1 number" });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ error: "Invalid email format" });
+    return;
+  }
+
+  const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  if (existing) {
+    res.status(409).json({ error: "Email already registered" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const emailVerifyToken = crypto.randomBytes(32).toString("hex");
+  const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const [user] = await db.insert(usersTable).values({
+    name,
+    email: email.toLowerCase(),
+    passwordHash,
+    phone: phone || null,
+    emailVerified: false,
+    emailVerifyToken,
+    emailVerifyExpires,
+  }).returning();
+
+  console.log(`[AUTH] Email verification token for ${email}: ${emailVerifyToken}`);
+
+  const refreshToken = await createSession(user.id, req);
+  setAuthCookies(res, user.id, user.email, refreshToken);
+
+  res.status(201).json({ id: user.id, email: user.email, name: user.name });
+});
+
+router.post("/auth/login", async (req, res): Promise<void> => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    res.status(400).json({ error: "Email and password are required" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  if (!user) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+    res.status(423).json({ error: `Account temporarily locked. Try again in ${minutesLeft} minute(s).` });
+    return;
+  }
+
+  const passwordValid = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordValid) {
+    const newCount = (user.failedLoginCount || 0) + 1;
+    const updates: any = { failedLoginCount: newCount };
+    if (newCount >= 5) {
+      updates.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+    }
+    await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id));
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  await db.update(usersTable).set({
+    failedLoginCount: 0,
+    lockedUntil: null,
+    lastLoginAt: new Date(),
+  }).where(eq(usersTable.id, user.id));
+
+  const refreshToken = await createSession(user.id, req);
+  setAuthCookies(res, user.id, user.email, refreshToken);
+
+  res.json({ id: user.id, email: user.email, name: user.name });
+});
+
+router.post("/auth/refresh", async (req, res): Promise<void> => {
+  const token = req.cookies?.refresh_token;
+  if (!token) {
+    res.status(401).json({ error: "No refresh token" });
+    return;
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const [session] = await db.select().from(sessionsTable).where(
+    and(
+      eq(sessionsTable.refreshTokenHash, tokenHash),
+      isNull(sessionsTable.revokedAt),
+      gt(sessionsTable.expiresAt, new Date())
+    )
+  );
+
+  if (!session) {
+    res.status(401).json({ error: "Invalid or expired refresh token" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, session.userId));
+  if (!user) {
+    res.status(401).json({ error: "User not found" });
+    return;
+  }
+
+  await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.id, session.id));
+
+  const newRefreshToken = await createSession(user.id, req);
+  setAuthCookies(res, user.id, user.email, newRefreshToken);
+
+  res.json({ id: user.id, email: user.email, name: user.name });
+});
+
+router.post("/auth/logout", async (req, res): Promise<void> => {
+  const token = req.cookies?.refresh_token;
+  if (token) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.refreshTokenHash, tokenHash));
+  }
+
+  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("refresh_token", { path: "/api/auth" });
+  res.clearCookie("csrf_token", { path: "/" });
+  res.json({ success: true });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body;
+  res.json({ message: "If that email exists, we sent a reset link." });
+
+  if (!email) return;
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  if (!user) return;
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+  await db.update(usersTable).set({
+    resetToken: resetTokenHash,
+    resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
+  }).where(eq(usersTable.id, user.id));
+
+  console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    res.status(400).json({ error: "Token and new password are required" });
+    return;
+  }
+
+  if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    res.status(400).json({ error: "Password must be at least 8 characters with at least 1 letter and 1 number" });
+    return;
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const [user] = await db.select().from(usersTable).where(
+    and(
+      eq(usersTable.resetToken, tokenHash),
+      gt(usersTable.resetTokenExpires, new Date())
+    )
+  );
+
+  if (!user) {
+    res.status(400).json({ error: "Invalid or expired reset token" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await db.update(usersTable).set({
+    passwordHash,
+    resetToken: null,
+    resetTokenExpires: null,
+  }).where(eq(usersTable.id, user.id));
+
+  await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.userId, user.id));
+
+  res.json({ message: "Password updated successfully. Please log in." });
+});
+
+router.post("/auth/verify-email", async (req, res): Promise<void> => {
+  const { token } = req.body;
+  if (!token) {
+    res.status(400).json({ error: "Token is required" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(
+    and(
+      eq(usersTable.emailVerifyToken, token),
+      gt(usersTable.emailVerifyExpires, new Date())
+    )
+  );
+
+  if (!user) {
+    res.status(400).json({ error: "Invalid or expired verification token" });
+    return;
+  }
+
+  await db.update(usersTable).set({
+    emailVerified: true,
+    emailVerifyToken: null,
+    emailVerifyExpires: null,
+  }).where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Email verified successfully" });
+});
+
+router.get("/auth/me", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const [user] = await db.select({
+    id: usersTable.id,
+    email: usersTable.email,
+    name: usersTable.name,
+  }).from(usersTable).where(eq(usersTable.id, req.userId));
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json(user);
+});
+
+export default router;

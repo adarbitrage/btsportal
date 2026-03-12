@@ -6,8 +6,8 @@ import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSuppor
 
 const router: IRouter = Router();
 
-router.get("/dashboard", async (_req, res): Promise<void> => {
-  const userId = 1;
+router.get("/dashboard", async (req, res): Promise<void> => {
+  const userId = req.userId!;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {

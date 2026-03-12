@@ -1,0 +1,901 @@
+# BTS Portal — AI Chat Assistant Build Spec
+
+**Priority:** After Auth + ThriveCart Webhooks + Onboarding
+**Status:** Not started
+**Depends on:** Entitlement system (done), Auth system, Onboarding flow
+**Reference:** BTS PRD v2.0, Section 19
+
+---
+
+## Context
+
+The entitlement system already defines three chat access tiers:
+
+```
+chat:basic   → Front-end buyers (Reserve Income, Backroad, Off-Market)
+chat:full    → LaunchPad, 3-Month, 6-Month, 1-Year Mentorship
+chat:custom  → Lifetime Mentorship
+```
+
+This spec builds the full AI chat assistant: a floating widget available on every page, a dedicated chat page for longer conversations, a backend that proxies to the Anthropic Claude API with a BTS-trained system prompt, and a RAG knowledgebase that gives Claude access to BTS curriculum, SOPs, and FAQs.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────┐
+│  MEMBER'S BROWSER                               │
+│                                                 │
+│  ┌──────────────┐    ┌───────────────────────┐  │
+│  │ Chat Widget   │    │ Full Chat Page        │  │
+│  │ (floating,    │    │ (/chat)               │  │
+│  │  all pages)   │    │                       │  │
+│  └──────┬───────┘    └──────────┬────────────┘  │
+│         │                       │                │
+│         └───────────┬───────────┘                │
+│                     │                            │
+└─────────────────────┼────────────────────────────┘
+                      │ POST /api/chat
+                      ▼
+┌─────────────────────────────────────────────────┐
+│  BTS PORTAL API                                 │
+│                                                 │
+│  1. Authenticate user (JWT middleware)           │
+│  2. Check entitlement (chat:basic/full/custom)   │
+│  3. Enforce rate limit (daily message cap)       │
+│  4. Load conversation history from DB            │
+│  5. Query knowledgebase (RAG retrieval)          │
+│  6. Build system prompt + context                │
+│  7. Call Anthropic Claude API (streaming)        │
+│  8. Stream response back to client               │
+│  9. Save conversation to DB                      │
+│                                                 │
+│  ┌────────────┐  ┌──────────────┐               │
+│  │ RAG Engine │  │ Claude API   │               │
+│  │ (pgvector  │  │ (Sonnet 4)   │               │
+│  │  search)   │  │              │               │
+│  └────────────┘  └──────────────┘               │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## What to Build
+
+### 1. Chat Backend API
+
+#### `POST /api/chat`
+
+The primary endpoint. Accepts a message, retrieves relevant knowledgebase context, calls Claude, and streams the response back.
+
+**Request body:**
+```json
+{
+  "message": "How do I write a good headline for my advertorial?",
+  "sessionId": "abc123"
+}
+```
+
+- `sessionId` is optional. If provided, the conversation continues from that session. If omitted, a new session is created.
+
+**Response:** Server-Sent Events (SSE) stream.
+
+```
+Content-Type: text/event-stream
+
+data: {"type":"session","sessionId":"abc123"}
+data: {"type":"chunk","text":"Great"}
+data: {"type":"chunk","text":" question"}
+data: {"type":"chunk","text":"! When"}
+data: {"type":"chunk","text":" writing"}
+...
+data: {"type":"done","usage":{"inputTokens":1842,"outputTokens":356}}
+```
+
+**Processing pipeline:**
+
+```
+Step 1: AUTHENTICATE
+  - JWT middleware (already applied to /api/* routes)
+  - Extract userId from token
+
+Step 2: CHECK ENTITLEMENT
+  - Resolve user's entitlements
+  - Check for chat:basic, chat:full, or chat:custom
+  - If no chat entitlement → 403 with { error: "Chat access not included in your plan", upgradeProduct: "BTS LaunchPad" }
+
+Step 3: ENFORCE RATE LIMIT
+  - Count messages sent by this user today (UTC day boundary)
+  - Limits:
+    - chat:basic  → 20 messages/day
+    - chat:full   → 50 messages/day
+    - chat:custom → 100 messages/day
+  - If over limit → 429 with { error: "Daily message limit reached", limit: 20, resetAt: "2026-03-13T00:00:00Z" }
+
+Step 4: LOAD CONVERSATION HISTORY
+  - If sessionId provided: load previous messages from chat_sessions table
+  - If no sessionId: create new session record, return new sessionId in first SSE event
+  - Cap history at last 20 messages (10 user + 10 assistant) to manage context window
+  - Older messages are still stored but not sent to Claude
+
+Step 5: RAG RETRIEVAL (Knowledgebase Search)
+  - Take the user's message
+  - Generate an embedding (see Section 3 for embedding strategy)
+  - Query the knowledgebase_docs table for the top 5 most relevant chunks
+  - Format retrieved chunks as context for the system prompt
+  - If no relevant chunks found (similarity score below threshold), skip RAG context
+
+Step 6: BUILD THE CLAUDE REQUEST
+  - Assemble:
+    - System prompt (see Section 2)
+    - RAG context (from Step 5)
+    - Member context (name, products owned, current training progress, entitlement tier)
+    - Conversation history (from Step 4)
+    - Current user message
+  - Model: claude-sonnet-4-20250514
+  - Max tokens: varies by tier
+    - chat:basic  → 1000 max output tokens
+    - chat:full   → 2000 max output tokens  
+    - chat:custom → 4000 max output tokens
+  - Stream: true
+
+Step 7: STREAM RESPONSE
+  - Proxy the Claude API SSE stream directly to the client
+  - As chunks arrive, forward them as SSE events
+  - On stream complete, send a "done" event with token usage
+
+Step 8: SAVE TO DATABASE
+  - After stream completes, save both the user message and full assistant response to the chat_sessions record
+  - Update the session's updated_at timestamp
+  - Increment the user's daily message count
+```
+
+#### `GET /api/chat/sessions`
+
+Lists the member's chat sessions for the session history sidebar.
+
+**Response:**
+```json
+{
+  "sessions": [
+    {
+      "id": "abc123",
+      "title": "Headline writing tips",
+      "messageCount": 8,
+      "createdAt": "2026-03-12T10:00:00Z",
+      "updatedAt": "2026-03-12T10:15:00Z"
+    }
+  ],
+  "pagination": { "page": 1, "totalPages": 3, "totalSessions": 24 }
+}
+```
+
+- `title` is auto-generated from the first user message (first 60 characters, or Claude-generated summary if you want to get fancy — simple truncation is fine for v1)
+- Paginated: 10 sessions per page, newest first
+- Only returns sessions for the authenticated user
+
+#### `GET /api/chat/sessions/:sessionId`
+
+Loads full message history for a specific session.
+
+**Response:**
+```json
+{
+  "id": "abc123",
+  "title": "Headline writing tips",
+  "messages": [
+    { "role": "user", "content": "How do I write a good headline?", "timestamp": "2026-03-12T10:00:00Z" },
+    { "role": "assistant", "content": "Great question! When writing headlines...", "timestamp": "2026-03-12T10:00:03Z" }
+  ],
+  "createdAt": "2026-03-12T10:00:00Z"
+}
+```
+
+#### `DELETE /api/chat/sessions/:sessionId`
+
+Deletes a session and all its messages. Soft delete (set `deleted_at` timestamp) so admin can still access if needed for quality review.
+
+#### `GET /api/chat/status`
+
+Returns the member's chat access level and daily usage.
+
+**Response:**
+```json
+{
+  "tier": "full",
+  "dailyLimit": 50,
+  "messagesUsedToday": 12,
+  "messagesRemaining": 38,
+  "resetAt": "2026-03-13T00:00:00Z",
+  "maxOutputTokens": 2000
+}
+```
+
+---
+
+### 2. System Prompt
+
+The system prompt is the most important piece of this feature. It defines the AI assistant's personality, boundaries, and knowledge domain.
+
+**Store the system prompt in the database** (admin-editable via the admin panel, not hardcoded). Seed it with the following default:
+
+```
+You are the BTS Assistant — a knowledgeable, friendly AI coach built into the Build, Test, Scale member portal. You help members with affiliate marketing strategy, platform navigation, and getting the most out of their BTS membership.
+
+## Your Role
+- Answer questions about affiliate marketing concepts, strategies, and tactics
+- Help members understand and apply what they're learning in BTS training modules
+- Guide members through the portal: where to find features, how to use tools, what to do next
+- Provide encouragement and actionable advice
+- Be direct, practical, and results-oriented — no fluff
+
+## Your Knowledge
+- You have access to the BTS curriculum, FAQs, and knowledgebase (provided as context below)
+- You know about affiliate marketing, native advertising, advertorials, bridge pages, traffic sources, conversion optimization, and campaign scaling
+- You understand the BTS product lineup: front-end training, LaunchPad, and mentorship tiers
+- When relevant knowledgebase content is provided, prioritize it over general knowledge
+
+## Member Context
+- Name: {{member_name}}
+- Products: {{member_products}}
+- Current Training Progress: {{training_progress}}
+- Experience Level: {{experience_level}}
+- Primary Goal: {{primary_goal}}
+
+Use this context to personalize your responses. Reference their progress when relevant. If they're a beginner, keep explanations foundational. If they're advanced, skip the basics.
+
+## Boundaries
+- ONLY answer questions within the BTS domain: affiliate marketing, the BTS platform, training content, and related business topics
+- If asked about topics outside your domain (personal advice, medical, legal, unrelated subjects), politely redirect: "That's outside my area — I'm here to help with your affiliate marketing journey and BTS membership. Is there anything else I can help with?"
+- NEVER provide specific financial projections, income guarantees, or earnings promises
+- NEVER share information about other members
+- For billing, refund, or account-specific issues, say: "That's best handled by our support team. I'll create a support ticket for you — is that okay?" (If they confirm, create a ticket via the API)
+- If you're not confident in an answer, say so: "I'm not 100% sure on that. Let me suggest you bring this up on your next coaching call, or submit a support ticket and our team will get back to you."
+
+## Tone
+- Friendly but professional
+- Direct and actionable — always end with a clear next step when possible
+- Encouraging without being patronizing
+- Use "you" language, not "one should" academic tone
+- Keep responses concise — aim for 2–4 paragraphs unless the question requires more depth
+
+## Formatting
+- Use markdown formatting (bold, lists, headers) when it helps readability
+- For step-by-step instructions, use numbered lists
+- For tips or key points, use bullet points
+- Don't over-format — if a simple paragraph answers the question, use a paragraph
+```
+
+**Template variables** (`{{member_name}}`, etc.) are replaced at runtime with actual member data before sending to Claude.
+
+---
+
+### 3. RAG Knowledgebase System
+
+The knowledgebase gives Claude access to BTS-specific content that isn't in its training data. Without RAG, Claude can only answer general affiliate marketing questions. With RAG, it can reference specific BTS modules, strategies, tools, and SOPs.
+
+#### Embedding Strategy
+
+**Option A — pgvector (Recommended for v1):**
+- Add the `pgvector` extension to the Neon PostgreSQL database
+- Store document embeddings directly in the `knowledgebase_docs` table
+- Use cosine similarity search for retrieval
+- Embedding model: Anthropic's voyage-3 (via Voyager API) or OpenAI's text-embedding-3-small
+- This keeps everything in one database with no additional infrastructure
+
+**Option B — External vector store:**
+- Pinecone, Weaviate, or Qdrant
+- More scalable but adds infrastructure complexity
+- Overkill for v1
+
+#### Knowledgebase Schema
+
+```sql
+knowledgebase_docs
+  id                SERIAL PRIMARY KEY
+  title             TEXT NOT NULL            -- document title for admin display
+  category          TEXT NOT NULL            -- 'curriculum', 'faq', 'sop', 'platform_guide', 'strategy'
+  content           TEXT NOT NULL            -- the actual text content
+  chunk_index       INTEGER DEFAULT 0       -- which chunk of the original document (for long docs)
+  parent_doc_id     INTEGER                 -- reference to the original document (if chunked)
+  embedding         VECTOR(1024)            -- pgvector embedding (dimension depends on model)
+  metadata          JSONB                   -- additional metadata (module reference, tags, etc.)
+  is_active         BOOLEAN DEFAULT true
+  created_at        TIMESTAMP DEFAULT NOW()
+  updated_at        TIMESTAMP DEFAULT NOW()
+```
+
+**Index for similarity search:**
+```sql
+CREATE INDEX ON knowledgebase_docs USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+#### Document Chunking
+
+When an admin uploads a knowledgebase document, the system must chunk it for effective retrieval:
+
+1. Split the document into chunks of ~500–800 tokens (roughly 2000–3200 characters)
+2. Overlap chunks by ~100 tokens to preserve context at boundaries
+3. Each chunk becomes a row in `knowledgebase_docs` with its own embedding
+4. Store `parent_doc_id` and `chunk_index` for reassembly if needed
+5. Preserve the document title and category on each chunk for filtering
+
+#### Retrieval Flow
+
+```
+1. Take the user's message
+2. Generate an embedding using the same model used for document embeddings
+3. Query pgvector for top 5 most similar chunks:
+
+   SELECT id, title, category, content, 
+          1 - (embedding <=> $1) as similarity
+   FROM knowledgebase_docs
+   WHERE is_active = true
+   ORDER BY embedding <=> $1
+   LIMIT 5;
+
+4. Filter results by similarity threshold (discard anything below 0.7 similarity)
+5. Format surviving chunks as context for the system prompt:
+
+   ## Relevant BTS Knowledge
+   
+   [Source: Module 3 - Ad Creative Testing]
+   {chunk content here}
+   
+   [Source: FAQ - How to Choose a Niche]
+   {chunk content here}
+
+6. Inject this context block between the system prompt and conversation history
+```
+
+#### Embedding API Call
+
+```javascript
+// Using Anthropic's Voyage API (recommended — stays in the Anthropic ecosystem)
+// Or OpenAI's embedding endpoint — either works
+
+async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'voyage-3',
+      input: text
+    })
+  });
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+```
+
+**Fallback if pgvector is too complex for v1:** Use a simple keyword/full-text search approach instead of embeddings. PostgreSQL's built-in `tsvector` full-text search can get you 80% of the way there with zero extra dependencies:
+
+```sql
+-- Add a tsvector column
+ALTER TABLE knowledgebase_docs ADD COLUMN search_vector TSVECTOR;
+CREATE INDEX ON knowledgebase_docs USING GIN(search_vector);
+
+-- Query
+SELECT * FROM knowledgebase_docs
+WHERE search_vector @@ plainto_tsquery('english', 'headline writing advertorial')
+ORDER BY ts_rank(search_vector, plainto_tsquery('english', 'headline writing advertorial')) DESC
+LIMIT 5;
+```
+
+This is simpler to implement and doesn't require an embedding API. Start with this if pgvector setup is blocking progress. Upgrade to vector search later.
+
+---
+
+### 4. Entitlement-Based Tier Differences
+
+The three chat tiers affect rate limits, response depth, and features:
+
+| Feature | chat:basic | chat:full | chat:custom |
+|---------|-----------|----------|------------|
+| Daily message limit | 20 | 50 | 100 |
+| Max output tokens | 1000 (~750 words) | 2000 (~1500 words) | 4000 (~3000 words) |
+| Conversation history | Last 10 messages | Last 20 messages | Last 30 messages |
+| Session storage | 7 days | 30 days | Unlimited |
+| Knowledgebase access | FAQ + Platform guides only | Full knowledgebase | Full + priority retrieval |
+| Auto-ticket creation | No (directed to support page) | Yes (creates ticket from chat) | Yes + priority ticket |
+| Custom saved prompts | No | No | Yes (see below) |
+| Model | Sonnet | Sonnet | Sonnet (Opus for complex) |
+
+#### Custom Saved Prompts (chat:custom / Lifetime only)
+
+Lifetime members can save reusable prompt templates that inject additional context into their conversations:
+
+```json
+{
+  "id": "prompt_001",
+  "name": "Campaign Review",
+  "content": "I'm going to describe a campaign I'm running. Analyze it and give me specific, actionable feedback on: (1) offer selection, (2) ad creative, (3) landing page, (4) traffic source settings, and (5) what I should test next."
+}
+```
+
+When a Lifetime member selects a saved prompt before typing their message, its content is prepended to their message as additional system context.
+
+**API endpoints for custom prompts:**
+
+```
+GET    /api/chat/prompts          → List saved prompts
+POST   /api/chat/prompts          → Create new prompt (max 20 per user)
+PATCH  /api/chat/prompts/:id      → Update a prompt
+DELETE /api/chat/prompts/:id      → Delete a prompt
+```
+
+**Schema:**
+```sql
+chat_prompts
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id)
+  name            TEXT NOT NULL
+  content         TEXT NOT NULL
+  sort_order      INTEGER DEFAULT 0
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+---
+
+### 5. Auto-Ticket Creation from Chat
+
+For `chat:full` and `chat:custom` members, the AI assistant can create a support ticket directly from the conversation when it identifies a billing, account, or technical issue it can't resolve.
+
+**Flow:**
+
+```
+1. Claude's response includes a special marker when it wants to suggest creating a ticket:
+   "I'd recommend creating a support ticket for this. Would you like me to do that?"
+
+2. Member responds "yes" (or clicks a "Create Ticket" button rendered in the chat)
+
+3. Frontend sends:
+   POST /api/chat/create-ticket
+   {
+     "sessionId": "abc123",
+     "category": "billing",       // suggested by Claude, confirmed by user
+     "subject": "Refund question about 6-month mentorship"  // generated from conversation
+   }
+
+4. Backend creates a support ticket with:
+   - The last 5 messages from the chat session attached as context
+   - Priority set based on member's product tier
+   - Category from the request
+   - Auto-generated subject line
+
+5. Response includes the ticket ID so the chat can display:
+   "Done! I created ticket BTS-001234. The support team will respond within [SLA time based on tier]."
+```
+
+**Important:** Claude doesn't actually call an API. The frontend detects Claude's suggestion (via a structured output marker or keyword matching) and renders a "Create Ticket" button. The button click calls the API. This keeps the architecture simple — Claude just suggests, the frontend acts.
+
+**Structured suggestion approach:** Add an instruction to the system prompt:
+
+```
+When you determine that a question requires human support (billing issues, refund requests, 
+account problems, technical bugs), respond with your message AND include this marker at the 
+very end on its own line:
+
+[SUGGEST_TICKET:category:subject]
+
+Example:
+[SUGGEST_TICKET:billing:Question about subscription renewal date]
+
+The portal will render a "Create Support Ticket" button when it detects this marker. 
+The marker will not be shown to the member.
+```
+
+The frontend strips the `[SUGGEST_TICKET:...]` marker from the displayed response and renders a ticket creation button instead.
+
+---
+
+### 6. Frontend — Chat Widget
+
+A floating chat bubble in the bottom-right corner of every authenticated portal page.
+
+#### Widget States
+
+**Collapsed (default):**
+```
+                              ┌──────┐
+                              │  💬  │  ← Floating circle button
+                              └──────┘
+```
+- Fixed position: bottom-right, 24px from edges
+- BTS brand color
+- Subtle pulse animation on first visit (then stops)
+- Unread indicator (dot) if there's an unresponded message
+- Click to expand
+
+**Expanded:**
+```
+┌─────────────────────────────┐
+│  BTS Assistant        [─] [×]│
+│─────────────────────────────│
+│                             │
+│  Messages display here      │
+│  with alternating bubbles   │
+│  for user and assistant     │
+│                             │
+│  ┌─────────────────────┐    │
+│  │ Assistant message    │    │
+│  │ with **markdown**    │    │
+│  │ rendering            │    │
+│  └─────────────────────┘    │
+│                             │
+│       ┌─────────────────┐   │
+│       │ Your message    │   │
+│       └─────────────────┘   │
+│                             │
+│  ┌─────────────────────┐    │
+│  │ ● ● ● typing...     │    │
+│  └─────────────────────┘    │
+│                             │
+│─────────────────────────────│
+│  [Type your message...   ] [→]│
+│  12/50 messages today       │
+│─────────────────────────────│
+│  [Open full chat →]         │
+└─────────────────────────────┘
+```
+
+- Width: 380px (desktop), full-width on mobile
+- Height: 500px (desktop), 70vh on mobile
+- Header: "BTS Assistant" + minimize button + close button
+- Messages area: scrollable, auto-scrolls to bottom on new messages
+- Input: text input + send button, disabled while assistant is responding
+- Footer: daily message count + link to full chat page
+- Markdown rendering in assistant messages (bold, lists, code blocks)
+- User messages are plain text, right-aligned
+- Assistant messages are left-aligned with BTS avatar icon
+
+#### Widget Behavior
+
+- Persists across page navigation (mounted at the app layout level, not per-page)
+- Current conversation continues as member navigates between pages
+- Minimizing preserves the conversation (expanding brings it back)
+- Closing resets the widget but preserves the session (reopening loads the last session)
+- On mobile: expanding the widget goes full-screen with a back button
+
+#### Widget — No Chat Entitlement
+
+If the member has no chat entitlement at all (shouldn't happen with current product structure, but defensive coding):
+- Don't render the widget
+- Check entitlement on mount, only render if `chat:basic` or higher
+
+#### Widget — Rate Limit Reached
+
+When daily limit is hit:
+- Input field is disabled
+- Show message: "You've used all 20 messages for today. Your limit resets at midnight UTC."
+- For `chat:basic`: show subtle upgrade CTA: "Upgrade to get 50 messages/day →"
+- Widget remains visible so they can read previous messages
+
+---
+
+### 7. Frontend — Full Chat Page (`/chat`)
+
+A dedicated page for longer, more focused conversations. Same functionality as the widget but with more screen real estate and session management.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────┐
+│  SIDEBAR (240px)          │  CHAT AREA                   │
+│                           │                              │
+│  [+ New Chat]             │  ┌──────────────────────┐    │
+│                           │  │ BTS Assistant         │    │
+│  Today                    │  │ Sonnet · Full Access  │    │
+│  ● Headline writing tips  │  └──────────────────────┘    │
+│  ● Campaign review        │                              │
+│                           │  Messages...                 │
+│  Yesterday                │                              │
+│  ● Niche selection help   │                              │
+│  ● Traffic source Q&A     │                              │
+│                           │                              │
+│  Last 7 Days              │                              │
+│  ● Module 3 questions     │                              │
+│  ● Scaling strategies     │                              │
+│                           │                              │
+│  ─────────────────────    │                              │
+│                           │                              │
+│  [Saved Prompts]          │  ┌────────────────────────┐  │
+│  (Lifetime only)          │  │ Type your message...   │  │
+│                           │  └────────────────────────┘  │
+│  12/50 messages today     │  [Saved Prompts ▼] [Send →]  │
+│  [Upgrade →]              │                              │
+│  (if not max tier)        │                              │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Session sidebar:**
+- Groups sessions by: Today, Yesterday, Last 7 Days, Last 30 Days
+- Click a session to load its history
+- Delete session (with confirmation)
+- "New Chat" button starts a fresh session
+
+**Saved Prompts (Lifetime only):**
+- Dropdown or panel showing saved prompts
+- Click a prompt to prepend it to the current message
+- Manage prompts (add/edit/delete) via a modal
+
+**Chat area:**
+- Same message rendering as the widget (markdown support)
+- Wider layout allows for better reading experience
+- Code blocks in assistant responses get syntax highlighting and a copy button
+- Streaming response shows a typing indicator that fills in with real text
+
+**Input area:**
+- Larger text input (multi-line, grows with content up to 4 lines)
+- Send button (or Enter to send, Shift+Enter for new line)
+- Saved prompts dropdown (Lifetime only) 
+- File/image attachment button (future — not in v1, but leave space for it)
+
+**Mobile:** Sidebar collapses to a hamburger menu. Chat area goes full-width.
+
+---
+
+### 8. Streaming Implementation
+
+Use Server-Sent Events (SSE) for streaming Claude's response to the client.
+
+**Backend (Express.js):**
+
+```javascript
+app.post('/api/chat', authenticate, async (req, res) => {
+  // ... entitlement check, rate limit, RAG retrieval, build messages ...
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Send session info first
+  res.write(`data: ${JSON.stringify({ type: 'session', sessionId })}\n\n`);
+
+  const stream = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: maxOutputTokens,
+    system: systemPrompt,
+    messages: conversationMessages,
+    stream: true,
+  });
+
+  let fullResponse = '';
+
+  for await (const event of stream) {
+    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+      const chunk = event.delta.text;
+      fullResponse += chunk;
+      res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunk })}\n\n`);
+    }
+  }
+
+  // Save to database after stream completes
+  await saveMessage(sessionId, userId, req.body.message, fullResponse);
+  await incrementDailyUsage(userId);
+
+  res.write(`data: ${JSON.stringify({ type: 'done', usage: stream.usage })}\n\n`);
+  res.end();
+});
+```
+
+**Frontend (React):**
+
+```javascript
+const sendMessage = async (message: string, sessionId?: string) => {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // send cookies
+    body: JSON.stringify({ message, sessionId }),
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let assistantMessage = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const lines = decoder.decode(value).split('\n');
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'chunk') {
+          assistantMessage += data.text;
+          updateStreamingMessage(assistantMessage);  // update UI in real-time
+        } else if (data.type === 'session') {
+          setSessionId(data.sessionId);
+        } else if (data.type === 'done') {
+          finalizeMessage(assistantMessage, data.usage);
+        }
+      }
+    }
+  }
+};
+```
+
+---
+
+### 9. Database Schema
+
+#### Update `chat_sessions` table:
+
+```sql
+chat_sessions
+  id              TEXT PRIMARY KEY         -- UUID or nanoid
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  title           TEXT                     -- auto-generated from first message
+  messages        JSONB NOT NULL DEFAULT '[]'  -- array of {role, content, timestamp}
+  message_count   INTEGER DEFAULT 0
+  deleted_at      TIMESTAMP                -- soft delete
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+**Messages JSONB structure:**
+```json
+[
+  {
+    "role": "user",
+    "content": "How do I write a headline?",
+    "timestamp": "2026-03-12T10:00:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Great question! Here are the key principles...",
+    "timestamp": "2026-03-12T10:00:03Z",
+    "tokens": { "input": 1842, "output": 356 }
+  }
+]
+```
+
+#### Create `chat_daily_usage` table:
+
+```sql
+chat_daily_usage
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  usage_date      DATE NOT NULL            -- UTC date
+  message_count   INTEGER DEFAULT 0
+  UNIQUE(user_id, usage_date)
+```
+
+**Index:** `(user_id, usage_date)` for fast daily lookups.
+
+#### Create `chat_prompts` table (Lifetime only):
+
+```sql
+chat_prompts
+  id              SERIAL PRIMARY KEY
+  user_id         INTEGER REFERENCES users(id) NOT NULL
+  name            TEXT NOT NULL
+  content         TEXT NOT NULL
+  sort_order      INTEGER DEFAULT 0
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+#### Create `chat_system_prompts` table (admin-managed):
+
+```sql
+chat_system_prompts
+  id              SERIAL PRIMARY KEY
+  name            TEXT NOT NULL             -- 'default', 'advanced', 'custom_base'
+  content         TEXT NOT NULL             -- the system prompt template
+  is_active       BOOLEAN DEFAULT false     -- only one active at a time
+  created_at      TIMESTAMP DEFAULT NOW()
+  updated_at      TIMESTAMP DEFAULT NOW()
+```
+
+---
+
+### 10. Admin Panel Additions
+
+#### Chat Analytics Dashboard
+- Total messages sent (today, this week, this month)
+- Messages by tier (basic vs full vs custom)
+- Average messages per user per day
+- Peak usage hours
+- Token usage and estimated API cost
+- Top topics (if feasible — keyword extraction from messages)
+
+#### Chat Transcript Review
+- Browse chat sessions by user, date, or keyword search
+- Read full transcripts
+- Flag inappropriate responses
+- Add admin notes to sessions
+- Filter by: sessions that triggered ticket creation, sessions with negative feedback
+
+#### System Prompt Management
+- View/edit the active system prompt
+- Version history (every edit creates a new version)
+- Preview: test the prompt with a sample message before activating
+- Multiple prompt variants for A/B testing (future)
+
+#### Knowledgebase Management
+- Upload new documents (markdown, plain text, or paste content)
+- Documents are auto-chunked and embedded on upload
+- View all documents with: title, category, chunk count, last updated
+- Edit document content (re-chunks and re-embeds on save)
+- Delete documents (removes all chunks and embeddings)
+- Categories: Curriculum, FAQ, SOP, Platform Guide, Strategy
+- Bulk upload via CSV or folder
+
+#### Rate Limit Configuration
+- Edit daily message limits per tier (without code changes)
+- Edit max output tokens per tier
+- View current usage across all members
+
+---
+
+### 11. Environment Variables
+
+```
+ANTHROPIC_API_KEY=<your Anthropic API key>
+VOYAGE_API_KEY=<for embeddings, if using Voyage>
+CHAT_MODEL=claude-sonnet-4-20250514
+CHAT_DAILY_LIMIT_BASIC=20
+CHAT_DAILY_LIMIT_FULL=50
+CHAT_DAILY_LIMIT_CUSTOM=100
+CHAT_MAX_TOKENS_BASIC=1000
+CHAT_MAX_TOKENS_FULL=2000
+CHAT_MAX_TOKENS_CUSTOM=4000
+```
+
+---
+
+### 12. Seed Data
+
+**System prompt:** Seed the default system prompt from Section 2 above.
+
+**Knowledgebase documents:** Seed 5–10 placeholder documents:
+```
+- "BTS Platform Navigation Guide" (category: platform_guide)
+- "How to Choose a Profitable Niche" (category: curriculum)
+- "Advertorial Writing Best Practices" (category: curriculum)
+- "Setting Up Your First Campaign" (category: curriculum)
+- "FAQ: Billing and Account Management" (category: faq)
+- "FAQ: Coaching Calls and Scheduling" (category: faq)
+- "Traffic Source Overview: Native Ads" (category: strategy)
+```
+
+Each should be 500–1000 words of realistic placeholder content so RAG retrieval can be tested.
+
+**Chat sessions:** Seed 2–3 example sessions for the demo user so the session sidebar isn't empty.
+
+---
+
+## What NOT to Build Yet
+
+- File/image uploads in chat (leave space in UI, don't implement)
+- Voice input (future mobile feature)
+- Opus model escalation for complex queries (use Sonnet for everything in v1)
+- Chat-to-email transcript export
+- Multi-language support
+- Proactive chat suggestions ("Based on your progress, you might want to ask about...")
+- Chat feedback thumbs up/down (add later for quality improvement)
+
+---
+
+## Definition of Done
+
+1. Floating chat widget appears on every authenticated page (bottom-right corner)
+2. Full chat page at `/chat` with session sidebar, message history, and new chat creation
+3. Messages stream in real-time (SSE) with visible typing indicator
+4. Responses are contextually relevant thanks to RAG knowledgebase retrieval
+5. System prompt includes member's name, products, progress, and experience level
+6. Rate limits enforced per tier: 20/50/100 messages per day with clear UI feedback when limit is reached
+7. Response length varies by tier (1000/2000/4000 max tokens)
+8. Session history persists — members can revisit previous conversations
+9. Lifetime members can save and use custom prompt templates
+10. `chat:full` and `chat:custom` members can create support tickets directly from chat
+11. Widget works on desktop and mobile (full-screen on mobile when expanded)
+12. Admin can edit the system prompt, manage knowledgebase documents, and review chat transcripts
+13. No chat entitlement → widget doesn't render. Rate limit hit → input disabled with clear messaging
+14. Markdown rendering in assistant messages (bold, lists, code blocks, headers)

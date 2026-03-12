@@ -5,9 +5,9 @@ import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSuppor
 import { GetCurrentMemberResponse, GetMemberProductsResponse, GetMemberEntitlementsResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
-const userId = 1;
 
-router.get("/members/me", async (_req, res): Promise<void> => {
+router.get("/members/me", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
@@ -37,12 +37,14 @@ router.get("/members/me", async (_req, res): Promise<void> => {
   }));
 });
 
-router.get("/members/me/products", async (_req, res): Promise<void> => {
+router.get("/members/me/products", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const products = await getUserProducts(userId);
   res.json(GetMemberProductsResponse.parse(products));
 });
 
-router.get("/members/me/entitlements", async (_req, res): Promise<void> => {
+router.get("/members/me/entitlements", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
   const highest = getHighestProductLabel(entitlements);
   const ticketLimit = getSupportTicketLimit(entitlements);

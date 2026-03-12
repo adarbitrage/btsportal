@@ -5,9 +5,9 @@ import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams
 import { getUserEntitlements } from "../lib/entitlements";
 
 const router: IRouter = Router();
-const userId = 1;
 
-router.get("/tracks", async (_req, res): Promise<void> => {
+router.get("/tracks", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
   const tracks = await db.select().from(tracksTable).orderBy(tracksTable.sortOrder);
 
@@ -70,6 +70,7 @@ router.get("/tracks", async (_req, res): Promise<void> => {
 });
 
 router.get("/modules/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const params = GetModuleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -101,6 +102,7 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/lessons/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const params = GetLessonParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

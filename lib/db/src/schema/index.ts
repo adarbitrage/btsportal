@@ -1,5 +1,6 @@
 export * from "./tiers";
 export * from "./users";
+export * from "./sessions";
 export * from "./products";
 export * from "./user-products";
 export * from "./entitlements";

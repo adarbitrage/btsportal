@@ -5,9 +5,9 @@ import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-z
 import { getUserEntitlements } from "../lib/entitlements";
 
 const router: IRouter = Router();
-const userId = 1;
 
 router.get("/coaching-calls", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const upcoming = req.query.upcoming === "true";
   const now = new Date();
   const entitlements = await getUserEntitlements(userId);
