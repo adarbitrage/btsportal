@@ -27,7 +27,8 @@ import {
   Wrench,
   FileText,
   Database,
-  Gauge
+  Gauge,
+  Trophy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   { href: "/training", label: "Training Library", icon: BookOpen },
   { href: "/resources", label: "Resources", icon: FolderOpen },
   { href: "/community", label: "Community", icon: Users, requiredEntitlement: "community:access", showNotificationBadge: true },
+  { href: "/wins", label: "Wins", icon: Trophy },
   { href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/tools", label: "Software & Tools", icon: Wrench, requiredEntitlement: "software:base" },

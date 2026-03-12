@@ -9,6 +9,7 @@ import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, Mes
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
+import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
@@ -204,6 +205,8 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
+
+            <WinsSummaryWidget />
 
             <Card>
               <CardHeader className="pb-4 border-b border-border/50">

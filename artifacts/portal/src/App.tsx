@@ -38,6 +38,11 @@ import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
 import RateLimits from "@/pages/admin/RateLimits";
+import WinsWall from "@/pages/wins/WinsWall";
+import WinSubmit from "@/pages/wins/WinSubmit";
+import MyWins from "@/pages/wins/MyWins";
+import WinDetail from "@/pages/wins/WinDetail";
+import TestimonialSubmit from "@/pages/wins/TestimonialSubmit";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
@@ -301,6 +306,11 @@ function Router() {
       <Route path="/commissions">{() => <EntitlementRoute component={CommissionsDashboard} entitlement="commissions:*" />}</Route>
       <Route path="/commissions/resources">{() => <EntitlementRoute component={CommissionsResources} entitlement="commissions:*" />}</Route>
       <Route path="/commissions/rates">{() => <EntitlementRoute component={CommissionsRates} entitlement="commissions:*" />}</Route>
+      <Route path="/wins">{() => <ProtectedRoute component={WinsWall} />}</Route>
+      <Route path="/wins/submit">{() => <ProtectedRoute component={WinSubmit} />}</Route>
+      <Route path="/wins/mine">{() => <ProtectedRoute component={MyWins} />}</Route>
+      <Route path="/wins/:id/testimonial">{() => <ProtectedRoute component={TestimonialSubmit} />}</Route>
+      <Route path="/wins/:id">{() => <ProtectedRoute component={WinDetail} />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
