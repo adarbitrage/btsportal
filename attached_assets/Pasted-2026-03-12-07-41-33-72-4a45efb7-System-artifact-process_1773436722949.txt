@@ -1,0 +1,92 @@
+2026-03-12 07:41:33.72
+4a45efb7
+System
+artifact process exited with error error=signal: terminated artifact=artifacts/api-server
+2026-03-12 10:57:54.08
+4a45efb7
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-03-12 10:57:54.08
+4a45efb7
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-03-12 10:57:54.08
+4a45efb7
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-03-12 10:57:54.08
+4a45efb7
+User
+To prepare for this change:
+2026-03-12 10:57:54.08
+4a45efb7
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-03-12 11:13:23.76
+4a45efb7
+System
+artifact process exited with error artifact=artifacts/api-server error=signal: terminated
+2026-03-12 11:54:53.76
+4a45efb7
+System
+artifact process exited with error artifact=artifacts/api-server error=signal: terminated
+2026-03-12 12:17:54.40
+0966cca9
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-03-12 12:17:54.40
+0966cca9
+User
+(node:19) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-03-12 12:17:54.40
+0966cca9
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-03-12 12:17:54.40
+0966cca9
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-03-12 12:17:54.40
+0966cca9
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-03-12 12:17:54.40
+0966cca9
+User
+To prepare for this change:
+2026-03-12 12:17:54.40
+0966cca9
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-03-12 12:33:33.88
+0966cca9
+System
+artifact process exited with error artifact=artifacts/api-server error=signal: terminated
+2026-03-12 12:51:13.88
+0966cca9
+System
+artifact process exited with error error=signal: terminated artifact=artifacts/api-server
+2026-03-12 13:21:45.49
+0966cca9
+System
+artifact process exited with error artifact=artifacts/api-server error=signal: terminated
+2026-03-12 14:56:53.90
+0966cca9
+System
+artifact process exited with error error=signal: terminated artifact=artifacts/api-server
+2026-03-12 16:17:33.91
+0966cca9
+System
+artifact process exited with error error=signal: terminated artifact=artifacts/api-server
+2026-03-12 17:57:33.93
+0966cca9
+System
+artifact process exited with error error=signal: terminated artifact=artifacts/api-server
+2026-03-13 16:12:02.97
+21befe52
+System
+not all artifact ports opened within timeout expected=[8080] detected=0
+2026-03-13 16:12:02.97
+21befe52
+System
+a port configuration was specified but the required port was never opened
