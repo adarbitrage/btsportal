@@ -5,8 +5,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import YAML from "yaml";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = typeof __dirname !== "undefined"
+  ? path.resolve(__dirname, "swagger-ui.ts")
+  : fileURLToPath(import.meta.url);
+const __dirnameResolved = typeof __dirname !== "undefined"
+  ? __dirname
+  : path.dirname(__filename);
 
 export function createSwaggerRouter(): Router | null {
   if (process.env.API_DOCS_ENABLED !== "true") {
@@ -16,7 +20,7 @@ export function createSwaggerRouter(): Router | null {
   const router = Router();
 
   const specPath = path.resolve(
-    __dirname,
+    __dirnameResolved,
     "..",
     "..",
     "..",
