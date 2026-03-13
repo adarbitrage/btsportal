@@ -114,16 +114,39 @@ export function fetchCategories(): Promise<CommunityCategory[]> {
   return communityFetch("/community/categories");
 }
 
-export function fetchPosts(params: {
+export async function fetchPosts(params: {
   categorySlug?: string;
   cursor?: string;
   limit?: number;
 }): Promise<PostsResponse> {
   const searchParams = new URLSearchParams();
-  if (params.categorySlug && params.categorySlug !== "all") searchParams.set("category", params.categorySlug);
-  if (params.cursor) searchParams.set("cursor", params.cursor);
+  if (params.categorySlug && params.categorySlug !== "all") searchParams.set("categorySlug", params.categorySlug);
+  if (params.cursor) searchParams.set("page", params.cursor);
   if (params.limit) searchParams.set("limit", params.limit.toString());
-  return communityFetch(`/community/posts?${searchParams.toString()}`);
+  const data = await communityFetch(`/community/posts?${searchParams.toString()}`);
+  const rawPosts: any[] = data.posts ?? [];
+  const posts: CommunityPost[] = rawPosts.map((p: any) => ({
+    ...p,
+    body: p.body ?? p.content ?? "",
+    title: p.title ?? "",
+    author: p.author ?? {
+      id: p.authorId ?? 0,
+      name: p.authorName ?? "Unknown",
+      avatarUrl: p.avatarUrl ?? null,
+      highestProductSlug: p.highestProductSlug ?? null,
+      badges: p.badges ?? [],
+    },
+    isEdited: p.isEdited ?? false,
+    isDeleted: p.isDeleted ?? false,
+  }));
+  const pagination = data.pagination ?? {};
+  const currentPage = pagination.page ?? 1;
+  const totalPages = pagination.totalPages ?? 1;
+  return {
+    posts,
+    nextCursor: currentPage < totalPages ? String(currentPage + 1) : null,
+    totalCount: pagination.total ?? posts.length,
+  };
 }
 
 export function fetchPost(postId: number): Promise<CommunityPost> {

@@ -146,7 +146,10 @@ export function useCommissionSummary(options?: Partial<UseQueryOptions<Commissio
 export function useAffiliateProfile(options?: Partial<UseQueryOptions<AffiliateProfile>>) {
   return useQuery<AffiliateProfile>({
     queryKey: ["commissions", "profile"],
-    queryFn: () => commissionFetch<AffiliateProfile>("/commissions/profile"),
+    queryFn: async () => {
+      const data = await commissionFetch<any>("/commissions/profile");
+      return (data?.profile ?? data) as AffiliateProfile;
+    },
     ...options,
   });
 }
@@ -154,7 +157,10 @@ export function useAffiliateProfile(options?: Partial<UseQueryOptions<AffiliateP
 export function useReferralLinks(options?: Partial<UseQueryOptions<ReferralLink[]>>) {
   return useQuery<ReferralLink[]>({
     queryKey: ["commissions", "referral-links"],
-    queryFn: () => commissionFetch<ReferralLink[]>("/commissions/referral-links"),
+    queryFn: async () => {
+      const data = await commissionFetch<any>("/commissions/referral-links");
+      return Array.isArray(data) ? data : (data?.links ?? []);
+    },
     ...options,
   });
 }
@@ -177,7 +183,19 @@ export function useEarnings(
 export function usePayoutInfo(options?: Partial<UseQueryOptions<PayoutInfo>>) {
   return useQuery<PayoutInfo>({
     queryKey: ["commissions", "payouts"],
-    queryFn: () => commissionFetch<PayoutInfo>("/commissions/payouts"),
+    queryFn: async () => {
+      const data = await commissionFetch<any>("/commissions/payouts");
+      const payouts = Array.isArray(data) ? data : (data?.payouts ?? []);
+      return {
+        currentMethod: data?.currentMethod ?? "paypal",
+        nextPayoutDate: data?.nextPayoutDate ?? null,
+        paypalEmail: data?.paypalEmail ?? payouts[0]?.paypalEmail ?? null,
+        payoutThreshold: data?.payoutThreshold ?? 5000,
+        taxFormSubmitted: data?.taxFormSubmitted ?? false,
+        taxFormType: data?.taxFormType ?? null,
+        history: payouts,
+      } as PayoutInfo;
+    },
     ...options,
   });
 }
@@ -188,10 +206,10 @@ export function useLeaderboard(
 ) {
   return useQuery<LeaderboardEntry[]>({
     queryKey: ["commissions", "leaderboard", period],
-    queryFn: () =>
-      commissionFetch<LeaderboardEntry[]>(
-        `/commissions/leaderboard?period=${period}`
-      ),
+    queryFn: async () => {
+      const data = await commissionFetch<any>(`/commissions/leaderboard?period=${period}`);
+      return Array.isArray(data) ? data : (data?.leaderboard ?? []);
+    },
     ...options,
   });
 }
@@ -199,7 +217,10 @@ export function useLeaderboard(
 export function useCommissionRates(options?: Partial<UseQueryOptions<CommissionRate[]>>) {
   return useQuery<CommissionRate[]>({
     queryKey: ["commissions", "rates"],
-    queryFn: () => commissionFetch<CommissionRate[]>("/commissions/rates"),
+    queryFn: async () => {
+      const data = await commissionFetch<any>("/commissions/rates");
+      return Array.isArray(data) ? data : (data?.rates ?? []);
+    },
     ...options,
   });
 }
@@ -207,7 +228,10 @@ export function useCommissionRates(options?: Partial<UseQueryOptions<CommissionR
 export function useCommissionResources(options?: Partial<UseQueryOptions<ResourceItem[]>>) {
   return useQuery<ResourceItem[]>({
     queryKey: ["commissions", "resources"],
-    queryFn: () => commissionFetch<ResourceItem[]>("/commissions/resources"),
+    queryFn: async () => {
+      const data = await commissionFetch<any>("/commissions/resources");
+      return Array.isArray(data) ? data : (data?.resources ?? []);
+    },
     ...options,
   });
 }

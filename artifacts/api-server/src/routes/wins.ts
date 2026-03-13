@@ -194,6 +194,148 @@ router.get("/wins", async (req, res): Promise<void> => {
   });
 });
 
+router.get("/wins/mine", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const userId = req.userId;
+
+  const wins = await db
+    .select({
+      id: winsTable.id,
+      milestoneId: winsTable.milestoneId,
+      milestoneName: winMilestonesTable.name,
+      milestoneIcon: winMilestonesTable.icon,
+      milestoneSlug: winMilestonesTable.slug,
+      milestoneCategory: winMilestonesTable.category,
+      title: winsTable.title,
+      description: winsTable.description,
+      revenueAmount: winsTable.revenueAmount,
+      metricLabel: winsTable.metricLabel,
+      metricValue: winsTable.metricValue,
+      proofImageUrl: winsTable.proofImageUrl,
+      proofImage2Url: winsTable.proofImage2Url,
+      proofVerified: winsTable.proofVerified,
+      winDate: winsTable.winDate,
+      shareToCommunity: winsTable.shareToCommunity,
+      communityPostId: winsTable.communityPostId,
+      allowTestimonial: winsTable.allowTestimonial,
+      allowPublicName: winsTable.allowPublicName,
+      status: winsTable.status,
+      featuredAt: winsTable.featuredAt,
+      testimonialRequested: winsTable.testimonialRequested,
+      testimonialText: winsTable.testimonialText,
+      testimonialApproved: winsTable.testimonialApproved,
+      createdAt: winsTable.createdAt,
+      updatedAt: winsTable.updatedAt,
+    })
+    .from(winsTable)
+    .innerJoin(winMilestonesTable, eq(winsTable.milestoneId, winMilestonesTable.id))
+    .where(eq(winsTable.userId, userId))
+    .orderBy(desc(winsTable.createdAt));
+
+  const totalMilestonesResult = await db.select({ count: sql<number>`count(*)::int` }).from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true));
+  const totalMilestones = totalMilestonesResult[0]?.count ?? 0;
+
+  const achievedResult = await db
+    .select({ milestoneId: winsTable.milestoneId })
+    .from(winsTable)
+    .where(and(eq(winsTable.userId, userId), ne(winsTable.status, "hidden"), ne(winsTable.status, "draft")))
+    .groupBy(winsTable.milestoneId);
+  const achievedCount = achievedResult.length;
+  const achievedMilestoneIds = achievedResult.map(r => r.milestoneId);
+  const percentage = totalMilestones > 0 ? Math.round((achievedCount / totalMilestones) * 100) : 0;
+
+  let nextMilestone = null;
+  if (achievedMilestoneIds.length > 0) {
+    const [next] = await db.select().from(winMilestonesTable)
+      .where(and(eq(winMilestonesTable.isActive, true), sql`${winMilestonesTable.id} NOT IN (${sql.join(achievedMilestoneIds.map(id => sql`${id}`), sql`, `)})`))
+      .orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = next ?? null;
+  } else {
+    const [first] = await db.select().from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true)).orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = first ?? null;
+  }
+
+  res.json({
+    wins,
+    streak: { achievedCount, totalCount: totalMilestones, percentage, nextMilestone, achievedMilestoneIds },
+  });
+});
+
+router.get("/wins/streak", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const userId = req.userId;
+
+  const totalMilestonesResult = await db.select({ count: sql<number>`count(*)::int` }).from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true));
+  const totalMilestones = totalMilestonesResult[0]?.count ?? 0;
+
+  const achievedResult = await db
+    .select({ milestoneId: winsTable.milestoneId })
+    .from(winsTable)
+    .where(and(eq(winsTable.userId, userId), ne(winsTable.status, "hidden"), ne(winsTable.status, "draft")))
+    .groupBy(winsTable.milestoneId);
+  const achievedCount = achievedResult.length;
+  const achievedMilestoneIds = achievedResult.map(r => r.milestoneId);
+  const percentage = totalMilestones > 0 ? Math.round((achievedCount / totalMilestones) * 100) : 0;
+
+  let nextMilestone = null;
+  if (achievedMilestoneIds.length > 0) {
+    const [next] = await db.select().from(winMilestonesTable)
+      .where(and(eq(winMilestonesTable.isActive, true), sql`${winMilestonesTable.id} NOT IN (${sql.join(achievedMilestoneIds.map(id => sql`${id}`), sql`, `)})`))
+      .orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = next ?? null;
+  } else {
+    const [first] = await db.select().from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true)).orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = first ?? null;
+  }
+
+  res.json({ achievedCount, totalCount: totalMilestones, percentage, nextMilestone, achievedMilestoneIds });
+});
+
+router.get("/wins/summary", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const userId = req.userId;
+
+  const totalMilestonesResult = await db.select({ count: sql<number>`count(*)::int` }).from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true));
+  const totalMilestones = totalMilestonesResult[0]?.count ?? 0;
+
+  const achievedResult = await db
+    .select({ milestoneId: winsTable.milestoneId })
+    .from(winsTable)
+    .where(and(eq(winsTable.userId, userId), ne(winsTable.status, "hidden"), ne(winsTable.status, "draft")))
+    .groupBy(winsTable.milestoneId);
+  const achievedCount = achievedResult.length;
+  const percentage = totalMilestones > 0 ? Math.round((achievedCount / totalMilestones) * 100) : 0;
+
+  const [latestWin] = await db
+    .select({ id: winsTable.id, title: winsTable.title, createdAt: winsTable.createdAt })
+    .from(winsTable)
+    .where(and(eq(winsTable.userId, userId), ne(winsTable.status, "hidden"), ne(winsTable.status, "draft")))
+    .orderBy(desc(winsTable.createdAt)).limit(1);
+
+  const achievedIds = achievedResult.map(r => r.milestoneId);
+  let nextMilestone = null;
+  if (achievedIds.length > 0) {
+    const [next] = await db.select().from(winMilestonesTable)
+      .where(and(eq(winMilestonesTable.isActive, true), sql`${winMilestonesTable.id} NOT IN (${sql.join(achievedIds.map(id => sql`${id}`), sql`, `)})`))
+      .orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = next ?? null;
+  } else {
+    const [first] = await db.select().from(winMilestonesTable).where(eq(winMilestonesTable.isActive, true)).orderBy(asc(winMilestonesTable.sortOrder)).limit(1);
+    nextMilestone = first ?? null;
+  }
+
+  res.json({ achievedCount, totalCount: totalMilestones, percentage, latestWin: latestWin ?? null, nextMilestone });
+});
+
 router.get("/wins/wall", async (req, res): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Authentication required" });

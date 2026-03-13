@@ -122,7 +122,13 @@ router.get("/community/posts", async (req, res): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
   const offset = (page - 1) * limit;
-  const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+  let categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+  const categorySlug = req.query.categorySlug as string | undefined;
+
+  if (!categoryId && categorySlug) {
+    const [cat] = await db.select({ id: communityCategoriesTable.id }).from(communityCategoriesTable).where(eq(communityCategoriesTable.slug, categorySlug)).limit(1);
+    if (cat) categoryId = cat.id;
+  }
 
   const conditions = [eq(communityPostsTable.isDeleted, false)];
   if (categoryId) {

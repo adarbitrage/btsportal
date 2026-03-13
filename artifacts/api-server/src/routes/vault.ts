@@ -45,7 +45,7 @@ router.get("/vault/collections", async (req: Request, res: Response) => {
     const result = collections.map(c => ({
       ...c,
       resourceCount: countMap[c.id] || 0,
-      isAccessible: entitlements.has(c.requiredEntitlement),
+      isAccessible: !c.requiredEntitlement || entitlements.has(c.requiredEntitlement),
     }));
 
     res.json(result);
@@ -75,7 +75,7 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
       return;
     }
 
-    const isAccessible = entitlements.has(collection.requiredEntitlement);
+    const isAccessible = !collection.requiredEntitlement || entitlements.has(collection.requiredEntitlement);
 
     const subCollections = await db
       .select()
@@ -97,11 +97,11 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
 
       resources = await query.orderBy(
         sort === "newest" ? desc(vaultResourcesTable.createdAt) :
-        sort === "popular" ? desc(vaultResourcesTable.viewCount) :
+        sort === "popular" ? desc(vaultResourcesTable.downloadCount) :
         asc(vaultResourcesTable.sortOrder)
       );
 
-      resources = resources.filter(r => entitlements.has(r.requiredEntitlement));
+      resources = resources.filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement));
 
       if (search && typeof search === "string" && search.trim()) {
         const searchTerm = search.trim().toLowerCase();
@@ -112,7 +112,7 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
       }
 
       if (type && typeof type === "string" && type !== "all") {
-        resources = resources.filter(r => r.type === type);
+        resources = resources.filter(r => r.resourceType === type);
       }
     }
 
@@ -129,7 +129,7 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
       },
       subCollections: subCollections.map(sc => ({
         ...sc,
-        isAccessible: entitlements.has(sc.requiredEntitlement),
+        isAccessible: !sc.requiredEntitlement || entitlements.has(sc.requiredEntitlement),
       })),
       resources: resources.map(r => ({
         ...r,
@@ -162,16 +162,16 @@ router.get("/vault/resources", async (req: Request, res: Response) => {
         id: vaultResourcesTable.id,
         collectionId: vaultResourcesTable.collectionId,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
+        slug: vaultResourcesTable.title,
         description: vaultResourcesTable.description,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         fileType: vaultResourcesTable.fileType,
         fileSize: vaultResourcesTable.fileSize,
-        thumbnailUrl: vaultResourcesTable.thumbnailUrl,
+        thumbnailUrl: vaultResourcesTable.previewImageUrl,
         tags: vaultResourcesTable.tags,
         isFeatured: vaultResourcesTable.isFeatured,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
-        viewCount: vaultResourcesTable.viewCount,
+        viewCount: vaultResourcesTable.downloadCount,
         downloadCount: vaultResourcesTable.downloadCount,
         createdAt: vaultResourcesTable.createdAt,
         collectionName: vaultCollectionsTable.name,
@@ -181,12 +181,12 @@ router.get("/vault/resources", async (req: Request, res: Response) => {
       .innerJoin(vaultCollectionsTable, eq(vaultResourcesTable.collectionId, vaultCollectionsTable.id))
       .orderBy(
         sort === "newest" ? desc(vaultResourcesTable.createdAt) :
-        sort === "popular" ? desc(vaultResourcesTable.viewCount) :
+        sort === "popular" ? desc(vaultResourcesTable.downloadCount) :
         sort === "az" ? asc(vaultResourcesTable.title) :
         desc(vaultResourcesTable.isFeatured)
       );
 
-    allResources = allResources.filter(r => entitlements.has(r.requiredEntitlement));
+    allResources = allResources.filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement));
 
     if (search && typeof search === "string" && search.trim()) {
       const searchTerm = search.trim().toLowerCase();
@@ -247,14 +247,14 @@ router.get("/vault/resources/featured", async (req: Request, res: Response) => {
         id: vaultResourcesTable.id,
         collectionId: vaultResourcesTable.collectionId,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
+        slug: vaultResourcesTable.title,
         description: vaultResourcesTable.description,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         fileType: vaultResourcesTable.fileType,
         tags: vaultResourcesTable.tags,
         isFeatured: vaultResourcesTable.isFeatured,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
-        viewCount: vaultResourcesTable.viewCount,
+        viewCount: vaultResourcesTable.downloadCount,
         createdAt: vaultResourcesTable.createdAt,
         collectionName: vaultCollectionsTable.name,
         collectionSlug: vaultCollectionsTable.slug,
@@ -272,7 +272,7 @@ router.get("/vault/resources/featured", async (req: Request, res: Response) => {
     const favoriteSet = new Set(userFavorites.map(f => f.resourceId));
 
     res.json(featured
-      .filter(r => entitlements.has(r.requiredEntitlement))
+      .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .map(r => ({
         ...r,
         tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
@@ -299,9 +299,9 @@ router.get("/vault/resources/recent", async (req: Request, res: Response) => {
         id: vaultResourcesTable.id,
         collectionId: vaultResourcesTable.collectionId,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
+        slug: vaultResourcesTable.title,
         description: vaultResourcesTable.description,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         fileType: vaultResourcesTable.fileType,
         tags: vaultResourcesTable.tags,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
@@ -321,7 +321,7 @@ router.get("/vault/resources/recent", async (req: Request, res: Response) => {
     const favoriteSet = new Set(userFavorites.map(f => f.resourceId));
 
     res.json(recent
-      .filter(r => entitlements.has(r.requiredEntitlement))
+      .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .map(r => ({
         ...r,
         tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
@@ -354,20 +354,20 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
         id: vaultResourcesTable.id,
         collectionId: vaultResourcesTable.collectionId,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
+        slug: vaultResourcesTable.title,
         description: vaultResourcesTable.description,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         fileUrl: vaultResourcesTable.fileUrl,
         fileSize: vaultResourcesTable.fileSize,
         fileType: vaultResourcesTable.fileType,
         externalUrl: vaultResourcesTable.externalUrl,
         videoUrl: vaultResourcesTable.videoUrl,
-        markdownContent: vaultResourcesTable.markdownContent,
-        thumbnailUrl: vaultResourcesTable.thumbnailUrl,
+        markdownContent: vaultResourcesTable.contentHtml,
+        thumbnailUrl: vaultResourcesTable.previewImageUrl,
         tags: vaultResourcesTable.tags,
         isFeatured: vaultResourcesTable.isFeatured,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
-        viewCount: vaultResourcesTable.viewCount,
+        viewCount: vaultResourcesTable.downloadCount,
         downloadCount: vaultResourcesTable.downloadCount,
         createdAt: vaultResourcesTable.createdAt,
         collectionName: vaultCollectionsTable.name,
@@ -382,13 +382,13 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!entitlements.has(resource.requiredEntitlement)) {
+    if (resource.requiredEntitlement && !entitlements.has(resource.requiredEntitlement)) {
       res.status(403).json({ error: "You do not have access to this resource. Upgrade your plan to unlock it." });
       return;
     }
 
     await db.update(vaultResourcesTable)
-      .set({ viewCount: sql`${vaultResourcesTable.viewCount} + 1` })
+      .set({ downloadCount: sql`${vaultResourcesTable.downloadCount} + 1` })
       .where(eq(vaultResourcesTable.id, id));
 
     const relatedRows = await db
@@ -402,9 +402,9 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
         .select({
           id: vaultResourcesTable.id,
           title: vaultResourcesTable.title,
-          slug: vaultResourcesTable.slug,
+          slug: vaultResourcesTable.title,
           description: vaultResourcesTable.description,
-          type: vaultResourcesTable.type,
+          type: vaultResourcesTable.resourceType,
           requiredEntitlement: vaultResourcesTable.requiredEntitlement,
           collectionName: vaultCollectionsTable.name,
           collectionSlug: vaultCollectionsTable.slug,
@@ -413,7 +413,7 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
         .innerJoin(vaultCollectionsTable, eq(vaultResourcesTable.collectionId, vaultCollectionsTable.id))
         .where(inArray(vaultResourcesTable.id, relatedRows.map(r => r.relatedResourceId)));
       relatedResources = allRelated
-        .filter(r => entitlements.has(r.requiredEntitlement))
+        .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
         .map(({ requiredEntitlement, ...rest }) => rest);
     }
 
@@ -459,7 +459,7 @@ router.post("/vault/resources/:id/favorite", async (req: Request, res: Response)
       return;
     }
 
-    if (!entitlements.has(resource.requiredEntitlement)) {
+    if (resource.requiredEntitlement && !entitlements.has(resource.requiredEntitlement)) {
       res.status(403).json({ error: "You do not have access to this resource" });
       return;
     }
@@ -495,9 +495,9 @@ router.get("/vault/favorites", async (req: Request, res: Response) => {
       .select({
         id: vaultResourcesTable.id,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
+        slug: vaultResourcesTable.title,
         description: vaultResourcesTable.description,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         fileType: vaultResourcesTable.fileType,
         tags: vaultResourcesTable.tags,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
@@ -512,7 +512,7 @@ router.get("/vault/favorites", async (req: Request, res: Response) => {
       .where(eq(vaultFavoritesTable.userId, req.userId))
       .orderBy(desc(vaultFavoritesTable.createdAt));
 
-    const filtered = favorites.filter(r => entitlements.has(r.requiredEntitlement));
+    const filtered = favorites.filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement));
 
     res.json(filtered.map(r => ({
       ...r,
@@ -545,7 +545,7 @@ router.get("/vault/search-suggestions", async (req: Request, res: Response) => {
       .select({
         id: vaultResourcesTable.id,
         title: vaultResourcesTable.title,
-        type: vaultResourcesTable.type,
+        type: vaultResourcesTable.resourceType,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
         collectionSlug: vaultCollectionsTable.slug,
       })
@@ -555,7 +555,7 @@ router.get("/vault/search-suggestions", async (req: Request, res: Response) => {
       .limit(20);
 
     const filtered = results
-      .filter(r => entitlements.has(r.requiredEntitlement))
+      .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .slice(0, 8)
       .map(({ requiredEntitlement, ...rest }) => rest);
 
@@ -583,7 +583,7 @@ router.get("/vault/stats", async (req: Request, res: Response) => {
       .from(vaultResourcesTable);
 
     const accessibleIds = new Set(
-      allResources.filter(r => entitlements.has(r.requiredEntitlement)).map(r => r.id)
+      allResources.filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement)).map(r => r.id)
     );
 
     const allFavorites = await db
@@ -597,8 +597,8 @@ router.get("/vault/stats", async (req: Request, res: Response) => {
       .select({
         id: vaultResourcesTable.id,
         title: vaultResourcesTable.title,
-        slug: vaultResourcesTable.slug,
-        type: vaultResourcesTable.type,
+        slug: vaultResourcesTable.title,
+        type: vaultResourcesTable.resourceType,
         requiredEntitlement: vaultResourcesTable.requiredEntitlement,
         createdAt: vaultResourcesTable.createdAt,
         collectionSlug: vaultCollectionsTable.slug,
@@ -609,7 +609,7 @@ router.get("/vault/stats", async (req: Request, res: Response) => {
       .limit(20);
 
     const recentResources = recentAll
-      .filter(r => entitlements.has(r.requiredEntitlement))
+      .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .slice(0, 5)
       .map(({ requiredEntitlement, ...rest }) => rest);
 
@@ -649,7 +649,7 @@ router.post("/vault/resources/:id/download", async (req: Request, res: Response)
       return;
     }
 
-    if (!entitlements.has(resource.requiredEntitlement)) {
+    if (resource.requiredEntitlement && !entitlements.has(resource.requiredEntitlement)) {
       res.status(403).json({ error: "You do not have access to this resource. Upgrade your plan to unlock it." });
       return;
     }

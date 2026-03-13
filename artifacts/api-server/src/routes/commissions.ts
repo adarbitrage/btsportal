@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import {
   db, affiliateProfilesTable, commissionsTable, commissionRatesTable,
-  referralLinksTable, commissionPayoutsTable, affiliateResourcesTable,
+  referralLinksTable, referralClicksTable, commissionPayoutsTable, affiliateResourcesTable,
   productsTable, usersTable
 } from "@workspace/db";
 import { eq, and, desc, sql, gte, lte, asc } from "drizzle-orm";
@@ -92,6 +92,51 @@ router.get("/commissions/dashboard", async (req: Request, res: Response) => {
     activeLinks: linkCount[0]?.count ?? 0,
     paypalEmail: profile.paypalEmail,
     taxFormSubmitted: profile.taxFormSubmitted,
+  });
+});
+
+router.get("/commissions/summary", async (req: Request, res: Response) => {
+  const access = await requireCommissionAccess(req, res);
+  if (!access) return;
+
+  const [profile] = await db
+    .select()
+    .from(affiliateProfilesTable)
+    .where(eq(affiliateProfilesTable.id, access.affiliateId))
+    .limit(1);
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const monthStats = await db
+    .select({
+      earnings: sql<number>`coalesce(sum(${commissionsTable.commissionAmount}), 0)::int`,
+    })
+    .from(commissionsTable)
+    .where(and(
+      eq(commissionsTable.affiliateId, access.affiliateId),
+      gte(commissionsTable.createdAt, startOfMonth)
+    ));
+
+  const allTimeStats = await db
+    .select({
+      totalEarnings: sql<number>`coalesce(sum(case when ${commissionsTable.status} in ('pending', 'approved', 'paid') then ${commissionsTable.commissionAmount} else 0 end), 0)::int`,
+      pendingAmount: sql<number>`coalesce(sum(case when ${commissionsTable.status} = 'pending' then ${commissionsTable.commissionAmount} else 0 end), 0)::int`,
+      approvedAmount: sql<number>`coalesce(sum(case when ${commissionsTable.status} = 'approved' then ${commissionsTable.commissionAmount} else 0 end), 0)::int`,
+    })
+    .from(commissionsTable)
+    .where(eq(commissionsTable.affiliateId, access.affiliateId));
+
+  res.json({
+    tierLabel: profile.tier,
+    tierSlug: profile.tier,
+    earningsThisMonth: monthStats[0]?.earnings ?? 0,
+    earningsThisMonthChange: 0,
+    pendingAmount: allTimeStats[0]?.pendingAmount ?? 0,
+    availableForPayout: allTimeStats[0]?.approvedAmount ?? 0,
+    totalEarnedAllTime: allTimeStats[0]?.totalEarnings ?? 0,
+    totalReferrals: profile.lifetimeConversions,
+    totalClicksThisMonth: profile.lifetimeClicks,
   });
 });
 

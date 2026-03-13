@@ -66,7 +66,8 @@ export function useChatSessions() {
     queryKey: ["chat", "sessions"],
     queryFn: async () => {
       const res = await chatFetch("/chat/sessions");
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data.sessions ?? []);
     },
   });
 }

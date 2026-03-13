@@ -30,15 +30,17 @@ function renderMarkdown(text: string): string {
 export function PostCard({ post }: { post: CommunityPost }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editBody, setEditBody] = useState(post.body);
+  const body = post.body ?? "";
+  const author = post.author ?? { id: 0, name: "Unknown", avatarUrl: null, highestProductSlug: null };
+  const [editBody, setEditBody] = useState(body);
   const { user } = useAuth();
   const toggleReaction = useToggleReaction();
   const updatePost = useUpdatePost();
   const deletePost = useDeletePost();
 
-  const isLong = post.body.length > TRUNCATE_LENGTH;
-  const displayBody = expanded || !isLong ? post.body : post.body.slice(0, TRUNCATE_LENGTH) + "...";
-  const isOwnPost = post.author.id === user?.id;
+  const isLong = body.length > TRUNCATE_LENGTH;
+  const displayBody = expanded || !isLong ? body : body.slice(0, TRUNCATE_LENGTH) + "...";
+  const isOwnPost = author.id === user?.id;
   const canEdit = isOwnPost && Date.now() - new Date(post.createdAt).getTime() < 15 * 60 * 1000;
 
   const handleSaveEdit = () => {
@@ -65,19 +67,19 @@ export function PostCard({ post }: { post: CommunityPost }) {
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <ProfilePopover author={post.author}>
+            <ProfilePopover author={author}>
               <button className="shrink-0">
-                <AuthorAvatar author={post.author} size="md" />
+                <AuthorAvatar author={author} size="md" />
               </button>
             </ProfilePopover>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <ProfilePopover author={post.author}>
+                <ProfilePopover author={author}>
                   <button className="text-sm font-semibold text-foreground hover:text-primary cursor-pointer">
-                    {post.author.name}
+                    {author.name}
                   </button>
                 </ProfilePopover>
-                <TierBadge slug={post.author.highestProductSlug} />
+                <TierBadge slug={author.highestProductSlug} />
                 {post.isPinned && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 text-primary border-primary/30">
                     <Pin className="w-2.5 h-2.5" />Pinned
@@ -103,7 +105,7 @@ export function PostCard({ post }: { post: CommunityPost }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {canEdit && (
-                  <DropdownMenuItem onClick={() => { setEditing(true); setEditBody(post.body); }}>
+                  <DropdownMenuItem onClick={() => { setEditing(true); setEditBody(body); }}>
                     <Pencil className="w-3.5 h-3.5 mr-2" />Edit
                   </DropdownMenuItem>
                 )}
