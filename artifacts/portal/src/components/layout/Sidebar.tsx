@@ -42,7 +42,8 @@ import {
   ShieldCheck,
   Building2,
   Gift,
-  UserPlus
+  UserPlus,
+  Megaphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,6 +79,7 @@ const navItems: NavItem[] = [
   { href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
   { href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
   { href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus },
+  { href: "/self-promoting", label: "Promote BTS", icon: Megaphone },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
