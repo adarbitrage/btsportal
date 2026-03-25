@@ -11,6 +11,7 @@ import CoreTraining from "@/pages/CoreTraining";
 import QuickStartGuide from "@/pages/QuickStartGuide";
 import SevenPillars from "@/pages/SevenPillars";
 import DirectEdge from "@/pages/DirectEdge";
+import TipsAndTricks from "@/pages/TipsAndTricks";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -341,6 +342,7 @@ function Router() {
       <Route path="/core-training/quick-start">{() => <ProtectedRoute component={QuickStartGuide} />}</Route>
       <Route path="/core-training/7-pillars">{() => <ProtectedRoute component={SevenPillars} />}</Route>
       <Route path="/core-training/direct-edge">{() => <ProtectedRoute component={DirectEdge} />}</Route>
+      <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
