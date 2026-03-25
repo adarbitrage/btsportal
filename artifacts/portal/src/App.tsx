@@ -8,6 +8,7 @@ import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
 import Home from "@/pages/Home";
 import CoreTraining from "@/pages/CoreTraining";
+import QuickStartGuide from "@/pages/QuickStartGuide";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -335,6 +336,7 @@ function Router() {
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/core-training">{() => <ProtectedRoute component={CoreTraining} />}</Route>
+      <Route path="/core-training/quick-start">{() => <ProtectedRoute component={QuickStartGuide} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>

@@ -23,7 +23,7 @@ const courses: CourseItem[] = [
     description: "Your step-by-step roadmap to mastering affiliate arbitrage using the Build, Test, Scale framework. Whether you're just getting started or looking to refine your approach, this guide walks you through the exact process of launching and scaling profitable campaigns — from choosing high-converting offers to split-testing banners with Blaze™ Ad Server and leveraging the Responsive Rolodex™ for proven traffic. You'll also discover how to tap into our powerful support system, including the BTS Concierge™ for done-for-you ad creation, live coaching calls with expert mentors, and the BTS Community for round-the-clock guidance.",
     icon: Rocket,
     ctaLabel: "HEAD TO THE QUICK-START GUIDE",
-    href: "/training",
+    href: "/core-training/quick-start",
   },
   {
     number: 2,
