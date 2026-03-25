@@ -1,11 +1,10 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Rocket, Search, CalendarDays, Layers, Radio,
-  BookOpen, Zap, Send, TestTubes, ArrowRight, Clock
+  BookOpen, ArrowRight
 } from "lucide-react";
 
 interface CourseItem {
@@ -15,7 +14,6 @@ interface CourseItem {
   icon: typeof Rocket;
   ctaLabel: string;
   href: string;
-  comingSoon?: boolean;
 }
 
 const courses: CourseItem[] = [
@@ -67,33 +65,6 @@ const courses: CourseItem[] = [
     ctaLabel: "WATCH THE VIDEO TRAINING",
     href: "/training",
   },
-  {
-    number: 7,
-    title: "Build, Test, Scale™: The Ultimate Framework for Affiliate Success",
-    description: "Unlock the secrets to affiliate marketing mastery with the comprehensive Build, Test, Scale™ course designed to take you from beginner to pro in the art of affiliate arbitrage. This course reveals the exact 3-phase framework that has driven millions in profits. From setting up your affiliate foundation with tools like Blaze™ Ad Server and DIYTrax™, to split-testing creatives and scaling campaigns across proven traffic sources, every step is covered in detail.",
-    icon: Zap,
-    ctaLabel: "WATCH THE VIDEO TRAINING",
-    href: "/training",
-    comingSoon: true,
-  },
-  {
-    number: 8,
-    title: "Rapid RFP™: Building a Network of 1,000 Direct Publishers for Newsletter Advertising",
-    description: "Your step-by-step guide to mastering Request for Proposals (RFPs) and building a network of 1,000 high-performing newsletter publishers. Learn how to secure premium ad placements, scale your campaigns with precision, and form lasting partnerships with publishers — all while maximizing your ROI. Whether you're new to RFPs or a seasoned pro looking to level up, this comprehensive course is packed with actionable strategies, over-the-shoulder lessons, and exclusive tools to help you dominate newsletter advertising.",
-    icon: Send,
-    ctaLabel: "WATCH THE VIDEO TRAINING",
-    href: "/training",
-    comingSoon: true,
-  },
-  {
-    number: 9,
-    title: "Test Like Mad: The High-Volume Testing System for Scaling Fast",
-    description: "Success in affiliate marketing comes down to one thing: testing. The marketers who test the most, win the most — and that's exactly what this course is designed to help you do. A no-fluff, results-driven system for mastering paid traffic and maximizing profits. You'll discover exactly what to test, how to test it, and how to leverage proprietary tools to gain a massive edge over the competition. No more guessing, no more wasted ad spend — just a clear, systematic process for identifying what works and scaling fast.",
-    icon: TestTubes,
-    ctaLabel: "WATCH THE VIDEO TRAINING",
-    href: "/training",
-    comingSoon: true,
-  },
 ];
 
 export default function CoreTraining() {
@@ -115,7 +86,7 @@ export default function CoreTraining() {
 
         <div className="space-y-6">
           {courses.map((course) => (
-            <Card key={course.number} className={`border-border/60 shadow-sm overflow-hidden ${course.comingSoon ? 'opacity-80' : ''}`}>
+            <Card key={course.number} className="border-border/60 shadow-sm overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
                   <div className="w-full md:w-44 shrink-0 bg-[#faf9f7] border-b md:border-b-0 md:border-r border-[#e8e4dc] flex items-center justify-center p-8">
@@ -125,35 +96,20 @@ export default function CoreTraining() {
                   </div>
 
                   <div className="flex-1 p-6 md:p-8 space-y-4">
-                    <div className="flex items-start gap-3">
-                      <h3 className="text-lg font-bold text-foreground leading-snug">
-                        {course.number}) {course.title}
-                      </h3>
-                      {course.comingSoon && (
-                        <Badge variant="outline" className="shrink-0 text-xs border-amber-300 text-amber-600 bg-amber-50">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Coming Soon
-                        </Badge>
-                      )}
-                    </div>
+                    <h3 className="text-lg font-bold text-foreground leading-snug">
+                      {course.number}) {course.title}
+                    </h3>
 
                     <p className="text-muted-foreground text-sm leading-relaxed">
                       {course.description}
                     </p>
 
-                    {!course.comingSoon ? (
-                      <Link href={course.href}>
-                        <Button className="bg-[#2d8a4e] hover:bg-[#24713f] text-white font-semibold tracking-wide text-sm px-6">
-                          <ArrowRight className="w-4 h-4 mr-2" />
-                          {course.ctaLabel}
-                        </Button>
-                      </Link>
-                    ) : (
-                      <Button disabled className="font-semibold tracking-wide text-sm px-6 opacity-50 cursor-not-allowed">
-                        <Clock className="w-4 h-4 mr-2" />
-                        {course.ctaLabel} (SOON!)
+                    <Link href={course.href}>
+                      <Button className="bg-[#2d8a4e] hover:bg-[#24713f] text-white font-semibold tracking-wide text-sm px-6">
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        {course.ctaLabel}
                       </Button>
-                    )}
+                    </Link>
                   </div>
                 </div>
               </CardContent>
