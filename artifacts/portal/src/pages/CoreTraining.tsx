@@ -54,8 +54,8 @@ const courses: CourseItem[] = [
     title: "The 7 Pillars™ Of A Profitable Digital Business",
     description: "The ultimate roadmap to building a thriving online business. This comprehensive training dives deep into the core elements required to create, scale, and sustain a successful digital business. From the fundamentals of Affiliate Arbitrage to mastering email traffic and leveraging cutting-edge tools, this program equips you with everything you need to thrive. You'll discover the seven essential pillars that drive profitability: business model, market, demographic, traffic channel, strategy, edge, and commitment.",
     icon: Layers,
-    ctaLabel: "WATCH THE VIDEO TRAINING",
-    href: "/training",
+    ctaLabel: "HEAD TO THE 7 PILLARS",
+    href: "/core-training/7-pillars",
   },
   {
     number: 6,
