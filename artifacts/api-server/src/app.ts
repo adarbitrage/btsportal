@@ -63,6 +63,29 @@ app.use("/api", router);
 app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
+
+(async () => {
+  try {
+    const { eq, and, sql: rawSql } = await import("drizzle-orm");
+    const [markUser] = await db.select({ id: usersTable.id, sourceProduct: usersTable.sourceProduct, role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.email, "mark@cherringtonmedia.com"));
+    if (markUser && (markUser.role !== "admin" || markUser.sourceProduct !== "lifetime")) {
+      await db.update(usersTable).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true }).where(eq(usersTable.id, markUser.id));
+      const { productsTable, userProductsTable } = await import("@workspace/db");
+      const existingProducts = await db.select({ productId: userProductsTable.productId }).from(userProductsTable).where(eq(userProductsTable.userId, markUser.id));
+      const existingIds = new Set(existingProducts.map(p => p.productId));
+      const allProducts = await db.select({ id: productsTable.id }).from(productsTable);
+      for (const p of allProducts) {
+        if (!existingIds.has(p.id)) {
+          await db.insert(userProductsTable).values({ userId: markUser.id, productId: p.id, status: "active", purchasedAt: new Date() });
+        }
+      }
+      console.log("[Startup] Upgraded mark@cherringtonmedia.com to admin with all products");
+    }
+  } catch (err) {
+    console.warn("[Startup] Account upgrade check skipped:", err);
+  }
+})();
 startTicketJobs();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
