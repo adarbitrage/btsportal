@@ -17,6 +17,7 @@ import CoachingSession from "@/pages/CoachingSession";
 import Advantage from "@/pages/Advantage";
 import ComplianceReview from "@/pages/ComplianceReview";
 import PrimeCorporate from "@/pages/PrimeCorporate";
+import AdCredit from "@/pages/AdCredit";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -353,6 +354,7 @@ function Router() {
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>
       <Route path="/compliance">{() => <ProtectedRoute component={ComplianceReview} />}</Route>
       <Route path="/prime-corporate">{() => <ProtectedRoute component={PrimeCorporate} />}</Route>
+      <Route path="/ad-credit">{() => <ProtectedRoute component={AdCredit} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
