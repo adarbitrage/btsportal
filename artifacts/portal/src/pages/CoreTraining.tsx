@@ -62,8 +62,8 @@ const courses: CourseItem[] = [
     title: "The Direct Edge: Mastering the Art of High-Impact Media Buying",
     description: "Master the art of Direct Media Buying with expert-level guidance backed by $75 million+ in ad spend experience. Learn how to bypass intermediaries, secure premium placements, and create high-performing campaigns that deliver maximum ROI. From research and negotiation to scaling and optimization, you'll gain actionable strategies to build your Direct Media Buying empire — plus access exclusive bonuses including walkthroughs and troubleshooting guides.",
     icon: BookOpen,
-    ctaLabel: "WATCH THE VIDEO TRAINING",
-    href: "/training",
+    ctaLabel: "HEAD TO THE DIRECT EDGE",
+    href: "/core-training/direct-edge",
   },
 ];
 
