@@ -38,7 +38,8 @@ import {
   LineChart,
   GraduationCap,
   Lightbulb,
-  Headphones
+  Headphones,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +71,7 @@ const navItems: NavItem[] = [
   { href: "/concierge", label: "BTS Concierge™", icon: Headphones },
   { href: "/coaching/sessions", label: "1:1 Coaching Sessions", icon: UserCheck },
   { href: "/advantage", label: "BTS Advantage", icon: Wrench },
+  { href: "/compliance", label: "Compliance Review", icon: ShieldCheck },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
