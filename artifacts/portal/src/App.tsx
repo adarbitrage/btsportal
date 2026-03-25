@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
+import Home from "@/pages/Home";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -330,7 +331,8 @@ function Router() {
       <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} step={3} />}</Route>
       <Route path="/onboarding/orientation">{() => <OnboardingRoute component={OnboardingOrientation} step={4} />}</Route>
       <Route path="/onboarding/quick-start">{() => <OnboardingRoute component={OnboardingQuickStart} step={5} />}</Route>
-      <Route path="/">{() => <ProtectedRoute component={Dashboard} />}</Route>
+      <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
+      <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
