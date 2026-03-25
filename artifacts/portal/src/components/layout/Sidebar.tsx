@@ -68,7 +68,7 @@ const navItems: NavItem[] = [
   { href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb },
   { href: "/coaching", label: "Coaching", icon: Video },
   { href: "/concierge", label: "BTS Concierge™", icon: Headphones },
-  { href: "/coaching/one-on-one", label: "1-on-1 Coaching", icon: UserCheck, requiredEntitlement: "coaching:one_on_one:*" },
+  { href: "/coaching/sessions", label: "1:1 Coaching Sessions", icon: UserCheck },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/tools", label: "Software & Tools", icon: Wrench, requiredEntitlement: "software:base" },
   { href: "/support", label: "Support", icon: LifeBuoy },
