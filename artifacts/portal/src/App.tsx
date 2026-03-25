@@ -14,6 +14,7 @@ import DirectEdge from "@/pages/DirectEdge";
 import TipsAndTricks from "@/pages/TipsAndTricks";
 import Concierge from "@/pages/Concierge";
 import CoachingSession from "@/pages/CoachingSession";
+import Advantage from "@/pages/Advantage";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -347,6 +348,7 @@ function Router() {
       <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
+      <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>

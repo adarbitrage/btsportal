@@ -69,8 +69,8 @@ const navItems: NavItem[] = [
   { href: "/coaching", label: "Coaching", icon: Video },
   { href: "/concierge", label: "BTS Concierge™", icon: Headphones },
   { href: "/coaching/sessions", label: "1:1 Coaching Sessions", icon: UserCheck },
+  { href: "/advantage", label: "BTS Advantage", icon: Wrench },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
-  { href: "/tools", label: "Software & Tools", icon: Wrench, requiredEntitlement: "software:base" },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
 ];
