@@ -48,6 +48,7 @@ import adminCoachingRouter from "./admin-coaching";
 import adminVaultRouter from "./admin-vault";
 import adminToolsRouter from "./admin-tools";
 import adminPanelRouter from "./admin-panel";
+import aiChatRouter from "./openai/chat.js";
 
 const router: IRouter = Router();
 
@@ -100,5 +101,6 @@ router.use(adminVaultRouter);
 router.use(adminCommunicationsRouter);
 router.use(adminToolsRouter);
 router.use(adminPanelRouter);
+router.use("/ai-chat", aiChatRouter);
 
 export default router;

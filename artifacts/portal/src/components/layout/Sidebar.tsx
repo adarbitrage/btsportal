@@ -82,7 +82,7 @@ const navItems: NavItem[] = [
   { href: "/self-promoting", label: "Promote BTS", icon: Megaphone },
   { href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
   { href: "/support", label: "Support", icon: LifeBuoy },
-  { href: "/chat", label: "AI Chat", icon: MessageCircle, requiredEntitlement: "chat:ai" },
+  { href: "/ai-assistant", label: "AI Assistant", icon: MessageCircle },
 ];
 
 const adminGhlItems = [

@@ -53,6 +53,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   **Community System:** Categorized posts, threaded comments, reactions, badges, member directory, notifications, and moderation tools.
 -   **Affiliate Commission System:** Multi-tier commission rates, referral link tracking, automated attribution via webhooks, approval lifecycle, and fraud detection.
 -   **AI Chat System:** Anthropic Claude integration via Replit AI, tiered access, RAG retrieval from knowledge base, SSE streaming, session management, and admin controls.
+-   **AI Assistant (OpenAI):** `/ai-assistant` page with OpenAI GPT integration, SSE streaming, conversation CRUD (`/api/ai-chat/*`), ownership-enforced access, and BTS knowledge base RAG (Q&A articles, glossary, 52 coaching transcripts at `artifacts/api-server/src/knowledge-base/`). No entitlement gate — accessible to all members.
 -   **Outgoing Webhooks:** BullMQ-based delivery system for custom event types, HMAC-SHA256 signing, exponential backoff retries, and admin management.
 
 ## QA Fixes Applied
@@ -81,7 +82,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   **In-memory Data Store:** Redis (for rate limiting, BullMQ, ioredis)
 -   **Email Service:** SendGrid
 -   **SMS Service:** Twilio
--   **AI Integration:** Anthropic Claude (via Replit AI Integrations)
+-   **AI Integration:** Anthropic Claude (via Replit AI Integrations), OpenAI GPT (via Replit AI Integrations)
 -   **CRM/Marketing Automation:** GoHighLevel (GHL)
 -   **Payment Gateway/E-commerce:** ThriveCart (for webhooks)
 -   **Password Hashing:** bcryptjs
