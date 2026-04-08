@@ -1,0 +1,248 @@
+
+
+Overview
+
+Logs
+
+Analytics
+
+Resources
+
+Domains
+
+Manage
+Search
+
+
+Errors only
+
+Date
+Time
+Deployment
+Source
+Log
+2026-04-08 00:54:00.63
+9773ee01
+User
+(node:18) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 05:35:02.48
+9773ee01
+User
+(node:21) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 05:35:02.48
+9773ee01
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-04-08 05:35:02.48
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 05:35:02.48
+9773ee01
+User
+To prepare for this change:
+2026-04-08 05:54:47.44
+9773ee01
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-04-08 05:54:47.44
+9773ee01
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-04-08 05:54:47.44
+9773ee01
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-04-08 05:54:47.44
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 05:54:47.44
+9773ee01
+User
+To prepare for this change:
+2026-04-08 05:54:47.44
+9773ee01
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-04-08 05:54:47.44
+9773ee01
+User
+(node:19) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 08:05:04.85
+9773ee01
+User
+To prepare for this change:
+2026-04-08 08:05:04.85
+9773ee01
+User
+(node:19) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+
+2026-04-08 08:05:04.85
+9773ee01
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-04-08 08:05:04.85
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 08:35:05.08
+9773ee01
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-04-08 08:35:05.08
+9773ee01
+User
+(node:19) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 08:35:05.08
+9773ee01
+User
+To prepare for this change:
+2026-04-08 08:35:05.08
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 09:05:03.73
+9773ee01
+User
+(node:18) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 09:05:03.73
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 09:05:03.73
+9773ee01
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-04-08 09:05:03.73
+9773ee01
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-04-08 09:05:03.73
+9773ee01
+User
+To prepare for this change:
+2026-04-08 09:35:04.54
+9773ee01
+User
+To prepare for this change:
+2026-04-08 09:35:04.54
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 09:35:04.54
+9773ee01
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-04-08 09:35:04.54
+9773ee01
+User
+(node:21) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 09:35:04.54
+9773ee01
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-04-08 09:35:04.54
+9773ee01
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-04-08 10:05:06.15
+9773ee01
+User
+To prepare for this change:
+2026-04-08 10:05:06.15
+9773ee01
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-04-08 10:05:06.15
+9773ee01
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+throw new ERR_INVALID_ARG_TYPE('path', ['string', 'URL'], path);
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+at fileURLToPath (node:internal/url:1611:11)
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+at Object.<anonymous> (/home/runner/workspace/artifacts/api-server/dist/index.cjs:299:9930)
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+^
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string or an instance of URL. Received undefined
+2026-04-08 11:49:39.72
+2d6b4bf7
+User
+node:internal/url:1611
+2026-04-08 11:50:35.90
+2d6b4bf7
+System
+not all artifact ports opened within timeout expected=[8080] detected=0
+2026-04-08 11:50:35.90
+2d6b4bf7
+System
+a port configuration was specified but the required port was never opened
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+^
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+throw new ERR_INVALID_ARG_TYPE('path', ['string', 'URL'], path);
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at Object.<anonymous> (/home/runner/workspace/artifacts/api-server/dist/index.cjs:299:9930)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-04-08 11:54:29.81
+4c8a2c08
+User
+node:internal/url:1611
+2026-04-08 11:55:24.72
+4c8a2c08
+System
+a port configuration was specified but the required port was never opened
+2026-04-08 11:55:24.72
+4c8a2c08
+System
+not all artifact ports opened within timeout expected=[8080] detected=0
