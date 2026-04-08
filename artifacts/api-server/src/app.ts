@@ -68,19 +68,45 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
   try {
     const { db: database, usersTable: users, productsTable: products, userProductsTable: userProducts } = await import("@workspace/db");
     const { eq } = await import("drizzle-orm");
-    const [markUser] = await database.select({ id: users.id, sourceProduct: users.sourceProduct, role: users.role })
-      .from(users).where(eq(users.email, "mark@cherringtonmedia.com"));
-    if (markUser && (markUser.role !== "admin" || markUser.sourceProduct !== "lifetime")) {
-      await database.update(users).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true }).where(eq(users.id, markUser.id));
-      const existingProducts = await database.select({ productId: userProducts.productId }).from(userProducts).where(eq(userProducts.userId, markUser.id));
-      const existingIds = new Set(existingProducts.map(p => p.productId));
-      const allProducts = await database.select({ id: products.id }).from(products);
-      for (const p of allProducts) {
-        if (!existingIds.has(p.id)) {
-          await database.insert(userProducts).values({ userId: markUser.id, productId: p.id, status: "active", purchasedAt: new Date() });
+    const bcrypt = (await import("bcryptjs")).default;
+    const ownerEmails = [
+      { email: "mark@cherringtonmedia.com", name: "Mark Blyn" },
+      { email: "adam@cherringtonmedia.com", name: "Adam" },
+    ];
+    for (const owner of ownerEmails) {
+      const [existing] = await database.select({ id: users.id, sourceProduct: users.sourceProduct, role: users.role })
+        .from(users).where(eq(users.email, owner.email));
+      if (existing) {
+        if (existing.role !== "admin" || existing.sourceProduct !== "lifetime") {
+          await database.update(users).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true }).where(eq(users.id, existing.id));
+          const existingProducts = await database.select({ productId: userProducts.productId }).from(userProducts).where(eq(userProducts.userId, existing.id));
+          const existingIds = new Set(existingProducts.map(p => p.productId));
+          const allProducts = await database.select({ id: products.id }).from(products);
+          for (const p of allProducts) {
+            if (!existingIds.has(p.id)) {
+              await database.insert(userProducts).values({ userId: existing.id, productId: p.id, status: "active", purchasedAt: new Date() });
+            }
+          }
+          console.log(`[Startup] Upgraded ${owner.email} to admin with all products`);
         }
+      } else {
+        const passwordHash = await bcrypt.hash(owner.email === "adam@cherringtonmedia.com" ? "Jesuslives38!" : "Mablyn@1969", 12);
+        const [newUser] = await database.insert(users).values({
+          email: owner.email,
+          name: owner.name,
+          passwordHash,
+          role: "admin",
+          sourceProduct: "lifetime",
+          emailVerified: true,
+          onboardingComplete: true,
+          onboardingStep: 1,
+        }).returning({ id: users.id });
+        const allProducts = await database.select({ id: products.id }).from(products);
+        for (const p of allProducts) {
+          await database.insert(userProducts).values({ userId: newUser.id, productId: p.id, status: "active", purchasedAt: new Date() });
+        }
+        console.log(`[Startup] Created admin account ${owner.email} with all products`);
       }
-      console.log("[Startup] Upgraded mark@cherringtonmedia.com to admin with all products");
     }
   } catch (err) {
     console.warn("[Startup] Account upgrade check skipped:", err);
