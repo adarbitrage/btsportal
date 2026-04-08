@@ -62,6 +62,14 @@ async function buildAll() {
     outfile: path.resolve(distDir, "index.cjs"),
     define: {
       "process.env.NODE_ENV": '"production"',
+      // Rewrite import.meta.url → __importMetaUrl so the CJS bundle never
+      // contains a bare import.meta reference (which is undefined in CJS and
+      // causes fileURLToPath(undefined) to throw on startup). The banner below
+      // declares __importMetaUrl using the CJS __filename global.
+      "import.meta.url": "__importMetaUrl",
+    },
+    banner: {
+      js: "var __importMetaUrl=require('url').pathToFileURL(__filename).href;",
     },
     minify: true,
     external: externals,
