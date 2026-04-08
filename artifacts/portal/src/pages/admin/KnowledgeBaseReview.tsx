@@ -51,6 +51,14 @@ interface StagingDoc {
   reviewedAt: string | null;
   mergedIntoId: number | null;
   createdAt: string;
+  source: string | null;
+  phase: string | null;
+  module: string | null;
+  lessonId: string | null;
+  lessonType: string | null;
+  networkPath: string | null;
+  publisherPath: string | null;
+  blitzOrder: number | null;
 }
 
 interface StatusCounts {
@@ -432,6 +440,32 @@ export default function KnowledgeBaseReview() {
                             {doc.category}
                           </Badge>
                         </div>
+                        {doc.source === "blitz" && (
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                              Blitz
+                            </Badge>
+                            {doc.phase && (
+                              <Badge variant="outline" className={`text-[10px] ${
+                                doc.phase === "build" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                doc.phase === "test" ? "bg-cyan-50 text-cyan-700 border-cyan-200" :
+                                "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}>
+                                {doc.phase.toUpperCase()}
+                              </Badge>
+                            )}
+                            {doc.lessonId && (
+                              <span className="text-[10px] text-gray-500">
+                                Lesson {doc.lessonId}
+                              </span>
+                            )}
+                            {doc.module && (
+                              <span className="text-[10px] text-gray-400">
+                                · {doc.module}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {doc.sourceVideoTitle && (
                           <p className="text-xs text-gray-400 mt-1 truncate">
                             Source: {doc.sourceVideoTitle}
@@ -556,6 +590,38 @@ export default function KnowledgeBaseReview() {
                     {selectedDoc.status.replace("_", " ")}
                   </Badge>
                 </div>
+                {selectedDoc.source === "blitz" && (
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      Blitz
+                    </Badge>
+                    {selectedDoc.phase && (
+                      <Badge variant="outline" className={`text-xs ${
+                        selectedDoc.phase === "build" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        selectedDoc.phase === "test" ? "bg-cyan-50 text-cyan-700 border-cyan-200" :
+                        "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      }`}>
+                        {selectedDoc.phase.toUpperCase()}
+                      </Badge>
+                    )}
+                    {selectedDoc.lessonId && (
+                      <span className="text-xs text-gray-500">Lesson {selectedDoc.lessonId}</span>
+                    )}
+                    {selectedDoc.module && (
+                      <span className="text-xs text-gray-400">· {selectedDoc.module}</span>
+                    )}
+                    {selectedDoc.networkPath && selectedDoc.networkPath !== "universal" && (
+                      <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600">
+                        {selectedDoc.networkPath.replace(/-/g, " ")}
+                      </Badge>
+                    )}
+                    {selectedDoc.publisherPath && selectedDoc.publisherPath !== "all" && (
+                      <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600">
+                        {selectedDoc.publisherPath.replace(/-/g, " ")}
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 {selectedDoc.sourceVideoTitle && (
                   <p className="text-xs text-gray-400">
                     Source: {selectedDoc.sourceVideoTitle}

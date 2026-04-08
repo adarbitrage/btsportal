@@ -16,11 +16,21 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   reviewedBy: integer("reviewed_by").references(() => usersTable.id),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   mergedIntoId: integer("merged_into_id"),
+  source: text("source"),
+  phase: text("phase"),
+  module: text("module"),
+  lessonId: text("lesson_id"),
+  lessonType: text("lesson_type"),
+  networkPath: text("network_path"),
+  publisherPath: text("publisher_path"),
+  blitzOrder: integer("blitz_order"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("kb_staging_status_idx").on(table.status),
   index("kb_staging_search_idx").using("gin", sql`to_tsvector('english', ${table.title} || ' ' || ${table.content})`),
+  index("kb_staging_source_idx").on(table.source),
+  index("kb_staging_phase_idx").on(table.phase),
 ]);
 
 export type KbStagingDoc = typeof kbStagingDocsTable.$inferSelect;
