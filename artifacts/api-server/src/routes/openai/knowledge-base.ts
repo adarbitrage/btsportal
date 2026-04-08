@@ -8,6 +8,7 @@ const KB_DIR = path.join(__dirname, "../../knowledge-base");
 let qaContent = "";
 let glossaryContent = "";
 let transcriptChunks: { title: string; content: string }[] = [];
+let videoTranscriptChunks: { title: string; content: string }[] = [];
 
 function loadKnowledgeBase() {
   if (qaContent) return;
@@ -35,6 +36,20 @@ function loadKnowledgeBase() {
   } catch {
     transcriptChunks = [];
   }
+
+  try {
+    const raw = fs.readFileSync(path.join(KB_DIR, "video-transcripts.txt"), "utf-8");
+    const sections = raw
+      .split(/\n---\n/)
+      .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
+    videoTranscriptChunks = sections.map((section) => {
+      const titleMatch = section.match(/^Title:\s*(.+)/m);
+      const title = titleMatch ? titleMatch[1].trim() : "Training Video";
+      return { title, content: section.slice(0, 6000) };
+    });
+  } catch {
+    videoTranscriptChunks = [];
+  }
 }
 
 export function getSystemPrompt(): string {
@@ -42,14 +57,15 @@ export function getSystemPrompt(): string {
   return `You are the BTS Assistant — the AI support chatbot for Build Test Scale (BTS), an affiliate marketing mentorship platform. You help mentees with questions about their mentorship program, tools, campaigns, and strategies.
 
 IMPORTANT RULES:
-- Always refer to the program as "Build Test Scale" or "BTS" — NEVER use "The Cherrington Experience", "TCE", or "Cherrington Media"
+- Always refer to the program as "Build Test Scale" or "BTS"
+- Never use any legacy or former branding names for this program
 - Be friendly, supportive, and encouraging — like a knowledgeable team member
 - Give specific, actionable answers when possible
-- If you don't know something, say so and recommend contacting support@cherringtonmedia.com
+- If you don't know something, say so and recommend contacting the BTS support team
 - Reference specific tools, processes, and resources from the knowledge base
 - Keep answers concise but thorough
 
-SUPPORT CONTACT: support@cherringtonmedia.com
+SUPPORT CONTACT: support@buildtestscale.com
 PORTAL URL: The member portal they are currently using
 
 KEY TOOLS:
@@ -82,17 +98,12 @@ ${qaContent}
 ${glossaryContent}`;
 }
 
-export function searchTranscripts(query: string, maxResults = 3): string {
-  loadKnowledgeBase();
-
-  const queryWords = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2)
-    .slice(0, 20);
-
-  const scored = transcriptChunks.map((chunk) => {
-    const lower = chunk.content.toLowerCase();
+function scoreChunks(
+  chunks: { title: string; content: string }[],
+  queryWords: string[],
+): { title: string; content: string; score: number }[] {
+  return chunks.map((chunk) => {
+    const lower = (chunk.title + " " + chunk.content).toLowerCase();
     let score = 0;
     for (const word of queryWords) {
       let idx = 0;
@@ -103,14 +114,37 @@ export function searchTranscripts(query: string, maxResults = 3): string {
     }
     return { ...chunk, score };
   });
+}
 
-  scored.sort((a, b) => b.score - a.score);
-  const top = scored.filter((s) => s.score > 0).slice(0, maxResults);
+export function searchTranscripts(query: string, maxResults = 3): string {
+  loadKnowledgeBase();
+
+  const queryWords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .slice(0, 20);
+
+  const coachingScored = scoreChunks(transcriptChunks, queryWords);
+  const videoScored = scoreChunks(videoTranscriptChunks, queryWords);
+
+  const allScored = [
+    ...coachingScored.map((c) => ({ ...c, source: "coaching" as const })),
+    ...videoScored.map((c) => ({ ...c, source: "video" as const })),
+  ];
+
+  allScored.sort((a, b) => b.score - a.score);
+  const top = allScored.filter((s) => s.score > 0).slice(0, maxResults);
 
   if (top.length === 0) return "";
 
   return (
-    "\n\n=== RELEVANT COACHING SESSION EXCERPTS ===\n" +
-    top.map((t) => `\n--- ${t.title} ---\n${t.content}`).join("\n")
+    "\n\n=== RELEVANT TRAINING CONTENT ===\n" +
+    top
+      .map(
+        (t) =>
+          `\n--- ${t.title} (${t.source === "video" ? "Training Video" : "Coaching Session"}) ---\n${t.content}`,
+      )
+      .join("\n")
   );
 }
