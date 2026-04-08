@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable } from "@workspace/db/schema";
 import { eq, count, and } from "drizzle-orm";
@@ -9,8 +8,7 @@ import { requireAdmin } from "../../middleware/auth.js";
 import { execSync } from "child_process";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const KB_DIR = path.join(__dirname, "../../knowledge-base");
+const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 const router = Router();
 router.use(requireAdmin);

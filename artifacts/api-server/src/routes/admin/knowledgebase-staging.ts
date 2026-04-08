@@ -4,12 +4,10 @@ import { kbStagingDocsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { reloadKnowledgeBase } from "../openai/knowledge-base.js";
 import { requireAdmin } from "../../middleware/auth.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const KB_DIR = path.join(__dirname, "../../knowledge-base");
+const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 const router = Router();
 router.use(requireAdmin);
@@ -311,6 +309,7 @@ router.post("/push-approved", async (req: Request, res: Response) => {
       kbContent += content + "\n\n";
     }
 
+    fs.mkdirSync(KB_DIR, { recursive: true });
     const trainingDocPath = path.join(KB_DIR, "training-documents.txt");
     fs.writeFileSync(trainingDocPath, kbContent);
 
@@ -335,16 +334,25 @@ router.post("/push-approved", async (req: Request, res: Response) => {
         .where(eq(kbStagingDocsTable.id, doc.id));
     }
 
-    reloadKnowledgeBase();
+    let reloaded = true;
+    try {
+      reloadKnowledgeBase();
+    } catch (reloadErr) {
+      reloaded = false;
+      console.error("[KB Push] reloadKnowledgeBase error (non-fatal):", reloadErr);
+    }
 
     res.json({
       message: `Pushed ${newlyApproved.length} documents to knowledge base (${allPublishable.length} total in file)`,
       pushed: newlyApproved.length,
       totalInFile: allPublishable.length,
       file: "training-documents.txt",
+      reloaded,
+      ...(reloaded ? {} : { reloadWarning: "In-memory KB reload failed; restart the server to apply changes" }),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[KB Push] Error:", message, err);
     res.status(500).json({ error: message });
   }
 });

@@ -1,9 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const KB_DIR = path.join(__dirname, "../../knowledge-base");
+const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 let qaContent = "";
 let glossaryContent = "";

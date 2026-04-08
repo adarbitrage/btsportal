@@ -3,57 +3,6 @@ Clean, structured training content for the Build Test Scale knowledge base.
 =======================================
 
 ---
-Title: Logging Into MediaMavens for the First Time
-Category: platform_guide
-Tags: MediaMavens, account setup, affiliate networks
-
-# Logging Into MediaMavens for the First Time
-
-**Category:** platform_guide  
-**Topics:** MediaMavens, account setup, affiliate networks  
-
-## Setting Up Your MediaMavens Account  
-
-MediaMavens is an affiliate network platform where you can find and promote offers. Follow these steps to log in and set up your account for the first time.  
-
-### Step-by-Step Instructions  
-
-1. **Access MediaMavens**  
-   - Navigate to the "Resources" section in your BTS dashboard.  
-   - Click on the second tab labeled "Affiliate Networks."  
-   - Locate MediaMavens and click the green "Learn About MediaMavens" button.  
-
-2. **Explore MediaMavens Overview**  
-   - On the MediaMavens page, you can watch an introductory video to learn more about the platform.  
-   - Scroll down to view the perks of using MediaMavens and a list of available offers.  
-   - Clicking on any offer will display more details about it.  
-
-3. **Log Into MediaMavens**  
-   - Scroll to the bottom of the perks list and click the large green "Login" button.  
-
-4. **Complete the Onboarding Process**  
-   - Fill in the required fields:  
-     - First Name  
-     - Last Name  
-     - Email  
-     - Time Zone  
-     - Language  
-   - Accept cookies if prompted, then click "Next."  
-   - On the next page, enter your address and click "Next."  
-   - Additional information is optional. You can skip this step by clicking "Finish."  
-
-5. **Access Your MediaMavens Portal**  
-   - Once the onboarding process is complete, you will be directed to the MediaMavens dashboard.  
-   - For future logins, clicking the "Login" button will take you directly to the dashboard without repeating the setup process.  
-
-## Key Takeaways  
-
-- MediaMavens is accessible via the "Affiliate Networks" tab in the BTS Resources section.  
-- The onboarding process requires basic personal information but skips optional fields if desired.  
-- After the first login, subsequent access to MediaMavens will be seamless, taking you directly to the dashboard.  
-- The platform provides an overview of available offers and their commissions, helping you choose what to promote.  
-
----
 Title: Overview of Affiliate Arbitrage Process
 Category: strategy
 Tags: affiliate arbitrage, traffic sources, landing pages, media mavens, ClickBank, advertorials, commissions
@@ -140,6 +89,57 @@ The BTS method uses two primary affiliate networks: **Media Mavens** and **Click
 - The process involves setting up ads, driving traffic to a landing page, and earning commissions from sales.  
 
 ---
+Title: Logging Into MediaMavens for the First Time
+Category: platform_guide
+Tags: MediaMavens, account setup, affiliate networks
+
+# Logging Into MediaMavens for the First Time
+
+**Category:** platform_guide  
+**Topics:** MediaMavens, account setup, affiliate networks  
+
+## Setting Up Your MediaMavens Account  
+
+MediaMavens is an affiliate network platform where you can find and promote offers. Follow these steps to log in and set up your account for the first time.  
+
+### Step-by-Step Instructions  
+
+1. **Access MediaMavens**  
+   - Navigate to the "Resources" section in your BTS dashboard.  
+   - Click on the second tab labeled "Affiliate Networks."  
+   - Locate MediaMavens and click the green "Learn About MediaMavens" button.  
+
+2. **Explore MediaMavens Overview**  
+   - On the MediaMavens page, you can watch an introductory video to learn more about the platform.  
+   - Scroll down to view the perks of using MediaMavens and a list of available offers.  
+   - Clicking on any offer will display more details about it.  
+
+3. **Log Into MediaMavens**  
+   - Scroll to the bottom of the perks list and click the large green "Login" button.  
+
+4. **Complete the Onboarding Process**  
+   - Fill in the required fields:  
+     - First Name  
+     - Last Name  
+     - Email  
+     - Time Zone  
+     - Language  
+   - Accept cookies if prompted, then click "Next."  
+   - On the next page, enter your address and click "Next."  
+   - Additional information is optional. You can skip this step by clicking "Finish."  
+
+5. **Access Your MediaMavens Portal**  
+   - Once the onboarding process is complete, you will be directed to the MediaMavens dashboard.  
+   - For future logins, clicking the "Login" button will take you directly to the dashboard without repeating the setup process.  
+
+## Key Takeaways  
+
+- MediaMavens is accessible via the "Affiliate Networks" tab in the BTS Resources section.  
+- The onboarding process requires basic personal information but skips optional fields if desired.  
+- After the first login, subsequent access to MediaMavens will be seamless, taking you directly to the dashboard.  
+- The platform provides an overview of available offers and their commissions, helping you choose what to promote.  
+
+---
 Title: Choosing Your Offer Network
 Category: strategy
 Tags: affiliate networks, ClickBank, MediaMavens, offer selection
@@ -202,4 +202,89 @@ ClickBank is a well-established third-party affiliate network with a wide variet
 - To access either network, navigate to the "Affiliate Networks" section under "Resources" in your BTS portal.  
 - Gravity is a key metric on ClickBank to identify high-performing offers.  
 - A later module will provide step-by-step instructions for setting up accounts and selecting offers on both platforms.  
+
+---
+Title: Round 2 Ad Placement Testing for Caterpillar Campaign
+Category: sop
+Tags: ad placements, testing strategy, CPA, ad formats
+
+# Round 2 Ad Placement Testing for Caterpillar Campaign
+
+**Category:** sop  
+**Topics:** ad placements, testing strategy, CPA, ad formats  
+
+## Overview of Round 2 Testing
+
+In Round 2 of the Caterpillar campaign, the focus is on testing different ad placements and formats using the winning headline from Round 1:  
+**"Attention state side sleepers, this reset pillow eliminates morning back pain."**
+
+The goal is to identify which combination of placement (16:9 vs. 9:16) and format (static image, GIF, or video) performs best in terms of cost per landing page click and conversions.
+
+## Steps to Set Up Round 2 Ads
+
+### 1. Prepare Assets
+- **Winning Headline:** Use the headline identified in Round 1 testing.
+- **Ad Formats:** Create assets in three formats:
+  - Static images
+  - GIFs
+  - Videos
+- **Placement Ratios:** Prepare assets in both 16:9 and 9:16 aspect ratios.
+
+### 2. Create Ads in the Platform
+1. **Static Images:**
+   - Duplicate the existing ad.
+   - Replace the image with the appropriate 16:9 or 9:16 file.
+   - Update the ad name to reflect the format and placement (e.g., "Ad 11 - 9:16 Image").
+   - Save the ad.
+
+2. **GIFs:**
+   - Duplicate an existing static image ad.
+   - Replace the image with the corresponding GIF file.
+   - Update the ad name (e.g., "Ad 12 - 16:9 GIF").
+   - Save the ad.
+
+3. **Videos:**
+   - Create a new ad (video type cannot be cloned from static or GIF ads).
+   - Upload the video file (ensure it is under 20 MB).
+   - Add the headline, description, button text ("Learn More"), and brand logo.
+   - Update the ad name to reflect the format and placement (e.g., "Ad 14 - 16:9 Video").
+   - Save the ad.
+
+### 3. Finalize and Activate Ads
+- Ensure all six placements are created:
+  1. 16:9 Static Image
+  2. 9:16 Static Image
+  3. 16:9 GIF
+  4. 9:16 GIF
+  5. 16:9 Video
+  6. 9:16 Video
+- Turn off any underperforming ads from Round 1.
+- Set the campaign budget based on the CPA testing strategy.
+
+## Budget and Testing Strategy
+
+1. **Budget Calculation:**
+   - Determine the CPA payout for the product (e.g., $60).
+   - Allocate a budget of 2x CPA per ad (e.g., $120 per ad).
+   - For six ads, the total budget is $720.
+
+2. **Monitoring Performance:**
+   - **Primary Metric:** Cost per landing page click (CPC).
+   - **Secondary Metric:** Conversion rates.
+   - Turn off underperforming ads early if:
+     - CPC is too high.
+     - Landing page click-through rate is too low.
+   - Prioritize ads with the best conversion performance.
+
+3. **Adjustments:**
+   - Monitor results frequently.
+   - Reallocate budget to high-performing placements if necessary.
+
+## Key Takeaways
+
+- Test six ad placements: static images, GIFs, and videos in both 16:9 and 9:16 formats.
+- Allocate a budget of 2x CPA per ad and monitor CPC as the primary performance metric.
+- Turn off underperforming ads early to optimize the budget.
+- Use the winning headline from Round 1 to maintain consistency across all placements.
+- Ensure all assets are properly named and saved to avoid confusion during testing.
 
