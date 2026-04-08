@@ -1,0 +1,508 @@
+# BTS Portal — Transcript-to-Training-Document Pipeline Build Spec
+
+**Priority:** Immediate (knowledge base quality is directly impacting AI chat value)
+**Status:** Not started
+**Depends on:** AI Chat Assistant (built), Vidalytics transcripts (97 videos, 426KB raw content)
+**Reference:** BTS AI Chat Build Spec, Section 3 (RAG Knowledgebase)
+
+---
+
+## Problem
+
+The AI chat knowledge base currently contains raw video transcripts — 97 videos worth of spoken content that was run through Whisper and dumped directly into the RAG system. Raw transcripts are terrible knowledge base content because:
+
+1. **Verbal filler:** "uh", "um", "ah", "you know", "like", "basically", "so", "right?" scattered throughout
+2. **Rambling structure:** Spoken content meanders — a 40-minute coaching session might cover 6 topics with constant tangents, restarts, and asides
+3. **No headings or organization:** Transcripts are flat walls of text with no structure, making RAG retrieval imprecise — a chunk might contain 3 different topics
+4. **Redundancy:** The same concept might be explained 5 different ways across 5 videos with slightly different wording each time
+5. **Conversational tone bleeds into answers:** Even if Claude cleans up language in its response, the underlying knowledge chunks are low-density (lots of words, little information)
+6. **Poor chunking:** When you chunk a transcript every 500 tokens, you get arbitrary splits mid-sentence, mid-concept, or mid-tangent
+
+**The fix:** Run every transcript through a document extraction pipeline that produces clean, structured, topical training documents. Then replace the raw transcripts in the knowledge base with these documents.
+
+---
+
+## Pipeline Overview
+
+```
+RAW TRANSCRIPTS (97 videos, 426KB)
+        │
+        ▼
+  STEP 1: CLEAN & SEGMENT
+  Remove filler, split into topic segments
+        │
+        ▼
+  STEP 2: EXTRACT & STRUCTURE
+  Claude converts each segment into a structured training document
+  with headings, key concepts, steps, and examples
+        │
+        ▼
+  STEP 3: DEDUPLICATE & MERGE
+  Identify overlapping topics across videos, merge into
+  canonical documents (one doc per topic, not per video)
+        │
+        ▼
+  STEP 4: REVIEW & CATEGORIZE
+  Admin reviews generated docs, assigns categories,
+  approves for knowledge base
+        │
+        ▼
+  STEP 5: REPLACE IN KNOWLEDGE BASE
+  Remove raw transcripts, load clean documents,
+  re-chunk and re-embed
+        │
+        ▼
+  CLEAN KNOWLEDGE BASE (structured training docs)
+```
+
+---
+
+## What to Build
+
+### Step 1: Transcript Cleaning
+
+A processing script that takes each raw transcript and removes verbal noise before sending to Claude. This is a preprocessing step that reduces token usage and improves Claude's ability to extract structure.
+
+**Automated cleanup (regex/string processing, no AI needed):**
+
+```javascript
+function cleanTranscript(raw: string): string {
+  let cleaned = raw;
+  
+  // Remove verbal fillers (case-insensitive, word-boundary matched)
+  const fillers = [
+    'uh', 'um', 'uh huh', 'uhm', 'umm', 'uhh', 'hmm', 'hm',
+    'ah', 'ahh', 'oh', 'ooh', 'eh',
+    'you know', 'you know what I mean', 'know what I mean',
+    'like I said', 'as I said',
+    'basically', 'essentially', 'literally',
+    'right\\?', 'right\\.', 'okay\\?', 'okay\\.',
+    'so yeah', 'and yeah', 'but yeah',
+    'I mean', 'I guess',
+    'sort of', 'kind of',
+    'at the end of the day',
+  ];
+  
+  for (const filler of fillers) {
+    // Match filler as standalone or at start/end of sentence
+    const regex = new RegExp(`\\b${filler}\\b[,\\s]*`, 'gi');
+    cleaned = cleaned.replace(regex, ' ');
+  }
+  
+  // Collapse repeated spaces, fix orphaned punctuation
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  cleaned = cleaned.replace(/\s+([.,!?])/g, '$1');
+  cleaned = cleaned.replace(/([.,!?])\s*([.,!?])/g, '$1');
+  
+  // Remove empty sentences
+  cleaned = cleaned.replace(/\.\s*\./g, '.');
+  
+  return cleaned.trim();
+}
+```
+
+**This alone won't fix the structural problems** — it just removes noise before Claude does the heavy lifting.
+
+### Step 2: AI-Powered Document Extraction
+
+Send each cleaned transcript to Claude with a structured extraction prompt. This is the core of the pipeline.
+
+**Processing approach:**
+
+For shorter transcripts (< 8,000 tokens): process in a single Claude call.
+For longer transcripts (8,000+ tokens): split into logical segments first (by detecting topic shifts), then process each segment separately.
+
+#### Topic Segmentation (for long transcripts)
+
+```
+SYSTEM PROMPT (Segmentation):
+
+You are analyzing a training video transcript to identify distinct topics discussed.
+The transcript is from an affiliate marketing coaching/training session.
+
+Your job is to:
+1. Read the transcript
+2. Identify every distinct topic or teaching segment
+3. For each segment, output:
+   - A descriptive topic title
+   - The approximate start and end position in the transcript (by paragraph number or sentence range)
+   - A 1-sentence summary of what's taught
+
+Output as JSON:
+[
+  {
+    "topic": "How to Choose a Profitable Niche",
+    "startParagraph": 1,
+    "endParagraph": 23,
+    "summary": "Criteria for evaluating niches including competition level, payout amounts, and audience size."
+  },
+  ...
+]
+
+Do NOT include segments that are purely:
+- Small talk, greetings, or sign-offs
+- Announcements about scheduling or logistics
+- Tangents unrelated to affiliate marketing or business
+- Q&A where the question is too specific to one person's situation to be generally useful
+```
+
+#### Document Extraction
+
+```
+SYSTEM PROMPT (Extraction):
+
+You are converting a raw training video transcript into a clean, structured 
+training document for a knowledge base. The source material is from a coaching 
+session about affiliate marketing.
+
+Your job is to extract the TEACHING CONTENT and produce a well-organized 
+document that reads like a professional training guide — NOT like a transcript.
+
+RULES:
+- Write in clear, direct prose. No verbal fillers, no conversational padding.
+- Organize with clear headings (## and ###)
+- Extract actionable steps as numbered lists
+- Extract key concepts, frameworks, and definitions clearly
+- Include specific examples, numbers, or case studies mentioned (these are valuable)
+- Remove all "uh", "um", "so", "like", "you know", "basically" — 
+  the output should read like someone sat down and WROTE this, not spoke it
+- Remove tangents, repeated explanations, and off-topic asides
+- If the speaker explains the same concept multiple ways, keep the clearest 
+  explanation and discard the rest
+- Preserve any specific tools, platforms, metrics, or thresholds mentioned
+- Preserve any warnings, common mistakes, or "don't do this" advice
+- Do NOT add information that isn't in the transcript — only extract and organize
+- Do NOT include phrases like "the speaker said" or "in this video" — write 
+  as if this is original training content
+- Keep BTS branding. Never reference TCE, Cherrington, Charrington, or Adam.
+- Target length: 300-800 words per document (dense, high-signal content)
+  A 40-minute rambling transcript might produce a 500-word document — that's fine.
+  Density > length.
+
+OUTPUT FORMAT:
+
+# [Document Title]
+
+**Category:** [curriculum | strategy | sop | faq | platform_guide]
+**Topics:** [comma-separated topic tags for search]
+**Source:** [Original video title]
+
+## [First Section Heading]
+
+[Clean, structured content...]
+
+### [Sub-heading if needed]
+
+[Content with numbered steps, key points, etc.]
+
+## Key Takeaways
+
+- [Bullet point summary of the most important points]
+
+---
+```
+
+#### Batch Processing Script
+
+```javascript
+async function processAllTranscripts() {
+  const transcripts = await db.knowledgebase_docs.findAll({
+    where: { category: 'video_transcript' }  // or however raw transcripts are tagged
+  });
+  
+  const results = [];
+  
+  for (const transcript of transcripts) {
+    console.log(`Processing: ${transcript.title} (${transcript.content.length} chars)`);
+    
+    // Step 1: Clean
+    const cleaned = cleanTranscript(transcript.content);
+    
+    // Step 2: Check length
+    const tokenEstimate = cleaned.length / 4; // rough estimate
+    
+    if (tokenEstimate > 8000) {
+      // Long transcript: segment first, then extract per segment
+      const segments = await segmentTranscript(cleaned, transcript.title);
+      
+      for (const segment of segments) {
+        const segmentText = extractSegmentText(cleaned, segment);
+        const doc = await extractDocument(segmentText, segment.topic, transcript.title);
+        results.push(doc);
+      }
+    } else {
+      // Short transcript: extract directly
+      const doc = await extractDocument(cleaned, transcript.title, transcript.title);
+      results.push(doc);
+    }
+    
+    // Rate limit: pause between API calls
+    await sleep(1000);
+  }
+  
+  // Save all generated documents
+  for (const doc of results) {
+    await db.knowledgebase_docs_staging.create({
+      title: doc.title,
+      category: doc.category,
+      content: doc.content,
+      tags: doc.topics,
+      source_transcript_id: doc.sourceId,
+      status: 'pending_review',
+      created_at: new Date()
+    });
+  }
+  
+  console.log(`Generated ${results.length} documents from ${transcripts.length} transcripts`);
+}
+```
+
+### Step 3: Deduplication & Merging
+
+After extraction, you'll likely have multiple documents covering the same topic from different videos (e.g., "headline testing" probably comes up in 10+ sessions). These need to be merged into canonical documents.
+
+**Deduplication approach:**
+
+```
+SYSTEM PROMPT (Deduplication):
+
+You are reviewing a set of training documents that were extracted from 
+different video transcripts. Some documents cover overlapping topics.
+
+Your job is to:
+1. Identify groups of documents that cover the same core topic
+2. For each group, produce ONE merged document that combines the best 
+   content from all sources:
+   - Keep the clearest explanations
+   - Combine unique examples from different sources
+   - Preserve all actionable steps (union, not intersection)
+   - Remove redundant content
+   - Maintain the same output format (headings, structure, etc.)
+3. Documents that are unique (no overlap with others) pass through unchanged
+
+Input: Array of documents with titles, categories, and content.
+Output: Array of merged/deduplicated documents.
+```
+
+**This step can also be done manually by admin** — the admin reviews the generated documents, identifies overlaps, and uses an admin tool to merge selected documents into one. A hybrid approach (AI suggests merges, admin approves) is ideal.
+
+### Step 4: Admin Review & Approval
+
+Generated documents land in a staging table for admin review before going into the live knowledge base. This is critical — AI-extracted content should be human-verified before members see it in chat responses.
+
+#### Staging Table
+
+```sql
+knowledgebase_docs_staging
+  id              SERIAL PRIMARY KEY
+  title           TEXT NOT NULL
+  category        TEXT NOT NULL
+  content         TEXT NOT NULL
+  tags            TEXT[]
+  source_transcript_id INTEGER              -- which raw transcript this came from
+  source_video_title TEXT
+  
+  -- Review status
+  status          TEXT NOT NULL DEFAULT 'pending_review'
+    -- 'pending_review' → waiting for admin
+    -- 'approved'       → ready to push to live knowledge base
+    -- 'needs_edit'     → admin wants changes before approval
+    -- 'rejected'       → not useful, discard
+    -- 'merged'         → merged into another document
+  
+  -- Admin edits
+  admin_notes     TEXT
+  edited_content  TEXT                       -- admin's revised version (if they edit)
+  reviewed_by     INTEGER REFERENCES users(id)
+  reviewed_at     TIMESTAMP
+  
+  -- Merge tracking
+  merged_into_id  INTEGER REFERENCES knowledgebase_docs_staging(id)
+  
+  created_at      TIMESTAMP DEFAULT NOW()
+```
+
+#### Admin Review UI (`/admin/knowledgebase/review`)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  KNOWLEDGE BASE DOCUMENT REVIEW                                  │
+│                                                                  │
+│  [Pending (47)] [Approved (23)] [Needs Edit (5)] [Rejected (3)]  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  How to Choose a Profitable Niche                         │    │
+│  │  Category: curriculum · Source: "Niche Selection Deep Dive"│   │
+│  │  Tags: niche, selection, profitability, competition       │    │
+│  │  ─────────────────────────────────────────────────────── │    │
+│  │                                                          │    │
+│  │  [Full document content rendered as markdown preview]     │    │
+│  │                                                          │    │
+│  │  ## Evaluating Niche Profitability                        │    │
+│  │  When choosing a niche, evaluate these five criteria...   │    │
+│  │                                                          │    │
+│  │  ─────────────────────────────────────────────────────── │    │
+│  │  Actions:                                                │    │
+│  │  [✅ Approve] [✏️ Edit & Approve] [🔀 Merge With...] [❌ Reject]│
+│  │                                                          │    │
+│  │  Similar documents (potential merges):                    │    │
+│  │  • "Finding Your First Niche" (78% similarity)            │    │
+│  │  • "Niche Research Framework" (65% similarity)            │    │
+│  │  [Merge selected →]                                       │    │
+│  │                                                          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Admin actions:**
+
+| Action | What Happens |
+|--------|-------------|
+| Approve | Document moves to live knowledge base as-is |
+| Edit & Approve | Opens inline editor, admin makes changes, then approves the edited version |
+| Merge With... | Select 1+ other documents → AI merges them → admin reviews merged result |
+| Reject | Document discarded (stays in staging for audit but not pushed to KB) |
+
+### Step 5: Knowledge Base Replacement
+
+Once documents are approved, they replace the raw transcripts in the live knowledge base.
+
+```
+Push approved documents to knowledge base:
+
+1. For each approved document in staging:
+   a. Create new knowledgebase_docs record (or update existing)
+   b. Set content = approved content (or admin-edited content)
+   c. Set category, tags, title
+   d. Mark source transcript as 'replaced' (don't delete — keep for audit)
+
+2. Re-chunk all new documents:
+   - Split into 500-800 token chunks with 100-token overlap
+   - Each chunk gets its own embedding
+   - Chunks inherit the document's category and tags
+
+3. Re-embed all chunks:
+   - Generate embeddings via Voyage API or OpenAI
+   - Store in knowledgebase_docs with pgvector column
+   - (Or update tsvector for full-text search if using that approach)
+
+4. Deactivate old raw transcript chunks:
+   - Set is_active = false on all chunks from raw transcripts
+   - They stop appearing in RAG retrieval but remain in DB for reference
+
+5. Verify:
+   - Test 10 common questions against the new knowledge base
+   - Confirm responses are clean, structured, and filler-free
+   - Confirm no old transcript chunks are being retrieved
+```
+
+---
+
+## Future: Ongoing Transcript Processing
+
+This pipeline should run automatically whenever new training videos are added. Build it as a reusable process:
+
+```
+1. New video added to Vidalytics (or uploaded to portal)
+2. Transcript generated (Whisper or Vidalytics built-in)
+3. Transcript automatically cleaned and processed through the extraction pipeline
+4. Generated document lands in staging for admin review
+5. Admin approves → pushed to live knowledge base
+
+This can be triggered manually (admin clicks "Process new transcripts") 
+or automatically via a webhook/cron that checks for new videos.
+```
+
+---
+
+## API Endpoints
+
+```
+# Processing pipeline (admin)
+POST   /api/admin/knowledgebase/process-transcripts     → Run the full pipeline on all raw transcripts
+POST   /api/admin/knowledgebase/process-single/:id      → Process a single transcript
+GET    /api/admin/knowledgebase/staging                  → List staging documents with filters
+PATCH  /api/admin/knowledgebase/staging/:id              → Update status (approve, reject, edit)
+POST   /api/admin/knowledgebase/staging/merge            → Merge selected documents
+POST   /api/admin/knowledgebase/staging/push-approved    → Push all approved docs to live KB
+GET    /api/admin/knowledgebase/staging/:id/similar      → Find similar documents for merge suggestions
+
+# Live knowledge base management (existing endpoints, enhanced)
+GET    /api/admin/knowledgebase                          → List live KB docs (now shows source info)
+POST   /api/admin/knowledgebase/re-embed                 → Re-generate all embeddings
+GET    /api/admin/knowledgebase/quality-check             → Test common questions, show which chunks are retrieved
+```
+
+---
+
+## Database Additions
+
+```sql
+-- Staging table for processed documents
+knowledgebase_docs_staging (
+  id, title, category, content, tags, source_transcript_id,
+  source_video_title, status, admin_notes, edited_content,
+  reviewed_by, reviewed_at, merged_into_id, created_at
+)
+
+-- Add to existing knowledgebase_docs
+ALTER TABLE knowledgebase_docs ADD COLUMN source_type TEXT DEFAULT 'manual';
+  -- 'manual'     → admin uploaded directly
+  -- 'transcript' → extracted from video transcript
+  -- 'processed'  → AI-processed from transcript (clean document)
+ALTER TABLE knowledgebase_docs ADD COLUMN source_staging_id INTEGER;
+ALTER TABLE knowledgebase_docs ADD COLUMN source_video_title TEXT;
+```
+
+---
+
+## Cost Estimate
+
+Processing 97 transcripts through Claude:
+
+```
+Assumptions:
+- Average raw transcript: ~4,400 chars (426KB / 97 videos)
+- Some are much longer (40+ min sessions = 20,000+ chars)
+- Segmentation calls: ~20 (only for long transcripts)
+- Extraction calls: ~120 (97 direct + extras from segmented long ones)
+- Deduplication call: 1-3 batch calls
+- Total input tokens: ~200K
+- Total output tokens: ~150K
+
+Using Claude Sonnet:
+- Input: 200K tokens × $3/M = $0.60
+- Output: 150K tokens × $15/M = $2.25
+- Total: ~$3
+
+This is trivially cheap. Even running it 10 times to iterate on prompt quality costs under $30.
+```
+
+---
+
+## Environment Variables
+
+```
+# Pipeline configuration
+KB_EXTRACTION_MODEL=claude-sonnet-4-20250514
+KB_EXTRACTION_MAX_TOKENS=2000
+KB_SEGMENT_THRESHOLD_TOKENS=8000
+KB_CHUNK_SIZE_TOKENS=600
+KB_CHUNK_OVERLAP_TOKENS=100
+```
+
+---
+
+## Definition of Done
+
+1. All 97 raw transcripts are processed through the cleaning + extraction pipeline
+2. Generated documents are clean prose with headings, steps, and key takeaways — zero verbal filler
+3. Overlapping topics are merged into canonical documents (one authoritative doc per topic)
+4. Admin has reviewed and approved all documents via the staging UI
+5. Clean documents replace raw transcripts in the live knowledge base
+6. Old transcript chunks are deactivated (not deleted)
+7. RAG retrieval returns structured, high-quality content when members ask questions
+8. AI chat responses read like answers from a training guide, not a transcript
+9. Quality check: test 20 common questions and verify response quality improvement
+10. Pipeline is reusable for future video additions (process → stage → review → push)

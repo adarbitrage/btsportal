@@ -49,6 +49,8 @@ import adminVaultRouter from "./admin-vault";
 import adminToolsRouter from "./admin-tools";
 import adminPanelRouter from "./admin-panel";
 import aiChatRouter from "./openai/chat.js";
+import kbPipelineRouter from "./admin/knowledgebase-pipeline.js";
+import kbStagingRouter from "./admin/knowledgebase-staging.js";
 
 const router: IRouter = Router();
 
@@ -102,5 +104,7 @@ router.use(adminCommunicationsRouter);
 router.use(adminToolsRouter);
 router.use(adminPanelRouter);
 router.use("/ai-chat", aiChatRouter);
+router.use("/admin/knowledgebase/pipeline", kbPipelineRouter);
+router.use("/admin/knowledgebase/staging", kbStagingRouter);
 
 export default router;

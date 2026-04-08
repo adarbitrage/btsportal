@@ -9,6 +9,7 @@ let qaContent = "";
 let glossaryContent = "";
 let transcriptChunks: { title: string; content: string }[] = [];
 let videoTranscriptChunks: { title: string; content: string }[] = [];
+let trainingDocChunks: { title: string; content: string }[] = [];
 
 function loadKnowledgeBase() {
   if (qaContent) return;
@@ -38,18 +39,46 @@ function loadKnowledgeBase() {
   }
 
   try {
-    const raw = fs.readFileSync(path.join(KB_DIR, "video-transcripts.txt"), "utf-8");
-    const sections = raw
-      .split(/\n---\n/)
-      .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
-    videoTranscriptChunks = sections.map((section) => {
-      const titleMatch = section.match(/^Title:\s*(.+)/m);
-      const title = titleMatch ? titleMatch[1].trim() : "Training Video";
-      return { title, content: section.slice(0, 6000) };
-    });
+    const trainingDocsPath = path.join(KB_DIR, "training-documents.txt");
+    if (fs.existsSync(trainingDocsPath)) {
+      const raw = fs.readFileSync(trainingDocsPath, "utf-8");
+      const sections = raw
+        .split(/\n---\n/)
+        .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
+      trainingDocChunks = sections.map((section) => {
+        const titleMatch = section.match(/^Title:\s*(.+)/m);
+        const title = titleMatch ? titleMatch[1].trim() : "Training Document";
+        return { title, content: section.slice(0, 6000) };
+      });
+    }
+  } catch {
+    trainingDocChunks = [];
+  }
+
+  try {
+    if (trainingDocChunks.length === 0) {
+      const raw = fs.readFileSync(path.join(KB_DIR, "video-transcripts.txt"), "utf-8");
+      const sections = raw
+        .split(/\n---\n/)
+        .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
+      videoTranscriptChunks = sections.map((section) => {
+        const titleMatch = section.match(/^Title:\s*(.+)/m);
+        const title = titleMatch ? titleMatch[1].trim() : "Training Video";
+        return { title, content: section.slice(0, 6000) };
+      });
+    }
   } catch {
     videoTranscriptChunks = [];
   }
+}
+
+export function reloadKnowledgeBase(): void {
+  qaContent = "";
+  glossaryContent = "";
+  transcriptChunks = [];
+  videoTranscriptChunks = [];
+  trainingDocChunks = [];
+  loadKnowledgeBase();
 }
 
 export function getSystemPrompt(): string {
@@ -127,8 +156,10 @@ export function searchTranscripts(query: string, maxResults = 3): string {
 
   const coachingScored = scoreChunks(transcriptChunks, queryWords);
   const videoScored = scoreChunks(videoTranscriptChunks, queryWords);
+  const trainingScored = scoreChunks(trainingDocChunks, queryWords);
 
   const allScored = [
+    ...trainingScored.map((c) => ({ ...c, source: "training" as const })),
     ...coachingScored.map((c) => ({ ...c, source: "coaching" as const })),
     ...videoScored.map((c) => ({ ...c, source: "video" as const })),
   ];
@@ -143,7 +174,7 @@ export function searchTranscripts(query: string, maxResults = 3): string {
     top
       .map(
         (t) =>
-          `\n--- ${t.title} (${t.source === "video" ? "Training Video" : "Coaching Session"}) ---\n${t.content}`,
+          `\n--- ${t.title} (${t.source === "training" ? "Training Guide" : t.source === "video" ? "Training Video" : "Coaching Session"}) ---\n${t.content}`,
       )
       .join("\n")
   );

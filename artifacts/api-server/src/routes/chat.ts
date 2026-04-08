@@ -118,12 +118,13 @@ async function tryIncrementDailyUsage(userId: number, chatTier: string, dailyLim
 async function searchKnowledgebase(query: string, categories: string[]): Promise<Array<{ title: string; content: string; category: string }>> {
   if (categories.length === 0) return [];
 
+  const categoriesArray = `{${categories.join(",")}}`;
   const results = await db.execute(
     sql`SELECT title, content, category,
         ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
       FROM knowledgebase_docs
       WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
-        AND category = ANY(${categories})
+        AND category = ANY(${categoriesArray}::text[])
       ORDER BY rank DESC
       LIMIT 3`
   );

@@ -1,0 +1,205 @@
+=== BTS TRAINING DOCUMENTS ===
+Clean, structured training content for the Build Test Scale knowledge base.
+=======================================
+
+---
+Title: Logging Into MediaMavens for the First Time
+Category: platform_guide
+Tags: MediaMavens, account setup, affiliate networks
+
+# Logging Into MediaMavens for the First Time
+
+**Category:** platform_guide  
+**Topics:** MediaMavens, account setup, affiliate networks  
+
+## Setting Up Your MediaMavens Account  
+
+MediaMavens is an affiliate network platform where you can find and promote offers. Follow these steps to log in and set up your account for the first time.  
+
+### Step-by-Step Instructions  
+
+1. **Access MediaMavens**  
+   - Navigate to the "Resources" section in your BTS dashboard.  
+   - Click on the second tab labeled "Affiliate Networks."  
+   - Locate MediaMavens and click the green "Learn About MediaMavens" button.  
+
+2. **Explore MediaMavens Overview**  
+   - On the MediaMavens page, you can watch an introductory video to learn more about the platform.  
+   - Scroll down to view the perks of using MediaMavens and a list of available offers.  
+   - Clicking on any offer will display more details about it.  
+
+3. **Log Into MediaMavens**  
+   - Scroll to the bottom of the perks list and click the large green "Login" button.  
+
+4. **Complete the Onboarding Process**  
+   - Fill in the required fields:  
+     - First Name  
+     - Last Name  
+     - Email  
+     - Time Zone  
+     - Language  
+   - Accept cookies if prompted, then click "Next."  
+   - On the next page, enter your address and click "Next."  
+   - Additional information is optional. You can skip this step by clicking "Finish."  
+
+5. **Access Your MediaMavens Portal**  
+   - Once the onboarding process is complete, you will be directed to the MediaMavens dashboard.  
+   - For future logins, clicking the "Login" button will take you directly to the dashboard without repeating the setup process.  
+
+## Key Takeaways  
+
+- MediaMavens is accessible via the "Affiliate Networks" tab in the BTS Resources section.  
+- The onboarding process requires basic personal information but skips optional fields if desired.  
+- After the first login, subsequent access to MediaMavens will be seamless, taking you directly to the dashboard.  
+- The platform provides an overview of available offers and their commissions, helping you choose what to promote.  
+
+---
+Title: Overview of Affiliate Arbitrage Process
+Category: strategy
+Tags: affiliate arbitrage, traffic sources, landing pages, media mavens, ClickBank, advertorials, commissions
+
+# Overview of Affiliate Arbitrage Process
+
+**Category:** strategy  
+**Topics:** affiliate arbitrage, traffic sources, landing pages, media mavens, ClickBank, advertorials, commissions  
+
+## What is Affiliate Arbitrage?
+
+Affiliate arbitrage is a marketing strategy where you earn a profit by driving paid traffic to affiliate offers. The process involves:  
+1. Running ads on a traffic source.  
+2. Sending clicks from those ads to a landing page you control.  
+3. Redirecting clicks from the landing page to the offer owner’s sales page.  
+4. Earning commissions when a purchase is made.  
+
+Your profit is the difference between the cost of your ads and the commissions you earn:  
+**Profit = Commissions – Ad Spend.**
+
+## The BTS Affiliate Arbitrage Method
+
+The BTS method uses two primary affiliate networks: **Media Mavens** and **ClickBank**. Each has unique characteristics and processes.
+
+### Media Mavens Network
+
+1. **Traffic Sources:**  
+   - Email newsletters.  
+   - Display advertising networks (e.g., banner ads).  
+
+2. **Process:**  
+   - Ads direct traffic to an **advertorial** (a blend of advertisement and editorial content).  
+   - The advertorial links to an **e-commerce product page**.  
+   - When a purchase is made, you earn a commission.  
+
+3. **Advantages:**  
+   - Proven advertorial templates provided.  
+   - Flat CPA (Cost Per Acquisition) payouts with no clawbacks, chargebacks, or refunds deducted.  
+   - Exclusive to BTS program members, reducing competition.  
+
+### ClickBank Network
+
+1. **Traffic Sources:**  
+   - Display ads.  
+   - Native advertising within ClickBank-supported networks.  
+
+2. **Process:**  
+   - Ads direct traffic to a **jump page** or **bridge page** (a brief landing page).  
+   - The jump page links to a **Video Sales Letter (VSL)** page.  
+   - The VSL sells the product, and commissions are earned when a purchase is made.  
+
+3. **Considerations:**  
+   - Requires you to create your own landing pages.  
+   - Revenue share model: commissions are subject to clawbacks for refunds or chargebacks.  
+   - Open to all affiliates, leading to higher competition.  
+
+## Choosing Your Starting Point
+
+- **Media Mavens:** Recommended for beginners due to its lower setup complexity, exclusive access, and flat CPA payouts.  
+- **ClickBank:** Suitable for those with experience in creating landing pages and managing refund risks.  
+
+## General Process Overview
+
+1. **Set Up Ads:**  
+   - Use display banners or native ads on one or more traffic sources.  
+
+2. **Drive Traffic to a Landing Page:**  
+   - Media Mavens: Use a provided advertorial.  
+   - ClickBank: Create a jump page or bridge page.  
+
+3. **Redirect to the Sales Page:**  
+   - Media Mavens: E-commerce product page.  
+   - ClickBank: Video Sales Letter (VSL) page.  
+
+4. **Earn Commissions:**  
+   - Commissions are earned when a purchase is made on the sales page.  
+
+## Key Takeaways
+
+- Affiliate arbitrage profits come from the difference between ad spend and commissions.  
+- The BTS method offers two networks: Media Mavens (exclusive, CPA model) and ClickBank (open, revenue share model).  
+- Media Mavens is beginner-friendly with provided advertorials and no clawbacks.  
+- ClickBank requires more setup and carries refund risks but offers broader access.  
+- The process involves setting up ads, driving traffic to a landing page, and earning commissions from sales.  
+
+---
+Title: Choosing Your Offer Network
+Category: strategy
+Tags: affiliate networks, ClickBank, MediaMavens, offer selection
+
+# Choosing Your Offer Network
+
+**Category:** strategy  
+**Topics:** affiliate networks, ClickBank, MediaMavens, offer selection  
+
+## Overview of Offer Networks
+
+The first step in affiliate arbitrage is selecting the offer network you want to work with. At Build Test Scale (BTS), you have two primary options: **MediaMavens** and **ClickBank**. Each network has unique features, and your choice will depend on your goals and preferences.
+
+### MediaMavens
+
+MediaMavens is BTS's internal affiliate network. It offers exclusive perks and a curated selection of offers. Here's how to navigate it:
+
+1. **Access MediaMavens**:  
+   - Go to the "Resources" section in your portal.  
+   - Select "Affiliate Networks" and click on "Learn About MediaMavens."  
+
+2. **Explore Offers**:  
+   - Scroll through the categories to view available offers.  
+   - Categories and offers are updated frequently, with new options added regularly.  
+
+3. **View Offer Details**:  
+   - Click on a category (e.g., Beauty) to expand the list of offers.  
+   - Select "View Offer" to see the offer card, which includes details about the product and your affiliate link.  
+
+4. **Set Up Your Account**:  
+   - If you’re new to MediaMavens, you’ll need to set up your account. A later training module will cover this process in detail.  
+
+### ClickBank
+
+ClickBank is a well-established third-party affiliate network with a wide variety of offers across multiple niches. It has been a trusted platform for many years and is known for its reliable commission payouts.
+
+1. **Access ClickBank**:  
+   - Navigate to the "Affiliate Networks" section in your portal.  
+   - Click on "Register" to create an account or log in if you already have one.  
+
+2. **Explore the Marketplace**:  
+   - The ClickBank marketplace features offers in various niches, with a focus on categories like health.  
+   - Sort offers by "Gravity" (high to low) to identify top-performing products. Gravity is a metric that indicates how well an offer is converting for affiliates.  
+
+3. **Choose an Offer**:  
+   - Browse the marketplace to find offers that align with your target audience and marketing strategy.  
+   - A detailed guide on selecting offers from ClickBank will be provided in the next training module.  
+
+## How to Access Affiliate Networks
+
+1. Log in to your BTS portal.  
+2. Hover over the "Resources" tab.  
+3. Select "Affiliate Networks" (second option).  
+4. Choose between MediaMavens and ClickBank based on your preferences.  
+
+## Key Takeaways
+
+- **MediaMavens** is BTS's internal network, offering exclusive, curated offers with frequent updates.  
+- **ClickBank** is a third-party network with a long-standing reputation and a wide range of offers across niches.  
+- To access either network, navigate to the "Affiliate Networks" section under "Resources" in your BTS portal.  
+- Gravity is a key metric on ClickBank to identify high-performing offers.  
+- A later module will provide step-by-step instructions for setting up accounts and selecting offers on both platforms.  
+

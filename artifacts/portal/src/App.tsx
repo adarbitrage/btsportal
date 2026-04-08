@@ -52,6 +52,7 @@ import ChatAnalytics from "@/pages/admin/ChatAnalytics";
 import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
+import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
 import RateLimits from "@/pages/admin/RateLimits";
 import WinsWall from "@/pages/wins/WinsWall";
 import WinSubmit from "@/pages/wins/WinSubmit";
@@ -419,6 +420,7 @@ function Router() {
       <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} />}</Route>
       <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} />}</Route>
       <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} />}</Route>
+      <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} />}</Route>
       <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} />}</Route>
