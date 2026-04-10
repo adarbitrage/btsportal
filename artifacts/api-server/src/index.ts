@@ -4,6 +4,7 @@ import { startCommunicationWorkers, stopCommunicationWorkers } from "./lib/commu
 import { startSequenceEngine, shutdownSequenceEngine } from "./lib/sequence-engine";
 import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-comms";
 import { startRevenuePipeline, shutdownRevenuePipeline } from "./lib/revenue-pipeline";
+import { seedBlitzDocs } from "./lib/blitz-seed";
 
 const rawPort = process.env["PORT"];
 
@@ -46,6 +47,9 @@ if (process.env.REDIS_URL) {
 
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  seedBlitzDocs().catch((err) => {
+    console.error("[Blitz Seed] Startup seed failed:", err);
+  });
 });
 
 async function gracefulShutdown(signal: string) {
