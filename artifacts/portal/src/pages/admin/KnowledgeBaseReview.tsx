@@ -466,6 +466,18 @@ export default function KnowledgeBaseReview() {
                             )}
                           </div>
                         )}
+                        {doc.source === "coaching_call" && (
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-700 border-violet-200">
+                              Coaching Call
+                            </Badge>
+                            {doc.module && (
+                              <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600 border-gray-200">
+                                Coach: {doc.module}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         {doc.sourceVideoTitle && (
                           <p className="text-xs text-gray-400 mt-1 truncate">
                             Source: {doc.sourceVideoTitle}

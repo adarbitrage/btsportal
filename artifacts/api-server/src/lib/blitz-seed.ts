@@ -4,25 +4,25 @@ import { db } from "@workspace/db";
 import { kbStagingDocsTable } from "@workspace/db/schema";
 import { eq, count } from "drizzle-orm";
 
-export async function seedBlitzDocs() {
+async function seedFromFile(source: string, label: string, filename: string) {
   try {
     const existing = await db
       .select({ cnt: count() })
       .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.source, "blitz"));
+      .where(eq(kbStagingDocsTable.source, source));
 
     if (existing[0].cnt > 0) {
-      console.log(`[Blitz Seed] ${existing[0].cnt} Blitz docs already exist, skipping seed`);
+      console.log(`[${label}] ${existing[0].cnt} docs already exist, skipping seed`);
       return;
     }
 
     const candidates = [
-      path.join(process.cwd(), "src/data/blitz-seed.json"),
-      path.join(process.cwd(), "artifacts/api-server/src/data/blitz-seed.json"),
+      path.join(process.cwd(), "src/data", filename),
+      path.join(process.cwd(), "artifacts/api-server/src/data", filename),
     ];
     const seedPath = candidates.find((p) => fs.existsSync(p));
     if (!seedPath) {
-      console.log("[Blitz Seed] No seed file found at", candidates.join(" or "));
+      console.log(`[${label}] No seed file found`);
       return;
     }
 
@@ -52,8 +52,13 @@ export async function seedBlitzDocs() {
       inserted++;
     }
 
-    console.log(`[Blitz Seed] Seeded ${inserted} Blitz documents`);
+    console.log(`[${label}] Seeded ${inserted} documents`);
   } catch (err) {
-    console.error("[Blitz Seed] Error seeding Blitz docs:", err);
+    console.error(`[${label}] Error seeding:`, err);
   }
+}
+
+export async function seedBlitzDocs() {
+  await seedFromFile("blitz", "Blitz Seed", "blitz-seed.json");
+  await seedFromFile("coaching_call", "Coaching Seed", "coaching-seed.json");
 }

@@ -3,10 +3,11 @@ import fs from "fs";
 import path from "path";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable } from "@workspace/db/schema";
-import { eq, count, and } from "drizzle-orm";
+import { eq, count, and, sql } from "drizzle-orm";
 import { requireAdmin } from "../../middleware/auth.js";
 import { execSync } from "child_process";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
+import AdmZip from "adm-zip";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -970,6 +971,322 @@ OUTPUT FORMAT:
     res.status(500).json({ error: message });
   }
 });
+
+function extractDocxText(filePath: string): string {
+  try {
+    const zip = new AdmZip(filePath);
+    const docXml = zip.readAsText("word/document.xml");
+    let text = docXml.replace(/<[^>]+>/g, " ").replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+
+    text = text.replace(/^WEBVTT\s*/i, "");
+    text = text.replace(/\d+\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\s*/g, " ");
+    text = text.replace(/\b[A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+:\s*/g, "");
+    text = text.replace(/\s{2,}/g, " ");
+
+    return text.trim();
+  } catch {
+    return "";
+  }
+}
+
+function parseCoachingFilename(filePath: string): { coach: string; memberName: string; topic: string } {
+  const parts = filePath.split("/");
+  const coach = parts[parts.length - 2] || "Unknown";
+  let filename = parts[parts.length - 1].replace(/\.docx$/, "").trim();
+  filename = filename.replace(/\(\d+\)$/, "").trim();
+
+  const emailPattern = /\s+\S+@\S+\.\S+/g;
+  filename = filename.replace(emailPattern, "").trim();
+
+  const sessionPattern = /\s*-\s*30-Minute Software Session with .+$/i;
+  filename = filename.replace(sessionPattern, "").trim();
+
+  let memberName = filename;
+  let topic = "";
+  const dashIdx = filename.indexOf(" - ");
+  if (dashIdx > 0) {
+    memberName = filename.substring(0, dashIdx).trim();
+    topic = filename.substring(dashIdx + 3).trim();
+  }
+
+  return { coach, memberName, topic };
+}
+
+async function extractCoachingDocument(
+  cleanedText: string,
+  coach: string,
+  memberName: string,
+  topic: string,
+): Promise<{ title: string; category: string; topics: string; content: string }> {
+  const systemPrompt = `You are converting a raw 1-on-1 coaching call transcript into a clean, structured training document for a knowledge base. The source material is from a mentoring session at Build Test Scale (BTS), an affiliate marketing mentorship program.
+
+The coach is helping a member with specific questions, problems, or setup tasks. Your job is to extract the TEACHING CONTENT and practical guidance into a reusable document.
+
+RULES:
+- Write in clear, direct prose as a training/reference document — NOT as a transcript
+- Organize with clear headings (## and ###)
+- Extract step-by-step instructions the coach gave as numbered lists
+- Extract troubleshooting tips, common mistakes discussed, and solutions
+- Extract specific tool configurations, settings, or platform workflows discussed
+- Include specific examples, metrics, thresholds, or benchmarks mentioned
+- Remove small talk, greetings, scheduling discussion, audio/video issues
+- Remove member-specific personal details (names, account specifics) — keep the advice generic and reusable
+- If the coach explains the same concept multiple ways, keep the clearest explanation
+- Preserve any warnings, pitfalls, or "don't do this" advice
+- Do NOT add information that isn't in the transcript
+- Do NOT include phrases like "the coach said" or "in this call" — write as original training content
+- Keep BTS branding. Never reference TCE, Cherrington, Charrington, or Adam.
+- If the call is too short, administrative, or has no substantive teaching content, output ONLY the text: SKIP_NO_CONTENT
+- Target length: 200-600 words per document (dense, high-signal content)
+
+OUTPUT FORMAT (return ONLY this, no other text):
+
+# [Document Title — descriptive of the topic, not the member name]
+
+**Category:** [curriculum | strategy | sop | faq | troubleshooting | platform_guide]
+**Topics:** [comma-separated topic tags for search]
+
+## [First Section Heading]
+
+[Clean, structured content...]
+
+### [Sub-heading if needed]
+
+[Content with numbered steps, key points, etc.]
+
+## Key Takeaways
+
+- [Bullet point summary of the most important points]`;
+
+  const userContent = topic
+    ? `Coaching call topic: "${topic}"\nCoach: ${coach}\n\nTranscript:\n${cleanedText.substring(0, 30000)}`
+    : `Coach: ${coach}\nMember: ${memberName}\n\nTranscript:\n${cleanedText.substring(0, 30000)}`;
+
+  const resp = await fetch(
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(90000),
+    },
+  );
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`OpenAI error ${resp.status}: ${err.substring(0, 200)}`);
+  }
+
+  const json = (await resp.json()) as { choices: Array<{ message: { content: string } }> };
+  const output = json.choices[0]?.message?.content || "";
+
+  if (output.includes("SKIP_NO_CONTENT")) {
+    return { title: "", category: "", topics: "", content: "SKIP_NO_CONTENT" };
+  }
+
+  const titleMatch = output.match(/^#\s+(.+)/m);
+  const categoryMatch = output.match(/\*\*Category:\*\*\s*(\w+)/);
+  const topicsMatch = output.match(/\*\*Topics:\*\*\s*(.+)/);
+
+  return {
+    title: titleMatch ? titleMatch[1].trim() : `${topic || memberName} — Coaching Notes`,
+    category: categoryMatch ? categoryMatch[1].trim() : "coaching",
+    topics: topicsMatch ? topicsMatch[1].trim() : "",
+    content: output,
+  };
+}
+
+let coachingProcessingStatus = {
+  running: false,
+  total: 0,
+  processed: 0,
+  skipped: 0,
+  errors: 0,
+  currentFile: "",
+};
+
+router.get("/coaching-status", (_req: Request, res: Response) => {
+  res.json({ processing: coachingProcessingStatus });
+});
+
+router.post("/process-coaching-transcripts", async (_req: Request, res: Response) => {
+  if (coachingProcessingStatus.running) {
+    res.json({ message: "Already processing", status: coachingProcessingStatus });
+    return;
+  }
+
+  const transcriptDirs = [
+    path.join(process.cwd(), "src/data/coaching-transcripts"),
+    path.join(process.cwd(), "artifacts/api-server/src/data/coaching-transcripts"),
+  ];
+  const transcriptDir = transcriptDirs.find((d) => fs.existsSync(d));
+
+  if (!transcriptDir) {
+    res.status(404).json({ error: "Coaching transcripts directory not found" });
+    return;
+  }
+
+  const coaches = fs.readdirSync(transcriptDir).filter((d) => {
+    const stat = fs.statSync(path.join(transcriptDir, d));
+    return stat.isDirectory();
+  });
+
+  const allFiles: { coach: string; filePath: string; filename: string }[] = [];
+  for (const coach of coaches) {
+    const coachDir = path.join(transcriptDir, coach);
+    const files = fs.readdirSync(coachDir).filter((f) => f.endsWith(".docx"));
+    for (const f of files) {
+      allFiles.push({ coach, filePath: path.join(coachDir, f), filename: f });
+    }
+  }
+
+  if (allFiles.length === 0) {
+    res.json({ message: "No .docx files found" });
+    return;
+  }
+
+  const existingCoaching = await db
+    .select({ cnt: count() })
+    .from(kbStagingDocsTable)
+    .where(eq(kbStagingDocsTable.source, "coaching_call"));
+
+  if (existingCoaching[0].cnt > 0) {
+    res.json({
+      message: `${existingCoaching[0].cnt} coaching call docs already in staging. Use /process-coaching-retry to process only new files.`,
+      existing: existingCoaching[0].cnt,
+    });
+    return;
+  }
+
+  coachingProcessingStatus = { running: true, total: allFiles.length, processed: 0, skipped: 0, errors: 0, currentFile: "" };
+  res.json({ message: `Processing ${allFiles.length} coaching transcripts`, total: allFiles.length });
+
+  processCoachingBatch(allFiles).catch((err) => {
+    console.error("[Coaching Pipeline] Fatal error:", err);
+    coachingProcessingStatus.running = false;
+  });
+});
+
+router.post("/process-coaching-retry", async (_req: Request, res: Response) => {
+  if (coachingProcessingStatus.running) {
+    res.json({ message: "Already processing", status: coachingProcessingStatus });
+    return;
+  }
+
+  const transcriptDirs = [
+    path.join(process.cwd(), "src/data/coaching-transcripts"),
+    path.join(process.cwd(), "artifacts/api-server/src/data/coaching-transcripts"),
+  ];
+  const transcriptDir = transcriptDirs.find((d) => fs.existsSync(d));
+
+  if (!transcriptDir) {
+    res.status(404).json({ error: "Coaching transcripts directory not found" });
+    return;
+  }
+
+  const coaches = fs.readdirSync(transcriptDir).filter((d) => {
+    const stat = fs.statSync(path.join(transcriptDir, d));
+    return stat.isDirectory();
+  });
+
+  const allFiles: { coach: string; filePath: string; filename: string }[] = [];
+  for (const coach of coaches) {
+    const coachDir = path.join(transcriptDir, coach);
+    const files = fs.readdirSync(coachDir).filter((f) => f.endsWith(".docx"));
+    for (const f of files) {
+      allFiles.push({ coach, filePath: path.join(coachDir, f), filename: f });
+    }
+  }
+
+  const existingIds = await db
+    .select({ videoId: kbStagingDocsTable.sourceVideoId })
+    .from(kbStagingDocsTable)
+    .where(eq(kbStagingDocsTable.source, "coaching_call"));
+
+  const existingSet = new Set(existingIds.map((t) => t.videoId));
+  const newFiles = allFiles.filter((f) => !existingSet.has(`${f.coach}/${f.filename}`));
+
+  if (newFiles.length === 0) {
+    res.json({ message: "All coaching transcripts already processed", total: allFiles.length, existing: existingSet.size });
+    return;
+  }
+
+  coachingProcessingStatus = { running: true, total: newFiles.length, processed: 0, skipped: 0, errors: 0, currentFile: "" };
+  res.json({ message: `Retrying ${newFiles.length} unprocessed coaching transcripts (${existingSet.size} already done)`, total: newFiles.length });
+
+  processCoachingBatch(newFiles).catch((err) => {
+    console.error("[Coaching Pipeline] Fatal error:", err);
+    coachingProcessingStatus.running = false;
+  });
+});
+
+async function processCoachingBatch(files: { coach: string; filePath: string; filename: string }[]) {
+  const total = files.length;
+
+  for (let i = 0; i < total; i++) {
+    const file = files[i];
+    coachingProcessingStatus.currentFile = `${i + 1}/${total}: ${file.filename}`;
+
+    try {
+      console.log(`[Coaching Pipeline] ${i + 1}/${total}: Processing ${file.coach}/${file.filename}`);
+
+      const rawText = extractDocxText(file.filePath);
+      if (!rawText || rawText.length < 100) {
+        console.log(`[Coaching Pipeline] Skipping ${file.filename} — too short (${rawText.length} chars)`);
+        coachingProcessingStatus.skipped++;
+        coachingProcessingStatus.processed++;
+        continue;
+      }
+
+      const cleaned = cleanTranscript(rawText);
+      const { coach, memberName, topic } = parseCoachingFilename(file.filePath);
+      const extracted = await extractCoachingDocument(cleaned, coach, memberName, topic);
+
+      if (extracted.content === "SKIP_NO_CONTENT") {
+        console.log(`[Coaching Pipeline] Skipping ${file.filename} — no substantive content`);
+        coachingProcessingStatus.skipped++;
+        coachingProcessingStatus.processed++;
+        continue;
+      }
+
+      await db.insert(kbStagingDocsTable).values({
+        title: extracted.title,
+        category: extracted.category,
+        content: extracted.content,
+        tags: extracted.topics,
+        sourceVideoTitle: file.filename,
+        sourceVideoId: `${file.coach}/${file.filename}`,
+        status: "pending_review",
+        source: "coaching_call",
+        module: file.coach,
+      });
+
+      coachingProcessingStatus.processed++;
+      console.log(`[Coaching Pipeline] Done: ${extracted.title}`);
+
+      await new Promise((r) => setTimeout(r, 1500));
+    } catch (err) {
+      console.error(`[Coaching Pipeline] Error processing ${file.filename}:`, err);
+      coachingProcessingStatus.errors++;
+      coachingProcessingStatus.processed++;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+
+  coachingProcessingStatus.running = false;
+  console.log(`[Coaching Pipeline] Complete: ${coachingProcessingStatus.processed} processed, ${coachingProcessingStatus.skipped} skipped, ${coachingProcessingStatus.errors} errors`);
+}
 
 router.post("/seed-blitz", async (_req: Request, res: Response) => {
   try {
