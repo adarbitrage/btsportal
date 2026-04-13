@@ -122,7 +122,7 @@ export default function Home() {
           <CardContent className="p-8 md:p-10">
             <h2 className="text-2xl font-bold text-foreground text-center mb-6">Get Started Now</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link href="/training">
+              <Link href="/core-training">
                 <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
                   <BookOpen className="w-8 h-8 text-[#1a56db] shrink-0" />
                   <div>

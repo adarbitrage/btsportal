@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { PlusCircle, Search, MessageCircle } from "lucide-react";
+import { PlusCircle, Search, MessageCircle, HelpCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -128,6 +128,22 @@ export default function Support() {
               ))
             )}
           </div>
+        </Card>
+        <Card className="border-border/60 shadow-sm bg-secondary/10">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-[#1a56db]/10 flex items-center justify-center shrink-0">
+              <HelpCircle className="w-6 h-6 text-[#1a56db]" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="font-semibold text-foreground">Can't Find What You're Looking For?</h3>
+              <p className="text-sm text-muted-foreground">Fill out a quick form and we'll reply within 24 hours.</p>
+            </div>
+            <Link href="/support/contact">
+              <Button className="bg-[#2d8a4e] hover:bg-[#246e3f] text-white whitespace-nowrap">
+                Contact Us
+              </Button>
+            </Link>
+          </CardContent>
         </Card>
       </div>
     </AppLayout>

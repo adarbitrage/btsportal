@@ -26,6 +26,7 @@ import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
 import Coaching from "@/pages/Coaching";
 import Support from "@/pages/Support";
+import GeneralSupport from "@/pages/GeneralSupport";
 import TicketDetail from "@/pages/TicketDetail";
 import CommunityFeed from "@/pages/community/CommunityFeed";
 import MemberDirectory from "@/pages/community/MemberDirectory";
@@ -383,6 +384,7 @@ function Router() {
       <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
+      <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
       <Route path="/support/tickets/:id/rate">{() => <ProtectedRoute component={SatisfactionSurveyPage} />}</Route>
       <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} />}</Route>
