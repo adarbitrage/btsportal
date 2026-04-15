@@ -46,7 +46,8 @@ import {
   UserPlus,
   Megaphone,
   Menu,
-  X
+  X,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,6 +69,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/blitz", label: "The Blitz™", icon: Zap },
   { href: "/core-training", label: "Core Training", icon: GraduationCap },
   { href: "/training", label: "Training Library", icon: BookOpen },
   { href: "/resources", label: "Resources", icon: FolderOpen },
