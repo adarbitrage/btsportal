@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Clock, Download, Lock, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ArrowLeft, Clock, Download, Lock, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { VideoEmbed } from "@/components/admin/VideoEmbed";
 // @ts-ignore - hooks exist in generated API but may have type resolution issues across workspace
-import { useGetLesson, useMarkLessonComplete } from "@workspace/api-client-react";
+import { useGetLesson, useGetModule, useMarkLessonComplete, getGetLessonQueryKey, getGetModuleQueryKey, getListTracksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TipTapContentRenderer } from "@/components/admin/TipTapRenderer";
 import { formatDuration } from "@/lib/utils";
@@ -20,6 +21,11 @@ export default function LessonView() {
   const markComplete = useMarkLessonComplete();
   const queryClient = useQueryClient();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+
+  const lessonData = lesson as any;
+  const moduleId = lessonData?.moduleId;
+  // @ts-ignore - generated types may not match exactly
+  const { data: moduleData } = useGetModule(moduleId || 0, moduleId ? undefined : { query: { enabled: false } });
 
   const toggleActionItem = useCallback((itemId: string) => {
     setCheckedItems((prev) => {
@@ -34,8 +40,11 @@ export default function LessonView() {
       { data: { lessonId } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/modules"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+          queryClient.invalidateQueries({ queryKey: getGetLessonQueryKey(lessonId) });
+          if (moduleId) {
+            queryClient.invalidateQueries({ queryKey: getGetModuleQueryKey(moduleId) });
+          }
+          queryClient.invalidateQueries({ queryKey: getListTracksQueryKey() });
         },
       }
     );
@@ -65,24 +74,37 @@ export default function LessonView() {
     );
   }
 
-  const lessonData = lesson as any;
   const showVideo = (lessonData.contentType === "video_text" || lessonData.contentType === "video_only") && lessonData.videoUrl;
   const showText = (lessonData.contentType === "video_text" || lessonData.contentType === "text_only") && lessonData.content;
   const resources = lessonData.resources || [];
   const actionItems = lessonData.actionItems || [];
 
+  const moduleLessons = (moduleData as any)?.lessons || [];
+  const currentIndex = moduleLessons.findIndex((l: any) => l.id === lessonId);
+  const prevLesson = currentIndex > 0 ? moduleLessons[currentIndex - 1] : null;
+  const nextLesson = currentIndex >= 0 && currentIndex < moduleLessons.length - 1 ? moduleLessons[currentIndex + 1] : null;
+  const totalInModule = moduleLessons.length;
+  const lessonNumber = currentIndex >= 0 ? currentIndex + 1 : null;
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
-        <Link href={lessonData.moduleId ? `/training/modules/${lessonData.moduleId}` : "/training"}>
-          <Button variant="ghost" className="pl-0 hover:bg-transparent hover:text-primary -ml-2 text-muted-foreground">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Module
-          </Button>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href={moduleId ? `/training/modules/${moduleId}` : "/training"}>
+            <Button variant="ghost" className="pl-0 hover:bg-transparent hover:text-primary -ml-2 text-muted-foreground">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Module
+            </Button>
+          </Link>
+          {lessonNumber && totalInModule > 0 && (
+            <span className="text-xs font-medium text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
+              Lesson {lessonNumber} of {totalInModule}
+            </span>
+          )}
+        </div>
 
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-3">{lessonData.title}</h1>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{lessonData.title}</h1>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             {lessonData.durationMinutes > 0 && (
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" /> {formatDuration(lessonData.durationMinutes)}
@@ -95,6 +117,16 @@ export default function LessonView() {
             )}
           </div>
         </div>
+
+        {totalInModule > 0 && (
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+              <span>Module progress</span>
+              <span>{moduleLessons.filter((l: any) => l.isCompleted).length}/{totalInModule}</span>
+            </div>
+            <Progress value={Math.round((moduleLessons.filter((l: any) => l.isCompleted).length / totalInModule) * 100)} className="h-1.5" />
+          </div>
+        )}
 
         {showVideo && (
           <VideoEmbed url={lessonData.videoUrl} className="rounded-xl overflow-hidden shadow-sm" />
@@ -177,12 +209,43 @@ export default function LessonView() {
         )}
 
         {!lessonData.isCompleted && !lessonData.isLocked && (
-          <div className="flex justify-center pt-4">
-            <Button size="lg" onClick={handleMarkComplete} disabled={markComplete.isPending}>
+          <div className="flex justify-center pt-2">
+            <Button size="lg" onClick={handleMarkComplete} disabled={markComplete.isPending} className="px-8">
               <CheckCircle2 className="w-5 h-5 mr-2" />
               {markComplete.isPending ? "Marking Complete..." : "Mark as Complete"}
             </Button>
           </div>
+        )}
+
+        {(prevLesson || nextLesson) && (
+          <Card className="overflow-hidden mt-4">
+            <div className={`grid ${prevLesson && nextLesson ? 'grid-cols-2 divide-x divide-border/50' : 'grid-cols-1'}`}>
+              {prevLesson && (
+                <Link href={`/training/lessons/${prevLesson.id}`}>
+                  <div className="p-4 md:p-5 hover:bg-[#faf9f7] transition-colors cursor-pointer group">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                      <ChevronLeft className="w-3 h-3" /> Previous Lesson
+                    </div>
+                    <p className="font-medium text-foreground group-hover:text-primary transition-colors text-sm truncate">
+                      {prevLesson.title}
+                    </p>
+                  </div>
+                </Link>
+              )}
+              {nextLesson && (
+                <Link href={`/training/lessons/${nextLesson.id}`}>
+                  <div className={`p-4 md:p-5 hover:bg-[#faf9f7] transition-colors cursor-pointer group ${!prevLesson ? '' : 'text-right'}`}>
+                    <div className={`flex items-center gap-2 text-xs text-muted-foreground mb-1 ${!prevLesson ? '' : 'justify-end'}`}>
+                      Next Lesson <ChevronRight className="w-3 h-3" />
+                    </div>
+                    <p className="font-medium text-foreground group-hover:text-primary transition-colors text-sm truncate">
+                      {nextLesson.title}
+                    </p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </Card>
         )}
       </div>
     </AppLayout>
