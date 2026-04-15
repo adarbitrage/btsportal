@@ -22,7 +22,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   **Authentication:** Custom email/password system with JWT access tokens (15-min httpOnly cookie expiry) and refresh tokens (7-day httpOnly cookie expiry, rotation). Features include password hashing (bcryptjs), account lockout, email verification, password reset, and CSRF protection.
 -   **Authorization:** Granular `{resource}:{action}` permissions and Role-Based Access Control (RBAC) for admin roles (`super_admin`, `admin`, `support_agent`, `content_manager`).
 -   **Entitlement System:** Product-based access model where users gain entitlements from purchased products. Entitlements determine access to content, features, and support levels.
--   **Pages:** Includes authentication flows (login, register, forgot/reset password), a 5-step onboarding wizard, a Welcome Home page (`/`), a dynamic dashboard (`/dashboard`), Core Training overview (`/core-training`), Quick-Start Guide (`/core-training/quick-start`), training library, community feed, member directory, coaching page with live 6-day schedule + 1-on-1 BTS Concierge booking (`/coaching`), support center, AI chat, and comprehensive admin panels for content, users, and system management.
+-   **Pages:** Includes authentication flows (login, register, forgot/reset password), a 5-step onboarding wizard, a Welcome Home page (`/`), a dynamic dashboard (`/dashboard`), Core Training overview with progress tracking (`/core-training`), Quick-Start Guide (`/core-training/quick-start`), training library, community feed, member directory, coaching page with live 6-day schedule + 1-on-1 BTS Concierge booking (`/coaching`), support center with general contact form (`/support/contact`), AI chat, and comprehensive admin panels for content, users, and system management.
 -   **Branding Rule:** All content brought from the Cherrington Experience website must be rebranded for BTS — no photos of Adam or his family, no mention of Adam Cherrington's name, no "Cherrington Experience" or "TCE" branding. Replace with "Build Test Scale" / "BTS" throughout.
 -   **Admin Panels:** Dedicated UI for managing members, audit logs, system health, settings, community moderation, content (tracks, modules, lessons, resources), revenue intelligence, affiliate commissions, and communications.
 -   **AI Chat UI:** Features real-time SSE streaming, session management, saved prompts for premium users, and direct support ticket creation from chat.
@@ -47,6 +47,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   `scripts/`: Utility scripts.
 
 **Core Features:**
+-   **Core Training Progress Tracking:** `course_progress` table tracks per-user completion of the 6 Core Training courses (quick-start, finding-your-edge, 21-day-blitz, live-coaching, 7-pillars, direct-edge). API routes at `/api/course-progress` (GET/POST/DELETE). CoreTraining page shows animated progress bar with percentage and checkmark toggles per course.
 -   **Training Content Management:** CRUD for tracks, modules, lessons, rich text editor (TipTap), video embeds, resource uploads, version history.
 -   **Resource Vault:** Admin management of downloadable resources, collections, and analytics.
 -   **Coaching System:** Scheduling, 1-on-1 sessions, availability management, action items, and session ratings.
