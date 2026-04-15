@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -43,7 +44,9 @@ import {
   Building2,
   Gift,
   UserPlus,
-  Megaphone
+  Megaphone,
+  Menu,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -148,7 +151,7 @@ const adminRevenueItems = [
   { href: "/admin/revenue", label: "Revenue Intelligence", icon: LineChart },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location] = useLocation();
   const { data: member } = useGetCurrentMember();
   const { user, logout } = useAuth();
@@ -170,7 +173,7 @@ export function Sidebar() {
   const hasLifetime = highestSlug === "lifetime";
 
   return (
-    <aside className="w-64 shrink-0 flex flex-col bg-white border-r border-border min-h-screen sticky top-0">
+    <>
       <div className="p-6 border-b border-border/50">
         <div className="flex items-center gap-3">
           <img 
@@ -185,7 +188,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+      <div className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           const hasEntitlement = !item.requiredEntitlement
@@ -197,6 +200,7 @@ export function Sidebar() {
           return (
             <Link key={item.href} href={item.href}>
               <div
+                onClick={onNavClick}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
                   isActive 
@@ -229,6 +233,7 @@ export function Sidebar() {
               return (
                 <Link key={item.href} href={item.href}>
                   <div
+                    onClick={onNavClick}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
                       isActive
@@ -282,6 +287,71 @@ export function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [location] = useLocation();
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  return (
+    <>
+      <div className="fixed top-0 left-0 right-0 z-40 md:hidden bg-white border-b border-border flex items-center h-14 px-4">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 -ml-2 rounded-lg text-foreground hover:bg-secondary transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 ml-2">
+          <img 
+            src={`${import.meta.env.BASE_URL}images/bts-logo.png`} 
+            alt="Build Test Scale" 
+            className="w-7 h-7 object-contain"
+          />
+          <span className="font-bold text-sm tracking-tight text-foreground">BTS</span>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)} 
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <SidebarContent onNavClick={() => setMobileOpen(false)} />
+          </aside>
+        </div>
+      )}
+
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border min-h-screen sticky top-0">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }

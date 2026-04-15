@@ -23,7 +23,7 @@ export default function Home() {
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-10">
 
-        <div className="bg-[#1a56db] rounded-2xl p-10 text-white text-center shadow-lg">
+        <div className="bg-[#1a56db] rounded-2xl p-6 sm:p-10 text-white text-center shadow-lg">
           <h1 className="text-4xl md:text-5xl font-bold font-['Roboto'] tracking-tight mb-3">
             Thank You! And Welcome!
           </h1>
@@ -33,8 +33,8 @@ export default function Home() {
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10 space-y-6">
-            <h2 className="text-2xl font-bold text-foreground text-center">
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">
               Welcome to the Best Money-Making Opportunity, {firstName}!
             </h2>
 
@@ -67,8 +67,8 @@ export default function Home() {
         </Card>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10 space-y-6">
-            <h2 className="text-2xl font-bold text-foreground text-center">What's in Store for You</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">What's in Store for You</h2>
             <p className="text-muted-foreground text-center leading-relaxed max-w-2xl mx-auto">
               Over the coming months, we will work through the 10,000 foot view of the BTS program — 
               <strong className="text-foreground"> The 7 Pillars™ Of A Profitable Digital Business</strong>, 
@@ -91,8 +91,8 @@ export default function Home() {
         </Card>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10 space-y-6">
-            <h2 className="text-2xl font-bold text-foreground text-center">What You Are About To Learn</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">What You Are About To Learn</h2>
             <div className="text-muted-foreground space-y-4 leading-relaxed">
               <p>
                 In this mentorship, we teach you <strong className="text-foreground">everything</strong> we know about generating 
@@ -119,8 +119,8 @@ export default function Home() {
         </Card>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10">
-            <h2 className="text-2xl font-bold text-foreground text-center mb-6">Get Started Now</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-6">Get Started Now</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Link href="/core-training">
                 <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">

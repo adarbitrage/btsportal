@@ -145,7 +145,7 @@ export default function CoreTraining() {
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-8">
 
-        <div className="bg-[#1a56db] rounded-2xl p-8 text-white text-center shadow-lg">
+        <div className="bg-[#1a56db] rounded-2xl p-6 sm:p-8 text-white text-center shadow-lg">
           <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight">
             Build Test Scale&trade; Training
           </h1>

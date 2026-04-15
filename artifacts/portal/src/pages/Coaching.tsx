@@ -46,7 +46,7 @@ export default function Coaching() {
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10">
+          <CardContent className="p-5 sm:p-8 md:p-10">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-[#1a56db]/10 flex items-center justify-center">
                 <Video className="w-5 h-5 text-[#1a56db]" />
@@ -119,7 +119,7 @@ export default function Coaching() {
           </div>
 
           <Card className="border-border/60 shadow-sm mt-5">
-            <CardContent className="p-8 md:p-10">
+            <CardContent className="p-5 sm:p-8 md:p-10">
               <p className="text-muted-foreground leading-relaxed mb-6">
                 Elevate your productivity with our skilled BTS Concierge team. We provide personalized 1-on-1
                 consultations to address your specific needs, offering expert guidance and support to help you

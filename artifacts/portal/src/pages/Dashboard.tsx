@@ -25,7 +25,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-pulse space-y-4 w-full">
             <div className="h-32 bg-card rounded-xl"></div>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-card rounded-xl"></div>)}
             </div>
           </div>
@@ -50,10 +50,10 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-8">
-        <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="bg-white rounded-2xl border border-border p-5 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-foreground">Welcome back, {dashboard.memberName}.</h1>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back, {dashboard.memberName}.</h1>
               <Badge variant={dashboard.highestProductSlug as any}>{dashboard.highestProductName}</Badge>
             </div>
             <p className="text-muted-foreground">
