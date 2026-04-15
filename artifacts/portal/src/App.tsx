@@ -32,7 +32,6 @@ import CommunityFeed from "@/pages/community/CommunityFeed";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
 import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
-import Chat from "@/pages/Chat";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
 import Resources from "@/pages/Resources";
@@ -390,7 +389,7 @@ function Router() {
       <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} />}</Route>
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
-      <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
+      <Route path="/chat">{() => <Redirect to="/ai-assistant" />}</Route>
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
@@ -462,7 +461,7 @@ function AuthenticatedChatWidget() {
   const { user, loading } = useAuth();
   const [location] = useLocation();
   if (loading || !user || !user.onboardingComplete) return null;
-  if (location === "/chat") return null;
+  if (location === "/chat" || location === "/ai-assistant") return null;
   return <ChatWidget />;
 }
 

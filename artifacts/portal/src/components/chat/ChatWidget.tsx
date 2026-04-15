@@ -130,7 +130,7 @@ export function ChatWidget() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Link href="/chat">
+              <Link href="/ai-assistant">
                 <button
                   className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                   title="Open full chat"
@@ -192,10 +192,10 @@ export function ChatWidget() {
                   : ""}
               </span>
               {isLimitReached && chatStatus?.tier === "basic" && (
-                <Link href="/upgrade">
+                <Link href="/ai-assistant">
                   <span className="text-[10px] text-primary font-medium hover:underline cursor-pointer flex items-center gap-0.5">
                     <ArrowUp className="w-3 h-3" />
-                    Upgrade
+                    Open Full Chat
                   </span>
                 </Link>
               )}

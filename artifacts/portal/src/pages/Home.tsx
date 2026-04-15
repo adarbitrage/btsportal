@@ -162,7 +162,7 @@ export default function Home() {
                   <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </Link>
-              <Link href="/chat">
+              <Link href="/ai-assistant">
                 <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
                   <MessageSquare className="w-8 h-8 text-[#1a56db] shrink-0" />
                   <div>
