@@ -182,7 +182,7 @@ export default function SelfPromoting() {
                 <p className="text-sm text-muted-foreground">Commissions are reconciled and paid every <strong className="text-foreground">Monday, Wednesday, and Friday</strong>.</p>
                 <p className="text-sm text-muted-foreground">All sales and commissions are fully trackable using your <strong className="text-foreground">CAP account</strong>.</p>
                 <a
-                  href="https://affiliates.cherringtonmedia.com/affiliates/login.php#login"
+                  href="https://affiliates.buildtestscale.com/affiliates/login.php#login"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-sm text-[#1a56db] hover:underline mt-1"

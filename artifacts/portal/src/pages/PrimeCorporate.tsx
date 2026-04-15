@@ -98,7 +98,7 @@ export default function PrimeCorporate() {
               Prime's team has filed 100,000+ business tax returns. They've seen every mistake, every opportunity, every loophole — and now they're ready to hand you the blueprint.
             </p>
             <a
-              href="https://www.primecorporateservices.com/cherringtonmedia-v2/"
+              href="https://www.primecorporateservices.com/buildtestscale/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block mt-2"

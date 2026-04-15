@@ -428,10 +428,10 @@ export default function Advantage() {
                 Packed with high-converting ad templates, expert-crafted guides, brand logos, copywriting blueprints, and more — your shortcut to affiliate arbitrage mastery. Whether you're refining your ad creatives, dialing in your messaging, or scaling your campaigns, everything you need is just a click away. Don't reinvent the wheel — tap into a treasure trove of proven assets and accelerate your success!
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://creative.cherringtonmedia.com/register" target="_blank" rel="noopener noreferrer">
+                <a href="https://creative.buildtestscale.com/register" target="_blank" rel="noopener noreferrer">
                   <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Register</Button>
                 </a>
-                <a href="https://creative.cherringtonmedia.com/login" target="_blank" rel="noopener noreferrer">
+                <a href="https://creative.buildtestscale.com/login" target="_blank" rel="noopener noreferrer">
                   <Button size="sm" variant="outline" className="gap-1.5">Log In</Button>
                 </a>
               </div>
@@ -487,7 +487,7 @@ export default function Advantage() {
                 Over 15+ years of buying media, dozens of dedicated email templates have been tested — none compare to this one. Simple, elegant, and proven to convert. Over $60 Million has been sent to this exact template. Use it.
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://experience.cherringtonmedia.com/wp-content/uploads/2025/04/1-DEDICATED-EMAIL-TEMPLATE.zip" target="_blank" rel="noopener noreferrer">
+                <a href="https://experience.buildtestscale.com/wp-content/uploads/2025/04/1-DEDICATED-EMAIL-TEMPLATE.zip" target="_blank" rel="noopener noreferrer">
                   <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
                     <Download className="w-3.5 h-3.5" />
                     Download Template
@@ -520,7 +520,7 @@ export default function Advantage() {
                 BTS members get FREE access — log in with the shared credentials below:
               </p>
               <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-4 space-y-1 font-mono text-sm">
-                <p><span className="text-muted-foreground">USER:</span> <span className="text-foreground">support@cherringtonmedia.com</span></p>
+                <p><span className="text-muted-foreground">USER:</span> <span className="text-foreground">support@buildtestscale.com</span></p>
                 <p><span className="text-muted-foreground">PASSWORD:</span> <span className="text-foreground">JesusLives3838!</span></p>
               </div>
               <a href="https://app.anstrex.com/login" target="_blank" rel="noopener noreferrer">

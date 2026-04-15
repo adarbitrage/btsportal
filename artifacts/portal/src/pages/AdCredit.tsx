@@ -67,8 +67,8 @@ export default function AdCredit() {
                   <p className="font-medium text-foreground">Send the video link</p>
                   <p className="text-sm text-muted-foreground">
                     Email to{" "}
-                    <a href="mailto:support@cherringtonmedia.com" className="text-[#1a56db] underline">
-                      support@cherringtonmedia.com
+                    <a href="mailto:support@buildtestscale.com" className="text-[#1a56db] underline">
+                      support@buildtestscale.com
                     </a>
                   </p>
                 </div>
@@ -152,12 +152,12 @@ export default function AdCredit() {
           <CardContent className="p-6 md:p-8 text-center space-y-3">
             <h3 className="text-lg font-bold text-foreground">Ready to Claim Your Credits?</h3>
             <p className="text-sm text-muted-foreground">
-              Email your video link to <strong className="text-foreground">support@cherringtonmedia.com</strong> with the subject line <strong className="text-foreground">"Blitz Testimonial – [Your Name]"</strong> and we'll add the $1,000 credit to your DIYTrax account within 24 hours.
+              Email your video link to <strong className="text-foreground">support@buildtestscale.com</strong> with the subject line <strong className="text-foreground">"Blitz Testimonial – [Your Name]"</strong> and we'll add the $1,000 credit to your DIYTrax account within 24 hours.
             </p>
             <p className="text-sm font-medium text-[#2d8a4e]">
               This is literally free money for your testing budget — don't leave it on the table!
             </p>
-            <a href="mailto:support@cherringtonmedia.com?subject=Blitz%20Testimonial%20-%20" className="inline-block mt-2">
+            <a href="mailto:support@buildtestscale.com?subject=Blitz%20Testimonial%20-%20" className="inline-block mt-2">
               <Button size="lg" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-2">
                 <Mail className="w-5 h-5" />
                 Send Your Testimonial
