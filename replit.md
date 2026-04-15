@@ -49,7 +49,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 
 **Core Features:**
 -   **Core Training Progress Tracking:** `course_progress` table tracks per-user completion of the 6 Core Training courses (quick-start, finding-your-edge, 21-day-blitz, live-coaching, 7-pillars, direct-edge). API routes at `/api/course-progress` (GET/POST/DELETE). CoreTraining page shows animated progress bar with percentage and checkmark toggles per course.
--   **Training Content Management:** CRUD for tracks, modules, lessons, rich text editor (TipTap), video embeds, resource uploads, version history.
+-   **Training Content Management:** CRUD for tracks, modules, lessons, rich text editor (TipTap), video embeds, resource uploads, version history. All 76 lessons populated with rich TipTap JSON text content covering affiliate marketing fundamentals through advanced strategies. 8 tracks published: Affiliate Marketing Foundations, Traffic & Audience Building, Advanced Strategies, Scaling & Optimization, Getting Started with BTS, Email Traffic Mastery, Optimization & Scaling, Advanced Strategies. Lesson detail view at `/training/lessons/:id` renders TipTap content (headings, paragraphs, bullet/ordered lists, callouts, bold/italic text). API `GET /lessons/:id` maps DB `textContent` → response `content` field.
 -   **Resource Vault:** Admin management of downloadable resources, collections, and analytics.
 -   **Coaching System:** Scheduling, 1-on-1 sessions, availability management, action items, and session ratings.
 -   **Community System:** Categorized posts, threaded comments, reactions, badges, member directory, notifications, and moderation tools.

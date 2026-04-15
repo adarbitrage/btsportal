@@ -135,6 +135,7 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
   res.json(
     GetLessonResponse.parse({
       ...lesson,
+      content: lesson.textContent,
       isCompleted: !!progress,
       isLocked: false,
     })

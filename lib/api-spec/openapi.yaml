@@ -5831,6 +5831,10 @@ components:
           type: ["string", "null"]
         contentType:
           type: string
+        content:
+          description: TipTap JSON content for the lesson
+        actionItems:
+          description: Action items for the lesson
         durationMinutes:
           type: integer
         requiredEntitlement:

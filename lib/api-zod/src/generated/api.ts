@@ -304,6 +304,8 @@ export const GetLessonResponse = zod.object({
   description: zod.string(),
   videoUrl: zod.string().nullish(),
   contentType: zod.string(),
+  content: zod.any().nullish(),
+  actionItems: zod.any().nullish(),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),

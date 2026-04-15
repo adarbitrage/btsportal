@@ -58,7 +58,13 @@ export default function ModuleDetail() {
                     </div>
                     <div>
                       <h3 className={`text-xl font-semibold mb-2 ${lesson.isLocked ? 'text-muted-foreground' : 'text-foreground'}`}>
-                        {lesson.sortOrder}. {lesson.title}
+                        {lesson.isLocked ? (
+                          <span>{lesson.sortOrder}. {lesson.title}</span>
+                        ) : (
+                          <Link href={`/training/lessons/${lesson.id}`} className="hover:text-primary transition-colors">
+                            {lesson.sortOrder}. {lesson.title}
+                          </Link>
+                        )}
                       </h3>
                       <p className="text-muted-foreground text-sm leading-relaxed mb-4">
                         {lesson.description}
@@ -75,12 +81,13 @@ export default function ModuleDetail() {
                   </div>
                   
                   {!lesson.isLocked && (
-                    <div className="shrink-0">
-                      {lesson.isCompleted ? (
-                        <Button variant="secondary" className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-default" disabled>
-                          <CheckCircle2 className="w-4 h-4 mr-2" /> Completed
+                    <div className="shrink-0 flex gap-2">
+                      <Link href={`/training/lessons/${lesson.id}`}>
+                        <Button variant="outline">
+                          <PlayCircle className="w-4 h-4 mr-2" /> {lesson.isCompleted ? 'Review' : 'Start'}
                         </Button>
-                      ) : (
+                      </Link>
+                      {!lesson.isCompleted && (
                         <Button 
                           onClick={() => handleMarkComplete(lesson.id)}
                           isLoading={markComplete.isPending}
