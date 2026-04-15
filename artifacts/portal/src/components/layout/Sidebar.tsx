@@ -92,7 +92,7 @@ const adminGhlItems = [
   { href: "/admin/ghl", label: "GHL Sync", icon: Activity },
   { href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users },
   { href: "/admin/ghl/config", label: "GHL Config", icon: Settings },
-  { href: "/support/dashboard", label: "Support Dashboard", icon: Shield },
+  { href: "/admin/tickets", label: "Support Dashboard", icon: Shield },
   { href: "/settings/api-keys", label: "API Keys", icon: Key },
 ];
 
