@@ -155,20 +155,24 @@ export function fetchPost(postId: number): Promise<CommunityPost> {
 
 export function createPost(data: {
   categoryId: number;
-  title: string;
+  title?: string;
   body: string;
   imageUrl?: string;
 }): Promise<CommunityPost> {
   return communityFetch("/community/posts", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      categoryId: data.categoryId,
+      content: data.body,
+      imageUrl: data.imageUrl,
+    }),
   });
 }
 
 export function updatePost(postId: number, data: { body: string }): Promise<CommunityPost> {
   return communityFetch(`/community/posts/${postId}`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ content: data.body }),
   });
 }
 
@@ -183,14 +187,14 @@ export function createComment(data: {
 }): Promise<CommunityComment> {
   return communityFetch(`/community/posts/${data.postId}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body: data.body, parentCommentId: data.parentCommentId }),
+    body: JSON.stringify({ content: data.body, parentId: data.parentCommentId }),
   });
 }
 
 export function updateComment(commentId: number, data: { body: string }): Promise<CommunityComment> {
   return communityFetch(`/community/comments/${commentId}`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ content: data.body }),
   });
 }
 

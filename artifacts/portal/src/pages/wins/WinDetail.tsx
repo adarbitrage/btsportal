@@ -67,21 +67,23 @@ export default function WinDetail() {
 
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                    {win.author.avatarUrl ? (
+                    {win.author?.avatarUrl ? (
                       <img src={win.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
                     ) : (
-                      win.author.name.split(" ").map((n) => n[0]).join("")
+                      (win.author?.name ?? "?").split(" ").map((n) => n[0]).join("")
                     )}
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">{win.author.name}</p>
+                    <p className="font-semibold text-foreground">{win.author?.name ?? "Unknown"}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{win.milestone.icon} {win.milestone.name}</span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {format(new Date(win.winDate), "MMMM d, yyyy")}
-                      </span>
+                      <span>{win.milestone?.icon} {win.milestone?.name}</span>
+                      {win.winDate && <>
+                        <span>·</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {format(new Date(win.winDate), "MMMM d, yyyy")}
+                        </span>
+                      </>}
                     </div>
                   </div>
                 </div>

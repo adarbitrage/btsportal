@@ -202,16 +202,16 @@ function FeaturedWinCard({ win }: { win: Win }) {
           </div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-              {win.author.avatarUrl ? (
+              {win.author?.avatarUrl ? (
                 <img src={win.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
               ) : (
-                win.author.name.split(" ").map((n) => n[0]).join("")
+                (win.author?.name ?? "?").split(" ").map((n) => n[0]).join("")
               )}
             </div>
             <div>
-              <p className="font-semibold text-foreground">{win.author.name}</p>
+              <p className="font-semibold text-foreground">{win.author?.name ?? "Unknown"}</p>
               <p className="text-xs text-muted-foreground">
-                {win.milestone.icon} {win.milestone.name} · {format(new Date(win.winDate), "MMMM d, yyyy")}
+                {win.milestone?.icon} {win.milestone?.name}{win.winDate ? ` · ${format(new Date(win.winDate), "MMMM d, yyyy")}` : ""}
               </p>
             </div>
           </div>
@@ -273,16 +273,16 @@ function WinCard({ win }: { win: Win }) {
         <CardContent className="p-4 flex flex-col flex-1">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-              {win.author.avatarUrl ? (
+              {win.author?.avatarUrl ? (
                 <img src={win.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
               ) : (
-                win.author.name.split(" ").map((n) => n[0]).join("")
+                (win.author?.name ?? "?").split(" ").map((n) => n[0]).join("")
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{win.author.name}</p>
+              <p className="text-sm font-semibold text-foreground truncate">{win.author?.name ?? "Unknown"}</p>
               <p className="text-[11px] text-muted-foreground">
-                {win.milestone.icon} {win.milestone.name}
+                {win.milestone?.icon} {win.milestone?.name}
               </p>
             </div>
           </div>

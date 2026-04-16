@@ -40,15 +40,17 @@ export function WinsSummaryWidget() {
           <Progress value={data.percentage} className="h-2.5" />
         </div>
 
-        {data.latestWin && (
+        {data.latestWin?.milestone && (
           <div className="bg-secondary/50 rounded-lg p-3">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Latest</p>
             <p className="text-sm font-medium text-foreground">
               {data.latestWin.milestone.icon} {data.latestWin.milestone.name}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(data.latestWin.winDate), "MMMM d")}
-            </p>
+            {data.latestWin.winDate && (
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(data.latestWin.winDate), "MMMM d")}
+              </p>
+            )}
           </div>
         )}
 
