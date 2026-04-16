@@ -70,8 +70,9 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
     const { eq } = await import("drizzle-orm");
     const bcrypt = (await import("bcryptjs")).default;
     const ownerEmails = [
-      { email: "mark@cherringtonmedia.com", name: "Mark Blyn" },
-      { email: "adam@cherringtonmedia.com", name: "Adam" },
+      { email: "mark@cherringtonmedia.com", name: "Mark Blyn", password: "Mablyn@1969" },
+      { email: "adam@cherringtonmedia.com", name: "Adam", password: "Jesuslives38!" },
+      { email: "abdulrahman@cherringtonmedia.com", name: "Abdou", password: "Test&$#123" },
     ];
     for (const owner of ownerEmails) {
       const [existing] = await database.select({ id: users.id, sourceProduct: users.sourceProduct, role: users.role })
@@ -90,7 +91,7 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
           console.log(`[Startup] Upgraded ${owner.email} to admin with all products`);
         }
       } else {
-        const passwordHash = await bcrypt.hash(owner.email === "adam@cherringtonmedia.com" ? "Jesuslives38!" : "Mablyn@1969", 12);
+        const passwordHash = await bcrypt.hash(owner.password, 12);
         const [newUser] = await database.insert(users).values({
           email: owner.email,
           name: owner.name,
