@@ -80,6 +80,7 @@ const navItems: NavItem[] = [
   { href: "/concierge", label: "BTS Concierge™", icon: Headphones },
   { href: "/coaching/sessions", label: "1:1 Coaching Sessions", icon: UserCheck },
   { href: "/advantage", label: "BTS Advantage", icon: Wrench },
+  { href: "/apps", label: "Apps", icon: Hammer },
   { href: "/compliance", label: "Compliance Review", icon: ShieldCheck },
   { href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
   { href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },

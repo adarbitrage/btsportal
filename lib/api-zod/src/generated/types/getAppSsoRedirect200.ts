@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type AdminUpdateMessageNotesBody = {
-  notes?: string;
+export type GetAppSsoRedirect200 = {
+  url: string;
 };

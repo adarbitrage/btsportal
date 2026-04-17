@@ -9,6 +9,8 @@ import { requestIdMiddleware, apiErrorHandler } from "./lib/api-errors";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { apiRequestLogger } from "./middleware/api-request-logger";
 import { startTicketJobs } from "./lib/ticket-jobs";
+import { startSquidyJobs } from "./lib/squidy-jobs";
+import { startInactiveAppCleanupJob } from "./lib/inactive-app-cleanup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
@@ -114,6 +116,8 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
   }
 })();
 startTicketJobs();
+startSquidyJobs();
+startInactiveAppCleanupJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }

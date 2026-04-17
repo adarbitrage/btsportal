@@ -6,6 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type AdminDuplicateLessonBody = {
-  targetModuleId?: number;
-};
+export type AdminUpdateEmailTemplate200 = { [key: string]: unknown };

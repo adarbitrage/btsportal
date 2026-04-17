@@ -6,6 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type AdminFlagChatMessageBody = {
-  flagged?: boolean;
-};
+export type AdminCreateBroadcastBodySegmentFilter = { [key: string]: unknown };

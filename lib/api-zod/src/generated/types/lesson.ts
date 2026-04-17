@@ -14,6 +14,10 @@ export interface Lesson {
   /** @nullable */
   videoUrl?: string | null;
   contentType: string;
+  /** TipTap JSON content for the lesson */
+  content?: unknown;
+  /** Action items for the lesson */
+  actionItems?: unknown;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;

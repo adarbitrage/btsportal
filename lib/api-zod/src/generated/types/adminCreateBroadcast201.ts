@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type HandleGhlWebhookBody = { [key: string]: unknown };
+export type AdminCreateBroadcast201 = { [key: string]: unknown };

@@ -520,6 +520,10 @@ export interface Lesson {
   /** @nullable */
   videoUrl?: string | null;
   contentType: string;
+  /** TipTap JSON content for the lesson */
+  content?: unknown;
+  /** Action items for the lesson */
+  actionItems?: unknown;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;
@@ -1995,41 +1999,6 @@ export interface NightlyJobResult {
   reminders: NightlyJobResultReminders;
 }
 
-/**
- * Bad request — validation error
- */
-export type BadRequestResponse = ErrorResponse;
-
-/**
- * Authentication required or invalid credentials
- */
-export type UnauthorizedResponse = ErrorResponse;
-
-/**
- * Insufficient permissions
- */
-export type ForbiddenResponse = ErrorResponse;
-
-/**
- * Resource not found
- */
-export type NotFoundResponse = ErrorResponse;
-
-/**
- * Rate limit exceeded
- */
-export type TooManyRequestsResponse = ErrorResponse;
-
-/**
- * Page number for pagination
- */
-export type PageParamParameter = number;
-
-/**
- * Number of items per page
- */
-export type LimitParamParameter = number;
-
 export interface AdminToolCategory {
   id: number;
   name: string;
@@ -2217,6 +2186,76 @@ export interface AdminToolUsageDetail {
   uniqueUsers: number;
   totalOpensAllTime: number;
 }
+
+export type AppInstanceAppName =
+  (typeof AppInstanceAppName)[keyof typeof AppInstanceAppName];
+
+export const AppInstanceAppName = {
+  diytrax: "diytrax",
+  pixelpress: "pixelpress",
+  gifster: "gifster",
+  metricmover: "metricmover",
+  noescape: "noescape",
+} as const;
+
+export type AppInstanceStatus =
+  (typeof AppInstanceStatus)[keyof typeof AppInstanceStatus];
+
+export const AppInstanceStatus = {
+  not_installed: "not_installed",
+  installing: "installing",
+  installed: "installed",
+  install_failed: "install_failed",
+  uninstalling: "uninstalling",
+} as const;
+
+export interface AppInstance {
+  appName: AppInstanceAppName;
+  status: AppInstanceStatus;
+  domain?: string | null;
+  appUuid?: string | null;
+  squidyStatus?: string | null;
+  squidySubStatus?: string | null;
+  lastLookupAt?: string | null;
+  squidyError?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * Bad request — validation error
+ */
+export type BadRequestResponse = ErrorResponse;
+
+/**
+ * Authentication required or invalid credentials
+ */
+export type UnauthorizedResponse = ErrorResponse;
+
+/**
+ * Insufficient permissions
+ */
+export type ForbiddenResponse = ErrorResponse;
+
+/**
+ * Resource not found
+ */
+export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Rate limit exceeded
+ */
+export type TooManyRequestsResponse = ErrorResponse;
+
+/**
+ * Page number for pagination
+ */
+export type PageParamParameter = number;
+
+/**
+ * Number of items per page
+ */
+export type LimitParamParameter = number;
 
 export type GetLegalDocumentsParams = {
   type?: string;
@@ -2424,6 +2463,86 @@ export type LogToolUsage201 = {
   success: boolean;
 };
 
+export type AdminCreateEmailTemplateBody = {
+  slug: string;
+  name: string;
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+  category?: string;
+  fromName?: string | null;
+  variables?: string[];
+};
+
+export type AdminCreateEmailTemplate201 = { [key: string]: unknown };
+
+export type AdminUpdateEmailTemplateBody = {
+  name?: string;
+  subject?: string;
+  htmlBody?: string;
+  textBody?: string;
+  category?: string;
+  fromName?: string | null;
+  variables?: string[];
+  active?: boolean;
+};
+
+export type AdminUpdateEmailTemplate200 = { [key: string]: unknown };
+
+export type AdminCreateSmsTemplateBody = {
+  slug: string;
+  name: string;
+  body: string;
+  variables?: string[];
+};
+
+export type AdminCreateSmsTemplate201 = { [key: string]: unknown };
+
+export type AdminCreateSequenceBody = {
+  name: string;
+  description?: string;
+  triggerEvent?: string;
+};
+
+export type AdminCreateSequence201 = { [key: string]: unknown };
+
+export type AdminCreateBroadcastBodySegmentFilter = { [key: string]: unknown };
+
+export type AdminCreateBroadcastBody = {
+  name: string;
+  channel?: string;
+  templateId?: number | null;
+  subject?: string;
+  htmlBody?: string;
+  textBody?: string;
+  smsBody?: string;
+  segmentFilter?: AdminCreateBroadcastBodySegmentFilter;
+  scheduledAt?: string | null;
+};
+
+export type AdminCreateBroadcast201 = { [key: string]: unknown };
+
+export type AdminGetCommunicationLogParams = {
+  channel?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type AdminGetCommunicationAnalyticsParams = {
+  period?: AdminGetCommunicationAnalyticsPeriod;
+};
+
+export type AdminGetCommunicationAnalyticsPeriod =
+  (typeof AdminGetCommunicationAnalyticsPeriod)[keyof typeof AdminGetCommunicationAnalyticsPeriod];
+
+export const AdminGetCommunicationAnalyticsPeriod = {
+  today: "today",
+  week: "week",
+  month: "month",
+} as const;
+
 export type AdminDeleteToolCategory200 = {
   message?: string;
 };
@@ -2570,4 +2689,8 @@ export type ReferralRedirectParams = {
    * Referral code
    */
   ref?: string;
+};
+
+export type GetAppSsoRedirect200 = {
+  url: string;
 };

@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type AdminBulkMoveLessonsBody = {
-  lessonIds: number[];
-  targetModuleId: number;
-};
+export type AdminCreateEmailTemplate201 = { [key: string]: unknown };

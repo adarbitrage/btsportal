@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface RegisterBody {
-  name: string;
-  email: string;
-  /** @minLength 8 */
-  password: string;
-}
+export type AdminCreateSmsTemplate201 = { [key: string]: unknown };

@@ -35,6 +35,7 @@ import MemberProfile from "@/pages/community/MemberProfile";
 import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
+import Apps from "@/pages/Apps";
 import Resources from "@/pages/Resources";
 import CollectionDetail from "@/pages/CollectionDetail";
 import ResourceDetail from "@/pages/ResourceDetail";
@@ -413,6 +414,7 @@ function Router() {
       <Route path="/admin/wins">{() => <AdminRoute component={AdminWins} />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
+      <Route path="/apps">{() => <ProtectedRoute component={Apps} />}</Route>
       <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} />}</Route>
       <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} />}</Route>
       <Route path="/admin/commissions/payouts">{() => <AdminRoute component={CommissionPayouts} />}</Route>

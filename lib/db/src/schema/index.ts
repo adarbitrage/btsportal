@@ -60,3 +60,4 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./kb-staging";
 export * from "./course-progress";
+export * from "./member-app-instances";

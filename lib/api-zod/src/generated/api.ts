@@ -281,6 +281,14 @@ export const GetModuleResponse = zod.object({
       description: zod.string(),
       videoUrl: zod.string().nullish(),
       contentType: zod.string(),
+      content: zod
+        .unknown()
+        .optional()
+        .describe("TipTap JSON content for the lesson"),
+      actionItems: zod
+        .unknown()
+        .optional()
+        .describe("Action items for the lesson"),
       durationMinutes: zod.number(),
       requiredEntitlement: zod.string(),
       sortOrder: zod.number(),
@@ -304,8 +312,11 @@ export const GetLessonResponse = zod.object({
   description: zod.string(),
   videoUrl: zod.string().nullish(),
   contentType: zod.string(),
-  content: zod.any().nullish(),
-  actionItems: zod.any().nullish(),
+  content: zod
+    .unknown()
+    .optional()
+    .describe("TipTap JSON content for the lesson"),
+  actionItems: zod.unknown().optional().describe("Action items for the lesson"),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
@@ -2312,7 +2323,82 @@ export const LogToolUsageParams = zod.object({
 
 export const LogToolUsageBody = zod.object({
   action: zod.string(),
-  metadata: zod.object({}).passthrough().optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Create email template
+ */
+export const AdminCreateEmailTemplateBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  subject: zod.string(),
+  htmlBody: zod.string(),
+  textBody: zod.string(),
+  category: zod.string().optional(),
+  fromName: zod.string().nullish(),
+  variables: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Get email template by ID
+ */
+export const AdminGetEmailTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Update email template (creates version)
+ */
+export const AdminUpdateEmailTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateEmailTemplateBody = zod.object({
+  name: zod.string().optional(),
+  subject: zod.string().optional(),
+  htmlBody: zod.string().optional(),
+  textBody: zod.string().optional(),
+  category: zod.string().optional(),
+  fromName: zod.string().nullish(),
+  variables: zod.array(zod.string()).optional(),
+  active: zod.boolean().optional(),
+});
+
+export const AdminUpdateEmailTemplateResponse = zod.record(
+  zod.string(),
+  zod.unknown(),
+);
+
+/**
+ * @summary Delete email template
+ */
+export const AdminDeleteEmailTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List template versions (last 10)
+ */
+export const AdminGetTemplateVersionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Preview template with sample data
+ */
+export const AdminPreviewEmailTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Create SMS template
+ */
+export const AdminCreateSmsTemplateBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  body: zod.string(),
+  variables: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -2330,6 +2416,15 @@ export const GenerateHeadlinesResponse = zod.object({
   headlines: zod.array(zod.string()),
   remainingToday: zod.number(),
   dailyLimit: zod.number(),
+});
+
+/**
+ * @summary Create a new sequence
+ */
+export const AdminCreateSequenceBody = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+  triggerEvent: zod.string().optional(),
 });
 
 /**
@@ -2352,6 +2447,109 @@ export const AnalyzeCampaignResponse = zod.object({
   analysis: zod.string(),
   remainingToday: zod.number(),
   dailyLimit: zod.number(),
+});
+
+/**
+ * @summary Get sequence with steps and enrollments
+ */
+export const AdminGetSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Update sequence
+ */
+export const AdminUpdateSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Pause a sequence globally
+ */
+export const AdminPauseSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Resume a paused sequence
+ */
+export const AdminResumeSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Manually enroll a user in sequence
+ */
+export const AdminEnrollUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Create a new broadcast
+ */
+export const AdminCreateBroadcastBody = zod.object({
+  name: zod.string(),
+  channel: zod.string().optional(),
+  templateId: zod.number().nullish(),
+  subject: zod.string().optional(),
+  htmlBody: zod.string().optional(),
+  textBody: zod.string().optional(),
+  smsBody: zod.string().optional(),
+  segmentFilter: zod.record(zod.string(), zod.unknown()).optional(),
+  scheduledAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Preview broadcast recipients
+ */
+export const AdminPreviewBroadcastParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send a broadcast (requires confirmation for 100+ recipients)
+ */
+export const AdminSendBroadcastParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Duplicate a broadcast as draft
+ */
+export const AdminDuplicateBroadcastParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Search and filter communication log
+ */
+export const AdminGetCommunicationLogQueryParams = zod.object({
+  channel: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+/**
+ * @summary Get communication history for a specific member
+ */
+export const AdminGetMemberCommunicationHistoryParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+/**
+ * @summary Manually unsuppress a bounced email
+ */
+export const AdminUnsuppressBounceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get communication analytics by period
+ */
+export const AdminGetCommunicationAnalyticsQueryParams = zod.object({
+  period: zod.enum(["today", "week", "month"]).optional(),
 });
 
 /**
@@ -4086,4 +4284,139 @@ export const ReferralRedirectParams = zod.object({
 
 export const ReferralRedirectQueryParams = zod.object({
   ref: zod.coerce.string().optional().describe("Referral code"),
+});
+
+/**
+ * @summary List all apps with current install status for the current member
+ */
+export const ListAppsResponseItem = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+  status: zod.enum([
+    "not_installed",
+    "installing",
+    "installed",
+    "install_failed",
+    "uninstalling",
+  ]),
+  domain: zod.string().nullish(),
+  appUuid: zod.string().nullish(),
+  squidyStatus: zod.string().nullish(),
+  squidySubStatus: zod.string().nullish(),
+  lastLookupAt: zod.date().nullish(),
+  squidyError: zod.string().nullish(),
+  createdAt: zod.date().nullish(),
+  updatedAt: zod.date().nullish(),
+});
+export const ListAppsResponse = zod.array(ListAppsResponseItem);
+
+/**
+ * @summary Install a Squidy app for the current member
+ */
+export const InstallAppParams = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+});
+
+/**
+ * @summary Retry a failed app installation
+ */
+export const RetryAppInstallParams = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+});
+
+export const RetryAppInstallResponse = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+  status: zod.enum([
+    "not_installed",
+    "installing",
+    "installed",
+    "install_failed",
+    "uninstalling",
+  ]),
+  domain: zod.string().nullish(),
+  appUuid: zod.string().nullish(),
+  squidyStatus: zod.string().nullish(),
+  squidySubStatus: zod.string().nullish(),
+  lastLookupAt: zod.date().nullish(),
+  squidyError: zod.string().nullish(),
+  createdAt: zod.date().nullish(),
+  updatedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Get an SSO redirect URL for an installed app
+ */
+export const GetAppSsoRedirectParams = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+});
+
+export const GetAppSsoRedirectResponse = zod.object({
+  url: zod.string().url(),
+});
+
+/**
+ * @summary Uninstall an app instance via Squidy
+ */
+export const UninstallAppParams = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+});
+
+export const UninstallAppResponse = zod.object({
+  appName: zod.enum([
+    "diytrax",
+    "pixelpress",
+    "gifster",
+    "metricmover",
+    "noescape",
+  ]),
+  status: zod.enum([
+    "not_installed",
+    "installing",
+    "installed",
+    "install_failed",
+    "uninstalling",
+  ]),
+  domain: zod.string().nullish(),
+  appUuid: zod.string().nullish(),
+  squidyStatus: zod.string().nullish(),
+  squidySubStatus: zod.string().nullish(),
+  lastLookupAt: zod.date().nullish(),
+  squidyError: zod.string().nullish(),
+  createdAt: zod.date().nullish(),
+  updatedAt: zod.date().nullish(),
 });

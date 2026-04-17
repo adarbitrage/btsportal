@@ -6,6 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type AdminMoveModuleBody = {
-  targetTrackId: number;
-};
+export type AdminCreateSequence201 = { [key: string]: unknown };

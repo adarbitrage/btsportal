@@ -34,6 +34,7 @@ tags:
   - name: chat
   - name: admin-chat
   - name: admin-communications
+  - name: apps
   - name: admin-tools
 paths:
   /healthz:
@@ -2645,18 +2646,6 @@ paths:
           required: true
           schema:
             type: integer
-  /admin/communications/email-templates:
-    get:
-      operationId: adminListEmailTemplates
-      tags: [admin-communications]
-      summary: List all email templates
-      responses:
-        "200":
-          description: List of email templates
-    post:
-      operationId: adminCreateEmailTemplate
-      tags: [admin-communications]
-      summary: Create email template
       requestBody:
         required: true
         content:
@@ -2678,31 +2667,6 @@ paths:
       summary: Update saved tool data
       parameters:
         - name: toolId
-              type: object
-      responses:
-        "201":
-          description: Template created
-
-  /admin/communications/email-templates/{id}:
-    get:
-      operationId: adminGetEmailTemplate
-      tags: [admin-communications]
-      summary: Get email template by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Email template
-    put:
-      operationId: adminUpdateEmailTemplate
-      tags: [admin-communications]
-      summary: Update email template (creates version)
-      parameters:
-        - name: id
           in: path
           required: true
           schema:
@@ -2731,16 +2695,6 @@ paths:
       summary: Delete saved tool data
       parameters:
         - name: toolId
-              type: object
-      responses:
-        "200":
-          description: Updated template
-    delete:
-      operationId: adminDeleteEmailTemplate
-      tags: [admin-communications]
-      summary: Delete email template
-      parameters:
-        - name: id
           in: path
           required: true
           schema:
@@ -2761,8 +2715,153 @@ paths:
       summary: Log a tool usage event
       parameters:
         - name: toolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Usage logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /admin/communications/email-templates:
+    get:
+      operationId: adminListEmailTemplates
+      tags: [admin-communications]
+      summary: List all email templates
       responses:
         "200":
+          description: List of email templates
+    post:
+      operationId: adminCreateEmailTemplate
+      tags: [admin-communications]
+      summary: Create email template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, name, subject, htmlBody, textBody]
+              properties:
+                slug:
+                  type: string
+                name:
+                  type: string
+                subject:
+                  type: string
+                htmlBody:
+                  type: string
+                textBody:
+                  type: string
+                category:
+                  type: string
+                fromName:
+                  type: string
+                  nullable: true
+                variables:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /admin/communications/email-templates/{id}:
+    get:
+      operationId: adminGetEmailTemplate
+      tags: [admin-communications]
+      summary: Get email template by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Email template
+    put:
+      operationId: adminUpdateEmailTemplate
+      tags: [admin-communications]
+      summary: Update email template (creates version)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                subject:
+                  type: string
+                htmlBody:
+                  type: string
+                textBody:
+                  type: string
+                category:
+                  type: string
+                fromName:
+                  type: string
+                  nullable: true
+                variables:
+                  type: array
+                  items:
+                    type: string
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    delete:
+      operationId: adminDeleteEmailTemplate
+      tags: [admin-communications]
+      summary: Delete email template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
           description: Template deleted
 
   /admin/communications/email-templates/{id}/versions:
@@ -2812,28 +2911,46 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LogToolUsageBody"
+              type: object
+              required: [slug, name, body]
+              properties:
+                slug:
+                  type: string
+                name:
+                  type: string
+                body:
+                  type: string
+                variables:
+                  type: array
+                  items:
+                    type: string
       responses:
         "201":
-          description: Usage logged
+          description: SMS template created
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  success:
-                    type: boolean
-                required: [success]
+                additionalProperties: true
 
   /tools/headline-generator/generate:
     post:
       operationId: generateHeadlines
       tags: [tools]
       summary: Generate headlines using AI
-              type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateHeadlinesBody"
       responses:
-        "201":
-          description: SMS template created
+        "200":
+          description: Generated headlines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateHeadlinesResponse"
 
   /admin/communications/sequences:
     get:
@@ -2852,24 +2969,42 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenerateHeadlinesBody"
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                triggerEvent:
+                  type: string
       responses:
-        "200":
-          description: Generated headlines
+        "201":
+          description: Sequence created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GenerateHeadlinesResponse"
+                type: object
+                additionalProperties: true
 
   /tools/campaign-calculator/analyze:
     post:
       operationId: analyzeCampaign
       tags: [tools]
       summary: Get AI analysis of campaign numbers
-              type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeCampaignBody"
       responses:
-        "201":
-          description: Sequence created
+        "200":
+          description: AI analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzeCampaignResponse"
 
   /admin/communications/sequences/{id}:
     get:
@@ -2961,18 +3096,39 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AnalyzeCampaignBody"
-      responses:
-        "200":
-          description: AI analysis
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AnalyzeCampaignResponse"
               type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                channel:
+                  type: string
+                templateId:
+                  type: integer
+                  nullable: true
+                subject:
+                  type: string
+                htmlBody:
+                  type: string
+                textBody:
+                  type: string
+                smsBody:
+                  type: string
+                segmentFilter:
+                  type: object
+                  additionalProperties: true
+                scheduledAt:
+                  type: string
+                  format: date-time
+                  nullable: true
       responses:
         "201":
           description: Broadcast created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 
   /admin/communications/broadcasts/{id}/preview:
     post:
@@ -4978,6 +5134,132 @@ paths:
       responses:
         "302":
           description: Redirect to product page
+
+  /apps:
+    get:
+      operationId: listApps
+      tags: [apps]
+      summary: List all apps with current install status for the current member
+      responses:
+        "200":
+          description: List of apps with status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppInstance"
+
+  /apps/{appName}/install:
+    post:
+      operationId: installApp
+      tags: [apps]
+      summary: Install a Squidy app for the current member
+      parameters:
+        - name: appName
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+      responses:
+        "201":
+          description: App installation started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppInstance"
+        "400":
+          description: Invalid app name
+        "409":
+          description: App already installed or installing
+        "502":
+          description: Squidy API error
+
+  /apps/{appName}/retry:
+    post:
+      operationId: retryAppInstall
+      tags: [apps]
+      summary: Retry a failed app installation
+      parameters:
+        - name: appName
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+      responses:
+        "200":
+          description: Retry initiated (status set back to installing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppInstance"
+        "400":
+          description: Invalid app name or no domain on record
+        "404":
+          description: App instance not found
+        "409":
+          description: App is not in install_failed state
+        "502":
+          description: Squidy retry API error
+
+  /apps/{appName}/sso-redirect:
+    get:
+      operationId: getAppSsoRedirect
+      tags: [apps]
+      summary: Get an SSO redirect URL for an installed app
+      parameters:
+        - name: appName
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+      responses:
+        "200":
+          description: SSO redirect URL with one-time token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    format: uri
+        "400":
+          description: Invalid app name
+        "409":
+          description: App is not installed
+        "502":
+          description: SSO token request to the app failed
+
+  /apps/{appName}:
+    delete:
+      operationId: uninstallApp
+      tags: [apps]
+      summary: Uninstall an app instance via Squidy
+      parameters:
+        - name: appName
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+      responses:
+        "200":
+          description: App uninstalled and local row reset to not_installed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppInstance"
+        "400":
+          description: Invalid app name or no domain on record
+        "404":
+          description: App instance not found
+        "502":
+          description: Squidy lookup or delete API error
 
 security:
   - cookieAuth: []
@@ -8465,4 +8747,42 @@ components:
         totalOpensAllTime:
           type: integer
       required: [tool, dailyUsage, actionBreakdown, uniqueUsers, totalOpensAllTime]
+
+    AppInstance:
+      type: object
+      properties:
+        appName:
+          type: string
+          enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+        status:
+          type: string
+          enum: [not_installed, installing, installed, install_failed, uninstalling]
+        domain:
+          type: string
+          nullable: true
+        appUuid:
+          type: string
+          nullable: true
+        squidyStatus:
+          type: string
+          nullable: true
+        squidySubStatus:
+          type: string
+          nullable: true
+        lastLookupAt:
+          type: string
+          format: date-time
+          nullable: true
+        squidyError:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [appName, status]
 
