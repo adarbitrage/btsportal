@@ -121,6 +121,7 @@ import UpgradeOpportunities from "@/pages/admin/UpgradeOpportunities";
 import FunnelPerformance from "@/pages/admin/FunnelPerformance";
 import LtvAnalysis from "@/pages/admin/LtvAnalysis";
 import RevenueForecast from "@/pages/admin/RevenueForecast";
+import AppsManager from "@/pages/admin/AppsManager";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -456,6 +457,7 @@ function Router() {
       <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} />}</Route>
       <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} />}</Route>
       <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} />}</Route>
+      <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

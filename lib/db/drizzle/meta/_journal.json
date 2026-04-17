@@ -36,6 +36,20 @@
       "when": 1776405000000,
       "tag": "0004_squidy_member_app_instances",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776456000000,
+      "tag": "0005_app_global_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776542400000,
+      "tag": "0006_app_global_settings_visible",
+      "breakpoints": true
     }
   ]
 }

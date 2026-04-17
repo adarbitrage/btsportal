@@ -53,6 +53,7 @@ import aiChatRouter from "./openai/chat.js";
 import kbPipelineRouter from "./admin/knowledgebase-pipeline.js";
 import kbStagingRouter from "./admin/knowledgebase-staging.js";
 import appsRouter from "./apps";
+import adminAppsRouter from "./admin-apps";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,6 @@ router.use("/ai-chat", aiChatRouter);
 router.use("/admin/knowledgebase/pipeline", kbPipelineRouter);
 router.use("/admin/knowledgebase/staging", kbStagingRouter);
 router.use(appsRouter);
+router.use(adminAppsRouter);
 
 export default router;

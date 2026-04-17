@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -20,7 +21,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
+  Ban,
 } from "lucide-react";
+
+type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
 
 type AppCatalogEntry = {
   name: AppInstanceAppName;
@@ -143,8 +147,8 @@ export default function Apps() {
     },
   });
 
-  const byName = new Map<string, AppInstance>();
-  (data ?? []).forEach((i) => byName.set(i.appName, i));
+  const byName = new Map<string, AppInstanceWithDisabled>();
+  ((data ?? []) as AppInstanceWithDisabled[]).forEach((i) => byName.set(i.appName, i));
 
   if (isLoading) {
     return (
@@ -192,19 +196,19 @@ export default function Apps() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {APP_CATALOG.map((app) => {
+          {APP_CATALOG.filter((app) => byName.has(app.name)).map((app) => {
             const inst = byName.get(app.name);
+            const isDisabled = inst?.disabled ?? false;
             const status = inst?.status ?? "not_installed";
-            const isInstalling = status === "installing" || (installMutation.isPending && installMutation.variables?.appName === app.name);
             const isRetrying = retryMutation.isPending && retryMutation.variables?.appName === app.name;
             const isUninstalling = uninstallMutation.isPending && uninstallMutation.variables?.appName === app.name;
             const Icon = app.icon;
 
             return (
-              <Card key={app.name} className="border-border">
+              <Card key={app.name} className={`border-border ${isDisabled ? "opacity-70" : ""}`}>
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${app.accent}`}>
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isDisabled ? "bg-muted text-muted-foreground" : app.accent}`}>
                       <Icon className="w-6 h-6" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -213,7 +217,22 @@ export default function Apps() {
                           <h3 className="text-lg font-semibold">{app.title}</h3>
                           <p className="text-sm text-muted-foreground">{app.tagline}</p>
                         </div>
-                        <StatusBadge status={status} />
+                        <div className="flex flex-col items-end gap-1">
+                          {isDisabled ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200 cursor-default">
+                                  <Ban className="w-3 h-3 mr-1" /> Temporarily unavailable
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                This app has been temporarily disabled by an administrator. Please check back later.
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <StatusBadge status={status} />
+                          )}
+                        </div>
                       </div>
 
                       {inst?.domain && (
@@ -222,84 +241,92 @@ export default function Apps() {
                         </p>
                       )}
 
-                      {status === "install_failed" && (
+                      {isDisabled && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          This app is temporarily unavailable. Please check back later.
+                        </p>
+                      )}
+
+                      {!isDisabled && status === "install_failed" && (
                         <p className="text-xs text-red-700 mt-2">The app couldn't be created. You can try again.</p>
                       )}
 
-                      <div className="mt-4 flex gap-2">
-                        {status === "not_installed" && (
-                          <Button
-                            size="sm"
-                            disabled={installMutation.isPending || !hasActiveMembership}
-                            onClick={() => installMutation.mutate({ appName: app.name })}
-                            data-testid={`button-install-${app.name}`}
-                          >
-                            {installMutation.isPending && installMutation.variables?.appName === app.name ? (
-                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
-                            ) : (
-                              "Install"
-                            )}
-                          </Button>
-                        )}
-                        {status === "installing" && (
-                          <Button size="sm" disabled>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
-                          </Button>
-                        )}
-                        {status === "uninstalling" && (
-                          <Button size="sm" disabled variant="outline">
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…
-                          </Button>
-                        )}
-                        {status === "installed" && inst?.domain && (
-                          <>
+                      {!isDisabled && (
+                        <div className="mt-4 flex gap-2">
+                          {status === "not_installed" && (
                             <Button
                               size="sm"
-                              disabled={openingApp === app.name || !hasActiveMembership}
-                              onClick={() => handleOpen(app.name)}
-                              data-testid={`button-open-${app.name}`}
+                              disabled={installMutation.isPending || !hasActiveMembership}
+                              onClick={() => installMutation.mutate({ appName: app.name })}
+                              data-testid={`button-install-${app.name}`}
                             >
-                              {openingApp === app.name ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
+                              {installMutation.isPending && installMutation.variables?.appName === app.name ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
                               ) : (
-                                <>Open <ExternalLink className="w-4 h-4 ml-2" /></>
+                                "Install"
                               )}
                             </Button>
+                          )}
+                          {status === "installing" && (
+                            <Button size="sm" disabled>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
+                            </Button>
+                          )}
+                          {status === "uninstalling" && (
+                            <Button size="sm" disabled variant="outline">
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…
+                            </Button>
+                          )}
+                          {status === "installed" && inst?.domain && (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={openingApp === app.name || !hasActiveMembership}
+                                onClick={() => handleOpen(app.name)}
+                                data-testid={`button-open-${app.name}`}
+                              >
+                                {openingApp === app.name ? (
+                                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
+                                ) : (
+                                  <>Open <ExternalLink className="w-4 h-4 ml-2" /></>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isUninstalling}
+                                onClick={() => {
+                                  if (confirm(`Uninstall ${app.title}? This removes your instance.`)) {
+                                    uninstallMutation.mutate({ appName: app.name });
+                                  }
+                                }}
+                                data-testid={`button-uninstall-${app.name}`}
+                              >
+                                {isUninstalling ? (
+                                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…</>
+                                ) : (
+                                  <><Trash2 className="w-4 h-4 mr-2" /> Uninstall</>
+                                )}
+                              </Button>
+                            </>
+                          )}
+                          {status === "install_failed" && (
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={isUninstalling}
-                              onClick={() => {
-                                if (confirm(`Uninstall ${app.title}? This removes your instance.`)) {
-                                  uninstallMutation.mutate({ appName: app.name });
-                                }
-                              }}
-                              data-testid={`button-uninstall-${app.name}`}
+                              disabled={isRetrying || !hasActiveMembership}
+                              onClick={() => retryMutation.mutate({ appName: app.name })}
+                              data-testid={`button-retry-${app.name}`}
                             >
-                              {isUninstalling ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…</>
+                              {isRetrying ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
                               ) : (
-                                <><Trash2 className="w-4 h-4 mr-2" /> Uninstall</>
+                                <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
                               )}
                             </Button>
-                          </>
-                        )}
-                        {status === "install_failed" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isRetrying || !hasActiveMembership}
-                            onClick={() => retryMutation.mutate({ appName: app.name })}
-                            data-testid={`button-retry-${app.name}`}
-                          >
-                            {isRetrying ? (
-                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
-                            ) : (
-                              <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
-                            )}
-                          </Button>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

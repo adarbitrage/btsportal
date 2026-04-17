@@ -47,7 +47,8 @@ import {
   Megaphone,
   Menu,
   X,
-  Zap
+  Zap,
+  AppWindow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -142,6 +143,10 @@ const adminToolItems = [
   { href: "/admin/tools/analytics", label: "Tool Analytics", icon: TrendingUp },
 ];
 
+const adminAppsItems = [
+  { href: "/admin/apps-manager", label: "Apps Manager", icon: AppWindow },
+];
+
 const adminPanelItems = [
   { href: "/admin/dashboard", label: "Admin Dashboard", icon: Home },
   { href: "/admin/members", label: "Members", icon: Users },
@@ -231,7 +236,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               </div>
             </div>
             
-            {[...adminPanelItems, ...adminNavItems, ...adminRevenueItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems].map((item) => {
+            {[...adminPanelItems, ...adminNavItems, ...adminRevenueItems, ...adminGhlItems, ...adminTicketItems, ...adminCommunityItems, ...adminCommissionItems, ...adminCoachingItems, ...adminChatItems, ...adminWinsItems, ...adminToolItems, ...adminAppsItems].map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (
                 <Link key={item.href} href={item.href}>

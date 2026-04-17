@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
-import { db, memberAppInstancesTable, usersTable, APP_NAMES, type AppName } from "@workspace/db";
+import { db, memberAppInstancesTable, usersTable, appGlobalSettingsTable, APP_NAMES, type AppName } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   APP_DOMAINS,
@@ -23,6 +23,19 @@ async function requireActiveMember(userId: number, res: import("express").Respon
     return false;
   }
   return true;
+}
+
+async function isAppAvailable(appName: string): Promise<{ ok: boolean; reason?: string }> {
+  const [row] = await db
+    .select({ enabled: appGlobalSettingsTable.enabled, visible: appGlobalSettingsTable.visible })
+    .from(appGlobalSettingsTable)
+    .where(eq(appGlobalSettingsTable.appName, appName))
+    .limit(1);
+  const enabled = row?.enabled ?? true;
+  const visible = row?.visible ?? true;
+  if (!visible) return { ok: false, reason: "This app is not currently available." };
+  if (!enabled) return { ok: false, reason: "This app is currently disabled by an administrator." };
+  return { ok: true };
 }
 
 function generateSubdomain(): string {
@@ -53,17 +66,23 @@ router.get("/apps", async (req, res): Promise<void> => {
     console.error("[Apps] reconcileUserApps failed (non-fatal):", err);
   }
 
-  const rows = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(eq(memberAppInstancesTable.userId, userId));
+  const [rows, globalSettings] = await Promise.all([
+    db.select().from(memberAppInstancesTable).where(eq(memberAppInstancesTable.userId, userId)),
+    db.select().from(appGlobalSettingsTable),
+  ]);
 
   const rowMap = new Map(rows.map((r) => [r.appName, r]));
+  const settingMap = new Map(globalSettings.map((s) => [s.appName, s]));
 
-  const result = APP_NAMES.map((appName) => {
+  const result = APP_NAMES.flatMap((appName) => {
+    const setting = settingMap.get(appName);
+    const visible = setting?.visible ?? true;
+    if (!visible) return [];
+    const enabled = setting?.enabled ?? true;
+    const disabled = !enabled;
     const row = rowMap.get(appName);
     if (!row) {
-      return {
+      return [{
         appName,
         status: "not_installed" as const,
         domain: null,
@@ -74,9 +93,10 @@ router.get("/apps", async (req, res): Promise<void> => {
         squidyError: null,
         createdAt: null,
         updatedAt: null,
-      };
+        disabled,
+      }];
     }
-    return {
+    return [{
       appName: row.appName,
       status: row.status,
       domain: row.domain,
@@ -87,7 +107,8 @@ router.get("/apps", async (req, res): Promise<void> => {
       squidyError: row.squidyError,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-    };
+      disabled,
+    }];
   });
 
   res.json(result);
@@ -99,6 +120,12 @@ router.post("/apps/:appName/install", async (req, res): Promise<void> => {
 
   if (!APP_NAMES.includes(appName)) {
     res.status(400).json({ error: "Invalid app name" });
+    return;
+  }
+
+  const availability = await isAppAvailable(appName);
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
     return;
   }
 
@@ -252,6 +279,12 @@ router.post("/apps/:appName/retry", async (req, res): Promise<void> => {
     return;
   }
 
+  const availability = await isAppAvailable(appName);
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
+    return;
+  }
+
   if (!(await requireActiveMember(userId, res))) return;
 
   const [existing] = await db
@@ -383,6 +416,12 @@ router.delete("/apps/:appName", async (req, res): Promise<void> => {
     return;
   }
 
+  const availability = await isAppAvailable(appName);
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
+    return;
+  }
+
   const [existing] = await db
     .select()
     .from(memberAppInstancesTable)
@@ -465,12 +504,18 @@ router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const appName = req.params.appName as AppName;
 
-  if (!(await requireActiveMember(userId, res))) return;
-
   if (!APP_NAMES.includes(appName)) {
     res.status(400).json({ error: "Invalid app name" });
     return;
   }
+
+  const availability = await isAppAvailable(appName);
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
+    return;
+  }
+
+  if (!(await requireActiveMember(userId, res))) return;
 
   const [existing] = await db
     .select()
