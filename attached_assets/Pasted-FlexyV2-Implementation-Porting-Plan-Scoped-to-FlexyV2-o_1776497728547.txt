@@ -1,0 +1,117 @@
+FlexyV2 Implementation — Porting Plan
+
+  Scoped to FlexyV2 only. Important correction after re-reading the code: V2 is not token-based SSO. The plugin provisions a GoHighLevel account with a known password, then redirects the user to the
+  GHL-hosted Flexy dashboard where they (or auto-fill) authenticate normally. Keep this in mind for your Replit port — if you want seamless login, you'll need GHL's own SSO mechanism, not what this plugin
+  does.
+
+  1. What V2 Actually Does
+
+  V2 is a thin wrapper around GoHighLevel's agency API:
+
+  Provisioning (app/Services/GhlApiV2.php:1098-1269, build()):
+  1. Create a GHL location (subaccount) with a snapshot → stores location.id in am_apps.etc_id.
+  2. Look up user by email. If the GHL user exists → add etc_id to their roles.locationIds via updateUser. Otherwise → createUser with type=account, role=admin, generated password, locationIds: [etc_id] →
+  stores user.id in etc_user.
+  3. Store the full responses in etc_data, advance setup_data.step through add-subaccount → add-user → completed, flip status to Ready.
+
+  "SSO" (includes/class-inbox2020-app-manager.php:467-473):
+  case 'FlexyV2':
+      $link = "https://dashboard.getflexy.app/";
+      if (isset($_GET['admin']) && $_GET['admin'] == 1) {
+          $link .= "v2/location/{$app->etc_id}/dashboard";
+      }
+      break;
+  That's it. No token, no HMAC, no session handoff. Auth is whatever GHL does at dashboard.getflexy.app.
+
+  2. Data Model for Your Port
+
+  One table is enough for V2:
+
+  apps
+  ├── id              (uuid, pk)
+  ├── user_id         (fk to your users)
+  ├── app_type        ('FlexyV2')
+  ├── status          ('Preparing'|'Building'|'Ready'|'Failed')
+  ├── domain          (optional — used as GHL location.website)
+  ├── etc_email       (email used on GHL side)
+  ├── etc_pass        (generated password — keep encrypted at rest)
+  ├── etc_id          (GHL location id)
+  ├── etc_user        (GHL user id)
+  ├── etc_data        (jsonb — raw API responses)
+  ├── setup_data      (jsonb — { step, retries })
+  ├── created_at / updated_at / deleted_at
+
+  You do not need am_app_tokens for V2.
+
+  3. GHL API Client (Node)
+
+  Port app/Services/GhlApiV2.php. The methods you actually need for V2:
+
+  ┌────────────────────────┬────────────────────────────────┬───────────────────────────────────────────┐
+  │         Method         │          GHL endpoint          │                  Purpose                  │
+  ├────────────────────────┼────────────────────────────────┼───────────────────────────────────────────┤
+  │ createSubaccount(data) │ POST /locations/               │ Step 1 of build                           │
+  ├────────────────────────┼────────────────────────────────┼───────────────────────────────────────────┤
+  │ getUserByEmail(email)  │ GET /users/search (or similar) │ Step 2a: dedup                            │
+  ├────────────────────────┼────────────────────────────────┼───────────────────────────────────────────┤
+  │ updateUser(id, data)   │ PUT /users/{id}                │ Step 2b: attach location to existing user │
+  ├────────────────────────┼────────────────────────────────┼───────────────────────────────────────────┤
+  │ createUser(data)       │ POST /users/                   │ Step 2c: create fresh user                │
+  └────────────────────────┴────────────────────────────────┴───────────────────────────────────────────┘
+
+  Auth: agency-level OAuth2 using GHL_CHERRINGTON_CLIENT_ID / GHL_CHERRINGTON_CLIENT_SECRET from config/app.php. The access token is agency-scoped (works across all locations this agency created). Implement a
+   simple token refresh cache.
+
+  Snapshot ID: Config::get('ghlapi.DEFAULT_FLEXY_SNAPSHOUT') — grab this value from the current WP install's options table before cutover.
+
+  4. Worker Loop
+
+  Port app/Cron/AppLaunchFlexyV2.php as a recurring job (node-cron / BullMQ / Replit scheduled task, every 5 min):
+
+  pick apps where status='Preparing' (limit N)
+    for each:
+      set status='Building'
+      try: ghlV2.build(app)         // the method above
+      catch: increment setup_data.retries
+             if retries > 2 → status='Failed'
+             else leave status='Building' for retry
+
+  Build is idempotent by design: if (!etc_id) skips subaccount creation, getUserByEmail skips user creation. Safe to retry.
+
+  5. Provisioning Trigger
+
+  Replace the WP hooks (wishlistmember_*, profile_update) with whatever your Replit portal uses to signify "user now entitled to a Flexy app":
+  - Webhook from your billing/membership system → POST /internal/provision-flexy → insert apps row with status='Preparing'.
+  - Or inline: when the user completes checkout in your portal, enqueue the row directly.
+
+  The worker does the rest.
+
+  6. Login Endpoint
+
+  GET /apps/:id/open?admin=0|1
+    → load app, authorize (owner or admin/coach role)
+    → if admin=1: 302 to https://dashboard.getflexy.app/v2/location/{etc_id}/dashboard
+    → else:       302 to https://dashboard.getflexy.app/
+
+  Since there's no token, the user will see a GHL login screen. Two options:
+  - Match current behavior: surface the email/password to the user (e.g., "Your Flexy login: foo@x.com / generated-pw") so they can enter it. This is what the WP portal effectively does.
+  - Seamless: check GHL's agency API for a /users/{id}/login or impersonation endpoint. If one exists and is licensed for your agency, use it — that's the real upgrade over the current plugin. Worth a call to
+   GHL support before you build.
+
+  7. Secrets to Carry Over
+
+  From config/app.php / WP options, grab before cutover:
+  - GHL_CHERRINGTON_CLIENT_ID, GHL_CHERRINGTON_CLIENT_SECRET
+  - GHL_API_VERSION
+  - ghlapi.DEFAULT_FLEXY_SNAPSHOUT
+  - Any stored refresh tokens (if you want to avoid re-authing the agency)
+
+  8. Suggested Build Order
+
+  1. GHL OAuth client + token cache.
+  2. createSubaccount + getUserByEmail + createUser + updateUser methods — test against a scratch location.
+  3. apps table + build() port, runnable as a one-off script.
+  4. Scheduled worker around it.
+  5. Provisioning trigger (webhook or inline).
+  6. /apps/:id/open redirect endpoint + authorization.
+  7. Decide on the login UX (show creds vs. pursue GHL impersonation).

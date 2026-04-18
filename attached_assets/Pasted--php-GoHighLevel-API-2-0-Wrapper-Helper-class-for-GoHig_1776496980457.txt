@@ -1,0 +1,1270 @@
+<?php
+/**
+ * GoHighLevel API 2.0 Wrapper
+ * Helper class for GoHighLevel API 2.0
+ *
+ * API Docs: https://highlevel.stoplight.io/docs/integrations/0443d7d1a4bd0-overview
+ */
+
+namespace Inbox2020\AppManager\Services;
+
+use Inbox2020\AppManager\Core\AppBuildInterface;
+use Inbox2020\AppManager\Core\Config;
+use Inbox2020\AppManager\Helpers\CurlWrapper;
+use Inbox2020\AppManager\Helpers\DebugLog;
+use Inbox2020\AppManager\Helpers\Functions;
+use Inbox2020\AppManager\Helpers\PhoneNumberValidator;
+use Inbox2020\AppManager\Models\UserApp;
+
+class GhlApiV2 implements AppBuildInterface {
+    private $_api_url = null;
+    private $_access_token = null;
+    private $_access_code;
+    private $_access_codes = [];
+    private $_api_version;
+    private $_api_authorization = false;
+    private $_content_type = "application/json";
+
+    private $_last_response_code;
+    private $_last_error_code;
+    private $_last_error_message;
+    private $_last_response;
+
+    const COMPANY = "Company";
+
+    public function __construct($locationId = false, $scopes = false) {
+        $this->setApiVersion();
+        $this->setApiUrl();
+        $this->resetResponse();
+
+        //Get the company Access Code
+        $this->_access_code = $this->setAccessTypeToCompany();
+
+        //If we have a location Id, then we need to get the location access code as well
+        if (! empty($locationId)) {
+            $this->_access_code = $this->setAccessTypeToSubaccount($locationId, $scopes);
+        }
+    }
+
+    public function setApiUrl($api_url = null) {
+        $this->_api_url = ! empty($api_url) ? $api_url: Config::get('ghlapi.GHL_API_URL2');
+    }
+
+    /**
+     * @param string $location_id
+     * @param array $data
+     *              "scopes"      => Array  - The scopes required (only required if to override the default scopes)
+     *              "access_code" => object - This is access code previously returned by GHL
+     *
+     * @return mixed - Access Code Object or false (if error)
+     *
+     * Notes: This is where we set the access token for this instance
+     *          - If the access code is not provided, then we need to get a new access token from GHL
+     *          - If we received the access code, the location_id in the access token must match the provided location id
+     *          - If the access code has expired (expired_on is less than or equal to the current time), then we need
+     *            to get a new access code using the refresh token.
+     */
+    public function setAccessCode(string $location_id, $scopes = false) {
+
+        //Get access code from GHL and store in _access_code
+        if (empty($scopes) || ! is_array($scopes)) $scopes = self::scopes();
+
+        $endpoint = "oauth/token";
+        $data = http_build_query([
+            "client_id" =>  Config::get("ghlapi.GHL_CHERRINGTON_CLIENT_ID"),
+            "client_secret" => Config::get("ghlapi.GHL_CHERRINGTON_CLIENT_SECRET"),
+            "code" => $this->getOauthLocationCode($location_id,$scopes),
+            "grant_type" => "authorization_code",
+        ]);
+
+        $content_type = $this->_content_type;
+        $this->_content_type = "application/x-www-form-urlencoded";
+        $this->_api_authorization = true;
+
+        $result = $this->postEndpoint($endpoint,$data);
+
+        $this->_api_authorization = false;
+        $this->_content_type = $content_type;
+
+        if (! $result) return $this->processError("Error Getting New Access Code - ". $this->getErrorMessage());
+
+        $result->response->expires_on = (new \DateTime())->add(new \DateInterval("PT{$result->response->expires_in}S"))->format('Y-m-d H:i:s');
+
+        $this->_access_codes[$location_id] = $result->response;
+
+        //We have a valid access code, lets store and return it
+        $this->resetResponse();
+        return $this->_access_code = $this->_access_codes[$location_id];
+    }
+
+    public function getAccessCode($location_id = self::COMPANY, $scopes = false) {
+        if (! array_key_exists($location_id, $this->_access_codes)) {
+            //Need to get a new access code
+            $this->setAccessCode($location_id, $scopes);
+        }
+        $this->setAccessToken($this->_access_codes[$location_id]->access_token);
+
+        return $this->_access_codes[$location_id];
+    }
+
+    public function setAccessTypeToSubaccount($location_id, $scopes = false) {
+        return $this->getAccessCode($location_id, $scopes);
+    }
+
+    public function setAccessTypeToCompany() {
+        return $this->getAccessCode(self::COMPANY);
+    }
+
+    public function getAccessCodeFromGHL($location_id, $scopes = false) {
+        $endpoint = "oauth/token";
+        $data = http_build_query([
+            "client_id" =>  Config::get("ghlapi.GHL_CHERRINGTON_CLiENT_ID"),
+            "client_secret" => Config::get("ghlapi.GHL_CHERRINGTON_CLiENT_SECRET"),
+            "code" => $this->getOauthLocationCode($location_id,$scopes),
+            "grant_type" => "authorization_code",
+        ]);
+
+        $content_type = $this->_content_type;
+        $this->_content_type = "application/x-www-form-urlencoded";
+        $this->_api_authorization = true;
+
+        $result = $this->postEndpoint($endpoint,$data);
+
+        $this->_api_authorization = false;
+        $this->_content_type = $content_type;
+
+        if (! $result) return $this->processError("Error Getting Access Code - ". $this->getErrorMessage());
+
+        $result->response->expires_on = (new \DateTime())->add(new \DateInterval("PT{$result->response->expires_in}S"))->format('Y-m-d H:i:s');
+
+        return $this->_access_code = $result->response;
+    }
+
+    public function refeshAccessCode($access_code) {
+        //Need the access code object that contains the refresh token
+        //Get new access code from ghl using the refresh token
+
+        return $this->_access_code;
+    }
+
+    public function setAccessToken($access_token) {
+        $this->_access_token = $access_token;
+
+        $this->resetResponse();
+    }
+
+    public function getOauthLocationCode($location_id, $scopes = []) {
+        if (empty($scopes) || ! is_array($scopes)) return $this->setError("Invalid Scopes");
+
+        $client_id = Config::get("ghlapi.GHL_CHERRINGTON_CLIENT_ID");
+        $scope = implode(" ", $scopes);
+
+        $args = [
+            "client_id" => "$client_id",
+            "company_id" => self::getAgencyJwtCompanyId(),
+            "response_type" => "code",
+            "redirect_uri" => "https://theinvisibleaffiliate.com",
+            "scope" => "$scope",
+            "userType" =>"Company"
+        ];
+
+        if ($location_id != self::COMPANY) {
+            $args["userType"] = "Location";
+            $args["location_id"] = $location_id;
+        }
+
+        //dd(http_build_query($args));
+
+        $endpoint = "oauth/authorize?".http_build_query($args);
+        //Lets save the access to token, we need to use the Agency Access Token here
+        $this->_api_authorization = true;
+        $access_token = $this->_access_token;
+        $api_url = $this->_api_url;
+        $this->_api_url = "https://services.msgsndr.com/";
+        $this->setAccessToken(self::getAgencyJwtApiKey());
+
+        $result = $this->postEndpoint($endpoint);
+
+        $this->_api_url = $api_url;
+        $this->_api_authorization = false;
+        $this->_access_token = $access_token;
+
+        if (! $result) return $this->processError("Error Getting Location Oauth code - ". $this->getErrorMessage());
+
+        $code = explode("code=",$result->response->redirectUrl);
+
+        if (count($code) != 2) return $this->processError("Unable to obtain the code");
+
+        return $code[1];
+    }
+
+    public function searchSubaccounts($email = null, $limit = 0,$skip = 0, $order = "") {
+        $endpoint = "locations/search";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        $data = ["companyId" => self::getAgencyJwtCompanyId()];
+        if (! empty($email)) $data['email'] = $email;
+        if (! empty($limit)) $data['limit'] = $limit;
+        if (! empty($skip)) $data['skip'] = $skip;
+        if (! empty($order)) $data['order'] = $order;
+
+        if (! $this->getEndpoint($endpoint,$data))
+            return $this->processError("Error Searching Subaccounts - ". $this->getErrorMessage());
+
+        return $this->getResponse()->locations;
+    }
+
+    public function getAllSubaccounts() {
+        $endpoint = "locations";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting All Subaccounts - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getSubaccountById($id = null) {
+        if (empty($id)) return $this->setError("Missing Required Field: Location ID");
+
+        $endpoint = "locations/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Location by ID - ". $this->getErrorMessage());
+
+        return $this->getResponse()->location;
+    }
+
+    public function getSubaccountsByEmail($email = null) {
+        if (empty($email)) return $this->setError("Missing Required Field: Email Address");
+
+        $endpoint = "locations/search";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint,['email' => $email, "companyId" => self::getAgencyJwtCompanyId()]))
+            return $this->processError("Error Getting Subaccounts by Email - ". $this->getErrorMessage());
+
+        if (empty($this->getResponse()->locations)) {
+            return $this->setError("No Location found for email address");
+        }
+
+        return $this->getResponse();
+    }
+
+    public function createSubaccount($data = []) {
+        $endpoint = "locations/";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        $data["companyId"] = self::getAgencyJwtCompanyId();
+        if (! $this->checkRequiredFields(['name'], $data)) return false;
+
+        if (! $this->postEndpoint($endpoint, $data))
+            return $this->processError("Error Creating Subaccount - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function updateSubaccount($id, $data = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: Location ID");
+
+        if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+
+        $endpoint = "locations/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->putEndpoint($endpoint, $data))
+            return $this->processError("Error Updating Subaccount - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function deleteSubaccount($id, $deleteTwilioAccount = true) {
+        if (empty($id)) return $this->setError("Missing Required Field: Location ID");
+        if (! is_bool($deleteTwilioAccount)) return $this->setError("DeleteTwilioAccount must be true or false");
+
+        $endpoint = "locations/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if ($this->deleteEndpoint($endpoint,["deleteTwilioAccount" => $deleteTwilioAccount]))
+            return $this->processError("Error Deleting Subaccount - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getSnapshots($companyId = false) {
+        $endpoint = "snapshots/";
+
+        $companyId = $companyId ?: self::getAgencyJwtCompanyId();
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint,["companyId" => $companyId]))
+            return $this->processError("Error Getting Snapshots - ". $this->getErrorMessage());
+
+        return $this->getResponse()->snapshots;
+    }
+
+    public function createBusiness($businessName, $location_id, $additional_data = []) {
+        $endpoint = "businesses/";
+
+        //Lets set access type to the location
+        $this->setAccessTypeToSubaccount($location_id);
+
+        $data = ["name" => $businessName, "locationId" => $location_id];
+        //make sure additional data only contains valid fields
+        $data_fields = ["phone", "email", "website", "address", "city", "state", "postalCode", "country", "description"];
+        foreach ($additional_data as $key => $value) {
+            if (! in_array($key, $data_fields)) continue;
+            $data[$key] = $value;
+        }
+
+        if (! $this->postEndpoint($endpoint, $data)) {
+            return $this->processError("Error Creating Business - ". $this->getErrorMessage());
+        }
+
+        return $this->getResponse()->business;
+    }
+
+    public function getBusinessBySubaccount($location_id) {
+        $endpoint = "businesses/";
+
+        //Lets set access type to the location
+        $this->setAccessTypeToSubaccount($location_id);
+
+        $data = ["locationId" => $location_id];
+
+        if (! $this->getEndpoint($endpoint, $data)) {
+            return $this->processError("Error Creating Business - ". $this->getErrorMessage());
+        }
+
+        return $this->getResponse()->businesses;
+    }
+
+    public function loadSnapshot($locationId = null, $snapshotId = null, $override = true) {
+        if (empty($locationId)) return $this->setError("Missing Required Field: Location ID");
+        if (empty($snapshotId)) return $this->setError("Missing Required Field: Snapshot ID");
+
+        $endpoint = "locations/$locationId/load-snapshot/$snapshotId";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->putEndpoint($endpoint,["override" => $override]))
+            return $this->processError("Error Loading Snapshot - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getSaas($customerId, $subscriptionId = "") {
+        $endpoint = "saas/locations?customerId=$customerId";
+        if (! empty($subscriptionId)) $endpoint .= "&subscriptionId=$subscriptionId";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting SaaS Locations - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function updateSaas($id, $data = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: Location ID");
+
+        $endpoint = "saas/update-saas-subscription/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->putEndpoint($endpoint, $data))
+            return $this->processError("Error Updating SaaS Subscription - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getAllUsers() {
+        $endpoint = "users";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Users - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function searchUsers($query = null, $locationId = null ,$limit = 0,$skip = 0, $sort = "", $order = "", $type="") {
+        $endpoint = "users/search/";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        $data = ["companyId" => self::getAgencyJwtCompanyId()];
+        if (! empty($query)) $data['query'] = $query;
+        if (! empty($limit)) $data['limit'] = $limit;
+        if (! empty($skip)) $data['skip'] = $skip;
+        if (! empty($sort)) $data['sort'] = $sort;
+        if (! empty($order)) $data['order'] = $order;
+        if (! empty($type)) $data['type'] = $type;
+        if (! empty($locationId)) $data['locationId'] = $locationId;
+
+        if (! $this->getEndpoint($endpoint,$data))
+            return $this->processError("Error Searching Users - ". $this->getErrorMessage());
+
+        return $this->getResponse()->users;
+    }
+
+    public function getUsersForSubaccount($id = null) {
+        if (empty($id)) return $this->setError("Missing Required Field: Location ID");
+
+        $endpoint = "users/?locationId=$id";
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Location Users - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getUserById($id = null) {
+        if (empty($id)) return $this->setError("Missing Required Field: User ID");
+
+        $endpoint = "users/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting User by Id - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function getUserByEmail($email) {
+        return $this->searchUsers($email);
+    }
+
+    public function createUser($data = [], $plan = "flexy") {
+        $endpoint = "users/";
+
+        if (! $this->checkRequiredFields(['firstName', 'lastName', 'email', 'password', 'type', 'role'], $data)) return false;
+
+        if (! in_array($data['type'],["account", "agency"])) return $this->setError("Invalid User Type, must be 'account' or 'agency'");
+
+        if (! in_array($data['role'],["admin", "user"])) return $this->setError("Invalid User Role, must be 'admin' or 'user'");
+
+        if (! empty($plan)) {
+            if (! empty($plan) && ! in_array($plan,["flexy"])) return $this->setError("Invalid Plan, must be 'flexy'");
+
+            $data["permissions"] = self::flexyPermissions();
+        }
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! array_key_exists("companyId", $data)) $data["companyId"] = self::getAgencyJwtCompanyId();
+
+        if (! $this->postEndpoint($endpoint, $data))
+            return $this->processError("Error Creating User - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function updateUser($id, $data = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: User ID");
+
+        //if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+        if (! array_key_exists("companyId",$data)) $data["companyId"] = self::getAgencyJwtCompanyId();
+
+        $endpoint = "users/$id/";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->putEndpoint($endpoint, $data))
+            return $this->processError("Error Updating User - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    public function deleteUser($id) {
+        if (empty($id)) return $this->setError("Missing Required Field: User ID");
+
+        $endpoint = "users/$id";
+
+        //Lets set access type to the Main Company Account
+        $this->setAccessTypeToCompany();
+
+        if (! $this->deleteEndpoint($endpoint)) return false;
+
+        return $this->getResponse();
+    }
+
+	/*
+	 *	locationSearchContacts - Look up contacts Reference: https://doc.clickup.com/8631005/d/h/87cpx-158396/6e629989abe7fad
+	*/
+	public function locationSearchContacts($locationId, $filter, $page = 1, $pageLimit = 20, $searchAfter = [], $sort = []) {
+
+		$data = [
+			"locationId" => $locationId,
+			"page" => $page,
+			"pageLimit" => $pageLimit,
+		];
+
+		if (! empty($searchAfter)) $data["searchAfter"] = $searchAfter;
+		if (! empty($filter)) $data["filters"] = $filter;
+		if (! empty($sort)) $data["sort"] = $sort;
+
+		$endpoint = "contacts/search";
+
+		$this->setAccessTypeToSubaccount($locationId);
+
+		if (! $this->postEndpoint($endpoint, $data))
+			return $this->processError("Error Searching Contacts - ". $this->getErrorMessage());
+
+		return $this->getResponse();
+	}
+
+	/*
+	 *	contactsSearch - Look up contacts based on a query parameter, searchs: Name, Phone, Email, Tags & Company Name)
+	 *
+	 *  Input Fields - Array
+	 *      - query
+	 *      - Meta (Array of values to generate URL)
+	 *          - limit (default: 20, maximum: 100)
+	 *          - StartAfter (provided in the Meta field after first page)
+	 *          - StartAfterId  (provided in the Meta field after first page)
+	 *          - nextPageUrl (Obtained from the Meta Field after first call)
+	 *          - sortBy (optional: date_added or date_update (Default: date_added
+	 *          - order (Optional: asc or desc (Default: desc)
+	 *
+	 * Returned
+	 *      - Array of Contacts
+	 *      - meta
+	 *          - total         (Total Records)
+	 *          - nextPageUrl   (Url of next page with parameters filled out)
+	 *          - startAfterId
+	 *          - startAfter
+	 *          - currentPage
+	 *          - nextPage
+	 *          - prevPage
+	*/
+    public function searchContacts($query, $meta = []) {
+        if (empty($query)) return $this->setError("Missing Required Field: Search Value");
+
+        $endpoint = "contacts/";
+
+        $data = ['query' => $query ];
+        foreach ($meta as $key => $value) {
+            if (in_array($key, ['startAfterId', 'startAfter', 'limit', 'sortBy', 'order'])) {
+                $value = ($key == 'limit' && $value > 100) ? 100 : $value;
+                $data[ $key ] = $value;
+            }
+        }
+        if (! $this->getEndpoint($endpoint, $data))
+            return $this->processError("Error Searching Contacts - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	contactsGetById - Get contact by ID
+    */
+    public function getContactById($id = null) {
+        if (empty($id)) return $this->setError("Missing Required Field: Contact ID");
+
+        $endpoint = "contacts/$id";
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Contact by Id - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	contactsGetByEmail - Get contact by email
+    */
+    public function getContactByEmail($email = null) {
+        if (empty($email)) return $this->setError("Missing Required Field: Email Address");
+
+        return $this->lookupContact($email);
+    }
+
+    /*
+    *	contactsGetByPhone - Get contact by phone
+    */
+    public function getContactByPhone($phone = null) {
+        if (empty($phone)) return $this->setError("Missing Required Field: Phone Number");
+
+        return $this->lookupContact(null,$phone);
+    }
+
+    /*
+    *	contactsLookup - Get contact by phone and email
+    */
+    public function lookupContact($email = null, $phone = null) {
+        $phoneValidator = new PhoneNumberValidator($phone);
+        $phone = $phoneValidator->getPhoneNumberE164();
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) $email = null;
+
+        if (empty($phone) && empty($email)) return $this->setError("Missing Required Field: Phone Number or Email");
+
+        $endpoint = "contacts/lookup";
+
+        $parms = [];
+        if (! empty ($phone)) $parms['phone'] = $phoneValidator->getPhoneNumberE164();
+        if (! empty ($email)) $parms['email'] = $email;
+
+        if (! $this->getEndpoint($endpoint,$parms))
+            return $this->processError("Error Getting Contact by Lookup - ". $this->getErrorMessage());
+
+        if (empty($this->getResponse()) || (empty($this->getResponse()->contacts))) return $this->processError("No Contact Found", 400);
+
+        return $this->getResponse()->contacts;
+    }
+
+    /*
+    *	contactsCreate - Create Contact (Email or Phone are required to create a contact)
+    */
+    public function createContact($data = []) {
+        $endpoint = "contacts";
+
+        if (! $this->checkRequiredFields(['email/phone'], $data)) return false;
+
+        if (! $this->postEndpoint($endpoint, $data))
+            return $this->processError("Error Creating Contact - ". $this->getErrorMessage());
+
+        return $this->getResponse()->contact;
+    }
+
+    /*
+    *	contactsUpdate - Update Contact
+    */
+    public function updateContact($id, $data = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: Contact ID");
+
+        //if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+
+        $endpoint = "contacts/$id";
+
+        if (! $this->putEndpoint($endpoint, $data))
+            return $this->processError("Error Updating Contact - ". $this->getErrorMessage());
+
+        return $this->getResponse()->contact;
+    }
+
+    /*
+    *	contactsDelete - Delete Contact
+    */
+    public function deleteContact($id) {
+        if (empty($id)) return $this->setError("Missing Required Field: Contact ID");
+
+        $endpoint = "contact/$id";
+
+        if (! $this->deleteEndpoint($endpoint))
+            return $this->processError("Error Deleting Contact - ". $this->getErrorMessage());
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	Add Contact Tags
+    */
+    public function addContactTags($id, $tags = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: Contact ID");
+        if (empty($tags)) return $this->setError("Missing Required Field: Array of Tags");
+        if (! is_array($tags)) $tags = [$tags];
+
+        $endpoint = "contacts/$id/tags";
+        //dump($endpoint);
+
+        if (! $this->postEndpoint($endpoint, ["tags" => $tags]))
+            return $this->processError("Error Updating Contact Tags");
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	Delete Contact Tags
+    */
+    public function deleteContactTags($id, $tags = []) {
+        if (empty($id)) return $this->setError("Missing Required Field: Contact ID");
+        if (empty($tags)) return $this->setError("Missing Required Field: Array of Tags");
+        if (! is_array($tags)) $tags = [$tags];
+
+        $endpoint = "contacts/$id/tags";
+
+        if (! $this->deleteEndpoint($endpoint, ["tags" => $tags]))
+            return $this->processError("Error Deleting Contact Tags");
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	Get Custom Values
+    */
+    public function getAllCustomValues() {
+        $endpoint = "custom-values";
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Custom Values");
+
+        $custom_values = $this->getResponse();
+
+        return property_exists($custom_values, "customValues") ? $custom_values->customValues : false;
+    }
+
+    /*
+    *	Get Custom Value By Id - return_item = value, name, value, empty string for all (Default: value)
+    */
+    public function getCustomValueById($field, $return_item = false) {
+        if (! $custom_values = $this->getAllCustomValues()) return false;
+        foreach ($custom_values as $custom_value) {
+            if ($custom_value->id == $field) {
+                if (empty($return_item)) return $custom_value;
+                return property_exists($custom_value, $return_item) ? $custom_value->$return_item : "";
+            }
+        }
+
+        return false;
+    }
+
+    /*
+    *	Get Custom Value By Name - return_item = value, id, value, empty string for all (Default: value)
+    */
+    public function getCustomValueByName($field, $return_item = false) {
+        if (! $custom_values = $this->getAllCustomValues()) return false;
+        foreach ($custom_values as $custom_value) {
+            if ($custom_value->name == $field) {
+                if (empty($return_item)) return $custom_value;
+                return property_exists($custom_value, $return_item) ? $custom_value->$return_item : "";
+            }
+        }
+        return false;
+    }
+
+    /*
+    *	Get Custom Value By Field Key - return_item = value, id, value, empty string for all (Default: value)
+    */
+    public function getCustomValueByFieldKey($field, $return_item = false) {
+        if (! $custom_values = $this->getAllCustomValues()) return false;
+        foreach ($custom_values as $custom_value) {
+            if ($custom_value->fieldKey == $field) {
+                if (empty($return_item)) return $custom_value;
+                return property_exists($custom_value, $return_item) ? $custom_value->$return_item : "";
+            }
+        }
+
+        return false;
+    }
+
+    /*
+    *	customValuesCreate - Create Custom Value
+    */
+    public function createCustomValue($id, $name, $value = "") {
+        if (empty($id)) return $this->setError("Missing Required Field: Custom Value ID");
+        if (empty($name)) return $this->setError("Missing Required Field: Custom Value NAME");
+
+        //if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+
+        $endpoint = "custom-values";
+
+        if (! $this->postEndpoint($endpoint, ["name" => $name, "value" => $value]))
+            return $this->processError("Error Creating Custom Value");
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	customValuesUpdate - Update Custom Value
+    */
+    public function updateCustomValue($id, $name, $value = "") {
+        if (empty($id)) return $this->setError("Missing Required Field: Custom Value ID");
+        if (empty($name)) return $this->setError("Missing Required Field: Custom Value NAME");
+
+        //if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+
+        $endpoint = "custom-values/$id";
+
+        if (! $this->putEndpoint($endpoint, ["name" => $name, "value" => $value]))
+            return $this->processError("Error Updating Custom Value");
+
+        return $this->getResponse();
+    }
+
+    /*
+    *	customValuesDelete - Delete Custom Value
+    */
+    public function deleteCustomValue($id) {
+        if (empty($id)) return $this->setError("Missing Required Field: Custom Value ID");
+
+        //if (! $this->checkRequiredFields(['businessName'], $data)) return false;
+
+        $endpoint = "custom-values/$id";
+
+        if (! $this->deleteEndpoint($endpoint))
+            return $this->processError("Error Deleting Custom Value");
+
+        return $this->getResponse();
+    }
+
+	/*
+	*	Get Custom Fields
+	*/
+	public function getLocationCustomFields($locationId) {
+		$endpoint = "locations/{$locationId}/customFields";
+
+		$this->setAccessTypeToSubaccount($locationId);
+		if (! $this->getEndpoint($endpoint))
+			return $this->processError("Error Getting Custom Fields");
+
+		$custom_values = $this->getResponse();
+
+		return property_exists($custom_values, "customFields") ? $custom_values->customFields : false;
+	}
+
+	/*
+	*	Get Custom Fields
+	*/
+    public function getAllCustomFields() {
+        $endpoint = "custom-fields";
+
+        if (! $this->getEndpoint($endpoint))
+            return $this->processError("Error Getting Custom Fields");
+
+        $custom_values = $this->getResponse();
+
+        return property_exists($custom_values, "customFields") ? $custom_values->customFields : false;
+    }
+
+    public function checkDomainExists($domain = "", $data=null) {
+        if (empty($domain)) return false;
+
+        $curl = new CurlWrapper();
+        if ( is_null($data) === true ) {
+            $curl->get($domain);
+        } else {
+            $curl->get($domain, $data);
+        }
+
+        $this->_last_response_code = $curl->http_status_code;
+        $this->_last_response = $curl->response;
+        $return = true;
+        if ($this->_last_response_code != 200) {
+            $this->_last_error_code = $curl->error_code;
+            $this->_last_error_message = $curl->error_message;
+            $return = false;
+        }
+
+        return $return;
+    }
+
+    private function ExecAPI($call_type, $url, $data=null) {
+        $this->_last_response_code = 200;
+        $this->_last_response = "";
+        $this->_last_error_code = 0;
+        $this->_last_error_message = "";
+
+        $curl = new CurlWrapper();
+
+        $curl->setHeader("Authorization", "Bearer {$this->_access_token}");
+        if (! $this->_api_authorization) $curl->setHeader("Version", "{$this->_api_version}");
+        if ( strtoupper($call_type) == 'GET' ) {
+            $curl->setHeader("Accept", "application/json");
+            if ( is_null($data) === true ) {
+                $curl->get($url);
+            } else {
+                $curl->get($url, $data);
+            }
+        }
+
+        if ( strtoupper($call_type) == 'POST' ) {
+            $curl->setHeader("Content-Type", "{$this->_content_type}");
+            $curl->setHeader("Accept", "application/json");
+            $data = empty($data) || $this->_content_type != "application/json" ? $data :  json_encode($data);
+
+            $curl->post($url, $data);
+        }
+
+        if ( strtoupper($call_type) == 'PUT' ) {
+            $curl->setHeader("Accept", "application/json");
+            $curl->setHeader("Content-Type", "{$this->_content_type}");
+            $data = empty($data) || $this->_content_type != "application/json" ? $data :  json_encode($data);
+            $curl->put($url, $data);
+        }
+
+        if ( strtoupper($call_type) == 'DELETE' ) {
+            $curl->setHeader("Accept", "application/json");
+            $curl->setHeader("Content-Type", "{$this->_content_type}");
+            $data = empty($data) || $this->_content_type != "application/json" ? $data :  json_encode($data);
+            $curl->delete($url, $data);
+        }
+
+//        dump($curl);
+
+        $this->_last_response_code = $curl->http_status_code;
+        $this->_last_response = $curl->response;
+        if ($this->_last_response_code < 200 || $this->_last_response_code > 299) {
+            $error = $this->_last_response->debug_codes;
+            $this->_last_error_code = (isset($this->_last_response->status)) ? $this->_last_response->status : $this->_last_response_code;
+            $this->_last_error_message = (isset($this->_last_response->message)) ? $this->_last_response->message : "Error";
+            return false;
+        }
+
+        $response = (object)[
+            'response'      => $this->_last_response,
+            'response_code' => $curl->http_status_code,
+        ];
+
+        return $response;
+    }
+
+    public function getEndpoint($endpointName = "", $data=null) {
+        if (empty($endpointName)) return false;
+
+        $url = $this->_api_url . $endpointName;
+
+        $return = $this->ExecAPI('GET', $url, $data);
+
+        return $return;
+    }
+
+    public function postEndpoint($endpointName = "", $data=null) {
+        if (empty($endpointName)) return false;
+
+        $url = $this->_api_url . $endpointName;
+
+        $return = $this->ExecAPI('POST', $url, $data);
+
+        return $return;
+    }
+
+    public function putEndpoint($endpointName = "", $data=null) {
+        if (empty($endpointName)) return false;
+
+        $url = $this->_api_url . $endpointName;
+
+        $return = $this->ExecAPI('PUT', $url, $data);
+
+        return $return;
+    }
+
+    public function deleteEndpoint($endpointName = "", $data=null) {
+        if (empty($endpointName)) return false;
+
+        $url = $this->_api_url . $endpointName;
+
+        $return = $this->ExecAPI('DELETE', $url, $data);
+
+        return $return;
+    }
+
+    public function resetResponse() {
+        $this->_last_response = null;
+        $this->_last_response_code = null;
+        $this->_last_error_code = null;
+        $this->_last_error_message = null;
+    }
+
+    public function getResponse() {
+        return $this->getLastResponse();
+    }
+
+    public function getLastResponse() {
+        return $this->_last_response;
+    }
+
+    public function getLastResponseCode() {
+        return $this->_last_response_code;
+    }
+
+    public function getErrorCode() {
+        return $this->_last_error_code;
+    }
+
+    public function setErrorCode($Error_code = 200) {
+        $this->_last_error_code = $Error_code;
+    }
+
+    public function getErrorMessage() {
+        return $this->_last_error_message;
+    }
+
+    public function setErrorMessage($Error_message = "") {
+        $this->_last_error_message = $Error_message;
+    }
+
+    public function setError($message = "", $code = 400) {
+        $this->setErrorCode($code);
+        $this->setErrorMessage($message);
+
+        return false;
+    }
+
+    public function processError($error_msg = "Error Processing request", $response_code = "") {
+        $errors = "";
+        if ($this->_last_response_code == 422) {
+            $last_response = $this->getLastResponse();
+            if (! is_array($last_response)) {
+                $last_response = [$last_response];
+            }
+            foreach ($last_response as $key => $value) {
+                $errors .=  "{$value->message}<br />";
+            }
+            return $this->setError($errors,422);
+        }
+        return $this->setError($error_msg,(empty($response_code) ? $this->_last_response_code : $response_code));
+    }
+
+    private function checkRequiredFields($fields, $data) {
+        if (! is_array($data) && ! empty($data)) {
+            $this->_last_response_code = $this->_last_error_code = 400;
+            $this->_last_error_message = "Data passed to Method must be an array of values...";
+            return false;
+        }
+
+        if (! is_array($fields)) $fields = [$fields];
+
+        //A field can contain one or more fields to test. to test for "or" condition, a field must contain each field
+        //to test separated by "/" (for example: "field1/field2 represents field1 or field2)
+        $missingFields = [];
+
+        foreach($fields as $field) {
+            if (empty($field)) continue;
+
+            $fieldArray = explode("/", $field);
+            if (array_keys_exist($data,$fieldArray)) continue;
+
+            $missingFields[] = implode("/",$fieldArray);
+        }
+
+        if (empty($missingFields)) return true;
+
+        $this->_last_response_code = $this->_last_error_code = 400;
+        $this->_last_error_message = str_replace("/"," or ","Following Required Fields are missing...".implode(" , and ", $missingFields));
+
+        return false;
+    }
+
+    public static function flexyPermissions() {
+        return GhlApiV1::flexyPermissions();
+    }
+
+    public static function scopes() {
+        return Config::get("ghlapi.SCOPES");
+    }
+
+    public static function getAgencyJwt($field = false) {
+        $jwt = json_decode(base64_decode(Config::get("ghlapi.GHL_API_KEY2")));
+        return $field ? $jwt->$field : $jwt;
+    }
+
+    public static function getAgencyJwtApiKey() {
+        return self::getAgencyJwt("apiKey");
+    }
+
+    public static function getAgencyJwtFirebaseToken() {
+        return self::getAgencyJwt("firebaseToken");
+    }
+
+    public static function getAgencyJwtUserId() {
+        return self::getAgencyJwt("userId");
+    }
+
+    public static function getAgencyJwtCompanyId() {
+        return self::getAgencyJwt("companyId");
+    }
+
+    private function setApiVersion($version = false) {
+        $this->_api_version = $version ?: Config::get("ghlapi.GHL_API_VERSION");
+    }
+
+    public function build(UserApp $userApp)
+    {
+
+        try {
+            $user = $userApp->user();
+            $app_type = $userApp->app_type;
+            $userApp->etc_email = $userApp->etc_email ?: $user->user_email;
+
+            $setup_data = Functions::isJson(json_decode($userApp->setup_data) ? json_decode($userApp->setup_data, true) : []);
+            DebugLog::log("Setup Data: " . print_r($setup_data, true));
+
+	        //Lets make sure the app is in preparing status , if not then nothing to do
+	        if (! $userApp->is_preparing) {
+		        DebugLog::log("FlexyV2 App status for user ({$user->ID}) is '{$userApp->status}', needs to be 'Preparing' to continue with Build...");
+		        DebugLog::log("- Location id : {$userApp->etc_id}");
+		        return $userApp;
+	        }
+
+	        //Lets Change the Status to Building if Preparing
+	        $userApp->status = UserApp::STATUS_BUILDINPROGRESS;
+	        $userApp->save();
+
+	        //Check if we are completed. If we are, lets set the status to ready and return
+            if ($setup_data['step'] == 'completed') {
+                DebugLog::log("FlexyV2 App setup has completed. lets set status to ready ({$user->ID})");
+                DebugLog::log("- Location id : {$userApp->etc_id}");
+                $userApp->status = UserApp::STATUS_READY;
+                $userApp->save();
+                return $userApp;
+            }
+
+	        $first_name = $user->first_name;
+	        $last_name = $user->last_name;
+	        $first_name = ! empty($first_name) ? $first_name : $userApp->ssh_user;
+	        $last_name = ! empty($last_name) ? $last_name : $userApp->ssh_user;
+
+	        //Lets check to see if the subaccount has already been created
+            if (! $userApp->etc_id) {
+                $etc_data = [];
+                $setup_data['step'] = 'add-subaccount';
+                $userApp->setup_data = json_encode($setup_data);
+
+                //Lets create the account in GHL
+                // - Create Location
+                //    - check to see if location exists for email (searchSubaccounts)
+                //    - Load snapshot
+                $name = trim($user->display_name);
+                if (empty($name)) $name = trim($user->full_name);
+                if (empty($name)) $name = trim($user->user_login);
+                $name = explode('@', $name)[0];
+                $business_name = "Flexy - $name";
+
+                $data = [
+                    'name' => $business_name,
+                    'timezone' => 'US/Central',
+                    'website' => $userApp->domain,
+                    'prospectInfo' => [
+                        'firstName' => $first_name,
+                        'lastName' => $last_name,
+                        'email' => $userApp->etc_email
+                    ],
+                    'snapshotId' => Config::get('ghlapi.DEFAULT_FLEXY_SNAPSHOUT'),
+                ];
+
+                if (! $response = $this->createSubaccount($data)) {
+
+                    $userApp->etc_data = json_encode(['location' => ['error_code' => $this->getErrorCode(), 'error_message' => $this->getErrorMessage()]]);
+                    $userApp->save();
+
+                    throw new \Exception("Error creating Flexy subaccount for user ({$user->ID}): " . $this->getErrorCode() . ": " . $this->getErrorMessage());
+                }
+
+                DebugLog::log("Created Subaccount for user ({$user->ID}): " . print_r($response, true));
+
+                $etc_data['location'] = $response;
+                $userApp->etc_data = json_encode($etc_data);
+                $userApp->etc_id = $response->id;                           //store location id
+                $userApp->save();
+            } else {
+                DebugLog::log("FlexyV2 Subaccount already exists for user ({$user->ID}):");
+                DebugLog::log("- location : {$userApp->etc_id}");
+                DebugLog::log("- Completed Step : {$setup_data['step']}");
+            }
+
+            //Lets add the user to the location
+            $setup_data['step'] = 'add-user';
+            $userApp->setup_data = json_encode($setup_data);
+
+            //Check if the user exists, if it does, we need to add the sub account to the user if they are not already
+            //  else we need to create the user and assign the location
+
+            // Generate a random password with custom settings
+            $length = 12; // Length of the password
+            //$include_special_chars = true; // Whether to include special characters
+            //$userApp->etc_pass = wp_generate_password($length, $include_special_chars, $include_special_chars);
+            $userApp->etc_pass = Functions::generate_secure_password($length);
+
+            $response = false;
+            if ($flexy_users = $this->getUserByEmail($userApp->etc_email)) {
+                //User exists, lets see if they are already assigned to the location
+                if (! is_array($flexy_users)) {
+                    $flexy_users = [(object) $flexy_users];
+                }
+
+                DebugLog::log("User(s) found for email ({$userApp->etc_email}): " . print_r($flexy_users, true));
+                foreach ($flexy_users as $flexy_user) {
+                    if (! isset($flexy_user->roles->locationIds)) {
+                        continue;
+                    }
+                    if (in_array($userApp->etc_id, $flexy_user->roles->locationIds)) {
+                        DebugLog::log("User already assigned to location: " . print_r($flexy_user, true));
+                        $response = $flexy_user;
+                        break;
+                    }
+                }
+
+                //If the user is not assigned to the location, lets add them
+                if (! $response) {
+                    $flexy_user = $flexy_users[0];
+                    if (! isset($flexy_user->roles->locationIds) || ! is_array($flexy_user->roles->locationIds)) {
+                        $flexy_user->roles->locationIds = [];
+                    }
+                    $flexy_user->roles->locationIds[] = $userApp->etc_id;
+
+                    DebugLog::log("User exists, but not assigned to location, lets add them...");
+                    DebugLog::log("Location ID: {$userApp->etc_id}, User ID: {$flexy_user->id}");
+                    DebugLog::log("Locations to update: " . print_r($flexy_user->roles->locationIds, true));
+                    $data = [
+                        'locationIds' => $flexy_user->roles->locationIds
+                    ];
+                    if (! $response = $this->updateUser($flexy_users[0]->id, $data)) {
+                        throw new \Exception("Error updating Flexy user account for user ({$user->ID}): " . $this->getErrorCode() . ": " . $this->getErrorMessage());
+                    }
+                }
+            } else {
+                DebugLog::log("FlexyV2 user does not exist for ({$userApp->etc_email}), lets create user...");
+
+                //Lets create the user
+                $data = [
+                    'type' => 'account',
+                    'role' => 'admin',
+                    'email' => $userApp->etc_email,
+                    'firstName' => $first_name,
+                    'lastName' => $last_name,
+                    'password' => $userApp->etc_pass,
+                    'locationIds' => [$userApp->etc_id]
+                ];
+                if (! $response = $this->createUser($data)) {
+                    throw new \Exception("Error creating Flexy user account for user ({$user->ID}): " . $this->getErrorCode() . ": " . $this->getErrorMessage());
+                }
+                DebugLog::log("Created User Account for user ({$user->ID}): " . print_r($data, true));
+            }
+
+            DebugLog::log("User Added to location response: " . print_r($response, true));
+
+            $setup_data['step'] = 'completed';
+
+            $userApp->etc_user = $response->id;
+            $etc_data['user'] = $response;
+            $userApp->etc_data = json_encode($etc_data);
+            $userApp->setup_data = json_encode($setup_data);
+            $userApp->status = UserApp::STATUS_READY;
+
+            $userApp->save();
+
+            return $userApp;
+        } catch (\Exception $e) {
+            DebugLog::log("Error Creating App $app_type: " . $e->getMessage());
+            return false;
+        }
+
+    }
+}

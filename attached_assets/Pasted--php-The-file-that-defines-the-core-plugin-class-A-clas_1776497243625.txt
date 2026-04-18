@@ -1,0 +1,936 @@
+<?php
+
+/**
+ * The file that defines the core plugin class
+ *
+ * A class definition that includes attributes and functions used across both the
+ * public-facing side of the site and the admin area.
+ *
+ * @link       https://inbox2020.com/
+ * @since      1.0.0
+ *
+ * @package    Inbox2020_App_Manager
+ * @subpackage Inbox2020_App_Manager/includes
+ */
+
+/**
+ * The core plugin class.
+ *
+ * This is used to define internationalization, admin-specific hooks, and
+ * public-facing site hooks.
+ *
+ * Also maintains the unique identifier of this plugin as well as the current
+ * version of the plugin.
+ *
+ * @since      1.0.0
+ * @package    Inbox2020_App_Manager
+ * @subpackage Inbox2020_App_Manager/includes
+ * @author     LK <inbox2020@luell.net>
+ */
+
+use Inbox2020\AppManager\Controllers\UsersController;
+use Inbox2020\AppManager\Controllers\CoachingController;
+use Inbox2020\AppManager\Core\AjaxHandler;
+use Inbox2020\AppManager\Core\Config;
+use Inbox2020\AppManager\Helpers\AppLog;
+use Inbox2020\AppManager\Helpers\DebugLog;
+use Inbox2020\AppManager\Helpers\Functions;
+use Inbox2020\AppManager\Models\UserApp;
+use Inbox2020\AppManager\Services\BlazeApi;
+use Inbox2020\AppManager\Services\GhlApiV2;
+use Inbox2020\AppManager\Services\TapfiliateApi;
+
+include(__DIR__.'/functions.php');
+include(__DIR__.'/config.php');
+
+class Inbox2020_App_Manager {
+
+	/**
+	 * The loader that's responsible for maintaining and registering all hooks that power
+	 * the plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   protected
+	 * @var      Inbox2020_App_Manager_Loader    $loader    Maintains and registers all hooks for the plugin.
+	 */
+	protected $loader;
+
+	/**
+	 * The unique identifier of this plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   protected
+	 * @var      string    $plugin_name    The string used to uniquely identify this plugin.
+	 */
+	protected $plugin_name;
+
+	/**
+	 * The current version of the plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   protected
+	 * @var      string    $version    The current version of the plugin.
+	 */
+	protected $version;
+
+    protected $wpdb;
+
+    protected $plugin_dir_path;
+
+    protected static $config = null;
+
+	/**
+	 * Define the core functionality of the plugin.
+	 *
+	 * Set the plugin name and the plugin version that can be used throughout the plugin.
+	 * Load the dependencies, define the locale, and set the hooks for the admin area and
+	 * the public-facing side of the site.
+	 *
+	 * @since    1.0.0
+	 */
+	public function __construct() {
+		global $wpdb;
+
+        if ( defined( 'INBOX2020_APP_MANAGER_VERSION' ) ) {
+			$this->version = INBOX2020_APP_MANAGER_VERSION;
+		} else {
+			$this->version = '1.0.0';
+		}
+		$this->plugin_name = 'inbox2020-app-manager';
+        $this->wpdb = $wpdb;
+        $this->plugin_dir_path = Config::get('plugin_dir_path');
+
+		$this->load_dependencies();
+		$this->set_locale();
+		$this->define_admin_hooks();
+		$this->define_public_hooks();
+    }
+
+	/**
+	 * Load the required dependencies for this plugin.
+	 *
+	 * Include the following files that make up the plugin:
+	 *
+	 * - Inbox2020_App_Manager_Loader. Orchestrates the hooks of the plugin.
+	 * - Inbox2020_App_Manager_i18n. Defines internationalization functionality.
+	 * - Inbox2020_App_Manager_Admin. Defines all hooks for the admin area.
+	 * - Inbox2020_App_Manager_Public. Defines all hooks for the public side of the site.
+	 *
+	 * Create an instance of the loader which will be used to register the hooks
+	 * with WordPress.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function load_dependencies() {
+
+		/**
+		 * The class responsible for orchestrating the actions and filters of the
+		 * core plugin.
+		 */
+		require_once $this->plugin_dir_path . 'includes/class-inbox2020-app-manager-loader.php';
+
+		/**
+		 * The class responsible for defining internationalization functionality
+		 * of the plugin.
+		 */
+		require_once $this->plugin_dir_path . 'includes/class-inbox2020-app-manager-i18n.php';
+
+		/**
+		 * The class responsible for defining all actions that occur in the admin area.
+		 */
+		require_once $this->plugin_dir_path . 'admin/class-inbox2020-app-manager-admin.php';
+
+		/**
+		 * The class responsible for defining all actions that occur in the public-facing
+		 * side of the site.
+		 */
+		require_once $this->plugin_dir_path . 'public/class-inbox2020-app-manager-public.php';
+
+
+		$this->loader = new Inbox2020_App_Manager_Loader();
+
+	}
+
+	/**
+	 * Define the locale for this plugin for internationalization.
+	 *
+	 * Uses the Inbox2020_App_Manager_i18n class in order to set the domain and to register the hook
+	 * with WordPress.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function set_locale() {
+
+		$plugin_i18n = new Inbox2020_App_Manager_i18n();
+
+		$this->loader->add_action( 'plugins_loaded', $plugin_i18n, 'load_plugin_textdomain' );
+
+	}
+
+	/**
+	 * Register all of the hooks related to the admin area functionality
+	 * of the plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function define_admin_hooks() {
+
+		$plugin_admin = new Inbox2020_App_Manager_Admin( $this->get_plugin_name(), $this->get_version() );
+
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+        $this->loader->add_action( 'admin_menu', $plugin_admin, 'define_admin_menu');
+        $this->loader->add_action( 'admin_menu', $plugin_admin, 'define_acf_init');
+
+        // Initialize coaching controller
+        CoachingController::init();
+	}
+
+    /**
+	 * Register all of the hooks related to the public-facing functionality
+	 * of the plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function define_public_hooks() {
+
+		$plugin_public = new Inbox2020_App_Manager_Public( $this->get_plugin_name(), $this->get_version() );
+
+		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
+		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+		$this->loader->add_action( 'template_redirect', $plugin_public, 'check_expired_subscription' );
+
+        // Add shortcode for the sections
+        $this->loader->add_shortcode('inbox2020apps', $this, 'process_section_shortcode');
+		// Add shortcode to display an external links
+       $this->loader->add_shortcode('cmGhlPage', $this, 'embed_ghl_page_shortcode');
+		// Add shortcode to display Tapfiliate links
+       $this->loader->add_shortcode('cmTapfiliate', $this, 'display_tapfiliate_link_shortcode');
+
+        // Add action to process ajax request
+        $this->loader->add_action('wp_ajax_inbox2020apps', $this, 'inbox2020apps_ajax');
+        $this->loader->add_action('wp_ajax_nopriv_inbox2020apps', $this, 'inbox2020apps_ajax');
+
+        // new user auto create apps
+//        $this->loader->add_action('user_register', UsersController::class, 'handleMembershipLevelUpdate', 99, 2);
+
+        // update user auto create apps if not existing
+        $this->loader->add_action('profile_update', UsersController::class, 'handleMembershipLevelUpdate', 10, 1);
+
+        // wishlist member hooks
+        $this->loader->add_action('wp_login', UsersController::class, 'handleMembershipLevelUpdate', 10,2);
+        $this->loader->add_action('wishlistmember_user_registered', UsersController::class, 'handleMembershipLevelUpdate', 10, 2);
+        $this->loader->add_action('wishlistmember_add_user_levels', UsersController::class, 'handleMembershipLevelUpdate', 10, 2);
+        $this->loader->add_action('wishlistmember_remove_user_levels', UsersController::class, 'handleMembershipLevelUpdate', 10, 2);
+        $this->loader->add_action('wishlistmember_approve_user_levels', UsersController::class, 'handleMembershipLevelUpdate',  10, 2);
+        $this->loader->add_action('wishlistmember_unapprove_user_levels', UsersController::class, 'handleMembershipLevelUpdate',  10, 2);
+        $this->loader->add_action('wishlistmember_confirm_user_levels', UsersController::class, 'handleMembershipLevelUpdate',  10, 2);
+        $this->loader->add_action('wishlistmember_unconfirm_user_levels', UsersController::class, 'handleMembershipLevelUpdate',  10, 2);
+        $this->loader->add_action('wishlistmember_cancel_user_levels', UsersController::class, 'handleMembershipLevelUpdate',10, 2);
+        $this->loader->add_action('wishlistmember_uncancel_user_levels', UsersController::class, 'handleMembershipLevelUpdate', 10, 2);
+
+        //Process Single Sign On
+        $this->loader->add_action('template_redirect', $this, 'process_app_sso');
+
+        // Register REST route for webhooks
+        $this->loader->add_action('rest_api_init', $this, 'register_webhook_routes');
+    }
+
+	/**
+	 * Run the loader to execute all of the hooks with WordPress.
+	 *
+	 * @since    1.0.0
+	 */
+	public function run() {
+		$this->loader->run();
+	}
+
+	/**
+	 * The name of the plugin used to uniquely identify it within the context of
+	 * WordPress and to define internationalization functionality.
+	 *
+	 * @since     1.0.0
+	 * @return    string    The name of the plugin.
+	 */
+	public function get_plugin_name() {
+		return $this->plugin_name;
+	}
+
+	/**
+	 * The reference to the class that orchestrates the hooks with the plugin.
+	 *
+	 * @since     1.0.0
+	 * @return    Inbox2020_App_Manager_Loader    Orchestrates the hooks of the plugin.
+	 */
+	public function get_loader() {
+		return $this->loader;
+	}
+
+	/**
+	 * Retrieve the version number of the plugin.
+	 *
+	 * @since     1.0.0
+	 * @return    string    The version number of the plugin.
+	 */
+	public function get_version() {
+		return $this->version;
+	}
+
+    public function process_section_shortcode($atts) {
+
+        if (! empty($atts['section'])){
+            $section_include_path = "{$this->plugin_dir_path}includes/sections/{$atts['section']}.php";
+            if(file_exists($section_include_path)){
+                return require($section_include_path);
+            }
+        }
+
+        return 'Section not found';
+    }
+
+    public function display_tapfiliate_link_shortcode($atts) {
+
+	    //Lets make sure we have the URL and it is valid
+	    if (! isset($atts['program'])) {
+		    return 'Error: "Program" parameter is required.';
+	    }
+
+	    if ( ! is_user_logged_in() ) {
+		    return '';
+	    }
+	    $current_user = wp_get_current_user();
+	    $userApp = UserApp::query()
+	                      ->where('user_id', "=", $current_user->ID)
+	                      ->where('app_type', "=", 'Tapfiliate')
+	                      ->first();
+	    if (! $userApp) {
+			return 'Your Affiliate Account has not been setup yet...Check Back Shortly...';
+	    }
+
+	    //Lets make sure the tap account is
+		if (! $userApp->is_ready) {
+		    return 'Your Affiliate Account is being created...Check Back Shortly';
+	    }
+
+	    //Get programs from etc_data field
+		$data = json_decode($userApp->etc_data, true);
+	    if (! is_array ($data) || ! isset($data['program_links']) || ! is_array($data['program_links'])) {
+		    return 'There was an issue accessing your Affiliate Account...Please Contact Support!';
+	    }
+
+	    $programs = $data['program_links'] ?? [];
+	    if (! array_keys_exist($programs, $atts['program'])) {
+		    return 'Error Displaying Affiliate Link, Program does not exist...Please Contact Support!';
+	    }
+
+//		DebugLog::log("Programs: ".print_r($programs, true));
+		return $programs[$atts['program']];
+    }
+
+    public function embed_ghl_page_shortcode($atts) {
+	/*
+        Atts Values:
+		- style: CSS styles for the iframe
+		- class: CSS classes for the iframe
+		- id: ID for the iframe
+		- url: URL to be loaded in the iframe
+		- ghl_location_id: GHL location ID to fetch custom fields
+	*/
+
+	    if ( ! is_user_logged_in() ) {
+		    return '';
+	    }
+	    $current_user = wp_get_current_user();
+
+	    //Lets make sure we have the location ID
+		if (! ($locationId = $atts['ghl_location_id'] ?? null)) { // location ID
+		    return 'Error: ghl_location_id parameter is required.';
+	    }
+
+	    //Lets make sure we have the URL and it is valid
+		if (! isset($atts['url'])) {
+		    return 'Error: URL parameter is required.';
+	    }
+
+	    $urlParts = parse_url($atts['url']);
+		if (! $urlParts) {
+			return 'Error: Invalid URL format.';
+	    }
+
+		// Lets instantiate the GHL API
+		$ghl = new GhlApiV2();
+
+	    //Lets get the GHL contact record for the current user
+		$filter = [
+		    [ "field" => "email", "operator" => "eq", "value" => $current_user->user_email]
+	    ];
+
+	    if (! $contacts = $ghl->locationSearchContacts($locationId, $filter)) {
+			return '';
+	    }
+
+	    $contact = $contacts->contacts[0];
+
+	    $params = [];
+	    // Build final URL
+	    $scheme = $urlParts['scheme'] ?? 'https';
+	    $host = $urlParts['host'] ?? '';
+	    $path = $urlParts['path'] ?? '';
+	    $url = "{$scheme}://{$host}{$path}";
+
+	    // Lets process the URL query parameters and parse placeholders where needed
+		if (! empty($urlParts['query'])) {
+		    $query = str_replace('&amp;', '&', $urlParts['query']);
+		    parse_str($query, $params);
+		    $params = $this->replaceFieldPlaceholders($params, $contact, $ghl->getLocationCustomFields($locationId), $current_user);
+
+		    if (! empty($params)) {
+			    $query = http_build_query($params);
+			    $url .= "?" . $query;
+		    }
+	    }
+
+	    $style = array_keys_exist($atts, "style") ? $atts['style'] : 'width:100%; border:0;';
+		$class = array_keys_exist($atts, "class") ? " class=\"{$atts['class']}\"" : '';
+		$id = array_keys_exist($atts, "id") ? " id=\"{$atts['id']}\"" : '';
+
+	    $iframe = '<iframe src="' . esc_url($url) . '"'. $id . $class .' style="'.$style .'" allowfullscreen></iframe>';
+        return $iframe;
+    }
+
+    public function inbox2020apps_ajax() {
+        DebugLog::log('Ajax request received');
+        $ajax_manager = new AjaxHandler();
+        $ajax_manager->handleRequest();
+    }
+
+    // Process single signon to external apps
+    public function process_app_sso() {
+        $wpdb = $this->wpdb;
+
+        if(! empty($_GET['app-autologin'])){
+	        $userRole = "";
+	        $current_user = wp_get_current_user();
+
+			// Lets see if this is an affiliate login, if so we redirect to the affiliate dashboard
+	        if ($_GET['app-autologin'] == 'affiliate') {
+				$app = UserApp::query()
+					->where('user_id', '=', $current_user->ID)
+					->where('app_type', '=', 'Tapfiliate')
+					->first();
+		        $email = $current_user->user_email;
+	        } else {
+		        $app = UserApp::find($_GET['app-autologin']);
+				if ($app && $app->app_type == 'Tapfiliate' && isset($_GET['admin'])){
+					$email = $app->etc_email;
+				}
+	        }
+
+            $is_va = get_user_meta(get_current_user_id(), 'inbox2020_is_va', true);
+            $is_coach = get_user_meta(get_current_user_id(), 'inbox2020_coach', true);
+
+            if(empty($is_va)) {
+                if (current_user_can('administrator')) {
+                    $userRole = "admin";
+                } else {
+                    // if current user is not the app owner
+                    if ($app->user_id != get_current_user_id()) {
+                        // check if user's coach
+                        $app_user_coach_id = get_user_meta($app->user_id, 'inbox2020_coach_id', true);
+                        if ($app_user_coach_id == -1 && $is_coach) {
+                            // allow access
+                            $userRole = "coach";
+                        } elseif (get_current_user_id() != $app_user_coach_id) {
+                            die('Access Denied.');
+                        }
+                    }
+                }
+            }
+
+//            if (! in_array($app->app_type, ['Flexy', 'FlexyV2', 'Blaze', 'PushAlerts', 'Tapfiliate'])) {
+//                $token_uuid = Functions::uuid();
+//                $wpdb->query($wpdb->prepare("
+//                    INSERT INTO {$wpdb->base_prefix}am_app_tokens SET uuid='%s', app_uuid='%s', user_ip_addr='%s', user_agent='%s'
+//                ", $token_uuid, $app->uuid, $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']));
+//            }
+
+
+            $app_master = Config::get('app_master');
+            switch ($app->app_type) {
+                case 'Flexy':
+                    $link = $this->flexy_sso($app);
+                    break;
+                case 'FlexyV2':
+//                    $link = "https://dashboard.getflexy.app/v2/location/{$app->etc_id}/dashboard";
+                    $link = "https://dashboard.getflexy.app/";
+                    if (isset($_GET['admin']) && ($_GET['admin'] == 1)) {
+                        $link .= "v2/location/{$app->etc_id}/dashboard";
+                    }
+                    break;
+                case 'Blaze':
+                    $blaze = new BlazeApi();
+                    $link = $blaze->getLoginLink($app->etc_user, $app->etc_pass);
+                    break;
+                case 'PushAlerts':
+                    $link = 'https://push.cherringtonmedia.com/login?token='.$app->getSSOToken().'&sv='.$app_master.'';
+                    break;
+                case 'NoEscape':
+                    $link = 'https://'.$app->domain.'/#?token='.$app->getSSOToken().'';
+                    break;
+                case 'Gifster':
+                    $link = 'https://'.$app->domain.'/auth/loginByToken?token='.$app->getSSOToken().'';
+                    break;
+                case 'DiyTrax':
+                    $currentUserFullName = $current_user->user_firstname . " " . $current_user->user_lastname;
+                    $hashValue = $userRole . "|" . $currentUserFullName;
+                    $roleParam = (empty($userRole)) ? "" : "&hash=" . encrypt_decrypt("encrypt", $hashValue);
+                    $link = 'https://'.$app->domain.'/manage#!/login?token='.$app->getSSOToken().$roleParam;
+                    break;
+                case 'Tapfiliate':
+	                $link = TapfiliateApi::getSsoLink($email);
+//	                wp_redirect($url);
+//	                exit;
+                    break;
+                default:
+                    $link = 'https://'.$app->domain.'/#!/login?token='.$app->getSSOToken().'';
+                    break;
+            }
+            header('location: '.$link);
+            die('Redirect: <a href="'.htmlspecialchars($link).'">'.$link.'</a>');
+        }
+    }
+
+    public function register_webhook_routes() {
+        // Register REST route for woocommerc webhooks
+        register_rest_route('inbox2020/v1', '/webhook', array(
+            'methods'  => 'POST',
+            'callback' => [$this, 'inbox2020_webhook'],
+            'permission_callback' => '__return_true',
+        ));
+
+	    // Register REST route for tapfiliate api's with action as route parameter
+	    register_rest_route('inbox2020/v1', '/tapfiliate/(?P<action>\w+)', array(
+		    'methods'  => ['GET', 'POST'],
+		    'callback' => [$this, 'inbox2020_tapfiliate'],
+		    'permission_callback' => '__return_true',
+	    ));
+
+	}
+
+    // Tapfiliate API handler
+	public function inbox2020_tapfiliate(WP_REST_Request $request) {
+		$method = $request->get_method();
+		$url_parms = $request->get_params();
+		$action = $url_parms['action'] ?? null;
+
+		$tapfiliate = new TapfiliateApi();
+		$response = $tapfiliate->handleRequest($request);
+		if ($response instanceof WP_Error) {
+			return new WP_REST_Response([
+				'success' => false,
+				'error_code' => $response->get_error_code(),
+				'error_message' => $response->get_error_message(),
+			], 400);
+		}
+
+		return new WP_REST_Response([
+			'success' => true,
+			'data' => $response,
+		], 200);
+	}
+
+    // WooCommerce webhook handler
+    public function inbox2020_webhook(WP_REST_Request $request) {
+        $access_token = 'gXYFtqVvFXelZttvaX9qlcMZw9PKkTGuRyMXdhSPKzq3UpsaYcdRFXF8Z64ohtg6';
+        $valid_skus = [
+            'TCESOFTWARE',
+        ];
+        $this->write_log('webhook called');
+
+        //Make sure that we have a valid webhook signature
+        $signature = $request->get_header('x_wc_webhook_signature');
+
+        // Get the raw request body
+        $payload = $request->get_body();
+
+        // Generate the HMAC hash using the secret and the payload
+        $generated_signature = base64_encode( hash_hmac( 'sha256', $payload, $access_token, true ) );
+
+        // Compare the generated signature with the signature sent by WooCommerce
+        if ( ! hash_equals( $generated_signature, $signature ) ) {
+            // If the signatures don't match, log the error and return
+            $this->write_log( 'Webhook signature verification failed...' );
+            return new WP_Error( 'invalid_signature', 'Invalid signature', array( 'status' => 401 ) );
+        }
+
+        // If the signature is valid, continue processing the request
+        $this->write_log( 'Webhook signature verification passed.' );
+
+        //Log the request details
+//		$this->write_log("JSON Params = ".print_r($request->get_json_params(), true));
+//		$this->write_log("Params = ".print_r($request->get_params(), true));
+//		$this->write_log("Headers = ".print_r($request->get_headers(), true));
+
+        $this->write_log("Processing the following Request: ");
+        $this->write_log("- Webhook Source  : " . $request->get_header('x_wc_webhook_source'));
+        $this->write_log("- Webhook Resource: " . $request->get_header('x_wc_webhook_resource'));
+        $this->write_log("- Webhook Event   : " . $request->get_header('x_wc_webhook_event'));
+        $this->write_log("- Webhook Topic   : " . $request->get_header('x_wc_webhook_topic'));
+        $this->write_log("");
+        $this->write_log("- Line items   : " . print_r($request->get_param('line_items'), true));
+        $this->write_log("- Email        : " . $request->get_param('billing')['email']);
+
+        //Lets process valid skus
+        $valid_sku = false;
+        foreach ($request->get_param('line_items') as $line_item) {
+            $sku = $line_item['sku'];
+            $this->write_log( "Processing sku: $sku" );
+
+            //If we don;t have a valid sku then lets continue
+            if (! in_array($sku, $valid_skus)) {
+                continue;
+            }
+
+            $valid_sku = true;
+            //Lets process the sku
+            switch ( $sku ) {
+                case 'TCESOFTWARE':
+                    try {
+                        //Process the topics using switch statement
+                        $email = $request->get_param('billing')['email'];
+                        if ( ! $user_id = email_exists( $email ) ) {
+                            // If the email does not exist, log the error and return
+                            $this->write_log( "Email does not exist...$email" );
+                            throw new Exception('Email does not exist', 400);
+                        }
+
+                        $this->write_log( "Processing TCESOFTWARE webhook for email...$email" );
+
+
+                        $this->inbox2020_process_tcesoftware_webhook($request, $user_id);
+                    } catch (Exception $e) {
+                        $this->write_log( "Error: ".$e->getMessage() );
+                        return new WP_Error( $e->getCode(), $e->getMessage(), [ 'status' => $e->getCode()] );
+                    }
+                    break;
+
+                default:
+                    $this->write_log( "Received webhook, not implemented...$sku" );
+                    break;
+            }
+        }
+
+        if ( ! $valid_sku ) {
+            // If the sku is not in the list of valid skus, lets just log the error and return
+            $this->write_log( 'Request does not have a valid sku to process ...Exiting' );
+            return new WP_Error( 'invalid_sku', 'Invalid sku', array( 'status' => 200 ) );
+        }
+
+        $this->write_log('webhook finished');
+        return new WP_REST_Response('OK', 200);
+    }
+
+    // WooCommerce webhook handler for TCE Software
+    public function inbox2020_process_tcesoftware_webhook(WP_REST_Request $request, $user_id) {
+        $webhooks_topics = [
+            'subscription.created',
+            'subscription.renewed',
+            'subscription.renewal_failed',
+            'subscription.status_changed',
+        ];
+        $tce_software_membership_id = '1729092107';
+
+        $order_id = $request->get_param('number');
+        $webhook_topic = $request->get_header('x_wc_webhook_topic');
+
+        $this->write_log("Processing TCESOFTWARE webhook...$webhook_topic for user_id...$user_id");
+
+        //Lets make sure we have a valid webhook topic
+        if ( ! in_array( $webhook_topic, $webhooks_topics ) ) {
+            // If the topic is not valid, log the error and return
+            $this->write_log( "Invalid webhook topic...$webhook_topic" );
+            throw new Exception('Invalid topic', 404);
+        }
+
+        switch ( $webhook_topic ) {
+            case 'subscription.created':
+            case 'subscription.renewed':
+                $billing_period = $request->get_param('billing_period') ?: 'month';
+                $billing_interval = $request->get_param('billing_interval') ?: 1;
+                $next_payment_date = $request->get_param('next_payment_date_gmt');
+
+                //Set the membership start date calculated as next payment date - (billing_interval . billing_period)
+                $start_date = time();
+                if ( ! empty( $next_payment_date ) ) {
+                    $start_date = strtotime("-{$billing_interval} {$billing_period}",strtotime($next_payment_date));
+                }
+                $this->write_log( "Membership Start Date: ".date('Y-m-d H:i:s', $start_date) );
+
+                $is_user_tce_software_member = wlmapi_is_user_a_member($tce_software_membership_id, $user_id);
+                $this->write_log( "Is User a TCE Software Member: ". ($is_user_tce_software_member ? 'Yes' : 'No') );
+
+                //add user to TCE Software membership
+                if ( ! $is_user_tce_software_member ) {
+                    $this->write_log( 'Adding user to TCE Software membership...' );
+                    $timestamp = time();
+                    $args = [
+                        'Users' => [$user_id],
+                        'Timestamp' => $start_date,
+                        'TxnID' => $order_id,
+                    ];
+                    $membership = wlmapi_add_member_to_level($tce_software_membership_id,$args);
+                    $this->write_log( 'Membership: '.print_r($membership, true) );
+                } else {
+                    $this->write_log( 'Updating user to TCE Software membership...' );
+                    $membership = wlmapi_update_level_member_data($tce_software_membership_id, $user_id,[
+                        'Timestamp' => $start_date,
+                        'TxnID' => $order_id,
+                    ]);
+                    $this->write_log( 'Membership: '.print_r($membership, true) );
+                }
+
+                $this->write_log( 'Processing subscription.created webhook...' );
+                break;
+            case 'subscription.renewal_failed':
+                $this->write_log( 'Processing subscription.renewal_failed webhook...' );
+                break;
+            case 'subscription.status_changed':
+                $this->write_log( 'Processing subscription.status_changed webhook...' );
+                break;
+            default:
+                $this->write_log( 'Received webhook, not implemented...$webhook_topic' );
+                break;
+        }
+
+    }
+
+    public function flexy_sso(UserApp $app) {
+        DebugLog::log('Flexy SSO');
+
+        $flexy_platform_api_key = Config::get('flexy_platform_api_key');
+
+        $app_user_id = $app->user_id;
+        $etc_id = $app->etc_id;
+        $etc_email = $app->etc_email;
+
+        if(empty($etc_id)){
+            die('Flexy user id undefined.');
+        }
+
+        $user_query = 'userId';
+        if($etc_id[0] == '_'){
+            $user_query = 'externalCustomerId';
+        }
+        $url = 'https://api.getflexy.app/api/v1/projects?'.$user_query.'='.$etc_id;
+
+        $ch = new_ch($url, null, [
+            'content-type: application/x-www-form-urlencoded',
+            'X-CLIENT-KEY: '.$flexy_platform_api_key
+        ]);
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+        $response = curl_exec($ch);
+        curl_close($ch);
+        $result = json_decode($response, true);
+
+        $project_id = @$result['data'][0]['id'];
+        foreach($result['data'] as $proj_i=>$proj){
+            if($proj['status'] == 'EXPIRED'){
+                continue;
+            }
+            $project_id = $proj['id'];
+        }
+
+        if(empty($result['success'])){
+            die('Failed to load project.');
+        }
+
+        if(empty($project_id)){
+            $url = 'https://api.getflexy.app/api/v1/website';
+            $ch = new_ch($url, null, [
+                'content-type: application/x-www-form-urlencoded',
+                'X-CLIENT-KEY: '.$flexy_platform_api_key
+            ]);
+
+            $first_name = get_user_meta($app_user_id, 'first_name', true);
+            $last_name = get_user_meta($app_user_id, 'last_name', true);
+            $payload = [
+                'customerFirstName'=>$first_name,
+                'customerLastName'=>$last_name,
+                'customerEmail'=>$etc_email,
+                $user_query=>$etc_id
+            ];
+
+            curl_setopt( $ch, CURLOPT_POST, true );
+            curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+            curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            $result = json_decode($response, true);
+            $project_id = @$result['data']['projectId'];
+
+            if(empty($project_id)){
+                die('Cannot auto login because you don\'t have any project/website on flexy.');
+            }
+        }
+
+        $url = 'https://api.getflexy.app/api/platform/session';
+        $ch = new_ch($url, null, [
+            'content-type: application/x-www-form-urlencoded',
+            'Authorization: Bearer '.$flexy_platform_api_key
+        ]);
+
+        if (empty($project_id)){
+            $payload = [
+                $user_query=>$etc_id,
+                'path'=>'/me/dashboard'
+            ];
+        } else {
+            $payload = [
+                $user_query=>$etc_id,
+                'projectId'=>$project_id,
+                'path'=>'/me/website'
+            ];
+        }
+        curl_setopt( $ch, CURLOPT_POST, true );
+        curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+        echo $response = curl_exec($ch);
+        curl_close($ch);
+        $result = json_decode($response, true);
+
+        if (empty($result['accessUrl'])){
+            if(!empty($_GET['autocreate'])){
+                $url = 'https://api.getflexy.app/api/v1/website';
+                $ch = new_ch($url, null, [
+                    'content-type: application/x-www-form-urlencoded',
+                    'X-CLIENT-KEY: '.$flexy_platform_api_key
+                ]);
+
+                $first_name = get_user_meta($app_user_id, 'first_name', true);
+                $last_name = get_user_meta($app_user_id, 'last_name', true);
+                $payload = [
+                    'templateId'=>'',
+                    'funnelTemplateId'=>'',
+                    'externalCustomerId'=>$etc_id,
+                    'customerFirstName'=>$first_name,
+                    'customerLastName'=>$last_name,
+                    'customerEmail'=>$etc_email,
+                ];
+
+                curl_setopt( $ch, CURLOPT_POST, true );
+                curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+                curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+                $response = curl_exec($ch);
+                curl_close($ch);
+                $result = json_decode($response, true);
+
+                echo $url."\n";
+                echo $response."\n";
+            }
+            die('Could not load access url.');
+        }
+
+        $link = $result['accessUrl'];
+        return $link;
+    }
+
+    public function write_log($entry, $fname = 'inbox2020-app-manager')
+    {
+        AppLog::log($entry, $fname);
+    }
+
+	function replaceFieldPlaceholders(array $fields, $ghlContact, $ghlCustomFields, $wpUser) {
+		$replaced = [];
+
+		foreach ($fields as $key => $template) {
+			// Match everything inside double curly braces
+			if (preg_match_all('/{{(.*?)}}/', $template, $matches)) {
+				$result = $template;
+
+				foreach ($matches[1] as $match) {
+					if ( str_starts_with( $match, 'ghl.' ) ) {
+						$path = substr($match, 4);
+
+						if (str_starts_with($path, 'customFields.')) {
+							$fieldName = substr($path, strlen('customFields.'));
+
+							// Find custom field ID by name or fieldKey
+							$cfId = null;
+							foreach ($ghlCustomFields as $cf) {
+								if ($cf->name === $fieldName || $cf->fieldKey === $fieldName) {
+									$cfId = $cf->id;
+									break;
+								}
+							}
+
+							// Now get the value from the contact's customFields
+							$value = '';
+							if ($cfId && isset($ghlContact->customFields)) {
+								foreach ($ghlContact->customFields as $field) {
+									if ($field->id === $cfId) {
+										$value = $field->value ?? '';
+										break;
+									}
+								}
+							}
+						} else {
+							// Regular GHL field
+							$value = $this->getValueByDotNotation($ghlContact, $path);
+
+							//If the $path is 'tags' we will pipe the tags
+//							dump($path);
+							if ($path === 'tags') {
+//								dd($value);
+								if (! is_array($value)) {
+									$value = [ trim($value) ]; // Ensure it's an array
+								}
+								$value = implode(' | ', $value);
+							}
+						}
+
+					} elseif (strpos($match, 'wp_user.') === 0) {
+						$field = substr($match, strlen('wp_user.'));
+
+						// Special case for full name
+						if ($field === 'user_fullname') {
+							$value = trim($wpUser->first_name . ' ' . $wpUser->last_name);
+						} else {
+							$value = $wpUser->$field ?? '';
+						}
+
+					} else {
+						$value = ''; // Unknown prefix
+					}
+
+					// Replace the tag with actual value
+					$result = str_replace('{{' . $match . '}}', $value, $result);
+				}
+
+				$replaced[$key] = $result;
+			} else {
+				$replaced[$key] = $template; // No template tags
+			}
+		}
+
+		return $replaced;
+	}
+
+	function getValueByDotNotation($object, $path) {
+		$segments = explode('.', $path);
+		foreach ($segments as $segment) {
+			if (is_object($object) && isset($object->$segment)) {
+				$object = $object->$segment;
+			} elseif (is_array($object) && isset($object[$segment])) {
+				$object = $object[$segment];
+			} else {
+				return null;
+			}
+		}
+		return $object;
+	}
+}
