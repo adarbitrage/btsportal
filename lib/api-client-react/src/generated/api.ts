@@ -157,8 +157,11 @@ import type {
   GenerateHeadlinesBody,
   GenerateHeadlinesResponse,
   GetAppSsoRedirect200,
+  GetAppSsoRedirectParams,
   GetCommissionsChartParams,
   GetCommissionsEarningsParams,
+  GetFlexyCredentials200,
+  GetFlexyCredentialsParams,
   GetLegalDocumentsParams,
   GetOneOnOneSlotsParams,
   GhlConfig,
@@ -208,6 +211,7 @@ import type {
   ReactionToggleResult,
   ReferralLink,
   ReferralRedirectParams,
+  RegenerateFlexyPassword200,
   RegisterBody,
   ReorderRequest,
   RequestUploadUrlBody,
@@ -21803,6 +21807,193 @@ export const useRetryAppInstall = <
 };
 
 /**
+ * @summary Reveal the Flexy staff credentials for the current member
+ */
+export const getGetFlexyCredentialsUrl = (
+  params?: GetFlexyCredentialsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/apps/flexy/credentials?${stringifiedParams}`
+    : `/api/apps/flexy/credentials`;
+};
+
+export const getFlexyCredentials = async (
+  params?: GetFlexyCredentialsParams,
+  options?: RequestInit,
+): Promise<GetFlexyCredentials200> => {
+  return customFetch<GetFlexyCredentials200>(
+    getGetFlexyCredentialsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFlexyCredentialsQueryKey = (
+  params?: GetFlexyCredentialsParams,
+) => {
+  return [`/api/apps/flexy/credentials`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetFlexyCredentialsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFlexyCredentials>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetFlexyCredentialsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlexyCredentials>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFlexyCredentialsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFlexyCredentials>>
+  > = ({ signal }) =>
+    getFlexyCredentials(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFlexyCredentials>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFlexyCredentialsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFlexyCredentials>>
+>;
+export type GetFlexyCredentialsQueryError = ErrorType<void>;
+
+/**
+ * @summary Reveal the Flexy staff credentials for the current member
+ */
+
+export function useGetFlexyCredentials<
+  TData = Awaited<ReturnType<typeof getFlexyCredentials>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetFlexyCredentialsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlexyCredentials>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFlexyCredentialsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Rotate the Flexy staff password and return the new value once
+ */
+export const getRegenerateFlexyPasswordUrl = () => {
+  return `/api/apps/flexy/regenerate-password`;
+};
+
+export const regenerateFlexyPassword = async (
+  options?: RequestInit,
+): Promise<RegenerateFlexyPassword200> => {
+  return customFetch<RegenerateFlexyPassword200>(
+    getRegenerateFlexyPasswordUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRegenerateFlexyPasswordMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof regenerateFlexyPassword>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["regenerateFlexyPassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
+    void
+  > = () => {
+    return regenerateFlexyPassword(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegenerateFlexyPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regenerateFlexyPassword>>
+>;
+
+export type RegenerateFlexyPasswordMutationError = ErrorType<void>;
+
+/**
+ * @summary Rotate the Flexy staff password and return the new value once
+ */
+export const useRegenerateFlexyPassword = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof regenerateFlexyPassword>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRegenerateFlexyPasswordMutationOptions(options));
+};
+
+/**
  * @summary Get an SSO redirect URL for an installed app
  */
 export const getGetAppSsoRedirectUrl = (
@@ -21813,8 +22004,21 @@ export const getGetAppSsoRedirectUrl = (
     | "metricmover"
     | "noescape"
     | "flexy",
+  params?: GetAppSsoRedirectParams,
 ) => {
-  return `/api/apps/${appName}/sso-redirect`;
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/apps/${appName}/sso-redirect?${stringifiedParams}`
+    : `/api/apps/${appName}/sso-redirect`;
 };
 
 export const getAppSsoRedirect = async (
@@ -21825,12 +22029,16 @@ export const getAppSsoRedirect = async (
     | "metricmover"
     | "noescape"
     | "flexy",
+  params?: GetAppSsoRedirectParams,
   options?: RequestInit,
 ): Promise<GetAppSsoRedirect200> => {
-  return customFetch<GetAppSsoRedirect200>(getGetAppSsoRedirectUrl(appName), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<GetAppSsoRedirect200>(
+    getGetAppSsoRedirectUrl(appName, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
 export const getGetAppSsoRedirectQueryKey = (
@@ -21841,8 +22049,12 @@ export const getGetAppSsoRedirectQueryKey = (
     | "metricmover"
     | "noescape"
     | "flexy",
+  params?: GetAppSsoRedirectParams,
 ) => {
-  return [`/api/apps/${appName}/sso-redirect`] as const;
+  return [
+    `/api/apps/${appName}/sso-redirect`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetAppSsoRedirectQueryOptions = <
@@ -21856,6 +22068,7 @@ export const getGetAppSsoRedirectQueryOptions = <
     | "metricmover"
     | "noescape"
     | "flexy",
+  params?: GetAppSsoRedirectParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAppSsoRedirect>>,
@@ -21868,11 +22081,12 @@ export const getGetAppSsoRedirectQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetAppSsoRedirectQueryKey(appName);
+    queryOptions?.queryKey ?? getGetAppSsoRedirectQueryKey(appName, params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getAppSsoRedirect>>
-  > = ({ signal }) => getAppSsoRedirect(appName, { signal, ...requestOptions });
+  > = ({ signal }) =>
+    getAppSsoRedirect(appName, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -21906,6 +22120,7 @@ export function useGetAppSsoRedirect<
     | "metricmover"
     | "noescape"
     | "flexy",
+  params?: GetAppSsoRedirectParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAppSsoRedirect>>,
@@ -21915,7 +22130,11 @@ export function useGetAppSsoRedirect<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAppSsoRedirectQueryOptions(appName, options);
+  const queryOptions = getGetAppSsoRedirectQueryOptions(
+    appName,
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -2699,6 +2699,37 @@ export type ReferralRedirectParams = {
   ref?: string;
 };
 
+export type GetFlexyCredentialsParams = {
+  /**
+   * When true, include the decrypted password in the response. Defaults to false (email only).
+   */
+  reveal?: boolean;
+};
+
+export type GetFlexyCredentials200 = {
+  email: string;
+  password?: string | null;
+};
+
+export type RegenerateFlexyPassword200 = {
+  email: string;
+  password: string;
+};
+
+export type GetAppSsoRedirectParams = {
+  /**
+   * When "1" and the caller is a platform admin, deep-links to the Flexy sub-account dashboard.
+   */
+  admin?: GetAppSsoRedirectAdmin;
+};
+
+export type GetAppSsoRedirectAdmin =
+  (typeof GetAppSsoRedirectAdmin)[keyof typeof GetAppSsoRedirectAdmin];
+
+export const GetAppSsoRedirectAdmin = {
+  NUMBER_1: "1",
+} as const;
+
 export type GetAppSsoRedirect200 = {
   url: string;
 };

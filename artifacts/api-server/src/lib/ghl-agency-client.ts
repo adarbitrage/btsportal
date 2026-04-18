@@ -1,122 +1,49 @@
-import { db } from "@workspace/db";
-import { ghlOauthTokensTable } from "@workspace/db/schema";
-import { eq, and, isNotNull, isNull } from "drizzle-orm";
-
-const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const GHL_API_VERSION = "2021-07-28";
 
 export const FLEXY_PORTAL_URL = process.env.FLEXY_PORTAL_URL ?? "https://dashboard.getflexy.app";
+export const FLEXY_SNAPSHOT_ID = process.env.GHL_FLEXY_SNAPSHOT_ID ?? "";
 
-function getOAuthCreds(): { clientId: string; clientSecret: string } {
-  const clientId = process.env.GHL_CHERRINGTON_CLIENT_ID;
-  const clientSecret = process.env.GHL_CHERRINGTON_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
+interface AgencyJwt {
+  apiKey: string;
+  firebaseToken?: string;
+  userId?: string;
+  companyId: string;
+}
+
+let cachedJwt: AgencyJwt | null = null;
+
+function decodeAgencyJwt(): AgencyJwt {
+  if (cachedJwt) return cachedJwt;
+  const raw = process.env.GHL_CHERRINGTON_AGENCY_JWT;
+  if (!raw) {
     throw new Error(
-      "GHL_CHERRINGTON_CLIENT_ID and GHL_CHERRINGTON_CLIENT_SECRET environment variables are required for Flexy",
+      "GHL_CHERRINGTON_AGENCY_JWT is not configured. Set it to the base64-encoded JSON {apiKey, firebaseToken, userId, companyId} from your Flexy/Cherrington agency dashboard.",
     );
   }
-  return { clientId, clientSecret };
-}
-
-interface GhlTokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  scope?: string;
-  userType?: string;
-  companyId?: string;
-  locationId?: string;
-}
-
-async function exchangeToken(params: Record<string, string>): Promise<GhlTokenResponse> {
-  const { clientId, clientSecret } = getOAuthCreds();
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    ...params,
-  });
-  console.log(`[GHLAgency] POST ${GHL_TOKEN_URL} grant_type=${params.grant_type}`);
-  const res = await fetch(GHL_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: body.toString(),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(`GHL token exchange failed: HTTP ${res.status} — ${JSON.stringify(data)}`);
+  let json: string;
+  try {
+    json = Buffer.from(raw, "base64").toString("utf8");
+  } catch {
+    throw new Error("GHL_CHERRINGTON_AGENCY_JWT is not valid base64");
   }
-  return data as GhlTokenResponse;
-}
-
-export async function exchangeAuthorizationCode(
-  code: string,
-  redirectUri: string,
-  createdById?: number,
-): Promise<{ companyId: string }> {
-  const tok = await exchangeToken({
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: redirectUri,
-    user_type: "Company",
-  });
-  if (!tok.companyId) {
-    throw new Error("GHL token exchange did not return a companyId; ensure agency-level scopes are requested");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("GHL_CHERRINGTON_AGENCY_JWT did not decode to valid JSON");
   }
-  const expiresAt = new Date(Date.now() + (tok.expires_in - 60) * 1000);
-  await db
-    .delete(ghlOauthTokensTable)
-    .where(and(eq(ghlOauthTokensTable.scope, "agency"), isNull(ghlOauthTokensTable.locationId)));
-  await db.insert(ghlOauthTokensTable).values({
-    scope: "agency",
-    companyId: tok.companyId,
-    accessToken: tok.access_token,
-    refreshToken: tok.refresh_token,
-    expiresAt,
-    userType: tok.userType ?? "Company",
-    scopes: tok.scope ?? null,
-    createdById: createdById ?? null,
-  });
-  return { companyId: tok.companyId };
-}
-
-async function getAgencyAccessToken(): Promise<{ accessToken: string; companyId: string }> {
-  const [row] = await db
-    .select()
-    .from(ghlOauthTokensTable)
-    .where(and(eq(ghlOauthTokensTable.scope, "agency"), isNull(ghlOauthTokensTable.locationId)))
-    .limit(1);
-  if (!row) {
-    throw new Error(
-      "No GHL agency OAuth token found. Complete the one-time install at /api/admin/flexy/oauth/install first.",
-    );
+  const obj = parsed as Partial<AgencyJwt>;
+  if (!obj || typeof obj.apiKey !== "string" || typeof obj.companyId !== "string") {
+    throw new Error("GHL_CHERRINGTON_AGENCY_JWT JSON must include `apiKey` and `companyId`");
   }
-  if (!row.companyId) {
-    throw new Error("GHL agency OAuth row missing companyId");
-  }
-  if (row.accessToken && row.expiresAt && row.expiresAt.getTime() > Date.now() + 30_000) {
-    return { accessToken: row.accessToken, companyId: row.companyId };
-  }
-  const tok = await exchangeToken({
-    grant_type: "refresh_token",
-    refresh_token: row.refreshToken,
-    user_type: "Company",
-  });
-  const expiresAt = new Date(Date.now() + (tok.expires_in - 60) * 1000);
-  await db
-    .update(ghlOauthTokensTable)
-    .set({
-      accessToken: tok.access_token,
-      refreshToken: tok.refresh_token ?? row.refreshToken,
-      expiresAt,
-      companyId: tok.companyId ?? row.companyId,
-      scopes: tok.scope ?? row.scopes,
-    })
-    .where(eq(ghlOauthTokensTable.id, row.id));
-  return { accessToken: tok.access_token, companyId: tok.companyId ?? row.companyId };
+  cachedJwt = {
+    apiKey: obj.apiKey,
+    companyId: obj.companyId,
+    firebaseToken: obj.firebaseToken,
+    userId: obj.userId,
+  };
+  return cachedJwt;
 }
 
 async function ghlAgencyRequest<T = unknown>(
@@ -124,13 +51,13 @@ async function ghlAgencyRequest<T = unknown>(
   path: string,
   body?: Record<string, unknown>,
 ): Promise<T> {
-  const { accessToken } = await getAgencyAccessToken();
+  const { apiKey } = decodeAgencyJwt();
   const url = `${GHL_API_BASE}${path}`;
   console.log(`[GHLAgency] ${method} ${url}`);
   const res = await fetch(url, {
     method,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${apiKey}`,
       Version: GHL_API_VERSION,
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -146,11 +73,16 @@ async function ghlAgencyRequest<T = unknown>(
   return data as T;
 }
 
+export function getAgencyCompanyId(): string {
+  return decodeAgencyJwt().companyId;
+}
+
 export interface CreateLocationInput {
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   timezone?: string;
-  country?: string;
 }
 
 export async function createLocation(input: CreateLocationInput): Promise<string> {
@@ -159,13 +91,20 @@ export async function createLocation(input: CreateLocationInput): Promise<string
   // would break tenant isolation. Member-scoped idempotency lives in the DB
   // (providerLocationId on member_app_instances) — callers must not invoke
   // createLocation when a providerLocationId is already persisted.
-  const { companyId } = await getAgencyAccessToken();
+  if (!FLEXY_SNAPSHOT_ID) {
+    throw new Error("GHL_FLEXY_SNAPSHOT_ID is not configured");
+  }
+  const { companyId } = decodeAgencyJwt();
   const body: Record<string, unknown> = {
     companyId,
     name: input.name,
-    email: input.email,
-    country: input.country ?? "US",
-    timezone: input.timezone ?? "America/New_York",
+    timezone: input.timezone ?? "US/Central",
+    prospectInfo: {
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+    },
+    snapshotId: FLEXY_SNAPSHOT_ID,
   };
   const data = await ghlAgencyRequest<{ id?: string; location?: { id?: string } }>(
     "POST",
@@ -177,15 +116,33 @@ export async function createLocation(input: CreateLocationInput): Promise<string
   return id;
 }
 
+interface GhlUser {
+  id: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  roles?: { locationIds?: string[] };
+  locationIds?: string[];
+}
+
+function getUserLocationIds(u: GhlUser): string[] {
+  return u.roles?.locationIds ?? u.locationIds ?? [];
+}
+
+/**
+ * Look up a GHL user by email at the agency (company) level. Mirrors the
+ * legacy plugin's `getUserByEmail` — needed because a member's email may
+ * already exist as a staff user on a previously deleted/abandoned location.
+ */
 export async function findExistingStaffUser(
   email: string,
-  locationId: string,
+  _locationId: string,
 ): Promise<string | null> {
-  const { companyId } = await getAgencyAccessToken();
+  const { companyId } = decodeAgencyJwt();
   try {
-    const data = await ghlAgencyRequest<{ users?: Array<{ id: string; email?: string; locationIds?: string[] }> }>(
+    const data = await ghlAgencyRequest<{ users?: GhlUser[] }>(
       "GET",
-      `/users/?companyId=${encodeURIComponent(companyId)}&locationId=${encodeURIComponent(locationId)}`,
+      `/users/search?companyId=${encodeURIComponent(companyId)}&query=${encodeURIComponent(email)}`,
     );
     const match = (data.users ?? []).find(
       (u) => u.email?.toLowerCase() === email.toLowerCase(),
@@ -202,49 +159,20 @@ export interface CreateStaffUserInput {
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
+  password: string;
 }
 
 export async function createStaffUser(input: CreateStaffUserInput): Promise<string> {
-  const { companyId } = await getAgencyAccessToken();
-  const password = generateRandomPassword();
+  const { companyId } = decodeAgencyJwt();
   const body: Record<string, unknown> = {
     companyId,
+    type: "account",
+    role: "admin",
     firstName: input.firstName,
     lastName: input.lastName,
     email: input.email,
-    password,
-    phone: input.phone ?? "",
-    type: "account",
-    role: "admin",
+    password: input.password,
     locationIds: [input.locationId],
-    permissions: {
-      campaignsEnabled: true,
-      campaignsReadOnly: false,
-      contactsEnabled: true,
-      workflowsEnabled: true,
-      workflowsReadOnly: false,
-      triggersEnabled: true,
-      funnelsEnabled: true,
-      websitesEnabled: true,
-      opportunitiesEnabled: true,
-      dashboardStatsEnabled: true,
-      bulkRequestsEnabled: true,
-      appointmentsEnabled: true,
-      reviewsEnabled: true,
-      onlineListingsEnabled: true,
-      phoneCallEnabled: true,
-      conversationsEnabled: true,
-      assignedDataOnly: false,
-      adwordsReportingEnabled: true,
-      membershipEnabled: true,
-      facebookAdsReportingEnabled: true,
-      attributionsReportingEnabled: true,
-      settingsEnabled: true,
-      tagsEnabled: true,
-      leadValueEnabled: true,
-      marketingEnabled: true,
-    },
   };
   const data = await ghlAgencyRequest<{ id?: string; user?: { id?: string } }>(
     "POST",
@@ -254,18 +182,6 @@ export async function createStaffUser(input: CreateStaffUserInput): Promise<stri
   const id = data.id ?? data.user?.id;
   if (!id) throw new Error(`GHL createStaffUser returned no id: ${JSON.stringify(data)}`);
   return id;
-}
-
-export async function deleteStaffUser(userId: string): Promise<void> {
-  await ghlAgencyRequest("DELETE", `/users/${encodeURIComponent(userId)}`);
-}
-
-interface GhlUser {
-  id: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  locationIds?: string[];
 }
 
 async function getStaffUser(userId: string): Promise<GhlUser> {
@@ -291,7 +207,7 @@ export async function disableStaffUserForLocation(
   locationId: string,
 ): Promise<void> {
   const user = await getStaffUser(staffUserId);
-  const remaining = (user.locationIds ?? []).filter((id) => id !== locationId);
+  const remaining = getUserLocationIds(user).filter((id) => id !== locationId);
   await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
     locationIds: remaining,
   });
@@ -307,7 +223,7 @@ export async function reactivateStaffUserForLocation(
   locationId: string,
 ): Promise<void> {
   const user = await getStaffUser(staffUserId);
-  const ids = new Set(user.locationIds ?? []);
+  const ids = new Set(getUserLocationIds(user));
   if (ids.has(locationId)) return;
   ids.add(locationId);
   await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
@@ -315,28 +231,13 @@ export async function reactivateStaffUserForLocation(
   });
 }
 
-export async function mintLoginUrl(locationId: string, userId: string): Promise<string> {
-  const { accessToken, companyId } = await getAgencyAccessToken();
-  const res = await fetch(`${GHL_API_BASE}/oauth/locationToken`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Version: GHL_API_VERSION,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: new URLSearchParams({ companyId, locationId }).toString(),
+export async function updateStaffUserPassword(
+  staffUserId: string,
+  newPassword: string,
+): Promise<void> {
+  await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
+    password: newPassword,
   });
-  const data = (await res.json().catch(() => ({}))) as {
-    access_token?: string;
-    userId?: string;
-  };
-  if (!res.ok || !data.access_token) {
-    throw new Error(`GHL locationToken failed: HTTP ${res.status} — ${JSON.stringify(data)}`);
-  }
-  const token = encodeURIComponent(data.access_token);
-  const u = encodeURIComponent(userId);
-  return `${FLEXY_PORTAL_URL}/?token=${token}&userId=${u}&locationId=${encodeURIComponent(locationId)}`;
 }
 
 export function locationExists(locationId: string): Promise<boolean> {
@@ -348,21 +249,7 @@ export function locationExists(locationId: string): Promise<boolean> {
     .catch(() => false);
 }
 
-export async function isAgencyTokenConfigured(): Promise<boolean> {
-  const [row] = await db
-    .select({ id: ghlOauthTokensTable.id })
-    .from(ghlOauthTokensTable)
-    .where(
-      and(
-        eq(ghlOauthTokensTable.scope, "agency"),
-        isNotNull(ghlOauthTokensTable.refreshToken),
-      ),
-    )
-    .limit(1);
-  return !!row;
-}
-
-function generateRandomPassword(): string {
+export function generateRandomPassword(): string {
   const charsets = [
     "ABCDEFGHJKLMNPQRSTUVWXYZ",
     "abcdefghijkmnopqrstuvwxyz",

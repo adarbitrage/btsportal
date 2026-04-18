@@ -88,7 +88,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   **SMS Service:** Twilio
 -   **AI Integration:** Anthropic Claude (via Replit AI Integrations), OpenAI GPT (via Replit AI Integrations)
 -   **CRM/Marketing Automation:** GoHighLevel (GHL)
-    -   **Flexy app (white-labeled GHL):** Agency Marketplace OAuth (`GHL_CHERRINGTON_CLIENT_ID`, `GHL_CHERRINGTON_CLIENT_SECRET`, optional `GHL_CHERRINGTON_REDIRECT_URI`). Provisions a GHL sub-account + admin staff user per member; SSO uses freshly-minted login tokens against `FLEXY_PORTAL_URL` (default `https://dashboard.getflexy.app`). Bootstrap OAuth via `GET /admin/flexy/oauth/install` → `/admin/flexy/oauth/callback` (gated by `apps:manage`).
+    -   **Flexy app (white-labeled GHL):** Agency JWT (`GHL_CHERRINGTON_AGENCY_JWT` — base64-encoded `{apiKey, firebaseToken, userId, companyId}`) + `GHL_FLEXY_SNAPSHOT_ID` for the snapshot loaded into each new sub-account. Provisions a `Flexy - {member name}` GHL sub-account (US/Central) and a `type=account role=admin` staff user per member; the generated staff password is stored encrypted-at-rest (AES-256-GCM via `app-secrets-crypto.ts`, key derived from `JWT_SECRET`) and can be revealed/regenerated via `GET /apps/flexy/credentials` and `POST /apps/flexy/regenerate-password`. Open route returns `https://dashboard.getflexy.app/` (or `…/v2/location/{locationId}/dashboard` for admins with `?admin=1`). `FLEXY_PORTAL_URL` defaults to `https://dashboard.getflexy.app`.
 -   **Payment Gateway/E-commerce:** ThriveCart (for webhooks)
 -   **Password Hashing:** bcryptjs
 -   **Rich Text Editor:** TipTap

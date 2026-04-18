@@ -24,6 +24,8 @@ export const memberAppInstancesTable = pgTable(
     squidyError: text("squidy_error"),
     providerLocationId: text("provider_location_id"),
     providerStaffUserId: text("provider_staff_user_id"),
+    providerStaffEmail: text("provider_staff_email"),
+    providerStaffPasswordEncrypted: text("provider_staff_password_encrypted"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

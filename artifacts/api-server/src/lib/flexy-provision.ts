@@ -5,10 +5,12 @@ import {
   createStaffUser,
   disableStaffUserForLocation,
   findExistingStaffUser,
-  mintLoginUrl,
   reactivateStaffUserForLocation,
+  updateStaffUserPassword,
+  generateRandomPassword,
   FLEXY_PORTAL_URL,
 } from "./ghl-agency-client";
+import { encryptSecret, decryptSecret } from "./app-secrets-crypto";
 
 export const FLEXY_DOMAIN = (FLEXY_PORTAL_URL.replace(/^https?:\/\//, "")).replace(/\/+$/, "");
 
@@ -23,6 +25,7 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 interface FlexyInstallResult {
   locationId: string;
   staffUserId: string;
+  staffEmail: string;
 }
 
 export async function provisionFlexyForUser(userId: number): Promise<FlexyInstallResult> {
@@ -47,13 +50,17 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
   let staffUserId = existing?.providerStaffUserId ?? null;
 
   const { firstName, lastName } = splitName(user.name);
-  const businessName = `Flexy - ${user.name}`.trim();
+  const memberName = (user.name ?? "").trim() || user.email;
+  const businessName = `Flexy - ${memberName}`.trim();
+  const staffEmail = user.email;
 
   if (!locationId) {
     console.log(`[Flexy] Creating sub-account for user=${userId} name="${businessName}"`);
     locationId = await createLocation({
       name: businessName,
-      email: user.email,
+      firstName,
+      lastName,
+      email: staffEmail,
     });
     await db
       .update(memberAppInstancesTable)
@@ -66,39 +73,56 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
       );
   }
 
+  // Generate a fresh password every time we have to (re-)create or re-attach
+  // the staff user so the member always has a usable credential surfaced.
+  let plaintextPassword: string | null = null;
+
   if (staffUserId) {
-    // Existing record (e.g. reinstall after disable) — make sure the staff
-    // user has access to the location again.
+    // Existing record (e.g. reinstall after disable) — re-attach to location.
     await reactivateStaffUserForLocation(staffUserId, locationId);
     console.log(`[Flexy] Reactivated staff user=${staffUserId} for location=${locationId}`);
+    // Rotate password on reinstall so the member can log in even if the
+    // previously surfaced one was lost.
+    plaintextPassword = generateRandomPassword();
+    await updateStaffUserPassword(staffUserId, plaintextPassword);
   } else {
-    const found = await findExistingStaffUser(user.email, locationId);
+    const found = await findExistingStaffUser(staffEmail, locationId);
     if (found) {
       staffUserId = found;
       console.log(`[Flexy] Reusing existing staff user=${found} for location=${locationId}`);
-      // Ensure the rediscovered user actually has location access.
       await reactivateStaffUserForLocation(found, locationId);
+      plaintextPassword = generateRandomPassword();
+      await updateStaffUserPassword(found, plaintextPassword);
     } else {
       console.log(`[Flexy] Creating staff user for user=${userId} location=${locationId}`);
+      plaintextPassword = generateRandomPassword();
       staffUserId = await createStaffUser({
         locationId,
         firstName,
         lastName,
-        email: user.email,
+        email: staffEmail,
+        password: plaintextPassword,
       });
     }
-    await db
-      .update(memberAppInstancesTable)
-      .set({ providerStaffUserId: staffUserId })
-      .where(
-        and(
-          eq(memberAppInstancesTable.userId, userId),
-          eq(memberAppInstancesTable.appName, "flexy"),
-        ),
-      );
   }
 
-  return { locationId, staffUserId };
+  await db
+    .update(memberAppInstancesTable)
+    .set({
+      providerStaffUserId: staffUserId,
+      providerStaffEmail: staffEmail,
+      providerStaffPasswordEncrypted: plaintextPassword
+        ? encryptSecret(plaintextPassword)
+        : existing?.providerStaffPasswordEncrypted ?? null,
+    })
+    .where(
+      and(
+        eq(memberAppInstancesTable.userId, userId),
+        eq(memberAppInstancesTable.appName, "flexy"),
+      ),
+    );
+
+  return { locationId, staffUserId, staffEmail };
 }
 
 /**
@@ -129,6 +153,66 @@ export async function disableFlexyForUser(userId: number): Promise<void> {
   }
 }
 
-export async function buildFlexyLoginUrl(locationId: string, staffUserId: string): Promise<string> {
-  return mintLoginUrl(locationId, staffUserId);
+export async function regenerateFlexyPassword(userId: number): Promise<{
+  email: string;
+  password: string;
+}> {
+  const [row] = await db
+    .select()
+    .from(memberAppInstancesTable)
+    .where(
+      and(
+        eq(memberAppInstancesTable.userId, userId),
+        eq(memberAppInstancesTable.appName, "flexy"),
+      ),
+    );
+  if (!row || row.status !== "installed" || !row.providerStaffUserId || !row.providerStaffEmail) {
+    throw new Error("Flexy is not installed for this user");
+  }
+  const newPassword = generateRandomPassword();
+  await updateStaffUserPassword(row.providerStaffUserId, newPassword);
+  await db
+    .update(memberAppInstancesTable)
+    .set({ providerStaffPasswordEncrypted: encryptSecret(newPassword) })
+    .where(eq(memberAppInstancesTable.id, row.id));
+  return { email: row.providerStaffEmail, password: newPassword };
+}
+
+export async function revealFlexyCredentials(
+  userId: number,
+  opts: { includePassword?: boolean } = {},
+): Promise<{
+  email: string;
+  password: string | null;
+}> {
+  const [row] = await db
+    .select()
+    .from(memberAppInstancesTable)
+    .where(
+      and(
+        eq(memberAppInstancesTable.userId, userId),
+        eq(memberAppInstancesTable.appName, "flexy"),
+      ),
+    );
+  if (!row || row.status !== "installed" || !row.providerStaffEmail) {
+    throw new Error("Flexy is not installed for this user");
+  }
+  return {
+    email: row.providerStaffEmail,
+    password:
+      opts.includePassword && row.providerStaffPasswordEncrypted
+        ? decryptSecret(row.providerStaffPasswordEncrypted)
+        : null,
+  };
+}
+
+export function buildFlexyOpenUrl(opts: {
+  providerLocationId?: string | null;
+  asAdmin?: boolean;
+}): string {
+  const base = FLEXY_PORTAL_URL.replace(/\/+$/, "");
+  if (opts.asAdmin && opts.providerLocationId) {
+    return `${base}/v2/location/${encodeURIComponent(opts.providerLocationId)}/dashboard`;
+  }
+  return `${base}/`;
 }

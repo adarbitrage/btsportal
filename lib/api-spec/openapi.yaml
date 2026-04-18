@@ -5204,6 +5204,60 @@ paths:
         "502":
           description: Squidy retry API error
 
+  /apps/flexy/credentials:
+    get:
+      operationId: getFlexyCredentials
+      tags: [apps]
+      summary: Reveal the Flexy staff credentials for the current member
+      parameters:
+        - in: query
+          name: reveal
+          required: false
+          description: When true, include the decrypted password in the response. Defaults to false (email only).
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Flexy email + decrypted password
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email]
+                properties:
+                  email:
+                    type: string
+                  password:
+                    type: string
+                    nullable: true
+        "403":
+          description: App unavailable or no active membership
+        "404":
+          description: Flexy is not installed for this user
+
+  /apps/flexy/regenerate-password:
+    post:
+      operationId: regenerateFlexyPassword
+      tags: [apps]
+      summary: Rotate the Flexy staff password and return the new value once
+      responses:
+        "200":
+          description: New email + plaintext password (shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, password]
+                properties:
+                  email:
+                    type: string
+                  password:
+                    type: string
+        "403":
+          description: App unavailable or no active membership
+        "502":
+          description: GHL password update failed
+
   /apps/{appName}/sso-redirect:
     get:
       operationId: getAppSsoRedirect
@@ -5216,6 +5270,13 @@ paths:
           schema:
             type: string
             enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
+        - name: admin
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["1"]
+          description: When "1" and the caller is a platform admin, deep-links to the Flexy sub-account dashboard.
       responses:
         "200":
           description: SSO redirect URL with one-time token

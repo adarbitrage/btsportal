@@ -16,9 +16,12 @@ import { getUserEntitlements } from "../lib/entitlements";
 import {
   provisionFlexyForUser,
   disableFlexyForUser,
-  buildFlexyLoginUrl,
+  buildFlexyOpenUrl,
+  regenerateFlexyPassword,
+  revealFlexyCredentials,
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
+import { isAdminRole } from "../middleware/rbac";
 
 const isFlexy = (appName: string): boolean => appName === "flexy";
 
@@ -643,6 +646,41 @@ router.delete("/apps/:appName", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
+router.get("/apps/flexy/credentials", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const availability = await isAppAvailable("flexy");
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
+    return;
+  }
+  if (!(await requireActiveMember(userId, res))) return;
+  const includePassword = req.query.reveal === "true" || req.query.reveal === "1";
+  try {
+    const creds = await revealFlexyCredentials(userId, { includePassword });
+    res.json(creds);
+  } catch (err) {
+    console.error(`[Apps] Flexy credentials reveal failed for user=${userId}:`, err);
+    res.status(404).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.post("/apps/flexy/regenerate-password", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const availability = await isAppAvailable("flexy");
+  if (!availability.ok) {
+    res.status(403).json({ error: availability.reason });
+    return;
+  }
+  if (!(await requireActiveMember(userId, res))) return;
+  try {
+    const result = await regenerateFlexyPassword(userId);
+    res.json(result);
+  } catch (err) {
+    console.error(`[Apps] Flexy regenerate-password failed for user=${userId}:`, err);
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const appName = req.params.appName as AppName;
@@ -676,20 +714,24 @@ router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
   }
 
   if (isFlexy(appName)) {
-    if (!existing.providerLocationId || !existing.providerStaffUserId) {
+    if (!existing.providerLocationId) {
       res.status(409).json({ error: "Flexy install is incomplete" });
       return;
     }
-    try {
-      const url = await buildFlexyLoginUrl(
-        existing.providerLocationId,
-        existing.providerStaffUserId,
-      );
-      res.json({ url });
-    } catch (err) {
-      console.error(`[Apps] Flexy SSO mint failed for user=${userId}:`, err);
-      res.status(502).json({ error: "Could not generate SSO link" });
+    let asAdmin = false;
+    if (req.query.admin === "1") {
+      const [u] = await db
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      asAdmin = !!u && isAdminRole(u.role);
     }
+    const url = buildFlexyOpenUrl({
+      providerLocationId: existing.providerLocationId,
+      asAdmin,
+    });
+    res.json({ url });
     return;
   }
 

@@ -1,5 +1,14 @@
-import { useListApps, useInstallApp, useRetryAppInstall, useUninstallApp, getAppSsoRedirect, useGetCurrentMember } from "@workspace/api-client-react";
-import { useState } from "react";
+import {
+  useListApps,
+  useInstallApp,
+  useRetryAppInstall,
+  useUninstallApp,
+  getAppSsoRedirect,
+  useGetCurrentMember,
+  getFlexyCredentials,
+  regenerateFlexyPassword,
+} from "@workspace/api-client-react";
+import { useEffect, useState } from "react";
 import type { AppInstance, AppInstanceAppName } from "@workspace/api-client-react";
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -23,6 +32,10 @@ import {
   CheckCircle2,
   Trash2,
   Ban,
+  Eye,
+  EyeOff,
+  Copy,
+  KeyRound,
 } from "lucide-react";
 
 type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
@@ -329,6 +342,10 @@ export default function Apps() {
                           )}
                         </div>
                       )}
+
+                      {!isDisabled && app.name === "flexy" && status === "installed" && (
+                        <FlexyCredentialsPanel />
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -338,5 +355,147 @@ export default function Apps() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function FlexyCredentialsPanel() {
+  const { toast } = useToast();
+  const [email, setEmail] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getFlexyCredentials();
+        if (cancelled) return;
+        setEmail(data.email ?? null);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) {
+          toast({ title: "Could not load Flexy credentials", variant: "destructive" });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchPassword = async (): Promise<string | null> => {
+    if (password) return password;
+    setRevealing(true);
+    try {
+      const data = await getFlexyCredentials({ reveal: true });
+      setEmail(data.email ?? null);
+      setPassword(data.password ?? null);
+      setLoaded(true);
+      return data.password ?? null;
+    } catch {
+      toast({ title: "Could not load Flexy credentials", variant: "destructive" });
+      return null;
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const handleReveal = async () => {
+    if (revealed) {
+      setRevealed(false);
+      return;
+    }
+    const pw = await fetchPassword();
+    if (pw) setRevealed(true);
+    else toast({ title: "No saved password", description: "Click Regenerate to create a new one." });
+  };
+
+  const handleCopy = async () => {
+    const pw = await fetchPassword();
+    if (!pw) {
+      toast({ title: "No saved password", description: "Click Regenerate to create a new one." });
+      return;
+    }
+    await navigator.clipboard.writeText(pw);
+    toast({ title: "Password copied to clipboard" });
+  };
+
+  const handleRegenerate = async () => {
+    if (!confirm("Generate a new Flexy password? The current one will stop working.")) return;
+    setRegenerating(true);
+    try {
+      const result = await regenerateFlexyPassword();
+      setEmail(result.email);
+      setPassword(result.password);
+      setRevealed(true);
+      toast({ title: "New password generated", description: "Copy it now — you can re-reveal it later." });
+    } catch {
+      toast({ title: "Couldn't regenerate password", variant: "destructive" });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const masked = "••••••••••••••••";
+
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">Flexy login</div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground w-16">Email</span>
+        <span className="font-mono break-all" data-testid="text-flexy-email">
+          {email ?? "—"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground w-16">Password</span>
+        <span className="font-mono break-all" data-testid="text-flexy-password">
+          {revealed ? (password ?? "(none — regenerate)") : masked}
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleReveal}
+          disabled={revealing}
+          data-testid="button-flexy-reveal"
+        >
+          {revealing ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : revealed ? (
+            <EyeOff className="w-4 h-4" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCopy}
+          disabled={revealing}
+          data-testid="button-flexy-copy"
+        >
+          <Copy className="w-4 h-4" />
+        </Button>
+      </div>
+      <div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleRegenerate}
+          disabled={regenerating}
+          data-testid="button-flexy-regenerate"
+        >
+          {regenerating ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Regenerating…</>
+          ) : (
+            <><KeyRound className="w-4 h-4 mr-2" /> Regenerate password</>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

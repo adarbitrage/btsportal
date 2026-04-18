@@ -62,4 +62,3 @@ export * from "./kb-staging";
 export * from "./course-progress";
 export * from "./member-app-instances";
 export * from "./app-global-settings";
-export * from "./ghl-oauth-tokens";
