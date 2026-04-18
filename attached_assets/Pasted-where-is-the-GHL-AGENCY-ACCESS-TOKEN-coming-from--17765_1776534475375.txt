@@ -1,0 +1,85 @@
+where is the GHL_AGENCY_ACCESS_TOKEN coming from?                                                                                                                                                             
+                                                                                                                                                                                                                
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)                                                                                                                                                        
+                                                                                                                                                                                                                
+⏺ Good question — it's not stored as a literal env var anywhere. It's minted on demand through a non-obvious two-step dance. Here's the actual chain:                                                           
+                                                   
+  The Auth Chain                                                                                                                                                                                                
+                                                                                                                                                                                                                
+  All files: app/Services/GhlApiV2.php                                                                                                                                                                          
+                                                                                                                                                                                                                
+  Step 0 — The seed: GHL_API_KEY2                                                                                                                                                                               
+                  
+  In config/ghlapi.php:11:                                                                                                                                                                                      
+                  
+  GHL_API_KEY2 = "eyJhcGlLZXkiOi...eyJ9"   // base64-encoded JSON                                                                                                                                               
+                                                                                                                                                                                                                
+  Decoded, this is a JSON blob:                                                                                                                                                                                 
+  { "apiKey": "d8284869-7d8e-...", "userId": "...", "companyId": "aFHjEA7OFyDJAoBnqZeq" }                                                                                                                       
+                                                                                                                                                                                                                
+  getAgencyJwt() at line 1073 decodes it. The apiKey inside is the agency-level API key from your GHL agency settings. This is the root credential.                                                             
+                                                                                                                                                                                                                
+  Step 1 — Mint an OAuth authorization code                                                                                                                                                                     
+                                                                                                                                                                                                                
+  getOauthLocationCode() at line 156:                                                                                                                                                                           
+                  
+  POST https://services.msgsndr.com/oauth/authorize?<query>                                                                                                                                                     
+  Authorization: Bearer <apiKey from GHL_API_KEY2>
+                                                                                                                                                                                                                
+  Query string includes client_id, company_id, response_type=code, scope=..., userType=Company (or Location + location_id for a per-subaccount token).                                                          
+                                                                                                                                                                                                                
+  GHL returns a redirectUrl containing ?code=<authcode>. The plugin extracts that code.                                                                                                                         
+                  
+  Note: this hits services.msgsndr.com, not services.leadconnectorhq.com. It's an internal endpoint that lets the agency skip the user-facing OAuth consent screen — the agency's own apiKey authorizes itself. 
+                  
+  Step 2 — Exchange the code for an access token                                                                                                                                                                
+                  
+  setAccessCode() at line 67:
+
+  POST https://services.leadconnectorhq.com/oauth/token
+  Content-Type: application/x-www-form-urlencoded                                                                                                                                                               
+   
+  client_id=<GHL_CHERRINGTON_CLIENT_ID>                                                                                                                                                                         
+  client_secret=<GHL_CHERRINGTON_CLIENT_SECRET>
+  code=<authcode from step 1>                                                                                                                                                                                   
+  grant_type=authorization_code                                                                                                                                                                                 
+   
+  Response:                                                                                                                                                                                                     
+  {               
+    "access_token": "eyJhbGciOi...",    // ← this is your Bearer token
+    "refresh_token": "...",                                           
+    "expires_in": 86400,                                                                                                                                                                                        
+    "token_type": "Bearer",
+    "scope": "...",                                                                                                                                                                                             
+    "locationId": "..."                  // present for location-scoped tokens
+  }                                                                                                                                                                                                             
+                                                                                                                                                                                                                
+  That access_token is cached in $this->_access_codes[<scope>] (line 93) with an expires_on timestamp, and used as Authorization: Bearer ... for everything from that point forward.
+                                                                                                                                                                                                                
+  Step 3 — Scope selection per call
+                                                                                                                                                                                                                
+  Before each API method, the plugin calls either:                                                                                                                                                              
+  - setAccessTypeToCompany() → uses the company-scoped token (needed for POST /locations/)
+  - setAccessTypeToSubaccount($locationId) → uses a location-scoped token (needed for per-location actions like creating custom fields)                                                                         
+                                                                                                                                       
+  Both just look up (or mint) the right cached token and swap $this->_access_token to match.                                                                                                                    
+                                                                                                                                                                                                                
+  Why this matters for your port                                                                                                                                                                                
+                                                                                                                                                                                                                
+  The typical GHL docs walk you through a browser-based OAuth consent flow (user clicks "Authorize", redirects with code, etc.). This plugin bypasses that by using the agency's private API key at             
+  services.msgsndr.com/oauth/authorize to mint codes programmatically.
+                                                                                                                                                                                                                
+  When you port to Node, you have two choices:                                                                                                                                                                  
+   
+  1. Replicate this flow — port getOauthLocationCode + setAccessCode. Requires keeping the agency apiKey (from GHL_API_KEY2) as a secret in Replit. Pro: no browser consent step. Con: undocumented endpoint;   
+  could break if GHL changes it.
+  2. Do the standard OAuth install once — as the agency admin, click through GHL Marketplace OAuth for your client_id, store the returned refresh_token, and use it to mint fresh access tokens via the         
+  documented /oauth/token endpoint with grant_type=refresh_token. Pro: supported/documented path. Con: one-time manual install step per agency.                                                                 
+   
+  I'd recommend #2 for a Replit port — more stable long-term. Only the refresh_token + client_id/secret need to live in Replit env vars, and token refresh is a single documented POST.                         
+                  
+  Secrets to pull from the current WP install                                                                                                                                                                   
+                  
+  - GHL_CHERRINGTON_CLIENT_ID / GHL_CHERRINGTON_CLIENT_SECRET → config/ghlapi.php:7-8                                                                                                                           
+  - GHL_API_KEY2 (base64 JSON containing agency apiKey + companyId) → config/ghlapi.php:11 — only needed if you go with option #1
+  - DEFAULT_FLEXY_SNAPSHOUT → config/ghlapi.php:14   
