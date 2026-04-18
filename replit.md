@@ -88,6 +88,7 @@ The project is structured as a pnpm workspace monorepo, utilizing Node.js 24 and
 -   **SMS Service:** Twilio
 -   **AI Integration:** Anthropic Claude (via Replit AI Integrations), OpenAI GPT (via Replit AI Integrations)
 -   **CRM/Marketing Automation:** GoHighLevel (GHL)
+    -   **Flexy app (white-labeled GHL):** Agency Marketplace OAuth (`GHL_CHERRINGTON_CLIENT_ID`, `GHL_CHERRINGTON_CLIENT_SECRET`, optional `GHL_CHERRINGTON_REDIRECT_URI`). Provisions a GHL sub-account + admin staff user per member; SSO uses freshly-minted login tokens against `FLEXY_PORTAL_URL` (default `https://dashboard.getflexy.app`). Bootstrap OAuth via `GET /admin/flexy/oauth/install` → `/admin/flexy/oauth/callback` (gated by `apps:manage`).
 -   **Payment Gateway/E-commerce:** ThriveCart (for webhooks)
 -   **Password Hashing:** bcryptjs
 -   **Rich Text Editor:** TipTap

@@ -139,7 +139,7 @@ async function pollUninstallingInstances(): Promise<void> {
 }
 
 export async function reconcileUserApps(userId: number): Promise<void> {
-  const rows = await db
+  const allRows = await db
     .select()
     .from(memberAppInstancesTable)
     .where(
@@ -152,6 +152,9 @@ export async function reconcileUserApps(userId: number): Promise<void> {
         ]),
       ),
     );
+
+  // Flexy provisioning is synchronous; nothing to reconcile from Squidy.
+  const rows = allRows.filter((r) => r.appName !== "flexy");
 
   if (rows.length === 0) return;
 

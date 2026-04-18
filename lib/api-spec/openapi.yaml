@@ -5161,7 +5161,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
       responses:
         "201":
           description: App installation started
@@ -5187,7 +5187,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
       responses:
         "200":
           description: Retry initiated (status set back to installing)
@@ -5215,7 +5215,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
       responses:
         "200":
           description: SSO redirect URL with one-time token
@@ -5246,7 +5246,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+            enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
       responses:
         "200":
           description: App uninstalled and local row reset to not_installed
@@ -8753,7 +8753,7 @@ components:
       properties:
         appName:
           type: string
-          enum: [diytrax, pixelpress, gifster, metricmover, noescape]
+          enum: [diytrax, pixelpress, gifster, metricmover, noescape, flexy]
         status:
           type: string
           enum: [not_installed, installing, installed, install_failed, uninstalling]

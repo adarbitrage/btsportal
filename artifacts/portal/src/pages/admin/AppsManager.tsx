@@ -20,6 +20,7 @@ import {
   Film,
   BarChart3,
   Lock,
+  Sparkles,
   AppWindow,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +49,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
   { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: Film, accent: "bg-pink-50 text-pink-700" },
   { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: BarChart3, accent: "bg-green-50 text-green-700" },
   { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: Lock, accent: "bg-amber-50 text-amber-700" },
+  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: Sparkles, accent: "bg-indigo-50 text-indigo-700" },
 ];
 
 async function fetchAppStatuses(): Promise<AppSetting[]> {

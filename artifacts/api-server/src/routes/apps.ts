@@ -13,6 +13,14 @@ import {
 } from "../lib/squidy-client";
 import { reconcileUserApps } from "../lib/squidy-jobs";
 import { getUserEntitlements } from "../lib/entitlements";
+import {
+  provisionFlexyForUser,
+  disableFlexyForUser,
+  buildFlexyLoginUrl,
+  FLEXY_DOMAIN,
+} from "../lib/flexy-provision";
+
+const isFlexy = (appName: string): boolean => appName === "flexy";
 
 const router: IRouter = Router();
 
@@ -74,7 +82,21 @@ router.get("/apps", async (req, res): Promise<void> => {
   const rowMap = new Map(rows.map((r) => [r.appName, r]));
   const settingMap = new Map(globalSettings.map((s) => [s.appName, s]));
 
-  const result = APP_NAMES.flatMap((appName) => {
+  type AppListItem = {
+    appName: string;
+    status: string;
+    domain: string | null;
+    appUuid: string | null;
+    squidyStatus: string | null;
+    squidySubStatus: string | null;
+    lastLookupAt: Date | null;
+    squidyError: string | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    disabled: boolean;
+  };
+
+  const result: AppListItem[] = APP_NAMES.flatMap((appName): AppListItem[] => {
     const setting = settingMap.get(appName);
     const visible = setting?.visible ?? true;
     if (!visible) return [];
@@ -84,7 +106,7 @@ router.get("/apps", async (req, res): Promise<void> => {
     if (!row) {
       return [{
         appName,
-        status: "not_installed" as const,
+        status: "not_installed",
         domain: null,
         appUuid: null,
         squidyStatus: null,
@@ -154,6 +176,65 @@ router.post("/apps/:appName/install", async (req, res): Promise<void> => {
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (isFlexy(appName)) {
+    if (existing) {
+      await db
+        .update(memberAppInstancesTable)
+        .set({
+          status: "installing",
+          domain: FLEXY_DOMAIN,
+          squidyError: null,
+        })
+        .where(eq(memberAppInstancesTable.id, existing.id));
+    } else {
+      await db.insert(memberAppInstancesTable).values({
+        userId,
+        appName,
+        status: "installing",
+        domain: FLEXY_DOMAIN,
+      });
+    }
+    try {
+      await provisionFlexyForUser(userId);
+      await db
+        .update(memberAppInstancesTable)
+        .set({ status: "installed", squidyError: null })
+        .where(
+          and(
+            eq(memberAppInstancesTable.userId, userId),
+            eq(memberAppInstancesTable.appName, appName),
+          ),
+        );
+    } catch (err) {
+      console.error(`[Apps] Flexy install failed for user=${userId}:`, err);
+      await db
+        .update(memberAppInstancesTable)
+        .set({
+          status: "install_failed",
+          squidyError: err instanceof Error ? err.message : String(err),
+        })
+        .where(
+          and(
+            eq(memberAppInstancesTable.userId, userId),
+            eq(memberAppInstancesTable.appName, appName),
+          ),
+        );
+      res.status(502).json({ error: "App could not be created" });
+      return;
+    }
+    const [updated] = await db
+      .select()
+      .from(memberAppInstancesTable)
+      .where(
+        and(
+          eq(memberAppInstancesTable.userId, userId),
+          eq(memberAppInstancesTable.appName, appName),
+        ),
+      );
+    res.status(201).json(updated);
     return;
   }
 
@@ -307,6 +388,37 @@ router.post("/apps/:appName/retry", async (req, res): Promise<void> => {
     return;
   }
 
+  if (isFlexy(appName)) {
+    await db
+      .update(memberAppInstancesTable)
+      .set({ status: "installing", squidyError: null, domain: FLEXY_DOMAIN })
+      .where(eq(memberAppInstancesTable.id, existing.id));
+    try {
+      await provisionFlexyForUser(userId);
+      await db
+        .update(memberAppInstancesTable)
+        .set({ status: "installed", squidyError: null })
+        .where(eq(memberAppInstancesTable.id, existing.id));
+    } catch (err) {
+      console.error(`[Apps] Flexy retry failed for user=${userId}:`, err);
+      await db
+        .update(memberAppInstancesTable)
+        .set({
+          status: "install_failed",
+          squidyError: err instanceof Error ? err.message : String(err),
+        })
+        .where(eq(memberAppInstancesTable.id, existing.id));
+      res.status(502).json({ error: "Flexy retry failed" });
+      return;
+    }
+    const [updated] = await db
+      .select()
+      .from(memberAppInstancesTable)
+      .where(eq(memberAppInstancesTable.id, existing.id));
+    res.json(updated);
+    return;
+  }
+
   if (!existing.domain) {
     res.status(400).json({ error: "No domain on record for this instance" });
     return;
@@ -437,6 +549,37 @@ router.delete("/apps/:appName", async (req, res): Promise<void> => {
     return;
   }
 
+  if (isFlexy(appName)) {
+    try {
+      await disableFlexyForUser(userId);
+    } catch (err) {
+      console.error(`[Apps] Flexy uninstall failed for user=${userId}:`, err);
+      await db
+        .update(memberAppInstancesTable)
+        .set({ squidyError: err instanceof Error ? err.message : String(err) })
+        .where(eq(memberAppInstancesTable.id, existing.id));
+      res.status(502).json({ error: "Flexy uninstall failed" });
+      return;
+    }
+    // Non-destructive: keep providerLocationId AND providerStaffUserId so
+    // reinstall just re-grants location access on the existing staff record.
+    await db
+      .update(memberAppInstancesTable)
+      .set({
+        status: "not_installed",
+        domain: null,
+        squidyError: null,
+        lastLookupAt: null,
+      })
+      .where(eq(memberAppInstancesTable.id, existing.id));
+    const [updated] = await db
+      .select()
+      .from(memberAppInstancesTable)
+      .where(eq(memberAppInstancesTable.id, existing.id));
+    res.json(updated);
+    return;
+  }
+
   if (!existing.domain) {
     res.status(400).json({ error: "No domain on record for this instance" });
     return;
@@ -529,6 +672,24 @@ router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
 
   if (!existing || existing.status !== "installed" || !existing.domain) {
     res.status(409).json({ error: "App is not installed" });
+    return;
+  }
+
+  if (isFlexy(appName)) {
+    if (!existing.providerLocationId || !existing.providerStaffUserId) {
+      res.status(409).json({ error: "Flexy install is incomplete" });
+      return;
+    }
+    try {
+      const url = await buildFlexyLoginUrl(
+        existing.providerLocationId,
+        existing.providerStaffUserId,
+      );
+      res.json({ url });
+    } catch (err) {
+      console.error(`[Apps] Flexy SSO mint failed for user=${userId}:`, err);
+      res.status(502).json({ error: "Could not generate SSO link" });
+    }
     return;
   }
 

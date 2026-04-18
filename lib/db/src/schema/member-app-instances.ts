@@ -1,7 +1,7 @@
 import { pgTable, text, serial, integer, timestamp, unique } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
-export const APP_NAMES = ["diytrax", "pixelpress", "gifster", "metricmover", "noescape"] as const;
+export const APP_NAMES = ["diytrax", "pixelpress", "gifster", "metricmover", "noescape", "flexy"] as const;
 export type AppName = (typeof APP_NAMES)[number];
 
 export const APP_STATUSES = ["not_installed", "installing", "installed", "install_failed", "uninstalling"] as const;
@@ -22,6 +22,8 @@ export const memberAppInstancesTable = pgTable(
     squidySubStatus: text("squidy_sub_status"),
     lastLookupAt: timestamp("last_lookup_at", { withTimezone: true }),
     squidyError: text("squidy_error"),
+    providerLocationId: text("provider_location_id"),
+    providerStaffUserId: text("provider_staff_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

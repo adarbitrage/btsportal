@@ -4296,6 +4296,7 @@ export const ListAppsResponseItem = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
   status: zod.enum([
     "not_installed",
@@ -4325,6 +4326,7 @@ export const InstallAppParams = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
 });
 
@@ -4338,6 +4340,7 @@ export const RetryAppInstallParams = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
 });
 
@@ -4348,6 +4351,7 @@ export const RetryAppInstallResponse = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
   status: zod.enum([
     "not_installed",
@@ -4376,6 +4380,7 @@ export const GetAppSsoRedirectParams = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
 });
 
@@ -4393,6 +4398,7 @@ export const UninstallAppParams = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
 });
 
@@ -4403,6 +4409,7 @@ export const UninstallAppResponse = zod.object({
     "gifster",
     "metricmover",
     "noescape",
+    "flexy",
   ]),
   status: zod.enum([
     "not_installed",

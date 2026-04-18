@@ -21530,13 +21530,25 @@ export function useListApps<
  * @summary Install a Squidy app for the current member
  */
 export const getInstallAppUrl = (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
 ) => {
   return `/api/apps/${appName}/install`;
 };
 
 export const installApp = async (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: RequestInit,
 ): Promise<AppInstance> => {
   return customFetch<AppInstance>(getInstallAppUrl(appName), {
@@ -21558,7 +21570,8 @@ export const getInstallAppMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21567,7 +21580,13 @@ export const getInstallAppMutationOptions = <
   Awaited<ReturnType<typeof installApp>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {
@@ -21588,7 +21607,8 @@ export const getInstallAppMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     }
   > = (props) => {
     const { appName } = props ?? {};
@@ -21621,7 +21641,8 @@ export const useInstallApp = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21630,7 +21651,13 @@ export const useInstallApp = <
   Awaited<ReturnType<typeof installApp>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {
@@ -21641,13 +21668,25 @@ export const useInstallApp = <
  * @summary Retry a failed app installation
  */
 export const getRetryAppInstallUrl = (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
 ) => {
   return `/api/apps/${appName}/retry`;
 };
 
 export const retryAppInstall = async (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: RequestInit,
 ): Promise<AppInstance> => {
   return customFetch<AppInstance>(getRetryAppInstallUrl(appName), {
@@ -21669,7 +21708,8 @@ export const getRetryAppInstallMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21678,7 +21718,13 @@ export const getRetryAppInstallMutationOptions = <
   Awaited<ReturnType<typeof retryAppInstall>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {
@@ -21699,7 +21745,8 @@ export const getRetryAppInstallMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     }
   > = (props) => {
     const { appName } = props ?? {};
@@ -21732,7 +21779,8 @@ export const useRetryAppInstall = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21741,7 +21789,13 @@ export const useRetryAppInstall = <
   Awaited<ReturnType<typeof retryAppInstall>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {
@@ -21752,13 +21806,25 @@ export const useRetryAppInstall = <
  * @summary Get an SSO redirect URL for an installed app
  */
 export const getGetAppSsoRedirectUrl = (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
 ) => {
   return `/api/apps/${appName}/sso-redirect`;
 };
 
 export const getAppSsoRedirect = async (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: RequestInit,
 ): Promise<GetAppSsoRedirect200> => {
   return customFetch<GetAppSsoRedirect200>(getGetAppSsoRedirectUrl(appName), {
@@ -21768,7 +21834,13 @@ export const getAppSsoRedirect = async (
 };
 
 export const getGetAppSsoRedirectQueryKey = (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
 ) => {
   return [`/api/apps/${appName}/sso-redirect`] as const;
 };
@@ -21777,7 +21849,13 @@ export const getGetAppSsoRedirectQueryOptions = <
   TData = Awaited<ReturnType<typeof getAppSsoRedirect>>,
   TError = ErrorType<void>,
 >(
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAppSsoRedirect>>,
@@ -21821,7 +21899,13 @@ export function useGetAppSsoRedirect<
   TData = Awaited<ReturnType<typeof getAppSsoRedirect>>,
   TError = ErrorType<void>,
 >(
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAppSsoRedirect>>,
@@ -21844,13 +21928,25 @@ export function useGetAppSsoRedirect<
  * @summary Uninstall an app instance via Squidy
  */
 export const getUninstallAppUrl = (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
 ) => {
   return `/api/apps/${appName}`;
 };
 
 export const uninstallApp = async (
-  appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape",
+  appName:
+    | "diytrax"
+    | "pixelpress"
+    | "gifster"
+    | "metricmover"
+    | "noescape"
+    | "flexy",
   options?: RequestInit,
 ): Promise<AppInstance> => {
   return customFetch<AppInstance>(getUninstallAppUrl(appName), {
@@ -21872,7 +21968,8 @@ export const getUninstallAppMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21881,7 +21978,13 @@ export const getUninstallAppMutationOptions = <
   Awaited<ReturnType<typeof uninstallApp>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {
@@ -21902,7 +22005,8 @@ export const getUninstallAppMutationOptions = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     }
   > = (props) => {
     const { appName } = props ?? {};
@@ -21935,7 +22039,8 @@ export const useUninstallApp = <
         | "pixelpress"
         | "gifster"
         | "metricmover"
-        | "noescape";
+        | "noescape"
+        | "flexy";
     },
     TContext
   >;
@@ -21944,7 +22049,13 @@ export const useUninstallApp = <
   Awaited<ReturnType<typeof uninstallApp>>,
   TError,
   {
-    appName: "diytrax" | "pixelpress" | "gifster" | "metricmover" | "noescape";
+    appName:
+      | "diytrax"
+      | "pixelpress"
+      | "gifster"
+      | "metricmover"
+      | "noescape"
+      | "flexy";
   },
   TContext
 > => {

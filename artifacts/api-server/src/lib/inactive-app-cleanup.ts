@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { memberAppInstancesTable, userProductsTable } from "@workspace/db/schema";
 import { and, eq, inArray, isNull, lt, max, or, gte } from "drizzle-orm";
 import { squidyDelete } from "./squidy-client";
+import { disableFlexyForUser } from "./flexy-provision";
 
 const RUN_INTERVAL_MS = 60 * 60 * 1000;
 const INACTIVE_DAYS = 30;
@@ -72,6 +73,37 @@ async function uninstallAppsForUser(userId: number): Promise<void> {
     );
 
   for (const app of apps) {
+    if (app.appName === "flexy") {
+      // Flexy lives outside Squidy: disable the GHL staff user's location
+      // access (non-destructive) and mark local row not_installed. Preserve
+      // providerLocationId/providerStaffUserId so a later reinstall just
+      // reactivates the existing staff record.
+      try {
+        console.log(
+          `[InactiveAppCleanup] Disabling Flexy for user=${userId} location=${app.providerLocationId} staff=${app.providerStaffUserId}`,
+        );
+        await disableFlexyForUser(userId);
+        await db
+          .update(memberAppInstancesTable)
+          .set({
+            status: "not_installed",
+            domain: null,
+            squidyError: null,
+            lastLookupAt: null,
+          })
+          .where(eq(memberAppInstancesTable.id, app.id));
+      } catch (err) {
+        console.error(
+          `[InactiveAppCleanup] Flexy disable failed for user=${userId}:`,
+          err,
+        );
+        await db
+          .update(memberAppInstancesTable)
+          .set({ squidyError: err instanceof Error ? err.message : String(err) })
+          .where(eq(memberAppInstancesTable.id, app.id));
+      }
+      continue;
+    }
     if (!app.appUuid) {
       console.log(
         `[InactiveAppCleanup] user=${userId} app=${app.appName} has no appUuid — marking not_installed`,

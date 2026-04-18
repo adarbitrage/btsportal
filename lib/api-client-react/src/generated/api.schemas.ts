@@ -2196,6 +2196,7 @@ export const AppInstanceAppName = {
   gifster: "gifster",
   metricmover: "metricmover",
   noescape: "noescape",
+  flexy: "flexy",
 } as const;
 
 export type AppInstanceStatus =
@@ -2457,6 +2458,13 @@ export type AdminImportContent201Imported = {
 
 export type AdminImportContent201 = {
   imported?: AdminImportContent201Imported;
+};
+
+export type LogToolUsageBodyMetadata = { [key: string]: unknown };
+
+export type LogToolUsageBody = {
+  action: string;
+  metadata?: LogToolUsageBodyMetadata;
 };
 
 export type LogToolUsage201 = {

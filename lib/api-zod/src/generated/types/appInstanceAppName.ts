@@ -15,4 +15,5 @@ export const AppInstanceAppName = {
   gifster: "gifster",
   metricmover: "metricmover",
   noescape: "noescape",
+  flexy: "flexy",
 } as const;
