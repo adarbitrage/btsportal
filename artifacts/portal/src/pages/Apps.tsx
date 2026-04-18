@@ -6,7 +6,6 @@ import {
   getAppSsoRedirect,
   useGetCurrentMember,
   getFlexyCredentials,
-  regenerateFlexyPassword,
 } from "@workspace/api-client-react";
 import { useEffect, useState } from "react";
 import type { AppInstance, AppInstanceAppName } from "@workspace/api-client-react";
@@ -17,14 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import {
-  Activity,
-  Image as ImageIcon,
-  Film,
-  BarChart3,
   Lock,
-  Sparkles,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -32,11 +26,14 @@ import {
   CheckCircle2,
   Trash2,
   Ban,
-  Eye,
-  EyeOff,
-  Copy,
-  KeyRound,
+  Mail,
 } from "lucide-react";
+import { FlexyIcon } from "@/components/icons/FlexyIcon";
+import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
+import { PixelPressIcon } from "@/components/icons/PixelPressIcon";
+import { GifsterIcon } from "@/components/icons/GifsterIcon";
+import { NoEscapeIcon } from "@/components/icons/NoEscapeIcon";
+import { DiytraxIcon } from "@/components/icons/DiytraxIcon";
 
 type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
 
@@ -44,17 +41,17 @@ type AppCatalogEntry = {
   name: AppInstanceAppName;
   title: string;
   tagline: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string }>;
   accent: string;
 };
 
 const APP_CATALOG: AppCatalogEntry[] = [
-  { name: "diytrax", title: "Diytrax", tagline: "DIY tracking & analytics", icon: Activity, accent: "bg-blue-50 text-blue-700" },
-  { name: "pixelpress", title: "PixelPress", tagline: "Drag-and-drop landing pages", icon: ImageIcon, accent: "bg-purple-50 text-purple-700" },
-  { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: Film, accent: "bg-pink-50 text-pink-700" },
-  { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: BarChart3, accent: "bg-green-50 text-green-700" },
-  { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: Lock, accent: "bg-amber-50 text-amber-700" },
-  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: Sparkles, accent: "bg-indigo-50 text-indigo-700" },
+  { name: "diytrax", title: "Diytrax", tagline: "DIY tracking & analytics", icon: DiytraxIcon, accent: "bg-white border border-border" },
+  { name: "pixelpress", title: "PixelPress", tagline: "Drag-and-drop landing pages", icon: PixelPressIcon, accent: "bg-white border border-border" },
+  { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: GifsterIcon, accent: "bg-white border border-border" },
+  { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: MetricMoverIcon, accent: "bg-white border border-border" },
+  { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: NoEscapeIcon, accent: "bg-white border border-border" },
+  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: FlexyIcon, accent: "bg-white border border-border" },
 ];
 
 function StatusBadge({ status }: { status: AppInstance["status"] }) {
@@ -263,7 +260,11 @@ export default function Apps() {
                       )}
 
                       {!isDisabled && status === "install_failed" && (
-                        <p className="text-xs text-red-700 mt-2">The app couldn't be created. You can try again.</p>
+                        <p className="text-xs text-red-700 mt-2">
+                          {inst?.squidyError?.includes("agency token rejected")
+                            ? "Setup couldn't complete due to a configuration issue. Please try again or contact support."
+                            : "The app couldn't be created. You can try again."}
+                        </p>
                       )}
 
                       {!isDisabled && (
@@ -361,11 +362,6 @@ export default function Apps() {
 function FlexyCredentialsPanel() {
   const { toast } = useToast();
   const [email, setEmail] = useState<string | null>(null);
-  const [password, setPassword] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [revealing, setRevealing] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -374,10 +370,9 @@ function FlexyCredentialsPanel() {
         const data = await getFlexyCredentials();
         if (cancelled) return;
         setEmail(data.email ?? null);
-        setLoaded(true);
       } catch {
         if (!cancelled) {
-          toast({ title: "Could not load Flexy credentials", variant: "destructive" });
+          toast({ title: "Could not load Flexy login email", variant: "destructive" });
         }
       }
     })();
@@ -386,61 +381,6 @@ function FlexyCredentialsPanel() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const fetchPassword = async (): Promise<string | null> => {
-    if (password) return password;
-    setRevealing(true);
-    try {
-      const data = await getFlexyCredentials({ reveal: true });
-      setEmail(data.email ?? null);
-      setPassword(data.password ?? null);
-      setLoaded(true);
-      return data.password ?? null;
-    } catch {
-      toast({ title: "Could not load Flexy credentials", variant: "destructive" });
-      return null;
-    } finally {
-      setRevealing(false);
-    }
-  };
-
-  const handleReveal = async () => {
-    if (revealed) {
-      setRevealed(false);
-      return;
-    }
-    const pw = await fetchPassword();
-    if (pw) setRevealed(true);
-    else toast({ title: "No saved password", description: "Click Regenerate to create a new one." });
-  };
-
-  const handleCopy = async () => {
-    const pw = await fetchPassword();
-    if (!pw) {
-      toast({ title: "No saved password", description: "Click Regenerate to create a new one." });
-      return;
-    }
-    await navigator.clipboard.writeText(pw);
-    toast({ title: "Password copied to clipboard" });
-  };
-
-  const handleRegenerate = async () => {
-    if (!confirm("Generate a new Flexy password? The current one will stop working.")) return;
-    setRegenerating(true);
-    try {
-      const result = await regenerateFlexyPassword();
-      setEmail(result.email);
-      setPassword(result.password);
-      setRevealed(true);
-      toast({ title: "New password generated", description: "Copy it now — you can re-reveal it later." });
-    } catch {
-      toast({ title: "Couldn't regenerate password", variant: "destructive" });
-    } finally {
-      setRegenerating(false);
-    }
-  };
-
-  const masked = "••••••••••••••••";
 
   return (
     <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
@@ -451,50 +391,12 @@ function FlexyCredentialsPanel() {
           {email ?? "—"}
         </span>
       </div>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground w-16">Password</span>
-        <span className="font-mono break-all" data-testid="text-flexy-password">
-          {revealed ? (password ?? "(none — regenerate)") : masked}
+      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+        <Mail className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>
+          Check your inbox for an activation email from Flexy to set your password.
+          If you've forgotten it, use the "Forgot password" link on the Flexy login page.
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleReveal}
-          disabled={revealing}
-          data-testid="button-flexy-reveal"
-        >
-          {revealing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : revealed ? (
-            <EyeOff className="w-4 h-4" />
-          ) : (
-            <Eye className="w-4 h-4" />
-          )}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleCopy}
-          disabled={revealing}
-          data-testid="button-flexy-copy"
-        >
-          <Copy className="w-4 h-4" />
-        </Button>
-      </div>
-      <div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleRegenerate}
-          disabled={regenerating}
-          data-testid="button-flexy-regenerate"
-        >
-          {regenerating ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Regenerating…</>
-          ) : (
-            <><KeyRound className="w-4 h-4 mr-2" /> Regenerate password</>
-          )}
-        </Button>
       </div>
     </div>
   );

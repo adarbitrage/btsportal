@@ -5208,17 +5208,10 @@ paths:
     get:
       operationId: getFlexyCredentials
       tags: [apps]
-      summary: Reveal the Flexy staff credentials for the current member
-      parameters:
-        - in: query
-          name: reveal
-          required: false
-          description: When true, include the decrypted password in the response. Defaults to false (email only).
-          schema:
-            type: boolean
+      summary: Return the Flexy staff email for the current member
       responses:
         "200":
-          description: Flexy email + decrypted password
+          description: Flexy login email (member sets their password via the GHL activation email)
           content:
             application/json:
               schema:
@@ -5227,36 +5220,10 @@ paths:
                 properties:
                   email:
                     type: string
-                  password:
-                    type: string
-                    nullable: true
         "403":
           description: App unavailable or no active membership
         "404":
           description: Flexy is not installed for this user
-
-  /apps/flexy/regenerate-password:
-    post:
-      operationId: regenerateFlexyPassword
-      tags: [apps]
-      summary: Rotate the Flexy staff password and return the new value once
-      responses:
-        "200":
-          description: New email + plaintext password (shown once)
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [email, password]
-                properties:
-                  email:
-                    type: string
-                  password:
-                    type: string
-        "403":
-          description: App unavailable or no active membership
-        "502":
-          description: GHL password update failed
 
   /apps/{appName}/sso-redirect:
     get:

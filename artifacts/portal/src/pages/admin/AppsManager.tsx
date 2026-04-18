@@ -13,16 +13,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import {
-  Activity,
-  Image as ImageIcon,
-  Film,
-  BarChart3,
-  Lock,
-  Sparkles,
   AppWindow,
 } from "lucide-react";
+import { FlexyIcon } from "@/components/icons/FlexyIcon";
+import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
+import { PixelPressIcon } from "@/components/icons/PixelPressIcon";
+import { GifsterIcon } from "@/components/icons/GifsterIcon";
+import { NoEscapeIcon } from "@/components/icons/NoEscapeIcon";
+import { DiytraxIcon } from "@/components/icons/DiytraxIcon";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 type AppSetting = {
@@ -39,17 +39,17 @@ type AppCatalogEntry = {
   name: string;
   title: string;
   tagline: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string }>;
   accent: string;
 };
 
 const APP_CATALOG: AppCatalogEntry[] = [
-  { name: "diytrax", title: "Diytrax", tagline: "DIY tracking & analytics", icon: Activity, accent: "bg-blue-50 text-blue-700" },
-  { name: "pixelpress", title: "PixelPress", tagline: "Drag-and-drop landing pages", icon: ImageIcon, accent: "bg-purple-50 text-purple-700" },
-  { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: Film, accent: "bg-pink-50 text-pink-700" },
-  { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: BarChart3, accent: "bg-green-50 text-green-700" },
-  { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: Lock, accent: "bg-amber-50 text-amber-700" },
-  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: Sparkles, accent: "bg-indigo-50 text-indigo-700" },
+  { name: "diytrax", title: "Diytrax", tagline: "DIY tracking & analytics", icon: DiytraxIcon, accent: "bg-white border border-border" },
+  { name: "pixelpress", title: "PixelPress", tagline: "Drag-and-drop landing pages", icon: PixelPressIcon, accent: "bg-white border border-border" },
+  { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: GifsterIcon, accent: "bg-white border border-border" },
+  { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: MetricMoverIcon, accent: "bg-white border border-border" },
+  { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: NoEscapeIcon, accent: "bg-white border border-border" },
+  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: FlexyIcon, accent: "bg-white border border-border" },
 ];
 
 async function fetchAppStatuses(): Promise<AppSetting[]> {

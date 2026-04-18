@@ -2699,21 +2699,8 @@ export type ReferralRedirectParams = {
   ref?: string;
 };
 
-export type GetFlexyCredentialsParams = {
-  /**
-   * When true, include the decrypted password in the response. Defaults to false (email only).
-   */
-  reveal?: boolean;
-};
-
 export type GetFlexyCredentials200 = {
   email: string;
-  password?: string | null;
-};
-
-export type RegenerateFlexyPassword200 = {
-  email: string;
-  password: string;
 };
 
 export type GetAppSsoRedirectParams = {

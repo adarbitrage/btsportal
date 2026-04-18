@@ -161,7 +161,6 @@ import type {
   GetCommissionsChartParams,
   GetCommissionsEarningsParams,
   GetFlexyCredentials200,
-  GetFlexyCredentialsParams,
   GetLegalDocumentsParams,
   GetOneOnOneSlotsParams,
   GhlConfig,
@@ -211,7 +210,6 @@ import type {
   ReactionToggleResult,
   ReferralLink,
   ReferralRedirectParams,
-  RegenerateFlexyPassword200,
   RegisterBody,
   ReorderRequest,
   RequestUploadUrlBody,
@@ -21807,68 +21805,43 @@ export const useRetryAppInstall = <
 };
 
 /**
- * @summary Reveal the Flexy staff credentials for the current member
+ * @summary Return the Flexy staff email for the current member
  */
-export const getGetFlexyCredentialsUrl = (
-  params?: GetFlexyCredentialsParams,
-) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/apps/flexy/credentials?${stringifiedParams}`
-    : `/api/apps/flexy/credentials`;
+export const getGetFlexyCredentialsUrl = () => {
+  return `/api/apps/flexy/credentials`;
 };
 
 export const getFlexyCredentials = async (
-  params?: GetFlexyCredentialsParams,
   options?: RequestInit,
 ): Promise<GetFlexyCredentials200> => {
-  return customFetch<GetFlexyCredentials200>(
-    getGetFlexyCredentialsUrl(params),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+  return customFetch<GetFlexyCredentials200>(getGetFlexyCredentialsUrl(), {
+    ...options,
+    method: "GET",
+  });
 };
 
-export const getGetFlexyCredentialsQueryKey = (
-  params?: GetFlexyCredentialsParams,
-) => {
-  return [`/api/apps/flexy/credentials`, ...(params ? [params] : [])] as const;
+export const getGetFlexyCredentialsQueryKey = () => {
+  return [`/api/apps/flexy/credentials`] as const;
 };
 
 export const getGetFlexyCredentialsQueryOptions = <
   TData = Awaited<ReturnType<typeof getFlexyCredentials>>,
   TError = ErrorType<void>,
->(
-  params?: GetFlexyCredentialsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getFlexyCredentials>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFlexyCredentials>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetFlexyCredentialsQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getGetFlexyCredentialsQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getFlexyCredentials>>
-  > = ({ signal }) =>
-    getFlexyCredentials(params, { signal, ...requestOptions });
+  > = ({ signal }) => getFlexyCredentials({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getFlexyCredentials>>,
@@ -21883,24 +21856,21 @@ export type GetFlexyCredentialsQueryResult = NonNullable<
 export type GetFlexyCredentialsQueryError = ErrorType<void>;
 
 /**
- * @summary Reveal the Flexy staff credentials for the current member
+ * @summary Return the Flexy staff email for the current member
  */
 
 export function useGetFlexyCredentials<
   TData = Awaited<ReturnType<typeof getFlexyCredentials>>,
   TError = ErrorType<void>,
->(
-  params?: GetFlexyCredentialsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getFlexyCredentials>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetFlexyCredentialsQueryOptions(params, options);
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFlexyCredentials>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFlexyCredentialsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -21908,90 +21878,6 @@ export function useGetFlexyCredentials<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-/**
- * @summary Rotate the Flexy staff password and return the new value once
- */
-export const getRegenerateFlexyPasswordUrl = () => {
-  return `/api/apps/flexy/regenerate-password`;
-};
-
-export const regenerateFlexyPassword = async (
-  options?: RequestInit,
-): Promise<RegenerateFlexyPassword200> => {
-  return customFetch<RegenerateFlexyPassword200>(
-    getRegenerateFlexyPasswordUrl(),
-    {
-      ...options,
-      method: "POST",
-    },
-  );
-};
-
-export const getRegenerateFlexyPasswordMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof regenerateFlexyPassword>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationKey = ["regenerateFlexyPassword"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
-    void
-  > = () => {
-    return regenerateFlexyPassword(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type RegenerateFlexyPasswordMutationResult = NonNullable<
-  Awaited<ReturnType<typeof regenerateFlexyPassword>>
->;
-
-export type RegenerateFlexyPasswordMutationError = ErrorType<void>;
-
-/**
- * @summary Rotate the Flexy staff password and return the new value once
- */
-export const useRegenerateFlexyPassword = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof regenerateFlexyPassword>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof regenerateFlexyPassword>>,
-  TError,
-  void,
-  TContext
-> => {
-  return useMutation(getRegenerateFlexyPasswordMutationOptions(options));
-};
 
 /**
  * @summary Get an SSO redirect URL for an installed app

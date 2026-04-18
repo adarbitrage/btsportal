@@ -1,3 +1,4 @@
+const GHL_AUTH_BASE = "https://services.msgsndr.com";
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const GHL_API_VERSION = "2021-07-28";
 
@@ -46,18 +47,202 @@ function decodeAgencyJwt(): AgencyJwt {
   return cachedJwt;
 }
 
-async function ghlAgencyRequest<T = unknown>(
+// ---------------------------------------------------------------------------
+// OAuth token cache
+// ---------------------------------------------------------------------------
+
+interface TokenEntry {
+  accessToken: string;
+  refreshToken: string | null;
+  locationId: string | null;
+  expiresAt: number;
+}
+
+const tokenCache = new Map<string, TokenEntry>();
+const TOKEN_SAFETY_MARGIN_MS = 5 * 60 * 1000; // refresh 5 min before expiry
+
+const COMPANY_SCOPE =
+  "companies.readonly locations.readonly locations.write users.readonly users.write";
+
+function getOAuthClientCredentials(): { clientId: string; clientSecret: string } {
+  const clientId = process.env.GHL_CHERRINGTON_CLIENT_ID;
+  const clientSecret = process.env.GHL_CHERRINGTON_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "GHL_CHERRINGTON_CLIENT_ID and GHL_CHERRINGTON_CLIENT_SECRET must be configured to mint GHL access tokens",
+    );
+  }
+  return { clientId, clientSecret };
+}
+
+/**
+ * Mint a GHL JWT access token for the given scope using the two-step
+ * private OAuth flow:
+ *   1. POST /oauth/authorize on services.msgsndr.com with the agency apiKey
+ *      to get an authorization code.
+ *   2. POST /oauth/token on services.leadconnectorhq.com to exchange it for
+ *      a real JWT access token.
+ */
+async function mintAccessToken(
+  scope: "company" | { location: string },
+): Promise<{ accessToken: string; refreshToken: string | null; locationId: string | null; expiresIn: number }> {
+  const { apiKey, companyId } = decodeAgencyJwt();
+  const { clientId, clientSecret } = getOAuthClientCredentials();
+
+  // Build the authorize URL query string. `redirect_uri` is required by GHL's
+  // private OAuth endpoint even though no actual redirect happens — the code
+  // is returned in the JSON response. Any valid URL works.
+  const params = new URLSearchParams({
+    client_id: clientId,
+    company_id: companyId,
+    response_type: "code",
+    redirect_uri: process.env.GHL_OAUTH_REDIRECT_URI ?? "https://theinvisibleaffiliate.com",
+    scope: COMPANY_SCOPE,
+  });
+  if (scope === "company") {
+    params.set("userType", "Company");
+  } else {
+    params.set("userType", "Location");
+    params.set("location_id", scope.location);
+  }
+
+  const authorizeUrl = `${GHL_AUTH_BASE}/oauth/authorize?${params.toString()}`;
+  console.log(`[GHLAgency] Minting OAuth code via POST ${GHL_AUTH_BASE}/oauth/authorize`);
+
+  const authorizeRes = await fetch(authorizeUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+  });
+
+  if (!authorizeRes.ok) {
+    const text = await authorizeRes.text();
+    if (authorizeRes.status === 401 || authorizeRes.status === 403) {
+      throw new Error(
+        `Flexy agency token rejected by GHL — refresh \`GHL_CHERRINGTON_AGENCY_JWT\` \`apiKey\` (authorize HTTP ${authorizeRes.status}: ${text})`,
+      );
+    }
+    throw new Error(
+      `GHL OAuth authorize failed: HTTP ${authorizeRes.status} — ${text}`,
+    );
+  }
+
+  const authorizeData = (await authorizeRes.json()) as {
+    redirectUrl?: string;
+    code?: string;
+  };
+
+  let code: string | null = null;
+  if (typeof authorizeData.code === "string" && authorizeData.code) {
+    code = authorizeData.code;
+  } else if (typeof authorizeData.redirectUrl === "string") {
+    try {
+      const redirectUrl = new URL(authorizeData.redirectUrl);
+      code = redirectUrl.searchParams.get("code");
+    } catch {
+      // fall through — code remains null
+    }
+  }
+
+  if (!code) {
+    throw new Error(
+      `GHL OAuth authorize did not return a code: ${JSON.stringify(authorizeData)}`,
+    );
+  }
+
+  // Exchange the authorization code for an access token
+  console.log(`[GHLAgency] Exchanging OAuth code for access token`);
+  const tokenRes = await fetch(`${GHL_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      grant_type: "authorization_code",
+    }).toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text();
+    if (tokenRes.status === 401 || tokenRes.status === 403) {
+      throw new Error(
+        `Flexy agency token rejected by GHL — refresh \`GHL_CHERRINGTON_AGENCY_JWT\` \`apiKey\` (token exchange HTTP ${tokenRes.status}: ${text})`,
+      );
+    }
+    throw new Error(
+      `GHL OAuth token exchange failed: HTTP ${tokenRes.status} — ${text}`,
+    );
+  }
+
+  const tokenData = (await tokenRes.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    locationId?: string;
+  };
+
+  if (!tokenData.access_token) {
+    throw new Error(
+      `GHL OAuth token exchange returned no access_token: ${JSON.stringify(tokenData)}`,
+    );
+  }
+
+  return {
+    accessToken: tokenData.access_token,
+    refreshToken: tokenData.refresh_token ?? null,
+    locationId: tokenData.locationId ?? null,
+    expiresIn: typeof tokenData.expires_in === "number" ? tokenData.expires_in : 3600,
+  };
+}
+
+/**
+ * Resolve a valid GHL JWT access token for the given scope, using the
+ * in-memory cache and re-minting when the token is about to expire.
+ */
+async function resolveAccessToken(
+  scope: "company" | { location: string },
+): Promise<string> {
+  const cacheKey = scope === "company" ? "company" : `location:${scope.location}`;
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt - Date.now() > TOKEN_SAFETY_MARGIN_MS) {
+    return cached.accessToken;
+  }
+
+  const { accessToken, refreshToken, locationId, expiresIn } = await mintAccessToken(scope);
+  tokenCache.set(cacheKey, {
+    accessToken,
+    refreshToken,
+    locationId,
+    expiresAt: Date.now() + expiresIn * 1000,
+  });
+  console.log(
+    `[GHLAgency] Minted new access token for scope="${cacheKey}" (expires in ${expiresIn}s, locationId=${locationId ?? "n/a"})`,
+  );
+  return accessToken;
+}
+
+// ---------------------------------------------------------------------------
+// Core request helper
+// ---------------------------------------------------------------------------
+
+async function ghlAgencyRequestOnce<T = unknown>(
   method: string,
   path: string,
+  accessToken: string,
   body?: Record<string, unknown>,
-): Promise<T> {
-  const { apiKey } = decodeAgencyJwt();
+): Promise<{ ok: boolean; status: number; text: string; data: T }> {
   const url = `${GHL_API_BASE}${path}`;
-  console.log(`[GHLAgency] ${method} ${url}`);
   const res = await fetch(url, {
     method,
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
       Version: GHL_API_VERSION,
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -67,10 +252,35 @@ async function ghlAgencyRequest<T = unknown>(
   const text = await res.text();
   let data: unknown = {};
   try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-  if (!res.ok) {
-    throw new Error(`GHL ${method} ${path} failed: HTTP ${res.status} — ${text}`);
+  return { ok: res.ok, status: res.status, text, data: data as T };
+}
+
+async function ghlAgencyRequest<T = unknown>(
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<T> {
+  console.log(`[GHLAgency] ${method} ${GHL_API_BASE}${path}`);
+  let accessToken = await resolveAccessToken("company");
+  let result = await ghlAgencyRequestOnce<T>(method, path, accessToken, body);
+
+  if (!result.ok && result.status === 401) {
+    // Token may have been invalidated server-side — evict cache and retry once
+    console.warn(`[GHLAgency] 401 on ${method} ${path}; evicting token and retrying`);
+    tokenCache.delete("company");
+    accessToken = await resolveAccessToken("company");
+    result = await ghlAgencyRequestOnce<T>(method, path, accessToken, body);
+    if (!result.ok && result.status === 401) {
+      throw new Error(
+        `Flexy agency token rejected by GHL — refresh \`GHL_CHERRINGTON_AGENCY_JWT\` \`apiKey\` (GHL ${method} ${path} HTTP 401: ${result.text})`,
+      );
+    }
   }
-  return data as T;
+
+  if (!result.ok) {
+    throw new Error(`GHL ${method} ${path} failed: HTTP ${result.status} — ${result.text}`);
+  }
+  return result.data;
 }
 
 export function getAgencyCompanyId(): string {
@@ -206,9 +416,21 @@ export async function disableStaffUserForLocation(
   staffUserId: string,
   locationId: string,
 ): Promise<void> {
+  const { companyId } = decodeAgencyJwt();
   const user = await getStaffUser(staffUserId);
   const remaining = getUserLocationIds(user).filter((id) => id !== locationId);
+  if (remaining.length === 0) {
+    // GHL rejects PUT /users with an empty locationIds array. When this was
+    // the user's only location, delete the staff record outright so they
+    // truly lose access on uninstall.
+    await ghlAgencyRequest(
+      "DELETE",
+      `/users/${encodeURIComponent(staffUserId)}?companyId=${encodeURIComponent(companyId)}`,
+    );
+    return;
+  }
   await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
+    companyId,
     locationIds: remaining,
   });
 }
@@ -222,11 +444,13 @@ export async function reactivateStaffUserForLocation(
   staffUserId: string,
   locationId: string,
 ): Promise<void> {
+  const { companyId } = decodeAgencyJwt();
   const user = await getStaffUser(staffUserId);
   const ids = new Set(getUserLocationIds(user));
   if (ids.has(locationId)) return;
   ids.add(locationId);
   await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
+    companyId,
     locationIds: [...ids],
   });
 }
@@ -235,7 +459,9 @@ export async function updateStaffUserPassword(
   staffUserId: string,
   newPassword: string,
 ): Promise<void> {
+  const { companyId } = decodeAgencyJwt();
   await ghlAgencyRequest("PUT", `/users/${encodeURIComponent(staffUserId)}`, {
+    companyId,
     password: newPassword,
   });
 }

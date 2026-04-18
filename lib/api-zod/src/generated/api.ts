@@ -4371,28 +4371,10 @@ export const RetryAppInstallResponse = zod.object({
 });
 
 /**
- * @summary Reveal the Flexy staff credentials for the current member
+ * @summary Return the Flexy staff email for the current member
  */
-export const GetFlexyCredentialsQueryParams = zod.object({
-  reveal: zod.coerce
-    .boolean()
-    .optional()
-    .describe(
-      "When true, include the decrypted password in the response. Defaults to false (email only).",
-    ),
-});
-
 export const GetFlexyCredentialsResponse = zod.object({
   email: zod.string(),
-  password: zod.string().nullish(),
-});
-
-/**
- * @summary Rotate the Flexy staff password and return the new value once
- */
-export const RegenerateFlexyPasswordResponse = zod.object({
-  email: zod.string(),
-  password: zod.string(),
 });
 
 /**

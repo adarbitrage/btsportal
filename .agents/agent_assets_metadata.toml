@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "h27RGsypUS2hlAYa3kq-A"
+uri = "file://attached_assets/metricmover_icon.png"
+type = "image"
+title = "Cropped MetricMover icon preview"
+
+[[outputs]]
+id = "DK-qlU3JxRaNaLIQ5tA04"
+uri = "file://attached_assets/gifster_icon.png"
+type = "image"
+title = "Cropped Gifster icon"

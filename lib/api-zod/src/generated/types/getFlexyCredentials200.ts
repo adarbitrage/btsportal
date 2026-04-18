@@ -8,5 +8,4 @@
 
 export type GetFlexyCredentials200 = {
   email: string;
-  password?: string | null;
 };

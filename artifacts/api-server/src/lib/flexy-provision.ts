@@ -6,19 +6,20 @@ import {
   disableStaffUserForLocation,
   findExistingStaffUser,
   reactivateStaffUserForLocation,
-  updateStaffUserPassword,
   generateRandomPassword,
   FLEXY_PORTAL_URL,
 } from "./ghl-agency-client";
-import { encryptSecret, decryptSecret } from "./app-secrets-crypto";
 
 export const FLEXY_DOMAIN = (FLEXY_PORTAL_URL.replace(/^https?:\/\//, "")).replace(/\/+$/, "");
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
+  // GHL requires both firstName and lastName to be non-empty when creating
+  // a staff user. If the member only has a single-word name, repeat it as
+  // the last name so provisioning still succeeds.
   const trimmed = (fullName ?? "").trim();
-  if (!trimmed) return { firstName: "Member", lastName: "" };
+  if (!trimmed) return { firstName: "Member", lastName: "Member" };
   const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: parts[0] };
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
@@ -73,35 +74,45 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
       );
   }
 
-  // Generate a fresh password every time we have to (re-)create or re-attach
-  // the staff user so the member always has a usable credential surfaced.
-  let plaintextPassword: string | null = null;
+  // We deliberately do NOT keep a copy of the staff password. GHL sends an
+  // activation email to the member's address on user creation; the member
+  // sets their own password via that link. We still pass a random throwaway
+  // password to the create call because GHL requires one.
 
   if (staffUserId) {
     // Existing record (e.g. reinstall after disable) — re-attach to location.
-    await reactivateStaffUserForLocation(staffUserId, locationId);
-    console.log(`[Flexy] Reactivated staff user=${staffUserId} for location=${locationId}`);
-    // Rotate password on reinstall so the member can log in even if the
-    // previously surfaced one was lost.
-    plaintextPassword = generateRandomPassword();
-    await updateStaffUserPassword(staffUserId, plaintextPassword);
-  } else {
+    // If the previous uninstall fully deleted the staff user (because it was
+    // their only location), GHL returns 404 here. Fall through to the
+    // create-new-user branch in that case so reinstall still succeeds.
+    try {
+      await reactivateStaffUserForLocation(staffUserId, locationId);
+      console.log(`[Flexy] Reactivated staff user=${staffUserId} for location=${locationId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("HTTP 404") || msg.includes("does not exist")) {
+        console.log(
+          `[Flexy] Stored staff user=${staffUserId} no longer exists in GHL; will create a new one`,
+        );
+        staffUserId = null;
+      } else {
+        throw err;
+      }
+    }
+  }
+  if (!staffUserId) {
     const found = await findExistingStaffUser(staffEmail, locationId);
     if (found) {
       staffUserId = found;
       console.log(`[Flexy] Reusing existing staff user=${found} for location=${locationId}`);
       await reactivateStaffUserForLocation(found, locationId);
-      plaintextPassword = generateRandomPassword();
-      await updateStaffUserPassword(found, plaintextPassword);
     } else {
       console.log(`[Flexy] Creating staff user for user=${userId} location=${locationId}`);
-      plaintextPassword = generateRandomPassword();
       staffUserId = await createStaffUser({
         locationId,
         firstName,
         lastName,
         email: staffEmail,
-        password: plaintextPassword,
+        password: generateRandomPassword(),
       });
     }
   }
@@ -111,9 +122,7 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
     .set({
       providerStaffUserId: staffUserId,
       providerStaffEmail: staffEmail,
-      providerStaffPasswordEncrypted: plaintextPassword
-        ? encryptSecret(plaintextPassword)
-        : existing?.providerStaffPasswordEncrypted ?? null,
+      providerStaffPasswordEncrypted: null,
     })
     .where(
       and(
@@ -153,37 +162,8 @@ export async function disableFlexyForUser(userId: number): Promise<void> {
   }
 }
 
-export async function regenerateFlexyPassword(userId: number): Promise<{
+export async function revealFlexyCredentials(userId: number): Promise<{
   email: string;
-  password: string;
-}> {
-  const [row] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
-  if (!row || row.status !== "installed" || !row.providerStaffUserId || !row.providerStaffEmail) {
-    throw new Error("Flexy is not installed for this user");
-  }
-  const newPassword = generateRandomPassword();
-  await updateStaffUserPassword(row.providerStaffUserId, newPassword);
-  await db
-    .update(memberAppInstancesTable)
-    .set({ providerStaffPasswordEncrypted: encryptSecret(newPassword) })
-    .where(eq(memberAppInstancesTable.id, row.id));
-  return { email: row.providerStaffEmail, password: newPassword };
-}
-
-export async function revealFlexyCredentials(
-  userId: number,
-  opts: { includePassword?: boolean } = {},
-): Promise<{
-  email: string;
-  password: string | null;
 }> {
   const [row] = await db
     .select()
@@ -197,13 +177,7 @@ export async function revealFlexyCredentials(
   if (!row || row.status !== "installed" || !row.providerStaffEmail) {
     throw new Error("Flexy is not installed for this user");
   }
-  return {
-    email: row.providerStaffEmail,
-    password:
-      opts.includePassword && row.providerStaffPasswordEncrypted
-        ? decryptSecret(row.providerStaffPasswordEncrypted)
-        : null,
-  };
+  return { email: row.providerStaffEmail };
 }
 
 export function buildFlexyOpenUrl(opts: {

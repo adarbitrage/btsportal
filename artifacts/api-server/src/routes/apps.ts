@@ -17,7 +17,6 @@ import {
   provisionFlexyForUser,
   disableFlexyForUser,
   buildFlexyOpenUrl,
-  regenerateFlexyPassword,
   revealFlexyCredentials,
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
@@ -654,30 +653,12 @@ router.get("/apps/flexy/credentials", async (req, res): Promise<void> => {
     return;
   }
   if (!(await requireActiveMember(userId, res))) return;
-  const includePassword = req.query.reveal === "true" || req.query.reveal === "1";
   try {
-    const creds = await revealFlexyCredentials(userId, { includePassword });
+    const creds = await revealFlexyCredentials(userId);
     res.json(creds);
   } catch (err) {
     console.error(`[Apps] Flexy credentials reveal failed for user=${userId}:`, err);
     res.status(404).json({ error: err instanceof Error ? err.message : String(err) });
-  }
-});
-
-router.post("/apps/flexy/regenerate-password", async (req, res): Promise<void> => {
-  const userId = req.userId!;
-  const availability = await isAppAvailable("flexy");
-  if (!availability.ok) {
-    res.status(403).json({ error: availability.reason });
-    return;
-  }
-  if (!(await requireActiveMember(userId, res))) return;
-  try {
-    const result = await regenerateFlexyPassword(userId);
-    res.json(result);
-  } catch (err) {
-    console.error(`[Apps] Flexy regenerate-password failed for user=${userId}:`, err);
-    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
