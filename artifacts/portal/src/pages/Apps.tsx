@@ -105,7 +105,7 @@ export default function Apps() {
   const retryMutation = useRetryAppInstall({
     mutation: {
       onSuccess: () => {
-        toast({ title: "Retrying installation", description: "We've asked Squidy to retry the install." });
+        toast({ title: "Retrying installation", description: "We've asked the app to retry the install." });
         refetch();
       },
       onError: () => {

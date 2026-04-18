@@ -151,7 +151,7 @@ export default function AppsManager() {
             <AppWindow className="w-6 h-6" /> Apps Manager
           </h1>
           <p className="text-muted-foreground mt-1">
-            Control each Squidy app globally. <strong>Show</strong> controls whether the app appears on the member apps page at all. <strong>Enabled</strong> controls whether members can install, open, retry, or uninstall it. Existing installs are always preserved.
+            Control each app globally. <strong>Show</strong> controls whether the app appears on the member apps page at all. <strong>Enabled</strong> controls whether members can install, open, retry, or uninstall it. Existing installs are always preserved.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ export default function AppsManager() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Squidy Apps</CardTitle>
+              <CardTitle className="text-base">Apps</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
