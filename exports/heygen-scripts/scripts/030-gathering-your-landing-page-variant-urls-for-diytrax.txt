@@ -1,0 +1,11 @@
+Title: Gathering Your Landing Page Variant URLs for DIYTrax
+Original Title: Cloned Flexy 6 - Gathering Your Landing Page Variant URLs for Use In DIYTrax
+Video ID: swwkNSG0ynndOY1y
+
+---
+
+In this video, I'll show you how to gather the URLs of your landing page variants for your DIYTrax campaign. First, open a plain text editor. I have Notepad ready, but you can use any text editor you prefer. I’ll move this to my other screen to make it easier to work with. 
+
+Next, go to your pages card and open each of your landing page variants. Use the preview link arrow to access the pages. I’ll open my V2, V3, V4, and V5 variants. You should open all the variants you have. Once a page is open, select the URL, copy it using Ctrl C, and then paste it into your Notepad file with Ctrl V. Repeat this process for each URL until you have a total of five.
+
+Now, you can see that I have my five page URLs listed. Each one corresponds to a different variant of the page. For example, the last URL includes the word "his" in the headline, matching my male hero shot, while the others feature female hero shots, except for the control, which also has the male hero. With all the URLs gathered in this file, make sure to save it in a location where you can easily find it. We’ll use these URLs shortly in our DIYTrax campaign.

@@ -1,0 +1,11 @@
+Title: Checking Your Metric Mover Page Variants
+Original Title: Metric Mover 11 - How to Check Metric Mover Page Variants
+Video ID: opcXFc3SMSBLIiGC
+
+---
+
+In this video, I'll show you how to check your Metric Mover page variants. As we saw in the last video, if you click this and go to that page, it may still appear blank. First, find the folder where you downloaded the embed code file. Inside, you'll find a document named file names.txt. Open that document, and you'll see a list of URLs. Copy one of these URLs and open it in a new browser tab. 
+
+When you paste in the URL, you'll notice it has a V tag at the end, indicating the headline and hero shot versions. If everything is working correctly, your advertorial will populate with headline version one and hero shot version one. Now, to check the other variants, change the V one in the URL to V two for the headline and hero shot. Hit enter, and you'll see your second headline variant and second hero shot variant. You can continue this process for headline three and hero three as well. 
+
+I won't check every single variant, but you can if you'd like to ensure they all work. It's important to verify that all headlines and hero shots display correctly. Additionally, take a moment to check the entire advertorial to ensure it looks good throughout. Don’t forget to verify that your DIYTrax T2 link is still working properly. Once you've checked the variants, you're ready to start using them.

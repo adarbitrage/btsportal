@@ -1,0 +1,11 @@
+Title: Submitting Your Banner Ad Assets to Compliance
+Original Title: Submit Ad Banner Split Test Media to Compliance
+Video ID: CQLHY815A5YYg9Gu
+
+---
+
+In this video, I'll show you how to submit your banner ad assets to compliance for a check before running them. Once you've gathered your banner ad assets, including your headlines and images, it's time to submit them. It's crucial to make this process as easy as possible for compliance. If you're mixing and matching headlines and images to create multiple variants, avoid sending all of them. For example, if you have five different headlines and one image, and you're creating three different sizes of banners, you don't need to send all 15 banners. Instead, just send the five headlines and the one image. Keep your images separate from your headlines to help compliance review them quickly.
+
+To submit your assets, go to your portal, navigate to resources, and select the compliance form. Fill out your name, email, and the product you're promoting. You have two options for submission: a Google Drive link or a creative zip file. If you choose Google Drive, create a new folder for your banner test, like "Skeeter banners test one demo." Upload your assets to this folder. For instance, you can have your headlines in a document and your banner image in the same folder. Make sure to share the folder with the settings set to "anyone with the link can view." Copy the link and paste it into the compliance form.
+
+Alternatively, if you prefer a zip folder, right-click on your files and select "send to compressed folder." Once zipped, you can upload it by dragging and dropping it into the compliance form. Remember to include a note indicating that these are banner ad headlines and images. If you have more than one image, make sure to use the plural form. This helps compliance understand that they are checking for banner ad compliance. Once everything is ready, click submit to send your assets off to compliance. Then, you can continue setting up the rest of your campaign while waiting for the green light to use your assets in advertising.

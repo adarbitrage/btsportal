@@ -1,0 +1,19 @@
+Title: Final QA Campaign Check
+Original Title: BTS Blitz - Traffic vid 8 Caterpillar Final QA 2025-10-20
+Video ID: naBc9EBCx7dXwY1Q
+
+---
+
+In this video, I'll show you how to perform a final QA campaign check to ensure everything is set properly before we go live. First, check your campaign name to confirm it's labeled appropriately. Next, verify the URL append token. Ensure there are only underscores separating the different parts, with no spaces, dashes, or other punctuation. Make sure the offer promotion is correct for your type; in this case, we are promoting an e-commerce product. Also, check that the traffic source, affiliate network, macro template, and macros are all correct.
+
+Click on the traffic source tab and go to the product. This should display your product. If you're experiencing any issues, don't worry unless it causes a problem later. It may just be a display glitch. For sub campaigns, ensure they are active and that the settings, including the daily budget, are correct. The start date should match your intended launch date. For example, if everything is ready, and the start date is set for tomorrow at 6 a.m., then you’re good to go.
+
+Next, check your ads. Make sure all ten ads are active and double-check your headlines for accuracy. Verify that the images and logos are displaying correctly. You can do a spot check on the duplicated ads to ensure everything looks good. Moving on to landing pages, confirm you have the appropriate number of active pages. You should have 25, all marked as active. If you need to change any to inactive, you can do so, but ensure they are set back to active afterward. 
+
+You should also have reviewed all five variations of headlines and hero images on your landing pages to ensure they display properly. At a minimum, check your links to confirm they point to the correct DIYTrax link. Ensure that other elements, like FAQs and notification boxes, are appearing correctly, and that the links on the buttons are also directed to DIYTrax. This is your minimum check, and you should have already QA'd this part.
+
+Next, check the offer pages to ensure your affiliate link is included and that it has your appropriate affiliate ref code at the end. Confirm that the share is set to 100% if there's only one link, or appropriately split if there are multiple links. Once everything looks good, return to the basic info section and toggle the campaign to live for tomorrow at 6 a.m. 
+
+After saving, perform a final test by copying the campaign URL to your clipboard and opening it in a browser tab. Check the link; if you see a blank white page, something is configured incorrectly. When the campaign is live, clicking the link should take you to the product page with your affiliate ref code at the end of the URL. If everything checks out, your campaign is ready to go live at the scheduled time. 
+
+Once the campaign is live, you can check the stats view to see traffic flowing through the campaign link. If configured properly, you should see a visit recorded on your offer page. That’s it! Your campaign is ready, and you just need to come back tomorrow to check if the traffic is flowing.

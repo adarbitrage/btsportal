@@ -1,0 +1,13 @@
+Title: Creating Your 9x16 Image with CropBot
+Original Title: BTS Blitz - Caterpillar RD2 vid 1 cropbot 9x16 image 2025-10-21
+Video ID: Q4bysJqru0ye7YHs
+
+---
+
+In this video, I'll show you how to prepare for round two testing by creating additional placements from our round one static image. We’ll start with the 16 by 9 image we used previously and create a portrait style 9 by 16 version, along with GIFs and movie files in both formats. This process will help us maintain the core concept from our headline test.
+
+To get started, access CropBot through the BTS resources in your browser. This extension app allows you to easily crop images. Once you have CropBot open, click on the upload image button to drag and drop your base image. For this example, I’ll use an image of a couple on a couch. 
+
+Next, we need to set the dimensions for our portrait style image. I’ll input 540 by 960, which is perfect for TikTok or Instagram Reels. After applying the dimensions, I’ll adjust the crop to focus on the woman in the image, ensuring we capture the essence of back pain. Once I'm satisfied with the placement, I’ll click the download button, which will save the cropped image as a zipped folder in my posture pillow.
+
+After downloading, I’ll unzip the folder to access my cropped image. You’ll see that it’s now in the correct 540 by 960 dimensions. Now we have our 9 by 16 image ready, along with the original 16 by 9 version. In the next video, I’ll show you how to turn these images into videos. This is how you can crop and create your 9 by 16 image using CropBot.

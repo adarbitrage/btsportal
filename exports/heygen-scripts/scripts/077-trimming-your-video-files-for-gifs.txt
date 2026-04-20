@@ -1,0 +1,15 @@
+Title: Trimming Your Video Files for GIFs
+Original Title: BTS Blitz - Caterpillar RD2 vid 3 trim vids adobe express 2025-10-21
+Video ID: NNWIOPItfJchgBkn
+
+---
+
+In this video, I'll show you how to trim down your video files before turning them into GIFs. If you've created your Grok Imagine video clips, you might have noticed that you can't control their length. These clips can range from six to fifteen seconds long. For example, this one is six seconds, and my 9x16 clip is also six seconds. Since these videos are a bit long, converting them into GIFs would result in large file sizes. We want to trim them down a little.
+
+I did a quick search for free software to trim videos. My go-to is Adobe Premiere, but that's a paid option and has a higher learning curve due to its complexity. You could also use Camtasia or Canva online, which work well. Another option is CapCut, available on both mobile and desktop. Other tools include iMovie for Mac users, Clipchamp, ShotCut, and OpenShot. There are plenty of options for trimming your videos.
+
+For this demonstration, I'm going to use the Adobe free video trimmer available at adobe.com/express/feature/video/trim. Let's open that up and drag and drop a video. I’ll bring in my 16:9 video created with Grok Imagine, and it will load up. Now, I’ll find the part of the video I want to turn into a GIF. I’m aiming for a two-second GIF, so I’ll select a section around there. We have a five-megabit file size limit for our GIFs, which gives us some room.
+
+Once I’ve selected the right portion, I can choose to mute the audio or keep it on. I’ll leave the volume on and click "Download." You’ll need to sign up for a free account to download the file. I already have an Adobe account, so I’ll sign in. If you don’t have an account, you can easily sign up using your email address. After signing in, the download will pop up, and I can save the trimmed video.
+
+To trim another video, I can go back to the Edit menu, select quick video actions, and choose "trim video." This will bring me back to the upload screen, where I can find the next two-second section to trim. Once I’ve selected that, I’ll download it, and it will save to my folder. That’s how you trim videos. In the next few videos, I’ll cover how to convert these trimmed clips into GIFs for our placements.

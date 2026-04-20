@@ -1,0 +1,19 @@
+Title: Optimizing Your Landing Page Base Copy
+Original Title: Optimize Landing Page Base Copy
+Video ID: 5L5xzma9KyGtrrrZ
+
+---
+
+In this video, I'll show you how to optimize the base copy of your landing page, whether it's an advertorial or a jump page. We want to ensure that all elements are set up correctly. Your DIYTrax T2 link should be included in every linked image, button, and text snippet based on the previous videos. 
+
+Now, let’s focus on the other elements of the page. For example, I have an advertorial for our Skeeter Strike device. It's important to get everything right on this first version of the advertorial. This way, when we duplicate the page for other variants or split testing, all the foundational elements will be correct, saving us time later on. 
+
+One key aspect to consider is the spacing of elements. Assess how much white space is being used. Do you want more or less? For instance, I prefer to reduce some white space, bringing the advertorial disclaimer closer to the top and minimizing the space between the headline and the following line. Also, check the relevance of any dates to ensure they don’t make the content seem outdated. Review the images, grammar, and formatting to ensure everything aligns with your vision. Look out for spelling and grammatical errors, and thoroughly audit the page to ensure it’s as polished as possible. 
+
+Once you’ve optimized the desktop version, it’s crucial to check the mobile view as well. In the editor, you can switch to mobile mode to see how the page looks. However, this view may not fully represent the mobile experience. If you're on a PC, you can use developer controls to get a more accurate mobile view. Look for the device icon, select responsive mode, and refresh the page. 
+
+One thing to note is that the hero shot should ideally appear above the fold without scrolling. If it’s not visible, you may need to adjust white space, font sizes, or line spacing. Long paragraphs can be daunting on mobile, so consider breaking them up for easier reading. You can also email the URL to yourself and view it on your phone to see how it appears in a real mobile environment. 
+
+As you make adjustments, remember to check the padding and spacing of elements. Reducing unnecessary padding can help bring your content closer to the top of the page. After making changes, save and publish them, then refresh to see the updates in the mobile view. Your goal is to ensure that the hero shot and key elements are visible without scrolling. 
+
+Finally, toggle between desktop and mobile views to ensure that both versions look good. Remember, you have separate controls for styling and formatting on desktop and mobile, so take advantage of those to create the most effective landing page for your campaigns. Get this base page set up perfectly, and don’t forget to double-check everything.

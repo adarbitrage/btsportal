@@ -1,0 +1,11 @@
+Title: Placing Your Affiliate Link in DIYTrax Campaign Offer Pages
+Original Title: DIYTRAX Traffic 4 - Place Affiliate Link in DIYTrax Campaign Offer Pages
+Video ID: Ww1AGI7nyxcagXbV
+
+---
+
+In this video, I'll show you how to place your affiliate link in your DIYTrax campaign. First, open your DIYTrax and navigate to the offer pages tab. You may notice that there are no offer pages at the moment. To get started, we need to grab your affiliate link by going to the resources section and selecting affiliate networks. 
+
+If you're running MediaMavens, you'll find your link there. In this example, we are using MediaMavens for the Skeeter Strike product. Click on that, and you'll see the affiliate link. Copy the link using Control C. Then, return to DIYTrax, click to add a new link, and paste it using Control V. Make sure to include the ref code at the end of the URL. Remember, your affiliate code will be a unique string of letters and numbers, different from the one shown here.
+
+Next, give this link a name, such as "Skeeter e-com page." Since we only have one product link, it will receive 100% of the share. Turn the link active and click to add it. Now, your affiliate link is successfully added to your DIYTrax campaign. If you were promoting a ClickBank offer, you would need to get your hop link that directs to the VSL page, which includes your ClickBank affiliate ID. In this case, we have successfully added the MediaMavens link. That's how you add your affiliate link to your DIYTrax campaign.

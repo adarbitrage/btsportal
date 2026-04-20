@@ -1,0 +1,15 @@
+Title: Creating Split Test Variants for Your Advertorial
+Original Title: Creating Split Test Variants for Your Advertorial
+Video ID: npa9BTczoHRfrX7D
+
+---
+
+In this video, I'll show you how to gather your split test variant marketing assets for your advertorial. We'll refer back to our diagram, where we have our e-commerce product page that these advertorials will direct traffic to. The goal is to pre-frame and pre-sell customers on making a purchase. We've provided you with advertorials that have proven to work. While they may not be perfect, they are effective. As an affiliate, it's essential to create proprietary marketing materials that set you apart from others.
+
+We've given you a base template for the advertorial, which has successfully generated purchases in past campaigns. However, there's a lot you can do to enhance the performance of your advertorial through testing. The two key elements to focus on are the headline and the hero shot. The headline has the most significant impact on click-through rates to the product page and ultimately on sales. The hero shot, which is the large image that appears right under the headline, is the second most crucial factor.
+
+To start, I recommend creating a minimum of five different headline variants and five different hero shot variants. This will give you a total of 25 landing pages to test. You can set this up in Metric Mover or create individual pages, pairing specific headlines with specific hero shots in Flexi. There’s no one right way to do this, but you want to ensure that you’re testing new headlines and hero shots to find a combination that outperforms the original.
+
+For your testing, gather your headlines and hero shots. You can run the existing headline as your control since it has been tested and proven effective. Your goal is to create a new headline that surpasses this one. Similarly, find alternative hero images that you believe could perform better. To generate ideas, read through the advertorial and identify key points, pain points, benefits, and personal stories that could resonate emotionally with your audience. Also, analyze the product page for unique features and benefits that might not be highlighted in the current headline or hero shot.
+
+When collecting your hero shots, aim for a standard size of 800 by 500 pixels. For now, focus on gathering your headlines and hero images. You can save them in a document or a folder. Once you have your assets ready, we’ll move on to the technical setup for implementing these on your landing pages for split testing.

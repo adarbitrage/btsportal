@@ -1,0 +1,17 @@
+Title: Creating Your Landing Page Base Copy
+Original Title: CB LP Create Your Landing Page Base Copy
+Video ID: d_NxBgCWQdZ93_eU
+
+---
+
+In this video, I'll show you how to edit your cloned landing page using the copy we have in our project overview. First, let's swap out the existing copy on the page. I'll start with the headline "toxic liver sludge." I'll copy that and paste it into the editor. Now that we have our headline, we need a subheadline. I'll grab that next, paste it in, and bold it. I’ll adjust the size to around 20 to ensure it fits well without spilling over into extra lines.
+
+Next, let's add the main text. I’ll paste that in and make sure to include line breaks for better readability. We can remove any unnecessary elements, like the quote, since we don’t need that in our version. Now, I’ll copy the bullet points one at a time using Control-Shift-V to paste them in. I’ll also include the text "no dieting, no exercise, no restrictions," and I’ll select an appropriate icon for each point, changing the color to red for emphasis.
+
+Now that we have our bullet points set, let's add the call to action, "Watch the shocking video now." I’ll paste that in and decide to remove the button and divider that weren't part of our template. After saving the page, I’ll check the content and update the SEO data to ensure everything is optimized.
+
+Next, I want to preview the page in mobile view to confirm that everything looks good. The call to action "tap now to watch" is fine for mobile. Everything seems to be displaying correctly, so I’ll publish the page and review it in both desktop and mobile modes. In desktop mode, I’ll check the headline, subheadline, and hero shot. I might adjust the hero shot size to fill more space.
+
+I’ll also refresh the page to see if the layout looks more natural. The line spacing between elements is important, so I’ll make sure it’s consistent. I noticed some blue dots in the editor that I want to change to green checkmarks for a cleaner look. I’ll adjust the bullet points accordingly and publish those changes.
+
+Finally, I want to ensure the spacing and font sizes are appropriate for both desktop and mobile views. I’ll make minor adjustments to the font size and margin to improve the overall appearance. Once I’m satisfied with the layout, I’ll upload our hero shot to complete the page. Everything is looking good, and we’re ready to move forward with this base for our landing page.

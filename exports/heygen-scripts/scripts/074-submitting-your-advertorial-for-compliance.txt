@@ -1,0 +1,21 @@
+Title: Submitting Your Advertorial for Compliance
+Original Title: Submit Advertorial Split Test Media to Compliance
+Video ID: tWzQjINBDVzCdNiw
+
+---
+
+In this video, I'll show you how to submit your advertorial or landing page split test assets for a compliance check. This ensures that you can run the marketing materials you've prepared. If you have your headlines and hero shots ready, we'll gather those and submit them to compliance to get approval before launching your campaign.
+
+Start by logging into your BTS portal. Hover over the resources tab and select the compliance form. This will take you to the submission page for your creative review. Fill out the form with your name, email, and the name of the offer you're promoting. You'll have two options for submitting your materials: creating a Google Drive link or uploading a zip file.
+
+For the Google Drive option, create a folder in Google Drive. I've named mine "Compliance Demo." Inside, create a new folder for your specific test, like "Skeeter Advert Split Test One." Name it clearly so you can easily identify it later. Place your headlines and hero shots in this folder. You can create a notepad document for your headlines, copy them in, and save it as "Skeeter Advert Test 1 Headlines." Then, drag and drop your images into the same folder.
+
+Once everything is in the folder, click on the folder and select "Share." Change the access settings so that anyone with the link can view it. Copy the link and return to your compliance submission form to paste it in. Ensure you check the box confirming that you've shared the correct folder access with the compliance team. In the notes section, mention that this is for your "Skeeter Strike first campaign, Advertorial Split Test of headlines and hero shots."
+
+If you prefer to upload a zip file instead, create a new folder called "Compliance," and drag your headlines and hero shots into that folder. Right-click on the folder and select "Compressed (zipped) folder." This will create a zip file, which you can then drag and drop into the submission field.
+
+Remember, you only need to choose one submission method. If you submit a Google Drive link, you don't need to upload a zip file, and vice versa. Make sure to fill out the form completely, including your first name, last name, email, and the name of your offer. Indicate whether you're sharing a Google Drive link or uploading a zip file.
+
+It's crucial to specify that this submission is for your advertorial or landing page, as compliance checks differ for landing pages compared to ad banners. The compliance team needs to know they are reviewing landing page assets, which typically have a lower compliance bar than ad banners.
+
+Once you've completed the form, hit submit and wait for a response from compliance before running your assets live in a campaign. In the meantime, you can proceed with the next steps of setting up your campaign while waiting for the review.

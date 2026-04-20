@@ -1,0 +1,11 @@
+Title: Setting Up Your Flexy Page for Metric Mover
+Original Title: Metric Mover 7 - How to Set Up Flexy Page for Metric Mover Code
+Video ID: l3ZCFRzfQ40LLkCp
+
+---
+
+In this video, I'll show you how to set up your Flexy base page for your Metric Mover test. This page will host the code from your Metric Mover project. First, navigate to your site where you plan to run live, and locate the advertorial page you previously used in Metric Mover. Click the blue "Add New Page" button at the top and give your new page a name. I've named mine "This Device Prevents Mosquito Bites." Now, let's create this new page.
+
+Scroll down and choose to create from blank. Once your builder opens, it will prompt you to add a section. Go ahead and add a full-width section, then create a one-column row. Next, we need to add an element. Scroll down and select the code element. With that selected, you'll see the option to open the code editor. For now, this setup is good, so let's save the page.
+
+After saving, the last thing we need to edit is the SEO metadata. In the content section, enter the title and update it to match the URL. I've updated mine to "This Device Prevents Mosquito Bites," which is benefit-driven. Save this, and in the next video, I'll show you how to retrieve the code from your Metric Mover project to insert into this page.

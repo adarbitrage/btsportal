@@ -1,0 +1,13 @@
+Title: Cloning Your Flexy Website
+Original Title: Clone Flexy Website
+Video ID: IzMEPS8WJNNDkGyI
+
+---
+
+In this video, I'll show you how to clone the template website in Flexy so you can set up your landing pages on your own site. First, log into your Flexy account and locate "Sites" in the left-hand navigation. Click on that, and it will default to "Funnels." You want to click on "Websites" next to it. 
+
+In the "Websites" section, you may see a couple of folders: Cutting Edge and Consumer Watchdog. If you're running gadgets, you might want to set up in the Cutting Edge folder. For health products like weight loss, beauty, or supplements, you'll want to go into the Consumer Watchdog folder. Inside, you may see multiple versions or just one, depending on when your account was created. Look for the latest version that says "Copy Me." We'll take the Consumer Watchdog 2.40 copy me. Click on the three dots on the right-hand side and select "Clone."
+
+Next, you'll need to name your clone. You can use your name or any name that helps you identify this website for your campaigns. Once you've named it, hit "Confirm," and it will start cloning the website for you. You'll see a notification at the top that says "Cloning in progress." If you refresh the page, you'll see the number of pages increase. It will eventually reach 34 pages, which are in the initial template. 
+
+Once the cloning process is complete, you'll be ready to set up your landing pages. That's how you clone a template website to create the site from which you'll run your live landing pages for your campaigns. In the next video, I'll show you how to add and attach a subdomain to your website for your landing pages.

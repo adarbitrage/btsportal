@@ -1,0 +1,11 @@
+Title: Finding Your Metric Mover Code File
+Original Title: Metric Mover 9 - How to Find Metric Mover Code File
+Video ID: IOpVmngKoubVwHpD
+
+---
+
+In this video, I'll show you how to find the code file you'll need for your Flexi page from the Metric Mover download. First, I have this zip file exported, and we want to extract all the files within the Metric Mover zip. If you're on a PC, right-click and choose "Extract All," then select where you want the files to be extracted. 
+
+Once extracted, you'll see a folder, which in my case is called Demo Skeeter. Inside this folder, you'll find the file labeled embedcode.txt. This is the file we need. Open it up, and you'll see the code we will use for our Metric Mover project. 
+
+That's it! You've located the correct file, embedcode.txt. In the next video, I'll show you how to take that code and place it in your Flexi page.

@@ -1,0 +1,17 @@
+Title: Cloning Your Base Jump Page
+Original Title: CB LP Create More Jump Pages Clone Base
+Video ID: ETL0gW5DNpMWfgUp
+
+---
+
+In this video, I'll show you how to clone our base jump page, which serves as the foundation for creating different variants of our landing page. I have ten angles and ten different landing pages to create, but we’ll focus on making just one additional copy in this video. You can then follow the same process to create the remaining eight pages for your ClickBank product.
+
+First, ensure your base copy is fully optimized. Check that all the links are correct, the font sizes are appropriate, and the styling of the text, bullet points, emoji lists, and buttons looks good on both desktop and mobile. This step is crucial because if we get it right the first time, we can save ourselves a lot of extra work when we clone the page and input text and images for the other copies. 
+
+I have my base page set up and looking good. Now, I’ll find this base copy, which is focused on liver sludge, and rename it to reflect that. In the settings, I’ll update the name to "Hepato Burn Liver Sludge" since that’s our angle. Now, I’ll clone this page for our second angle, which is the French paradox. This angle highlights why French women can eat croissants daily and still stay skinny, and it’s not due to genetics.
+
+Now that the page is cloned, I’ll go into the settings and rename it to reflect the French paradox. I’ll update the headline to match our angle, and then it’s a simple matter of changing out the elements. I’ll start with the headline, copy it, and paste it in. Next, I want to change the hero shot to the GIF for this landing page. Once it’s uploaded, I can insert that media, and it should switch out correctly.
+
+Now, I’ll make some adjustments to the text and bullet points to align with our new angle. I’ll change the icons and colors to fit the theme better. After updating the content, I’ll ensure that everything is in place, including the call to action and the PS line. Once I’m satisfied, I’ll save the changes and update the SEO data to match the new headline.
+
+Finally, I’ll publish the page and check it to ensure everything looks good. The new page should reflect the French paradox angle, and all the text and formatting should be correct. To create the other landing pages, simply repeat this process: clone the base page, insert the new copy, modify the name and URL, and do that eight more times to complete all your pages for your ClickBank product.

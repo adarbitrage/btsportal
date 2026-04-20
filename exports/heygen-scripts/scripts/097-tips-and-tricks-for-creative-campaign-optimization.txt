@@ -1,0 +1,15 @@
+Title: Tips and Tricks for Creative Campaign Optimization
+Original Title: tips and tricks 4 (1)
+Video ID: sugpfpVtoqSG95t6
+
+---
+
+In this video, I'll show you a campaign that's performing well in Caterpillar and how you can optimize it with a bit more creativity. Today is September 26, 2025, and we’ve seen three sales from the Bark Chester campaign. I spent $2.55, resulting in an $85 CPA, with two of those sales coming from one video featuring a cute puppy. This video stands out because it transforms a regular image of a dog into a cartoon-like effect using Grok Imagine. This particular video has two sales at a $20 CPA, making it profitable.
+
+It's essential to analyze how long this ad has been running to determine its true CPA. So far, it has spent $92 for two sales, making it the best performer among the group. While several ads are doing well, let's focus on this winning image. All the ads use the same headline, but this image is clearly outperforming the others. To capitalize on this, you should create variations of this video that are more eye-catching.
+
+One effective method I found involves using an AI tool called Quinn. This Chinese AI excels at making small edits to images. Let me show you how it works. First, I’ll upload the original image into Quinn and make some modifications. You simply go to the image edit section, upload the image, and select it. Now, let’s enhance this image to make it pop. One option is to change the dog's eye color to something unusual, like green. 
+
+As I make this adjustment, you’ll see how quickly Quinn processes the change. The result is a perfect image with green eyes. Next, I would take this modified image and upload it into Grok Imagine to create a new video. After uploading, Grok will apply the cartoon effect to this image, and now we have a new video featuring our dog with green eyes. I would download this video and upload it directly into Caterpillar for testing.
+
+Out of curiosity, I’ll return to Quinn to see what happens if I add longer hair to the puppy. After making that adjustment, we can also experiment with changing the dog's fur color to white. The transformation is impressive, giving us a striking image with white fur and green eyes. There are countless possibilities with Quinn and Grok Imagine, and I highly recommend using these tools to enhance your campaigns. They have been incredibly effective for me recently.

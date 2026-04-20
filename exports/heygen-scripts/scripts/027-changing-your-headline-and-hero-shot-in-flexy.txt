@@ -1,0 +1,15 @@
+Title: Changing Your Headline and Hero Shot in Flexy
+Original Title: Cloned Flexy 3 - How to Change The Headline and Hero Shot
+Video ID: dm_m3OIGanqB3lEC
+
+---
+
+In this video, I'll show you how to make initial edits to your new page variant by changing the hero shot and the headline. First, locate the second variant edit in blue toward the bottom left of the card and click on it to open the page editor. Once the editor loads, you'll see your headline at the top. When you hover over it, an orange box will appear. Click into that box to change the headline. 
+
+To update the headline, simply copy your new variant and return to the editor. Select the existing headline and paste in your new text using Control Shift V to maintain the same formatting. Now, let's move on to the hero shot. Click to select the hero shot, and in the far right bar, you'll find the image URL under the image dropdown. If this section is collapsed, click the arrow to expand it. 
+
+To change the image, click the little image icon on the right. You can upload your files by dragging and dropping them into the main media bin or by creating a folder to keep things organized. Once your image is uploaded, click on it to ensure the blue check mark appears. Then, click the insert media button in the bottom right corner, and you should see the image swap out. 
+
+Now that we've updated the headline and the hero shot, remember to click the save icon that looks like a floppy disk. This saves your changes internally but does not publish them to the live page. To reflect these changes at the page URL, click the publish button. After publishing, you can click the URL at the top to open the page in a new tab. You should see the new headline and hero shot, while your control page will display the original elements. 
+
+That's how you make, save, and publish those initial edits to your landing page. In the next video, I'll show you how to make further edits to this landing page.

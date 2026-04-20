@@ -1,0 +1,15 @@
+Title: Adding Landing Pages to Your Campaign
+Original Title: BTS Blitz - Traffic vid 5 Caterpillar Landing Pages 2025-10-20
+Video ID: XNSADlU_X2LImwbV
+
+---
+
+In this video, I'll show you how to add landing pages to your campaign if you haven't done that yet. Once you've finished with the ads and the traffic source tab, head over to the landing pages tab. I won't cover all the details here, but there is a video on MetricMover that explains how to use the MetricMover split test. If you're using individual Flexy landing pages as your variants, you'll need to enter the individual URLs. There are also additional videos for that.
+
+For this setup, I've got a MetricMover file that includes the tracks import for MetricMover. We'll click on "upload CSV," choose the file, and open it. I've already extracted my MetricMover project, so here’s my tracks import. After clicking open, I’ll upload it, and it should upload all my landing pages, showing 10 of 25. Let me display all 25 of them. There they are!
+
+You can test these by copying the URLs and pasting them into a browser. Make sure to check your different variants, headlines, and hero images to ensure everything appears correctly. Also, double-check your links, especially the T2 link in the bottom left corner. There are specific videos for your DIY tracks and landing page setup that cover this in detail, but I'm just giving you a brief overview.
+
+I’m checking my landing page to confirm that it’s working properly. The share percentage looks good at 25 over 100 percent, which is 4 percent. If the percentage seems off, you can click "set equal share," and it will evenly distribute the share percentage across all active pages. Since this is our first set of 25 pages, everything is set to active with the correct percentage share. I've verified the URLs in a browser tab, and they are working as expected.
+
+Now that I've added my landing pages to the campaign, in the next video, we'll add our offer page URL with our affiliate link. I've already shown you how to get your affiliate link, whether it's for a MediaMavens product or a ClickBank product. This will depend on your affiliate network and what you're promoting. We'll cover that in the next video.

@@ -1,0 +1,19 @@
+Title: Using the P&L Tracker
+Original Title: p and l tracker
+Video ID: hy_gSU76KYzDBu5u
+
+---
+
+In this video, I'll show you how to use the P&L tracker, which stands for profit and loss tracker. This simple spreadsheet helps you keep track of your media buys. On the resources page, hover over the resources nav item, scroll down to the bottom to "other resources," and you’ll find the P&L tracker as the first tab. You can download it from there, and you can also watch this training video again.
+
+First, let’s download the tracker. Click on download, and it will take you to a page where you need to make a copy for yourself. We don’t want you editing the master file, so click on "make a copy." Give it a moment, and it will open up for you. You’ll see three tabs at the bottom. The totals tab gives you a high-level view of the month, the charts tab shows different metrics like ad spend, clicks, revenue, sales, and net profit, and the third tab is where you’ll input your data.
+
+To change the date, click on the drop-down arrow and rename it to the current month. For example, if it’s October 2024, click outside to deselect. Notice that the heading doesn’t change yet. You need to edit the first cell at the top in navy blue, which currently shows 8-1-2024. Change that to 10-1-2024, and when you click outside, the dates for the entire sheet will update to reflect October.
+
+If you want to see the October numbers in the totals tab, go back and select the radio box to refresh. Now, let’s input some dummy data to see how it looks in the other tabs. For ad spend on October 1st, let’s say we spent $456. On October 2nd, we spent $856, and on October 3rd, $756. For clicks, let’s say we got 358, 642, and 602, respectively. For sales, we’ll say we had two, four, and five sales. You can make up the revenue numbers too. After entering the data, go to the totals tab and hit update to see the metrics for October.
+
+If you’re running traffic from another source, you can add that data in the next traffic source section. You can track as many traffic sources as you need. Remember, everything in gray is a calculation, so only input data in the white cells. If you finish October and want to start November, duplicate the October tab and rename it to November. Change the date in the first cell to reflect November, and the dates will update across the board.
+
+Now you can input your November data. To see the totals for November, go back to the totals tab and select the radio box for November. In the charts tab, you’ll see October and November data side by side, which is helpful for visualizing your performance. 
+
+To summarize, do not edit any of the gray cells; only input data in the white cells. This tracker will be a lifesaver for managing your media buying. I hope you find it helpful and use it every day to stay on top of your numbers.

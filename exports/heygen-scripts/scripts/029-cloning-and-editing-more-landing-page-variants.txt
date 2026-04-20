@@ -1,0 +1,13 @@
+Title: Cloning and Editing More Landing Page Variants
+Original Title: Cloned Flexy 5 - Cloning and Editing More Landing Page Variants
+Video ID: RgUYPGwKILAZmjXw
+
+---
+
+In this video, I'll show you how to clone and create additional landing page variants after you've edited your first one. When working on variant number two, including your control, it's important to be strategic. For instance, we have our variant two with a female avatar for the hero, and we've changed the pronouns and name to match. Our original has a male hero, so when we clone the pages, we want to choose the variant that aligns best with the next landing page we’re creating.
+
+For example, I have three female hero shots and one male. When I create hero three and hero four, I want to ensure they all have the female pronouns and name already in place to avoid duplicating that work. Similarly, for the male hero, I’ll duplicate my original page to keep the male name and pronouns intact. Since my next page will also feature a female hero, I’ll clone my V2 page, which has the female hero and the adjusted pronouns.
+
+Being strategic in your cloning process can save you a lot of effort. While it doesn't matter which page you clone, using the copy that’s closest to what you’re testing will streamline your work. I have a total of five landing pages to create, including my control and four additional variants. You might have up to ten pages, each with different angles, body text, headlines, and hero shots. If that's the case, go ahead and create those variants.
+
+I recommend cloning your current optimized page and then swapping out elements to achieve your next variant. I’ll create all the variants now, and then I’ll show you how to gather the URLs for these pages, so they’re ready for our DIY tracks campaign.

@@ -1,0 +1,17 @@
+Title: Creating Effective Headlines with Claude
+Original Title: BTS Blitz - Native Ads vid 1 Headlines w Claude 2025-10-20
+Video ID: kGngLSKBOavGIsQs
+
+---
+
+In this video, I'll show you how to use Claude to generate headlines and descriptions that fit within a 90-character limit, incorporating dynamic content macros in the Caterpillar advertising platform. These macros include the viewer's state, city, current year, month, day of the week, today's date, and operating system. This information personalizes the ad for the viewer, making it more engaging.
+
+For example, if someone is in Portland, Detroit, or Chicago, we can include their city name in the headline. This grabs their attention because it feels relevant to them. While the operating system might not be crucial for all ads, it can be useful for software or app-related products. You can gather headline ideas from sources like affiliate CMO or freeadcopy.com, or you can use Claude or ChatGPT with specific prompts to generate copy. However, I find that Claude tends to produce better results with less effort.
+
+I've prepared some headline ideas, but you can also give Claude your source materials if you don't have any ready. I want to see where we can incorporate these macros into my existing headlines. For instance, I've already included a city name in one of my examples: “This hip reset pillow eliminates morning back pain while you sleep.” Now, I’ll ask Claude to generate ten native ad headlines and one description, each with a maximum of 90 characters, including the macro tokens.
+
+Once I provide Claude with the necessary links and my headline examples, it will analyze the content and generate the requested headlines and descriptions. Claude is quite capable of incorporating the dynamic macros effectively. For example, it might create headlines like “Attention Ohio side sleepers” or “Oregon PT's pillow ends morning stiffness fast.” 
+
+After generating the headlines, I’ll ask Claude for variations and its analysis of which ones are most likely to convert. I’ll also request a recommended description that aligns with the top-performing headlines. Claude will provide insights based on its analysis, and I’ll review its suggestions to ensure they resonate with our target audience.
+
+This process demonstrates how to leverage Claude to create compelling headlines and descriptions for your Caterpillar native ads while effectively using dynamic macros.

@@ -1,0 +1,21 @@
+Title: Creating Your First Native Ad
+Original Title: BTS Blitz - Traffic vid 3 Caterpillar First Ad 2025-10-20
+Video ID: 3lY7zNbR7seJZDYd
+
+---
+
+In this video, I'll show you how to create your first native ad in our caterpillar campaign. Once you have your sub campaign set up and ready, click on the ads tab. If this is your first ad, you'll see a "create new" button. Go ahead and click that.
+
+Now, we need to fill out the information for this ad. I recommend having everything handy, like a plain text document with your offer page, advertorial, headlines, ad names, and descriptions. You'll see me copy and paste from that document. I also have my 16 by 9 image ready, which is a couple on a couch holding their lower backs. Having all your assets organized will make this process smoother.
+
+The first step is to select your sub campaign. We’ve only set up one, so select the correct one and enter your ad name. I like to number my ads and name them based on what I'm testing. For this ad, I’ll label it 0001, focusing on the headline. My first headline is "City This Hip Reset Pillow." I’ll enter that now. Since this is an image ad, make sure to select the image ads option, and you’ll notice some fields change.
+
+The dynamic content options below the headline allow you to pull in variables like state, city, year, and month. We’ve already set this up in a previous video, so the city is already populated. Next, I’ll choose my image file by clicking and selecting the image from my computer. You’ll see a preview of the couple holding their backs.
+
+For the description, I have one that Claude helped me with, and I’ll use that. The dynamic city information is already included, so I won’t need to add anything else. For the button text, I recommend using "learn more," as it works well. For the brand name, enter the product name, which in this case is "posture pillow." 
+
+We also need to upload a logo file. This should be a square image, ideally 40 by 40 pixels, with a maximum size of 5 megabits. I’m using a small favicon logo for this. You can find these logos in the product cards on the MediaMavens portal. To download the official logo, log into MediaMavens, go to resources, then affiliate networks, and scroll down to find the product cards.
+
+Now that we have everything filled out—sub campaign selected, ad name entered, image uploaded, description added, button text chosen, brand name in place, and logo uploaded—we can click save. We’ve successfully created our first ad. You can click OK on the notification or just leave it alone. 
+
+In the next video, I’ll show you how to create additional ads for this sub campaign and continue testing headlines.

@@ -1,0 +1,11 @@
+Title: What You Need for Cloned Flexy Page Test
+Original Title: Cloned Flexy 1 - What You Need for Cloned Flexy Page Test
+Video ID: vVV94Tpe4UmcL7GK
+
+---
+
+In this video, I'll show you what you need to have ready if you're going to run a split test using cloned Flexy landing pages. First, you'll need your optimized advertorial, bridge, or jump page—whatever landing page you're using. Make sure you have the optimized copy set up as discussed in the previous video on optimizing your landing page base copy. This will save us a lot of work when we clone the page and create different variants.
+
+Next, gather the assets you'll use for your split test. This includes any headlines you're testing, additional leads, body copy, or other elements. If you have hero shots to include, have those in a folder ready to upload. Any other elements or assets you plan to add to the pages for testing should also be available and easily accessible.
+
+In summary, you'll need your Flexy account open, your base optimized advertorial, and any text or images you may want to add to your split test pages. That's all you need to have ready. In the next video, I'll show you how to clone your current base optimized landing page and begin editing it.

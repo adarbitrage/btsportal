@@ -1,0 +1,13 @@
+Title: Adding Your Affiliate Link to the Offer Page
+Original Title: BTS Blitz - Traffic vid 6 Caterpillar Offer Page Link 2025-10-20
+Video ID: 1lik1clDM551O3IN
+
+---
+
+In this video, I'll show you how to add your affiliate link in the offer pages tab. First, navigate to the offer pages if you haven't done so already. I have my link saved in a document, so I’ll copy it now. Click "Add" and paste the URL here. This URL is for the product page on Shopify, and at the end, it includes a question mark followed by your affiliate reference code. 
+
+For this example, I’ll label it "pillow relief" because I’m testing different pages for posture pillows. You might only have one offer page, but as we release more variations, you may have additional ones. It's important to name it clearly so you know which offer page you're working with. Since this is the only one I'm running, I’ll click "Add." 
+
+Make sure the URL matches what you see on the product page. For instance, you should see "products/relief" at the end of the URL, which should align with what you have. You can find your reference code in your MediaMavens account or from the offer cards in the BTS portal. Remember, the reference codes vary not just by affiliate but also by site and product. It’s crucial to use the correct affiliate reference code at the end of your URL to ensure you receive credit for any purchases, and that they post back into DIYTrax for you.
+
+Once your offer page has the affiliate link and reference code, you’re set. If you’re promoting a ClickBank product or one from another affiliate network, the URL and affiliate reference code will look different. If you’re not using MediaMavens, you’ll need to obtain your links from your affiliate network, as they won’t be available in the BTS portal. That’s it! We’ve added our offer page link, and now we just need to do a final check on the campaign to ensure it’s funded and ready to go live.

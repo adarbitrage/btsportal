@@ -1,0 +1,13 @@
+Title: Adding Landing Page Variant URLs to Your DIYTrax Campaign
+Original Title: Cloned Flexy 7 - Adding Your Landing Page Variant URLs to Your DIYTrax Campaign
+Video ID: Wxzys0K7kkonlcJH
+
+---
+
+In this video, I'll show you how to add your landing page variant URLs to your DIYTrax campaign. First, open your DIYTrax and navigate to the campaign you've set up. In this case, I'm using my Skeeter Stripe demo. Once it opens, go to the landing page tab and click on it. You'll see an add button; click that.
+
+Now, have your file with the landing page URLs ready. Copy the first URL and paste it in. You can see the entire domain here. For this one, I’ll name it Skeeter LP1. Set the share percentage, which will be evenly divided across all your landing pages. Since I have five, each will get 20%. You can adjust this as needed or enter a random number and set equal share later. Make sure it's active, then click add.
+
+Now that we have our first landing page, click the add button again to add the second one. Highlight, copy, and paste the second URL, then name it, set the share percentage, mark it active, and click add. Repeat this process for the third, fourth, and fifth URLs. 
+
+Once you've added all your landing pages, you'll see them listed here. If you have different share percentages or if they aren't evenly distributed, you can upload them all and click the button to set equal share. If any of your landing pages are inactive, you can click on them to activate them. Now that we’ve added all the landing pages, they are ready for your DIYTrax campaign. We still have a few other configurations to complete before we're fully ready to run, but the landing pages are all set.

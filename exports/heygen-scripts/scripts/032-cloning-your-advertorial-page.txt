@@ -1,0 +1,11 @@
+Title: Cloning Your Advertorial Page
+Original Title: Cloning Your Advertorial Page
+Video ID: UVFmPFn1iBXFAx2w
+
+---
+
+In this video, I'll show you how to find and set up the correct advertorial for your chosen product, Skeeter Strike. First, log into your Flexy account. Click on "Sites" in the left-hand navigation, then select "Websites" in the top navigation. Since we're focusing on gadgets, navigate to the cutting edge section where you'll find the most recent version. Remember, we cloned the latest version and named it for easy recognition. 
+
+Scroll down to the bottom to locate the most recent advertorials. You'll see older advertorials at the top, but we want the new ones, which will be labeled as advertorial. Once you find the Skeeter Strike advertorial, click on the three dots next to it and select "Clone." Then, click "Clone Page" in this website. 
+
+Now, scroll down again to find your newly cloned Skeeter Strike advertorial. To make it easily recognizable, you can rename it. Remove any unnecessary numbers from the URL to ensure it’s unique, and then update it. You can now preview your base advertorial, which is almost ready to go. There are a few more configurations needed to finalize it. Once we have the advertorial cloned in our account, we’ll start creating the split test variants, which I’ll cover in the next video.

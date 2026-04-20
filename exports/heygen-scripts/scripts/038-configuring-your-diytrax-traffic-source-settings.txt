@@ -1,0 +1,17 @@
+Title: Configuring Your DIYTrax Traffic Source Settings
+Original Title: DIYTRAX Traffic 1 - Configure Traffic Source Settings
+Video ID: _QkVr3PU41rShKMG
+
+---
+
+In this video, I'll show you how to configure your traffic source settings for your initial DIYTrax campaign. First, navigate to your campaign in DIYTrax and load the basic info. Next, go to the second tab, the traffic source. Here, you'll find the top configurations. You might see some notices, but if your balance is low in the response Brolodex phase 2, you can ignore that for now. We can still set this up without any issues.
+
+You'll see instructions to fill out the form, click save, and upload at least one asset. You can save your information and assets and update them later. For the native ad type, you need to add at least one headline in the headline section. While we won't use the native ad type for this step, we will fill out the form at the top and save it before uploading banners in the next step.
+
+At the top, choose your offer. We’ve selected MediaMavens in the basic info, and I’ll choose the Skeeter Strike product. The ad type here is display, not native, since we have created banners. If you have a single banner type, select that size. If you have multiple sizes, like I do, click on multiple. Make sure to hold down the control key on your keyboard to select all the sizes you have. For example, if you have sizes 300 by 250 and 970 by 250, select both. If you have all three sizes, ensure all are selected.
+
+Now, let’s move to the daily budget section. A daily budget of $500 is great for our initial test, with a total budget minimum of $1,500. You can spend more, but you cannot change or alter your campaign until it spends that initial $1,500. After that, you can adjust the campaign and spend smaller amounts on later tests. For this first run, we need to stick to that $1,500 minimum. The daily budget of $500 will run across three days, which is perfect.
+
+Regarding cost per click, you can edit this. Bidding more can lead to more exposure and faster traffic flow. The minimum is $0.75, but you could increase it if you want. I’ll leave mine at $0.75. Once you’ve filled out the form correctly, click save. You should see a notification at the top confirming that your traffic info has been saved successfully. 
+
+In the next video, we will upload our ad banners.

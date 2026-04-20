@@ -1,0 +1,17 @@
+Title: Creating Effective Hero Shots for Your Campaigns
+Original Title: Hero Shots CB Training
+Video ID: mnXnIt0RXtAMNc2l
+
+---
+
+In this video, I'll show you how to create effective hero shots for your campaigns. A hero shot is an impactful image that captures attention, and while there's no strict size requirement, I recommend using an aspect ratio that works well visually. A good starting size is 800 by 500 pixels, which I find works best for my projects.
+
+For our example, we're promoting Java Burn, a coffee hack product. The images we select for our hero shots should reflect the coffee theme. I recommend using GIFster to find suitable images. Start by searching for terms like "coffee hack" or "coffee filter hack." Look for videos that have minimal text or branding, focusing instead on the coffee itself. If you find a video that looks promising, copy its URL and paste it into GIFster to add it to your queue.
+
+Once you have your videos queued, you can select the dimensions for your GIFs. The 800 by 500 size is ideal for landing page hero shots. Keep in mind that the length of the GIF affects the file size; I suggest keeping them to one or two seconds to stay under the two-megabit limit.
+
+After generating your GIFs, you'll have a variety to choose from. Look for images that are visually appealing and avoid using faces or text, as these can detract from the overall impact. Aim to gather around ten strong hero shots to start your testing.
+
+When it comes to editing your GIFs, you can use tools in GIFster to remove frames or adjust the speed if needed. This allows you to refine your images further and ensure they meet the size requirements. Once you're satisfied with your selections, upload them to your media storage in Flexy.
+
+Finally, remember that testing is key in digital marketing. The more variations you create and test, the better your chances of finding that winning combination. With practice, you'll become proficient in creating compelling hero shots that drive results. Thank you for watching, and I look forward to seeing your successful campaigns!

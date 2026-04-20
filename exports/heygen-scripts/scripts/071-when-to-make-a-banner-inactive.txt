@@ -1,0 +1,13 @@
+Title: When to Make a Banner Inactive
+Original Title: ROUND 1 - When to Make a Banner Inactive
+Video ID: gRtqkO8S6Gq8WYRm
+
+---
+
+In this video, I'll show you how and why to set one of your banners to inactive in your DIYTrax campaign. You might be wondering when you should deactivate a banner and how to identify if it's underperforming. A good rule of thumb is to look at banners that have at least $25 in spend. If you notice one performing significantly lower than the others, it's time to take action. 
+
+For example, I have a banner with $29 in spend, and it has one of the lowest landing page event click-through rates, or CTR, in my set. It received 30 clicks but only two clicks through to the landing page, resulting in a 6.67% CTR, which is quite low. I’ll go ahead and set this banner to inactive because it has enough spend to indicate it’s not performing well. If you find a banner that’s clearly underperforming while others are doing much better, don’t hesitate to cut it. This won’t hurt your campaign too much, and you may need to reactivate some of the better-performing banners to make up for that spend.
+
+Another banner I’m considering has only had 11 clicks and $10.75 in spend. It’s a judgment call, but I might give it another $15 to reach the $25 mark before deciding to cut it. Similarly, another banner has only had eight ad clicks and $7 in spend, with one click in the top three. It could go either way, so I’ll give both of these a little more spend before making a final determination.
+
+In summary, I cut the banner with $29 in spend due to its low landing page CTR. At $14.50 per landing page click, it’s unlikely to become profitable without a high conversion rate, and since I haven’t seen any conversions, it’s time to cut it. I’ll likely push spend on a different banner that has already generated two purchases, as it seems to resonate better. That’s how you know when to turn off a banner early in your campaign.

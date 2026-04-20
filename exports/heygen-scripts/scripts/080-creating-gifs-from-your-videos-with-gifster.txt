@@ -1,0 +1,15 @@
+Title: Creating GIFs from Your Videos with Gifster
+Original Title: BTS Blitz - Caterpillar RD2 vid 6 vids to GIF GIFSTER 2025-10-21
+Video ID: uuPzhmlQQk4t7pki
+
+---
+
+In this video, I'll show you how to take your videos and turn them into GIFs using Gifster. This is a proprietary BTS software. In your BTS resources, choose Gifster from the tabs and click on the link to launch the app. On the left, you'll find the upload files option, which is where we'll go to select our file. I'm going to use the Adobe Express video first. Let's start with the 16 by 9 format and upload that. Once the upload is complete, we can go to the assets section to find our video. 
+
+Now, we can click to edit our 2.4-second video. It may take a moment to process. There it is! We don't need to adjust the layers, effects, or animations. You can add an effect if you like, but I'm going to keep it as a plain GIF. Now, I’ll click the export button, and it's done. This editor opened in another tab, which you may or may not have noticed. I can go to my exports on the left side to see the different files. One is still processing, so we'll wait for that to finish. In the meantime, let's upload our other file, the 9 by 16 video from Adobe Express. 
+
+It looks like some files failed to upload, so let’s try again. I’ll select the file and upload it again. Once it’s complete, let’s check my assets. Great, it’s there! I can click edit and wait for it to load. Once it’s ready, I’ll export this one too. Now, let’s go back to my exports and see if one of these is done. Yes, this one is ready! I can download it and take a peek. 
+
+Here’s the GIF converted by Gifster, and it’s 2.9 megabytes. It looks a little grainy, but it’s still a decent GIF. You can see the expressions clearly. The other file has also finished processing, so I’ll download that one too. This GIF is 3.2 megabytes and similarly grainy, but it works well enough. 
+
+That’s how you convert your video files to GIFs using Gifster. In the next set of videos, we’ll set up our round two campaign using the six placements we've created.

@@ -1,0 +1,15 @@
+Title: Installing Video DownloadHelper in Firefox
+Original Title: CB LP 1 - Install Video DownloadHelper
+Video ID: _wvhwLy25ngK4xi8
+
+---
+
+In this video, I'll show you how to install the add-on Video DownloadHelper for the Mozilla Firefox browser. This tool allows you to download video sales letters, or VSLs, from ClickBank and other sources. It's the most versatile downloader I've found, enabling you to access videos that might otherwise be restricted.
+
+First, if you don't have the Mozilla Firefox browser installed, you'll need to do that. A quick Google search for "Mozilla Firefox" will provide you with the instructions you need. Once you have Firefox open, look for the puzzle piece icon in the upper right-hand corner. This represents the extensions. Click on it, and you'll see a bar that says "Find more add-ons" and directs you to search at addons.mozilla.org.
+
+In the search bar, type "Video DownloadHelper" as one word. The top result will show three primary color circles—red, yellow, and blue—and indicate that it has over 1.7 million users. Click on that option, and then click the big blue button that says "Add to Firefox." A box will appear asking if you want to allow the extension to run in private windows. I recommend doing this to avoid issues with cookies. After that, you can choose to pin the extension to your toolbar for easy access.
+
+Once installed, you'll see the Video DownloadHelper icon in the top right corner. If you hover over it, you'll see the label. Initially, it may say "No media to process" because there are no videos in the current tab. When you navigate to a VSL, the icon will activate. You'll also find options for privacy policies. To ensure you can download all types of videos, select the top option.
+
+That's it! You now have Video DownloadHelper installed in your Firefox browser. This tool will help you download videos, including VSLs for ClickBank products, which is the first step in obtaining a transcript for those videos.

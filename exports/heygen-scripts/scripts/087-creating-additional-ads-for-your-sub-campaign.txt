@@ -1,0 +1,15 @@
+Title: Creating Additional Ads for Your Sub-Campaign
+Original Title: BTS Blitz - Traffic vid 4 Caterpillar More Ads 2025-10-20
+Video ID: LZaWLumMbYgJeb0Y
+
+---
+
+In this video, I'll show you how to create additional ads in our sub-campaign. For this first round of testing, we'll focus on testing the headlines, so we'll use the same image, description, and logo for all of these ads. We'll create these ads by duplicating the first ad. I’ll click on "Copy Ad," and when it asks if I'm sure I want to copy it, I’ll confirm with "yes." 
+
+Now, I can edit this copy of the ad. You’ll notice the ad name ends with "copy." I’ll replace that with my number two ad name. I have the headline ready, so I’ll grab that and replace the existing headline. Everything else will remain the same. I’ll click "Save" on that. Next, I’ll duplicate the first ad again to create number three. I’ll click "Copy," confirm with "yes," and then edit the ad name and headline for this one as well. Since everything else stays the same, I’ll save it again. 
+
+I’ll repeat this process a few more times, but you don’t need to watch me do all of them. I’ll come back once I finish the set of ten. 
+
+Now that I’ve entered the tenth ad name and headline, I’ll save it. You can see we have our full list of ten ads, each with different and unique headlines while using the same ad setup. I’ll toggle all of these on, and now we have our ten ads ready to go. Each ad has a different headline, but they all share the same description, image, and logo. 
+
+With all ads on and ready, we’ve completed our ad setup for this first caterpillar campaign. Next, we’ll move forward with setting up our landing pages and offer pages in the upcoming videos.

@@ -1,0 +1,21 @@
+Title: Generating Headlines with AffiliateCMO
+Original Title: Generate Advertorial Headlines with AffiliateCMO
+Video ID: 7KPLgKSYwMDPnTyt
+
+---
+
+In this video, I'll show you how to generate fantastic headlines using our AI copywriting tool, AffiliateCMO. We have our advertorial for Skeeter Strike pulled up, and we can use this to write headlines that we can test against a control headline. First, go to AffiliateCMO. If you need training on setting up a project, there's a full set of training available on the left. Click there to get started. I've already set up this project by providing the sales asset, which is the sales page for the Skeeter Strike device, and the research has been completed in the background.
+
+For this video, I’ll assume you’ve already set up your project, generated your market research, and uploaded at least one sales asset. Now we’re ready to generate some headlines for our advertorial. Click on "Generate New Asset" and select "Headlines." The only option for now is to generate advertorial headlines. We’ll choose to upload a new advertorial. In the advertorial name field, type in a name so you can identify it later. This one is a third-person story related to home and garden and involves a gadget.
+
+Once you’ve filled that out, you can ignore the other fields for now; they’re just tags for your reference. Now, go back to your advertorial, select all the text, and copy it. Then, return to AffiliateCMO and paste it in. You can remove the advertorial disclaimer at the bottom. At the top, add a hashtag symbol followed by a space to mark your H1 heading. You can refer to the style guide for more details on formatting. Once that’s done, click "Upload Advertorial," and the system will start generating your headlines. 
+
+The first set of headlines will take the longest to generate because the software is analyzing the customer avatar research to identify major pain points and emotional triggers. It’s looking at connections related to family, neighbors, and significant others to create headlines that target your customer avatar effectively. After this initial set, subsequent headlines will generate much faster. 
+
+Once the first set of headlines is ready, we can review them and decide if we want to apply refiners or give custom instructions to refine the headlines further. The research behind these headlines is powerful, focusing on key copy elements like proof, promise, pain, and curiosity. 
+
+Now, let’s look at the generated headlines. For example, "MIT scientist's six-minute mosquito shield" creates curiosity around the mechanism, while "35,000 moms reclaim their backyards" offers social proof. You can see a variety of strong headlines here. If you want more, simply click "Re-roll" for another set. 
+
+After generating several sets, you can choose the best ones and move them to the saved column. You can also use preset refiners or provide custom instructions to create headlines that are even more effective. For instance, you might give it a control headline and ask it to create variations that improve upon it. 
+
+This process allows you to generate a wide array of compelling headlines that resonate with your audience. With the right approach, you can create headlines that not only attract attention but also drive conversions.

@@ -1,0 +1,11 @@
+Title: Uploading Your Ad Banners
+Original Title: DIYTRAX Traffic 2 - Upload Ad Banners
+Video ID: Z0QoPKV5_LdoxUsQ
+
+---
+
+In this video, I'll show you how to upload your ad banner. After filling out the initial traffic information form and clicking save, scroll down to the assets section. Each of your files must be below 1000 kilobytes, or one megabyte. To choose your files, click on the upload button and navigate to the folder where your banners are stored. In this case, I have some banners ready. I'll select these files, click open, and then upload. Now I see those five banners here. You can hover over the icons to preview the different banners.
+
+Next, I'll select my other sizes, as I have three different sizes to upload. I'll click upload for those five, and now those are uploaded as well. I'll do this one more time for the third size. I'll select all of these, click open, and then upload. These took a little longer since they were larger files. Now I can see all 25 banners, including my large banners, which display a still image instead of a GIF.
+
+That's it for uploading the banners. Keep in mind that the submit button is grayed out because our current balance is insufficient to run the campaign. We will return to submit these banners in a later step after we fund our account.

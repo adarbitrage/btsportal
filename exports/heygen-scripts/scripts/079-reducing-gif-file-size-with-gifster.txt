@@ -1,0 +1,11 @@
+Title: Reducing GIF File Size with Gifster
+Original Title: BTS Blitz - Caterpillar RD2 vid 5 reduce GIF GIFSTER 2025-10-21
+Video ID: krMmvVXE4BzOmxEF
+
+---
+
+In this video, I'll show you how to use Gifster to reduce the file size of a GIF. In the last video, we created a GIF from a video using Adobe Express. You can also do that with Gifster, which I'll cover in the next video. For now, let's focus on our 9x16 GIF, which is just over the 5 megabyte limit. We need to reduce that file size.
+
+One effective way to do this is by adjusting the frames. I'll click on Edit Frames, select our file, and choose the specific GIF. The duration is 2.4 seconds, and by reducing the number of frames, we can maintain quality while decreasing the file size. I’ll skip every other frame, but this will make the GIF choppy. To counteract that, I’ll extend the duration of each remaining frame from 80 milliseconds to 160 milliseconds. I’ll update this for each frame.
+
+Now, I’m going to generate the GIF. Once it’s ready, you’ll see an option to click on the GIF to download it. I’ll do that now. Great! The GIF looks normal, has good image quality, and is down to 2.7 megabytes, well within our limit. Now we have two GIFs we can use for our placements. That’s how you reduce the file size by removing some frames from a GIF. In the next video, I’ll show you how to convert video files into GIFs directly using Gifster.

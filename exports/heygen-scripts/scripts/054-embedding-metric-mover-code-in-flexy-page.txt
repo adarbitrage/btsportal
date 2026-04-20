@@ -1,0 +1,11 @@
+Title: Embedding Metric Mover Code in Flexy Page
+Original Title: Metric Mover 10 - How to Embed Metric Mover Code in Flexy Page
+Video ID: GQAmtNUaJhPUi2XE
+
+---
+
+In this video, I'll show you how to embed your MetricMover page code into your Flexy page. First, open the embed code TXT file and select all the text. On a PC, you can use Ctrl-A to select everything and then Ctrl-C to copy it. Next, go to your Flexy page, which we set up with a blank page and a custom HTML JavaScript element. Make sure this element is selected; if it's not, you'll see different options on the right side.
+
+Once you've selected the custom HTML JavaScript code element, click on the open code editor. This will bring up a box for code editing where you can paste the code you just copied. Use Ctrl-V on your PC to paste it in. After that, simply click save to store the code in this element. 
+
+Now, we need to publish the page, which will save and publish your changes. After publishing, if you open the page, it may still appear as a blank white page. In the next video, I'll show you how to check the different variants to ensure these pages are displaying properly.

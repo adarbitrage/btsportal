@@ -1,0 +1,15 @@
+Title: Choosing Your Jump Page Clone
+Original Title: CB LP Choose Jump Page Base to Clone
+Video ID: 7EmVwJWiWeLeMpRu
+
+---
+
+In this video, I'll show you how to choose a jump page clone for our copy. We've used the bridge page copybot to generate copy for our page, and now we need to select a base for it. Start by logging into your Flexy account and navigating to the Consumer Watchdog site. From there, go to your live website that you've previously cloned. 
+
+Scroll down to review the available pages and pick one that fits well with our content. For example, this page doesn't quite match because it has extra boxes at the bottom, so I’ll skip that one. However, this next option looks promising. It seems easy to swap in our copy, and I like its overall look and feel. I'm focusing on the formatting and how well it will accommodate our content rather than the hero shot.
+
+I've decided this page is a good fit. It will require minimal edits to align with our content. I plan to include the headline, sub-headline, a hero shot, and the first button. The text content will lead down to a button for the shocking video and a PS. This layout will be straightforward to modify, so I’ll go ahead and clone it.
+
+Now that it’s cloned, I’ll enter the settings to adjust it for Hapotoburn. We need to update the path to better reflect our content. For instance, I can use "new red wine trick liver sludge," which should work generically for the various pages we’ll create later. For now, we only need to set up one version of this base page. We can create split test versions later, depending on our testing strategy. 
+
+I’ll update this page now, and in the next video, we’ll edit it to create our landing page base copy. This step was all about choosing and cloning the page and naming it appropriately.

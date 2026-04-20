@@ -1,0 +1,11 @@
+Title: Connecting ClickBank to DIYTrax
+Original Title: CLICKBANK ONLY - DIYTrax ClickBank IPN Integration
+Video ID: WWEaNrlP_JjTkRxO
+
+---
+
+In this video, I'll show you how to connect your ClickBank account to your DIYTrax account. This integration is essential if you're promoting a ClickBank product, as it allows conversions to post back into ClickBank and ensures that sales show up in DIYTrax. If you're promoting a MediaMavens product, you can skip this step. 
+
+To connect your DIYTrax and ClickBank accounts, go to the left menu and select "Postback URLs." You'll find the ClickBank IPN option a few lines down. Click on the question mark next to it, and an overlay will appear with a video. This video will guide you through everything you need to know about connecting your accounts. 
+
+By integrating your ClickBank and DIYTrax accounts, you'll be able to see which ads, landing pages, and marketing assets led to your purchases. Follow the instructions in the video to complete the connection.

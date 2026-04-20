@@ -1,0 +1,15 @@
+Title: Creating Videos from Static Images with Grok Imagine
+Original Title: BTS Blitz - Caterpillar RD2 vid 2 grok imagine vids 2025-10-21
+Video ID: iHPY8m6T_A1jf_0W
+
+---
+
+In this video, I'll show you how to take the static images from our ads and turn them into videos using Grok Imagine. You can access this tool at grok.com/imagine, and it's currently free for all U.S. users. With Grok Imagine, you can create both images and videos. We’ll be using our 16 by 9 and 9 by 16 images for our static placements and transforming them into videos.
+
+Once you're on the Grok Imagine page, click on "Imagine" in the left-hand bar. You can type in a description or simply upload your file by dragging and dropping it. For example, I’ll take this couple's image, drag it in, and it will start generating the video right away. While it’s working, you can customize the video by providing a detailed description. I want the couple to stand up and hold their lower backs in pain. After adjusting the description, I’ll click to generate a new video.
+
+Now, this version is much better. You can see the people starting to stand up and holding their lower backs, which looks realistic. I love this video, and we can easily download it by clicking here and saving it to our files for the posture pillow product.
+
+Next, I’ll go back and upload my 9 by 16 image. This time, I want the woman to stand up and show her grimacing in pain. Grok has already started generating a video, but I’ll refine it according to my description. The result is a much improved video that clearly shows her expression of pain while holding her lower back. Although her face goes out of frame for a moment, I’m pleased with the overall outcome. 
+
+Now we have both our 16 by 9 and 9 by 16 videos created with Grok Imagine. We’ve successfully turned our static images into video files. In the next video, I’ll show you how to take these video files and convert them into GIFs.

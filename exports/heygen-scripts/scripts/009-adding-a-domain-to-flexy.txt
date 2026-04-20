@@ -1,0 +1,19 @@
+Title: Adding a Domain to Flexy
+Original Title: Add Domain To Flexy
+Video ID: zJy2OLDDtuErBe0k
+
+---
+
+In this video, I'll show you how to add a custom subdomain and domain to your Flexy account. Start by navigating to your sites or dashboard. Look for the settings option at the bottom left and click on it. If you need to scroll down, do so until you see the domains section. Click on domains. If you haven't set up any domains yet, you'll see a message saying "no domain found." Click on "connect domain" to start the process.
+
+Next, you'll want to connect a domain to your funnel website. Choose the website you want to connect and enter your domain. For example, if you're running health-related content, use a consumer watchdog domain. If you're focusing on gadgets, use a cutting edge domain. If you're using a different template, you'll need a different domain, which will be updated in the training. For now, most of you will likely be using the consumer watchdog.
+
+When entering your subdomain, make sure it's unique to you. Don't type in the example I provide; instead, come up with something that represents you. For instance, your subdomain will look like this: yoursubdomain.consumerwatchdog.io. Remember, the part before ".consumerwatchdog.io" is your unique subdomain. After entering it, click continue. 
+
+Instead of clicking the appealing continue button, look for the gray link that says "add record manually." Click on that and then click on "verify records." You don't need to do anything else; just wait for the system to verify the records. Once it's done, the verification message will disappear, and you can connect this to your website. Choose your website and click to connect it to your consumer watchdog site. You can select the homepage as the default name and then click proceed to finish.
+
+Once completed, you'll see your consumerwatchdog.io domain with your unique subdomain listed. If you want to connect a cutting edge domain, the process is similar. Enter your unique subdomain for the cutting edge template, which will look like yoursubdomain.thecuttingedge.today. Just like before, make sure this subdomain is unique to you. Follow the same steps: click continue, then the gray link, and verify the records. 
+
+This process applies to any of the domains available for the templates. Right now, you can add a subdomain to .thecuttingedge.today or .consumerwatchdog.io. If you haven't set up a website for the cutting edge, that's fine. You can also add domains from within the website settings. 
+
+That wraps up this video on how to add a domain with a subdomain to your Flexy account. In the next video, I'll cover how to connect your domain to your website if you've already added it. Thank you for watching!

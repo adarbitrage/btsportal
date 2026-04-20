@@ -1,0 +1,13 @@
+Title: Uploading Hero Shots to Flexy for MetricMover
+Original Title: Metric Mover 5 - How to Upload Hero Shots to Flexy for Use in Metric Mover
+Video ID: cnCOvVV4UPHGIF0H
+
+---
+
+In this video, I'll show you how to upload your hero shots to create split test variants for your MetricMover campaign. We won't upload these directly to MetricMover; instead, we'll use our Flexy account. If you're in your Flexy account and see the menu bar collapsed on the left, click the green arrow at the bottom to expand it. Then, navigate to media storage. Having your folder of hero shots ready will make this process easier.
+
+You have a few options for uploading your images to Flexy. First, you can select all your images and simply drag and drop them into the large bin labeled "my media." They won't be in a folder, but they'll upload directly into media storage. Alternatively, if you prefer to organize your images, click the folder icon on the right, enter a name, and save it. Once you have your folder, you can open it and drag and drop your files inside, just like you did in the main bin.
+
+Another option is to create a new folder in "my media." Once you've done that, click on the blue upload button, navigate to your images, select them, and click open. They'll upload into the folder you created. Remember, you only need one set of these images, so choose the method that works best for you. 
+
+I recommend keeping things organized in folders, but if you prefer to have everything in the "my media" bin, that's perfectly fine too. In the next video, I'll show you how to use these images in your MetricMover project.

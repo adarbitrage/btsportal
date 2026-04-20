@@ -1,0 +1,17 @@
+Title: Crafting Killer Headlines
+Original Title: tips and tricks 3 - headlines in a specific style
+Video ID: wmIGaYXDGcAysvL0
+
+---
+
+In this video, I'll show you a handy tip for writing effective headlines. First, go to the Creative Drive at creative.shareingtomedia.com. Navigate to the copywriting folder and select the headlines section. For this example, I’ll choose "Writing Killer Headlines." Click on it and right-click to download the file.
+
+Next, open Claude and paste in this prompt: "You are a direct response copywriting expert who specializes in writing hard-hitting headlines for native ads that have an extremely high conversion rate. Your task today is to come up with 30 top-tier headlines that follow the attached headline formula, writing killer headlines. The product you're promoting is a dog toy called Barkchester. The Barkchester advertorial is attached as well. Proceed to write 30 headlines." Before hitting enter, we need to attach a couple of files.
+
+First, upload the "Writing Killer Headlines" PDF you just downloaded. Then, go to the Barkchester advertorial page, highlight the entire text with Control-A, and copy it with Control-C. Return to Claude and paste it at the end of your prompt using Control-V. Now you're ready to go. Hit the orange button to generate the headlines. 
+
+You'll see how quickly it produces them. This method tailors the headlines to a specific style, like the one in the "Writing Killer Headlines" document. There are many other styles available in the copywriting folder, so feel free to explore those as well. 
+
+Once you have your 30 headlines, prompt Claude again to order them by conversion rate. Ask it to show you which ones are likely to perform the best. It will provide insights into why certain headlines are top-tier or strong performers, such as combining location credibility, specific timeframes, and clear transformations. 
+
+You can use these headlines in ads and on landing pages. Experiment with the other documents in the headlines folder to generate even more options. You might end up with hundreds of headlines, and you can use Claude to narrow them down to the top 10. Take your time with this process, and enjoy crafting your headlines!

@@ -1,0 +1,13 @@
+Title: Importing Metric Mover Page Variants to DIYTrax
+Original Title: Metric Mover 13 - How to Import Metric Mover Page Variants to DIYTrax
+Video ID: Tje2prmaCCdgHnxJ
+
+---
+
+In this video, I'll show you how to import your Metric Mover campaign landing pages into your DIYTrax campaign. First, open DIYTrax and go to the campaigns list. Find the campaign you've set up for this purpose. In this case, I've created a Skeeter Strike demo campaign in this dummy account, which is essentially empty for training and demonstration.
+
+In the campaign view, you'll start on the basic info tab. Navigate to the landing pages tab and click on it. On the far right, you'll see a dark blue button that says "Upload CSV." Click that, then choose the light gray box that says "Choose File." Navigate to the Metric Mover export folder, where you found your embed code and file names. Select the tracks import.csv file and click "Open" at the bottom. You'll see that tracks import.csv has been chosen, and then click the upload button. Your landing pages should now be uploaded, and you should see the total number displayed, showing one to ten of twenty-five.
+
+You can use the dropdown to view the full list of landing pages. Notice that they are automatically set to active, indicated by the blue dot. If any are inactive, you can activate them. The share is automatically distributed among them, set to 4% each, which makes sense since twenty-five pages times 4% each equals 100%. If the percentage share looks off, you can click the "Set Equal Share" button to distribute that 100% across all active landing pages. In this case, we have twenty-five pages, so 4% each is correct.
+
+That's it! Our Metric Mover landing page variants have now been added to our DIYTrax campaign. The landing pages portion of setting up this campaign is now complete.

@@ -1,0 +1,15 @@
+Title: Configuring Your Caterpillar Traffic Source
+Original Title: BTS Blitz - Traffic vid 2 Caterpillar Traffic Source 2025-10-20
+Video ID: kwBxWLiffF5SRGix
+
+---
+
+In this video, I'll show you how to configure the traffic source settings for our Caterpillar campaign. Once you have the basic information set up and saved with the correct macros, navigate to the traffic source tab. Here, you'll see a dropdown for products. If your desired product isn't listed, you can toggle to select and type in the product name. For this example, I’ll use "posture pillow" and save it. Once saved, the product name cannot be updated, so ensure it's correct.
+
+Next, go to the sub campaign tab and create a new sub campaign. It's important to keep everything within this one campaign and sub campaign as we conduct our rounds of testing. This means turning off old ads and adding new ones, but keeping them all within the same sub campaign for the initial testing phases. For the sub campaign name, I’ll use "posture pillow test one." Set the optimization event to "complete payment," which is the standard for your first campaign.
+
+For the start time, I recommend setting it for 6 a.m. the next day. Avoid starting in the middle or at the end of the day. If it's still early, you could start it the same day, but generally, it’s best to schedule it for the morning. If you're unsure whether your campaign will be ready, you can choose a later date or set it for tomorrow and toggle it off if needed. The end time should be set far into the future, like October 2027, to ensure the campaign doesn’t turn off prematurely.
+
+Now, let’s discuss the daily budget. For initial testing, plan to spend about $500 on headlines. For each round of testing, budget around two times your commission payout per ad. For example, if you have 10 ads promoting a product with a $50 commission, you’ll spend about $1,000 in that round. If you prefer to spread your budget over a few days, you might set it to $250 per day. I wouldn’t recommend going below $200 per day.
+
+Set the bid type to "max conversion" and leave the frequency cap and other targeting options as they are for now. Once you’ve filled in the sub campaign information, click save. The sub campaign will be toggled on, but remember, it won’t run until the start date is reached. In the next video, we’ll set up our ads by clicking on the ads tab and creating our first ad.

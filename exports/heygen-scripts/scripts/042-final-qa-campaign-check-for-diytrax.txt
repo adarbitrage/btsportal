@@ -1,0 +1,17 @@
+Title: Final QA Campaign Check for DIYTrax
+Original Title: DIYTRAX Traffic 5 - Perform a Final QA Campaign Check
+Video ID: VRDhK_Cpd7PHm0vU
+
+---
+
+In this video, I'll show you how to perform a final QA safety check before launching your campaign. Let's start at the basic info tab. First, ensure that your campaign name is correct and that the sub ID and URL append token look right. When running ClickBank offers, it's crucial to use only underscores in the URL append token. While it's less critical for other networks, not using underscores will prevent your conversions from being passed back into ClickBank. Make sure there are no dashes or other punctuation.
+
+For MediaMavens, the keyword parameter should be a sub ID. If it's a ClickBank product, you'll see a T ID for the tracking ID, so verify that it's selected appropriately. The offer promotion should be set to e-commerce since we're using MediaMavens. Also, confirm that the landing page with the advertorial matches the sub ID. All instances of sub ID should be consistent across the board. Ensure that we have the responsible Rolodex phase 2 traffic matching and that all tokens for phase 2 traffic are in place.
+
+Next, check the traffic source to confirm that it’s the correct product, Skeeter Strike. We’re using display ads, and all three sizes of banners should be selected. A daily budget of $500 is good, and we can adjust the cost per click if needed to increase visibility on the network. The total budget should be at least $1,500 for this first run, which is fine. Review all 15 banners to ensure they are displaying correctly and look as intended. This is your last chance to check for typos and other issues.
+
+Now, let's look at the landing page tab. Confirm that the landing pages are set up correctly. If you haven't already, grab one of the landing page URLs, open it, and check the links. Ensure that the DIYTrax T2 link appears in the bottom left corner. This link should be present wherever there's a link on the page. At this point, you should have already checked this, but it's essential to verify that all links are correct.
+
+Next, check the offer pages to ensure that you have an affiliate link set up correctly. In this case, it should show 100% and be marked as active. Everything here looks good, with the affiliate code included. Moving on to links and pixels, confirm that the extra parameters are displayed. These macros should match what you saw in the basic info tab, including campaign, ad ID, publisher, line, device, CPC, click ID, and placement.
+
+If everything looks good across your campaign, you'll be ready for final submission and to take it live. This will happen in the traffic source when you submit your banners and in the basic info tab when you toggle the campaign active. We won't cover that in this video, but this final QA safety check ensures that all your campaign settings are correct before going live.

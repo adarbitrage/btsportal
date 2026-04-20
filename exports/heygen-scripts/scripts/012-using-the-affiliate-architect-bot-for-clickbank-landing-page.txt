@@ -1,0 +1,15 @@
+Title: Using the Affiliate Architect Bot for ClickBank Landing Pages
+Original Title: CB LP - How to Use the Affiliate Architect Bot
+Video ID: EZuZqqGvP09hbuvD
+
+---
+
+In this video, I'll show you how to generate angles for your landing pages to promote your ClickBank product using the affiliate angle architect in Po. You can find the link to the PoBot on the Blitz page right below this video. To use the PoBot, you'll need a Po subscription. 
+
+Once you're in the affiliate angle architect, start by entering some demographic information such as age, gender, geographic location, and any other relevant details. For example, you might input age over 40, mostly female with some male, located in the United States. You can also include specifics like wanting to lose weight, being in a low emotional state, and being willing to watch a 40 to 60 minute VSL before making a purchase. 
+
+After entering this basic information, the tool will prompt you for a transcript. You can either paste the transcript directly or drag and drop a .txt file into the tool. The PoBot will analyze your target demographic and generate 12 marketing angles tailored to your audience. 
+
+These angles will include core promises, mechanisms, pain points, proof elements, and more. For instance, you might see angles like “liver toxicity” or “the toxic liver sludge making you gain weight while you sleep.” Each angle will come with a congruence rating, conceptual understanding, and implementation guidance for optimizing cold traffic. 
+
+Once you have your 12 angles, you can take them to the bridge page copy bot. Simply input each angle one at a time to generate your landing page copy. This process will help you create compelling content for your ClickBank promotions.

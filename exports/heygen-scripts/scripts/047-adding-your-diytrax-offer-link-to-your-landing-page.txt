@@ -1,0 +1,17 @@
+Title: Adding Your DIYTrax Offer Link to Your Landing Page
+Original Title: DIYTrax LP Offer Link in Landing Page
+Video ID: MKKibZvkeD93e78e
+
+---
+
+In this video, I'll show you how to ensure that you have the correct link on your landing pages for your offer. In the last video, we added our DIYTrax landing page offer link into the custom values. Now, you want to verify that this link matches what’s in your DIYTrax account under the link and pixels section for the landing page offer link. As long as that matches your custom values, you’re good to go.
+
+The custom value for the DIYTrax landing page offer link, which looks like this middle squiggly bracket, is what you’ll want to use on your landing pages. This applies whether it’s on a hero image or a button that directs to your ClickBank product or any other offer you’re promoting. You can click the overlapping squares to copy this to your clipboard, and then head over to your website.
+
+Let’s find the page we’ve been working on, which features the bizarre metabolic enzyme. I’ll edit this page, where we have a hero image and multiple buttons that need to be linked correctly. Click on the image and scroll down to the image actions section to find the website URL. Here, ensure that it aligns with the custom values DIYTrax landing page offer link. If it doesn’t, paste in the custom value you copied earlier. Your done-for-you templates should already have this custom value, but it’s essential to double-check that everything is linked appropriately.
+
+Next, let’s verify this by launching the page. Once you’re on the page, hover over the linked images and buttons. In the bottom left corner of the screen, you should see your DIYTrax T2 link. This confirms that the custom value has been replaced correctly. Check each button and linked text to ensure they all display the same DIYTrax T2 link. Everything should match up with what’s in your custom values.
+
+One important note: if you click the link without a campaign URL, it will lead to a blank white page. This is by design and not an error. The T2 link requires campaign parameters to function correctly. When you set up your campaigns, your ads will include the necessary data to direct users to the correct offer. So, don’t worry; the right information will be in place when it counts.
+
+That’s how you add your DIYTrax landing page offer link to your landing pages and verify that it’s set up correctly.

@@ -1,0 +1,7 @@
+Title: Creating a New Metric Mover Campaign
+Original Title: Metric Mover 2 - Creating a New Metric Mover Campaign
+Video ID: eDu8RoBsyEdrPqqf
+
+---
+
+In this video, I'll show you how to create a new project in Metric Mover for your campaign. Once you have the Metric Mover software open, look at the top and click on "Create New Project." You'll need to give your project a title; for this example, I'll use "Demo Skeeter." I’ll name the folder the same thing. Keep in mind that you can't use spaces or special characters in this field. Next, you'll be prompted to import a web page. In the following video, I'll demonstrate how to import your web page for use in your Metric Mover campaign.

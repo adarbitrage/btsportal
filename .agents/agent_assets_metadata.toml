@@ -12,3 +12,27 @@ id = "DK-qlU3JxRaNaLIQ5tA04"
 uri = "file://attached_assets/gifster_icon.png"
 type = "image"
 title = "Cropped Gifster icon"
+
+[[outputs]]
+id = "kpAP95hCtqrSxKspxBCog"
+uri = "file://exports/bts-heygen-scripts.tar.gz"
+type = "unspecified"
+title = "All 97 BTS training scripts (HeyGen-ready) — archive"
+
+[[outputs]]
+id = "wF_pundx2NRj2aoZIFjk2"
+uri = "file://exports/heygen-scripts/ALL-SCRIPTS.md"
+type = "text"
+title = "All scripts in one document (preview)"
+
+[[outputs]]
+id = "4UIQEq1RbpKIFnNv2-OlU"
+uri = "file://exports/heygen-scripts/README.md"
+type = "text"
+title = "README — what's inside & how to use"
+
+[[outputs]]
+id = "W6TQhypz5eMlV0sQiYho-"
+uri = "file://exports/heygen-scripts/manifest.json"
+type = "unspecified"
+title = "Manifest (titles, video IDs, word counts)"

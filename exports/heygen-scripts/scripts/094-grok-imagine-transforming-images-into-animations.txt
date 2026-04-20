@@ -1,0 +1,13 @@
+Title: Grok Imagine: Transforming Images into Animations
+Original Title: tips and tricks 1 - grok imagine
+Video ID: ERMmmPggEuGl1j0K
+
+---
+
+In this video, I'll show you a cool tip to speed up your workflow. A couple of weeks ago, I discovered a tool that has been awesome for creating animated content. Let’s jump over to Google and search for under eye bags, a typical way to start a campaign. For example, let’s say we find an image of a lady with noticeable under eye bags. You can simply save that image to your desktop.
+
+Next, head over to grok.com. For those who may not know, Grok is Elon Musk's AI platform, and I recommend the paid plan, which is about twenty dollars a month. It's definitely worth it. One of the features I want to highlight is called Imagine. You can find it in the left sidebar. Click on Imagine and upload the image you just downloaded. Once you double-click the image, it will begin processing. 
+
+What’s really impressive is that Grok Imagine creates a video from any image you upload. It even adds audio, which you might not want, but it’s a fantastic way to turn a static image into an animation quickly. You can download the animation or choose to redo it with different options. I usually stick with the normal setting, but you can also try the fun option, which can get a bit wild. 
+
+After processing, you can see the results. Some animations might be usable, while others may not be what you expected. I also tried the spicy option, but it prompted an age confirmation, indicating it might include adult content. So, I recommend sticking to the normal or fun settings. Grok Imagine is a great tool for creating animations that you can use in ads, banners, or on any part of your landing page. That’s the tip for today!

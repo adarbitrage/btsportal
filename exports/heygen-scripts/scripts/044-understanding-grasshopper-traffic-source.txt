@@ -1,0 +1,19 @@
+Title: Understanding Grasshopper Traffic Source
+Original Title: DIYTRAX Traffic 7 - How Grasshopper Traffic Source Works and What to Expect
+Video ID: k9ockub2YnGD4mMp
+
+---
+
+In this video, I'll explain how the Grasshopper traffic source works and what to expect in your campaign, especially during the early days. In this SkeeterStrike demo campaign, you can see that the traffic started on the first and has ramped up over the past few days. I've had a few conversions, with four purchases spread across three different banners. 
+
+You might notice that the spending isn't evenly distributed across the banners. Some have gone inactive after spending about $100, while others have spent less. There are 15 banners in total, so $1,500 in spend should average about $100 each. The development team is working on a fix, so by the time you see this video, all banners may be spending exactly $100 before going inactive. Currently, we have one active banner that spent $67.85, another at $54.55, and another at $61.40. Some banners have lower spends, like one at $13 and another at $35, but they are still active.
+
+The Grasshopper traffic source works by selecting a few banners—typically three to five—and directing some traffic to them. One of these banners will usually perform better than the others, leading to increased spending on that particular banner until it reaches its limit and becomes inactive. Then, the system will select another set of banners to test. This process can create discrepancies in spending, as some banners may not have had their turn yet. Essentially, only one banner at a time receives full spending before it becomes inactive, and then another banner is tested.
+
+During the campaign, it can be challenging to optimize performance. If a banner shows poor performance after spending $25 or more, I might consider turning it off. For example, one banner has a decent ad click-through rate of 0.08 and a landing page event click-through rate of 17.65%, which is my highest for that banner. Although the cost per click is a dollar, which is higher than some others, it's performing well within acceptable ranges. 
+
+As I monitor the landing pages, it's common for click-through rates to fluctuate. For instance, my top page's CTR dropped from 26% to 12.57%. This is typical as traffic increases, leading to more visitors while clicks remain constant. Different banners will also yield varying CTRs. If a banner has a high CTR, the corresponding landing page click-through rate will likely be higher during that banner's spending phase. 
+
+It's important to let the campaign run its course to gather enough data for informed decisions. If you notice changes in your numbers over the days, don't panic; this is typical. Currently, I'm looking at $957 in spend against $300 in revenue. If I can reach around $500 in total revenue, that would be decent and typical for a first test. Some banners are already showing promise with multiple purchases, indicating potential profitability. 
+
+In summary, this is how the Grasshopper traffic source operates and what you can expect in the early stages of your campaign. If your campaign looks similar to this one, you're likely experiencing typical results for Grasshopper traffic.

@@ -1,0 +1,13 @@
+Title: Choosing Between Metric Mover and Individual Landing Pages
+Original Title: How to Know Whether to Use Metric Mover or Individual Landing Pages
+Video ID: kH8f1WPQ5KaC60Kl
+
+---
+
+In this video, I'll show you how to determine whether to set up a metric mover campaign or use cloned flexi pages when split testing your landing pages. At this stage, you've gathered your marketing assets, whether that's an advertorial for your landing page or a jump bridge page for your product. You have variants to set up, and you're wondering how to decide between a metric mover project or cloned flexi pages.
+
+For a metric mover, the main content remains constant while you test a few select variables, such as a headline and a hero shot. Typically, you'll want to test one to three variables at most. This is important because the number of combinations can grow quickly. For instance, if you have five headlines and five hero shots, that results in 25 total page variants. If you add five different sub-headlines, you’re looking at 125 page variants. To achieve statistical significance, you'll need a substantial number of clicks on those pages. Therefore, it's best to keep your sets smaller or have a larger set of one variable paired with a smaller set of another.
+
+On the other hand, you should clone flexi pages when you have headlines and hero shots that are intentionally paired together. For example, headline number two is crafted to go with hero shot number two, and you don’t want them to mix with other combinations. This approach is also suitable when the page content differs significantly, such as testing different angles, lengths, or body content. If you're changing multiple elements on a page, like different images or texts, you’ll want to create separate flexi pages.
+
+To sum up, use metric mover when you want to mix and match elements while keeping the main content constant. Use cloned flexi pages when you want to intentionally pair variables or when the content varies significantly across pages. Based on your assets and what you are testing, you can now choose between a metric mover campaign or cloned flexi pages. We'll dive deeper into this in the next videos.

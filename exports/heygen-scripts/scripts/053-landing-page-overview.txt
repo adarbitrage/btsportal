@@ -1,0 +1,13 @@
+Title: Landing Page Overview
+Original Title: Landing Page Overview
+Video ID: S6xPQW4tkWxUHXG4
+
+---
+
+In this video, I'll show you how to set up your landing page using Skeeter Strike as an example. I want to clarify that this is not a recommendation to promote Skeeter Strike. It's simply the product I've chosen for this demonstration. Please select a product that resonates with you, keeping in mind that some items are seasonal. For instance, running a Skeeter Strike campaign in winter may not be effective due to the lack of mosquitoes. Do your own research and choose a product based on your instincts and experiences.
+
+Now, let’s look at our setup. We have our e-commerce product page, which is the final step in our funnel where the sales transaction occurs. A funnel is a series of steps a customer takes online to make a purchase or complete another desired action. Since the e-commerce product page is out of our control, our task is to create a landing page that effectively connects with this sales mechanism. 
+
+We need to ensure our messaging aligns with the product page, directing potential customers in a way that prepares them to make a purchase. This is where our landing page comes in. We will move one step back in the funnel to maintain congruity between the e-commerce product page, our sales mechanism, and our advertorial, which serves as a pre-sales tool to warm up and frame the offer for the customer. 
+
+Next, we will set up our advertorial in Flexi. You'll need to configure the basic settings of your Flexi account first, and then we’ll proceed to create the specific page and advertorial.

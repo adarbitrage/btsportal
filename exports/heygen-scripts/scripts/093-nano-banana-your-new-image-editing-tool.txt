@@ -1,0 +1,21 @@
+Title: Nano Banana: Your New Image Editing Tool
+Original Title: tips and tricks - nano banana
+Video ID: 8a5iTjH5kCC_OgIs
+
+---
+
+In this video, I'll show you how to use Nano Banana, Google's new image editor. It was released about a month ago, and it's pretty awesome. To get started, go to Google.com and search for Nano Banana. The first result should be Google AI Studio, which includes Gemini 2.5 flash image. Click on that. 
+
+Once you're on the Nano Banana page, look for the "Get Started" button in the top right corner. You may need to log in, but I'm already logged in, so I can skip that step. After logging in, click on "What's New" and then "Try Nano Banana." This is where the fun begins. You can either create a new image by prompting the tool or edit an existing image. For example, you can use the default prompt to generate an image of a banana wearing a costume. Just hit run, and in a few seconds, you'll have your image.
+
+If you want to make changes, you can prompt it again. For instance, you could say, "Give the banana googly eyes," and hit run. You'll see the banana with big googly eyes. You can also change the background by saying something like, "Change the background to a rainforest," and it will keep the banana intact while changing the background. 
+
+On the right side, you'll see a bar that shows the version of Nano Banana you're using and some system instructions. One important feature is the temperature setting, which controls the creativity allowed in the response. If you want more creativity, leave it at one. If you want specific edits, lower it to zero. The aspect ratio is set to auto, but you can change it to fit your needs. For social media, you might want a nine by sixteen aspect ratio. 
+
+You can also create typical aspect ratios like sixteen by nine for YouTube thumbnails or three by four for Facebook. If you're using this for Caterpillar, stick with nine by sixteen and sixteen by nine for the best results. You can even create a YouTube thumbnail by prompting it with something like "Create a thumbnail for a banana pirate adventure." 
+
+If you want to upload an image, click the plus icon and upload your file. For example, if you upload a picture of hot air balloons, you can add a bald eagle flying through the sky. If you lower the temperature to zero and prompt it to add an entire family of eagles, it will generate identical eagles. 
+
+You can also create fun images for marketing materials. For instance, if you upload a picture of a dog, you can add cucumber slices over its eyes as if it's relaxing in a spa. Once you're satisfied with your image, you can download it for use in your marketing materials or turn it into a short video using Grok Imagine. This can then be uploaded to Caterpillar or converted into a GIF with Gifster or Easy GIF for use in ads. 
+
+The possibilities are endless with Nano Banana. It's an incredible tool for creating marketing materials, and I believe we're getting close to being able to do 95% of marketing with AI, as Sam Altman suggests. Give it a try and see how it can enhance your marketing assets.

@@ -1,0 +1,15 @@
+Title: Further Edits to Your Landing Page
+Original Title: Cloned Flexy 4 - Further Page Edits
+Video ID: QuyODVJp2kIu5w8u
+
+---
+
+In this video, I'll show you how to make additional changes to your landing page variant. One noticeable difference in this variant compared to the control is that our hero appears to be female instead of male. This means we may need to adjust any mentions that indicate male, such as masculine pronouns or names, for continuity. For example, if our teacher's name is Paul Lambert, we can change it to Paula to match the female image. 
+
+We should also swap out any references like "his" to "hers," "him" to "her," and "he" to "she." You might have other changes in mind, such as deleting sections, moving content, adding new images, or altering text. Whatever your edits may be, you can implement them. I’ll focus on changing the text to replace the name and pronouns.
+
+To do this efficiently, I can use the control F function to bring up the search tool. With "Paul" highlighted, I can easily locate and change each instance to "Paula." Now, every mention says Paula instead of Paul. Next, I’ll search for "him" and "he" to change those to "her" and "she." This method helps me quickly find all the necessary changes.
+
+After making these adjustments, I’ll ensure that all references match my hero. Once I’ve completed my edits, I’ll click publish to make the changes live on the page. After publishing, I can check to confirm that every instance has been updated to Paula, and all masculine pronouns have been changed to feminine ones. 
+
+Now that I've completed the further edits on this landing page, you can apply similar changes to your own. Make your edits and then publish them. That's how you make further edits to your landing page.

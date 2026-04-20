@@ -1,0 +1,15 @@
+Title: Generating Images for Your Ad Campaigns with MidJourney
+Original Title: BTS Blitz - Native Ads vid 2 Images w Midjourney 2025-10-20
+Video ID: zbTbu2IE0vZPgqpH
+
+---
+
+In this video, I'll show you how to generate images for your ad campaigns using an AI image generator called MidJourney, which you can access through Discord. I've set up the MidJourney bot in a Discord channel, but you don't need to do that. You can easily find tutorials online about how to access and use MidJourney on Discord. This video will focus specifically on creating the photo.
+
+For example, I created an image of an elderly couple sitting on a couch, both holding their backs. The prompt was simple: "A photo of a 65-year-old couple in mid-motion rising from a couch, both with knees bent and posture strained, gripping their lower back with one hand, wincing in synchronized pain." The aspect ratio I used was 8 to 5, which is 800 pixels by 500 pixels. If you need a 16 by 9 ratio for native ads, you can easily adjust that in your prompt.
+
+I initially tried using ChatGPT to generate prompts for MidJourney, but I've found that simple descriptions work better now. The latest version of MidJourney prefers straightforward text. For instance, I asked for prompts like "elderly couple standing side-by-side, rising from a modern beige couch, both with one hand on their lower backs, grimacing in visible discomfort." However, I simplified it further to get better results. You no longer need to include specific photography details in your prompts; plain language is effective.
+
+Once I had a few images generated, I upscaled the one that looked best and requested variations on it. Upscaling makes the image larger, while variations allow you to explore different options. Sometimes, you may need to re-roll or tweak your prompts to get the desired outcome. 
+
+There are many AI image generators available, and using them helps avoid copyright issues. This approach simplifies the process for your advertising needs. I'm moving forward with the image of the couple holding their lower backs on the couch for my advertising campaign.

@@ -1,0 +1,13 @@
+Title: Converting Video Files to GIFs in Adobe Express
+Original Title: BTS Blitz - Caterpillar RD2 vid 4 vids to GIF adobe express 2025-10-21
+Video ID: JEM6SJcECAXGqAGk
+
+---
+
+In this video, I'll show you how to take our video files and convert them into GIFs using Adobe Express. In the next video, I'll demonstrate another method using our proprietary BTS software, Gifster. 
+
+First, let's explore the quick actions available in Adobe Express. You'll see an option to convert to GIF. Click on that, and you'll find a free video to GIF converter. We’ll use the shorter video clips we have, which are around two to two and a half seconds long. You can choose your file size: large, medium, or small. I'll select the large file size since my video is under two megabytes, specifically 1.88 megabytes. 
+
+After labeling the GIF, I checked the file size, and it’s 4.5 megabytes, which is under our five megabit limit. This looks good, so I’ll stick with the large file size. To convert another video, I don’t see a direct button for that, but I can click on the video quick actions again. I’ll bring in my shorter 9 by 16 video and choose the large file size once more. 
+
+After downloading and opening that GIF, I noticed it’s just over our limit at 5.39 megabytes. That’s okay; we can compress it using Gifster or optimize it. The small file size option is under two megabytes but is too small dimensionally for my needs. Interestingly, the medium file size is larger at 7.9 megabytes, while the large one is only 5.4 megabytes. I’ll stick with the 5.4 megabyte GIF and compress it a bit to get it just under our five megabyte limit.

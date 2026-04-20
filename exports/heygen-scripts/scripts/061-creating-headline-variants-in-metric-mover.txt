@@ -1,0 +1,13 @@
+Title: Creating Headline Variants in Metric Mover
+Original Title: Metric Mover 4 - How to Create Headline Variants in Metric Mover
+Video ID: Q6tx9rOk_R2atMXl
+
+---
+
+In this video, I'll show you how to set up variants for split testing your headlines. It's very simple. Start by clicking on the element you want to test. You'll see a green box around your headline, and in the top right corner, there's a tab with a plus sign that says "create a variation." If you hover over it, you'll see it labeled as "add tag variation." Click on that to create a variation of your headline element. 
+
+Now, you'll see the tag title H1-1. You can change this to whatever you prefer, like just "H" or "headline." Next, click "add variation." Now we have headline one. To add a second variation, click again, and a box will open up. Here, you can enter your second variant, which is headline number two. You'll want to add all your variants, so that gives you a total of five: the control and four variants. 
+
+For each variant, copy your new headline and paste it in the same place, ensuring it has the same font family and styling as the original. After pasting, click "done." Repeat this for each of your five headlines. Once you've added all the variants, you can click on the preview variation to see them cycle through. You'll notice they all maintain the same font, size, and styling as the original. 
+
+Now that your five headlines are set up, don't forget to click the save button in the top right corner to save your changes. You'll see a confirmation that your project has been saved successfully. In the next video, I'll show you how to upload your images properly for split testing, which we'll do in Flexi.

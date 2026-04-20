@@ -1,0 +1,11 @@
+Title: Cloning Your Base Flexy Page
+Original Title: Cloned Flexy 2 - How to Duplicate Your Base Flexy Page
+Video ID: 9CyT5LjOxb05JpQC
+
+---
+
+In this video, I'll show you how to clone your optimized landing page to create your first landing page test variant. Start by locating the card with your optimized base landing page. Find the three dots in the upper right-hand corner and click on them to see the clone option. Click on clone and then select clone page on this website. Once the process is complete, you'll find a cloned copy at the bottom of the list.
+
+Next, click on the three dots next to the cloned page and go to settings. I recommend renaming it to V2 while keeping the rest of the name the same. You may notice a string of numbers at the end of the path. You can leave that as is, but since this path needs to be unique, you should make a small tweak to the wording. For example, instead of "wards off," you could change it to "prevents mosquito bites." Then, update the page. While it's not critical to remove the numbers, having a unique path is essential.
+
+That's how you set up your second variant page by cloning your base optimized page. In the next video, I'll show you how to edit that page and make changes for our split test.

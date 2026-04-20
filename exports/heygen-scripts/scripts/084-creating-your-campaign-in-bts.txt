@@ -1,0 +1,13 @@
+Title: Creating Your Campaign in BTS
+Original Title: BTS Blitz - Traffic vid 1 Caterpillar Basic Info 2025-10-20
+Video ID: VWrN5C_roA2rBgww
+
+---
+
+In this video, I'll show you how to create a new campaign and edit the basic information from the menu on the left. Start by going to the far right and clicking the add button to create a new campaign. You'll want to name your campaign something memorable so you can easily find it later. For this example, I'm naming it "Posture Pillow," and I'll also include the traffic source, which is Caterpillar, along with a test identifier, like "test one." 
+
+Next, for the URL append token for Caterpillar, it's important to remove any dashes and keep only a single underscore between words. This is crucial for ClickBank, as they require underscores in the URL append token. Although we're not promoting ClickBank in this case, it's a good practice to follow. So, my URL append token will be "posture_pillow_caterpillar_test_one." 
+
+Now, for the offer promotion, since we're promoting a MediaMavens product, I'll select eCommerce. If you were promoting ClickBank, you would choose "other." For the traffic source, I'll select Caterpillar, and the affiliate network will be MediaMavens. Then, I’ll choose the macro template that matches the traffic source, which in this case is Caterpillar. 
+
+After selecting the appropriate macro templates, click save. The system should automatically apply the macro tokens. You’ll see three macros for the Caterpillar traffic source applied successfully. Remember, the key points to edit are the campaign name for easy reference, the URL append token with only underscores, the correct offer promotion, the appropriate traffic source, and ensuring the macros match your traffic source. Once you've completed these steps, your basic campaign info will be set up and ready for the next phase, which we'll cover in the next video.

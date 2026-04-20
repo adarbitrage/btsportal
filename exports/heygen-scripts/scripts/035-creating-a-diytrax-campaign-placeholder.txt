@@ -1,0 +1,15 @@
+Title: Creating a DIYTrax Campaign Placeholder
+Original Title: Create DIYTrax Campaign Placeholder
+Video ID: mho4aMNn0kgAi3RZ
+
+---
+
+In this video, I'll show you how to create a placeholder DIYTrax campaign. You should have your assets ready for split testing. For this demonstration, I've gathered a small set of items, but you can certainly test more headlines or a different mix. For my advertorial, I've selected five headlines: the control already on the advertorial and four new variants. I've also gathered four new hero shots alongside the control image. Additionally, I have some headlines for my banner ads.
+
+Now that we have our assets together, we can start setting up the campaign. The first step is to create a DIYTrax placeholder campaign to get the link we need for our advertorial. This ensures that our advertorial is fully set up and ready to go, which is our primary focus for the campaign setup. 
+
+To begin, navigate to the resources section in the BTS software and access DIYTrax. Once you click on that link, it will launch DIYTrax. In the top right corner, click the add button to create a new campaign. I’ve named my campaign "Skeeter Strike Demo One." For the offer promotion, if you're promoting a MediaMavens product, select e-commerce. If you're setting up for a ClickBank offer, choose other. Since Skeeter Strike is e-commerce, I’ll select that option.
+
+Next, set the traffic source to "Response Rolodex Phase Two" and choose the appropriate affiliate network. In this case, I'm using MediaMavens. After that, ensure the macro template matches your traffic source. Once everything is set, click save. You’ll see that macros or tokens have been applied at the bottom. 
+
+At this point, you don’t need to activate the campaign or adjust any other tabs. Instead, go to the link and pixels tab and look for the landing page offer URL, which is the T2 link. Highlight it and copy it, or click the clipboard icon to copy it directly. This is the link you need. In the next video, I’ll show you how to apply this link in Flexy to ensure it’s in your custom values and correctly placed in your landing page, whether that’s an advertorial or a jump page to a VSL. This concludes our setup for the DIYTrax campaign.

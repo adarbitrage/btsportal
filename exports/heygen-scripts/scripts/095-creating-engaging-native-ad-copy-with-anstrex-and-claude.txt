@@ -1,0 +1,19 @@
+Title: Creating Engaging Native Ad Copy with Anstrex and Claude
+Original Title: tips and tricks 2 - anstrex native ad copy
+Video ID: 4HUgSPTVgS7C2_XZ
+
+---
+
+In this video, I'll show you how to create compelling native ad copy using Anstrex and Claude. First, make sure you have your Anstrex login from the resources page. You'll also need your own Claude account, as we don't have a shared one.
+
+Let’s log into Anstrex. Once you're in, adjust the filters at the top. Set the geo to the United States and the language to English. You can leave the traffic and affiliate networks as they are. Now, sort the results by most popular overall. Scroll down until you reach several hundred results. This method helps us gather proven winners from the Anstrex spy tool.
+
+Now, select all the results using Control-A and copy them with Control-C. Next, open Claude and ensure you're using Opus 4.1, which is the best model at the time of this recording. Paste the copied content into Claude. You’ll need to prompt it to generate ad copy. Here’s a sample prompt: “You are a direct response copywriting expert specializing in hard-hitting, engaging native ad copy. Attached are several examples of native ads that convert. Your task is to write 15 native ads, with a maximum of 90 characters for headlines and descriptions, for a dog product called Barkchester. The advertorial copy is also attached.” Feel free to rephrase this prompt as needed; Claude understands your intent.
+
+Next, find the advertorial copy for Barkchester, highlight it with Control-A, and copy it with Control-C. Return to Claude and paste it in. Now you have both the native ads and the advertorial copy ready. Click the send button and see what Claude generates. You’ll get problem-solution focused, curiosity-driven, and benefit-driven headlines tailored for your product. 
+
+Review the results and select the headlines you want to use. You can also ask Claude to reorder them based on conversion potential. For example, prompt it with, “Excellent, now reorder them by how you think they will convert.” Claude will provide you with the top 10 highest converting headlines. 
+
+If you notice there are no descriptions, prompt Claude again: “Love it. Now just for the top 10, please also write the supporting description text.” Claude will generate descriptions that complement your headlines. 
+
+These steps will help you create effective native ad copy quickly and efficiently. I hope you found this tip helpful!

@@ -1,0 +1,13 @@
+Title: Cloning a Page Into Any Website
+Original Title: Clone Page Into Any Website
+Video ID: OXyleetSN5oaX1n8
+
+---
+
+In this video, I'll show you how to clone a page from one website into another within your account. This is useful if you've created your live website with an earlier version, like 4.0, and now want to use a new template from version 4.2. You might also have spent a lot of time customizing a page in Cutting Edge and want to transition it to Consumer Watchdog without rebuilding it entirely. 
+
+Let's say you're in the Cutting Edge 4.2 template and you've updated a landing page that you'd like to move to Consumer Watchdog. Don’t worry; you can easily clone that page. On the right side, where it says "please select location," instead of keeping it in the current website, you’ll select your other website. Choose the live run campaigns for Consumer Watchdog and add the page there. 
+
+After cloning, you can navigate to your Consumer Watchdog live website and find the new page at the bottom. It won’t have the Consumer Watchdog branding yet, so you’ll want to update that. You can edit the page to add the Consumer Watchdog logo and ensure everything matches, including the footer. 
+
+You can also clone pages in the opposite direction. If a new template is rolled out in version 2.4 that you want to use in your live website, simply select your location and choose your live website to add the page. Your page will then be automatically added to your live campaign with your custom URL and subdomain. That’s how you clone a Flexy page into any other website within your account.

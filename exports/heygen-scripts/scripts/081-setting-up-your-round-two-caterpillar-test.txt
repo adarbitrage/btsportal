@@ -1,0 +1,19 @@
+Title: Setting Up Your Round Two Caterpillar Test
+Original Title: BTS Blitz - Caterpillar RD2 vid 7 launch rd 2 ads 2025-10-21
+Video ID: 6rknxcdHkCSdhMpD
+
+---
+
+In this video, I'll show you how to set up our round two Caterpillar test with different placements. We have a winning headline from round one: "Attention Side Sleepers: This Reset Pillow Eliminates Morning Back Pain." We've created the GIFs and videos for round two, and now it's time to test placements with this winning headline. 
+
+I can't change from an image ad to a video ad, so I won't be able to clone for all of these. However, I can copy the ad for the first image. I'll set this one as my 9 by 16 format. I've already noted the names, so this will be ad number 11. I'll remove the current image and choose a different one from my round two files. I want the one featuring the lower back. Now, I’ll save this as number 11. 
+
+Next, I can duplicate the GIFs and just change the file size. I'll edit the first one to be my 16 by 9 GIF. If I encounter any errors, I can simply cancel and delete the problematic ad. After trying to duplicate again, it seems to be working fine now. I've got my number 12, which is a GIF in 16 by 9 format. I'll save that one as well. 
+
+Now, I need to create new ads for the next placements since I can't change the ad type. I’ll create a video ad, grab the headline, and ensure there are no extra characters. The button text will be "Learn More," and I’ll use the same logo file as before. I need to upload the video file, which is in 16 by 9 format, and then I can save it. 
+
+Since this ad is a video type, I’ll check if I can clone it and replace the video file for the 9 by 16 format. After updating the name to number 15, I’ll save that as well. Now we have our six placements ready: the original 16 by 9 image, a static image, and various GIFs and videos in both formats. 
+
+We’re testing static images versus GIFs versus videos to see which placement converts best. Once we're ready, we can adjust the budget for this campaign. We're aiming for a two times CPA payout, which is $120 for each ad based on a $60 payout for this product. This brings our total budget to $720 for all six placements. 
+
+As we monitor this round two data, I'll focus on the cost per landing page click as the main metric. If any placements underperform, we’ll turn them off early. Ultimately, conversions will drive our decisions, but the cost to get people to click through to the landing page will be crucial in determining success.

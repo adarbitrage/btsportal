@@ -1,0 +1,15 @@
+Title: Getting a Transcript of Your VSL Video with Temi
+Original Title: CB LP 3 - How to Get a Transcript of Your VSL Video with Temi
+Video ID: JjZwva7mpSbBGm27
+
+---
+
+In this video, I'll show you how to get a transcript for your video sales letter, or VSL, using Temi, spelled T-E-M-I. You can visit Temi.com to get started. This is a fantastic AI transcription service that I've used for years, and it works well. You might encounter a screen suggesting you try Rev, which is another option for transcription. I haven't used Rev, but feel free to explore it if you want. In future videos, I'll share more options for transcription.
+
+It's important to note that the transcript you get from Temi won't be 100% accurate, especially with technical terms. You'll need to edit it to ensure everything is correct. While Rev offers human transcription that can improve accuracy, I've always relied on Temi's AI service. If you don't have access to Adobe Premiere, which also has an automatic transcription feature, Temi is a solid choice. Although Temi is a paid service, I find it reasonably priced and reliable.
+
+Once you're on Temi's site, you'll likely want to click "Try Now" to create an account. After logging in, go to "New Order" in the top right corner. You can upload your video file by dragging and dropping it or selecting it from your files. For example, I’ll upload my Hapato burn VSL. After the upload is complete, you'll proceed to checkout. For a 50-minute transcription, it will cost about $12.50. After completing the payment process, you'll see a confirmation that your order was successful, and the status will change to "Processing."
+
+Once the transcript is ready, you'll receive a blue link to view it. It usually takes just a couple of minutes for the link to appear. In the transcript editor, any words Temi is unsure about will typically be highlighted in brown. You can click on those words to listen to the corresponding video segment and make corrections. For example, if it misinterprets "Camellia sinensis," you can easily correct it. 
+
+As you review the transcript, focus on technical terms and product names, as those are crucial for accuracy. After cleaning up the transcript, you can download it in various formats. I recommend choosing the inline format as a plain text document, which is the easiest to work with. You can also include speaker names and timestamps if needed. Once you've selected your options, export the transcript for use in your AI copywriting tools. This will allow you to save it to your preferred folder for future use.

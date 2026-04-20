@@ -1,0 +1,13 @@
+Title: Connecting Your Domain to Your Website
+Original Title: Connect Domain To Website
+Video ID: nYbDR3KQGg6ZhWiD
+
+---
+
+In this video, I'll show you how to connect your custom domain and subdomain to your live website, where you'll be testing your landing pages. This is necessary if you didn't complete this step during the initial setup when you added the domain to your account and associated it with a website. 
+
+Let's take a look at the Consumer Watchdog template. When I open it, you should see your subdomain.consumerwatchdog.io displayed. Ideally, it should show your unique subdomain instead of the placeholder text. If you see this, it means your subdomain is already attached to the website. 
+
+If you didn't connect the cutting edge during the setup, I'll guide you through that process now. I created a clone called cutting edge live, and I'll click on the three dots and select edit. In the menu, I'll click on settings. In the top right corner, you'll see a dropdown that says "please select a domain." Click on that and choose your subdomain.thecuttingedge.today URL, which we added earlier. After that, scroll down and click save. You should now see your subdomain.thecuttingedge.today in the address bar.
+
+If you haven't connected your domain, the preview link will show something like dashboard.getflexi.app. Once you've successfully connected your domain, it should display your subdomain.thecuttingedge.today. If it still shows the dashboard link, follow the steps I outlined earlier to connect your domain through the settings tab. That wraps up this video on connecting a domain to your website for your landing pages.
