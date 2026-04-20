@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import LessonLibrary from "@/components/blitz/LessonLibrary";
 
 const blitzCSS = `
 .blitz-content {
@@ -373,6 +374,7 @@ export default function Blitz() {
         </div>
 
         <nav className="toc">
+          <a href="#lesson-library">Lesson Library</a>
           <a href="#glossary">Key Terms</a>
           <a href="#path-select">Choose Your Path</a>
           <a href="#module0">Module 0: Before You Start</a>
@@ -407,6 +409,19 @@ export default function Blitz() {
               <div className="pe-label">💡 What is Affiliate Arbitrage? (Plain English)</div>
               Here's the basic idea: you promote someone else's product using paid ads. When someone clicks your ad, visits a landing page you've created, and then buys the product — you earn a commission. The "arbitrage" part means you're trying to spend less on ads than you make in commissions. Your goal is to find the right combination of ad, landing page, and audience that makes that happen consistently.
             </div>
+          </div>
+
+
+          {/* LESSON LIBRARY */}
+          <div className="module" id="lesson-library">
+            <div className="module-header">
+              <span className="module-badge">Library</span>
+              <h2>Step-by-Step Lesson Library</h2>
+            </div>
+            <div className="module-intro">
+              Every video lesson in The Blitz™, organized by phase and module in the order you should follow them. Click any lesson to read the full walkthrough — these are the same step-by-step instructions you'd see in the videos, written out so you can scan, search, and reference them at any time.
+            </div>
+            <LessonLibrary />
           </div>
 
 
