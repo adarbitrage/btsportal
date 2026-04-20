@@ -1,8 +1,11 @@
-Title: Building Your Dream Website with Flexy
-Original Title: Flexy (1)
-Video ID: mxMJcb1ABTOgkKiW
+App: Flexy
+Tagline: Drag & Drop Landing Pages
+Vidalytics Video ID: mxMJcb1ABTOgkKiW
+Original Video Title: Flexy (1)
+Cleaned Title: Building Your Dream Website with Flexy
+Word Count: 276
 
----
+--- SCRIPT ---
 
 In this video, I'll show you how you can build your dream website in less than an hour with Flexy, the ultimate drag-and-drop landing page builder that's changing the game. Gone are the days of wrestling with code or waiting on a web designer for simple updates. With Flexy, you're in control, using just your mouse to craft and fine-tune the perfect web presence for your project or business. Imagine having the power to bring your website vision to life without touching a single line of code. Flexy makes this a reality.
 

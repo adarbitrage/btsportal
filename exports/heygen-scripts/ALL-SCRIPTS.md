@@ -41,7 +41,7 @@ To explore an offer, click on a category, like beauty, and select View Offer. Th
 
 ## 003. Logging Into MediaMavens for the First Time
 
-*Original title: 3 - Logging Into Media Mavens For The First Time (1) · Video ID: PTTFp9jkxF9M3igr*
+*Original title: 3 - Logging Into MediaMavens For The First Time (1) · Video ID: PTTFp9jkxF9M3igr*
 
 In this video, I'll show you how to log into MediaMavens for the first time and set up your account to find and promote your offers. Start by going to the resources section. The second tab down is affiliate networks. Click on that, and it will open up your affiliate networks, where you'll see MediaMavens listed. Click on the green "Learn About MediaMavens" button, and you'll be welcomed to MediaMavens. 
 
@@ -55,7 +55,7 @@ Now you're in your MediaMavens portal. You won't have to complete this process a
 
 ## 004. Choosing Your MediaMavens Product to Promote
 
-*Original title: 4 - Choosing Your Media Mavens Product To Promote (1) · Video ID: 3LatRiET7o2CGI2d*
+*Original title: 4 - Choosing Your MediaMavens Product To Promote (1) · Video ID: 3LatRiET7o2CGI2d*
 
 In this video, I'll show you how to find and choose a MediaMavens offer to promote. First, hover over the resources tab and select the second affiliate network, MediaMavens. Click the big green button that says "Learn More About MediaMavens." This will take you to the MediaMavens overview page, where you can watch a video and read about the perks of MediaMavens. You can also log in here.
 
@@ -67,7 +67,7 @@ You can easily return to the top of the page by clicking the little arrow. As yo
 
 ## 005. Getting Your MediaMavens Affiliate Link
 
-*Original title: 5 - How To Get Your Media Mavens Offer Affiliate Link (1) · Video ID: z_ynpxUgng8J9wqp*
+*Original title: 5 - How To Get Your MediaMavens Offer Affiliate Link (1) · Video ID: z_ynpxUgng8J9wqp*
 
 In this video, I'll show you how to get your affiliate links for your MediaMavens product. When you're on the MediaMavens page, you have a couple of options for obtaining your link. I recommend staying right on this page. You can browse through the categories and find the product you want. Click on "View the Offer," and when you look at the offer card, you'll see your affiliate link right there. The affiliate code at the end of the link is what matches your account and ensures you receive credit for any purchases.
 
@@ -455,7 +455,7 @@ For example, I have three female hero shots and one male. When I create hero thr
 
 Being strategic in your cloning process can save you a lot of effort. While it doesn't matter which page you clone, using the copy that’s closest to what you’re testing will streamline your work. I have a total of five landing pages to create, including my control and four additional variants. You might have up to ten pages, each with different angles, body text, headlines, and hero shots. If that's the case, go ahead and create those variants.
 
-I recommend cloning your current optimized page and then swapping out elements to achieve your next variant. I’ll create all the variants now, and then I’ll show you how to gather the URLs for these pages, so they’re ready for our DIY tracks campaign.
+I recommend cloning your current optimized page and then swapping out elements to achieve your next variant. I’ll create all the variants now, and then I’ll show you how to gather the URLs for these pages, so they’re ready for our DIYTrax campaign.
 
 ---
 
@@ -557,7 +557,7 @@ In this video, I'll show you how to set up ad banners for your first test. Now t
 
 You can run three sizes of ad banners in our traffic source: 970 by 250, 300 by 250, and 970 by 550. Aim for a set of 15 to 20 banners, with 20 being the maximum limit. You can mix and match sizes and layouts as you see fit. For the 970 by 250 size, we typically have an image on the left, which is 400 by 250, accompanied by text on the right, including a headline and subheadline. The 300 by 250 usually features an image with a headline, or you might position the image below the headline with some text at the bottom. There are no strict rules for layouts, so feel free to arrange the images and text in any configuration that works for you.
 
-We have templates available in Pixel Press. For example, one template for the 970 by 550 includes an image on the left, a headline, a subheadline, and a call to action. You can also find various templates for different sizes in the templates folder under My Projects. One option for the 300 by 250 is a vertical layout where the image is a small slice on the left, with a headline and body text on the right. 
+We have templates available in PixelPress. For example, one template for the 970 by 550 includes an image on the left, a headline, a subheadline, and a call to action. You can also find various templates for different sizes in the templates folder under My Projects. One option for the 300 by 250 is a vertical layout where the image is a small slice on the left, with a headline and body text on the right. 
 
 When creating your ad banners, ensure that they lead to your advertorial in a way that makes sense. The ideas in your ad banners should align with the content on your landing page. Avoid clickbait that might disappoint visitors when they land on your advertorial. Instead, aim for a seamless transition where visitors find more information than what they expected from the ad banner. 
 
@@ -575,7 +575,7 @@ In this video, I'll show you how to gather your split test variant marketing ass
 
 We've given you a base template for the advertorial, which has successfully generated purchases in past campaigns. However, there's a lot you can do to enhance the performance of your advertorial through testing. The two key elements to focus on are the headline and the hero shot. The headline has the most significant impact on click-through rates to the product page and ultimately on sales. The hero shot, which is the large image that appears right under the headline, is the second most crucial factor.
 
-To start, I recommend creating a minimum of five different headline variants and five different hero shot variants. This will give you a total of 25 landing pages to test. You can set this up in Metric Mover or create individual pages, pairing specific headlines with specific hero shots in Flexi. There’s no one right way to do this, but you want to ensure that you’re testing new headlines and hero shots to find a combination that outperforms the original.
+To start, I recommend creating a minimum of five different headline variants and five different hero shot variants. This will give you a total of 25 landing pages to test. You can set this up in MetricMover or create individual pages, pairing specific headlines with specific hero shots in Flexy. There’s no one right way to do this, but you want to ensure that you’re testing new headlines and hero shots to find a combination that outperforms the original.
 
 For your testing, gather your headlines and hero shots. You can run the existing headline as your control since it has been tested and proven effective. Your goal is to create a new headline that surpasses this one. Similarly, find alternative hero images that you believe could perform better. To generate ideas, read through the advertorial and identify key points, pain points, benefits, and personal stories that could resonate emotionally with your audience. Also, analyze the product page for unique features and benefits that might not be highlighted in the current headline or hero shot.
 
@@ -691,17 +691,17 @@ In summary, this is how the Grasshopper traffic source operates and what you can
 
 ---
 
-## 045. DIY Tracks: The Ultimate Affiliate Marketing Tool
+## 045. DIYTrax: The Ultimate Affiliate Marketing Tool
 
 *Original title: DIYTRAX (1) · Video ID: EqqoE4li5xO0wrjq*
 
-In this video, I'll show you how DIY Tracks revolutionizes affiliate marketing. DIY Tracks is a URL and landing page rotator designed specifically for your evolving needs. It's not just another tracking tool; it's a solution I developed out of necessity for my team. When existing apps fell short, we created DIY Tracks to be stable, reliable, and incredibly user-friendly. With the stable 2.0 release, it's bug-free and more powerful than ever.
+In this video, I'll show you how DIYTrax revolutionizes affiliate marketing. DIYTrax is a URL and landing page rotator designed specifically for your evolving needs. It's not just another tracking tool; it's a solution I developed out of necessity for my team. When existing apps fell short, we created DIYTrax to be stable, reliable, and incredibly user-friendly. With the stable 2.0 release, it's bug-free and more powerful than ever.
 
-With DIY Tracks, you can effortlessly create multiple campaign types, including direct link, landing page, multi-path, or multi-option campaigns. Imagine tracking, testing, and optimizing your campaigns across various traffic sources with unparalleled on-the-fly control. DIY Tracks provides in-depth data analysis for all your campaigns, from ads and keywords to pages and offers, along with detailed revenue data to boost your profits.
+With DIYTrax, you can effortlessly create multiple campaign types, including direct link, landing page, multi-path, or multi-option campaigns. Imagine tracking, testing, and optimizing your campaigns across various traffic sources with unparalleled on-the-fly control. DIYTrax provides in-depth data analysis for all your campaigns, from ads and keywords to pages and offers, along with detailed revenue data to boost your profits.
 
-One of the most compelling features of DIY Tracks is its simplicity. You can add new pages or edit offers in your rotation without writing a single line of code. Our intuitive interface allows you to adjust your campaign's rotation in real time, giving you the flexibility to adapt instantly to market dynamics. DIY Tracks is more than just a tool; it's your partner in profit. Whether you're launching a new campaign or scaling an existing one, DIY Tracks offers the stability, reliability, and control needed to succeed in the competitive landscape of affiliate marketing.
+One of the most compelling features of DIYTrax is its simplicity. You can add new pages or edit offers in your rotation without writing a single line of code. Our intuitive interface allows you to adjust your campaign's rotation in real time, giving you the flexibility to adapt instantly to market dynamics. DIYTrax is more than just a tool; it's your partner in profit. Whether you're launching a new campaign or scaling an existing one, DIYTrax offers the stability, reliability, and control needed to succeed in the competitive landscape of affiliate marketing.
 
-Are you ready to take your affiliate marketing to the next level? DIY Tracks is here to make that journey smooth and profitable. Dive into the future of campaign management with DIY Tracks, where your marketing meets its match in technology. Let's rock the digital world together.
+Are you ready to take your affiliate marketing to the next level? DIYTrax is here to make that journey smooth and profitable. Dive into the future of campaign management with DIYTrax, where your marketing meets its match in technology. Let's rock the digital world together.
 
 ---
 
@@ -709,13 +709,13 @@ Are you ready to take your affiliate marketing to the next level? DIY Tracks is 
 
 *Original title: DIYTrax LP Offer Link in Custom Value · Video ID: BgxXseNNcM4ywRXp*
 
-In this video, I'll show you how to add your DIY Tracks landing page offer link into your Flexi custom values. First, let's navigate to our custom values in our Flexi account. Once you're logged in, go to the settings on the left side and click on it. Then, scroll down until you find custom values and click on that. Here, you'll see an entry labeled DIY Tracks underscore landing underscore page underscore offer link, along with the squiggly brackets indicating the custom value.
+In this video, I'll show you how to add your DIYTrax landing page offer link into your Flexy custom values. First, let's navigate to our custom values in our Flexy account. Once you're logged in, go to the settings on the left side and click on it. Then, scroll down until you find custom values and click on that. Here, you'll see an entry labeled DIYTrax underscore landing underscore page underscore offer link, along with the squiggly brackets indicating the custom value.
 
-This is the section we will be editing, so we need to add the link here. Click on the three little dots to edit this custom value. You'll enter the value you get from DIY Tracks, specifically your DIY Tracks landing page offer link. When you're in your campaign setup, make sure you've created and saved an initial campaign and set up the basic parameters. Then, click on the far-right tab labeled links and pixels to navigate to that page. The landing page offer link is the second one down. 
+This is the section we will be editing, so we need to add the link here. Click on the three little dots to edit this custom value. You'll enter the value you get from DIYTrax, specifically your DIYTrax landing page offer link. When you're in your campaign setup, make sure you've created and saved an initial campaign and set up the basic parameters. Then, click on the far-right tab labeled links and pixels to navigate to that page. The landing page offer link is the second one down. 
 
-You can click the clipboard icon to copy this link. I've blurred out some letters and numbers here, but it will look something like dot DIY Tracks dot app forward slash T2. This is your unique T2 DIY Tracks link, and everyone's link will be different. This link is what you'll use on every landing page that directs to the offers. DIY Tracks knows where to send it based on the other parameters in the campaign URL above. 
+You can click the clipboard icon to copy this link. I've blurred out some letters and numbers here, but it will look something like dot DIYTrax dot app forward slash T2. This is your unique T2 DIYTrax link, and everyone's link will be different. This link is what you'll use on every landing page that directs to the offers. DIYTrax knows where to send it based on the other parameters in the campaign URL above. 
 
-To copy the link, you can click the clipboard icon, highlight it and hit Control C, or right-click and select copy. Once you have it copied, navigate back to your Flexi account and paste it into the custom value field. Then, update it. Now, you have your DIY Tracks T2 link in your custom values for the DIY Tracks landing page offer link. You should see the squiggly bracket custom value in the middle. That’s it! In another video, we'll discuss how to use this value in your landing pages to ensure everything works properly.
+To copy the link, you can click the clipboard icon, highlight it and hit Control C, or right-click and select copy. Once you have it copied, navigate back to your Flexy account and paste it into the custom value field. Then, update it. Now, you have your DIYTrax T2 link in your custom values for the DIYTrax landing page offer link. You should see the squiggly bracket custom value in the middle. That’s it! In another video, we'll discuss how to use this value in your landing pages to ensure everything works properly.
 
 ---
 
@@ -737,17 +737,17 @@ That’s how you add your DIYTrax landing page offer link to your landing pages 
 
 ---
 
-## 048. Building Your Dream Website with Flexi
+## 048. Building Your Dream Website with Flexy
 
 *Original title: Flexy (1) · Video ID: mxMJcb1ABTOgkKiW*
 
-In this video, I'll show you how you can build your dream website in less than an hour with Flexi, the ultimate drag-and-drop landing page builder that's changing the game. Gone are the days of wrestling with code or waiting on a web designer for simple updates. With Flexi, you're in control, using just your mouse to craft and fine-tune the perfect web presence for your project or business. Imagine having the power to bring your website vision to life without touching a single line of code. Flexi makes this a reality.
+In this video, I'll show you how you can build your dream website in less than an hour with Flexy, the ultimate drag-and-drop landing page builder that's changing the game. Gone are the days of wrestling with code or waiting on a web designer for simple updates. With Flexy, you're in control, using just your mouse to craft and fine-tune the perfect web presence for your project or business. Imagine having the power to bring your website vision to life without touching a single line of code. Flexy makes this a reality.
 
-Whether you're building a landing page for your startup, a portfolio to showcase your work, or an e-commerce site to sell your products, Flexi has you covered. With over 80 beautifully designed templates at your fingertips, starting your website is as easy as click, drag, and drop. These templates are crafted to make your content shine and engage your visitors from the first click.
+Whether you're building a landing page for your startup, a portfolio to showcase your work, or an e-commerce site to sell your products, Flexy has you covered. With over 80 beautifully designed templates at your fingertips, starting your website is as easy as click, drag, and drop. These templates are crafted to make your content shine and engage your visitors from the first click.
 
-Flexi isn't just about ease; it's about making your site uniquely yours. You can change global colors, fonts, and more with just a few clicks. The best part? Your website will look amazing on all devices. Flexi ensures your site automatically scales perfectly on phones and tablets. We understand the importance of a mobile-first world, which is why Flexi guarantees your site not only looks good but functions seamlessly across all devices, ensuring your message reaches everyone, everywhere.
+Flexy isn't just about ease; it's about making your site uniquely yours. You can change global colors, fonts, and more with just a few clicks. The best part? Your website will look amazing on all devices. Flexy ensures your site automatically scales perfectly on phones and tablets. We understand the importance of a mobile-first world, which is why Flexy guarantees your site not only looks good but functions seamlessly across all devices, ensuring your message reaches everyone, everywhere.
 
-With Flexi, your website building journey is about to take off. No more barriers, no more waiting. It's time to unleash your creativity and build the website you've always dreamed of effortlessly. Welcome to the future of web design. Welcome to Flexi.
+With Flexy, your website building journey is about to take off. No more barriers, no more waiting. It's time to unleash your creativity and build the website you've always dreamed of effortlessly. Welcome to the future of web design. Welcome to Flexy.
 
 ---
 
@@ -805,17 +805,17 @@ When you're ready, downloading your new arsenal of GIFs is as simple as a click.
 
 ---
 
-## 052. Choosing Between Metric Mover and Individual Landing Pages
+## 052. Choosing Between MetricMover and Individual Landing Pages
 
-*Original title: How to Know Whether to Use Metric Mover or Individual Landing Pages · Video ID: kH8f1WPQ5KaC60Kl*
+*Original title: How to Know Whether to Use MetricMover or Individual Landing Pages · Video ID: kH8f1WPQ5KaC60Kl*
 
-In this video, I'll show you how to determine whether to set up a metric mover campaign or use cloned flexi pages when split testing your landing pages. At this stage, you've gathered your marketing assets, whether that's an advertorial for your landing page or a jump bridge page for your product. You have variants to set up, and you're wondering how to decide between a metric mover project or cloned flexi pages.
+In this video, I'll show you how to determine whether to set up a metric mover campaign or use cloned Flexy pages when split testing your landing pages. At this stage, you've gathered your marketing assets, whether that's an advertorial for your landing page or a jump bridge page for your product. You have variants to set up, and you're wondering how to decide between a metric mover project or cloned Flexy pages.
 
 For a metric mover, the main content remains constant while you test a few select variables, such as a headline and a hero shot. Typically, you'll want to test one to three variables at most. This is important because the number of combinations can grow quickly. For instance, if you have five headlines and five hero shots, that results in 25 total page variants. If you add five different sub-headlines, you’re looking at 125 page variants. To achieve statistical significance, you'll need a substantial number of clicks on those pages. Therefore, it's best to keep your sets smaller or have a larger set of one variable paired with a smaller set of another.
 
-On the other hand, you should clone flexi pages when you have headlines and hero shots that are intentionally paired together. For example, headline number two is crafted to go with hero shot number two, and you don’t want them to mix with other combinations. This approach is also suitable when the page content differs significantly, such as testing different angles, lengths, or body content. If you're changing multiple elements on a page, like different images or texts, you’ll want to create separate flexi pages.
+On the other hand, you should clone Flexy pages when you have headlines and hero shots that are intentionally paired together. For example, headline number two is crafted to go with hero shot number two, and you don’t want them to mix with other combinations. This approach is also suitable when the page content differs significantly, such as testing different angles, lengths, or body content. If you're changing multiple elements on a page, like different images or texts, you’ll want to create separate Flexy pages.
 
-To sum up, use metric mover when you want to mix and match elements while keeping the main content constant. Use cloned flexi pages when you want to intentionally pair variables or when the content varies significantly across pages. Based on your assets and what you are testing, you can now choose between a metric mover campaign or cloned flexi pages. We'll dive deeper into this in the next videos.
+To sum up, use metric mover when you want to mix and match elements while keeping the main content constant. Use cloned Flexy pages when you want to intentionally pair variables or when the content varies significantly across pages. Based on your assets and what you are testing, you can now choose between a metric mover campaign or cloned Flexy pages. We'll dive deeper into this in the next videos.
 
 ---
 
@@ -829,13 +829,13 @@ Now, let’s look at our setup. We have our e-commerce product page, which is th
 
 We need to ensure our messaging aligns with the product page, directing potential customers in a way that prepares them to make a purchase. This is where our landing page comes in. We will move one step back in the funnel to maintain congruity between the e-commerce product page, our sales mechanism, and our advertorial, which serves as a pre-sales tool to warm up and frame the offer for the customer. 
 
-Next, we will set up our advertorial in Flexi. You'll need to configure the basic settings of your Flexi account first, and then we’ll proceed to create the specific page and advertorial.
+Next, we will set up our advertorial in Flexy. You'll need to configure the basic settings of your Flexy account first, and then we’ll proceed to create the specific page and advertorial.
 
 ---
 
-## 054. Embedding Metric Mover Code in Flexy Page
+## 054. Embedding MetricMover Code in Flexy Page
 
-*Original title: Metric Mover 10 - How to Embed Metric Mover Code in Flexy Page · Video ID: GQAmtNUaJhPUi2XE*
+*Original title: MetricMover 10 - How to Embed MetricMover Code in Flexy Page · Video ID: GQAmtNUaJhPUi2XE*
 
 In this video, I'll show you how to embed your MetricMover page code into your Flexy page. First, open the embed code TXT file and select all the text. On a PC, you can use Ctrl-A to select everything and then Ctrl-C to copy it. Next, go to your Flexy page, which we set up with a blank page and a custom HTML JavaScript element. Make sure this element is selected; if it's not, you'll see different options on the right side.
 
@@ -845,11 +845,11 @@ Now, we need to publish the page, which will save and publish your changes. Afte
 
 ---
 
-## 055. Checking Your Metric Mover Page Variants
+## 055. Checking Your MetricMover Page Variants
 
-*Original title: Metric Mover 11 - How to Check Metric Mover Page Variants · Video ID: opcXFc3SMSBLIiGC*
+*Original title: MetricMover 11 - How to Check MetricMover Page Variants · Video ID: opcXFc3SMSBLIiGC*
 
-In this video, I'll show you how to check your Metric Mover page variants. As we saw in the last video, if you click this and go to that page, it may still appear blank. First, find the folder where you downloaded the embed code file. Inside, you'll find a document named file names.txt. Open that document, and you'll see a list of URLs. Copy one of these URLs and open it in a new browser tab. 
+In this video, I'll show you how to check your MetricMover page variants. As we saw in the last video, if you click this and go to that page, it may still appear blank. First, find the folder where you downloaded the embed code file. Inside, you'll find a document named file names.txt. Open that document, and you'll see a list of URLs. Copy one of these URLs and open it in a new browser tab. 
 
 When you paste in the URL, you'll notice it has a V tag at the end, indicating the headline and hero shot versions. If everything is working correctly, your advertorial will populate with headline version one and hero shot version one. Now, to check the other variants, change the V one in the URL to V two for the headline and hero shot. Hit enter, and you'll see your second headline variant and second hero shot variant. You can continue this process for headline three and hero three as well. 
 
@@ -857,63 +857,63 @@ I won't check every single variant, but you can if you'd like to ensure they all
 
 ---
 
-## 056. Finding Your Metric Mover File for DIYTrax Import
+## 056. Finding Your MetricMover File for DIYTrax Import
 
-*Original title: Metric Mover 12 - How to Find Metric Mover File for DIYTrax Import · Video ID: SJFcj3Wuvea5YXIX*
+*Original title: MetricMover 12 - How to Find MetricMover File for DIYTrax Import · Video ID: SJFcj3Wuvea5YXIX*
 
-In this video, I'll show you how to find the file containing your Metric Mover landing pages, which you'll need to import into DIYTrax for your campaign. After checking the variants on your landing pages, locate the folder where you downloaded your files. Inside, you'll find a CSV file named tracks-T-R-A-X-import.csv. This is the import file you'll need for your DIYTrax campaign. In the next video, I'll demonstrate how to bring that file into your DIYTrax campaign, ensuring your Metric Mover landing pages appear correctly.
+In this video, I'll show you how to find the file containing your MetricMover landing pages, which you'll need to import into DIYTrax for your campaign. After checking the variants on your landing pages, locate the folder where you downloaded your files. Inside, you'll find a CSV file named tracks-T-R-A-X-import.csv. This is the import file you'll need for your DIYTrax campaign. In the next video, I'll demonstrate how to bring that file into your DIYTrax campaign, ensuring your MetricMover landing pages appear correctly.
 
 ---
 
-## 057. Importing Metric Mover Page Variants to DIYTrax
+## 057. Importing MetricMover Page Variants to DIYTrax
 
-*Original title: Metric Mover 13 - How to Import Metric Mover Page Variants to DIYTrax · Video ID: Tje2prmaCCdgHnxJ*
+*Original title: MetricMover 13 - How to Import MetricMover Page Variants to DIYTrax · Video ID: Tje2prmaCCdgHnxJ*
 
-In this video, I'll show you how to import your Metric Mover campaign landing pages into your DIYTrax campaign. First, open DIYTrax and go to the campaigns list. Find the campaign you've set up for this purpose. In this case, I've created a Skeeter Strike demo campaign in this dummy account, which is essentially empty for training and demonstration.
+In this video, I'll show you how to import your MetricMover campaign landing pages into your DIYTrax campaign. First, open DIYTrax and go to the campaigns list. Find the campaign you've set up for this purpose. In this case, I've created a Skeeter Strike demo campaign in this dummy account, which is essentially empty for training and demonstration.
 
-In the campaign view, you'll start on the basic info tab. Navigate to the landing pages tab and click on it. On the far right, you'll see a dark blue button that says "Upload CSV." Click that, then choose the light gray box that says "Choose File." Navigate to the Metric Mover export folder, where you found your embed code and file names. Select the tracks import.csv file and click "Open" at the bottom. You'll see that tracks import.csv has been chosen, and then click the upload button. Your landing pages should now be uploaded, and you should see the total number displayed, showing one to ten of twenty-five.
+In the campaign view, you'll start on the basic info tab. Navigate to the landing pages tab and click on it. On the far right, you'll see a dark blue button that says "Upload CSV." Click that, then choose the light gray box that says "Choose File." Navigate to the MetricMover export folder, where you found your embed code and file names. Select the tracks import.csv file and click "Open" at the bottom. You'll see that tracks import.csv has been chosen, and then click the upload button. Your landing pages should now be uploaded, and you should see the total number displayed, showing one to ten of twenty-five.
 
 You can use the dropdown to view the full list of landing pages. Notice that they are automatically set to active, indicated by the blue dot. If any are inactive, you can activate them. The share is automatically distributed among them, set to 4% each, which makes sense since twenty-five pages times 4% each equals 100%. If the percentage share looks off, you can click the "Set Equal Share" button to distribute that 100% across all active landing pages. In this case, we have twenty-five pages, so 4% each is correct.
 
-That's it! Our Metric Mover landing page variants have now been added to our DIYTrax campaign. The landing pages portion of setting up this campaign is now complete.
+That's it! Our MetricMover landing page variants have now been added to our DIYTrax campaign. The landing pages portion of setting up this campaign is now complete.
 
 ---
 
-## 058. What You Need for Your Metric Mover Test
+## 058. What You Need for Your MetricMover Test
 
-*Original title: Metric Mover 1 - What You Need for Metric Mover Test · Video ID: WiB6c9ltGwmy36GW*
+*Original title: MetricMover 1 - What You Need for MetricMover Test · Video ID: WiB6c9ltGwmy36GW*
 
-In this video, I'll show you what resources you need to set up your Metric Mover test. First and foremost, you'll need the Metric Mover software. To access it, go to your BTS resources, click on the BTS software, and find Metric Mover in the list. Click on it, then scroll down and select "Access Metric Mover" to open your account in a new tab.
+In this video, I'll show you what resources you need to set up your MetricMover test. First and foremost, you'll need the MetricMover software. To access it, go to your BTS resources, click on the BTS software, and find MetricMover in the list. Click on it, then scroll down and select "Access MetricMover" to open your account in a new tab.
 
-Next, make sure you have your Flexi account open, along with the advertorial you plan to run. This should be the one you've optimized in the previous step. Ensure everything is perfect, including your DIY Tracks T2 link, images for both mobile and desktop, spacing, font size, and overall layout. We want everything ready to go to avoid redoing any work.
+Next, make sure you have your Flexy account open, along with the advertorial you plan to run. This should be the one you've optimized in the previous step. Ensure everything is perfect, including your DIYTrax T2 link, images for both mobile and desktop, spacing, font size, and overall layout. We want everything ready to go to avoid redoing any work.
 
-You'll also need the headlines you want to split test and the hero shots. While the hero shots may not be in the document, make sure you have the files saved in a folder for easy access when it's time to upload. Gather these resources: the Metric Mover software, your Flexi page with the live URL, and the assets for split testing. In the next video, we'll dive into how to start setting up your tests.
-
----
-
-## 059. Creating a New Metric Mover Campaign
-
-*Original title: Metric Mover 2 - Creating a New Metric Mover Campaign · Video ID: eDu8RoBsyEdrPqqf*
-
-In this video, I'll show you how to create a new project in Metric Mover for your campaign. Once you have the Metric Mover software open, look at the top and click on "Create New Project." You'll need to give your project a title; for this example, I'll use "Demo Skeeter." I’ll name the folder the same thing. Keep in mind that you can't use spaces or special characters in this field. Next, you'll be prompted to import a web page. In the following video, I'll demonstrate how to import your web page for use in your Metric Mover campaign.
+You'll also need the headlines you want to split test and the hero shots. While the hero shots may not be in the document, make sure you have the files saved in a folder for easy access when it's time to upload. Gather these resources: the MetricMover software, your Flexy page with the live URL, and the assets for split testing. In the next video, we'll dive into how to start setting up your tests.
 
 ---
 
-## 060. Importing Your Landing Page into Metric Mover
+## 059. Creating a New MetricMover Campaign
 
-*Original title: Metric Mover 3 - How to Import Your Landing Page into Metric Mover · Video ID: DnXrAbOlDjDDUNH1*
+*Original title: MetricMover 2 - Creating a New MetricMover Campaign · Video ID: eDu8RoBsyEdrPqqf*
 
-In this video, I'll show you how to import your landing page so you can create variants using Metric Mover. If you've just created a new campaign, you should see a pop-up that says "Import Web Page." If you don't see that, you can find the option at the top that also says "Import Web Page." Clicking on that will open the same overlay pop-up. 
-
-In the web page URL field, enter the base landing page URL. For this example, we have set up an advertorial, but it could be your bridge page, jump page, or any landing page you want to use for your Metric Mover test. We want the live URL for this. I’ll copy that URL and paste it into Metric Mover. 
-
-Now, I’ll click "Import," and Metric Mover will perform its back-end magic. You'll see it loading the project, and it will import our page, pulling in the full advertorial just as it appeared, including the heading and all the content. That's how you import your landing page into Metric Mover. In the next video, I'll show you how to start setting up your split test variants.
+In this video, I'll show you how to create a new project in MetricMover for your campaign. Once you have the MetricMover software open, look at the top and click on "Create New Project." You'll need to give your project a title; for this example, I'll use "Demo Skeeter." I’ll name the folder the same thing. Keep in mind that you can't use spaces or special characters in this field. Next, you'll be prompted to import a web page. In the following video, I'll demonstrate how to import your web page for use in your MetricMover campaign.
 
 ---
 
-## 061. Creating Headline Variants in Metric Mover
+## 060. Importing Your Landing Page into MetricMover
 
-*Original title: Metric Mover 4 - How to Create Headline Variants in Metric Mover · Video ID: Q6tx9rOk_R2atMXl*
+*Original title: MetricMover 3 - How to Import Your Landing Page into MetricMover · Video ID: DnXrAbOlDjDDUNH1*
+
+In this video, I'll show you how to import your landing page so you can create variants using MetricMover. If you've just created a new campaign, you should see a pop-up that says "Import Web Page." If you don't see that, you can find the option at the top that also says "Import Web Page." Clicking on that will open the same overlay pop-up. 
+
+In the web page URL field, enter the base landing page URL. For this example, we have set up an advertorial, but it could be your bridge page, jump page, or any landing page you want to use for your MetricMover test. We want the live URL for this. I’ll copy that URL and paste it into MetricMover. 
+
+Now, I’ll click "Import," and MetricMover will perform its back-end magic. You'll see it loading the project, and it will import our page, pulling in the full advertorial just as it appeared, including the heading and all the content. That's how you import your landing page into MetricMover. In the next video, I'll show you how to start setting up your split test variants.
+
+---
+
+## 061. Creating Headline Variants in MetricMover
+
+*Original title: MetricMover 4 - How to Create Headline Variants in MetricMover · Video ID: Q6tx9rOk_R2atMXl*
 
 In this video, I'll show you how to set up variants for split testing your headlines. It's very simple. Start by clicking on the element you want to test. You'll see a green box around your headline, and in the top right corner, there's a tab with a plus sign that says "create a variation." If you hover over it, you'll see it labeled as "add tag variation." Click on that to create a variation of your headline element. 
 
@@ -921,13 +921,13 @@ Now, you'll see the tag title H1-1. You can change this to whatever you prefer, 
 
 For each variant, copy your new headline and paste it in the same place, ensuring it has the same font family and styling as the original. After pasting, click "done." Repeat this for each of your five headlines. Once you've added all the variants, you can click on the preview variation to see them cycle through. You'll notice they all maintain the same font, size, and styling as the original. 
 
-Now that your five headlines are set up, don't forget to click the save button in the top right corner to save your changes. You'll see a confirmation that your project has been saved successfully. In the next video, I'll show you how to upload your images properly for split testing, which we'll do in Flexi.
+Now that your five headlines are set up, don't forget to click the save button in the top right corner to save your changes. You'll see a confirmation that your project has been saved successfully. In the next video, I'll show you how to upload your images properly for split testing, which we'll do in Flexy.
 
 ---
 
 ## 062. Uploading Hero Shots to Flexy for MetricMover
 
-*Original title: Metric Mover 5 - How to Upload Hero Shots to Flexy for Use in Metric Mover · Video ID: cnCOvVV4UPHGIF0H*
+*Original title: MetricMover 5 - How to Upload Hero Shots to Flexy for Use in MetricMover · Video ID: cnCOvVV4UPHGIF0H*
 
 In this video, I'll show you how to upload your hero shots to create split test variants for your MetricMover campaign. We won't upload these directly to MetricMover; instead, we'll use our Flexy account. If you're in your Flexy account and see the menu bar collapsed on the left, click the green arrow at the bottom to expand it. Then, navigate to media storage. Having your folder of hero shots ready will make this process easier.
 
@@ -939,61 +939,61 @@ I recommend keeping things organized in folders, but if you prefer to have every
 
 ---
 
-## 063. Creating Hero Shot Variants in Metric Mover
+## 063. Creating Hero Shot Variants in MetricMover
 
-*Original title: Metric Mover 6 - How to Create Hero Shot Variants in Metric Mover · Video ID: x48u0Qa3k6uTKZer*
+*Original title: MetricMover 6 - How to Create Hero Shot Variants in MetricMover · Video ID: x48u0Qa3k6uTKZer*
 
-In this video, I'll show you how to set up variants for your hero shot. This assumes you've followed the previous video and uploaded your images to your Flexy account. In Metric Mover, click on the hero shot so that it has a green border and a tag in the top right corner that says "Create Variation." Click on that, just like we did for the headlines. Now you'll see that variants have been added for this hero shot.
+In this video, I'll show you how to set up variants for your hero shot. This assumes you've followed the previous video and uploaded your images to your Flexy account. In MetricMover, click on the hero shot so that it has a green border and a tag in the top right corner that says "Create Variation." Click on that, just like we did for the headlines. Now you'll see that variants have been added for this hero shot.
 
 To add a variation, click the "Add Variation" button. I have five variants, but you may have a different number depending on what you're testing. Don’t worry if your count differs; I’m using a small set for demonstration purposes. You might have a set of 10 headlines and 10 hero shots or another combination. The exact number isn't crucial; I'm simply showing you how to do this.
 
 One of these variants will be the control, so I'll leave that alone. For the other four, hover your mouse over each image, and you'll see a few options, including three dots in the top right corner. Click on that and select "Get a Link." This copies the link to your clipboard. 
 
-Now, go back to Metric Mover, select all the text in the v2 section, delete it, and paste in the new link. Click "Done" to add the new image. I noticed that the tag title was set to "div," so I’ll change it to "hero" for clarity. Repeat this process for the remaining variants: get the link, replace the text in Metric Mover, and click "Done."
+Now, go back to MetricMover, select all the text in the v2 section, delete it, and paste in the new link. Click "Done" to add the new image. I noticed that the tag title was set to "div," so I’ll change it to "hero" for clarity. Repeat this process for the remaining variants: get the link, replace the text in MetricMover, and click "Done."
 
-Now we have five variants for the hero shot, and you can see that the tag has changed to "Preview Variation." You should be able to click that and rotate through the different hero shots. Remember to click the save button to save your project. That’s how you create your split test variants for your hero shot in your Metric Mover project.
+Now we have five variants for the hero shot, and you can see that the tag has changed to "Preview Variation." You should be able to click that and rotate through the different hero shots. Remember to click the save button to save your project. That’s how you create your split test variants for your hero shot in your MetricMover project.
 
 ---
 
-## 064. Setting Up Your Flexy Page for Metric Mover
+## 064. Setting Up Your Flexy Page for MetricMover
 
-*Original title: Metric Mover 7 - How to Set Up Flexy Page for Metric Mover Code · Video ID: l3ZCFRzfQ40LLkCp*
+*Original title: MetricMover 7 - How to Set Up Flexy Page for MetricMover Code · Video ID: l3ZCFRzfQ40LLkCp*
 
-In this video, I'll show you how to set up your Flexy base page for your Metric Mover test. This page will host the code from your Metric Mover project. First, navigate to your site where you plan to run live, and locate the advertorial page you previously used in Metric Mover. Click the blue "Add New Page" button at the top and give your new page a name. I've named mine "This Device Prevents Mosquito Bites." Now, let's create this new page.
+In this video, I'll show you how to set up your Flexy base page for your MetricMover test. This page will host the code from your MetricMover project. First, navigate to your site where you plan to run live, and locate the advertorial page you previously used in MetricMover. Click the blue "Add New Page" button at the top and give your new page a name. I've named mine "This Device Prevents Mosquito Bites." Now, let's create this new page.
 
 Scroll down and choose to create from blank. Once your builder opens, it will prompt you to add a section. Go ahead and add a full-width section, then create a one-column row. Next, we need to add an element. Scroll down and select the code element. With that selected, you'll see the option to open the code editor. For now, this setup is good, so let's save the page.
 
-After saving, the last thing we need to edit is the SEO metadata. In the content section, enter the title and update it to match the URL. I've updated mine to "This Device Prevents Mosquito Bites," which is benefit-driven. Save this, and in the next video, I'll show you how to retrieve the code from your Metric Mover project to insert into this page.
+After saving, the last thing we need to edit is the SEO metadata. In the content section, enter the title and update it to match the URL. I've updated mine to "This Device Prevents Mosquito Bites," which is benefit-driven. Save this, and in the next video, I'll show you how to retrieve the code from your MetricMover project to insert into this page.
 
 ---
 
-## 065. Exporting Metric Mover Campaign Files
+## 065. Exporting MetricMover Campaign Files
 
-*Original title: Metric Mover 8 - How to Export Metric Mover Campaign Files · Video ID: IqPQvXZ2LE8hMqmj*
+*Original title: MetricMover 8 - How to Export MetricMover Campaign Files · Video ID: IqPQvXZ2LE8hMqmj*
 
-In this video, I'll show you how to generate and export the code from Metric Mover for your campaign that you'll place onto your Flexi page. First, look at the top right corner and click on the option that says "Generate Flexi page code." This will bring up an overlay asking for the page URL where you'll embed your Metric Mover campaign. It's important to have your Flexi page set up beforehand.
+In this video, I'll show you how to generate and export the code from MetricMover for your campaign that you'll place onto your Flexy page. First, look at the top right corner and click on the option that says "Generate Flexy page code." This will bring up an overlay asking for the page URL where you'll embed your MetricMover campaign. It's important to have your Flexy page set up beforehand.
 
-You can either right-click to copy the link address or click on it to open a new tab with a blank page. Either way, you need the URL for this blank page. Once you have that, go back to Metric Mover and paste the URL in the designated field. Make sure it's the exact URL for the page where you'll place the code. After that, click on "Generate." 
+You can either right-click to copy the link address or click on it to open a new tab with a blank page. Either way, you need the URL for this blank page. Once you have that, go back to MetricMover and paste the URL in the designated field. Make sure it's the exact URL for the page where you'll place the code. After that, click on "Generate." 
 
-Once the process is complete, a Save As dialog box will appear. Navigate to the folder where you want to save your Metric Mover file. I recommend naming it "Metric Mover" for easy identification. It will be saved as a zip file. After saving, you'll have successfully exported your Metric Mover campaign code. In the next video, I'll show you how to find the correct file in that downloaded zip after extracting the files, and we'll get started on placing that code on your Flexi page.
+Once the process is complete, a Save As dialog box will appear. Navigate to the folder where you want to save your MetricMover file. I recommend naming it "MetricMover" for easy identification. It will be saved as a zip file. After saving, you'll have successfully exported your MetricMover campaign code. In the next video, I'll show you how to find the correct file in that downloaded zip after extracting the files, and we'll get started on placing that code on your Flexy page.
 
 ---
 
-## 066. Finding Your Metric Mover Code File
+## 066. Finding Your MetricMover Code File
 
-*Original title: Metric Mover 9 - How to Find Metric Mover Code File · Video ID: IOpVmngKoubVwHpD*
+*Original title: MetricMover 9 - How to Find MetricMover Code File · Video ID: IOpVmngKoubVwHpD*
 
-In this video, I'll show you how to find the code file you'll need for your Flexi page from the Metric Mover download. First, I have this zip file exported, and we want to extract all the files within the Metric Mover zip. If you're on a PC, right-click and choose "Extract All," then select where you want the files to be extracted. 
+In this video, I'll show you how to find the code file you'll need for your Flexy page from the MetricMover download. First, I have this zip file exported, and we want to extract all the files within the MetricMover zip. If you're on a PC, right-click and choose "Extract All," then select where you want the files to be extracted. 
 
-Once extracted, you'll see a folder, which in my case is called Demo Skeeter. Inside this folder, you'll find the file labeled embedcode.txt. This is the file we need. Open it up, and you'll see the code we will use for our Metric Mover project. 
+Once extracted, you'll see a folder, which in my case is called Demo Skeeter. Inside this folder, you'll find the file labeled embedcode.txt. This is the file we need. Open it up, and you'll see the code we will use for our MetricMover project. 
 
-That's it! You've located the correct file, embedcode.txt. In the next video, I'll show you how to take that code and place it in your Flexi page.
+That's it! You've located the correct file, embedcode.txt. In the next video, I'll show you how to take that code and place it in your Flexy page.
 
 ---
 
 ## 067. MetricMover: Revolutionizing Landing Page Optimization
 
-*Original title: Metric Mover (1) · Video ID: 9FQkRbOSSrI3JMML*
+*Original title: MetricMover (1) · Video ID: 9FQkRbOSSrI3JMML*
 
 In this video, I'll introduce you to MetricMover, the groundbreaking landing page split tester that's transforming how we optimize our online campaigns. Imagine doubling your agency's profit by harnessing the power of efficient and effective split testing. That's what MetricMover has done for us. 
 
@@ -1027,7 +1027,7 @@ Finally, toggle between desktop and mobile views to ensure that both versions lo
 
 ## 069. Introducing PixelPress: Your Ultimate Banner Ad Creator
 
-*Original title: Pixel Press (1) · Video ID: vA7IOa_12U66yEFl*
+*Original title: PixelPress (1) · Video ID: vA7IOa_12U66yEFl*
 
 In this video, I'll show you a revolutionary tool that will change the way you create and test banner ads. Meet PixelPress, the bulk banner creator designed by traffic experts for traffic experts. In digital marketing, speed and efficiency in testing can mean the difference between a campaign that soars and one that flops. With PixelPress, you can generate thousands of banner ad variations in mere minutes. This tool is about to become your secret weapon in the traffic game.
 
@@ -1071,7 +1071,7 @@ In summary, I cut the banner with $29 in spend due to its low landing page CTR. 
 
 ## 072. Introducing ScrapeBot
 
-*Original title: Scrape Bot (1) · Video ID: wnf8YlB9rxQ3XCUm*
+*Original title: ScrapeBot (1) · Video ID: wnf8YlB9rxQ3XCUm*
 
 In this video, I'll show you ScrapeBot, the Chrome extension designed to revolutionize how you source images for your online campaigns. In the fast-paced world of digital marketing, finding the perfect images for your banner ads and advertorial pages can be daunting. That's where ScrapeBot comes in. Developed to seamlessly integrate with Google, Bing, and DuckDuckGo, ScrapeBot is your one-stop solution for image scraping. Imagine effortlessly locating and downloading high-quality images directly from your browser. With ScrapeBot, that's not just possible; it's your new reality. No more endless searching or worrying about image rights—just the images you need when you need them.
 
@@ -1333,7 +1333,7 @@ In this video, I'll show you how to add landing pages to your campaign if you ha
 
 For this setup, I've got a MetricMover file that includes the tracks import for MetricMover. We'll click on "upload CSV," choose the file, and open it. I've already extracted my MetricMover project, so here’s my tracks import. After clicking open, I’ll upload it, and it should upload all my landing pages, showing 10 of 25. Let me display all 25 of them. There they are!
 
-You can test these by copying the URLs and pasting them into a browser. Make sure to check your different variants, headlines, and hero images to ensure everything appears correctly. Also, double-check your links, especially the T2 link in the bottom left corner. There are specific videos for your DIY tracks and landing page setup that cover this in detail, but I'm just giving you a brief overview.
+You can test these by copying the URLs and pasting them into a browser. Make sure to check your different variants, headlines, and hero images to ensure everything appears correctly. Also, double-check your links, especially the T2 link in the bottom left corner. There are specific videos for your DIYTrax and landing page setup that cover this in detail, but I'm just giving you a brief overview.
 
 I’m checking my landing page to confirm that it’s working properly. The share percentage looks good at 25 over 100 percent, which is 4 percent. If the percentage seems off, you can click "set equal share," and it will evenly distribute the share percentage across all active pages. Since this is our first set of 25 pages, everything is set to active with the correct percentage share. I've verified the URLs in a browser tab, and they are working as expected.
 

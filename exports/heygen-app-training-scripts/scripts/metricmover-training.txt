@@ -1,8 +1,11 @@
-Title: MetricMover: Revolutionizing Landing Page Optimization
-Original Title: MetricMover (1)
-Video ID: 9FQkRbOSSrI3JMML
+App: MetricMover
+Tagline: Lander Split Tester
+Vidalytics Video ID: 9FQkRbOSSrI3JMML
+Original Video Title: MetricMover (1)
+Cleaned Title: MetricMover: Revolutionizing Landing Page Optimization
+Word Count: 235
 
----
+--- SCRIPT ---
 
 In this video, I'll introduce you to MetricMover, the groundbreaking landing page split tester that's transforming how we optimize our online campaigns. Imagine doubling your agency's profit by harnessing the power of efficient and effective split testing. That's what MetricMover has done for us. 
 

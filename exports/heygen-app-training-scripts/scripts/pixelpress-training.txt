@@ -1,8 +1,11 @@
-Title: Introducing PixelPress: Your Ultimate Banner Ad Creator
-Original Title: PixelPress (1)
-Video ID: vA7IOa_12U66yEFl
+App: PixelPress
+Tagline: Bulk Banner Creator
+Vidalytics Video ID: vA7IOa_12U66yEFl
+Original Video Title: PixelPress (1)
+Cleaned Title: Introducing PixelPress: Your Ultimate Banner Ad Creator
+Word Count: 270
 
----
+--- SCRIPT ---
 
 In this video, I'll show you a revolutionary tool that will change the way you create and test banner ads. Meet PixelPress, the bulk banner creator designed by traffic experts for traffic experts. In digital marketing, speed and efficiency in testing can mean the difference between a campaign that soars and one that flops. With PixelPress, you can generate thousands of banner ad variations in mere minutes. This tool is about to become your secret weapon in the traffic game.
 

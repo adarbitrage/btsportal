@@ -1,8 +1,11 @@
-Title: Introducing ScrapeBot
-Original Title: ScrapeBot (1)
-Video ID: wnf8YlB9rxQ3XCUm
+App: ScrapeBot
+Tagline: Google/Bing Image Scraper
+Vidalytics Video ID: wnf8YlB9rxQ3XCUm
+Original Video Title: ScrapeBot (1)
+Cleaned Title: Introducing ScrapeBot
+Word Count: 226
 
----
+--- SCRIPT ---
 
 In this video, I'll show you ScrapeBot, the Chrome extension designed to revolutionize how you source images for your online campaigns. In the fast-paced world of digital marketing, finding the perfect images for your banner ads and advertorial pages can be daunting. That's where ScrapeBot comes in. Developed to seamlessly integrate with Google, Bing, and DuckDuckGo, ScrapeBot is your one-stop solution for image scraping. Imagine effortlessly locating and downloading high-quality images directly from your browser. With ScrapeBot, that's not just possible; it's your new reality. No more endless searching or worrying about image rights—just the images you need when you need them.
 

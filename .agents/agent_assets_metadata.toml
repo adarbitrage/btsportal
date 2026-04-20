@@ -36,3 +36,27 @@ id = "W6TQhypz5eMlV0sQiYho-"
 uri = "file://exports/heygen-scripts/manifest.json"
 type = "unspecified"
 title = "Manifest (titles, video IDs, word counts)"
+
+[[outputs]]
+id = "xhaX0S9IlASYP7PGfI7NK"
+uri = "file://exports/bts-app-training-scripts.tar.gz"
+type = "unspecified"
+title = "BTS App Training Scripts (HeyGen-ready) — archive"
+
+[[outputs]]
+id = "K3WOa8Z_kFIeTvwqFSwyx"
+uri = "file://exports/heygen-app-training-scripts/ALL-APP-SCRIPTS.md"
+type = "text"
+title = "All 8 app scripts in one document (preview)"
+
+[[outputs]]
+id = "rdzmevILVcjrAgp_XCrKu"
+uri = "file://exports/heygen-app-training-scripts/README.md"
+type = "text"
+title = "README — what's inside & how to use"
+
+[[outputs]]
+id = "-52P0Xp7i_uecADAUtMN6"
+uri = "file://exports/heygen-app-training-scripts/scripts/flexy-training.txt"
+type = "text"
+title = "Sample: Flexy training script"

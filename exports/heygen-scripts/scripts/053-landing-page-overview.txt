@@ -10,4 +10,4 @@ Now, let’s look at our setup. We have our e-commerce product page, which is th
 
 We need to ensure our messaging aligns with the product page, directing potential customers in a way that prepares them to make a purchase. This is where our landing page comes in. We will move one step back in the funnel to maintain congruity between the e-commerce product page, our sales mechanism, and our advertorial, which serves as a pre-sales tool to warm up and frame the offer for the customer. 
 
-Next, we will set up our advertorial in Flexi. You'll need to configure the basic settings of your Flexi account first, and then we’ll proceed to create the specific page and advertorial.
+Next, we will set up our advertorial in Flexy. You'll need to configure the basic settings of your Flexy account first, and then we’ll proceed to create the specific page and advertorial.

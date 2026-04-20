@@ -1,11 +1,11 @@
-Title: Importing Your Landing Page into Metric Mover
-Original Title: Metric Mover 3 - How to Import Your Landing Page into Metric Mover
+Title: Importing Your Landing Page into MetricMover
+Original Title: MetricMover 3 - How to Import Your Landing Page into MetricMover
 Video ID: DnXrAbOlDjDDUNH1
 
 ---
 
-In this video, I'll show you how to import your landing page so you can create variants using Metric Mover. If you've just created a new campaign, you should see a pop-up that says "Import Web Page." If you don't see that, you can find the option at the top that also says "Import Web Page." Clicking on that will open the same overlay pop-up. 
+In this video, I'll show you how to import your landing page so you can create variants using MetricMover. If you've just created a new campaign, you should see a pop-up that says "Import Web Page." If you don't see that, you can find the option at the top that also says "Import Web Page." Clicking on that will open the same overlay pop-up. 
 
-In the web page URL field, enter the base landing page URL. For this example, we have set up an advertorial, but it could be your bridge page, jump page, or any landing page you want to use for your Metric Mover test. We want the live URL for this. I’ll copy that URL and paste it into Metric Mover. 
+In the web page URL field, enter the base landing page URL. For this example, we have set up an advertorial, but it could be your bridge page, jump page, or any landing page you want to use for your MetricMover test. We want the live URL for this. I’ll copy that URL and paste it into MetricMover. 
 
-Now, I’ll click "Import," and Metric Mover will perform its back-end magic. You'll see it loading the project, and it will import our page, pulling in the full advertorial just as it appeared, including the heading and all the content. That's how you import your landing page into Metric Mover. In the next video, I'll show you how to start setting up your split test variants.
+Now, I’ll click "Import," and MetricMover will perform its back-end magic. You'll see it loading the project, and it will import our page, pulling in the full advertorial just as it appeared, including the heading and all the content. That's how you import your landing page into MetricMover. In the next video, I'll show you how to start setting up your split test variants.

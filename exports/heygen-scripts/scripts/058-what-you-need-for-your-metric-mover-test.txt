@@ -1,11 +1,11 @@
-Title: What You Need for Your Metric Mover Test
-Original Title: Metric Mover 1 - What You Need for Metric Mover Test
+Title: What You Need for Your MetricMover Test
+Original Title: MetricMover 1 - What You Need for MetricMover Test
 Video ID: WiB6c9ltGwmy36GW
 
 ---
 
-In this video, I'll show you what resources you need to set up your Metric Mover test. First and foremost, you'll need the Metric Mover software. To access it, go to your BTS resources, click on the BTS software, and find Metric Mover in the list. Click on it, then scroll down and select "Access Metric Mover" to open your account in a new tab.
+In this video, I'll show you what resources you need to set up your MetricMover test. First and foremost, you'll need the MetricMover software. To access it, go to your BTS resources, click on the BTS software, and find MetricMover in the list. Click on it, then scroll down and select "Access MetricMover" to open your account in a new tab.
 
-Next, make sure you have your Flexi account open, along with the advertorial you plan to run. This should be the one you've optimized in the previous step. Ensure everything is perfect, including your DIY Tracks T2 link, images for both mobile and desktop, spacing, font size, and overall layout. We want everything ready to go to avoid redoing any work.
+Next, make sure you have your Flexy account open, along with the advertorial you plan to run. This should be the one you've optimized in the previous step. Ensure everything is perfect, including your DIYTrax T2 link, images for both mobile and desktop, spacing, font size, and overall layout. We want everything ready to go to avoid redoing any work.
 
-You'll also need the headlines you want to split test and the hero shots. While the hero shots may not be in the document, make sure you have the files saved in a folder for easy access when it's time to upload. Gather these resources: the Metric Mover software, your Flexi page with the live URL, and the assets for split testing. In the next video, we'll dive into how to start setting up your tests.
+You'll also need the headlines you want to split test and the hero shots. While the hero shots may not be in the document, make sure you have the files saved in a folder for easy access when it's time to upload. Gather these resources: the MetricMover software, your Flexy page with the live URL, and the assets for split testing. In the next video, we'll dive into how to start setting up your tests.

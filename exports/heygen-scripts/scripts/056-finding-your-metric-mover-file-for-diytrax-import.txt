@@ -1,7 +1,7 @@
-Title: Finding Your Metric Mover File for DIYTrax Import
-Original Title: Metric Mover 12 - How to Find Metric Mover File for DIYTrax Import
+Title: Finding Your MetricMover File for DIYTrax Import
+Original Title: MetricMover 12 - How to Find MetricMover File for DIYTrax Import
 Video ID: SJFcj3Wuvea5YXIX
 
 ---
 
-In this video, I'll show you how to find the file containing your Metric Mover landing pages, which you'll need to import into DIYTrax for your campaign. After checking the variants on your landing pages, locate the folder where you downloaded your files. Inside, you'll find a CSV file named tracks-T-R-A-X-import.csv. This is the import file you'll need for your DIYTrax campaign. In the next video, I'll demonstrate how to bring that file into your DIYTrax campaign, ensuring your Metric Mover landing pages appear correctly.
+In this video, I'll show you how to find the file containing your MetricMover landing pages, which you'll need to import into DIYTrax for your campaign. After checking the variants on your landing pages, locate the folder where you downloaded your files. Inside, you'll find a CSV file named tracks-T-R-A-X-import.csv. This is the import file you'll need for your DIYTrax campaign. In the next video, I'll demonstrate how to bring that file into your DIYTrax campaign, ensuring your MetricMover landing pages appear correctly.

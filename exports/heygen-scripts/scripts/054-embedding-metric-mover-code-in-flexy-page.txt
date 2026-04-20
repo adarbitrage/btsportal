@@ -1,5 +1,5 @@
-Title: Embedding Metric Mover Code in Flexy Page
-Original Title: Metric Mover 10 - How to Embed Metric Mover Code in Flexy Page
+Title: Embedding MetricMover Code in Flexy Page
+Original Title: MetricMover 10 - How to Embed MetricMover Code in Flexy Page
 Video ID: GQAmtNUaJhPUi2XE
 
 ---

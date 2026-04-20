@@ -1,0 +1,74 @@
+[
+  {
+    "app": "flexy",
+    "displayName": "Flexy",
+    "vidalyticsId": "mxMJcb1ABTOgkKiW",
+    "found": true,
+    "sourceTitle": "Flexy (1)",
+    "file": "scripts/flexy-training.txt",
+    "wordCount": 276
+  },
+  {
+    "app": "diytrax",
+    "displayName": "DIYTrax",
+    "vidalyticsId": "EqqoE4li5xO0wrjq",
+    "found": true,
+    "sourceTitle": "DIYTRAX (1)",
+    "file": "scripts/diytrax-training.txt",
+    "wordCount": 275
+  },
+  {
+    "app": "metricmover",
+    "displayName": "MetricMover",
+    "vidalyticsId": "9FQkRbOSSrI3JMML",
+    "found": true,
+    "sourceTitle": "Metric Mover (1)",
+    "file": "scripts/metricmover-training.txt",
+    "wordCount": 235
+  },
+  {
+    "app": "scrapebot",
+    "displayName": "ScrapeBot",
+    "vidalyticsId": "wnf8YlB9rxQ3XCUm",
+    "found": true,
+    "sourceTitle": "Scrape Bot (1)",
+    "file": "scripts/scrapebot-training.txt",
+    "wordCount": 226
+  },
+  {
+    "app": "cropbot",
+    "displayName": "CropBot",
+    "vidalyticsId": "zIbcTMBKHnyz_UOo",
+    "found": true,
+    "sourceTitle": "CROPBOT (1)",
+    "file": "scripts/cropbot-training.txt",
+    "wordCount": 258
+  },
+  {
+    "app": "gifster",
+    "displayName": "Gifster",
+    "vidalyticsId": "ucrw84JSj_OoMMQE",
+    "found": true,
+    "sourceTitle": "Gifster (1)",
+    "file": "scripts/gifster-training.txt",
+    "wordCount": 294
+  },
+  {
+    "app": "pixelpress",
+    "displayName": "PixelPress",
+    "vidalyticsId": "vA7IOa_12U66yEFl",
+    "found": true,
+    "sourceTitle": "Pixel Press (1)",
+    "file": "scripts/pixelpress-training.txt",
+    "wordCount": 270
+  },
+  {
+    "app": "concierge",
+    "displayName": "BTS Concierge",
+    "vidalyticsId": "W2EWjAXnSz8UjQvB",
+    "found": true,
+    "sourceTitle": "BTS Concierge",
+    "file": "scripts/concierge-training.txt",
+    "wordCount": 425
+  }
+]

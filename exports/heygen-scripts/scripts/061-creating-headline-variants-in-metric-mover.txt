@@ -1,5 +1,5 @@
-Title: Creating Headline Variants in Metric Mover
-Original Title: Metric Mover 4 - How to Create Headline Variants in Metric Mover
+Title: Creating Headline Variants in MetricMover
+Original Title: MetricMover 4 - How to Create Headline Variants in MetricMover
 Video ID: Q6tx9rOk_R2atMXl
 
 ---
@@ -10,4 +10,4 @@ Now, you'll see the tag title H1-1. You can change this to whatever you prefer, 
 
 For each variant, copy your new headline and paste it in the same place, ensuring it has the same font family and styling as the original. After pasting, click "done." Repeat this for each of your five headlines. Once you've added all the variants, you can click on the preview variation to see them cycle through. You'll notice they all maintain the same font, size, and styling as the original. 
 
-Now that your five headlines are set up, don't forget to click the save button in the top right corner to save your changes. You'll see a confirmation that your project has been saved successfully. In the next video, I'll show you how to upload your images properly for split testing, which we'll do in Flexi.
+Now that your five headlines are set up, don't forget to click the save button in the top right corner to save your changes. You'll see a confirmation that your project has been saved successfully. In the next video, I'll show you how to upload your images properly for split testing, which we'll do in Flexy.

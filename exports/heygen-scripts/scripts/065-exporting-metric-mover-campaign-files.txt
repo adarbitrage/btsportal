@@ -1,11 +1,11 @@
-Title: Exporting Metric Mover Campaign Files
-Original Title: Metric Mover 8 - How to Export Metric Mover Campaign Files
+Title: Exporting MetricMover Campaign Files
+Original Title: MetricMover 8 - How to Export MetricMover Campaign Files
 Video ID: IqPQvXZ2LE8hMqmj
 
 ---
 
-In this video, I'll show you how to generate and export the code from Metric Mover for your campaign that you'll place onto your Flexi page. First, look at the top right corner and click on the option that says "Generate Flexi page code." This will bring up an overlay asking for the page URL where you'll embed your Metric Mover campaign. It's important to have your Flexi page set up beforehand.
+In this video, I'll show you how to generate and export the code from MetricMover for your campaign that you'll place onto your Flexy page. First, look at the top right corner and click on the option that says "Generate Flexy page code." This will bring up an overlay asking for the page URL where you'll embed your MetricMover campaign. It's important to have your Flexy page set up beforehand.
 
-You can either right-click to copy the link address or click on it to open a new tab with a blank page. Either way, you need the URL for this blank page. Once you have that, go back to Metric Mover and paste the URL in the designated field. Make sure it's the exact URL for the page where you'll place the code. After that, click on "Generate." 
+You can either right-click to copy the link address or click on it to open a new tab with a blank page. Either way, you need the URL for this blank page. Once you have that, go back to MetricMover and paste the URL in the designated field. Make sure it's the exact URL for the page where you'll place the code. After that, click on "Generate." 
 
-Once the process is complete, a Save As dialog box will appear. Navigate to the folder where you want to save your Metric Mover file. I recommend naming it "Metric Mover" for easy identification. It will be saved as a zip file. After saving, you'll have successfully exported your Metric Mover campaign code. In the next video, I'll show you how to find the correct file in that downloaded zip after extracting the files, and we'll get started on placing that code on your Flexi page.
+Once the process is complete, a Save As dialog box will appear. Navigate to the folder where you want to save your MetricMover file. I recommend naming it "MetricMover" for easy identification. It will be saved as a zip file. After saving, you'll have successfully exported your MetricMover campaign code. In the next video, I'll show you how to find the correct file in that downloaded zip after extracting the files, and we'll get started on placing that code on your Flexy page.

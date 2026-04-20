@@ -1,15 +1,15 @@
-Title: Creating Hero Shot Variants in Metric Mover
-Original Title: Metric Mover 6 - How to Create Hero Shot Variants in Metric Mover
+Title: Creating Hero Shot Variants in MetricMover
+Original Title: MetricMover 6 - How to Create Hero Shot Variants in MetricMover
 Video ID: x48u0Qa3k6uTKZer
 
 ---
 
-In this video, I'll show you how to set up variants for your hero shot. This assumes you've followed the previous video and uploaded your images to your Flexy account. In Metric Mover, click on the hero shot so that it has a green border and a tag in the top right corner that says "Create Variation." Click on that, just like we did for the headlines. Now you'll see that variants have been added for this hero shot.
+In this video, I'll show you how to set up variants for your hero shot. This assumes you've followed the previous video and uploaded your images to your Flexy account. In MetricMover, click on the hero shot so that it has a green border and a tag in the top right corner that says "Create Variation." Click on that, just like we did for the headlines. Now you'll see that variants have been added for this hero shot.
 
 To add a variation, click the "Add Variation" button. I have five variants, but you may have a different number depending on what you're testing. Don’t worry if your count differs; I’m using a small set for demonstration purposes. You might have a set of 10 headlines and 10 hero shots or another combination. The exact number isn't crucial; I'm simply showing you how to do this.
 
 One of these variants will be the control, so I'll leave that alone. For the other four, hover your mouse over each image, and you'll see a few options, including three dots in the top right corner. Click on that and select "Get a Link." This copies the link to your clipboard. 
 
-Now, go back to Metric Mover, select all the text in the v2 section, delete it, and paste in the new link. Click "Done" to add the new image. I noticed that the tag title was set to "div," so I’ll change it to "hero" for clarity. Repeat this process for the remaining variants: get the link, replace the text in Metric Mover, and click "Done."
+Now, go back to MetricMover, select all the text in the v2 section, delete it, and paste in the new link. Click "Done" to add the new image. I noticed that the tag title was set to "div," so I’ll change it to "hero" for clarity. Repeat this process for the remaining variants: get the link, replace the text in MetricMover, and click "Done."
 
-Now we have five variants for the hero shot, and you can see that the tag has changed to "Preview Variation." You should be able to click that and rotate through the different hero shots. Remember to click the save button to save your project. That’s how you create your split test variants for your hero shot in your Metric Mover project.
+Now we have five variants for the hero shot, and you can see that the tag has changed to "Preview Variation." You should be able to click that and rotate through the different hero shots. Remember to click the save button to save your project. That’s how you create your split test variants for your hero shot in your MetricMover project.

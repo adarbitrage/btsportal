@@ -10,4 +10,4 @@ For example, I have three female hero shots and one male. When I create hero thr
 
 Being strategic in your cloning process can save you a lot of effort. While it doesn't matter which page you clone, using the copy that’s closest to what you’re testing will streamline your work. I have a total of five landing pages to create, including my control and four additional variants. You might have up to ten pages, each with different angles, body text, headlines, and hero shots. If that's the case, go ahead and create those variants.
 
-I recommend cloning your current optimized page and then swapping out elements to achieve your next variant. I’ll create all the variants now, and then I’ll show you how to gather the URLs for these pages, so they’re ready for our DIY tracks campaign.
+I recommend cloning your current optimized page and then swapping out elements to achieve your next variant. I’ll create all the variants now, and then I’ll show you how to gather the URLs for these pages, so they’re ready for our DIYTrax campaign.

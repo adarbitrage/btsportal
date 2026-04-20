@@ -1,8 +1,11 @@
-Title: DIYTrax: The Ultimate Affiliate Marketing Tool
-Original Title: DIYTRAX (1)
-Video ID: EqqoE4li5xO0wrjq
+App: DIYTrax
+Tagline: URL & Lander Rotator
+Vidalytics Video ID: EqqoE4li5xO0wrjq
+Original Video Title: DIYTRAX (1)
+Cleaned Title: DIYTrax: The Ultimate Affiliate Marketing Tool
+Word Count: 275
 
----
+--- SCRIPT ---
 
 In this video, I'll show you how DIYTrax revolutionizes affiliate marketing. DIYTrax is a URL and landing page rotator designed specifically for your evolving needs. It's not just another tracking tool; it's a solution I developed out of necessity for my team. When existing apps fell short, we created DIYTrax to be stable, reliable, and incredibly user-friendly. With the stable 2.0 release, it's bug-free and more powerful than ever.
 
