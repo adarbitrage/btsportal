@@ -1,0 +1,273 @@
+# Task #15: Helpwise Data Import
+
+## What This Does
+Builds a one-time migration tool that imports historical conversations, contacts, messages, and attachments from Helpwise into TicketDesk. Admin-only UI triggers the import with progress tracking, dry-run preview, resumability, and detailed logging. Ran once before the MX cutover to preserve support history.
+
+## Context — Existing Codebase
+TicketDesk is fully built and working:
+- **Workspaces** with inbound addresses
+- **Contacts** — one per email per workspace (unique constraint)
+- **Threads** — one per contact per workspace (unique constraint)
+- **Messages** — inbound, outbound, note types
+- **Attachments** — stored in R2 via `server/lib/r2.ts` (`uploadFile()` function exists)
+- **Users** — VA accounts, admin flag
+- **Auth** — JWT middleware, admin-only route pattern
+
+**Before writing code, read:**
+- `shared/schema.ts` or `server/db/schema*.ts` — Exact schema for contacts, threads, messages, attachments, users
+- `server/storage/contacts.ts`, `threads.ts`, `messages.ts` — Existing CRUD patterns, especially `getOrCreateContactAndThread()` from the inbound webhook
+- `server/routes/webhooks/sendgrid-inbound.ts` — Reference for how we build up contact/thread/message records from external email data
+- `server/lib/r2.ts` — `uploadFile()` function for attachment storage
+- `server/middleware/auth.ts` — Admin-only middleware pattern
+
+## Critical Note on Helpwise API
+The Helpwise API base URL is `https://app.helpwise.io/dev-apis/`. Authentication uses API Key + API Secret combined as `Authorization: {api_key}:{api_secret}` header.
+
+**Their public API docs are thin.** Known working endpoint: `POST /dev-apis/users/me` (returns current user).
+
+Full endpoint list is in their Postman collection. Before building the full import, the FIRST step for the agent is to:
+1. Take the provided API Key + Secret
+2. Call `/dev-apis/users/me` to verify auth works
+3. Explore by calling these likely endpoints and logging responses:
+   - `GET /dev-apis/mailboxes` (list inboxes)
+   - `GET /dev-apis/conversations` (list conversations, with pagination)
+   - `GET /dev-apis/conversations/{id}` (conversation detail)
+   - `GET /dev-apis/conversations/{id}/messages` (messages in a conversation)
+   - `GET /dev-apis/contacts` (list contacts)
+   - `GET /dev-apis/users` (list team members)
+   - `GET /dev-apis/tags` (list tags)
+
+If these don't match Helpwise's actual URL structure, adjust based on what the API returns. Log all response shapes during discovery to document the exact structure. If endpoints are completely unavailable, fall back to parsing the CSV export (user uploads CSV + attachments ZIP).
+
+## Files Created
+
+### Backend
+- `server/lib/helpwise-client.ts` — Helpwise API client: auth, pagination, rate limiting, retries
+- `server/lib/helpwise-importer.ts` — Core import logic: fetch from Helpwise, transform, insert into TicketDesk
+- `server/services/import-jobs.ts` — Job tracking CRUD (create, update progress, mark complete/failed, resume)
+- `server/routes/admin/import.ts` — Admin-only endpoints for import management
+- `server/db/schema-import-jobs.ts` — Drizzle schema for import jobs + mappings
+- `server/jobs/process-import.ts` — Background worker that runs the import (setInterval or BullMQ if available)
+
+### Frontend
+- `client/src/pages/admin/import-helpwise.tsx` — Admin import page: credential form, mapping config, dry-run preview, progress view
+
+## Files Modified
+- `server/index.ts` — Mount the admin import routes; start the import job processor
+- `client/src/App.tsx` — Add `/admin/import-helpwise` route (admin-only)
+
+## Schema Changes
+
+### import_jobs
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| workspace_id | UUID FK | Target workspace |
+| source | varchar(50) | "helpwise" (future-proofed for other sources) |
+| status | enum | `pending`, `running`, `paused`, `completed`, `failed` |
+| mode | enum | `dry_run` or `live` |
+| config | JSONB | API credentials (encrypted), agent mapping, inbound address mapping, merge strategy |
+| stats | JSONB | Counts: conversations_found, conversations_imported, messages_imported, attachments_imported, contacts_created, errors |
+| cursor | text | Pagination cursor for resume (last processed Helpwise conversation ID) |
+| error_log | JSONB[] | Array of errors encountered |
+| started_at | timestamp | |
+| completed_at | timestamp | |
+| created_by | UUID FK | Admin who triggered it |
+| created_at | timestamp | |
+| updated_at | timestamp | |
+
+### import_entity_map
+Tracks which Helpwise entities have been imported to avoid duplicates on resume/re-run.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| import_job_id | UUID FK | References import_jobs |
+| source_type | varchar(50) | `conversation`, `message`, `contact`, `attachment` |
+| source_id | text | The Helpwise ID |
+| target_id | UUID | The corresponding TicketDesk ID |
+| created_at | timestamp | |
+
+Unique index on `(import_job_id, source_type, source_id)`.
+
+## API Endpoints (all admin-only)
+
+### Credentials Test
+`POST /api/admin/import/helpwise/test` — Validate Helpwise API credentials
+- Body: `{ api_key, api_secret }`
+- Response: `{ valid: boolean, user: { name, email }, mailboxes: [...] }` or error
+
+### Discovery
+`POST /api/admin/import/helpwise/discover` — Preview what will be imported
+- Body: `{ api_key, api_secret }`
+- Response: Counts of conversations, contacts, messages, mailboxes available on the Helpwise account
+- Also returns the list of Helpwise users (for agent mapping) and mailboxes (for inbound address mapping)
+
+### Create Import Job
+`POST /api/admin/import/helpwise/jobs` — Start a new import
+- Body:
+  ```json
+  {
+    "workspace_id": "uuid",
+    "mode": "dry_run" | "live",
+    "api_key": "...",
+    "api_secret": "...",
+    "agent_mapping": { "helpwise_user_id": "ticketdesk_user_id", ... },
+    "inbound_address_mapping": { "helpwise_mailbox_id": "ticketdesk_inbound_address_id", ... },
+    "merge_strategy": "merge_by_email" | "skip_duplicates",
+    "import_resolved": true,
+    "import_attachments": true
+  }
+  ```
+- Response: `{ job_id, status: "pending" }`
+
+### Job Status
+`GET /api/admin/import/helpwise/jobs/:jobId` — Get current job status + stats
+
+### List Jobs
+`GET /api/admin/import/helpwise/jobs` — List all import jobs for this workspace
+
+### Control Job
+- `POST /api/admin/import/helpwise/jobs/:jobId/pause` — Pause a running job
+- `POST /api/admin/import/helpwise/jobs/:jobId/resume` — Resume a paused or failed job
+- `POST /api/admin/import/helpwise/jobs/:jobId/cancel` — Cancel and mark as failed
+
+### Rollback (dry-run commit)
+`POST /api/admin/import/helpwise/jobs/:jobId/rollback` — Delete all records created by this import job (using entity_map). Only available for completed imports and only if no new messages have been added to imported threads since import.
+
+## Import Logic (step by step)
+
+### Phase 1: Discovery
+1. Authenticate with Helpwise API
+2. Fetch all mailboxes → show for inbound address mapping
+3. Fetch all users → show for agent mapping
+4. Count total conversations (paginated HEAD or get total count)
+5. Return discovery summary to admin UI
+
+### Phase 2: Contact & Thread Import
+For each Helpwise conversation (paginated, e.g., 50 per page):
+1. Check `import_entity_map` — if already imported, skip
+2. Fetch full conversation detail (includes metadata, participants, tags)
+3. Identify the "contact" email (the external sender, not your team)
+4. **Apply merge strategy:**
+   - `merge_by_email`: Look up or create contact by email in target workspace. If thread already exists for that contact, APPEND Helpwise messages to it (preserving Helpwise timestamps).
+   - `skip_duplicates`: If a TicketDesk thread already exists for this email, skip this Helpwise conversation entirely.
+5. Create or update contact record
+6. Create or update thread record:
+   - `subject`: from Helpwise conversation subject
+   - `inbound_address_id`: from mapping config (based on which Helpwise mailbox it was in)
+   - `assigned_to`: from agent mapping (if conversation was assigned in Helpwise)
+   - `status`: map Helpwise status (Open/Snoozed → `open`, Closed/Archived → `resolved`, Deleted/Spammed → skip)
+   - `created_at`: preserve Helpwise timestamp
+   - `last_activity_at`: from most recent message
+   - `resolved_at`: if closed, use Helpwise close timestamp
+7. Record mapping in `import_entity_map`
+
+### Phase 3: Message Import
+For each message in the conversation:
+1. Check `import_entity_map` — skip if already imported
+2. Determine message type:
+   - Inbound email → `type: 'inbound'`, `sender_type: 'contact'`
+   - Outbound email from team → `type: 'outbound'`, `sender_type: 'agent'`, `sender_id` from agent mapping
+   - Internal note → `type: 'note'`, `sender_type: 'agent'`, `sender_id` from agent mapping
+3. Preserve original timestamp in `created_at`
+4. Extract body_html and body_text
+5. Store full raw content in `raw_body`
+6. Insert message
+7. Record mapping
+
+### Phase 4: Attachment Import
+For each attachment referenced in a message:
+1. Check `import_entity_map` — skip if already imported
+2. Download attachment from Helpwise (usually a signed URL or direct file endpoint)
+3. Upload to R2 using existing `uploadFile()` with key format: `{workspace_id}/{thread_id}/{message_id}/{filename}`
+4. Create attachment record in DB
+5. If R2 isn't configured or upload fails: create attachment record with `r2_key = 'pending'` and log a warning (same pattern as inbound webhook)
+6. Record mapping
+
+### Dry Run Mode
+If `mode: 'dry_run'`:
+- Perform all fetches from Helpwise
+- Run all transformations
+- Count what WOULD be imported
+- Log each decision (skip vs insert, merge vs new thread)
+- Do NOT write to contacts, threads, messages, or attachments tables
+- Write only to `import_jobs` (for stats) and an in-memory/JSONB preview log
+- Return preview summary: "Would create X contacts, Y threads (Z merged), N messages, M attachments"
+
+## Rate Limiting & Error Handling
+- Respect Helpwise rate limits (check their docs for specifics; default to 2 requests/second if unknown)
+- Exponential backoff on 429 errors: 1s, 2s, 4s, 8s, then fail and pause the job
+- On transient errors (network, 5xx): retry 3 times with backoff
+- On permanent errors (404, 401, 403): log to `error_log` and skip the entity
+- Batch commits: commit to DB every 10 conversations to avoid losing progress on crash
+- Resumability: on job start, check if `cursor` is set and continue from there
+
+## Frontend: Admin Import Page
+
+### Step 1: Credentials
+- Form: API Key, API Secret, Target Workspace (dropdown)
+- "Test Connection" button → shows Helpwise user info + mailbox count if valid
+
+### Step 2: Mapping
+- Show list of Helpwise users → dropdown for each to map to a TicketDesk VA
+- Show list of Helpwise mailboxes → dropdown for each to map to a TicketDesk inbound address
+- Warning if any unmapped (mapped to default system user or rejected)
+
+### Step 3: Options
+- Checkbox: "Import resolved/closed conversations" (default: on)
+- Checkbox: "Import attachments" (default: on — warns about bandwidth/time)
+- Radio: Merge strategy (merge_by_email / skip_duplicates)
+- Radio: Mode (Dry Run / Live Import)
+
+### Step 4: Run
+- Confirmation modal showing summary of what will happen
+- Progress view: live updating counts, current phase (contacts → messages → attachments), errors log
+- Controls: Pause, Resume, Cancel
+- Estimated time remaining based on processing rate
+
+### Step 5: Complete
+- Summary: X contacts created, Y threads, Z messages, N attachments, M errors
+- Link to view first few imported threads in inbox
+- If dry-run: "Run Live Import" button
+- If live: "Rollback Import" button (with heavy confirmation)
+
+## Dependencies
+- None new — uses existing infrastructure (R2, DB, auth)
+- Runs entirely in the Replit environment
+
+## Acceptance Criteria
+
+### Correctness
+- Helpwise conversations appear as TicketDesk threads with correct subject, status, timestamps
+- Messages preserve original sender, timestamp, direction (inbound/outbound/note)
+- Multiple Helpwise conversations from the same email address merge into one TicketDesk thread (when merge_by_email)
+- Attachments upload to R2 and display correctly in the inbox after import
+- Agent assignments preserved via user mapping
+- Inbound address mapping correct (thread filtering by support@ vs team@ vs affiliates@ works post-import)
+- Resolved Helpwise conversations show as resolved in TicketDesk archive
+
+### Safety
+- Dry run mode writes NOTHING to contacts/threads/messages/attachments
+- Live mode is fully resumable if interrupted (no duplicate imports)
+- Re-running the same job config doesn't create duplicates (entity_map prevents it)
+- Rollback cleanly removes all imported entities
+- Admin-only access enforced on all endpoints
+- Credentials never logged or stored unencrypted
+
+### UX
+- Progress updates visible in real-time (via polling every 2s or WebSocket if already wired)
+- Errors don't halt the entire import — they're logged and the import continues
+- Clear confirmation before live import
+- Estimated time remaining displayed
+
+## Implementation Notes
+
+- **API exploration first.** The agent's first task is to authenticate with provided credentials and LOG the response shape of every endpoint they plan to use. Document these in code comments. This is essential because public docs are incomplete.
+- **CSV fallback.** If the Helpwise API is inadequate (missing message bodies, no attachment URLs, etc.), build an alternative flow that accepts: (a) a CSV export of conversations from Helpwise's UI export feature, and (b) a ZIP of attachments. Parse both and run through the same transform logic. Expose this as a separate "Import from CSV" button on the admin page.
+- **Encrypt credentials at rest.** The API key + secret in the `import_jobs.config` JSONB must be encrypted using a server-side key (node crypto, AES-256-GCM). Never return them in GET responses.
+- **Progress updates via polling is fine for v1.** No need to wire this into the existing WebSocket system. Admin page polls `/jobs/:id` every 2 seconds while job is running.
+- **Preserve Helpwise conversation IDs** in message metadata (a JSONB `source_metadata` field if not already on messages, or in the entity_map) so support can trace back if needed.
+- **Test with a small batch first.** The admin UI should default to a "Test with 10 conversations" option on the first run to verify the mapping is correct before committing to a full import.
+- **Log verbosely.** Every decision (insert, skip, merge, error) goes into `error_log` or a separate log stream. Admin should be able to download a full import log as JSON after completion.
+- **Single concurrent import per workspace.** Don't allow two imports to run simultaneously for the same workspace — return 409 Conflict.

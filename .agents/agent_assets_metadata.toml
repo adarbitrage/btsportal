@@ -47,7 +47,7 @@ title = "BTS App Training Scripts (HeyGen-ready) — archive"
 id = "K3WOa8Z_kFIeTvwqFSwyx"
 uri = "file://exports/heygen-app-training-scripts/ALL-APP-SCRIPTS.md"
 type = "text"
-title = "All 8 app scripts in one document (preview)"
+title = "All 8 overview scripts in a single document"
 
 [[outputs]]
 id = "rdzmevILVcjrAgp_XCrKu"
@@ -59,4 +59,52 @@ title = "README — what's inside & how to use"
 id = "-52P0Xp7i_uecADAUtMN6"
 uri = "file://exports/heygen-app-training-scripts/scripts/flexy-training.txt"
 type = "text"
-title = "Sample: Flexy training script"
+title = "Flexy overview script"
+
+[[outputs]]
+id = "eU856DkEDAWqzoDUw6c67"
+uri = "file://exports/bts-overview-scripts.tar.gz"
+type = "unspecified"
+title = "BTS App Overview Scripts (HeyGen-ready) — archive of all 8"
+
+[[outputs]]
+id = "3hzRGQ9f751DzpniveyIH"
+uri = "file://exports/heygen-app-training-scripts/scripts/diytrax-training.txt"
+type = "text"
+title = "DIYTrax overview script"
+
+[[outputs]]
+id = "Nz75_qC3HbxhpbWzDeinW"
+uri = "file://exports/heygen-app-training-scripts/scripts/metricmover-training.txt"
+type = "text"
+title = "MetricMover overview script"
+
+[[outputs]]
+id = "PwbUT3yGfUsQdLNf2ztD5"
+uri = "file://exports/heygen-app-training-scripts/scripts/scrapebot-training.txt"
+type = "text"
+title = "ScrapeBot overview script"
+
+[[outputs]]
+id = "6TPJKFfRDjnCYw98bx4mk"
+uri = "file://exports/heygen-app-training-scripts/scripts/cropbot-training.txt"
+type = "text"
+title = "CropBot overview script"
+
+[[outputs]]
+id = "9_PfhO0LWWo3aeFQgeVji"
+uri = "file://exports/heygen-app-training-scripts/scripts/gifster-training.txt"
+type = "text"
+title = "Gifster overview script"
+
+[[outputs]]
+id = "GOQJma0gZWgcGHJgn-qnJ"
+uri = "file://exports/heygen-app-training-scripts/scripts/pixelpress-training.txt"
+type = "text"
+title = "PixelPress overview script"
+
+[[outputs]]
+id = "A5X1RSb5JWqFIhX9fm9Hv"
+uri = "file://exports/heygen-app-training-scripts/scripts/concierge-training.txt"
+type = "text"
+title = "BTS Concierge overview script"
