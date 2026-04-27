@@ -12,6 +12,15 @@
   --color-card-foreground: hsl(0 0% 15%);
   --color-card-border: hsl(40 18% 88%); /* #e8e4dc */
 
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(0 0% 15%);
+
+  --color-accent: hsl(40 20% 92%);
+  --color-accent-foreground: hsl(0 0% 20%);
+
+  --color-destructive: hsl(0 72% 51%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+
   --color-primary: hsl(221 80% 48%); /* #1a56db - BTS Blue */
   --color-primary-foreground: hsl(0 0% 100%);
   
@@ -37,11 +46,17 @@
   --foreground: 0 0% 15%;
   --card: 0 0% 100%;
   --card-foreground: 0 0% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
   --border: 40 18% 88%;
   --primary: 221 80% 48%;
   --primary-foreground: 0 0% 100%;
   --muted: 40 15% 94%;
   --muted-foreground: 0 0% 40%;
+  --accent: 40 20% 92%;
+  --accent-foreground: 0 0% 20%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
 }
 
 @layer base {
