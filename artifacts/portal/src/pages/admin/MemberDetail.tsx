@@ -6,10 +6,37 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+interface ProductRow {
+  id: number;
+  slug: string;
+  name: string;
+  type: string;
+  durationDays: number | null;
+  priceDisplay: string | null;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function toDateInputValue(d: Date | null): string {
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function MemberDetail() {
   const params = useParams<{ id: string }>();
@@ -19,6 +46,52 @@ export default function MemberDetail() {
   const [noteContent, setNoteContent] = useState("");
   const [submittingNote, setSubmittingNote] = useState(false);
   const { toast } = useToast();
+
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [allProducts, setAllProducts] = useState<ProductRow[]>([]);
+  const [grantProductId, setGrantProductId] = useState<string>("");
+  const [grantExpiresAt, setGrantExpiresAt] = useState<string>("");
+  const [grantSubmitting, setGrantSubmitting] = useState(false);
+
+  const openGrantDialog = async () => {
+    setGrantProductId("");
+    setGrantExpiresAt("");
+    setGrantOpen(true);
+    if (allProducts.length === 0) {
+      try {
+        const rows: ProductRow[] = await adminPanelApi.listProducts();
+        setAllProducts(rows);
+      } catch (err: any) {
+        toast({ title: "Failed to load products", description: err.message, variant: "destructive" });
+      }
+    }
+  };
+
+  const onSelectProduct = (idStr: string) => {
+    setGrantProductId(idStr);
+    const product = allProducts.find((p) => String(p.id) === idStr);
+    if (product?.durationDays && product.durationDays > 0) {
+      setGrantExpiresAt(toDateInputValue(addDays(new Date(), product.durationDays)));
+    } else {
+      setGrantExpiresAt("");
+    }
+  };
+
+  const handleGrantProduct = async () => {
+    if (!grantProductId) return;
+    setGrantSubmitting(true);
+    try {
+      const expiresAt = grantExpiresAt ? new Date(grantExpiresAt).toISOString() : undefined;
+      await adminPanelApi.grantProduct(memberId, parseInt(grantProductId, 10), expiresAt);
+      toast({ title: "Product granted" });
+      setGrantOpen(false);
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setGrantSubmitting(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -106,10 +179,65 @@ export default function MemberDetail() {
 
           <TabsContent value="products">
             <Card>
-              <CardHeader><CardTitle className="text-base">Products & Entitlements</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-base">Products & Entitlements</CardTitle>
+                <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" onClick={openGrantDialog}>
+                      <Plus className="w-3 h-3 mr-1" />Grant Product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Grant product to {member.name}</DialogTitle>
+                      <DialogDescription>
+                        Assign a membership tier or front-end product. Expiration auto-fills from the product's duration but can be cleared for no expiry.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="grant-product">Product</Label>
+                        <Select value={grantProductId} onValueChange={onSelectProduct}>
+                          <SelectTrigger id="grant-product">
+                            <SelectValue placeholder={allProducts.length ? "Choose a product..." : "Loading products..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allProducts.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.name}
+                                {p.durationDays ? ` · ${p.durationDays} days` : p.type === "backend" ? " · no expiry" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="grant-expires">Expires on (optional)</Label>
+                        <Input
+                          id="grant-expires"
+                          type="date"
+                          value={grantExpiresAt}
+                          onChange={(e) => setGrantExpiresAt(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave blank for no expiration (lifetime / front-end / LaunchPad).
+                        </p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setGrantOpen(false)} disabled={grantSubmitting}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleGrantProduct} disabled={!grantProductId || grantSubmitting}>
+                        {grantSubmitting ? "Granting..." : "Grant Product"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
               <CardContent>
                 {products.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No products assigned</p>
+                  <p className="text-sm text-muted-foreground">No products assigned. Use "Grant Product" above to assign a tier.</p>
                 ) : (
                   <div className="space-y-3">
                     {products.map((p: any) => (

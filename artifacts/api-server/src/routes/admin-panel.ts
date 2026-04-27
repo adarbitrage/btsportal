@@ -262,6 +262,27 @@ router.post("/admin/members/:id/notes", requirePermission("members:edit"), async
   }
 });
 
+router.get("/admin/products", requirePermission("members:view"), async (_req: Request, res: Response) => {
+  try {
+    const products = await db
+      .select({
+        id: productsTable.id,
+        slug: productsTable.slug,
+        name: productsTable.name,
+        type: productsTable.type,
+        durationDays: productsTable.durationDays,
+        priceDisplay: productsTable.priceDisplay,
+        sortOrder: productsTable.sortOrder,
+      })
+      .from(productsTable)
+      .orderBy(productsTable.sortOrder);
+    res.json(products);
+  } catch (error) {
+    console.error("[Admin] List products error:", error);
+    res.status(500).json({ error: "Failed to list products" });
+  }
+});
+
 router.post("/admin/members/:id/grant-product", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);

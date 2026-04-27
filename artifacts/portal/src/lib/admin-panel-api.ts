@@ -68,6 +68,12 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async listProducts() {
+    const res = await authFetch(`/admin/products`);
+    if (!res.ok) throw new Error("Failed to fetch products");
+    return res.json();
+  },
+
   async revokeProduct(userId: number, userProductId: number) {
     const res = await authFetch(`/admin/members/${userId}/revoke-product`, { method: "POST", body: JSON.stringify({ userProductId }) });
     if (!res.ok) throw new Error("Failed to revoke product");
