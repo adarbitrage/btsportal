@@ -46,12 +46,12 @@ type AppCatalogEntry = {
 };
 
 const APP_CATALOG: AppCatalogEntry[] = [
-  { name: "diytrax", title: "Diytrax", tagline: "DIY tracking & analytics", icon: DiytraxIcon, accent: "bg-white border border-border" },
-  { name: "pixelpress", title: "PixelPress", tagline: "Drag-and-drop landing pages", icon: PixelPressIcon, accent: "bg-white border border-border" },
-  { name: "gifster", title: "Gifster", tagline: "Animated GIF creator", icon: GifsterIcon, accent: "bg-white border border-border" },
-  { name: "metricmover", title: "MetricMover", tagline: "Move metrics that matter", icon: MetricMoverIcon, accent: "bg-white border border-border" },
+  { name: "diytrax", title: "Diytrax", tagline: "Track, test, and optimize campaigns with flexible URL and landing page rotation, real-time control, and detailed performance data—all in one simple interface.", icon: DiytraxIcon, accent: "bg-white border border-border" },
+  { name: "pixelpress", title: "PixelPress", tagline: "Generate and split test large volumes of banner ads quickly with customizable templates, multiple sizes, and optimized outputs ready for upload.", icon: PixelPressIcon, accent: "bg-white border border-border" },
+  { name: "gifster", title: "Gifster", tagline: "Create high-converting animated GIFs for ads and landing pages in minutes using automated tools, customizable formats, and ready-to-use outputs.", icon: GifsterIcon, accent: "bg-white border border-border" },
+  { name: "metricmover", title: "MetricMover", tagline: "Quickly create and run large-scale split tests on landing page elements—headlines, layouts, CTAs, and more—to identify top-performing variations and improve conversions.", icon: MetricMoverIcon, accent: "bg-white border border-border" },
   { name: "noescape", title: "NoEscape", tagline: "Conversion-locking funnels", icon: NoEscapeIcon, accent: "bg-white border border-border" },
-  { name: "flexy", title: "Flexy", tagline: "Your white-labeled CRM & marketing platform", icon: FlexyIcon, accent: "bg-white border border-border" },
+  { name: "flexy", title: "Flexy", tagline: "Build and launch landing pages fast with a no-code editor, ready-made templates, and full mobile responsiveness—no design or development experience required.", icon: FlexyIcon, accent: "bg-white border border-border" },
 ];
 
 function StatusBadge({ status }: { status: AppInstance["status"] }) {
