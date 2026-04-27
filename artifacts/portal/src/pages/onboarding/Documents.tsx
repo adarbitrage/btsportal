@@ -9,7 +9,7 @@ import {
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, type UIEvent } from "react";
 
 export default function OnboardingDocuments() {
   const { refreshAuth } = useAuth();
@@ -27,36 +27,57 @@ export default function OnboardingDocuments() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const agreementEndRef = useRef<HTMLDivElement>(null);
-  const termsEndRef = useRef<HTMLDivElement>(null);
   const agreementContainerRef = useRef<HTMLDivElement>(null);
   const termsContainerRef = useRef<HTMLDivElement>(null);
 
-  const setupObserver = useCallback(
-    (endRef: React.RefObject<HTMLDivElement | null>, setScrolled: (v: boolean) => void) => {
-      if (!endRef.current) return;
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            setScrolled(true);
-          }
-        },
-        { threshold: 0.5 }
-      );
-      observer.observe(endRef.current);
-      return () => observer.disconnect();
-    },
+  const isAtBottom = (el: HTMLDivElement) => {
+    return el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+  };
+
+  const handleScroll = useCallback(
+    (setScrolled: (v: boolean) => void) =>
+      (e: UIEvent<HTMLDivElement>) => {
+        if (isAtBottom(e.currentTarget)) {
+          setScrolled(true);
+        }
+      },
     []
   );
 
+  // If the rendered content already fits without needing to scroll
+  // (or the user lands at the bottom for any reason), mark as scrolled.
+  // Also re-check whenever the container's content size changes
+  // (e.g. async font/image load expands the document after initial render),
+  // so a "short" doc that grows tall correctly relocks the checkbox.
   useEffect(() => {
-    const cleanup1 = setupObserver(agreementEndRef, setScrolledAgreement);
-    const cleanup2 = setupObserver(termsEndRef, setScrolledTerms);
-    return () => {
-      cleanup1?.();
-      cleanup2?.();
+    const check = () => {
+      if (agreementContainerRef.current) {
+        setScrolledAgreement(isAtBottom(agreementContainerRef.current));
+      }
+      if (termsContainerRef.current) {
+        setScrolledTerms(isAtBottom(termsContainerRef.current));
+      }
     };
-  }, [setupObserver, documents]);
+    const t = window.setTimeout(check, 0);
+    window.addEventListener("resize", check);
+
+    const observers: ResizeObserver[] = [];
+    if (typeof ResizeObserver !== "undefined") {
+      for (const el of [agreementContainerRef.current, termsContainerRef.current]) {
+        if (!el) continue;
+        const ro = new ResizeObserver(check);
+        ro.observe(el);
+        if (el.firstElementChild) ro.observe(el.firstElementChild);
+        observers.push(ro);
+      }
+    }
+
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("resize", check);
+      for (const ro of observers) ro.disconnect();
+    };
+  }, [documents]);
 
   const alreadySigned =
     onboardingState?.signedDocuments && onboardingState.signedDocuments.length >= 2;
@@ -173,10 +194,10 @@ export default function OnboardingDocuments() {
             <CardContent>
               <div
                 ref={agreementContainerRef}
+                onScroll={handleScroll(setScrolledAgreement)}
                 className="max-h-64 overflow-y-auto border border-border rounded-lg p-4 bg-secondary/30 text-sm leading-relaxed prose prose-sm max-w-none"
               >
                 <div dangerouslySetInnerHTML={{ __html: markdownToHtml(agreement.content) }} />
-                <div ref={agreementEndRef} className="h-1" />
               </div>
               <label className="flex items-center gap-3 mt-4">
                 <input
@@ -203,10 +224,10 @@ export default function OnboardingDocuments() {
             <CardContent>
               <div
                 ref={termsContainerRef}
+                onScroll={handleScroll(setScrolledTerms)}
                 className="max-h-64 overflow-y-auto border border-border rounded-lg p-4 bg-secondary/30 text-sm leading-relaxed prose prose-sm max-w-none"
               >
                 <div dangerouslySetInnerHTML={{ __html: markdownToHtml(terms.content) }} />
-                <div ref={termsEndRef} className="h-1" />
               </div>
               <label className="flex items-center gap-3 mt-4">
                 <input
