@@ -7,6 +7,7 @@
     "dev": "NODE_ENV=development tsx watch ./src/index.ts",
     "build": "tsx ./build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "verify:flexy": "tsx ./src/scripts/verify-flexy-provisioning.ts"
   },
   "dependencies": {
@@ -42,8 +43,11 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "catalog:",
+    "@types/supertest": "^6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
     "esbuild": "^0.27.3",
-    "tsx": "catalog:"
+    "supertest": "^7.2.2",
+    "tsx": "catalog:",
+    "vitest": "^2.1.9"
   }
 }
