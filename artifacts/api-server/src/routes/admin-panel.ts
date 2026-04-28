@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, asc, sql, ilike, or } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
@@ -219,7 +219,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-    const [products, tickets, progress, notes, auditHistory] = await Promise.all([
+    const [products, tickets, progress, notes, auditHistory, emailHistory] = await Promise.all([
       safeQuery(
         db.select({ id: userProductsTable.id, productId: userProductsTable.productId, status: userProductsTable.status, expiresAt: userProductsTable.expiresAt, createdAt: userProductsTable.createdAt, productName: productsTable.name, productSlug: productsTable.slug })
           .from(userProductsTable).innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id)).where(eq(userProductsTable.userId, id))
@@ -228,6 +228,13 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       safeCount(db.select({ count: sql<number>`count(*)` }).from(progressTable).where(eq(progressTable.userId, id))),
       safeQuery(db.select().from(adminNotesTable).where(eq(adminNotesTable.userId, id)).orderBy(desc(adminNotesTable.createdAt))),
       safeQuery(db.select().from(auditLogTable).where(and(eq(auditLogTable.entityType, "user"), eq(auditLogTable.entityId, String(id)))).orderBy(desc(auditLogTable.createdAt)).limit(20)),
+      safeQuery(
+        db.select({ id: emailChangeHistoryTable.id, oldEmail: emailChangeHistoryTable.oldEmail, newEmail: emailChangeHistoryTable.newEmail, changedAt: emailChangeHistoryTable.changedAt })
+          .from(emailChangeHistoryTable)
+          .where(eq(emailChangeHistoryTable.userId, id))
+          .orderBy(desc(emailChangeHistoryTable.changedAt))
+          .limit(50)
+      ),
     ]);
 
     res.json({
@@ -240,6 +247,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       community: { posts: 0, comments: 0 },
       adminNotes: notes,
       auditHistory,
+      emailHistory,
     });
   } catch (error) {
     console.error("[Admin] Member detail error:", error);

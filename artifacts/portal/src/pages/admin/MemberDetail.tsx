@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -140,7 +140,7 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory } = data;
+  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [] } = data;
 
   return (
     <AdminLayout>
@@ -164,6 +164,36 @@ export default function MemberDetail() {
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{tickets.length}</p><p className="text-xs text-muted-foreground">Tickets</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{community.posts + community.comments}</p><p className="text-xs text-muted-foreground">Community Activity</p></CardContent></Card>
         </div>
+
+        {emailHistory.length > 0 && (
+          <Card data-testid="card-email-history">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Email history
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {emailHistory.map((entry: any) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm"
+                    data-testid={`row-email-history-${entry.id}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono break-all" data-testid={`text-old-email-${entry.id}`}>{entry.oldEmail}</span>
+                      <span className="mx-2 text-muted-foreground">→</span>
+                      <span className="font-mono break-all" data-testid={`text-new-email-${entry.id}`}>{entry.newEmail}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-3">
+                      {entry.changedAt ? format(new Date(entry.changedAt), "MMM d, yyyy") : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="products">
           <TabsList className="grid w-full grid-cols-8 gap-1">
