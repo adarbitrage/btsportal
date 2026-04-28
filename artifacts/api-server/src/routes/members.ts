@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, and, isNull, ne } from "drizzle-orm";
+import { db, usersTable, sessionsTable, emailChangeAttemptsTable } from "@workspace/db";
+import { eq, and, isNull, ne, gte, sql } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import {
   GetCurrentMemberResponse,
@@ -20,6 +20,24 @@ import { CommunicationService } from "../lib/communication-service";
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
 const EMAIL_CHANGE_EXPIRY_HOURS = 24;
+
+// Per-user rate limits for email-change requests. Each successful POST to
+// /members/me/email logs a row in `email_change_attempts`; we count the rows
+// in the trailing windows below to decide whether to accept the next attempt.
+const EMAIL_CHANGE_HOURLY_LIMIT = 3;
+const EMAIL_CHANGE_DAILY_LIMIT = 10;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+function formatRetryAfter(seconds: number): string {
+  if (seconds <= 60) return "in less than a minute";
+  if (seconds < 60 * 60) {
+    const minutes = Math.ceil(seconds / 60);
+    return `in about ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  const hours = Math.ceil(seconds / 3600);
+  return `in about ${hours} hour${hours === 1 ? "" : "s"}`;
+}
 
 router.get("/members/me", async (req, res): Promise<void> => {
   const userId = req.userId!;
@@ -221,18 +239,86 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     return;
   }
 
+  // Per-user rate limit: 3 requests/hour and 10 requests/day. Counted from the
+  // `email_change_attempts` table so the cap survives Redis being offline.
+  // Wrapped in a transaction with a per-user Postgres advisory lock so the
+  // count + insert is serialized per user — concurrent requests from the
+  // same account cannot all observe a pre-insert count and slip through.
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - HOUR_MS);
+  const dayAgo = new Date(now.getTime() - DAY_MS);
+
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expires = new Date(Date.now() + EMAIL_CHANGE_EXPIRY_HOURS * 60 * 60 * 1000);
 
-  await db
-    .update(usersTable)
-    .set({
-      pendingEmail: newEmail,
-      emailChangeToken: tokenHash,
-      emailChangeExpires: expires,
-    })
-    .where(eq(usersTable.id, userId));
+  type RateLimitResult =
+    | { allowed: true }
+    | { allowed: false; retryAfterSeconds: number };
+
+  const result = await db.transaction(async (tx): Promise<RateLimitResult> => {
+    // Per-user advisory lock that lives for the duration of this txn.
+    // Two namespaces (constant + userId) guarantee no collision with other
+    // advisory locks elsewhere in the system.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(842317, ${userId})`);
+
+    const [counts] = await tx
+      .select({
+        hour: sql<number>`count(*) filter (where ${emailChangeAttemptsTable.createdAt} >= ${hourAgo})`.mapWith(Number),
+        day: sql<number>`count(*) filter (where ${emailChangeAttemptsTable.createdAt} >= ${dayAgo})`.mapWith(Number),
+        oldestInHour: sql<Date | null>`min(${emailChangeAttemptsTable.createdAt}) filter (where ${emailChangeAttemptsTable.createdAt} >= ${hourAgo})`,
+        oldestInDay: sql<Date | null>`min(${emailChangeAttemptsTable.createdAt}) filter (where ${emailChangeAttemptsTable.createdAt} >= ${dayAgo})`,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(
+        and(
+          eq(emailChangeAttemptsTable.userId, userId),
+          gte(emailChangeAttemptsTable.createdAt, dayAgo),
+        ),
+      );
+
+    const hourCount = counts?.hour ?? 0;
+    const dayCount = counts?.day ?? 0;
+
+    if (hourCount >= EMAIL_CHANGE_HOURLY_LIMIT || dayCount >= EMAIL_CHANGE_DAILY_LIMIT) {
+      const oldest =
+        dayCount >= EMAIL_CHANGE_DAILY_LIMIT
+          ? counts?.oldestInDay
+          : counts?.oldestInHour;
+      const windowMs = dayCount >= EMAIL_CHANGE_DAILY_LIMIT ? DAY_MS : HOUR_MS;
+      const oldestDate = oldest ? new Date(oldest as string | Date) : now;
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((oldestDate.getTime() + windowMs - now.getTime()) / 1000),
+      );
+      return { allowed: false, retryAfterSeconds };
+    }
+
+    // Insert the attempt and update the user record in the same transaction
+    // so that a follow-up request that also acquires the lock sees this row
+    // in its count.
+    await tx.insert(emailChangeAttemptsTable).values({ userId });
+
+    await tx
+      .update(usersTable)
+      .set({
+        pendingEmail: newEmail,
+        emailChangeToken: tokenHash,
+        emailChangeExpires: expires,
+      })
+      .where(eq(usersTable.id, userId));
+
+    return { allowed: true };
+  });
+
+  if (!result.allowed) {
+    res.setHeader("Retry-After", String(result.retryAfterSeconds));
+    res.status(429).json({
+      error: `You've requested too many email changes recently. Please try again ${formatRetryAfter(result.retryAfterSeconds)}.`,
+      retryAfter: result.retryAfterSeconds,
+    });
+    return;
+  }
 
   // Verification link to the NEW address
   CommunicationService.sendEmailNow({

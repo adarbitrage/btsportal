@@ -25,7 +25,7 @@ The project is structured as a pnpm workspace monorepo using Node.js 24 and Type
 **Backend (`artifacts/api-server`):**
 -   **Technology Stack:** Express 5, PostgreSQL with Drizzle ORM, Zod for validation.
 -   **API Design:** OpenAPI 3.1 specification, with Orval generating client and schema code. Built using esbuild for CJS bundles.
--   **Security:** API Key authentication with granular permissions and Redis-backed sliding window rate limiting. Includes `X-Request-Id` generation.
+-   **Security:** API Key authentication with granular permissions and Redis-backed sliding window rate limiting. Includes `X-Request-Id` generation. The member email-change request endpoint (`POST /members/me/email`) has its own per-user rate limit (3 per hour, 10 per day) tracked in the `email_change_attempts` table so the cap is enforced even when Redis is offline.
 -   **Audit Logging:** All admin actions are logged to an `audit_log` table.
 -   **Pagination:** Cursor-based pagination for API responses.
 -   **Communication:** Integrates SendGrid for email and Twilio for SMS, using BullMQ for asynchronous processing, template management, and event webhooks.

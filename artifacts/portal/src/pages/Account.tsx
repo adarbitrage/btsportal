@@ -161,7 +161,9 @@ export default function Account() {
           `Click the confirmation link we sent to ${trimmed} to finish the change.`,
       });
     } catch (err: any) {
-      setEmailError(err?.message || "Failed to request email change.");
+      setEmailError(
+        err?.data?.error || err?.message || "Failed to request email change.",
+      );
     } finally {
       setEmailSaving(false);
     }

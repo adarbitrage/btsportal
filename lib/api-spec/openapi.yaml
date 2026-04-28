@@ -177,6 +177,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequestEmailChangeResponse"
+        "429":
+          description: Per-user email-change rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /members/me/email/cancel:
     post:

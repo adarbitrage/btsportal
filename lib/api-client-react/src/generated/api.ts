@@ -155,6 +155,7 @@ import type {
   EmailResubscribeBody,
   EmailUnsubscribeParams,
   EntitlementSet,
+  ErrorResponse,
   ForgotPasswordBody,
   FraudAlert,
   GenerateHeadlinesBody,
@@ -927,7 +928,7 @@ export const requestMemberEmailChange = async (
 };
 
 export const getRequestMemberEmailChangeMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -969,13 +970,13 @@ export type RequestMemberEmailChangeMutationResult = NonNullable<
 >;
 export type RequestMemberEmailChangeMutationBody =
   BodyType<RequestEmailChangeBody>;
-export type RequestMemberEmailChangeMutationError = ErrorType<unknown>;
+export type RequestMemberEmailChangeMutationError = ErrorType<ErrorResponse>;
 
 /**
  * @summary Request a verified change to the current member's email
  */
 export const useRequestMemberEmailChange = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
