@@ -5,9 +5,8 @@ import {
   useUninstallApp,
   getAppSsoRedirect,
   useGetCurrentMember,
-  getFlexyCredentials,
 } from "@workspace/api-client-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { AppInstance, AppInstanceAppName } from "@workspace/api-client-react";
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -26,7 +25,6 @@ import {
   CheckCircle2,
   Trash2,
   Ban,
-  Mail,
 } from "lucide-react";
 import { FlexyIcon } from "@/components/icons/FlexyIcon";
 import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
@@ -343,10 +341,6 @@ export default function Apps() {
                           )}
                         </div>
                       )}
-
-                      {!isDisabled && app.name === "flexy" && status === "installed" && (
-                        <FlexyCredentialsPanel />
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -356,48 +350,5 @@ export default function Apps() {
         </div>
       </div>
     </AppLayout>
-  );
-}
-
-function FlexyCredentialsPanel() {
-  const { toast } = useToast();
-  const [email, setEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getFlexyCredentials();
-        if (cancelled) return;
-        setEmail(data.email ?? null);
-      } catch {
-        if (!cancelled) {
-          toast({ title: "Could not load Flexy login email", variant: "destructive" });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Flexy login</div>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground w-16">Email</span>
-        <span className="font-mono break-all" data-testid="text-flexy-email">
-          {email ?? "—"}
-        </span>
-      </div>
-      <div className="flex items-start gap-2 text-xs text-muted-foreground">
-        <Mail className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>
-          Check your inbox for an activation email from Flexy to set your password.
-          If you've forgotten it, use the "Forgot password" link on the Flexy login page.
-        </span>
-      </div>
-    </div>
   );
 }
