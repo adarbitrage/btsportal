@@ -13,6 +13,7 @@ import { startSquidyJobs } from "./lib/squidy-jobs";
 import { startInactiveAppCleanupJob } from "./lib/inactive-app-cleanup";
 import { startEmailChangeAttemptsCleanupJob } from "./lib/email-change-attempts-cleanup";
 import { startEmailChangeHistoryCleanupJob } from "./lib/email-change-history-cleanup";
+import { startPendingEmailCleanupJob } from "./lib/pending-email-cleanup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
@@ -124,6 +125,7 @@ startSquidyJobs();
 startInactiveAppCleanupJob();
 startEmailChangeAttemptsCleanupJob();
 startEmailChangeHistoryCleanupJob();
+startPendingEmailCleanupJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }
