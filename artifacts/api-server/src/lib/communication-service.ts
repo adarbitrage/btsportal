@@ -238,9 +238,30 @@ export type CommunicationOutcome =
   | { result: "skipped"; reason: string }
   | { result: "failed"; reason: string };
 
-function looksSkippedDirectSend(error: string | undefined): boolean {
-  return !!error && /not configured|\(skipped\)/i.test(error);
-}
+/**
+ * Result of a direct email send via sendEmailDirect. Discriminated on
+ * `status` so callers can switch on it without parsing strings.
+ *   - sent: SendGrid accepted the message.
+ *   - skipped: We deliberately did not send (provider not configured, or
+ *     the recipient is suppressed). The `reason` is for logging only.
+ *   - failed: We tried to send and it errored. `error` is the underlying
+ *     message from the provider or DB.
+ */
+export type EmailDirectResult =
+  | { status: "sent"; messageId: string }
+  | { status: "skipped"; reason: string }
+  | { status: "failed"; error: string };
+
+/**
+ * Result of a direct SMS send via sendSmsDirect. Same shape as
+ * EmailDirectResult but carries a Twilio message SID instead of a
+ * SendGrid message ID on success.
+ *   - skipped: provider not configured, or the user is not opted in.
+ */
+export type SmsDirectResult =
+  | { status: "sent"; messageSid: string }
+  | { status: "skipped"; reason: string }
+  | { status: "failed"; error: string };
 
 function replaceVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -336,7 +357,7 @@ async function sendEmailDirect(params: {
   userId?: number;
   templateSlug?: string;
   includeUnsubscribe?: boolean;
-}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+}): Promise<EmailDirectResult> {
   const {
     to,
     subject,
@@ -368,7 +389,7 @@ async function sendEmailDirect(params: {
         category,
         metadata: { reason: suppression.reason },
       });
-      return { success: false, error: `Suppressed: ${suppression.reason}` };
+      return { status: "skipped", reason: `suppressed:${suppression.reason ?? "unknown"}` };
     }
   }
 
@@ -388,7 +409,7 @@ async function sendEmailDirect(params: {
     await db.update(communicationLogTable)
       .set({ status: "skipped", errorMessage: "SendGrid not configured" })
       .where(eq(communicationLogTable.id, logEntry.id));
-    return { success: true, error: "SendGrid not configured (skipped)" };
+    return { status: "skipped", reason: "provider_not_configured" };
   }
 
   try {
@@ -423,7 +444,7 @@ async function sendEmailDirect(params: {
       .set({ status: "sent", sendgridMessageId: messageId })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { success: true, messageId };
+    return { status: "sent", messageId };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Comms] Email send failed to ${to}:`, errorMessage);
@@ -432,7 +453,7 @@ async function sendEmailDirect(params: {
       .set({ status: "failed", errorMessage })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { success: false, error: errorMessage };
+    return { status: "failed", error: errorMessage };
   }
 }
 
@@ -441,7 +462,7 @@ async function sendSmsDirect(params: {
   body: string;
   userId?: number;
   templateSlug?: string;
-}): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+}): Promise<SmsDirectResult> {
   const { to, body, userId, templateSlug } = params;
 
   if (userId) {
@@ -453,7 +474,7 @@ async function sendSmsDirect(params: {
 
     if (!user?.smsOptIn) {
       console.log(`[Comms] SMS to user ${userId} skipped: not opted in`);
-      return { success: false, error: "User not opted in to SMS" };
+      return { status: "skipped", reason: "not_opted_in" };
     }
   }
 
@@ -470,7 +491,7 @@ async function sendSmsDirect(params: {
     await db.update(communicationLogTable)
       .set({ status: "skipped", errorMessage: "Twilio not configured" })
       .where(eq(communicationLogTable.id, logEntry.id));
-    return { success: true, error: "Twilio not configured (skipped)" };
+    return { status: "skipped", reason: "provider_not_configured" };
   }
 
   try {
@@ -485,7 +506,7 @@ async function sendSmsDirect(params: {
       .set({ status: "sent", twilioMessageSid: message.sid })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { success: true, messageSid: message.sid };
+    return { status: "sent", messageSid: message.sid };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Comms] SMS send failed to ${to}:`, errorMessage);
@@ -494,7 +515,7 @@ async function sendSmsDirect(params: {
       .set({ status: "failed", errorMessage })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { success: false, error: errorMessage };
+    return { status: "failed", error: errorMessage };
   }
 }
 
@@ -552,13 +573,14 @@ export const CommunicationService = {
     recordQueueFallbackAudit("email", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
     const direct = await sendEmailDirect(jobData);
-    if (direct.success && looksSkippedDirectSend(direct.error)) {
-      return { result: "skipped", reason: "provider_not_configured" };
+    switch (direct.status) {
+      case "sent":
+        return { result: "sent_direct" };
+      case "skipped":
+        return { result: "skipped", reason: direct.reason };
+      case "failed":
+        return { result: "failed", reason: direct.error };
     }
-    if (direct.success) {
-      return { result: "sent_direct" };
-    }
-    return { result: "failed", reason: direct.error ?? "unknown_error" };
   },
 
   async queueSms(params: {
@@ -600,13 +622,14 @@ export const CommunicationService = {
     recordQueueFallbackAudit("sms", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
     const direct = await sendSmsDirect(jobData);
-    if (direct.success && looksSkippedDirectSend(direct.error)) {
-      return { result: "skipped", reason: "provider_not_configured" };
+    switch (direct.status) {
+      case "sent":
+        return { result: "sent_direct" };
+      case "skipped":
+        return { result: "skipped", reason: direct.reason };
+      case "failed":
+        return { result: "failed", reason: direct.error };
     }
-    if (direct.success) {
-      return { result: "sent_direct" };
-    }
-    return { result: "failed", reason: direct.error ?? "unknown_error" };
   },
 
   async sendEmailNow(params: {
@@ -615,7 +638,7 @@ export const CommunicationService = {
     variables?: Record<string, string>;
     userId?: number;
     category?: string;
-  }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  }): Promise<EmailDirectResult> {
     const { templateSlug, to, variables = {}, userId, category } = params;
 
     const [template] = await db
@@ -626,7 +649,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] Email template not found: ${templateSlug}`);
-      return { success: false, error: `Template not found: ${templateSlug}` };
+      return { status: "skipped", reason: `template_not_found:${templateSlug}` };
     }
 
     const allVars = getCommonVariables(variables);
@@ -652,7 +675,7 @@ export const CommunicationService = {
     to: string;
     variables?: Record<string, string>;
     userId?: number;
-  }): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+  }): Promise<SmsDirectResult> {
     const { templateSlug, to, variables = {}, userId } = params;
 
     const [template] = await db
@@ -663,7 +686,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] SMS template not found: ${templateSlug}`);
-      return { success: false, error: `Template not found: ${templateSlug}` };
+      return { status: "skipped", reason: `template_not_found:${templateSlug}` };
     }
 
     const allVars = getCommonVariables(variables);

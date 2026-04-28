@@ -23,7 +23,9 @@ export function startCommunicationWorkers(): void {
       includeUnsubscribe,
     });
 
-    if (!result.success && result.error && !result.error.includes("not configured")) {
+    // Only throw on a real send failure. "skipped" (provider not configured,
+    // recipient suppressed) is intentional and must not retry.
+    if (result.status === "failed") {
       throw new Error(result.error);
     }
   }, {
@@ -48,7 +50,9 @@ export function startCommunicationWorkers(): void {
       templateSlug,
     });
 
-    if (!result.success && result.error && !result.error.includes("not configured") && !result.error.includes("not opted in")) {
+    // Only throw on a real send failure. "skipped" (provider not configured,
+    // recipient not opted in) is intentional and must not retry.
+    if (result.status === "failed") {
       throw new Error(result.error);
     }
   }, {
