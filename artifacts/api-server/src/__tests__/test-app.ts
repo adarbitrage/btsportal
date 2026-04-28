@@ -6,10 +6,17 @@ import adminAppsRouter from "../routes/admin-apps";
 
 export interface BuildTestAppOptions {
   routers?: Router[];
+  trustProxy?: boolean;
 }
 
 export function buildTestApp(options: BuildTestAppOptions = {}): Express {
   const app = express();
+  if (options.trustProxy) {
+    // Allow tests to simulate distinct client IPs via X-Forwarded-For. Only the
+    // test app opts in — production code relies on the operator configuring
+    // `trust proxy` correctly at deploy time.
+    app.set("trust proxy", true);
+  }
   app.use(express.json());
   app.use(cookieParser());
   app.use("/api", requestIdMiddleware);

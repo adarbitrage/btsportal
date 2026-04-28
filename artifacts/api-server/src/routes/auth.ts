@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { db, usersTable, sessionsTable, emailChangeHistoryTable } from "@workspace/db";
 import { eq, and, gt, isNull, desc } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
+import { abuseRateLimit, ipKey, emailKey } from "../middleware/abuse-rate-limit";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
@@ -281,7 +282,44 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
-router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+const FORGOT_PASSWORD_LIMITS = {
+  perIp: { max: 10, windowSeconds: 15 * 60 },
+  perEmail: { max: 5, windowSeconds: 15 * 60 },
+} as const;
+
+const RESET_PASSWORD_LIMITS = {
+  perIp: { max: 10, windowSeconds: 15 * 60 },
+} as const;
+
+const forgotPasswordIpLimiter = abuseRateLimit({
+  name: "forgot-password",
+  maxRequests: FORGOT_PASSWORD_LIMITS.perIp.max,
+  windowSeconds: FORGOT_PASSWORD_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("forgot-password"),
+  message: "Too many password reset requests. Please try again later.",
+});
+
+const forgotPasswordEmailLimiter = abuseRateLimit({
+  name: "forgot-password",
+  maxRequests: FORGOT_PASSWORD_LIMITS.perEmail.max,
+  windowSeconds: FORGOT_PASSWORD_LIMITS.perEmail.windowSeconds,
+  keyResolver: emailKey("forgot-password", "email"),
+  message: "Too many password reset requests. Please try again later.",
+});
+
+const resetPasswordIpLimiter = abuseRateLimit({
+  name: "reset-password",
+  maxRequests: RESET_PASSWORD_LIMITS.perIp.max,
+  windowSeconds: RESET_PASSWORD_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("reset-password"),
+  message: "Too many password reset attempts. Please try again later.",
+});
+
+router.post(
+  "/auth/forgot-password",
+  forgotPasswordIpLimiter,
+  forgotPasswordEmailLimiter,
+  async (req, res): Promise<void> => {
   const { email } = req.body;
   res.json({ message: "If that email exists, we sent a reset link." });
 
@@ -307,7 +345,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/reset-password", async (req, res): Promise<void> => {
+router.post("/auth/reset-password", resetPasswordIpLimiter, async (req, res): Promise<void> => {
   const { token, password } = req.body;
 
   if (!token || !password) {
