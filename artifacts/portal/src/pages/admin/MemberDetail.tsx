@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { FlexyResetHistoryPanel } from "@/components/admin/FlexyResetHistory";
 
 interface ProductRow {
   id: number;
@@ -196,7 +197,7 @@ export default function MemberDetail() {
         )}
 
         <Tabs defaultValue="products">
-          <TabsList className="grid w-full grid-cols-8 gap-1">
+          <TabsList className="grid w-full grid-cols-9 gap-1">
             <TabsTrigger value="products" className="text-xs"><Package className="w-3 h-3 mr-1" />Products</TabsTrigger>
             <TabsTrigger value="training" className="text-xs"><BookOpen className="w-3 h-3 mr-1" />Training</TabsTrigger>
             <TabsTrigger value="tickets" className="text-xs"><Ticket className="w-3 h-3 mr-1" />Tickets</TabsTrigger>
@@ -204,6 +205,7 @@ export default function MemberDetail() {
             <TabsTrigger value="commissions" className="text-xs"><DollarSign className="w-3 h-3 mr-1" />Commissions</TabsTrigger>
             <TabsTrigger value="community" className="text-xs"><Users className="w-3 h-3 mr-1" />Community</TabsTrigger>
             <TabsTrigger value="notes" className="text-xs"><StickyNote className="w-3 h-3 mr-1" />Notes</TabsTrigger>
+            <TabsTrigger value="password-resets" className="text-xs" data-testid="tab-password-resets"><KeyRound className="w-3 h-3 mr-1" />Password Resets</TabsTrigger>
             <TabsTrigger value="audit" className="text-xs"><ScrollText className="w-3 h-3 mr-1" />Audit</TabsTrigger>
           </TabsList>
 
@@ -417,6 +419,24 @@ export default function MemberDetail() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="password-resets">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <KeyRound className="w-4 h-4" /> Flexy Password Resets
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FlexyResetHistoryPanel
+                  userId={memberId}
+                  containerTestId="member-flexy-reset-history"
+                  itemTestIdPrefix="member-flexy-history"
+                  headerLabel="All password reset events for this member"
+                />
               </CardContent>
             </Card>
           </TabsContent>
