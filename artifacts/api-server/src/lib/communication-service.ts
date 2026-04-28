@@ -201,6 +201,26 @@ export async function tryEnqueue(
   return false;
 }
 
+/**
+ * Outcome of a queueEmail/queueSms call. Lets callers that care about the
+ * fate of the message (e.g. the admin Flexy regenerate-password handler)
+ * distinguish queued (good — worker will deliver), sent_direct (good — the
+ * queue was unavailable so we sent inline), skipped (template missing or
+ * provider not configured — nothing was sent and that's expected), and
+ * failed (direct send blew up). Most callers ignore the return value and
+ * treat the call as fire-and-forget, which is fine — the outcome is purely
+ * informational.
+ */
+export type CommunicationOutcome =
+  | { result: "queued" }
+  | { result: "sent_direct" }
+  | { result: "skipped"; reason: string }
+  | { result: "failed"; reason: string };
+
+function looksSkippedDirectSend(error: string | undefined): boolean {
+  return !!error && /not configured|\(skipped\)/i.test(error);
+}
+
 function replaceVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     return variables[key] !== undefined ? variables[key] : match;
@@ -464,7 +484,7 @@ export const CommunicationService = {
     variables?: Record<string, string>;
     userId?: number;
     category?: string;
-  }): Promise<void> {
+  }): Promise<CommunicationOutcome> {
     const { templateSlug, to, variables = {}, userId, category } = params;
 
     const [template] = await db
@@ -475,7 +495,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] Email template not found: ${templateSlug}`);
-      return;
+      return { result: "skipped", reason: "template_not_found" };
     }
 
     const allVars = getCommonVariables(variables);
@@ -503,10 +523,20 @@ export const CommunicationService = {
       removeOnFail: 200,
     });
 
-    if (!queued) {
-      recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
-      await sendEmailDirect(jobData);
+    if (queued) {
+      return { result: "queued" };
     }
+
+    recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
+    console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
+    const direct = await sendEmailDirect(jobData);
+    if (direct.success && looksSkippedDirectSend(direct.error)) {
+      return { result: "skipped", reason: "provider_not_configured" };
+    }
+    if (direct.success) {
+      return { result: "sent_direct" };
+    }
+    return { result: "failed", reason: direct.error ?? "unknown_error" };
   },
 
   async queueSms(params: {
@@ -514,7 +544,7 @@ export const CommunicationService = {
     to: string;
     variables?: Record<string, string>;
     userId?: number;
-  }): Promise<void> {
+  }): Promise<CommunicationOutcome> {
     const { templateSlug, to, variables = {}, userId } = params;
 
     const [template] = await db
@@ -525,7 +555,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] SMS template not found: ${templateSlug}`);
-      return;
+      return { result: "skipped", reason: "template_not_found" };
     }
 
     const allVars = getCommonVariables(variables);
@@ -540,10 +570,20 @@ export const CommunicationService = {
       removeOnFail: 200,
     });
 
-    if (!queued) {
-      recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
-      await sendSmsDirect(jobData);
+    if (queued) {
+      return { result: "queued" };
     }
+
+    recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
+    console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
+    const direct = await sendSmsDirect(jobData);
+    if (direct.success && looksSkippedDirectSend(direct.error)) {
+      return { result: "skipped", reason: "provider_not_configured" };
+    }
+    if (direct.success) {
+      return { result: "sent_direct" };
+    }
+    return { result: "failed", reason: direct.error ?? "unknown_error" };
   },
 
   async sendEmailNow(params: {

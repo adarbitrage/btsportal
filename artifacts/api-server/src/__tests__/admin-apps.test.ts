@@ -16,6 +16,18 @@ const { updateStaffUserPasswordMock, generateRandomPasswordMock } = vi.hoisted((
   generateRandomPasswordMock: vi.fn(() => "MockedPassw0rd!"),
 }));
 
+const {
+  queueEmailMock,
+  queueSmsMock,
+  sendEmailNowMock,
+  sendSmsNowMock,
+} = vi.hoisted(() => ({
+  queueEmailMock: vi.fn(async () => ({ result: "queued" as const })),
+  queueSmsMock: vi.fn(async () => ({ result: "queued" as const })),
+  sendEmailNowMock: vi.fn(async () => ({ success: true })),
+  sendSmsNowMock: vi.fn(async () => ({ success: true })),
+}));
+
 vi.mock("../lib/ghl-agency-client", () => ({
   FLEXY_PORTAL_URL: "https://dashboard.getflexy.app",
   FLEXY_SNAPSHOT_ID: "",
@@ -27,6 +39,15 @@ vi.mock("../lib/ghl-agency-client", () => ({
   reactivateStaffUserForLocation: vi.fn(),
   updateStaffUserPassword: updateStaffUserPasswordMock,
   generateRandomPassword: generateRandomPasswordMock,
+}));
+
+vi.mock("../lib/communication-service", () => ({
+  CommunicationService: {
+    queueEmail: queueEmailMock,
+    queueSms: queueSmsMock,
+    sendEmailNow: sendEmailNowMock,
+    sendSmsNow: sendSmsNowMock,
+  },
 }));
 
 import { buildTestApp } from "./test-app";
@@ -103,6 +124,12 @@ afterAll(async () => {
 beforeEach(() => {
   updateStaffUserPasswordMock.mockClear();
   generateRandomPasswordMock.mockClear();
+  queueEmailMock.mockClear();
+  queueEmailMock.mockResolvedValue({ result: "queued" as const });
+  queueSmsMock.mockClear();
+  queueSmsMock.mockResolvedValue({ result: "queued" as const });
+  sendEmailNowMock.mockClear();
+  sendSmsNowMock.mockClear();
 });
 
 describe("GET /api/admin/apps/flexy/lookup/:userId", () => {
@@ -297,6 +324,142 @@ describe("POST /api/admin/apps/flexy/regenerate-password/:userId", () => {
       .set("Cookie", signCookie(memberUser.id, memberUser.email));
     expect(res.status).toBe(403);
     expect(updateStaffUserPasswordMock).not.toHaveBeenCalled();
+  });
+
+  // Notification flow: confirms we go through the standard queue path
+  // (queueEmail / queueSms) and never the direct sendEmailNow / sendSmsNow
+  // path, and that the per-channel response shape the admin UI consumes
+  // is preserved.
+  describe("notification flow", () => {
+    let smsMember: SeededUser;
+
+    beforeAll(async () => {
+      smsMember = await insertUser("member", "sms-member");
+      await db
+        .update(usersTable)
+        .set({ phone: "+15555550199", smsOptIn: true })
+        .where(eq(usersTable.id, smsMember.id));
+      await db.insert(memberAppInstancesTable).values({
+        userId: smsMember.id,
+        appName: "flexy",
+        status: "installed",
+        providerLocationId: "loc_test_456",
+        providerStaffUserId: "staff_test_456",
+        providerStaffEmail: `${TEST_TAG}-flexy-staff-sms@example.test`,
+      });
+    });
+
+    it("queues the email via queueEmail (not sendEmailNow) and reports status=sent when the queue accepts the job", async () => {
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${installedMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifyEmail: true });
+
+      expect(res.status).toBe(200);
+      expect(queueEmailMock).toHaveBeenCalledTimes(1);
+      expect(sendEmailNowMock).not.toHaveBeenCalled();
+
+      const call = queueEmailMock.mock.calls[0]?.[0] as
+        | { templateSlug: string; to: string; userId: number; category: string }
+        | undefined;
+      expect(call?.templateSlug).toBe("flexy_password_reset");
+      expect(call?.to).toBe(installedMember.email);
+      expect(call?.userId).toBe(installedMember.id);
+      expect(call?.category).toBe("transactional");
+
+      expect(res.body.notifications.email).toEqual({
+        requested: true,
+        status: "sent",
+      });
+    });
+
+    it("queues the SMS via queueSms (not sendSmsNow) when the member is opted in, and reports status=sent", async () => {
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${smsMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifySms: true });
+
+      expect(res.status).toBe(200);
+      expect(queueSmsMock).toHaveBeenCalledTimes(1);
+      expect(sendSmsNowMock).not.toHaveBeenCalled();
+
+      const call = queueSmsMock.mock.calls[0]?.[0] as
+        | { templateSlug: string; to: string; userId: number }
+        | undefined;
+      expect(call?.templateSlug).toBe("flexy_password_reset");
+      expect(call?.to).toBe("+15555550199");
+      expect(call?.userId).toBe(smsMember.id);
+
+      expect(res.body.notifications.sms).toEqual({
+        requested: true,
+        status: "sent",
+      });
+    });
+
+    it("reports status=sent when the queue is offline and the direct fallback succeeds (sent_direct outcome)", async () => {
+      queueEmailMock.mockResolvedValueOnce({ result: "sent_direct" as const });
+
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${installedMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifyEmail: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.notifications.email.status).toBe("sent");
+    });
+
+    it("maps a 'skipped' outcome to status=skipped with the reason preserved", async () => {
+      queueEmailMock.mockResolvedValueOnce({
+        result: "skipped" as const,
+        reason: "provider_not_configured",
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${installedMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifyEmail: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.notifications.email).toEqual({
+        requested: true,
+        status: "skipped",
+        reason: "provider_not_configured",
+      });
+    });
+
+    it("maps a 'failed' outcome to status=failed with the reason preserved", async () => {
+      queueEmailMock.mockResolvedValueOnce({
+        result: "failed" as const,
+        reason: "sendgrid_503",
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${installedMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifyEmail: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.notifications.email).toEqual({
+        requested: true,
+        status: "failed",
+        reason: "sendgrid_503",
+      });
+    });
+
+    it("does not call queueSms when the member has no phone on file (skipped without touching the queue)", async () => {
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${installedMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifySms: true });
+
+      expect(res.status).toBe(200);
+      expect(queueSmsMock).not.toHaveBeenCalled();
+      expect(res.body.notifications.sms).toEqual({
+        requested: true,
+        status: "skipped",
+        reason: "no_phone_on_file",
+      });
+    });
   });
 });
 

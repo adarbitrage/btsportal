@@ -17,7 +17,10 @@ import {
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
 import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
-import { CommunicationService } from "../lib/communication-service";
+import {
+  CommunicationService,
+  type CommunicationOutcome,
+} from "../lib/communication-service";
 
 const router: IRouter = Router();
 
@@ -403,26 +406,36 @@ router.post(
           flexy_domain: FLEXY_DOMAIN,
         };
 
-        const looksSkipped = (err?: string) =>
-          !!err && /not configured|\(skipped\)/i.test(err);
+        // Translate the queueEmail/queueSms outcome into the per-channel
+        // status the admin UI already understands. "queued" and
+        // "sent_direct" both count as a successful "sent" — from the
+        // admin's POV we did our job; the worker (or direct fallback when
+        // Redis is down) takes it from there.
+        const mapOutcome = (
+          outcome: CommunicationOutcome,
+        ): { status: NotifyResult; reason?: string } => {
+          if (outcome.result === "queued" || outcome.result === "sent_direct") {
+            return { status: "sent" };
+          }
+          if (outcome.result === "skipped") {
+            return { status: "skipped", reason: outcome.reason };
+          }
+          return { status: "failed", reason: outcome.reason };
+        };
 
         if (notifyEmail) {
           try {
-            const emailResult = await CommunicationService.sendEmailNow({
+            const outcome = await CommunicationService.queueEmail({
               templateSlug: "flexy_password_reset",
               to: user.email,
               variables,
               userId,
               category: "transactional",
             });
-            if (emailResult.success && looksSkipped(emailResult.error)) {
-              notifications.email.status = "skipped";
-              notifications.email.reason = "provider_not_configured";
-            } else if (emailResult.success) {
-              notifications.email.status = "sent";
-            } else {
-              notifications.email.status = "failed";
-              notifications.email.reason = emailResult.error;
+            const mapped = mapOutcome(outcome);
+            notifications.email.status = mapped.status;
+            if (mapped.reason !== undefined) {
+              notifications.email.reason = mapped.reason;
             }
           } catch (err) {
             notifications.email.status = "failed";
@@ -440,20 +453,16 @@ router.post(
             notifications.sms.reason = "not_opted_in";
           } else {
             try {
-              const smsResult = await CommunicationService.sendSmsNow({
+              const outcome = await CommunicationService.queueSms({
                 templateSlug: "flexy_password_reset",
                 to: user.phone,
                 variables,
                 userId,
               });
-              if (smsResult.success && looksSkipped(smsResult.error)) {
-                notifications.sms.status = "skipped";
-                notifications.sms.reason = "provider_not_configured";
-              } else if (smsResult.success) {
-                notifications.sms.status = "sent";
-              } else {
-                notifications.sms.status = "failed";
-                notifications.sms.reason = smsResult.error;
+              const mapped = mapOutcome(outcome);
+              notifications.sms.status = mapped.status;
+              if (mapped.reason !== undefined) {
+                notifications.sms.reason = mapped.reason;
               }
             } catch (err) {
               notifications.sms.status = "failed";
