@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { db, usersTable, sessionsTable, emailChangeHistoryTable, passwordResetAttemptsTable } from "@workspace/db";
 import { eq, and, gt, gte, isNull, desc, sql } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
-import { abuseRateLimit, ipKey } from "../middleware/abuse-rate-limit";
+import { abuseRateLimit, ipKey, emailKey } from "../middleware/abuse-rate-limit";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
