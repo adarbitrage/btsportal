@@ -154,9 +154,13 @@ router.post("/members/me/password", async (req, res): Promise<void> => {
     .set({ revokedAt: new Date() })
     .where(and(eq(sessionsTable.userId, userId), isNull(sessionsTable.revokedAt)));
 
+  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("refresh_token", { path: "/api/auth" });
+  res.clearCookie("csrf_token", { path: "/" });
+
   res.json(
     ChangeMemberPasswordResponse.parse({
-      message: "Password updated successfully. Other devices have been signed out.",
+      message: "Password updated successfully. Please sign in again.",
     }),
   );
 });

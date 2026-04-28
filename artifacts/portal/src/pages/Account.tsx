@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import { User, Lock, Bell } from "lucide-react";
 import {
   useGetCurrentMember,
@@ -15,6 +17,8 @@ import {
 
 export default function Account() {
   const { toast } = useToast();
+  const { logout } = useAuth();
+  const [, navigate] = useLocation();
   const { data: member, isLoading, refetch } = useGetCurrentMember();
   const patchProfile = usePatchMemberProfile();
   const changePassword = useChangeMemberPassword();
@@ -138,8 +142,10 @@ export default function Account() {
       setConfirmPassword("");
       toast({
         title: "Password updated",
-        description: res?.message || "Your password has been changed.",
+        description: res?.message || "Your password has been changed. Please sign in again.",
       });
+      await logout();
+      navigate("/login");
     } catch (err: any) {
       setPasswordError(err?.message || "Failed to change password.");
     } finally {
