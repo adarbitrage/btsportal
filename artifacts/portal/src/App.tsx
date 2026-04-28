@@ -122,6 +122,8 @@ import FunnelPerformance from "@/pages/admin/FunnelPerformance";
 import LtvAnalysis from "@/pages/admin/LtvAnalysis";
 import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
+import AccessDenied from "@/pages/AccessDenied";
+import { hasPermission, isAdminRole } from "@/lib/permissions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -280,7 +282,13 @@ function OnboardingRoute({ component: Component, step }: { component: React.Comp
   return <Component />;
 }
 
-function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
+function AdminRoute({
+  component: Component,
+  permission,
+}: {
+  component: React.ComponentType<any>;
+  permission?: string;
+}) {
   const { user, loading } = useAuth();
   const { data: member, isLoading: memberLoading } = useGetCurrentMember();
 
@@ -315,9 +323,13 @@ function AdminRoute({ component: Component }: { component: React.ComponentType<a
     return <Redirect to="/login" />;
   }
 
-  const ADMIN_ROLES = ["admin", "super_admin", "support_agent", "content_manager"];
-  if (!ADMIN_ROLES.includes((member as any)?.role)) {
+  const role = (member as any)?.role as string | undefined;
+  if (!isAdminRole(role)) {
     return <Redirect to="/" />;
+  }
+
+  if (permission && !hasPermission(role, permission)) {
+    return <AccessDenied permission={permission} />;
   }
 
   return <Component />;
@@ -370,8 +382,8 @@ function Router() {
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
-      <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} />}</Route>
-      <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} />}</Route>
+      <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} permission="content:manage" />}</Route>
+      <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
@@ -391,74 +403,74 @@ function Router() {
       <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
       <Route path="/support/tickets/:id/rate">{() => <ProtectedRoute component={SatisfactionSurveyPage} />}</Route>
-      <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} />}</Route>
-      <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} />}</Route>
-      <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} />}</Route>
+      <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} permission="ghl:view" />}</Route>
+      <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} permission="ghl:view" />}</Route>
+      <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} permission="ghl:manage" />}</Route>
       <Route path="/chat">{() => <Redirect to="/ai-assistant" />}</Route>
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
-      <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} />}</Route>
-      <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} />}</Route>
-      <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} />}</Route>
-      <Route path="/admin/canned-responses">{() => <AdminRoute component={CannedResponses} />}</Route>
-      <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} />}</Route>
-      <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} />}</Route>
-      <Route path="/settings/api-keys">{() => <AdminRoute component={AdminApiKeys} />}</Route>
-      <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} />}</Route>
-      <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} />}</Route>
-      <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} />}</Route>
-      <Route path="/admin/resources">{() => <AdminRoute component={VaultResources} />}</Route>
-      <Route path="/admin/resources/new">{() => <AdminRoute component={VaultResourceEditor} />}</Route>
-      <Route path="/admin/resources/:id/edit">{() => <AdminRoute component={VaultResourceEditor} />}</Route>
-      <Route path="/admin/collections">{() => <AdminRoute component={VaultCollections} />}</Route>
-      <Route path="/admin/vault/analytics">{() => <AdminRoute component={VaultAnalytics} />}</Route>
-      <Route path="/admin/wins">{() => <AdminRoute component={AdminWins} />}</Route>
+      <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>
+      <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} permission="tickets:view" />}</Route>
+      <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} permission="tickets:manage" />}</Route>
+      <Route path="/admin/canned-responses">{() => <AdminRoute component={CannedResponses} permission="tickets:manage" />}</Route>
+      <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} permission="tickets:view" />}</Route>
+      <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} permission="tickets:view" />}</Route>
+      <Route path="/settings/api-keys">{() => <AdminRoute component={AdminApiKeys} permission="api_keys:view" />}</Route>
+      <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} permission="community:moderate" />}</Route>
+      <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} permission="community:moderate" />}</Route>
+      <Route path="/admin/community/analytics">{() => <AdminRoute component={CommunityAnalytics} permission="community:view" />}</Route>
+      <Route path="/admin/resources">{() => <AdminRoute component={VaultResources} permission="vault:view" />}</Route>
+      <Route path="/admin/resources/new">{() => <AdminRoute component={VaultResourceEditor} permission="vault:manage" />}</Route>
+      <Route path="/admin/resources/:id/edit">{() => <AdminRoute component={VaultResourceEditor} permission="vault:manage" />}</Route>
+      <Route path="/admin/collections">{() => <AdminRoute component={VaultCollections} permission="vault:manage" />}</Route>
+      <Route path="/admin/vault/analytics">{() => <AdminRoute component={VaultAnalytics} permission="vault:view" />}</Route>
+      <Route path="/admin/wins">{() => <AdminRoute component={AdminWins} permission="wins:manage" />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
       <Route path="/apps">{() => <ProtectedRoute component={Apps} />}</Route>
-      <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} />}</Route>
-      <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} />}</Route>
-      <Route path="/admin/commissions/payouts">{() => <AdminRoute component={CommissionPayouts} />}</Route>
-      <Route path="/admin/commissions/affiliates">{() => <AdminRoute component={CommissionAffiliates} />}</Route>
-      <Route path="/admin/commissions/rates">{() => <AdminRoute component={CommissionRates} />}</Route>
-      <Route path="/admin/commissions/resources">{() => <AdminRoute component={CommissionResources} />}</Route>
-      <Route path="/admin/commissions/fraud">{() => <AdminRoute component={CommissionFraudAlerts} />}</Route>
-      <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} />}</Route>
-      <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} />}</Route>
-      <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} />}</Route>
-      <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} />}</Route>
-      <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} />}</Route>
-      <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} />}</Route>
-      <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} />}</Route>
-      <Route path="/admin/coaching/availability">{() => <AdminRoute component={CoachingAvailability} />}</Route>
-      <Route path="/admin/coaching/overrides">{() => <AdminRoute component={CoachingOverrides} />}</Route>
-      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={CoachingSessions} />}</Route>
-      <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} />}</Route>
-      <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} />}</Route>
-      <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} />}</Route>
-      <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} />}</Route>
-      <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} />}</Route>
-      <Route path="/admin/communications/broadcasts">{() => <AdminRoute component={CommunicationsBroadcasts} />}</Route>
-      <Route path="/admin/communications/log">{() => <AdminRoute component={CommunicationsLog} />}</Route>
-      <Route path="/admin/communications/analytics">{() => <AdminRoute component={CommunicationsAnalytics} />}</Route>
-      <Route path="/admin/tools">{() => <AdminRoute component={ToolManagement} />}</Route>
-      <Route path="/admin/tools/analytics">{() => <AdminRoute component={ToolAnalytics} />}</Route>
-      <Route path="/admin/tools/:id/usage">{() => <AdminRoute component={ToolUsageDetail} />}</Route>
-      <Route path="/admin/dashboard">{() => <AdminRoute component={AdminDashboard} />}</Route>
-      <Route path="/admin/audit-log">{() => <AdminRoute component={AuditLog} />}</Route>
-      <Route path="/admin/members/:id">{() => <AdminRoute component={MemberDetail} />}</Route>
-      <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} />}</Route>
-      <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} />}</Route>
-      <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} />}</Route>
-      <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} />}</Route>
-      <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} />}</Route>
-      <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} />}</Route>
-      <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} />}</Route>
-      <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} />}</Route>
-      <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} />}</Route>
-      <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} />}</Route>
-      <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} />}</Route>
+      <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} permission="commissions:view" />}</Route>
+      <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} permission="commissions:view" />}</Route>
+      <Route path="/admin/commissions/payouts">{() => <AdminRoute component={CommissionPayouts} permission="commissions:manage" />}</Route>
+      <Route path="/admin/commissions/affiliates">{() => <AdminRoute component={CommissionAffiliates} permission="commissions:view" />}</Route>
+      <Route path="/admin/commissions/rates">{() => <AdminRoute component={CommissionRates} permission="commissions:manage" />}</Route>
+      <Route path="/admin/commissions/resources">{() => <AdminRoute component={CommissionResources} permission="commissions:manage" />}</Route>
+      <Route path="/admin/commissions/fraud">{() => <AdminRoute component={CommissionFraudAlerts} permission="commissions:view" />}</Route>
+      <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} permission="chat:view" />}</Route>
+      <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} permission="chat:view" />}</Route>
+      <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
+      <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/availability">{() => <AdminRoute component={CoachingAvailability} permission="coaching:manage" />}</Route>
+      <Route path="/admin/coaching/overrides">{() => <AdminRoute component={CoachingOverrides} permission="coaching:manage" />}</Route>
+      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={CoachingSessions} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} permission="coaching:view" />}</Route>
+      <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>
+      <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} permission="communications:manage" />}</Route>
+      <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} permission="communications:manage" />}</Route>
+      <Route path="/admin/communications/broadcasts">{() => <AdminRoute component={CommunicationsBroadcasts} permission="communications:manage" />}</Route>
+      <Route path="/admin/communications/log">{() => <AdminRoute component={CommunicationsLog} permission="communications:view" />}</Route>
+      <Route path="/admin/communications/analytics">{() => <AdminRoute component={CommunicationsAnalytics} permission="communications:view" />}</Route>
+      <Route path="/admin/tools">{() => <AdminRoute component={ToolManagement} permission="apps:manage" />}</Route>
+      <Route path="/admin/tools/analytics">{() => <AdminRoute component={ToolAnalytics} permission="apps:manage" />}</Route>
+      <Route path="/admin/tools/:id/usage">{() => <AdminRoute component={ToolUsageDetail} permission="apps:manage" />}</Route>
+      <Route path="/admin/dashboard">{() => <AdminRoute component={AdminDashboard} permission="dashboard:view" />}</Route>
+      <Route path="/admin/audit-log">{() => <AdminRoute component={AuditLog} permission="audit:view" />}</Route>
+      <Route path="/admin/members/:id">{() => <AdminRoute component={MemberDetail} permission="members:view" />}</Route>
+      <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} permission="members:view" />}</Route>
+      <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} permission="system:view" />}</Route>
+      <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} permission="settings:view" />}</Route>
+      <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="dashboard:view" />}</Route>
+      <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
