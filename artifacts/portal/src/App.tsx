@@ -315,7 +315,8 @@ function AdminRoute({ component: Component }: { component: React.ComponentType<a
     return <Redirect to="/login" />;
   }
 
-  if ((member as any)?.role !== "admin") {
+  const ADMIN_ROLES = ["admin", "super_admin", "support_agent", "content_manager"];
+  if (!ADMIN_ROLES.includes((member as any)?.role)) {
     return <Redirect to="/" />;
   }
 
