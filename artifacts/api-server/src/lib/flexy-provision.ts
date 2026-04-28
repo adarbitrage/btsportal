@@ -7,6 +7,7 @@ import {
   findExistingStaffUser,
   mintFlexyLoginUrl,
   reactivateStaffUserForLocation,
+  updateStaffUserPassword,
   generateRandomPassword,
   FLEXY_PORTAL_URL,
 } from "./ghl-agency-client";
@@ -179,6 +180,34 @@ export async function revealFlexyCredentials(userId: number): Promise<{
     throw new Error("Flexy is not installed for this user");
   }
   return { email: row.providerStaffEmail };
+}
+
+/**
+ * Generate a fresh random password for the member's Flexy staff user and
+ * push it to GHL. Returns the new plaintext password so the caller can show
+ * it to the support agent (we deliberately do not persist it).
+ *
+ * Throws if the user does not have an installed Flexy instance.
+ */
+export async function regenerateFlexyPassword(userId: number): Promise<{
+  email: string;
+  newPassword: string;
+}> {
+  const [row] = await db
+    .select()
+    .from(memberAppInstancesTable)
+    .where(
+      and(
+        eq(memberAppInstancesTable.userId, userId),
+        eq(memberAppInstancesTable.appName, "flexy"),
+      ),
+    );
+  if (!row || row.status !== "installed" || !row.providerStaffUserId || !row.providerStaffEmail) {
+    throw new Error("Flexy is not installed for this user");
+  }
+  const newPassword = generateRandomPassword();
+  await updateStaffUserPassword(row.providerStaffUserId, newPassword);
+  return { email: row.providerStaffEmail, newPassword };
 }
 
 export function buildFlexyOpenUrl(opts: {

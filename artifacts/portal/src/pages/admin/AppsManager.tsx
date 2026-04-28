@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -16,6 +17,11 @@ import { Button } from "@/components/ui/button";
 import type { ComponentType } from "react";
 import {
   AppWindow,
+  Copy,
+  KeyRound,
+  Loader2,
+  Search,
+  User as UserIcon,
 } from "lucide-react";
 import { FlexyIcon } from "@/components/icons/FlexyIcon";
 import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
@@ -68,6 +74,53 @@ async function updateAppStatus(appName: string, patch: AppPatch): Promise<AppSet
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to update app status");
+  }
+  return res.json();
+}
+
+type MemberSearchResult = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+};
+
+type FlexyLookup = {
+  member: { id: number; name: string; email: string };
+  flexy: {
+    status: string;
+    email: string | null;
+    locationId: string | null;
+    hasStaffUser: boolean;
+    updatedAt: string | null;
+  };
+};
+
+async function searchMembers(query: string): Promise<MemberSearchResult[]> {
+  const qs = new URLSearchParams({ q: query });
+  const res = await fetch(`/api/admin/search?${qs.toString()}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Member search failed");
+  const data = (await res.json()) as { members?: MemberSearchResult[] };
+  return data.members ?? [];
+}
+
+async function fetchFlexyLookup(userId: number): Promise<FlexyLookup> {
+  const res = await fetch(`/api/admin/apps/flexy/lookup/${userId}`, { credentials: "include" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Failed to look up Flexy details");
+  }
+  return res.json();
+}
+
+async function regenerateFlexyPassword(userId: number): Promise<{ email: string; newPassword: string }> {
+  const res = await fetch(`/api/admin/apps/flexy/regenerate-password/${userId}`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Failed to regenerate password");
   }
   return res.json();
 }
@@ -156,6 +209,9 @@ export default function AppsManager() {
             Control each app globally. <strong>Show</strong> controls whether the app appears on the member apps page at all. <strong>Enabled</strong> controls whether members can install, open, retry, or uninstall it. Existing installs are always preserved.
           </p>
         </div>
+
+        <FlexyLookupCard />
+
 
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground">Loading app statuses...</div>
@@ -254,5 +310,310 @@ export default function AppsManager() {
         </DialogContent>
       </Dialog>
     </AdminLayout>
+  );
+}
+
+function FlexyStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; className: string }> = {
+    installed: { label: "Installed", className: "bg-green-50 text-green-700 border-green-200" },
+    installing: { label: "Installing", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    uninstalling: { label: "Uninstalling", className: "bg-orange-50 text-orange-700 border-orange-200" },
+    install_failed: { label: "Install failed", className: "bg-red-50 text-red-700 border-red-200" },
+    not_installed: { label: "Not installed", className: "bg-muted text-muted-foreground" },
+  };
+  const entry = map[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
+  return (
+    <Badge variant="outline" className={`text-xs ${entry.className}`}>
+      {entry.label}
+    </Badge>
+  );
+}
+
+function FlexyLookupCard() {
+  const { toast } = useToast();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<MemberSearchResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<MemberSearchResult | null>(null);
+  const [lookup, setLookup] = useState<FlexyLookup | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [confirmingRegen, setConfirmingRegen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const members = await searchMembers(query.trim());
+        setResults(members);
+        setShowResults(true);
+      } catch (err) {
+        toast({
+          title: "Search failed",
+          description: err instanceof Error ? err.message : "Could not search members",
+          variant: "destructive",
+        });
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, toast]);
+
+  const selectMember = async (member: MemberSearchResult) => {
+    setSelectedMember(member);
+    setQuery(`${member.name} (${member.email})`);
+    setShowResults(false);
+    setLookup(null);
+    setNewPassword(null);
+    setLookupError(null);
+    setLookupLoading(true);
+    try {
+      const result = await fetchFlexyLookup(member.id);
+      setLookup(result);
+    } catch (err) {
+      setLookupError(err instanceof Error ? err.message : "Lookup failed");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedMember(null);
+    setLookup(null);
+    setLookupError(null);
+    setNewPassword(null);
+    setQuery("");
+  };
+
+  const handleRegenerate = async () => {
+    if (!selectedMember) return;
+    setConfirmingRegen(false);
+    setRegenerating(true);
+    setNewPassword(null);
+    try {
+      const result = await regenerateFlexyPassword(selectedMember.id);
+      setNewPassword(result.newPassword);
+      toast({
+        title: "Password regenerated",
+        description: "Share the new password with the member, then close this panel.",
+      });
+    } catch (err) {
+      toast({
+        title: "Regenerate failed",
+        description: err instanceof Error ? err.message : "Could not regenerate password",
+        variant: "destructive",
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: `${label} copied` });
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  };
+
+  const flexyStatus = lookup?.flexy.status ?? "not_installed";
+  const canRegenerate =
+    !!lookup &&
+    flexyStatus === "installed" &&
+    lookup.flexy.hasStaffUser &&
+    !!lookup.flexy.email;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <KeyRound className="w-4 h-4" /> Flexy login lookup
+        </CardTitle>
+        <CardDescription>
+          Look up a member's Flexy login email and regenerate their password if SSO is failing for them.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div ref={containerRef} className="relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (selectedMember) setSelectedMember(null);
+              }}
+              onFocus={() => {
+                if (results.length > 0) setShowResults(true);
+              }}
+              placeholder="Search members by name or email..."
+              className="pl-10"
+              data-testid="input-flexy-member-search"
+            />
+          </div>
+          {showResults && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-20 max-h-72 overflow-y-auto">
+              {searching ? (
+                <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
+              ) : results.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground text-center">No members found</div>
+              ) : (
+                results.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => selectMember(m)}
+                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/50 text-left transition-colors"
+                    data-testid={`button-select-member-${m.id}`}
+                  >
+                    <UserIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{m.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{m.role}</Badge>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {selectedMember && (
+          <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{selectedMember.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{selectedMember.email}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>Clear</Button>
+            </div>
+
+            {lookupLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" /> Looking up Flexy details...
+              </div>
+            ) : lookupError ? (
+              <p className="text-sm text-red-700">{lookupError}</p>
+            ) : lookup ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Status:</span>
+                  <FlexyStatusBadge status={flexyStatus} />
+                </div>
+
+                {lookup.flexy.email ? (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Flexy login email</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-mono bg-white border rounded px-2 py-1 flex-1 truncate" data-testid="text-flexy-email">
+                        {lookup.flexy.email}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(lookup.flexy.email!, "Email")}
+                        data-testid="button-copy-flexy-email"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This member does not have a Flexy login on record.
+                    {flexyStatus === "not_installed" && " They have not installed Flexy yet."}
+                  </p>
+                )}
+
+                {newPassword && (
+                  <div className="space-y-1 border-t pt-3">
+                    <p className="text-xs text-muted-foreground">New password (shown once)</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-mono bg-white border rounded px-2 py-1 flex-1 truncate" data-testid="text-flexy-new-password">
+                        {newPassword}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(newPassword, "Password")}
+                        data-testid="button-copy-flexy-password"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Share this with the member securely. It will not be shown again.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canRegenerate || regenerating}
+                    onClick={() => setConfirmingRegen(true)}
+                    data-testid="button-regenerate-flexy-password"
+                  >
+                    {regenerating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Regenerating...</>
+                    ) : (
+                      <><KeyRound className="w-4 h-4 mr-2" /> Regenerate password</>
+                    )}
+                  </Button>
+                  {!canRegenerate && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Regenerate is available once Flexy is installed for this member.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </CardContent>
+
+      <Dialog open={confirmingRegen} onOpenChange={(open) => { if (!open) setConfirmingRegen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Flexy password?</DialogTitle>
+            <DialogDescription>
+              This will replace this member's Flexy password immediately. Their existing password will stop working. Make sure you can pass the new password to them securely.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmingRegen(false)}>Cancel</Button>
+            <Button onClick={handleRegenerate} disabled={regenerating}>
+              {regenerating ? "Regenerating..." : "Regenerate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }

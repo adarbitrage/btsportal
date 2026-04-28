@@ -41,6 +41,7 @@ export const PERMISSION_MATRIX: Record<string, AdminRole[]> = {
   "api_keys:manage": ["super_admin"],
   "notifications:view": ["super_admin", "admin", "support_agent", "content_manager"],
   "apps:manage": ["super_admin", "admin"],
+  "apps:support": ["super_admin", "admin", "support_agent"],
 };
 
 declare global {
