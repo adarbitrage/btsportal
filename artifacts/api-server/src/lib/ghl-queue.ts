@@ -4,16 +4,36 @@ import { db, ghlSyncLogTable, ghlConfigTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import * as ghlClient from "./ghl-client";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const EXPLICIT_REDIS_URL = process.env.REDIS_URL;
+const REDIS_URL = EXPLICIT_REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "ghl-sync";
 const RATE_LIMIT_MAX = 90;
 const RATE_LIMIT_DURATION = 60000;
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY = 30000;
 
+// When running under vitest (or any NODE_ENV=test) without an explicit
+// REDIS_URL we run the queue as a no-op. This stops ioredis from spamming
+// `ECONNREFUSED 127.0.0.1:6379` errors the moment any handler imports this
+// module, which made real test failures hard to spot. Production (where
+// REDIS_URL is set, or NODE_ENV is "production"/"development") is unaffected
+// and continues to surface real Redis errors.
+const IS_TEST_ENV =
+  process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+const QUEUE_DISABLED = IS_TEST_ENV && !EXPLICIT_REDIS_URL;
+
 let connection: IORedis | null = null;
 let queue: Queue | null = null;
 let worker: Worker | null = null;
+let warnedDisabled = false;
+
+function warnDisabledOnce(): void {
+  if (warnedDisabled) return;
+  warnedDisabled = true;
+  console.log(
+    "[GHL Queue] Disabled (no REDIS_URL configured in test environment); jobs are no-ops."
+  );
+}
 
 function getConnection(): ConnectionOptions {
   if (!connection) {
@@ -290,6 +310,11 @@ async function processJob(job: Job<GHLSyncJobData>): Promise<void> {
 }
 
 export async function queueGHLSync(data: GHLSyncJobData): Promise<string | null> {
+  if (QUEUE_DISABLED) {
+    warnDisabledOnce();
+    return null;
+  }
+
   if (!ghlClient.isConfigured()) {
     console.log(`[GHL Sync] Skipped ${data.action} — GHL not configured`);
     return null;
@@ -313,6 +338,10 @@ export async function queueGHLSync(data: GHLSyncJobData): Promise<string | null>
 }
 
 export function startWorker(): void {
+  if (QUEUE_DISABLED) {
+    warnDisabledOnce();
+    return;
+  }
   if (worker) return;
 
   try {
@@ -350,6 +379,9 @@ export async function getQueueStatus(): Promise<{
   failed: number;
   delayed: number;
 }> {
+  if (QUEUE_DISABLED) {
+    return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+  }
   try {
     const q = getQueue();
     const [waiting, active, completed, failed, delayed] = await Promise.all([
@@ -366,6 +398,9 @@ export async function getQueueStatus(): Promise<{
 }
 
 export async function retryJob(jobId: string): Promise<boolean> {
+  if (QUEUE_DISABLED) {
+    return false;
+  }
   try {
     const q = getQueue();
     const job = await q.getJob(jobId);
