@@ -344,3 +344,245 @@ describe("Admin RBAC: per-role endpoint access", () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Per-resource RBAC matrix for WRITE-style ("manage") permissions.
+//
+// One representative write endpoint per manage-style permission. We send a
+// request with an intentionally invalid (empty) body or a non-existent ID so
+// that a permitted role's handler short-circuits at validation/lookup with a
+// 400 or 404 — never actually mutating data. The thing we're asserting is
+// strictly the gate: permitted roles get past `requirePermission` (i.e. NOT
+// 401/403), denied roles get a 403 from the middleware before the handler
+// ever runs.
+//
+// Allow/deny is sourced from the **portal** matrix (the public contract),
+// matching the view-style suite above so drift on either side is caught.
+// ---------------------------------------------------------------------------
+
+type HttpMethod = "post" | "put" | "patch" | "delete";
+
+interface RbacWriteCase {
+  resource: string;
+  permission: string;
+  method: HttpMethod;
+  buildPath: () => string;
+  body?: unknown;
+}
+
+function rbacWriteCases(): RbacWriteCase[] {
+  return [
+    {
+      resource: "tickets_manage",
+      permission: "tickets:manage",
+      method: "post",
+      // Empty body -> handler returns 400 ("Title and body are required").
+      buildPath: () => "/api/admin/canned-responses",
+      body: {},
+    },
+    {
+      resource: "content_manage",
+      permission: "content:manage",
+      method: "post",
+      // Empty body -> 400 ("title and description are required").
+      buildPath: () => "/api/admin/tracks",
+      body: {},
+    },
+    {
+      resource: "community_moderate",
+      permission: "community:moderate",
+      method: "post",
+      // Empty body -> 400 ("Name and slug are required").
+      buildPath: () => "/api/admin/community/categories",
+      body: {},
+    },
+    {
+      resource: "coaching_manage",
+      permission: "coaching:manage",
+      method: "post",
+      // Empty body -> 400 ("coachId, dayOfWeek, startTime, endTime ...").
+      buildPath: () => "/api/admin/coaching/availability",
+      body: {},
+    },
+    {
+      resource: "commissions_manage",
+      permission: "commissions:manage",
+      method: "post",
+      // Empty body -> 400 ("tier, productId, and ratePercent are required").
+      buildPath: () => "/api/admin/commissions/rates",
+      body: {},
+    },
+    {
+      resource: "chat_manage",
+      permission: "chat:manage",
+      method: "post",
+      // Empty body -> 400 ("Name and content are required").
+      buildPath: () => "/api/admin/chat/system-prompts",
+      body: {},
+    },
+    {
+      resource: "communications_manage",
+      permission: "communications:manage",
+      method: "post",
+      // Empty body -> 400 ("slug, name, subject, htmlBody, and textBody ...").
+      buildPath: () => "/api/admin/communications/email-templates",
+      body: {},
+    },
+    {
+      resource: "vault_manage",
+      permission: "vault:manage",
+      method: "post",
+      // Empty body -> 400 ("name and slug are required").
+      buildPath: () => "/api/admin/vault/collections",
+      body: {},
+    },
+    {
+      resource: "wins_manage",
+      permission: "wins:manage",
+      method: "patch",
+      // Non-existent win id -> 404 ("Win not found"). Selected over POST so
+      // we don't depend on having a real win row to operate on.
+      buildPath: () => "/api/admin/wins/9999999/feature",
+    },
+    {
+      resource: "ghl_manage",
+      permission: "ghl:manage",
+      method: "post",
+      // retryJob() returns false for unknown ids (and gracefully on Redis
+      // failure), so the handler responds 404 ("Job not found ...").
+      buildPath: () => "/api/admin/ghl/retry/non-existent-job-id-rbac-test",
+    },
+    {
+      resource: "api_keys_manage",
+      permission: "api_keys:manage",
+      method: "post",
+      // Empty body -> 400 ("Name is required").
+      buildPath: () => "/api/admin/api-keys",
+      body: {},
+    },
+    {
+      resource: "settings_manage",
+      permission: "settings:manage",
+      method: "put",
+      // Empty body -> 400 ("Value is required") — never writes a row.
+      buildPath: () => "/api/admin/settings/rbac-test-key-do-not-use",
+      body: {},
+    },
+    {
+      resource: "members_edit",
+      permission: "members:edit",
+      method: "post",
+      // Empty body -> 400 ("Note content is required") — never inserts a note.
+      buildPath: () => `/api/admin/members/${adminsByRole.super_admin.id}/notes`,
+      body: {},
+    },
+    {
+      resource: "members_impersonate",
+      permission: "members:impersonate",
+      method: "post",
+      // Non-existent member id -> 404 ("Member not found"). No token issued.
+      buildPath: () => "/api/admin/impersonate/9999999",
+    },
+  ];
+}
+
+function dispatch(method: HttpMethod, path: string) {
+  const agent = request(app);
+  switch (method) {
+    case "post":
+      return agent.post(path);
+    case "put":
+      return agent.put(path);
+    case "patch":
+      return agent.patch(path);
+    case "delete":
+      return agent.delete(path);
+  }
+}
+
+describe("Admin RBAC: per-role write-endpoint access", () => {
+  it("requires authentication for every gated admin write endpoint (no cookie -> 401)", async () => {
+    for (const { resource, method, buildPath, body } of rbacWriteCases()) {
+      const path = buildPath();
+      let req = dispatch(method, path);
+      if (body !== undefined) req = req.send(body);
+      const res = await req;
+      expect(
+        res.status,
+        `Resource ${resource} (${method.toUpperCase()} ${path}) should require auth`,
+      ).toBe(401);
+    }
+  });
+
+  it("rejects non-admin (member) users with 403 on every gated admin write endpoint", async () => {
+    const memberEmail = `${TEST_TAG}-write-member@example.test`;
+    const passwordHash = await bcrypt.hash("irrelevant-test-password", 4);
+    const [member] = await db
+      .insert(usersTable)
+      .values({
+        email: memberEmail,
+        name: "Test Member Writer",
+        passwordHash,
+        role: "member",
+        sourceProduct: "lifetime",
+        emailVerified: true,
+        onboardingComplete: true,
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(member.id);
+    const cookie = signCookie(member.id, memberEmail);
+
+    for (const { resource, method, buildPath, body } of rbacWriteCases()) {
+      const path = buildPath();
+      let req = dispatch(method, path).set("Cookie", cookie);
+      if (body !== undefined) req = req.send(body);
+      const res = await req;
+      expect(
+        res.status,
+        `Resource ${resource} (${method.toUpperCase()} ${path}) should reject member with 403`,
+      ).toBe(403);
+    }
+  });
+
+  for (const role of ADMIN_ROLES) {
+    describe(`role: ${role}`, () => {
+      for (const testCase of rbacWriteCases()) {
+        // Source of truth: portal matrix (what the user-facing UI promises).
+        const allowedRoles = PORTAL_PERMISSION_MATRIX[testCase.permission] ?? [];
+        const isAllowed = allowedRoles.includes(role);
+        const label = `${testCase.resource} (${testCase.permission}) -> ${
+          isAllowed ? "allowed (past gate)" : "forbidden (403)"
+        }`;
+
+        it(label, async () => {
+          const admin = adminsByRole[role];
+          const path = testCase.buildPath();
+          let req = dispatch(testCase.method, path).set("Cookie", admin.cookie);
+          if (testCase.body !== undefined) req = req.send(testCase.body);
+          const res = await req;
+
+          if (isAllowed) {
+            // The gate must NOT block the request. Handlers are intentionally
+            // fed empty/invalid bodies (or non-existent IDs) so they
+            // short-circuit at validation/lookup with 400 or 404 — anything
+            // other than 401/403 proves the permission gate let the role
+            // through.
+            expect(
+              [401, 403].includes(res.status),
+              `Role ${role} should be permitted past gate on ${testCase.resource} ` +
+                `(${testCase.method.toUpperCase()} ${path}). Got ${res.status}: ` +
+                `${JSON.stringify(res.body)}`,
+            ).toBe(false);
+          } else {
+            expect(
+              res.status,
+              `Role ${role} should be denied on ${testCase.resource} ` +
+                `(${testCase.method.toUpperCase()} ${path}). Got ${res.status}: ` +
+                `${JSON.stringify(res.body)}`,
+            ).toBe(403);
+          }
+        });
+      }
+    });
+  }
+});
