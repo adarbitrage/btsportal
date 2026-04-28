@@ -11,6 +11,7 @@ import { apiRequestLogger } from "./middleware/api-request-logger";
 import { startTicketJobs } from "./lib/ticket-jobs";
 import { startSquidyJobs } from "./lib/squidy-jobs";
 import { startInactiveAppCleanupJob } from "./lib/inactive-app-cleanup";
+import { startEmailChangeAttemptsCleanupJob } from "./lib/email-change-attempts-cleanup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
@@ -120,6 +121,7 @@ ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensu
 startTicketJobs();
 startSquidyJobs();
 startInactiveAppCleanupJob();
+startEmailChangeAttemptsCleanupJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }
