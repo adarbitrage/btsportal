@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Database, Globe, Server, Webhook, RefreshCw } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -64,6 +64,22 @@ export default function SystemHealth() {
               <span className="text-sm text-muted-foreground">Last checked: {health.serverTime ? new Date(health.serverTime).toLocaleString() : "N/A"}</span>
             </div>
 
+            {health.services?.redis?.queueFallbacks?.alerting && (
+              <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-red-900 dark:text-red-200">Email/SMS queue is bypassing Redis</p>
+                    <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                      Members are still receiving messages through the direct-send fallback,
+                      but retries and backoff are disabled until Redis recovers. Check the
+                      worker and Redis connection.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Server className="w-4 h-4" />API Server</CardTitle></CardHeader>
@@ -97,6 +113,54 @@ export default function SystemHealth() {
                   </div>
                 </CardContent>
               </Card>
+
+              {health.services?.redis && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base flex items-center gap-2"><Zap className="w-4 h-4" />Redis / Comms Queue</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <Badge variant={health.services.redis.status === "up" ? "default" : "warning"}>
+                          {health.services.redis.status}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Email fallbacks (5m / 1h / 24h)</span>
+                        <span className={`text-sm font-medium ${health.services.redis.queueFallbacks?.email?.recentCount > 0 ? "text-red-600" : ""}`}>
+                          {health.services.redis.queueFallbacks?.email?.recentCount ?? 0} /{" "}
+                          {health.services.redis.queueFallbacks?.email?.hourCount ?? 0} /{" "}
+                          {health.services.redis.queueFallbacks?.email?.dayCount ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">SMS fallbacks (5m / 1h / 24h)</span>
+                        <span className={`text-sm font-medium ${health.services.redis.queueFallbacks?.sms?.recentCount > 0 ? "text-red-600" : ""}`}>
+                          {health.services.redis.queueFallbacks?.sms?.recentCount ?? 0} /{" "}
+                          {health.services.redis.queueFallbacks?.sms?.hourCount ?? 0} /{" "}
+                          {health.services.redis.queueFallbacks?.sms?.dayCount ?? 0}
+                        </span>
+                      </div>
+                      {(health.services.redis.queueFallbacks?.email?.lastAt || health.services.redis.queueFallbacks?.sms?.lastAt) && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Last fallback</span>
+                          <span className="text-sm font-medium">
+                            {new Date(
+                              [
+                                health.services.redis.queueFallbacks?.email?.lastAt,
+                                health.services.redis.queueFallbacks?.sms?.lastAt,
+                              ]
+                                .filter(Boolean)
+                                .sort()
+                                .pop() as string,
+                            ).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             <Card>

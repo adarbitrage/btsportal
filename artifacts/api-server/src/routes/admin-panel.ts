@@ -3,6 +3,8 @@ import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLo
 import { eq, and, gte, lte, desc, asc, sql, ilike, or } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
+import { isRedisConnected } from "../lib/redis";
+import { getQueueFallbackStats } from "../lib/queue-fallback-tracker";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -425,17 +427,30 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     const dbCheck = await db.execute(sql`SELECT 1 as ok`);
     const dbOk = dbCheck.rows?.length > 0;
 
-    const [userCount, ticketCount, recentAuditLogs] = await Promise.all([
+    const [userCount, ticketCount, recentAuditLogs, redisConnected] = await Promise.all([
       safeCount(db.select({ count: sql<number>`count(*)` }).from(usersTable)),
       safeCount(db.select({ count: sql<number>`count(*)` }).from(ticketsTable)),
       safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(gte(auditLogTable.createdAt, new Date(Date.now() - 86400000)))),
+      isRedisConnected().catch(() => false),
     ]);
 
+    const queueFallbacks = getQueueFallbackStats();
+    const redisStatus = !redisConnected
+      ? "down"
+      : queueFallbacks.alerting
+        ? "degraded"
+        : "up";
+
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected
+      ? "degraded"
+      : "healthy";
+
     res.json({
-      status: dbOk ? "healthy" : "degraded",
+      status: overallStatus,
       services: {
         api: { status: "up", uptime: process.uptime() },
         database: { status: dbOk ? "up" : "down", totalUsers: userCount, totalTickets: ticketCount },
+        redis: { status: redisStatus, queueFallbacks },
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },
@@ -459,6 +474,24 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
         id: "ticket-backlog", type: "ticket_backlog", severity: "medium",
         title: "Ticket Backlog", message: `${openTicketCount} open tickets need attention`,
         link: "/admin/tickets", createdAt: new Date().toISOString(),
+      });
+    }
+
+    const queueFallbacks = getQueueFallbackStats();
+    if (queueFallbacks.alerting) {
+      const recent = queueFallbacks.email.recentCount + queueFallbacks.sms.recentCount;
+      const lastAt = [queueFallbacks.email.lastAt, queueFallbacks.sms.lastAt]
+        .filter((v): v is string => Boolean(v))
+        .sort()
+        .pop() ?? new Date().toISOString();
+      notifications.push({
+        id: "queue-fallback",
+        type: "queue_fallback",
+        severity: "high",
+        title: "Email/SMS queue is bypassing Redis",
+        message: `Direct-send fallback fired ${recent}x in the last few minutes — Redis or the worker may be unhealthy.`,
+        link: "/admin/system",
+        createdAt: lastAt,
       });
     }
 

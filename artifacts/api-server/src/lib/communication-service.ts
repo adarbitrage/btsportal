@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
+import { recordQueueFallback } from "./queue-fallback-tracker";
 
 const QUEUE_ADD_TIMEOUT_MS = Number.parseInt(
   process.env.QUEUE_ADD_TIMEOUT_MS || "2000",
@@ -503,7 +504,7 @@ export const CommunicationService = {
     });
 
     if (!queued) {
-      console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
+      recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
       await sendEmailDirect(jobData);
     }
   },
@@ -540,7 +541,7 @@ export const CommunicationService = {
     });
 
     if (!queued) {
-      console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
+      recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
       await sendSmsDirect(jobData);
     }
   },
