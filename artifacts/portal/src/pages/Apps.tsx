@@ -5,6 +5,7 @@ import {
   useUninstallApp,
   getAppSsoRedirect,
   useGetCurrentMember,
+  useGetFlexyCredentials,
 } from "@workspace/api-client-react";
 import { useState } from "react";
 import type { AppInstance, AppInstanceAppName } from "@workspace/api-client-react";
@@ -25,6 +26,8 @@ import {
   CheckCircle2,
   Trash2,
   Ban,
+  Copy,
+  Check,
 } from "lucide-react";
 import { FlexyIcon } from "@/components/icons/FlexyIcon";
 import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
@@ -85,6 +88,73 @@ function StatusBadge({ status }: { status: AppInstance["status"] }) {
     <Badge variant="outline" className="bg-muted text-muted-foreground">
       Not installed
     </Badge>
+  );
+}
+
+function FlexyCredentialsBlock() {
+  const { toast } = useToast();
+  const { data, isLoading, error } = useGetFlexyCredentials();
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+        <Loader2 className="w-3 h-3 animate-spin" /> Loading login email…
+      </div>
+    );
+  }
+
+  if (error || !data?.email) {
+    return null;
+  }
+
+  const email = data.email;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      toast({ title: "Copied", description: "Login email copied to clipboard." });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Couldn't copy to your clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-muted/40 p-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Your Flexy login email</p>
+          <p
+            className="text-sm font-mono break-all"
+            data-testid="text-flexy-email"
+          >
+            {email}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleCopy}
+          data-testid="button-copy-flexy-email"
+        >
+          {copied ? (
+            <><Check className="w-4 h-4 mr-1" /> Copied</>
+          ) : (
+            <><Copy className="w-4 h-4 mr-1" /> Copy</>
+          )}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        First time opening Flexy? Click <span className="font-medium">Forgot
+        password</span> on the Flexy login screen to set your password.
+      </p>
+    </div>
   );
 }
 
@@ -263,6 +333,10 @@ export default function Apps() {
                             ? "Setup couldn't complete due to a configuration issue. Please try again or contact support."
                             : "The app couldn't be created. You can try again."}
                         </p>
+                      )}
+
+                      {!isDisabled && app.name === "flexy" && status === "installed" && (
+                        <FlexyCredentialsBlock />
                       )}
 
                       {!isDisabled && (
