@@ -4,7 +4,7 @@ import { eq, and, gte, lte, desc, asc, sql, ilike, or } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
-import { getQueueFallbackStats } from "../lib/queue-fallback-tracker";
+import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -444,7 +444,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       isRedisConnected().catch(() => false),
     ]);
 
-    const queueFallbacks = getQueueFallbackStats();
+    const queueFallbacks = await getQueueFallbackStatsFromDb();
     const redisStatus = !redisConnected
       ? "down"
       : queueFallbacks.alerting
@@ -487,7 +487,7 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
       });
     }
 
-    const queueFallbacks = getQueueFallbackStats();
+    const queueFallbacks = await getQueueFallbackStatsFromDb();
     if (queueFallbacks.alerting) {
       const recent = queueFallbacks.email.recentCount + queueFallbacks.sms.recentCount;
       const lastAt = [queueFallbacks.email.lastAt, queueFallbacks.sms.lastAt]

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
 import { isRedisConnected } from "../lib/redis";
-import { getQueueFallbackStats } from "../lib/queue-fallback-tracker";
+import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 
 const router: IRouter = Router();
 
@@ -16,7 +16,7 @@ router.get("/v1/health", async (_req, res) => {
     checks.database = { status: "unhealthy", latencyMs: Date.now() - dbStart, error: err.message };
   }
 
-  const queueFallbacks = getQueueFallbackStats();
+  const queueFallbacks = await getQueueFallbackStatsFromDb();
 
   const redisStart = Date.now();
   try {
