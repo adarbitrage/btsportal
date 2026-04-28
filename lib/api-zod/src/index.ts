@@ -251,6 +251,7 @@ export type {
   LogToolUsageBody,
   LogToolUsageBodyMetadata,
   LoginBody,
+  LoginErrorResponse,
   MemberProfile,
   MergeTicketsBody,
   MergeTicketsResult,

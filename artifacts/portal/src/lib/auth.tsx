@@ -9,6 +9,10 @@ interface User {
   onboardingStep: number;
 }
 
+export interface LoginError extends Error {
+  emailRecentlyChanged?: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -74,8 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Login failed");
+      const data = await res.json().catch(() => ({}));
+      const err = new Error(data.error || "Login failed") as LoginError;
+      if (data && data.emailRecentlyChanged === true) {
+        err.emailRecentlyChanged = true;
+      }
+      throw err;
     }
 
     const data = await res.json();

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type LoginError } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
 
 function getInitialEmail(): string {
@@ -14,18 +14,24 @@ export default function Login() {
   const [email, setEmail] = useState(getInitialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailRecentlyChanged, setEmailRecentlyChanged] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setEmailRecentlyChanged(false);
     setLoading(true);
 
     try {
       await login(email, password);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const loginErr = err as LoginError;
+      setError(loginErr.message);
+      if (loginErr.emailRecentlyChanged) {
+        setEmailRecentlyChanged(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -78,6 +84,27 @@ export default function Login() {
               marginBottom: 20,
             }}>
               {error}
+            </div>
+          )}
+
+          {emailRecentlyChanged && (
+            <div
+              role="status"
+              data-testid="email-recently-changed-hint"
+              style={{
+                padding: "12px 16px",
+                background: "#fef9c3",
+                border: "1px solid #fde68a",
+                borderRadius: 8,
+                color: "#854d0e",
+                fontSize: 14,
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Looks like you changed your email recently — try signing in with
+              your new address. We sent you a confirmation when the change went
+              through; check your inbox if you can't remember it.
             </div>
           )}
 

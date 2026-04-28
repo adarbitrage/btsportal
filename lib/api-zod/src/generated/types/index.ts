@@ -247,6 +247,7 @@ export * from "./listOneOnOneSessionsStatus";
 export * from "./listTicketsParams";
 export * from "./listTicketsStatus";
 export * from "./loginBody";
+export * from "./loginErrorResponse";
 export * from "./logToolUsage201";
 export * from "./logToolUsageBody";
 export * from "./logToolUsageBodyMetadata";

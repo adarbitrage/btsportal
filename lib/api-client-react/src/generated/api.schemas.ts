@@ -26,6 +26,17 @@ export interface LoginBody {
   password: string;
 }
 
+export interface LoginErrorResponse {
+  /** Error message */
+  error: string;
+  /** Machine-readable error code */
+  code?: string;
+  /** Request ID for debugging */
+  requestId?: string;
+  /** True when the entered email matches an address that was recently changed to a different address. Never reveals the new address or which account it belonged to. Rate-limited per IP. */
+  emailRecentlyChanged?: boolean;
+}
+
 export interface AuthUser {
   id: number;
   name: string;

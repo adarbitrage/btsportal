@@ -192,6 +192,7 @@ import type {
   LogToolUsage201,
   LogToolUsageBody,
   LoginBody,
+  LoginErrorResponse,
   MemberProfile,
   MergeTicketsBody,
   MergeTicketsResult,
@@ -15963,7 +15964,7 @@ export const login = async (
 };
 
 export const getLoginMutationOptions = <
-  TError = ErrorType<UnauthorizedResponse>,
+  TError = ErrorType<LoginErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -16004,13 +16005,13 @@ export type LoginMutationResult = NonNullable<
   Awaited<ReturnType<typeof login>>
 >;
 export type LoginMutationBody = BodyType<LoginBody>;
-export type LoginMutationError = ErrorType<UnauthorizedResponse>;
+export type LoginMutationError = ErrorType<LoginErrorResponse>;
 
 /**
  * @summary Login with email and password
  */
 export const useLogin = <
-  TError = ErrorType<UnauthorizedResponse>,
+  TError = ErrorType<LoginErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

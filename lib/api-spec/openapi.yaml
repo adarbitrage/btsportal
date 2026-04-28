@@ -3892,7 +3892,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthUser"
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: Invalid credentials, optionally with a hint that the entered
+            email was recently changed to a different address.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginErrorResponse"
 
   /auth/refresh:
     post:
@@ -5483,6 +5488,25 @@ components:
         password:
           type: string
       required: [email, password]
+
+    LoginErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Machine-readable error code
+        requestId:
+          type: string
+          description: Request ID for debugging
+        emailRecentlyChanged:
+          type: boolean
+          description: True when the entered email matches an address that was
+            recently changed to a different address. Never reveals the new
+            address or which account it belonged to. Rate-limited per IP.
+      required: [error]
 
     AuthUser:
       type: object

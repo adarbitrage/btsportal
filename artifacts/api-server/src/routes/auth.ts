@@ -1,12 +1,54 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { db, usersTable, sessionsTable, emailChangeHistoryTable } from "@workspace/db";
+import { eq, and, gt, isNull, desc } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
+import { getRedis } from "../lib/redis";
+
+// How long after an email change we'll still hint the user about it.
+const EMAIL_CHANGE_HINT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Per-IP cap on how many "recently-changed" hints we expose, to deter enumeration.
+const EMAIL_CHANGE_HINT_RATE_MAX = 5;
+const EMAIL_CHANGE_HINT_RATE_WINDOW_SEC = 60 * 60; // 1 hour
+
+async function shouldExposeEmailChangedHint(ip: string | undefined): Promise<boolean> {
+  // If Redis is unavailable, fall back to allowing the hint — the lookup itself is
+  // already O(1) on an indexed column, and missing Redis shouldn't break UX.
+  const redis = getRedis();
+  if (!redis || !ip) return true;
+
+  try {
+    const key = `auth:email-change-hint:${ip}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, EMAIL_CHANGE_HINT_RATE_WINDOW_SEC);
+    }
+    return count <= EMAIL_CHANGE_HINT_RATE_MAX;
+  } catch (err) {
+    console.error("[AUTH] Redis error checking email-change hint rate:", err);
+    return true;
+  }
+}
+
+async function wasEmailRecentlyChanged(email: string): Promise<boolean> {
+  const cutoff = new Date(Date.now() - EMAIL_CHANGE_HINT_WINDOW_MS);
+  const [row] = await db
+    .select({ id: emailChangeHistoryTable.id })
+    .from(emailChangeHistoryTable)
+    .where(
+      and(
+        eq(emailChangeHistoryTable.oldEmail, email),
+        gt(emailChangeHistoryTable.changedAt, cutoff),
+      ),
+    )
+    .orderBy(desc(emailChangeHistoryTable.changedAt))
+    .limit(1);
+  return Boolean(row);
+}
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -125,9 +167,25 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  const normalizedEmail = email.toLowerCase();
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+
+  // Helper to send a 401 plus an optional, rate-limited hint that the entered email
+  // was recently changed. We expose this on every failed-credentials path so that a
+  // wrong password and an unknown email look identical from the outside.
+  const respondInvalidCredentials = async (): Promise<void> => {
+    const body: { error: string; emailRecentlyChanged?: boolean } = {
+      error: "Invalid credentials",
+    };
+    const recentlyChanged = await wasEmailRecentlyChanged(normalizedEmail);
+    if (recentlyChanged && (await shouldExposeEmailChangedHint(req.ip))) {
+      body.emailRecentlyChanged = true;
+    }
+    res.status(401).json(body);
+  };
+
   if (!user) {
-    res.status(401).json({ error: "Invalid credentials" });
+    await respondInvalidCredentials();
     return;
   }
 
@@ -145,7 +203,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       updates.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
     }
     await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id));
-    res.status(401).json({ error: "Invalid credentials" });
+    await respondInvalidCredentials();
     return;
   }
 
@@ -384,6 +442,13 @@ router.post("/auth/verify-email-change", async (req, res): Promise<void> => {
       emailChangeExpires: null,
     })
     .where(eq(usersTable.id, user.id));
+
+  // Record the change so /auth/login can hint a stranded user toward their new address.
+  await db.insert(emailChangeHistoryTable).values({
+    userId: user.id,
+    oldEmail,
+    newEmail,
+  });
 
   // Force re-login on every device with the updated address.
   await db
