@@ -98,7 +98,13 @@ export default function VerifyEmailChange() {
             <p style={{ color: "#555", marginBottom: 24 }}>{message}</p>
             <button
               type="button"
-              onClick={() => navigate("/login")}
+              onClick={() =>
+                navigate(
+                  newEmail
+                    ? `/login?email=${encodeURIComponent(newEmail)}`
+                    : "/login",
+                )
+              }
               style={{
                 background: "#1a56db",
                 color: "#fff",
