@@ -320,6 +320,87 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
   res.json({ message: "Email verified successfully" });
 });
 
+router.post("/auth/verify-email-change", async (req, res): Promise<void> => {
+  const { token } = req.body ?? {};
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Token is required" });
+    return;
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(
+      and(
+        eq(usersTable.emailChangeToken, tokenHash),
+        gt(usersTable.emailChangeExpires, new Date()),
+      ),
+    );
+
+  if (!user || !user.pendingEmail) {
+    res.status(400).json({ error: "Invalid or expired verification link" });
+    return;
+  }
+
+  const newEmail = user.pendingEmail.toLowerCase();
+  const oldEmail = user.email;
+
+  // Race-condition safety: ensure no one else grabbed this address while the link sat in inbox.
+  const [conflict] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.email, newEmail))
+    .limit(1);
+  if (conflict && conflict.id !== user.id) {
+    await db
+      .update(usersTable)
+      .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
+      .where(eq(usersTable.id, user.id));
+    res
+      .status(400)
+      .json({ error: "That email address is no longer available. Please request a new change." });
+    return;
+  }
+
+  await db
+    .update(usersTable)
+    .set({
+      email: newEmail,
+      emailVerified: true,
+      pendingEmail: null,
+      emailChangeToken: null,
+      emailChangeExpires: null,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  // Force re-login on every device with the updated address.
+  await db
+    .update(sessionsTable)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessionsTable.userId, user.id), isNull(sessionsTable.revokedAt)));
+
+  // Push the new contact email to GHL so CRM stays in sync.
+  queueGHLSync({
+    action: "update_contact",
+    userId: user.id,
+    email: newEmail,
+  }).catch(() => {});
+
+  emitWebhookEvent("member.email_changed", {
+    user_id: user.id,
+    old_email: oldEmail,
+    new_email: newEmail,
+  }).catch(() => {});
+
+  res.json({
+    message:
+      "Email updated successfully. Please sign in again with your new email address.",
+    email: newEmail,
+  });
+});
+
 router.get("/auth/me", async (req, res): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Not authenticated" });

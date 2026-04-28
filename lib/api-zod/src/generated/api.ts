@@ -21,6 +21,10 @@ export const GetCurrentMemberResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   email: zod.string(),
+  pendingEmail: zod
+    .string()
+    .nullish()
+    .describe("Address awaiting click-to-confirm verification, if any."),
   phone: zod.string().nullish(),
   timezone: zod.string().nullish(),
   sourceProduct: zod.string().nullish(),
@@ -140,6 +144,27 @@ export const ChangeMemberPasswordBody = zod.object({
 });
 
 export const ChangeMemberPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Request a verified change to the current member's email
+ */
+
+export const RequestMemberEmailChangeBody = zod.object({
+  currentPassword: zod.string().min(1),
+  newEmail: zod.string().email(),
+});
+
+export const RequestMemberEmailChangeResponse = zod.object({
+  message: zod.string(),
+  pendingEmail: zod.string(),
+});
+
+/**
+ * @summary Cancel a pending email-change request
+ */
+export const CancelMemberEmailChangeResponse = zod.object({
   message: zod.string(),
 });
 
@@ -3371,6 +3396,24 @@ export const VerifyEmailBody = zod.object({
 
 export const VerifyEmailResponse = zod.object({
   message: zod.string(),
+});
+
+/**
+ * Public endpoint clicked from the verification link sent to the new
+address. On success, the member's email is replaced, the pending
+change is cleared, and all sessions are revoked so the user must
+sign in again with the new email.
+
+ * @summary Confirm a pending email-address change using a token
+ */
+
+export const VerifyEmailChangeBody = zod.object({
+  token: zod.string().min(1),
+});
+
+export const VerifyEmailChangeResponse = zod.object({
+  message: zod.string(),
+  email: zod.string(),
 });
 
 /**

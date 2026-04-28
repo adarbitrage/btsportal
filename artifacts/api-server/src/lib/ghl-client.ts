@@ -130,6 +130,7 @@ export async function updateContact(
     payload.lastName = data.name.split(" ").slice(1).join(" ");
   }
   if (data.phone) payload.phone = data.phone;
+  if (data.email) payload.email = data.email;
   if (data.tags) payload.tags = data.tags;
   if (data.customField) payload.customField = data.customField;
   if (data.timezone) payload.timezone = data.timezone;

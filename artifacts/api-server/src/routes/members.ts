@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, ne } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import {
   GetCurrentMemberResponse,
@@ -9,11 +10,16 @@ import {
   GetMemberEntitlementsResponse,
   ChangeMemberPasswordBody,
   ChangeMemberPasswordResponse,
+  RequestMemberEmailChangeBody as RequestEmailChangeBody,
+  RequestMemberEmailChangeResponse as RequestEmailChangeResponse,
+  CancelMemberEmailChangeResponse as CancelEmailChangeResponse,
 } from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { CommunicationService } from "../lib/communication-service";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
+const EMAIL_CHANGE_EXPIRY_HOURS = 24;
 
 router.get("/members/me", async (req, res): Promise<void> => {
   const userId = req.userId!;
@@ -32,6 +38,12 @@ router.get("/members/me", async (req, res): Promise<void> => {
     id: user.id,
     name: user.name,
     email: user.email,
+    pendingEmail:
+      user.pendingEmail &&
+      user.emailChangeExpires &&
+      user.emailChangeExpires > new Date()
+        ? user.pendingEmail
+        : null,
     phone: user.phone,
     timezone: user.timezone,
     sourceProduct: user.sourceProduct,
@@ -161,6 +173,119 @@ router.post("/members/me/password", async (req, res): Promise<void> => {
   res.json(
     ChangeMemberPasswordResponse.parse({
       message: "Password updated successfully. Please sign in again.",
+    }),
+  );
+});
+
+router.post("/members/me/email", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const parsed = RequestEmailChangeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      details: parsed.error.issues,
+    });
+    return;
+  }
+
+  const { currentPassword } = parsed.data;
+  const newEmail = parsed.data.newEmail.trim().toLowerCase();
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (newEmail === user.email.toLowerCase()) {
+    res.status(400).json({ error: "New email must be different from your current email." });
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(400).json({ error: "Current password is incorrect." });
+    return;
+  }
+
+  const [conflict] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.email, newEmail), ne(usersTable.id, userId)))
+    .limit(1);
+  if (conflict) {
+    res
+      .status(400)
+      .json({ error: "That email address is already in use on another account." });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expires = new Date(Date.now() + EMAIL_CHANGE_EXPIRY_HOURS * 60 * 60 * 1000);
+
+  await db
+    .update(usersTable)
+    .set({
+      pendingEmail: newEmail,
+      emailChangeToken: tokenHash,
+      emailChangeExpires: expires,
+    })
+    .where(eq(usersTable.id, userId));
+
+  // Verification link to the NEW address
+  CommunicationService.sendEmailNow({
+    templateSlug: "email_change_verify",
+    to: newEmail,
+    variables: {
+      member_name: user.name,
+      old_email: user.email,
+      new_email: newEmail,
+      verify_token: token,
+    },
+    userId,
+  }).catch((err) =>
+    console.error("[Email Change] Failed to send verification email:", err),
+  );
+
+  // Notice to the OLD address
+  CommunicationService.sendEmailNow({
+    templateSlug: "email_change_notice",
+    to: user.email,
+    variables: {
+      member_name: user.name,
+      new_email: newEmail,
+    },
+    userId,
+  }).catch((err) =>
+    console.error("[Email Change] Failed to send notice email:", err),
+  );
+
+  res.json(
+    RequestEmailChangeResponse.parse({
+      message:
+        "Verification link sent. Click the link in your new inbox within 24 hours to complete the change.",
+      pendingEmail: newEmail,
+    }),
+  );
+});
+
+router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  await db
+    .update(usersTable)
+    .set({
+      pendingEmail: null,
+      emailChangeToken: null,
+      emailChangeExpires: null,
+    })
+    .where(eq(usersTable.id, userId));
+
+  res.json(
+    CancelEmailChangeResponse.parse({
+      message: "Pending email change cancelled.",
     }),
   );
 });

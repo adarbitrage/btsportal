@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { User, Lock, Bell } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock } from "lucide-react";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
   useChangeMemberPassword,
+  useRequestMemberEmailChange,
+  useCancelMemberEmailChange,
 } from "@workspace/api-client-react";
 
 export default function Account() {
@@ -22,6 +32,15 @@ export default function Account() {
   const { data: member, isLoading, refetch } = useGetCurrentMember();
   const patchProfile = usePatchMemberProfile();
   const changePassword = useChangeMemberPassword();
+  const requestEmailChange = useRequestMemberEmailChange();
+  const cancelEmailChange = useCancelMemberEmailChange();
+
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [cancellingEmail, setCancellingEmail] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -110,6 +129,64 @@ export default function Account() {
     }
   };
 
+  const handleRequestEmailChange = async () => {
+    setEmailError("");
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!emailCurrentPassword) {
+      setEmailError("Please enter your current password.");
+      return;
+    }
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+    if (member && trimmed === member.email.toLowerCase()) {
+      setEmailError("That's already your current email address.");
+      return;
+    }
+
+    setEmailSaving(true);
+    try {
+      const res = await requestEmailChange.mutateAsync({
+        data: { currentPassword: emailCurrentPassword, newEmail: trimmed },
+      });
+      await refetch();
+      setEmailDialogOpen(false);
+      setEmailCurrentPassword("");
+      setNewEmail("");
+      toast({
+        title: "Verification email sent",
+        description:
+          res?.message ||
+          `Click the confirmation link we sent to ${trimmed} to finish the change.`,
+      });
+    } catch (err: any) {
+      setEmailError(err?.message || "Failed to request email change.");
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleCancelEmailChange = async () => {
+    setCancellingEmail(true);
+    try {
+      await cancelEmailChange.mutateAsync();
+      await refetch();
+      toast({
+        title: "Email change cancelled",
+        description: "Your email address remains unchanged.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Couldn't cancel",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCancellingEmail(false);
+    }
+  };
+
   const handlePasswordChange = async () => {
     setPasswordError("");
 
@@ -195,16 +272,57 @@ export default function Account() {
               </div>
               <div>
                 <Label htmlFor="account-email">Email</Label>
-                <Input
-                  id="account-email"
-                  type="email"
-                  value={member.email}
-                  disabled
-                  className="mt-1.5 bg-muted"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Contact support to change your email address.
-                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Input
+                    id="account-email"
+                    type="email"
+                    value={member.email}
+                    disabled
+                    className="bg-muted flex-1"
+                    data-testid="input-account-email"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEmailError("");
+                      setEmailCurrentPassword("");
+                      setNewEmail("");
+                      setEmailDialogOpen(true);
+                    }}
+                    data-testid="button-update-email"
+                  >
+                    Update
+                  </Button>
+                </div>
+                {member.pendingEmail ? (
+                  <div
+                    className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-900 flex items-start gap-2"
+                    data-testid="email-pending-banner"
+                  >
+                    <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p>
+                        Pending change to{" "}
+                        <strong data-testid="text-pending-email">{member.pendingEmail}</strong>.
+                        Click the link we sent to that address to confirm.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCancelEmailChange}
+                        disabled={cancellingEmail}
+                        className="mt-1 text-xs font-medium text-amber-900 underline hover:no-underline disabled:opacity-50"
+                        data-testid="button-cancel-email-change"
+                      >
+                        {cancellingEmail ? "Cancelling..." : "Cancel pending change"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    We'll send a verification link to confirm any change.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="account-phone">Phone (optional)</Label>
@@ -369,6 +487,80 @@ export default function Account() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent data-testid="dialog-update-email">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Update email address
+            </DialogTitle>
+            <DialogDescription>
+              We'll send a verification link to your new address. Your email won't change until you click that link.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="email-current-password">Current password</Label>
+              <Input
+                id="email-current-password"
+                type="password"
+                value={emailCurrentPassword}
+                onChange={(e) => setEmailCurrentPassword(e.target.value)}
+                className="mt-1.5"
+                autoComplete="current-password"
+                data-testid="input-email-current-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email-new">New email address</Label>
+              <Input
+                id="email-new"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="mt-1.5"
+                autoComplete="email"
+                placeholder="you@example.com"
+                data-testid="input-new-email"
+              />
+            </div>
+
+            {emailError && (
+              <div
+                className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm"
+                data-testid="text-email-error"
+              >
+                {emailError}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              We'll also notify your current email address that this change was requested.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEmailDialogOpen(false)}
+              disabled={emailSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRequestEmailChange}
+              disabled={emailSaving}
+              data-testid="button-send-email-verification"
+            >
+              {emailSaving ? "Sending..." : "Send verification link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

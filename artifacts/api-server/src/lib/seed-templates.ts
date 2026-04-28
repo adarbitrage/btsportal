@@ -74,6 +74,37 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "reset_token", "portal_url", "current_year"],
   },
   {
+    slug: "email_change_verify",
+    name: "Email Change Verification",
+    subject: "Confirm your new Build Test Scale email address",
+    htmlBody: wrapHtml("Confirm New Email", `
+<h2 style="color:#1a1a2e;margin-top:0;">Confirm Your New Email</h2>
+<p>Hi {{member_name}},</p>
+<p>We received a request to change the email address on your Build Test Scale account from <strong>{{old_email}}</strong> to <strong>{{new_email}}</strong>.</p>
+<p>Click the button below within 24 hours to confirm this change. After confirming, you'll need to sign in again using your new email address.</p>
+<p><a href="{{portal_url}}/verify-email-change?token={{verify_token}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Confirm New Email</a></p>
+<p>If you didn't request this change, you can safely ignore this email — your address will stay the same.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nConfirm changing your Build Test Scale email from {{old_email}} to {{new_email}}:\n{{portal_url}}/verify-email-change?token={{verify_token}}\n\nThis link expires in 24 hours. If you didn't request this, ignore this email.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "old_email", "new_email", "verify_token", "portal_url", "current_year"],
+  },
+  {
+    slug: "email_change_notice",
+    name: "Email Change Notice (Old Address)",
+    subject: "Email change requested on your Build Test Scale account",
+    htmlBody: wrapHtml("Email Change Requested", `
+<h2 style="color:#1a1a2e;margin-top:0;">Email Change Requested</h2>
+<p>Hi {{member_name}},</p>
+<p>We received a request to change the email address on your Build Test Scale account to <strong>{{new_email}}</strong>. The change will only take effect once it's confirmed from the new address.</p>
+<p>If this was you, no further action is needed at this address — just confirm the change from your new inbox.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, please sign in and reset your password immediately, then contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>. Your current email address will keep working until the new one is confirmed.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nWe received a request to change your Build Test Scale email to {{new_email}}. The change only takes effect after it's confirmed from the new address.\n\nIf this wasn't you, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "new_email", "support_email", "portal_url", "current_year"],
+  },
+  {
     slug: "purchase_confirmation",
     name: "Purchase Confirmation",
     subject: "Your purchase of {{product_name}} is confirmed!",
@@ -551,4 +582,27 @@ export async function seedCommunicationTemplates(): Promise<void> {
   console.log(`  Seeded ${smsTemplates.length} SMS templates`);
 
   console.log("Communication templates seeding complete!");
+}
+
+const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice"];
+
+export async function ensureRequiredEmailTemplates(): Promise<void> {
+  try {
+    const existing = await db
+      .select({ slug: emailTemplatesTable.slug })
+      .from(emailTemplatesTable);
+    const have = new Set(existing.map((r) => r.slug));
+    const missing = transactionalEmailTemplates.filter(
+      (t) => REQUIRED_TEMPLATE_SLUGS.includes(t.slug) && !have.has(t.slug),
+    );
+    if (missing.length === 0) return;
+    await db.insert(emailTemplatesTable).values(missing);
+    console.log(
+      `[Seed] Inserted ${missing.length} missing transactional email template(s): ${missing
+        .map((m) => m.slug)
+        .join(", ")}`,
+    );
+  } catch (err) {
+    console.error("[Seed] ensureRequiredEmailTemplates failed:", err);
+  }
 }

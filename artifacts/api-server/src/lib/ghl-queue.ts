@@ -175,6 +175,7 @@ async function processJob(job: Job<GHLSyncJobData>): Promise<void> {
         await ghlClient.updateContact(contactId!, {
           name: job.data.name,
           phone: job.data.phone,
+          email: job.data.email,
           customField: job.data.customFields,
         });
         if (logId) {

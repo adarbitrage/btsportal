@@ -12,6 +12,7 @@ import { startTicketJobs } from "./lib/ticket-jobs";
 import { startSquidyJobs } from "./lib/squidy-jobs";
 import { startInactiveAppCleanupJob } from "./lib/inactive-app-cleanup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
+import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
 
@@ -65,6 +66,7 @@ app.use("/api", router);
 app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
+ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 
 (async () => {
   try {

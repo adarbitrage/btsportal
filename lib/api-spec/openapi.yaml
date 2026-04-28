@@ -159,6 +159,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChangeMemberPasswordResponse"
 
+  /members/me/email:
+    post:
+      operationId: requestMemberEmailChange
+      tags: [members]
+      summary: Request a verified change to the current member's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestEmailChangeBody"
+      responses:
+        "200":
+          description: Verification email sent to the new address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestEmailChangeResponse"
+
+  /members/me/email/cancel:
+    post:
+      operationId: cancelMemberEmailChange
+      tags: [members]
+      summary: Cancel a pending email-change request
+      responses:
+        "200":
+          description: Pending email change cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelEmailChangeResponse"
+
   /documents:
     get:
       operationId: getLegalDocuments
@@ -3964,6 +3996,33 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /auth/verify-email-change:
+    post:
+      operationId: verifyEmailChange
+      tags: [auth]
+      summary: Confirm a pending email-address change using a token
+      description: |
+        Public endpoint clicked from the verification link sent to the new
+        address. On success, the member's email is replaced, the pending
+        change is cleared, and all sessions are revoked so the user must
+        sign in again with the new email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailChangeBody"
+      responses:
+        "200":
+          description: Email change confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyEmailChangeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /auth/me:
     get:
       operationId: getAuthMe
@@ -5896,6 +5955,9 @@ components:
           type: string
         email:
           type: string
+        pendingEmail:
+          type: ["string", "null"]
+          description: Address awaiting click-to-confirm verification, if any.
         phone:
           type: ["string", "null"]
         timezone:
@@ -6460,6 +6522,50 @@ components:
         message:
           type: string
       required: [message]
+
+    RequestEmailChangeBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newEmail:
+          type: string
+          format: email
+      required: [currentPassword, newEmail]
+
+    RequestEmailChangeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        pendingEmail:
+          type: string
+      required: [message, pendingEmail]
+
+    CancelEmailChangeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    VerifyEmailChangeBody:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required: [token]
+
+    VerifyEmailChangeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        email:
+          type: string
+      required: [message, email]
 
     AdminTicket:
       type: object

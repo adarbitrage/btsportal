@@ -42,12 +42,13 @@ The project is structured as a pnpm workspace monorepo using Node.js 24 and Type
 -   **KB Training Document Pipeline:** Processes coaching videos (Vidalytics), video transcripts, and call transcripts (.docx) into structured knowledge base documents, including rebranding and metadata extraction. An admin review UI facilitates editing, approval, and pushing content to the knowledge base.
 -   **Blitz Curriculum Map:** A 93-entry curriculum covering Build/Test/Scale phases, modules, lesson types, and network/publisher paths.
 -   **Outgoing Webhooks:** BullMQ-based system for custom events with HMAC-SHA256 signing and exponential backoff retries.
--   **Member Account Page:** Allows members to manage profile details, change passwords (with session revocation), and set notification preferences.
+-   **Member Account Page:** Allows members to manage profile details, change passwords (with session revocation), update their email address through a verification flow (current password required, confirmation link sent to the new address with a notification to the old one, all sessions revoked on confirmation), and set notification preferences.
 
 **Monorepo Structure:**
 -   `artifacts/`: Deployable applications (API server, portal).
 -   `lib/`: Shared libraries (OpenAPI spec, generated clients/schemas, Drizzle DB schema, AI integrations).
 -   `scripts/`: Utility scripts.
+
 ## External Dependencies
 
 -   **Database:** PostgreSQL
@@ -56,8 +57,8 @@ The project is structured as a pnpm workspace monorepo using Node.js 24 and Type
 -   **Frontend Framework:** React
 -   **UI Components:** shadcn/ui
 -   **Styling:** Tailwind CSS
--   **Routing (Frontend):** wouter
--   **Data Fetching (Frontend):** React Query
+-   **Frontend Routing:** wouter
+-   **Frontend Data Fetching:** React Query
 -   **Task Queue/Message Broker:** BullMQ
 -   **In-memory Data Store:** Redis
 -   **Email Service:** SendGrid

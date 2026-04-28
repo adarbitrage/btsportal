@@ -373,6 +373,11 @@ export interface MemberProfile {
   id: number;
   name: string;
   email: string;
+  /**
+   * Address awaiting click-to-confirm verification, if any.
+   * @nullable
+   */
+  pendingEmail?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -718,6 +723,31 @@ export interface ChangeMemberPasswordBody {
 
 export interface ChangeMemberPasswordResponse {
   message: string;
+}
+
+export interface RequestEmailChangeBody {
+  /** @minLength 1 */
+  currentPassword: string;
+  newEmail: string;
+}
+
+export interface RequestEmailChangeResponse {
+  message: string;
+  pendingEmail: string;
+}
+
+export interface CancelEmailChangeResponse {
+  message: string;
+}
+
+export interface VerifyEmailChangeBody {
+  /** @minLength 1 */
+  token: string;
+}
+
+export interface VerifyEmailChangeResponse {
+  message: string;
+  email: string;
 }
 
 export interface AdminTicket {

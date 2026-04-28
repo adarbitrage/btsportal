@@ -32,6 +32,7 @@ const PUBLIC_PATHS = [
   "/auth/forgot-password",
   "/auth/reset-password",
   "/auth/verify-email",
+  "/auth/verify-email-change",
   "/auth/refresh",
   "/auth/logout",
   "/healthz",

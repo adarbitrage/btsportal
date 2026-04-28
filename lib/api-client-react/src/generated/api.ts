@@ -102,6 +102,7 @@ import type {
   AuthUser,
   BadRequestResponse,
   BookSessionRequest,
+  CancelEmailChangeResponse,
   CancelSessionRequest,
   CancelSessionResponse,
   CannedResponse,
@@ -214,6 +215,8 @@ import type {
   ReferralRedirectParams,
   RegisterBody,
   ReorderRequest,
+  RequestEmailChangeBody,
+  RequestEmailChangeResponse,
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RescheduleSessionRequest,
@@ -250,6 +253,8 @@ import type {
   UpdateToolDataBody,
   UploadUrlResponse,
   VerifyEmailBody,
+  VerifyEmailChangeBody,
+  VerifyEmailChangeResponse,
   WebhookLog,
 } from "./api.schemas";
 
@@ -897,6 +902,180 @@ export const useChangeMemberPassword = <
   TContext
 > => {
   return useMutation(getChangeMemberPasswordMutationOptions(options));
+};
+
+/**
+ * @summary Request a verified change to the current member's email
+ */
+export const getRequestMemberEmailChangeUrl = () => {
+  return `/api/members/me/email`;
+};
+
+export const requestMemberEmailChange = async (
+  requestEmailChangeBody: RequestEmailChangeBody,
+  options?: RequestInit,
+): Promise<RequestEmailChangeResponse> => {
+  return customFetch<RequestEmailChangeResponse>(
+    getRequestMemberEmailChangeUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(requestEmailChangeBody),
+    },
+  );
+};
+
+export const getRequestMemberEmailChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestMemberEmailChange>>,
+    TError,
+    { data: BodyType<RequestEmailChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestMemberEmailChange>>,
+  TError,
+  { data: BodyType<RequestEmailChangeBody> },
+  TContext
+> => {
+  const mutationKey = ["requestMemberEmailChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestMemberEmailChange>>,
+    { data: BodyType<RequestEmailChangeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestMemberEmailChange(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestMemberEmailChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestMemberEmailChange>>
+>;
+export type RequestMemberEmailChangeMutationBody =
+  BodyType<RequestEmailChangeBody>;
+export type RequestMemberEmailChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request a verified change to the current member's email
+ */
+export const useRequestMemberEmailChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestMemberEmailChange>>,
+    TError,
+    { data: BodyType<RequestEmailChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestMemberEmailChange>>,
+  TError,
+  { data: BodyType<RequestEmailChangeBody> },
+  TContext
+> => {
+  return useMutation(getRequestMemberEmailChangeMutationOptions(options));
+};
+
+/**
+ * @summary Cancel a pending email-change request
+ */
+export const getCancelMemberEmailChangeUrl = () => {
+  return `/api/members/me/email/cancel`;
+};
+
+export const cancelMemberEmailChange = async (
+  options?: RequestInit,
+): Promise<CancelEmailChangeResponse> => {
+  return customFetch<CancelEmailChangeResponse>(
+    getCancelMemberEmailChangeUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCancelMemberEmailChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelMemberEmailChange>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelMemberEmailChange>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["cancelMemberEmailChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelMemberEmailChange>>,
+    void
+  > = () => {
+    return cancelMemberEmailChange(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelMemberEmailChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelMemberEmailChange>>
+>;
+
+export type CancelMemberEmailChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cancel a pending email-change request
+ */
+export const useCancelMemberEmailChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelMemberEmailChange>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelMemberEmailChange>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getCancelMemberEmailChangeMutationOptions(options));
 };
 
 /**
@@ -16267,6 +16446,97 @@ export const useVerifyEmail = <
   TContext
 > => {
   return useMutation(getVerifyEmailMutationOptions(options));
+};
+
+/**
+ * Public endpoint clicked from the verification link sent to the new
+address. On success, the member's email is replaced, the pending
+change is cleared, and all sessions are revoked so the user must
+sign in again with the new email.
+
+ * @summary Confirm a pending email-address change using a token
+ */
+export const getVerifyEmailChangeUrl = () => {
+  return `/api/auth/verify-email-change`;
+};
+
+export const verifyEmailChange = async (
+  verifyEmailChangeBody: VerifyEmailChangeBody,
+  options?: RequestInit,
+): Promise<VerifyEmailChangeResponse> => {
+  return customFetch<VerifyEmailChangeResponse>(getVerifyEmailChangeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(verifyEmailChangeBody),
+  });
+};
+
+export const getVerifyEmailChangeMutationOptions = <
+  TError = ErrorType<BadRequestResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyEmailChange>>,
+    TError,
+    { data: BodyType<VerifyEmailChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyEmailChange>>,
+  TError,
+  { data: BodyType<VerifyEmailChangeBody> },
+  TContext
+> => {
+  const mutationKey = ["verifyEmailChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyEmailChange>>,
+    { data: BodyType<VerifyEmailChangeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyEmailChange(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyEmailChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyEmailChange>>
+>;
+export type VerifyEmailChangeMutationBody = BodyType<VerifyEmailChangeBody>;
+export type VerifyEmailChangeMutationError = ErrorType<BadRequestResponse>;
+
+/**
+ * @summary Confirm a pending email-address change using a token
+ */
+export const useVerifyEmailChange = <
+  TError = ErrorType<BadRequestResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyEmailChange>>,
+    TError,
+    { data: BodyType<VerifyEmailChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyEmailChange>>,
+  TError,
+  { data: BodyType<VerifyEmailChangeBody> },
+  TContext
+> => {
+  return useMutation(getVerifyEmailChangeMutationOptions(options));
 };
 
 /**

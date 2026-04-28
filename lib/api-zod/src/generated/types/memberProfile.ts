@@ -11,6 +11,11 @@ export interface MemberProfile {
   id: number;
   name: string;
   email: string;
+  /**
+   * Address awaiting click-to-confirm verification, if any.
+   * @nullable
+   */
+  pendingEmail?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
