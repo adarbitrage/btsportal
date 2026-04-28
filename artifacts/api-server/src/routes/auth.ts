@@ -277,7 +277,28 @@ async function createSession(userId: number, req: any): Promise<string> {
   return refreshToken;
 }
 
-router.post("/auth/register", async (req, res): Promise<void> => {
+const REGISTER_LIMITS = {
+  perIp: { max: 5, windowSeconds: 15 * 60 },
+  perEmail: { max: 3, windowSeconds: 15 * 60 },
+} as const;
+
+const registerIpLimiter = abuseRateLimit({
+  name: "register",
+  maxRequests: REGISTER_LIMITS.perIp.max,
+  windowSeconds: REGISTER_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("register"),
+  message: "Too many requests. Please try again later.",
+});
+
+const registerEmailLimiter = abuseRateLimit({
+  name: "register",
+  maxRequests: REGISTER_LIMITS.perEmail.max,
+  windowSeconds: REGISTER_LIMITS.perEmail.windowSeconds,
+  keyResolver: emailKey("register", "email"),
+  message: "Too many requests. Please try again later.",
+});
+
+router.post("/auth/register", registerIpLimiter, registerEmailLimiter, async (req, res): Promise<void> => {
   const { email, password, name, phone } = req.body;
 
   if (!email || !password || !name) {

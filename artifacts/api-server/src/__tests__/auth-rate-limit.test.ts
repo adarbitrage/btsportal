@@ -192,6 +192,106 @@ describe("POST /api/auth/forgot-password rate limiting", () => {
   });
 });
 
+describe("POST /api/auth/register rate limiting", () => {
+  it("allows up to 5 registrations per IP per window, then 429s the 6th", async () => {
+    // Vary the email each time so we don't trip the per-email limit (3).
+    // Use invalid email format so the handler 400s before touching the DB —
+    // the rate-limit middleware still runs and counts the request.
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", "203.0.113.130")
+        .send({ email: `not-an-email-${i}`, password: "Brandnew1!", name: "X" });
+      expect(res.status).toBe(400);
+    }
+
+    const blocked = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", "203.0.113.130")
+      .send({ email: "not-an-email-final", password: "Brandnew1!", name: "X" });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeDefined();
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    // Generic phrasing — must not hint at whether the email is already
+    // registered.
+    expect(blocked.body?.error?.message).not.toMatch(/registered/i);
+    expect(blocked.body?.error?.message).not.toMatch(/exist/i);
+    expect(blocked.body?.error?.message).not.toMatch(/already/i);
+  });
+
+  it("allows up to 3 registrations per email per window, then 429s the 4th", async () => {
+    // Vary IP so we don't trip the per-IP limit; per-email should still kick in.
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", `198.51.100.${100 + i}`)
+        .send({ email: "not-an-email-victim", password: "Brandnew1!", name: "X" });
+      expect(res.status).toBe(400);
+    }
+
+    const blocked = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", "198.51.100.199")
+      .send({ email: "not-an-email-victim", password: "Brandnew1!", name: "X" });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+  });
+
+  it("normalizes email casing/whitespace for the per-email register limit", async () => {
+    for (let i = 0; i < 3; i++) {
+      await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", `192.0.2.${100 + i}`)
+        .send({ email: "Bad-Email-Target", password: "Brandnew1!", name: "X" });
+    }
+
+    const blocked = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", "192.0.2.199")
+      .send({ email: "  bad-email-target  ", password: "Brandnew1!", name: "X" });
+
+    expect(blocked.status).toBe(429);
+  });
+
+  it("isolates the register limit between distinct IPs", async () => {
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", "203.0.113.140")
+        .send({ email: `not-an-email-iso-${i}`, password: "Brandnew1!", name: "X" });
+    }
+
+    const ok = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", "203.0.113.141")
+      .send({ email: "not-an-email-fresh", password: "Brandnew1!", name: "X" });
+
+    // Different IP, different email — should not be rate-limited (will be 400
+    // from the email-format validator instead).
+    expect(ok.status).toBe(400);
+  });
+
+  it("does not share limits between register and forgot-password", async () => {
+    // Spend register's per-IP budget.
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", "203.0.113.150")
+        .send({ email: `not-an-email-mix-${i}`, password: "Brandnew1!", name: "X" });
+    }
+
+    // Same IP hitting forgot-password should still be allowed.
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .set("X-Forwarded-For", "203.0.113.150")
+      .send({ email: "fresh-mix@example.test" });
+
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("POST /api/auth/reset-password rate limiting", () => {
   it("allows up to 10 attempts per IP per window, then 429s the 11th", async () => {
     for (let i = 0; i < 10; i++) {
@@ -255,6 +355,22 @@ describe("POST /api/auth/reset-password rate limiting", () => {
       .send({ token: "h".repeat(64), password: "Brandnew1!" });
 
     expect(stillBlocked.status).toBe(429);
+  });
+
+  it("does not share limits between register and reset-password", async () => {
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", "203.0.113.80")
+        .send({ email: `not-an-email-${i}`, password: "Brandnew1!", name: "X" });
+    }
+
+    const res = await request(app)
+      .post("/api/auth/reset-password")
+      .set("X-Forwarded-For", "203.0.113.80")
+      .send({ token: "z".repeat(64), password: "Brandnew1!" });
+
+    expect(res.status).toBe(400);
   });
 
   it("does not share limits between forgot-password and reset-password", async () => {
