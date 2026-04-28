@@ -9,7 +9,13 @@ import {
 import { and, eq } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
-import { regenerateFlexyPassword } from "../lib/flexy-provision";
+import {
+  regenerateFlexyPassword,
+  buildFlexyOpenUrl,
+  ensureFlexyPasswordResetTemplates,
+  FLEXY_DOMAIN,
+} from "../lib/flexy-provision";
+import { CommunicationService } from "../lib/communication-service";
 
 const router: IRouter = Router();
 
@@ -163,6 +169,8 @@ router.get(
           id: usersTable.id,
           name: usersTable.name,
           email: usersTable.email,
+          phone: usersTable.phone,
+          smsOptIn: usersTable.smsOptIn,
         })
         .from(usersTable)
         .where(eq(usersTable.id, userId))
@@ -191,7 +199,13 @@ router.get(
         .limit(1);
 
       res.json({
-        member: { id: user.id, name: user.name, email: user.email },
+        member: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          hasPhone: !!user.phone,
+          smsOptIn: user.smsOptIn,
+        },
         flexy: {
           status: instance?.status ?? "not_installed",
           email: instance?.providerStaffEmail ?? null,
@@ -207,6 +221,12 @@ router.get(
   },
 );
 
+type NotifyResult = "sent" | "skipped" | "failed";
+interface NotifyOutcome {
+  email: { requested: boolean; status: NotifyResult; reason?: string };
+  sms: { requested: boolean; status: NotifyResult; reason?: string };
+}
+
 router.post(
   "/admin/apps/flexy/regenerate-password/:userId",
   requirePermission("apps:support"),
@@ -216,9 +236,20 @@ router.post(
       res.status(400).json({ error: "Invalid user id" });
       return;
     }
+
+    const body = (req.body ?? {}) as { notifyEmail?: unknown; notifySms?: unknown };
+    const notifyEmail = body.notifyEmail === true;
+    const notifySms = body.notifySms === true;
+
     try {
       const [user] = await db
-        .select({ id: usersTable.id, email: usersTable.email })
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+          phone: usersTable.phone,
+          smsOptIn: usersTable.smsOptIn,
+        })
         .from(usersTable)
         .where(eq(usersTable.id, userId))
         .limit(1);
@@ -239,7 +270,123 @@ router.post(
         { memberId: userId, memberEmail: user.email },
       );
 
-      res.json({ email: result.email, newPassword: result.newPassword });
+      const notifications: NotifyOutcome = {
+        email: { requested: notifyEmail, status: "skipped" },
+        sms: { requested: notifySms, status: "skipped" },
+      };
+
+      if (notifyEmail || notifySms) {
+        await ensureFlexyPasswordResetTemplates();
+        const flexyLoginUrl = buildFlexyOpenUrl({
+          providerLocationId: null,
+          asAdmin: false,
+        });
+        const memberName = (user.name ?? "").trim() || user.email;
+        const variables: Record<string, string> = {
+          member_name: memberName,
+          flexy_email: result.email,
+          flexy_password: result.newPassword,
+          flexy_login_url: flexyLoginUrl,
+          flexy_domain: FLEXY_DOMAIN,
+        };
+
+        const looksSkipped = (err?: string) =>
+          !!err && /not configured|\(skipped\)/i.test(err);
+
+        if (notifyEmail) {
+          try {
+            const emailResult = await CommunicationService.sendEmailNow({
+              templateSlug: "flexy_password_reset",
+              to: user.email,
+              variables,
+              userId,
+              category: "transactional",
+            });
+            if (emailResult.success && looksSkipped(emailResult.error)) {
+              notifications.email.status = "skipped";
+              notifications.email.reason = "provider_not_configured";
+            } else if (emailResult.success) {
+              notifications.email.status = "sent";
+            } else {
+              notifications.email.status = "failed";
+              notifications.email.reason = emailResult.error;
+            }
+          } catch (err) {
+            notifications.email.status = "failed";
+            notifications.email.reason = err instanceof Error ? err.message : String(err);
+            console.error("[AdminApps] Flexy password email send failed:", err);
+          }
+        }
+
+        if (notifySms) {
+          if (!user.phone) {
+            notifications.sms.status = "skipped";
+            notifications.sms.reason = "no_phone_on_file";
+          } else if (!user.smsOptIn) {
+            notifications.sms.status = "skipped";
+            notifications.sms.reason = "not_opted_in";
+          } else {
+            try {
+              const smsResult = await CommunicationService.sendSmsNow({
+                templateSlug: "flexy_password_reset",
+                to: user.phone,
+                variables,
+                userId,
+              });
+              if (smsResult.success && looksSkipped(smsResult.error)) {
+                notifications.sms.status = "skipped";
+                notifications.sms.reason = "provider_not_configured";
+              } else if (smsResult.success) {
+                notifications.sms.status = "sent";
+              } else {
+                notifications.sms.status = "failed";
+                notifications.sms.reason = smsResult.error;
+              }
+            } catch (err) {
+              notifications.sms.status = "failed";
+              notifications.sms.reason = err instanceof Error ? err.message : String(err);
+              console.error("[AdminApps] Flexy password SMS send failed:", err);
+            }
+          }
+        }
+
+        const sentChannels = (
+          [
+            ["email", notifications.email],
+            ["sms", notifications.sms],
+          ] as const
+        )
+          .filter(([, n]) => n.requested)
+          .map(([k, n]) => `${k}=${n.status}${n.reason ? `(${n.reason})` : ""}`);
+
+        if (sentChannels.length > 0) {
+          await logAdminAction(
+            req,
+            "notify_password",
+            "flexy_credentials",
+            String(userId),
+            `Sent new Flexy password to member ${user.email} via ${sentChannels.join(", ")}`,
+            {
+              memberId: userId,
+              memberEmail: user.email,
+              channels: {
+                email: notifications.email.requested
+                  ? { status: notifications.email.status, reason: notifications.email.reason }
+                  : undefined,
+                sms: notifications.sms.requested
+                  ? { status: notifications.sms.status, reason: notifications.sms.reason }
+                  : undefined,
+              },
+            },
+          );
+        }
+      }
+
+      res.json({
+        email: result.email,
+        newPassword: result.newPassword,
+        notifications,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("Flexy is not installed")) {

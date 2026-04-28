@@ -20,9 +20,12 @@ import {
   Copy,
   KeyRound,
   Loader2,
+  Mail,
+  MessageSquare,
   Search,
   User as UserIcon,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FlexyIcon } from "@/components/icons/FlexyIcon";
 import { MetricMoverIcon } from "@/components/icons/MetricMoverIcon";
 import { PixelPressIcon } from "@/components/icons/PixelPressIcon";
@@ -86,13 +89,29 @@ type MemberSearchResult = {
 };
 
 type FlexyLookup = {
-  member: { id: number; name: string; email: string };
+  member: {
+    id: number;
+    name: string;
+    email: string;
+    hasPhone: boolean;
+    smsOptIn: boolean;
+  };
   flexy: {
     status: string;
     email: string | null;
     locationId: string | null;
     hasStaffUser: boolean;
     updatedAt: string | null;
+  };
+};
+
+type NotifyChannelStatus = "sent" | "skipped" | "failed";
+type RegenerateResponse = {
+  email: string;
+  newPassword: string;
+  notifications: {
+    email: { requested: boolean; status: NotifyChannelStatus; reason?: string };
+    sms: { requested: boolean; status: NotifyChannelStatus; reason?: string };
   };
 };
 
@@ -113,10 +132,15 @@ async function fetchFlexyLookup(userId: number): Promise<FlexyLookup> {
   return res.json();
 }
 
-async function regenerateFlexyPassword(userId: number): Promise<{ email: string; newPassword: string }> {
+async function regenerateFlexyPassword(
+  userId: number,
+  notify: { notifyEmail: boolean; notifySms: boolean },
+): Promise<RegenerateResponse> {
   const res = await fetch(`/api/admin/apps/flexy/regenerate-password/${userId}`, {
     method: "POST",
     credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(notify),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -342,6 +366,9 @@ function FlexyLookupCard() {
   const [regenerating, setRegenerating] = useState(false);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [confirmingRegen, setConfirmingRegen] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifySms, setNotifySms] = useState(false);
+  const [lastNotifications, setLastNotifications] = useState<RegenerateResponse["notifications"] | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -390,6 +417,9 @@ function FlexyLookupCard() {
     setLookup(null);
     setNewPassword(null);
     setLookupError(null);
+    setLastNotifications(null);
+    setNotifyEmail(true);
+    setNotifySms(false);
     setLookupLoading(true);
     try {
       const result = await fetchFlexyLookup(member.id);
@@ -406,6 +436,9 @@ function FlexyLookupCard() {
     setLookup(null);
     setLookupError(null);
     setNewPassword(null);
+    setLastNotifications(null);
+    setNotifyEmail(true);
+    setNotifySms(false);
     setQuery("");
   };
 
@@ -414,13 +447,43 @@ function FlexyLookupCard() {
     setConfirmingRegen(false);
     setRegenerating(true);
     setNewPassword(null);
+    setLastNotifications(null);
     try {
-      const result = await regenerateFlexyPassword(selectedMember.id);
-      setNewPassword(result.newPassword);
-      toast({
-        title: "Password regenerated",
-        description: "Share the new password with the member, then close this panel.",
+      const result = await regenerateFlexyPassword(selectedMember.id, {
+        notifyEmail,
+        notifySms,
       });
+      setNewPassword(result.newPassword);
+      setLastNotifications(result.notifications);
+
+      const sentParts: string[] = [];
+      const failedParts: string[] = [];
+      if (result.notifications.email.requested) {
+        if (result.notifications.email.status === "sent") sentParts.push("email");
+        else failedParts.push(`email (${result.notifications.email.reason ?? result.notifications.email.status})`);
+      }
+      if (result.notifications.sms.requested) {
+        if (result.notifications.sms.status === "sent") sentParts.push("SMS");
+        else failedParts.push(`SMS (${result.notifications.sms.reason ?? result.notifications.sms.status})`);
+      }
+
+      if (failedParts.length > 0) {
+        toast({
+          title: "Password regenerated, notifications partially delivered",
+          description: `${sentParts.length > 0 ? `Sent via ${sentParts.join(" + ")}. ` : ""}Could not send: ${failedParts.join(", ")}.`,
+          variant: "destructive",
+        });
+      } else if (sentParts.length > 0) {
+        toast({
+          title: "Password regenerated and sent",
+          description: `New credentials sent to member via ${sentParts.join(" + ")}.`,
+        });
+      } else {
+        toast({
+          title: "Password regenerated",
+          description: "Share the new password with the member, then close this panel.",
+        });
+      }
     } catch (err) {
       toast({
         title: "Regenerate failed",
@@ -569,10 +632,84 @@ function FlexyLookupCard() {
                     <p className="text-xs text-muted-foreground">
                       Share this with the member securely. It will not be shown again.
                     </p>
+                    {lastNotifications && (
+                      <div className="mt-2 space-y-1" data-testid="flexy-notification-summary">
+                        {lastNotifications.email.requested && (
+                          <p className="text-xs">
+                            <Mail className="w-3 h-3 inline mr-1" />
+                            Email to member:{" "}
+                            <span
+                              className={
+                                lastNotifications.email.status === "sent"
+                                  ? "text-green-700 font-medium"
+                                  : "text-red-700 font-medium"
+                              }
+                            >
+                              {lastNotifications.email.status === "sent"
+                                ? "sent"
+                                : `${lastNotifications.email.status}${lastNotifications.email.reason ? ` (${lastNotifications.email.reason})` : ""}`}
+                            </span>
+                          </p>
+                        )}
+                        {lastNotifications.sms.requested && (
+                          <p className="text-xs">
+                            <MessageSquare className="w-3 h-3 inline mr-1" />
+                            SMS to member:{" "}
+                            <span
+                              className={
+                                lastNotifications.sms.status === "sent"
+                                  ? "text-green-700 font-medium"
+                                  : "text-red-700 font-medium"
+                              }
+                            >
+                              {lastNotifications.sms.status === "sent"
+                                ? "sent"
+                                : `${lastNotifications.sms.status}${lastNotifications.sms.reason ? ` (${lastNotifications.sms.reason})` : ""}`}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div>
+                <div className="space-y-3 border-t pt-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">After regenerating, also send the new password to the member:</p>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="notify-flexy-email"
+                        checked={notifyEmail}
+                        onCheckedChange={(v) => setNotifyEmail(v === true)}
+                        disabled={!canRegenerate || regenerating}
+                        data-testid="checkbox-notify-flexy-email"
+                      />
+                      <label htmlFor="notify-flexy-email" className="text-sm flex items-center gap-1 cursor-pointer">
+                        <Mail className="w-3.5 h-3.5" />
+                        Email new password to {lookup.member.email}
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="notify-flexy-sms"
+                        checked={notifySms}
+                        onCheckedChange={(v) => setNotifySms(v === true)}
+                        disabled={!canRegenerate || regenerating || !lookup.member.hasPhone || !lookup.member.smsOptIn}
+                        data-testid="checkbox-notify-flexy-sms"
+                      />
+                      <label htmlFor="notify-flexy-sms" className={`text-sm flex items-center gap-1 ${(!lookup.member.hasPhone || !lookup.member.smsOptIn) ? "text-muted-foreground" : "cursor-pointer"}`}>
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Text new password via SMS
+                        {!lookup.member.hasPhone && (
+                          <span className="text-xs text-muted-foreground">(no phone on file)</span>
+                        )}
+                        {lookup.member.hasPhone && !lookup.member.smsOptIn && (
+                          <span className="text-xs text-muted-foreground">(member not opted in to SMS)</span>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -603,12 +740,25 @@ function FlexyLookupCard() {
           <DialogHeader>
             <DialogTitle>Regenerate Flexy password?</DialogTitle>
             <DialogDescription>
-              This will replace this member's Flexy password immediately. Their existing password will stop working. Make sure you can pass the new password to them securely.
+              This will replace this member's Flexy password immediately. Their existing password will stop working.
             </DialogDescription>
           </DialogHeader>
+          <div className="text-sm space-y-2 py-2">
+            {(notifyEmail || notifySms) ? (
+              <>
+                <p>The new password will be sent to the member via:</p>
+                <ul className="list-disc ml-5 space-y-1">
+                  {notifyEmail && <li>Email to <strong>{lookup?.member.email}</strong></li>}
+                  {notifySms && <li>SMS to their phone on file</li>}
+                </ul>
+              </>
+            ) : (
+              <p>No notification will be sent. You will need to share the new password with the member yourself before closing this panel.</p>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmingRegen(false)}>Cancel</Button>
-            <Button onClick={handleRegenerate} disabled={regenerating}>
+            <Button onClick={handleRegenerate} disabled={regenerating} data-testid="button-confirm-regenerate-flexy">
               {regenerating ? "Regenerating..." : "Regenerate"}
             </Button>
           </DialogFooter>

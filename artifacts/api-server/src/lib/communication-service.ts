@@ -446,6 +446,31 @@ export const CommunicationService = {
     });
   },
 
+  async sendSmsNow(params: {
+    templateSlug: string;
+    to: string;
+    variables?: Record<string, string>;
+    userId?: number;
+  }): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+    const { templateSlug, to, variables = {}, userId } = params;
+
+    const [template] = await db
+      .select()
+      .from(smsTemplatesTable)
+      .where(and(eq(smsTemplatesTable.slug, templateSlug), eq(smsTemplatesTable.active, true)))
+      .limit(1);
+
+    if (!template) {
+      console.error(`[Comms] SMS template not found: ${templateSlug}`);
+      return { success: false, error: `Template not found: ${templateSlug}` };
+    }
+
+    const allVars = getCommonVariables(variables);
+    const body = replaceVariables(template.body, allVars);
+
+    return sendSmsDirect({ to, body, userId, templateSlug });
+  },
+
   async queueBroadcastEmail(params: {
     templateSlug: string;
     recipientList: Array<{ email: string; userId?: number; variables?: Record<string, string> }>;

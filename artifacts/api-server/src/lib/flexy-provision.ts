@@ -1,4 +1,4 @@
-import { db, memberAppInstancesTable, usersTable } from "@workspace/db";
+import { db, memberAppInstancesTable, usersTable, emailTemplatesTable, smsTemplatesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   createLocation,
@@ -13,6 +13,55 @@ import {
 } from "./ghl-agency-client";
 
 export const FLEXY_DOMAIN = (FLEXY_PORTAL_URL.replace(/^https?:\/\//, "")).replace(/\/+$/, "");
+
+const FLEXY_PASSWORD_RESET_EMAIL_TEMPLATE = {
+  slug: "flexy_password_reset",
+  name: "Flexy Password Reset",
+  subject: "Your new Flexy password",
+  htmlBody: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;"><h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1></td></tr>
+<tr><td style="padding:30px;">
+<h2 style="color:#1a1a2e;margin-top:0;">Your Flexy password has been reset</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team just generated a new password for your Flexy login. Use the credentials below the next time you sign in.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;font-family:monospace;"><strong>Login email:</strong> {{flexy_email}}<br><strong>New password:</strong> {{flexy_password}}</p>
+<p>For your security, change this password to something only you know after you log in. If you did not request this reset, contact us right away at {{support_email}}.</p>
+<p><a href="{{flexy_login_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Flexy Login</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;"><p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p></td></tr>
+</table></td></tr></table></body></html>`,
+  textBody: "Hi {{member_name}},\n\nOur support team just generated a new password for your Flexy login.\n\nLogin email: {{flexy_email}}\nNew password: {{flexy_password}}\n\nFor your security, change this password after you log in. If you did not request this reset, contact {{support_email}} right away.\n\nLog in at {{flexy_login_url}}\n\nThe BTS Team",
+  category: "transactional",
+  variables: ["member_name", "flexy_email", "flexy_password", "flexy_login_url", "support_email", "current_year"],
+};
+
+const FLEXY_PASSWORD_RESET_SMS_TEMPLATE = {
+  slug: "flexy_password_reset",
+  name: "Flexy Password Reset SMS",
+  body: "BTS: Your Flexy password was just reset. Login: {{flexy_email}} / Password: {{flexy_password}}. Change it after you log in.",
+  variables: ["flexy_email", "flexy_password"],
+};
+
+let templatesEnsured = false;
+export async function ensureFlexyPasswordResetTemplates(): Promise<void> {
+  if (templatesEnsured) return;
+  try {
+    await db
+      .insert(emailTemplatesTable)
+      .values(FLEXY_PASSWORD_RESET_EMAIL_TEMPLATE)
+      .onConflictDoNothing({ target: emailTemplatesTable.slug });
+    await db
+      .insert(smsTemplatesTable)
+      .values(FLEXY_PASSWORD_RESET_SMS_TEMPLATE)
+      .onConflictDoNothing({ target: smsTemplatesTable.slug });
+    templatesEnsured = true;
+  } catch (err) {
+    console.warn("[Flexy] Could not ensure flexy_password_reset templates:", err);
+  }
+}
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
   // GHL requires both firstName and lastName to be non-empty when creating

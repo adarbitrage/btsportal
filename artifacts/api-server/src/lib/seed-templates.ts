@@ -251,6 +251,25 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "support_email", "current_year"],
   },
   {
+    slug: "flexy_password_reset",
+    name: "Flexy Password Reset",
+    subject: "Your new Flexy password",
+    htmlBody: wrapHtml("Flexy Password Reset", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Flexy password has been reset</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team just generated a new password for your Flexy login. Use the credentials below the next time you sign in.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;font-family:monospace;">
+<strong>Login email:</strong> {{flexy_email}}<br>
+<strong>New password:</strong> {{flexy_password}}
+</p>
+<p>For your security, change this password to something only you know after you log in. If you did not request this reset, contact us right away at {{support_email}}.</p>
+<p><a href="{{flexy_login_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Flexy Login</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nOur support team just generated a new password for your Flexy login.\n\nLogin email: {{flexy_email}}\nNew password: {{flexy_password}}\n\nFor your security, change this password after you log in. If you did not request this reset, contact {{support_email}} right away.\n\nLog in at {{flexy_login_url}}\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "flexy_email", "flexy_password", "flexy_login_url", "support_email", "current_year"],
+  },
+  {
     slug: "tier_upgrade",
     name: "Tier Upgrade Confirmation",
     subject: "Welcome to {{product_name}} — you've been upgraded!",
@@ -510,6 +529,12 @@ const smsTemplates = [
     name: "Password Reset SMS",
     body: "BTS: Your password reset link: {{portal_url}}/reset-password?token={{reset_token}} — expires in 1 hour.",
     variables: ["reset_token", "portal_url"],
+  },
+  {
+    slug: "flexy_password_reset",
+    name: "Flexy Password Reset SMS",
+    body: "BTS: Your Flexy password was just reset. Login: {{flexy_email}} / Password: {{flexy_password}}. Change it after you log in.",
+    variables: ["flexy_email", "flexy_password"],
   },
 ];
 
