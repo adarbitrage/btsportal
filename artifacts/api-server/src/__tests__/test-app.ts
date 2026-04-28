@@ -1,16 +1,23 @@
-import express, { type Express } from "express";
+import express, { type Express, type Router } from "express";
 import cookieParser from "cookie-parser";
 import { authenticate } from "../middleware/auth";
 import { requestIdMiddleware, apiErrorHandler } from "../lib/api-errors";
 import adminAppsRouter from "../routes/admin-apps";
 
-export function buildTestApp(): Express {
+export interface BuildTestAppOptions {
+  routers?: Router[];
+}
+
+export function buildTestApp(options: BuildTestAppOptions = {}): Express {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
   app.use("/api", requestIdMiddleware);
   app.use("/api", authenticate);
-  app.use("/api", adminAppsRouter);
+  const routers = options.routers ?? [adminAppsRouter];
+  for (const r of routers) {
+    app.use("/api", r);
+  }
   app.use("/api", apiErrorHandler);
   return app;
 }
