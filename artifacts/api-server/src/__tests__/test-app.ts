@@ -21,3 +21,16 @@ export function buildTestApp(options: BuildTestAppOptions = {}): Express {
   app.use("/api", apiErrorHandler);
   return app;
 }
+
+export function buildTestAppWithRouters(routers: Router[]): Express {
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+  app.use("/api", requestIdMiddleware);
+  app.use("/api", authenticate);
+  for (const router of routers) {
+    app.use("/api", router);
+  }
+  app.use("/api", apiErrorHandler);
+  return app;
+}

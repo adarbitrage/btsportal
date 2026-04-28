@@ -13,7 +13,7 @@ import { requirePermission } from "../middleware/rbac";
 const router = Router();
 
 
-router.get("/admin/revenue/overview", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/overview", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const period = (req.query.period as string) || undefined;
     const cached = period ? await getCachedMetrics(period) : null;
@@ -26,7 +26,7 @@ router.get("/admin/revenue/overview", requirePermission("dashboard:view"), async
   }
 });
 
-router.get("/admin/revenue/trend", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/trend", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const months = parseInt(req.query.months as string) || 12;
     const trend = await getMetricsTrend(months);
@@ -38,7 +38,7 @@ router.get("/admin/revenue/trend", requirePermission("dashboard:view"), async (r
   }
 });
 
-router.get("/admin/revenue/cohorts", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/cohorts", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const dimension = (req.query.dimension as string) || "signup_month";
     const maxPeriods = parseInt(req.query.maxPeriods as string) || 12;
@@ -68,7 +68,7 @@ router.get("/admin/revenue/cohorts", requirePermission("dashboard:view"), async 
   }
 });
 
-router.get("/admin/revenue/health-scores", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/health-scores", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const distribution = await getHealthScoreDistribution();
 
@@ -93,7 +93,7 @@ router.get("/admin/revenue/health-scores", requirePermission("dashboard:view"), 
   }
 });
 
-router.get("/admin/revenue/health-scores/:userId", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/health-scores/:userId", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId as string);
     if (isNaN(userId)) {
@@ -122,7 +122,7 @@ router.get("/admin/revenue/health-scores/:userId", requirePermission("dashboard:
   }
 });
 
-router.get("/admin/revenue/churn-risks", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/churn-risks", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("churn_risks");
     if (cached && !req.query.fresh) {
@@ -138,7 +138,7 @@ router.get("/admin/revenue/churn-risks", requirePermission("dashboard:view"), as
   }
 });
 
-router.get("/admin/revenue/upgrade-candidates", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/upgrade-candidates", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("upgrade_candidates");
     if (cached && !req.query.fresh) {
@@ -154,7 +154,7 @@ router.get("/admin/revenue/upgrade-candidates", requirePermission("dashboard:vie
   }
 });
 
-router.get("/admin/revenue/funnels", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/funnels", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("funnel_performance");
     if (cached && !req.query.fresh) {
@@ -170,7 +170,7 @@ router.get("/admin/revenue/funnels", requirePermission("dashboard:view"), async 
   }
 });
 
-router.get("/admin/revenue/ltv", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/ltv", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const segmentBy = (req.query.segmentBy as string) || "first_product";
     const validSegments = ["first_product", "experience_level", "funnel_source"];
@@ -194,7 +194,7 @@ router.get("/admin/revenue/ltv", requirePermission("dashboard:view"), async (req
   }
 });
 
-router.get("/admin/revenue/forecast", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.get("/admin/revenue/forecast", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const months = parseInt(req.query.months as string) || 6;
 
@@ -213,7 +213,7 @@ router.get("/admin/revenue/forecast", requirePermission("dashboard:view"), async
   }
 });
 
-router.post("/admin/revenue/manual-entry", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.post("/admin/revenue/manual-entry", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const { metric, period, value, source, notes } = req.body;
 
@@ -257,7 +257,7 @@ router.post("/admin/revenue/manual-entry", requirePermission("dashboard:view"), 
   }
 });
 
-router.post("/admin/revenue/recompute", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
+router.post("/admin/revenue/recompute", requirePermission("revenue:view"), async (req: Request, res: Response) => {
   try {
     const result = await triggerForceRecompute();
     res.json(result);
