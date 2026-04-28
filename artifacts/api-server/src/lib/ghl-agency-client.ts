@@ -407,6 +407,80 @@ async function getStaffUser(userId: string): Promise<GhlUser> {
 }
 
 /**
+ * Public read-only accessor for a staff user record. Used by the live
+ * provisioning verification script to confirm role + locationIds after each
+ * install/uninstall step. Returns `null` if the user no longer exists (e.g.
+ * full delete after their last location was removed).
+ */
+export async function getStaffUserPublic(staffUserId: string): Promise<{
+  id: string;
+  email?: string;
+  type?: string;
+  role?: string;
+  roles?: { type?: string; role?: string; locationIds?: string[] };
+  locationIds: string[];
+} | null> {
+  try {
+    const data = await ghlAgencyRequest<
+      { id?: string; user?: GhlUser } & GhlUser & {
+          type?: string;
+          role?: string;
+          roles?: { type?: string; role?: string; locationIds?: string[] };
+        }
+    >("GET", `/users/${encodeURIComponent(staffUserId)}`);
+    const u = (data.user ?? data) as GhlUser & {
+      type?: string;
+      role?: string;
+      roles?: { type?: string; role?: string; locationIds?: string[] };
+    };
+    if (!u || !u.id) return null;
+    return {
+      id: u.id,
+      email: u.email,
+      type: u.type ?? u.roles?.type,
+      role: u.role ?? u.roles?.role,
+      roles: u.roles,
+      locationIds: getUserLocationIds(u),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("HTTP 404")) return null;
+    throw err;
+  }
+}
+
+/**
+ * Look up agency sub-accounts whose `name` exactly matches `name`. Used by
+ * the verification script to confirm that reinstall does NOT create a
+ * duplicate `Flexy - {member name}` location. Returns the matched ids and
+ * names (case-insensitive exact match on the trimmed name).
+ *
+ * GHL's `/locations/search` returns a `locations` array; we filter
+ * client-side because the `query` param matches loosely.
+ */
+export async function searchAgencyLocationsByName(
+  name: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const { companyId } = decodeAgencyJwt();
+  const target = name.trim().toLowerCase();
+  const params = new URLSearchParams({
+    companyId,
+    query: name,
+    limit: "100",
+  });
+  const data = await ghlAgencyRequest<{
+    locations?: Array<{ id?: string; name?: string }>;
+  }>("GET", `/locations/search?${params.toString()}`);
+  return (data.locations ?? [])
+    .filter((l): l is { id: string; name: string } =>
+      typeof l.id === "string" &&
+      typeof l.name === "string" &&
+      l.name.trim().toLowerCase() === target,
+    )
+    .map((l) => ({ id: l.id, name: l.name }));
+}
+
+/**
  * Non-destructive disable: removes the staff user from the given location so
  * they can no longer log in to it. Other location memberships (if any) are
  * preserved. Throws on failure so callers can surface the problem instead of
