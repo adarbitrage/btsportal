@@ -347,14 +347,6 @@ function hasEntitlementCheck(
   return entitlements.has(requiredEntitlement);
 }
 
-function allChildrenLocked(children: NavNode[], entitlements: Set<string>): boolean {
-  return children.every((child) => {
-    if (child.kind === "folder") return allChildrenLocked(child.children, entitlements);
-    if (!child.requiredEntitlement) return false;
-    return !hasEntitlementCheck(child.requiredEntitlement, entitlements);
-  });
-}
-
 function leafVisibleToRole(leaf: NavLeaf, role: string | undefined): boolean {
   if (!leaf.requiredPermission) return true;
   if (!isAdminRole(role)) return false;
@@ -375,46 +367,50 @@ function filterNavByRole(nodes: NavNode[], role: string | undefined): NavNode[] 
   return result;
 }
 
+function filterNavByEntitlements(nodes: NavNode[], entitlements: Set<string>): NavNode[] {
+  const result: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") {
+      if (hasEntitlementCheck(node.requiredEntitlement, entitlements)) result.push(node);
+      continue;
+    }
+    const filteredChildren = filterNavByEntitlements(node.children, entitlements);
+    if (filteredChildren.length === 0) continue;
+    result.push({ ...node, children: filteredChildren });
+  }
+  return result;
+}
+
 interface LeafRowProps {
   leaf: NavLeaf;
   location: string;
-  entitlements: Set<string>;
   onNavClick?: () => void;
   indent?: number;
 }
 
-function LeafRow({ leaf, location, entitlements, onNavClick, indent = 0 }: LeafRowProps) {
+function LeafRow({ leaf, location, onNavClick, indent = 0 }: LeafRowProps) {
   const isActive = leafMatchesLocation(leaf, location);
-  const hasEnt = hasEntitlementCheck(leaf.requiredEntitlement, entitlements);
-  const isLocked = !!leaf.requiredEntitlement && !hasEnt;
 
   return (
-    <Link href={isLocked ? "#" : leaf.href}>
+    <Link href={leaf.href}>
       <div
-        onClick={isLocked ? undefined : onNavClick}
+        onClick={onNavClick}
         style={{ paddingLeft: `${12 + indent * 12}px` }}
         className={cn(
           "flex items-center gap-3 pr-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer group",
           isActive
             ? "bg-primary/10 text-primary"
-            : isLocked
-            ? "text-muted-foreground/50 hover:bg-secondary/50"
             : "text-muted-foreground hover:bg-secondary hover:text-foreground"
         )}
       >
         <leaf.icon
           className={cn(
             "w-4 h-4 shrink-0 transition-transform group-hover:scale-110",
-            isActive ? "text-primary" : isLocked ? "opacity-50" : ""
+            isActive ? "text-primary" : ""
           )}
         />
         <span className="truncate">{leaf.label}</span>
-        {isLocked && (
-          <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/60 bg-secondary px-1.5 py-0.5 rounded">
-            Upgrade
-          </span>
-        )}
-        {!isLocked && leaf.showNotificationBadge && <NotificationBadgeCount />}
+        {leaf.showNotificationBadge && <NotificationBadgeCount />}
       </div>
     </Link>
   );
@@ -423,7 +419,6 @@ function LeafRow({ leaf, location, entitlements, onNavClick, indent = 0 }: LeafR
 interface FolderRowProps {
   folder: NavFolder;
   location: string;
-  entitlements: Set<string>;
   onNavClick?: () => void;
   indent?: number;
   isAdminNode?: boolean;
@@ -433,7 +428,6 @@ interface FolderRowProps {
 function FolderRow({
   folder,
   location,
-  entitlements,
   onNavClick,
   indent = 0,
   isAdminNode = false,
@@ -448,8 +442,6 @@ function FolderRow({
   useEffect(() => {
     if (containsCurrent) setOpen(true);
   }, [location, containsCurrent]);
-
-  if (allChildrenLocked(folder.children, entitlements)) return null;
 
   return (
     <div>
@@ -485,7 +477,6 @@ function FolderRow({
               key={child.kind === "leaf" ? child.href : child.storageKey + i}
               node={child}
               location={location}
-              entitlements={entitlements}
               onNavClick={onNavClick}
               indent={indent + 1}
               isAdminNode={isAdminNode}
@@ -513,7 +504,6 @@ function FolderRow({
 interface NavNodeRowProps {
   node: NavNode;
   location: string;
-  entitlements: Set<string>;
   onNavClick?: () => void;
   indent?: number;
   isAdminNode?: boolean;
@@ -523,7 +513,6 @@ interface NavNodeRowProps {
 function NavNodeRow({
   node,
   location,
-  entitlements,
   onNavClick,
   indent = 0,
   isAdminNode = false,
@@ -534,7 +523,6 @@ function NavNodeRow({
       <LeafRow
         leaf={node}
         location={location}
-        entitlements={entitlements}
         onNavClick={onNavClick}
         indent={indent}
       />
@@ -545,7 +533,6 @@ function NavNodeRow({
     <FolderRow
       folder={node}
       location={location}
-      entitlements={entitlements}
       onNavClick={onNavClick}
       indent={indent}
       isAdminNode={isAdminNode}
@@ -586,6 +573,8 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.sourceProduct ?? "free";
   const hasLifetime = highestSlug === "lifetime";
 
+  const filteredMemberNav = filterNavByEntitlements(MEMBER_NAV, entitlements);
+
   const filteredAdminChildren = isAdminUser
     ? filterNavByRole(ADMIN_CHILDREN, userRole)
     : [];
@@ -623,12 +612,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div ref={scrollRef} className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {MEMBER_NAV.map((node, i) => (
+        {filteredMemberNav.map((node, i) => (
           <NavNodeRow
             key={node.kind === "leaf" ? node.href : node.storageKey + i}
             node={node}
             location={location}
-            entitlements={entitlements}
             onNavClick={onNavClick}
             indent={0}
             isAdminNode={false}
@@ -645,7 +633,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               <FolderRow
                 folder={adminFolder}
                 location={location}
-                entitlements={entitlements}
                 onNavClick={onNavClick}
                 indent={0}
                 isAdminNode={true}
