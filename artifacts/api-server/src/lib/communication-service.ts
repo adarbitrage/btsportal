@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, type JobsOptions, type Job } from "bullmq";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
 import crypto from "crypto";
@@ -13,6 +13,11 @@ import {
 } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
+
+const QUEUE_ADD_TIMEOUT_MS = Number.parseInt(
+  process.env.QUEUE_ADD_TIMEOUT_MS || "2000",
+  10,
+);
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
@@ -50,6 +55,149 @@ function getSmsQueue(): Queue {
     smsQueue = new Queue("sms", { connection: getRedisConnection() });
   }
   return smsQueue;
+}
+
+type ConnectionLike = {
+  status?: string;
+  on?: (event: string, listener: () => void) => unknown;
+  off?: (event: string, listener: () => void) => unknown;
+};
+
+type EnqueuedJob = Pick<Job, "id" | "remove">;
+
+/**
+ * Wait for the underlying Redis connection to reach the "ready" state, or
+ * resolve false if it stays in a non-ready state past timeoutMs (or
+ * transitions to a known-dead state). Resolves immediately if already ready
+ * or already dead. Does not throw.
+ */
+async function waitForReady(
+  conn: ConnectionLike,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (conn.status === "ready") return true;
+  if (conn.status === "end" || conn.status === "close") return false;
+
+  return new Promise<boolean>((resolve) => {
+    let done = false;
+    const finish = (v: boolean) => {
+      if (done) return;
+      done = true;
+      conn.off?.("ready", onReady);
+      conn.off?.("end", onDead);
+      conn.off?.("close", onDead);
+      clearTimeout(timer);
+      resolve(v);
+    };
+    const onReady = () => finish(true);
+    const onDead = () => finish(false);
+    conn.on?.("ready", onReady);
+    conn.on?.("end", onDead);
+    conn.on?.("close", onDead);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+/**
+ * Try to enqueue a job, falling back to a direct send when Redis is offline or
+ * slow to respond. Returns true if the job was successfully queued, false if
+ * the caller must run the fallback path themselves.
+ *
+ * Strategy (chosen to avoid duplicate sends):
+ *   1. Build the queue (which lazily opens the Redis connection).
+ *   2. Wait up to timeoutMs for the connection to be "ready". If it never
+ *      becomes ready in that window, return false without ever calling
+ *      queue.add() — so there's no orphan job that can sneak through later
+ *      when Redis recovers.
+ *   3. Once ready, call queue.add() and race it against the remaining budget.
+ *      In the rare case Redis dies between "ready" and the LPUSH being
+ *      acknowledged, the add() may hang. If it eventually resolves after we
+ *      already returned false, attempt to remove the orphan job from the queue
+ *      so the worker can't send a duplicate. Worst case, if cleanup fails, log
+ *      it loudly so operators know a duplicate may have shipped.
+ *   4. Late rejections from add() are swallowed so they don't surface as
+ *      unhandled rejections.
+ */
+export async function tryEnqueue(
+  getQueue: () => Queue,
+  jobName: string,
+  data: unknown,
+  opts: JobsOptions,
+  timeoutMs: number = QUEUE_ADD_TIMEOUT_MS,
+): Promise<boolean> {
+  const start = Date.now();
+  let queue: Queue;
+  try {
+    queue = getQueue();
+  } catch {
+    return false;
+  }
+
+  const conn = (queue.opts as { connection?: ConnectionLike }).connection;
+  if (!conn) return false;
+
+  const ready = await waitForReady(conn, timeoutMs);
+  if (!ready) return false;
+
+  const remaining = Math.max(50, timeoutMs - (Date.now() - start));
+
+  let addPromise: Promise<EnqueuedJob>;
+  try {
+    addPromise = queue.add(jobName, data, opts);
+  } catch {
+    return false;
+  }
+
+  let timer: NodeJS.Timeout | undefined;
+  let timedOut = false;
+
+  const racedResult = await Promise.race<"queued" | "failed" | "timeout">([
+    addPromise.then(
+      () => "queued" as const,
+      () => "failed" as const,
+    ),
+    new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => {
+        timedOut = true;
+        resolve("timeout");
+      }, remaining);
+    }),
+  ]);
+
+  if (timer) clearTimeout(timer);
+
+  if (racedResult === "queued") {
+    return true;
+  }
+
+  if (racedResult === "failed") {
+    return false;
+  }
+
+  // Timeout: schedule cleanup of the (potential) orphan job so the worker
+  // can't deliver a duplicate after our caller direct-sends.
+  if (timedOut) {
+    addPromise.then(
+      async (job) => {
+        try {
+          if (job?.remove) {
+            await job.remove();
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(
+            `[Comms] Orphaned ${jobName} job ${job?.id ?? "?"} could not be removed; ` +
+              `the worker may deliver a duplicate. Reason: ${msg}`,
+          );
+        }
+      },
+      () => {
+        // Late rejection — nothing to clean up, swallow so it isn't unhandled.
+      },
+    );
+  }
+
+  return false;
 }
 
 function replaceVariables(template: string, variables: Record<string, string>): string {
@@ -335,36 +483,28 @@ export const CommunicationService = {
     const text = replaceVariables(template.textBody, allVars);
     const emailCategory = category || template.category;
 
-    try {
-      await getEmailQueue().add("send-email", {
-        to,
-        subject,
-        html,
-        text,
-        fromName: template.fromName || FROM_NAME_DEFAULT,
-        category: emailCategory,
-        userId,
-        templateSlug,
-        includeUnsubscribe: emailCategory === "marketing",
-      }, {
-        attempts: 3,
-        backoff: { type: "exponential", delay: 5000 },
-        removeOnComplete: 100,
-        removeOnFail: 200,
-      });
-    } catch (error) {
+    const jobData = {
+      to,
+      subject,
+      html,
+      text,
+      fromName: template.fromName || FROM_NAME_DEFAULT,
+      category: emailCategory,
+      userId,
+      templateSlug,
+      includeUnsubscribe: emailCategory === "marketing",
+    };
+
+    const queued = await tryEnqueue(getEmailQueue, "send-email", jobData, {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    });
+
+    if (!queued) {
       console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
-      await sendEmailDirect({
-        to,
-        subject,
-        html,
-        text,
-        fromName: template.fromName || FROM_NAME_DEFAULT,
-        category: emailCategory,
-        userId,
-        templateSlug,
-        includeUnsubscribe: emailCategory === "marketing",
-      });
+      await sendEmailDirect(jobData);
     }
   },
 
@@ -390,21 +530,18 @@ export const CommunicationService = {
     const allVars = getCommonVariables(variables);
     const body = replaceVariables(template.body, allVars);
 
-    try {
-      await getSmsQueue().add("send-sms", {
-        to,
-        body,
-        userId,
-        templateSlug,
-      }, {
-        attempts: 3,
-        backoff: { type: "exponential", delay: 5000 },
-        removeOnComplete: 100,
-        removeOnFail: 200,
-      });
-    } catch (error) {
+    const jobData = { to, body, userId, templateSlug };
+
+    const queued = await tryEnqueue(getSmsQueue, "send-sms", jobData, {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    });
+
+    if (!queued) {
       console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
-      await sendSmsDirect({ to, body, userId, templateSlug });
+      await sendSmsDirect(jobData);
     }
   },
 
