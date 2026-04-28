@@ -2743,14 +2743,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [action]
-              properties:
-                action:
-                  type: string
-                metadata:
-                  type: object
-                  additionalProperties: true
+              $ref: "#/components/schemas/LogToolUsageBody"
       responses:
         "201":
           description: Usage logged
@@ -7944,6 +7937,7 @@ components:
           type: string
         metadata:
           type: object
+          additionalProperties: true
       required: [action]
 
     GenerateHeadlinesBody:

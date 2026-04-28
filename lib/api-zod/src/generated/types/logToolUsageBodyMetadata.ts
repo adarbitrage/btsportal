@@ -7,4 +7,3 @@
  */
 
 export type LogToolUsageBodyMetadata = { [key: string]: unknown };
-

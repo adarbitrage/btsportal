@@ -7,7 +7,7 @@
  */
 import type { LogToolUsageBodyMetadata } from "./logToolUsageBodyMetadata";
 
-export type LogToolUsageBody = {
+export interface LogToolUsageBody {
   action: string;
   metadata?: LogToolUsageBodyMetadata;
-};
+}
