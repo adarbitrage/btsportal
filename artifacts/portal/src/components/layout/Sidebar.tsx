@@ -62,30 +62,14 @@ import { Button } from "@/components/ui/button";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
-import { ADMIN_ROLES, hasPermission, isAdminRole, type AdminRole, type Permission } from "@/lib/permissions";
-
-type LucideIcon = typeof LayoutDashboard;
-
-interface NavLeaf {
-  kind: "leaf";
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  requiredEntitlement?: string;
-  requiredPermission?: Permission;
-  showNotificationBadge?: boolean;
-}
-
-interface NavFolder {
-  kind: "folder";
-  storageKey: string;
-  label: string;
-  icon: LucideIcon;
-  defaultOpen?: boolean;
-  children: NavNode[];
-}
-
-type NavNode = NavLeaf | NavFolder;
+import { ADMIN_ROLES, type AdminRole } from "@/lib/permissions";
+import {
+  filterNavByEntitlements,
+  filterNavByRole,
+  type NavFolder,
+  type NavLeaf,
+  type NavNode,
+} from "./sidebar-nav";
 
 const MEMBER_NAV: NavNode[] = [
   {
@@ -333,52 +317,6 @@ function leafMatchesLocation(leaf: NavLeaf, location: string): boolean {
 function nodeContainsLocation(node: NavNode, location: string): boolean {
   if (node.kind === "leaf") return leafMatchesLocation(node, location);
   return node.children.some((child) => nodeContainsLocation(child, location));
-}
-
-function hasEntitlementCheck(
-  requiredEntitlement: string | undefined,
-  entitlements: Set<string>
-): boolean {
-  if (!requiredEntitlement) return true;
-  if (requiredEntitlement.endsWith(":*")) {
-    const prefix = requiredEntitlement.replace(":*", ":");
-    return Array.from(entitlements).some((e: string) => e.startsWith(prefix));
-  }
-  return entitlements.has(requiredEntitlement);
-}
-
-function leafVisibleToRole(leaf: NavLeaf, role: string | undefined): boolean {
-  if (!leaf.requiredPermission) return true;
-  if (!isAdminRole(role)) return false;
-  return hasPermission(role, leaf.requiredPermission);
-}
-
-function filterNavByRole(nodes: NavNode[], role: string | undefined): NavNode[] {
-  const result: NavNode[] = [];
-  for (const node of nodes) {
-    if (node.kind === "leaf") {
-      if (leafVisibleToRole(node, role)) result.push(node);
-      continue;
-    }
-    const filteredChildren = filterNavByRole(node.children, role);
-    if (filteredChildren.length === 0) continue;
-    result.push({ ...node, children: filteredChildren });
-  }
-  return result;
-}
-
-function filterNavByEntitlements(nodes: NavNode[], entitlements: Set<string>): NavNode[] {
-  const result: NavNode[] = [];
-  for (const node of nodes) {
-    if (node.kind === "leaf") {
-      if (hasEntitlementCheck(node.requiredEntitlement, entitlements)) result.push(node);
-      continue;
-    }
-    const filteredChildren = filterNavByEntitlements(node.children, entitlements);
-    if (filteredChildren.length === 0) continue;
-    result.push({ ...node, children: filteredChildren });
-  }
-  return result;
 }
 
 interface LeafRowProps {
