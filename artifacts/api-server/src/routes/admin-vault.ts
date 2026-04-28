@@ -11,12 +11,12 @@ import {
   lessonsTable,
 } from "@workspace/db";
 import { eq, desc, asc, sql, ilike, and, or, inArray, isNull, count } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 
-router.get("/admin/vault/collections", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/vault/collections", requirePermission("vault:view"), async (_req: Request, res: Response) => {
   try {
     const collections = await db
       .select()
@@ -29,7 +29,7 @@ router.get("/admin/vault/collections", requireAdmin, async (_req: Request, res: 
   }
 });
 
-router.post("/admin/vault/collections", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/vault/collections", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const { name, slug, description, icon, coverImageUrl, requiredEntitlement, parentId, sortOrder } = req.body;
     if (!name || !slug) {
@@ -53,7 +53,7 @@ router.post("/admin/vault/collections", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.patch("/admin/vault/collections/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/vault/collections/reorder", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const { orders } = req.body;
     if (!Array.isArray(orders)) { res.status(400).json({ error: "orders must be an array" }); return; }
@@ -67,7 +67,7 @@ router.patch("/admin/vault/collections/reorder", requireAdmin, async (req: Reque
   }
 });
 
-router.patch("/admin/vault/collections/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/vault/collections/:id", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -85,7 +85,7 @@ router.patch("/admin/vault/collections/:id", requireAdmin, async (req: Request, 
   }
 });
 
-router.delete("/admin/vault/collections/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/vault/collections/:id", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -108,7 +108,7 @@ router.delete("/admin/vault/collections/:id", requireAdmin, async (req: Request,
   }
 });
 
-router.get("/admin/vault/resources/search", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/vault/resources/search", requirePermission("vault:view"), async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
     if (!q) { res.json([]); return; }
@@ -123,7 +123,7 @@ router.get("/admin/vault/resources/search", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/admin/vault/resources", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/vault/resources", requirePermission("vault:view"), async (req: Request, res: Response) => {
   try {
     const { type, collection, status, search, page = "1", limit = "25" } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
@@ -175,7 +175,7 @@ router.get("/admin/vault/resources", requireAdmin, async (req: Request, res: Res
   }
 });
 
-router.get("/admin/vault/resources/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/vault/resources/:id", requirePermission("vault:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -210,7 +210,7 @@ router.get("/admin/vault/resources/:id", requireAdmin, async (req: Request, res:
   }
 });
 
-router.post("/admin/vault/resources", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/vault/resources", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const {
       title, description, longDescription, resourceType, collectionId,
@@ -254,7 +254,7 @@ router.post("/admin/vault/resources", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.patch("/admin/vault/resources/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/vault/resources/:id", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -280,7 +280,7 @@ router.patch("/admin/vault/resources/:id", requireAdmin, async (req: Request, re
   }
 });
 
-router.post("/admin/vault/resources/:id/duplicate", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/vault/resources/:id/duplicate", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -302,7 +302,7 @@ router.post("/admin/vault/resources/:id/duplicate", requireAdmin, async (req: Re
   }
 });
 
-router.patch("/admin/vault/resources/:id/archive", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/vault/resources/:id/archive", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -319,7 +319,7 @@ router.patch("/admin/vault/resources/:id/archive", requireAdmin, async (req: Req
   }
 });
 
-router.post("/admin/vault/resources/:id/relations", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/vault/resources/:id/relations", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const resourceId = parseInt(req.params.id as string, 10);
     if (isNaN(resourceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -338,7 +338,7 @@ router.post("/admin/vault/resources/:id/relations", requireAdmin, async (req: Re
   }
 });
 
-router.delete("/admin/vault/resources/:id/relations/:relationId", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/vault/resources/:id/relations/:relationId", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const relationId = parseInt(req.params.relationId as string, 10);
     if (isNaN(relationId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -352,7 +352,7 @@ router.delete("/admin/vault/resources/:id/relations/:relationId", requireAdmin, 
   }
 });
 
-router.post("/admin/vault/resources/:id/lesson-relations", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/vault/resources/:id/lesson-relations", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const resourceId = parseInt(req.params.id as string, 10);
     if (isNaN(resourceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -371,7 +371,7 @@ router.post("/admin/vault/resources/:id/lesson-relations", requireAdmin, async (
   }
 });
 
-router.delete("/admin/vault/resources/:id/lesson-relations/:relationId", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/vault/resources/:id/lesson-relations/:relationId", requirePermission("vault:manage"), async (req: Request, res: Response) => {
   try {
     const relationId = parseInt(req.params.relationId as string, 10);
     if (isNaN(relationId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -385,7 +385,7 @@ router.delete("/admin/vault/resources/:id/lesson-relations/:relationId", require
   }
 });
 
-router.post("/admin/vault/upload-url", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/vault/upload-url", requirePermission("vault:manage"), async (_req: Request, res: Response) => {
   try {
     const storageService = new ObjectStorageService();
     const uploadURL = await storageService.getObjectEntityUploadURL();
@@ -397,7 +397,7 @@ router.post("/admin/vault/upload-url", requireAdmin, async (_req: Request, res: 
   }
 });
 
-router.get("/admin/vault/lessons/search", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/vault/lessons/search", requirePermission("vault:view"), async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
     if (!q) { res.json([]); return; }
@@ -412,7 +412,7 @@ router.get("/admin/vault/lessons/search", requireAdmin, async (req: Request, res
   }
 });
 
-router.get("/admin/vault/tags", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/vault/tags", requirePermission("vault:view"), async (_req: Request, res: Response) => {
   try {
     const resources = await db.select({ tags: vaultResourcesTable.tags }).from(vaultResourcesTable);
     const tagSet = new Set<string>();
@@ -428,7 +428,7 @@ router.get("/admin/vault/tags", requireAdmin, async (_req: Request, res: Respons
   }
 });
 
-router.get("/admin/vault/analytics", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/vault/analytics", requirePermission("vault:view"), async (_req: Request, res: Response) => {
   try {
     const [
       mostDownloaded,

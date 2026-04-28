@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { db, webhookLogsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-router.get("/admin/webhook-logs", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/webhook-logs", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
     const { status, eventType, startDate, endDate, page = "1", limit = "50" } = req.query;
 
@@ -57,7 +57,7 @@ router.get("/admin/webhook-logs", requireAdmin, async (req: Request, res: Respon
   }
 });
 
-router.get("/admin/webhook-logs/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/webhook-logs/:id", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -82,7 +82,7 @@ router.get("/admin/webhook-logs/:id", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.get("/admin/product-mappings", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/product-mappings", requirePermission("system:view"), async (_req: Request, res: Response) => {
   try {
     const products = await db.select({
       id: productsTable.id,
@@ -100,7 +100,7 @@ router.get("/admin/product-mappings", requireAdmin, async (_req: Request, res: R
   }
 });
 
-router.put("/admin/product-mappings/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/product-mappings/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

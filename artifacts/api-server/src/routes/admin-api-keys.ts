@@ -3,12 +3,12 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { db, apiKeysTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 
 const router: IRouter = Router();
 
-router.get("/admin/api-keys", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/api-keys", requirePermission("api_keys:view"), async (req: Request, res: Response) => {
   try {
     const keys = await db
       .select({
@@ -36,7 +36,7 @@ router.get("/admin/api-keys", requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-router.post("/admin/api-keys", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/api-keys", requirePermission("api_keys:manage"), async (req: Request, res: Response) => {
   try {
     const { name, type = "secret", environment = "live", permissions = [], rateLimitTier = "standard", expiresAt } = req.body;
 
@@ -103,7 +103,7 @@ router.post("/admin/api-keys", requireAdmin, async (req: Request, res: Response)
   }
 });
 
-router.patch("/admin/api-keys/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/api-keys/:id", requirePermission("api_keys:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -161,7 +161,7 @@ router.patch("/admin/api-keys/:id", requireAdmin, async (req: Request, res: Resp
   }
 });
 
-router.post("/admin/api-keys/:id/revoke", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/api-keys/:id/revoke", requirePermission("api_keys:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

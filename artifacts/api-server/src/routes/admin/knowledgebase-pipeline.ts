@@ -4,7 +4,7 @@ import path from "path";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable } from "@workspace/db/schema";
 import { eq, count, and, sql } from "drizzle-orm";
-import { requireAdmin } from "../../middleware/auth.js";
+import { requirePermission } from "../../middleware/rbac.js";
 import { execSync } from "child_process";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
@@ -12,7 +12,7 @@ import AdmZip from "adm-zip";
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 const router = Router();
-router.use(requireAdmin);
+router.use(requirePermission("chat:manage"));
 
 function cleanTranscript(raw: string): string {
   let cleaned = raw;

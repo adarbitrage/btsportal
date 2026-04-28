@@ -1,26 +1,12 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, winsTable, winMilestonesTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
 
-async function requireAdmin(req: any, res: any): Promise<boolean> {
-  const userId = req.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
-  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
-  if (!user || user.role !== "admin") {
-    res.status(403).json({ error: "Admin access required" });
-    return false;
-  }
-  return true;
-}
 
-router.get("/admin/wins", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/wins", requirePermission("wins:view"), async (req, res): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const offset = (page - 1) * limit;
@@ -104,8 +90,7 @@ router.get("/admin/wins", async (req, res): Promise<void> => {
   });
 });
 
-router.patch("/admin/wins/:id/feature", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
+router.patch("/admin/wins/:id/feature", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const adminId = req.userId!;
   const winId = parseInt(req.params.id);
 
@@ -130,8 +115,7 @@ router.patch("/admin/wins/:id/feature", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-router.patch("/admin/wins/:id/verify", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
+router.patch("/admin/wins/:id/verify", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const winId = parseInt(req.params.id);
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
@@ -149,8 +133,7 @@ router.patch("/admin/wins/:id/verify", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-router.patch("/admin/wins/:id/hide", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
+router.patch("/admin/wins/:id/hide", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const winId = parseInt(req.params.id);
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
@@ -170,8 +153,7 @@ router.patch("/admin/wins/:id/hide", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-router.post("/admin/wins/:id/request-testimonial", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
+router.post("/admin/wins/:id/request-testimonial", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const winId = parseInt(req.params.id);
 
   const [win] = await db
@@ -210,8 +192,7 @@ router.post("/admin/wins/:id/request-testimonial", async (req, res): Promise<voi
   res.json(updated);
 });
 
-router.patch("/admin/wins/:id/approve-testimonial", async (req, res): Promise<void> => {
-  if (!(await requireAdmin(req, res))) return;
+router.patch("/admin/wins/:id/approve-testimonial", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const adminId = req.userId!;
   const winId = parseInt(req.params.id);
 

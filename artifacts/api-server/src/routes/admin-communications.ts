@@ -16,12 +16,12 @@ import {
   productsTable,
 } from "@workspace/db";
 import { eq, sql, desc, asc, and, or, ilike, count, gte, lte, inArray } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { CommunicationService } from "../lib/communication-service";
 
 const router = Router();
 
-router.get("/admin/communications/email-templates", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/communications/email-templates", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const templates = await db.select().from(emailTemplatesTable).orderBy(asc(emailTemplatesTable.name));
     res.json(templates);
@@ -31,7 +31,7 @@ router.get("/admin/communications/email-templates", requireAdmin, async (_req: R
   }
 });
 
-router.get("/admin/communications/email-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/email-templates/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -44,7 +44,7 @@ router.get("/admin/communications/email-templates/:id", requireAdmin, async (req
   }
 });
 
-router.post("/admin/communications/email-templates", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/email-templates", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const { slug, name, subject, htmlBody, textBody, category, fromName, variables } = req.body;
     if (!slug || !name || !subject || !htmlBody || !textBody) {
@@ -68,7 +68,7 @@ router.post("/admin/communications/email-templates", requireAdmin, async (req: R
   }
 });
 
-router.put("/admin/communications/email-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/communications/email-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -121,7 +121,7 @@ router.put("/admin/communications/email-templates/:id", requireAdmin, async (req
   }
 });
 
-router.delete("/admin/communications/email-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/communications/email-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -134,7 +134,7 @@ router.delete("/admin/communications/email-templates/:id", requireAdmin, async (
   }
 });
 
-router.get("/admin/communications/email-templates/:id/versions", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/email-templates/:id/versions", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -148,7 +148,7 @@ router.get("/admin/communications/email-templates/:id/versions", requireAdmin, a
   }
 });
 
-router.post("/admin/communications/email-templates/:id/restore/:versionId", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/email-templates/:id/restore/:versionId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const versionId = parseInt(req.params.versionId, 10);
@@ -175,7 +175,7 @@ router.post("/admin/communications/email-templates/:id/restore/:versionId", requ
   }
 });
 
-router.post("/admin/communications/email-templates/:id/preview", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/email-templates/:id/preview", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -217,7 +217,7 @@ router.post("/admin/communications/email-templates/:id/preview", requireAdmin, a
   }
 });
 
-router.get("/admin/communications/sms-templates", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/communications/sms-templates", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const templates = await db.select().from(smsTemplatesTable).orderBy(asc(smsTemplatesTable.name));
     res.json(templates);
@@ -227,7 +227,7 @@ router.get("/admin/communications/sms-templates", requireAdmin, async (_req: Req
   }
 });
 
-router.post("/admin/communications/sms-templates", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/sms-templates", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const { slug, name, body, variables } = req.body;
     if (!slug || !name || !body) {
@@ -248,7 +248,7 @@ router.post("/admin/communications/sms-templates", requireAdmin, async (req: Req
   }
 });
 
-router.put("/admin/communications/sms-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/communications/sms-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -269,7 +269,7 @@ router.put("/admin/communications/sms-templates/:id", requireAdmin, async (req: 
   }
 });
 
-router.delete("/admin/communications/sms-templates/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/communications/sms-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -282,7 +282,7 @@ router.delete("/admin/communications/sms-templates/:id", requireAdmin, async (re
   }
 });
 
-router.get("/admin/communications/sequences", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/communications/sequences", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const sequences = await db.select().from(sequencesTable).orderBy(desc(sequencesTable.createdAt));
 
@@ -305,7 +305,7 @@ router.get("/admin/communications/sequences", requireAdmin, async (_req: Request
   }
 });
 
-router.post("/admin/communications/sequences", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/sequences", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const { name, description, triggerEvent } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
@@ -319,7 +319,7 @@ router.post("/admin/communications/sequences", requireAdmin, async (req: Request
   }
 });
 
-router.get("/admin/communications/sequences/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/sequences/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -346,7 +346,7 @@ router.get("/admin/communications/sequences/:id", requireAdmin, async (req: Requ
   }
 });
 
-router.put("/admin/communications/sequences/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/communications/sequences/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -367,7 +367,7 @@ router.put("/admin/communications/sequences/:id", requireAdmin, async (req: Requ
   }
 });
 
-router.delete("/admin/communications/sequences/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/communications/sequences/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -380,7 +380,7 @@ router.delete("/admin/communications/sequences/:id", requireAdmin, async (req: R
   }
 });
 
-router.post("/admin/communications/sequences/:id/steps", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/sequences/:id/steps", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const sequenceId = parseInt(req.params.id, 10);
     if (isNaN(sequenceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -407,7 +407,7 @@ router.post("/admin/communications/sequences/:id/steps", requireAdmin, async (re
   }
 });
 
-router.put("/admin/communications/sequences/:id/steps/:stepId", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/communications/sequences/:id/steps/:stepId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const sequenceId = parseInt(req.params.id, 10);
     const stepId = parseInt(req.params.stepId, 10);
@@ -435,7 +435,7 @@ router.put("/admin/communications/sequences/:id/steps/:stepId", requireAdmin, as
   }
 });
 
-router.delete("/admin/communications/sequences/:id/steps/:stepId", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/communications/sequences/:id/steps/:stepId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const sequenceId = parseInt(req.params.id, 10);
     const stepId = parseInt(req.params.stepId, 10);
@@ -451,7 +451,7 @@ router.delete("/admin/communications/sequences/:id/steps/:stepId", requireAdmin,
   }
 });
 
-router.patch("/admin/communications/sequences/:id/steps/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/communications/sequences/:id/steps/reorder", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const { orders } = req.body;
     if (!Array.isArray(orders)) { res.status(400).json({ error: "orders must be an array" }); return; }
@@ -465,7 +465,7 @@ router.patch("/admin/communications/sequences/:id/steps/reorder", requireAdmin, 
   }
 });
 
-router.post("/admin/communications/sequences/:id/enroll", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/sequences/:id/enroll", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const sequenceId = parseInt(req.params.id, 10);
     if (isNaN(sequenceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -491,7 +491,7 @@ router.post("/admin/communications/sequences/:id/enroll", requireAdmin, async (r
   }
 });
 
-router.post("/admin/communications/sequences/:id/cancel-enrollment/:enrollmentId", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/sequences/:id/cancel-enrollment/:enrollmentId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const sequenceId = parseInt(req.params.id, 10);
     const enrollmentId = parseInt(req.params.enrollmentId, 10);
@@ -509,7 +509,7 @@ router.post("/admin/communications/sequences/:id/cancel-enrollment/:enrollmentId
   }
 });
 
-router.patch("/admin/communications/sequences/:id/pause", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/communications/sequences/:id/pause", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -522,7 +522,7 @@ router.patch("/admin/communications/sequences/:id/pause", requireAdmin, async (r
   }
 });
 
-router.patch("/admin/communications/sequences/:id/resume", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/communications/sequences/:id/resume", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -584,7 +584,7 @@ async function evaluateSegmentFilter(filter: Record<string, unknown>): Promise<a
   return await query;
 }
 
-router.get("/admin/communications/broadcasts", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/communications/broadcasts", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const broadcasts = await db.select().from(broadcastsTable).orderBy(desc(broadcastsTable.createdAt));
     res.json(broadcasts);
@@ -594,7 +594,7 @@ router.get("/admin/communications/broadcasts", requireAdmin, async (_req: Reques
   }
 });
 
-router.get("/admin/communications/broadcasts/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/broadcasts/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -607,7 +607,7 @@ router.get("/admin/communications/broadcasts/:id", requireAdmin, async (req: Req
   }
 });
 
-router.post("/admin/communications/broadcasts", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/broadcasts", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const { name, channel, templateId, subject, htmlBody, textBody, smsBody, segmentFilter, scheduledAt } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
@@ -628,7 +628,7 @@ router.post("/admin/communications/broadcasts", requireAdmin, async (req: Reques
   }
 });
 
-router.put("/admin/communications/broadcasts/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/communications/broadcasts/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -657,7 +657,7 @@ router.put("/admin/communications/broadcasts/:id", requireAdmin, async (req: Req
   }
 });
 
-router.delete("/admin/communications/broadcasts/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/communications/broadcasts/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -672,7 +672,7 @@ router.delete("/admin/communications/broadcasts/:id", requireAdmin, async (req: 
   }
 });
 
-router.post("/admin/communications/broadcasts/:id/preview", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/broadcasts/:id/preview", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -696,7 +696,7 @@ router.post("/admin/communications/broadcasts/:id/preview", requireAdmin, async 
   }
 });
 
-router.post("/admin/communications/broadcasts/:id/send", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/broadcasts/:id/send", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -811,7 +811,7 @@ router.post("/admin/communications/broadcasts/:id/send", requireAdmin, async (re
   }
 });
 
-router.post("/admin/communications/broadcasts/:id/duplicate", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/communications/broadcasts/:id/duplicate", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -838,7 +838,7 @@ router.post("/admin/communications/broadcasts/:id/duplicate", requireAdmin, asyn
   }
 });
 
-router.get("/admin/communications/log", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/log", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const { channel, status, templateSlug, startDate, endDate, search, page = "1", limit = "50" } = req.query;
     const pageNum = parseInt(page as string, 10);
@@ -886,7 +886,7 @@ router.get("/admin/communications/log", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.get("/admin/communications/log/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/log/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -907,7 +907,7 @@ router.get("/admin/communications/log/:id", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/admin/communications/member/:userId/history", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/member/:userId/history", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId, 10);
     if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
@@ -924,7 +924,7 @@ router.get("/admin/communications/member/:userId/history", requireAdmin, async (
   }
 });
 
-router.get("/admin/communications/bounces", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/communications/bounces", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const bounces = await db.select().from(emailBouncesTable).orderBy(desc(emailBouncesTable.bouncedAt));
     res.json(bounces);
@@ -934,7 +934,7 @@ router.get("/admin/communications/bounces", requireAdmin, async (_req: Request, 
   }
 });
 
-router.patch("/admin/communications/bounces/:id/unsuppress", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/communications/bounces/:id/unsuppress", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -947,7 +947,7 @@ router.patch("/admin/communications/bounces/:id/unsuppress", requireAdmin, async
   }
 });
 
-router.get("/admin/communications/analytics", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/communications/analytics", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
     const { period = "month" } = req.query;
 

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, toolsTable, toolCategoriesTable, toolUsageLogTable, usersTable, userProductsTable, productsTable } from "@workspace/db";
 import { eq, sql, asc, desc, and, gte, lt, count, countDistinct, or, isNull } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 interface CategoryCreateBody {
   name: string;
@@ -64,7 +64,7 @@ interface ToolUpdateBody {
 
 const router = Router();
 
-router.get("/admin/tool-categories", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tool-categories", requirePermission("apps:manage"), async (_req: Request, res: Response) => {
   try {
     const categories = await db.select().from(toolCategoriesTable).orderBy(asc(toolCategoriesTable.sortOrder));
     res.json(categories);
@@ -74,7 +74,7 @@ router.get("/admin/tool-categories", requireAdmin, async (_req: Request, res: Re
   }
 });
 
-router.post("/admin/tool-categories", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tool-categories", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const { name, slug, description, icon, sortOrder } = req.body as CategoryCreateBody;
     if (!name || !slug) {
@@ -101,7 +101,7 @@ router.post("/admin/tool-categories", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.put("/admin/tool-categories/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/tool-categories/:id", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -136,7 +136,7 @@ router.put("/admin/tool-categories/:id", requireAdmin, async (req: Request, res:
   }
 });
 
-router.delete("/admin/tool-categories/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/tool-categories/:id", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -163,7 +163,7 @@ router.delete("/admin/tool-categories/:id", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/admin/tools", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tools", requirePermission("apps:manage"), async (_req: Request, res: Response) => {
   try {
     const tools = await db
       .select({
@@ -202,7 +202,7 @@ router.get("/admin/tools", requireAdmin, async (_req: Request, res: Response) =>
   }
 });
 
-router.post("/admin/tools", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tools", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const body = req.body as ToolCreateBody;
 
@@ -243,7 +243,7 @@ router.post("/admin/tools", requireAdmin, async (req: Request, res: Response) =>
   }
 });
 
-router.put("/admin/tools/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/tools/:id", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -290,7 +290,7 @@ router.put("/admin/tools/:id", requireAdmin, async (req: Request, res: Response)
   }
 });
 
-router.delete("/admin/tools/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/tools/:id", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -316,7 +316,7 @@ router.delete("/admin/tools/:id", requireAdmin, async (req: Request, res: Respon
   }
 });
 
-router.patch("/admin/tools/:id/activate", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/tools/:id/activate", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -337,7 +337,7 @@ router.patch("/admin/tools/:id/activate", requireAdmin, async (req: Request, res
   }
 });
 
-router.patch("/admin/tools/:id/deactivate", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/tools/:id/deactivate", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -358,7 +358,7 @@ router.patch("/admin/tools/:id/deactivate", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/admin/tools/analytics", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tools/analytics", requirePermission("apps:manage"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -539,7 +539,7 @@ router.get("/admin/tools/analytics", requireAdmin, async (_req: Request, res: Re
   }
 });
 
-router.get("/admin/tools/:id/usage", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/tools/:id/usage", requirePermission("apps:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {

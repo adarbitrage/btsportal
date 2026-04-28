@@ -10,32 +10,12 @@ import {
   productsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, gte } from "drizzle-orm";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-function requireAdmin(req: Request, res: Response, next: Function) {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
 
-  db.select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, req.userId))
-    .limit(1)
-    .then(([user]) => {
-      if (!user || user.role !== "admin") {
-        res.status(403).json({ error: "Admin access required" });
-        return;
-      }
-      next();
-    })
-    .catch(() => {
-      res.status(500).json({ error: "Failed to verify admin status" });
-    });
-}
-
-router.get("/admin/community/categories", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/community/categories", requirePermission("community:view"), async (_req: Request, res: Response) => {
   try {
     const categories = await db
       .select()
@@ -47,7 +27,7 @@ router.get("/admin/community/categories", requireAdmin, async (_req: Request, re
   }
 });
 
-router.post("/admin/community/categories", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/community/categories", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const { name, slug, description, sortOrder, icon } = req.body;
     if (!name || !slug) {
@@ -81,7 +61,7 @@ router.post("/admin/community/categories", requireAdmin, async (req: Request, re
   }
 });
 
-router.patch("/admin/community/categories/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/community/categories/reorder", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const { order } = req.body;
     if (!Array.isArray(order)) {
@@ -107,7 +87,7 @@ router.patch("/admin/community/categories/reorder", requireAdmin, async (req: Re
   }
 });
 
-router.patch("/admin/community/categories/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/community/categories/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const { name, slug, description, sortOrder, isActive } = req.body;
@@ -153,7 +133,7 @@ router.patch("/admin/community/categories/:id", requireAdmin, async (req: Reques
   }
 });
 
-router.delete("/admin/community/categories/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/community/categories/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -174,7 +154,7 @@ router.delete("/admin/community/categories/:id", requireAdmin, async (req: Reque
   }
 });
 
-router.get("/admin/community/posts", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/community/posts", requirePermission("community:view"), async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
@@ -215,7 +195,7 @@ router.get("/admin/community/posts", requireAdmin, async (req: Request, res: Res
   }
 });
 
-router.patch("/admin/community/posts/:id/pin", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/community/posts/:id/pin", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const [post] = await db
@@ -240,7 +220,7 @@ router.patch("/admin/community/posts/:id/pin", requireAdmin, async (req: Request
   }
 });
 
-router.patch("/admin/community/posts/:id/feature", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/community/posts/:id/feature", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
     const [post] = await db
@@ -265,7 +245,7 @@ router.patch("/admin/community/posts/:id/feature", requireAdmin, async (req: Req
   }
 });
 
-router.delete("/admin/community/posts/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/community/posts/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -291,7 +271,7 @@ router.delete("/admin/community/posts/:id", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/admin/community/comments", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/community/comments", requirePermission("community:view"), async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
@@ -326,7 +306,7 @@ router.get("/admin/community/comments", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.delete("/admin/community/comments/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/community/comments/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -359,7 +339,7 @@ router.delete("/admin/community/comments/:id", requireAdmin, async (req: Request
   }
 });
 
-router.get("/admin/community/analytics", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/community/analytics", requirePermission("community:view"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());

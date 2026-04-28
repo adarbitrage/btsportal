@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { db, lessonsTable, lessonVersionsTable, progressTable } from "@workspace/db";
 import { eq, sql, asc, desc, count } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-router.get("/admin/modules/:moduleId/lessons", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/modules/:moduleId/lessons", requirePermission("content:view"), async (req: Request, res: Response) => {
   try {
     const moduleId = parseInt(req.params.moduleId as string, 10);
     if (isNaN(moduleId)) {
@@ -24,7 +24,7 @@ router.get("/admin/modules/:moduleId/lessons", requireAdmin, async (req: Request
   }
 });
 
-router.post("/admin/lessons", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { moduleId, title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, status } = req.body;
 
@@ -59,7 +59,7 @@ router.post("/admin/lessons", requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-router.put("/admin/lessons/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/lessons/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -98,7 +98,7 @@ router.put("/admin/lessons/:id", requireAdmin, async (req: Request, res: Respons
   }
 });
 
-router.patch("/admin/lessons/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/lessons/reorder", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { orders } = req.body;
     if (!Array.isArray(orders)) {
@@ -117,7 +117,7 @@ router.patch("/admin/lessons/reorder", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.post("/admin/lessons/:id/duplicate", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/:id/duplicate", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -161,7 +161,7 @@ router.post("/admin/lessons/:id/duplicate", requireAdmin, async (req: Request, r
   }
 });
 
-router.delete("/admin/lessons/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/lessons/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -185,7 +185,7 @@ router.delete("/admin/lessons/:id", requireAdmin, async (req: Request, res: Resp
   }
 });
 
-router.post("/admin/lessons/:id/publish", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/:id/publish", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -249,7 +249,7 @@ router.post("/admin/lessons/:id/publish", requireAdmin, async (req: Request, res
   }
 });
 
-router.get("/admin/lessons/:id/versions", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/lessons/:id/versions", requirePermission("content:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -269,7 +269,7 @@ router.get("/admin/lessons/:id/versions", requireAdmin, async (req: Request, res
   }
 });
 
-router.post("/admin/lessons/:id/restore/:versionId", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/:id/restore/:versionId", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     const versionId = parseInt(req.params.versionId as string, 10);

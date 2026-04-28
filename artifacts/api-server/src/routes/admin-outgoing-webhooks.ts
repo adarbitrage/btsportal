@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import { db, webhookSubscriptionsTable, webhookDeliveriesTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { retryDelivery } from "../lib/outgoing-webhook-queue";
 import { sendTestEvent, WEBHOOK_EVENT_TYPES } from "../lib/webhook-events";
 
@@ -22,11 +22,11 @@ function isUrlSafe(urlStr: string): boolean {
 
 const router = Router();
 
-router.get("/admin/outgoing-webhooks/event-types", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/outgoing-webhooks/event-types", requirePermission("settings:view"), async (_req: Request, res: Response) => {
   res.json({ eventTypes: WEBHOOK_EVENT_TYPES });
 });
 
-router.get("/admin/outgoing-webhooks", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/outgoing-webhooks", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
     const subscriptions = await db.select()
       .from(webhookSubscriptionsTable)
@@ -55,7 +55,7 @@ router.get("/admin/outgoing-webhooks", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.post("/admin/outgoing-webhooks", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/outgoing-webhooks", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const { name, targetUrl, eventTypes } = req.body;
 
@@ -97,7 +97,7 @@ router.post("/admin/outgoing-webhooks", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.get("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/outgoing-webhooks/:id", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -122,7 +122,7 @@ router.get("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request, re
   }
 });
 
-router.put("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/outgoing-webhooks/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -180,7 +180,7 @@ router.put("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request, re
   }
 });
 
-router.delete("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/outgoing-webhooks/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -204,7 +204,7 @@ router.delete("/admin/outgoing-webhooks/:id", requireAdmin, async (req: Request,
   }
 });
 
-router.post("/admin/outgoing-webhooks/:id/rotate-secret", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/outgoing-webhooks/:id/rotate-secret", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -231,7 +231,7 @@ router.post("/admin/outgoing-webhooks/:id/rotate-secret", requireAdmin, async (r
   }
 });
 
-router.post("/admin/outgoing-webhooks/:id/test", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/outgoing-webhooks/:id/test", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -252,7 +252,7 @@ router.post("/admin/outgoing-webhooks/:id/test", requireAdmin, async (req: Reque
   }
 });
 
-router.get("/admin/outgoing-webhooks/:id/deliveries", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/outgoing-webhooks/:id/deliveries", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -310,7 +310,7 @@ router.get("/admin/outgoing-webhooks/:id/deliveries", requireAdmin, async (req: 
   }
 });
 
-router.get("/admin/outgoing-webhook-deliveries", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/outgoing-webhook-deliveries", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
     const { status, eventType, startDate, endDate, subscriptionId, page = "1", limit = "50" } = req.query;
 
@@ -382,7 +382,7 @@ router.get("/admin/outgoing-webhook-deliveries", requireAdmin, async (req: Reque
   }
 });
 
-router.post("/admin/outgoing-webhook-deliveries/:id/retry", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/outgoing-webhook-deliveries/:id/retry", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {

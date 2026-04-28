@@ -12,32 +12,12 @@ import {
 import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
 import { emitWebhookEvent } from "../lib/webhook-events";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-function requireAdmin(req: Request, res: Response, next: Function) {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
 
-  db.select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, req.userId))
-    .limit(1)
-    .then(([user]) => {
-      if (!user || user.role !== "admin") {
-        res.status(403).json({ error: "Admin access required" });
-        return;
-      }
-      next();
-    })
-    .catch(() => {
-      res.status(500).json({ error: "Failed to verify admin status" });
-    });
-}
-
-router.get("/admin/canned-responses", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/canned-responses", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
@@ -62,7 +42,7 @@ router.get("/admin/canned-responses", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.post("/admin/canned-responses", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/canned-responses", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const { title, category, body, sortOrder } = req.body;
     if (!title || !body) {
@@ -83,7 +63,7 @@ router.post("/admin/canned-responses", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.put("/admin/canned-responses/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/canned-responses/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -114,7 +94,7 @@ router.put("/admin/canned-responses/:id", requireAdmin, async (req: Request, res
   }
 });
 
-router.delete("/admin/canned-responses/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/canned-responses/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -134,7 +114,7 @@ router.delete("/admin/canned-responses/:id", requireAdmin, async (req: Request, 
   }
 });
 
-router.get("/admin/ticket-routing", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/ticket-routing", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
   try {
     const rules = await db.select().from(ticketRoutingRulesTable).orderBy(asc(ticketRoutingRulesTable.sortOrder));
     res.json(rules);
@@ -143,7 +123,7 @@ router.get("/admin/ticket-routing", requireAdmin, async (_req: Request, res: Res
   }
 });
 
-router.post("/admin/ticket-routing", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/ticket-routing", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const { name, category, priority, tierSlug, assignToUserId, sortOrder, isActive } = req.body;
     if (!name) {
@@ -167,7 +147,7 @@ router.post("/admin/ticket-routing", requireAdmin, async (req: Request, res: Res
   }
 });
 
-router.put("/admin/ticket-routing/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/ticket-routing/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -201,7 +181,7 @@ router.put("/admin/ticket-routing/:id", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.delete("/admin/ticket-routing/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/ticket-routing/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -221,7 +201,7 @@ router.delete("/admin/ticket-routing/:id", requireAdmin, async (req: Request, re
   }
 });
 
-router.get("/admin/tickets/sla-dashboard", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tickets/sla-dashboard", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
   try {
     const allSlas = await db
       .select({
@@ -266,7 +246,7 @@ router.get("/admin/tickets/sla-dashboard", requireAdmin, async (_req: Request, r
   }
 });
 
-router.get("/admin/tickets/analytics", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tickets/analytics", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
   try {
     const totalTickets = await db.select({ count: sql<number>`count(*)` }).from(ticketsTable);
 
@@ -322,7 +302,7 @@ router.get("/admin/tickets/analytics", requireAdmin, async (_req: Request, res: 
   }
 });
 
-router.get("/admin/tickets/agent-performance", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tickets/agent-performance", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
   try {
     const agents = await db
       .select({
@@ -390,7 +370,7 @@ router.get("/admin/tickets/agent-performance", requireAdmin, async (_req: Reques
   }
 });
 
-router.get("/admin/tickets", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined;
     const category = req.query.category as string | undefined;
@@ -415,7 +395,7 @@ router.get("/admin/tickets", requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-router.post("/admin/tickets/merge", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tickets/merge", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const { primaryTicketId, ticketIds } = req.body;
 
@@ -473,7 +453,7 @@ router.post("/admin/tickets/merge", requireAdmin, async (req: Request, res: Resp
   }
 });
 
-router.get("/admin/tickets/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(req.params.id);
     if (isNaN(ticketId)) {
@@ -499,7 +479,7 @@ router.get("/admin/tickets/:id", requireAdmin, async (req: Request, res: Respons
   }
 });
 
-router.get("/admin/tickets/:id/sla", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/tickets/:id/sla", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(req.params.id);
     if (isNaN(ticketId)) {
@@ -529,7 +509,7 @@ router.get("/admin/tickets/:id/sla", requireAdmin, async (req: Request, res: Res
   }
 });
 
-router.post("/admin/tickets/:id/internal-note", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tickets/:id/internal-note", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(req.params.id);
     if (isNaN(ticketId)) {
@@ -562,7 +542,7 @@ router.post("/admin/tickets/:id/internal-note", requireAdmin, async (req: Reques
   }
 });
 
-router.post("/admin/tickets/:id/reply", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tickets/:id/reply", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(req.params.id);
     if (isNaN(ticketId)) {
@@ -603,7 +583,7 @@ router.post("/admin/tickets/:id/reply", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.put("/admin/tickets/:id/status", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(req.params.id);
     if (isNaN(ticketId)) {

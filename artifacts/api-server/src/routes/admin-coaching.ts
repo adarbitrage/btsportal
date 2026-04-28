@@ -9,7 +9,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, gte, lte, count } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { completeExpiredSessions, checkAndSendReminders } from "../lib/session-lifecycle";
 
 const router = Router();
@@ -23,7 +23,7 @@ function parseId(value: string | string[]): number | null {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
-router.get("/admin/coaching/coaches", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/coaching/coaches", requirePermission("coaching:view"), async (_req: Request, res: Response) => {
   try {
     const coaches = await db.select().from(coachesTable).orderBy(asc(coachesTable.name));
     res.json(coaches);
@@ -32,7 +32,7 @@ router.get("/admin/coaching/coaches", requireAdmin, async (_req: Request, res: R
   }
 });
 
-router.get("/admin/coaching/coaches/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/coaching/coaches/:id", requirePermission("coaching:view"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid coach ID" }); return; }
@@ -53,7 +53,7 @@ router.get("/admin/coaching/coaches/:id", requireAdmin, async (req: Request, res
   }
 });
 
-router.patch("/admin/coaching/coaches/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/coaching/coaches/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid coach ID" }); return; }
@@ -78,7 +78,7 @@ router.patch("/admin/coaching/coaches/:id", requireAdmin, async (req: Request, r
   }
 });
 
-router.post("/admin/coaching/availability", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/coaching/availability", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const { coachId, dayOfWeek, startTime, endTime, sessionDurationMinutes, bufferMinutes } = req.body;
     if (!coachId || dayOfWeek === undefined || !startTime || !endTime) {
@@ -106,7 +106,7 @@ router.post("/admin/coaching/availability", requireAdmin, async (req: Request, r
   }
 });
 
-router.patch("/admin/coaching/availability/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/coaching/availability/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid slot ID" }); return; }
@@ -132,7 +132,7 @@ router.patch("/admin/coaching/availability/:id", requireAdmin, async (req: Reque
   }
 });
 
-router.delete("/admin/coaching/availability/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/coaching/availability/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid slot ID" }); return; }
@@ -146,7 +146,7 @@ router.delete("/admin/coaching/availability/:id", requireAdmin, async (req: Requ
   }
 });
 
-router.post("/admin/coaching/overrides", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/coaching/overrides", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const { coachId, overrideDate, overrideType, startTime, endTime, reason } = req.body;
     if (!coachId || !overrideDate || !overrideType) {
@@ -169,7 +169,7 @@ router.post("/admin/coaching/overrides", requireAdmin, async (req: Request, res:
   }
 });
 
-router.patch("/admin/coaching/overrides/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/coaching/overrides/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid override ID" }); return; }
@@ -195,7 +195,7 @@ router.patch("/admin/coaching/overrides/:id", requireAdmin, async (req: Request,
   }
 });
 
-router.delete("/admin/coaching/overrides/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/coaching/overrides/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid override ID" }); return; }
@@ -209,7 +209,7 @@ router.delete("/admin/coaching/overrides/:id", requireAdmin, async (req: Request
   }
 });
 
-router.get("/admin/coaching/sessions", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/coaching/sessions", requirePermission("coaching:view"), async (req: Request, res: Response) => {
   try {
     const { status, coachId, memberId, dateFrom, dateTo, needsNotes, noShow } = req.query;
     const conditions: any[] = [];
@@ -274,7 +274,7 @@ router.get("/admin/coaching/sessions", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.get("/admin/coaching/sessions/:id", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/coaching/sessions/:id", requirePermission("coaching:view"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid session ID" }); return; }
@@ -315,7 +315,7 @@ router.get("/admin/coaching/sessions/:id", requireAdmin, async (req: Request, re
   }
 });
 
-router.patch("/admin/coaching/sessions/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/coaching/sessions/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid session ID" }); return; }
@@ -348,7 +348,7 @@ router.patch("/admin/coaching/sessions/:id", requireAdmin, async (req: Request, 
   }
 });
 
-router.post("/admin/coaching/sessions/:id/return-credit", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/coaching/sessions/:id/return-credit", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid session ID" }); return; }
@@ -372,7 +372,7 @@ router.post("/admin/coaching/sessions/:id/return-credit", requireAdmin, async (r
   }
 });
 
-router.post("/admin/coaching/run-nightly", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/coaching/run-nightly", requirePermission("coaching:manage"), async (_req: Request, res: Response) => {
   try {
     const completed = await completeExpiredSessions();
     const reminders = await checkAndSendReminders();
@@ -382,7 +382,7 @@ router.post("/admin/coaching/run-nightly", requireAdmin, async (_req: Request, r
   }
 });
 
-router.post("/admin/coaching/sessions/:id/action-items", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/coaching/sessions/:id/action-items", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const sessionId = parseId(req.params.id);
     if (!sessionId) { res.status(400).json({ error: "Invalid session ID" }); return; }
@@ -407,7 +407,7 @@ router.post("/admin/coaching/sessions/:id/action-items", requireAdmin, async (re
   }
 });
 
-router.patch("/admin/coaching/action-items/:id/complete", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/coaching/action-items/:id/complete", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid action item ID" }); return; }
@@ -422,7 +422,7 @@ router.patch("/admin/coaching/action-items/:id/complete", requireAdmin, async (r
   }
 });
 
-router.delete("/admin/coaching/action-items/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/coaching/action-items/:id", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid action item ID" }); return; }
@@ -436,7 +436,7 @@ router.delete("/admin/coaching/action-items/:id", requireAdmin, async (req: Requ
   }
 });
 
-router.get("/admin/coaching/analytics", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/coaching/analytics", requirePermission("coaching:view"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);

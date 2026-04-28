@@ -2,12 +2,12 @@ import { Router, type Request, type Response } from "express";
 import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
 import { eq, and, lt, lte, gte, isNotNull } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { CommunicationService } from "../lib/communication-service";
 
 const router = Router();
 
-router.post("/admin/run-expiration-check", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/run-expiration-check", requirePermission("settings:manage"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
     const thirtyDaysFromNow = new Date(now);

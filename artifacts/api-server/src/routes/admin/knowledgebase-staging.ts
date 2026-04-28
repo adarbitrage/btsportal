@@ -5,12 +5,12 @@ import { eq, desc, sql, count, and, ne } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { reloadKnowledgeBase } from "../openai/knowledge-base.js";
-import { requireAdmin } from "../../middleware/auth.js";
+import { requirePermission } from "../../middleware/rbac.js";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 const router = Router();
-router.use(requireAdmin);
+router.use(requirePermission("chat:manage"));
 
 router.get("/", async (req: Request, res: Response) => {
   try {

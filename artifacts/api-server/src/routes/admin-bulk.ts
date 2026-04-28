@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { db, tracksTable, modulesTable, lessonsTable, lessonVersionsTable } from "@workspace/db";
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-router.post("/admin/lessons/bulk-publish", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/bulk-publish", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { lessonIds } = req.body;
     if (!Array.isArray(lessonIds) || lessonIds.length === 0) {
@@ -50,7 +50,7 @@ router.post("/admin/lessons/bulk-publish", requireAdmin, async (req: Request, re
   }
 });
 
-router.post("/admin/lessons/bulk-move", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/bulk-move", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { lessonIds, targetModuleId } = req.body;
     if (!Array.isArray(lessonIds) || lessonIds.length === 0 || !targetModuleId) {
@@ -82,7 +82,7 @@ router.post("/admin/lessons/bulk-move", requireAdmin, async (req: Request, res: 
   }
 });
 
-router.get("/admin/content/export", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/content/export", requirePermission("content:view"), async (_req: Request, res: Response) => {
   try {
     const tracks = await db.select().from(tracksTable).orderBy(asc(tracksTable.sortOrder));
 
@@ -122,7 +122,7 @@ router.get("/admin/content/export", requireAdmin, async (_req: Request, res: Res
   }
 });
 
-router.post("/admin/content/import", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/content/import", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { tracks: importTracks } = req.body;
     if (!Array.isArray(importTracks)) {

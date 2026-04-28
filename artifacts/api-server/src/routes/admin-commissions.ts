@@ -6,35 +6,15 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, lte, asc, ne } from "drizzle-orm";
 import { emitWebhookEvent } from "../lib/webhook-events";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
 const PAYOUT_THRESHOLD = parseInt(process.env.PAYOUT_THRESHOLD_CENTS || "5000", 10);
 const APPROVAL_WINDOW_DAYS = parseInt(process.env.COMMISSION_APPROVAL_DAYS || "30", 10);
 
-async function requireAdmin(req: Request, res: Response): Promise<boolean> {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
 
-  const [user] = await db
-    .select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, req.userId))
-    .limit(1);
-
-  if (!user || user.role !== "admin") {
-    res.status(403).json({ error: "Admin access required" });
-    return false;
-  }
-
-  return true;
-}
-
-router.post("/admin/commissions/run-approval", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/run-approval", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const cutoff = new Date(Date.now() - APPROVAL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   const approved = await db.update(commissionsTable)
@@ -57,9 +37,7 @@ router.post("/admin/commissions/run-approval", async (req: Request, res: Respons
   res.json({ approved: approved.length, cutoffDate: cutoff.toISOString() });
 });
 
-router.post("/admin/commissions/generate-payouts", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/generate-payouts", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const affiliatesWithApproved = await db
     .select({
       affiliateId: commissionsTable.affiliateId,
@@ -106,9 +84,7 @@ router.post("/admin/commissions/generate-payouts", async (req: Request, res: Res
   res.json({ payoutsGenerated: payouts.length, payouts, threshold: PAYOUT_THRESHOLD });
 });
 
-router.get("/admin/commissions", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/commissions", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
   const offset = (page - 1) * limit;
@@ -157,9 +133,7 @@ router.get("/admin/commissions", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/admin/commissions/:id/approve", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/:id/approve", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const [commission] = await db.update(commissionsTable)
     .set({ status: "approved", approvedAt: new Date() })
@@ -181,9 +155,7 @@ router.post("/admin/commissions/:id/approve", async (req: Request, res: Response
   res.json({ commission });
 });
 
-router.post("/admin/commissions/:id/reject", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/:id/reject", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { reason } = req.body;
 
@@ -204,9 +176,7 @@ router.post("/admin/commissions/:id/reject", async (req: Request, res: Response)
   res.json({ commission });
 });
 
-router.post("/admin/commissions/:id/reverse", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/:id/reverse", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { reason } = req.body;
 
@@ -241,9 +211,7 @@ router.post("/admin/commissions/:id/reverse", async (req: Request, res: Response
   res.json({ commission: updated });
 });
 
-router.get("/admin/commissions/payouts", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/commissions/payouts", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const payouts = await db
     .select({
       id: commissionPayoutsTable.id,
@@ -267,9 +235,7 @@ router.get("/admin/commissions/payouts", async (req: Request, res: Response) => 
   res.json({ payouts });
 });
 
-router.post("/admin/commissions/payouts/:id/mark-paid", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/payouts/:id/mark-paid", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { paypalTransactionId, notes } = req.body;
 
@@ -309,9 +275,7 @@ router.post("/admin/commissions/payouts/:id/mark-paid", async (req: Request, res
   res.json({ payout });
 });
 
-router.get("/admin/affiliates", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/affiliates", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const affiliates = await db
     .select({
       id: affiliateProfilesTable.id,
@@ -340,9 +304,7 @@ router.get("/admin/affiliates", async (req: Request, res: Response) => {
   res.json({ affiliates });
 });
 
-router.patch("/admin/affiliates/:id", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.patch("/admin/affiliates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { status, tier, fraudFlag, fraudReason } = req.body;
   const updates: Record<string, unknown> = {};
@@ -370,9 +332,7 @@ router.patch("/admin/affiliates/:id", async (req: Request, res: Response) => {
   res.json({ affiliate: updated });
 });
 
-router.get("/admin/commissions/rates", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/commissions/rates", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const rates = await db
     .select({
       id: commissionRatesTable.id,
@@ -391,9 +351,7 @@ router.get("/admin/commissions/rates", async (req: Request, res: Response) => {
   res.json({ rates });
 });
 
-router.post("/admin/commissions/rates", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/rates", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const { tier, productId, ratePercent, flatBonus } = req.body;
   if (!tier || !productId || ratePercent === undefined) {
     res.status(400).json({ error: "tier, productId, and ratePercent are required" });
@@ -410,9 +368,7 @@ router.post("/admin/commissions/rates", async (req: Request, res: Response) => {
   res.json({ rate });
 });
 
-router.put("/admin/commissions/rates/:id", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.put("/admin/commissions/rates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { ratePercent, flatBonus } = req.body;
   const updates: Record<string, unknown> = {};
@@ -433,9 +389,7 @@ router.put("/admin/commissions/rates/:id", async (req: Request, res: Response) =
   res.json({ rate: updated });
 });
 
-router.delete("/admin/commissions/rates/:id", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.delete("/admin/commissions/rates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const [deleted] = await db.delete(commissionRatesTable)
     .where(eq(commissionRatesTable.id, id))
@@ -449,9 +403,7 @@ router.delete("/admin/commissions/rates/:id", async (req: Request, res: Response
   res.json({ deleted: true });
 });
 
-router.get("/admin/commissions/resources", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/commissions/resources", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const resources = await db
     .select()
     .from(affiliateResourcesTable)
@@ -460,9 +412,7 @@ router.get("/admin/commissions/resources", async (req: Request, res: Response) =
   res.json({ resources });
 });
 
-router.post("/admin/commissions/resources", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/commissions/resources", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const { type, title, description, content, fileUrl, thumbnailUrl, productSlug, sortOrder } = req.body;
   if (!type || !title) {
     res.status(400).json({ error: "type and title are required" });
@@ -477,9 +427,7 @@ router.post("/admin/commissions/resources", async (req: Request, res: Response) 
   res.json({ resource });
 });
 
-router.put("/admin/commissions/resources/:id", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.put("/admin/commissions/resources/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { type, title, description, content, fileUrl, thumbnailUrl, productSlug, sortOrder, status } = req.body;
   const updates: Record<string, unknown> = {};
@@ -507,9 +455,7 @@ router.put("/admin/commissions/resources/:id", async (req: Request, res: Respons
   res.json({ resource: updated });
 });
 
-router.delete("/admin/commissions/resources/:id", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.delete("/admin/commissions/resources/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const [deleted] = await db.delete(affiliateResourcesTable)
     .where(eq(affiliateResourcesTable.id, id))
@@ -523,9 +469,7 @@ router.delete("/admin/commissions/resources/:id", async (req: Request, res: Resp
   res.json({ deleted: true });
 });
 
-router.get("/admin/commissions/fraud-alerts", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/commissions/fraud-alerts", requirePermission("commissions:view"), async (req: Request, res: Response) => {
   const flaggedCommissions = await db
     .select({
       id: commissionsTable.id,

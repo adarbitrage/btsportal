@@ -3,32 +3,12 @@ import { db, usersTable, ghlSyncLogTable, ghlConfigTable } from "@workspace/db";
 import { eq, and, desc, sql, like, or, isNull, isNotNull } from "drizzle-orm";
 import { queueGHLSync, getQueueStatus, retryJob } from "../lib/ghl-queue";
 import * as ghlClient from "../lib/ghl-client";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-function requireAdmin(req: Request, res: Response, next: Function) {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
 
-  db.select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, req.userId))
-    .limit(1)
-    .then(([user]) => {
-      if (!user || user.role !== "admin") {
-        res.status(403).json({ error: "Admin access required" });
-        return;
-      }
-      next();
-    })
-    .catch(() => {
-      res.status(500).json({ error: "Failed to verify admin status" });
-    });
-}
-
-router.get("/admin/ghl/status", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/ghl/status", requirePermission("ghl:view"), async (_req: Request, res: Response) => {
   try {
     const queueStatus = await getQueueStatus();
     const configured = ghlClient.isConfigured();
@@ -69,7 +49,7 @@ router.get("/admin/ghl/status", requireAdmin, async (_req: Request, res: Respons
   }
 });
 
-router.get("/admin/ghl/log", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/ghl/log", requirePermission("ghl:view"), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -100,7 +80,7 @@ router.get("/admin/ghl/log", requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-router.get("/admin/ghl/recent-activity", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/ghl/recent-activity", requirePermission("ghl:view"), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
 
@@ -127,7 +107,7 @@ router.get("/admin/ghl/recent-activity", requireAdmin, async (req: Request, res:
   }
 });
 
-router.get("/admin/ghl/failed-jobs", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/ghl/failed-jobs", requirePermission("ghl:view"), async (_req: Request, res: Response) => {
   try {
     const failed = await db.select({
       id: ghlSyncLogTable.id,
@@ -154,7 +134,7 @@ router.get("/admin/ghl/failed-jobs", requireAdmin, async (_req: Request, res: Re
   }
 });
 
-router.post("/admin/ghl/retry/:jobId", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/ghl/retry/:jobId", requirePermission("ghl:manage"), async (req: Request, res: Response) => {
   try {
     const jobId = req.params.jobId as string;
     const success = await retryJob(jobId);
@@ -171,7 +151,7 @@ router.post("/admin/ghl/retry/:jobId", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.get("/admin/ghl/contacts", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/ghl/contacts", requirePermission("ghl:view"), async (req: Request, res: Response) => {
   try {
     const { search, filter, page = "1", limit = "25" } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
@@ -257,7 +237,7 @@ router.get("/admin/ghl/contacts", requireAdmin, async (req: Request, res: Respon
   }
 });
 
-router.post("/admin/ghl/sync/:userId", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/ghl/sync/:userId", requirePermission("ghl:manage"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId as string);
     const [user] = await db
@@ -291,7 +271,7 @@ router.post("/admin/ghl/sync/:userId", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.post("/admin/ghl/sync-member/:id", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/ghl/sync-member/:id", requirePermission("ghl:manage"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.id as string, 10);
     if (isNaN(userId)) {
@@ -329,7 +309,7 @@ router.post("/admin/ghl/sync-member/:id", requireAdmin, async (req: Request, res
   }
 });
 
-router.post("/admin/ghl/sync-all", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/ghl/sync-all", requirePermission("ghl:manage"), async (_req: Request, res: Response) => {
   try {
     const users = await db.select().from(usersTable);
     const jobIds: string[] = [];
@@ -357,7 +337,7 @@ router.post("/admin/ghl/sync-all", requireAdmin, async (_req: Request, res: Resp
   }
 });
 
-router.post("/admin/ghl/bulk-sync", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/ghl/bulk-sync", requirePermission("ghl:manage"), async (_req: Request, res: Response) => {
   try {
     const users = await db.select().from(usersTable);
 
@@ -390,7 +370,7 @@ router.post("/admin/ghl/bulk-sync", requireAdmin, async (_req: Request, res: Res
   }
 });
 
-router.get("/admin/ghl/config", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/ghl/config", requirePermission("ghl:view"), async (_req: Request, res: Response) => {
   try {
     const configs = await db.select().from(ghlConfigTable).orderBy(ghlConfigTable.configKey);
 
@@ -415,7 +395,7 @@ router.get("/admin/ghl/config", requireAdmin, async (_req: Request, res: Respons
   }
 });
 
-router.patch("/admin/ghl/config", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/ghl/config", requirePermission("ghl:manage"), async (req: Request, res: Response) => {
   try {
     const { configKey, configValue, description, enabled } = req.body;
 
@@ -459,7 +439,7 @@ router.patch("/admin/ghl/config", requireAdmin, async (req: Request, res: Respon
   }
 });
 
-router.put("/admin/ghl/config", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/ghl/config", requirePermission("ghl:manage"), async (req: Request, res: Response) => {
   try {
     const {
       apiKey,

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, revenueManualEntriesTable, memberHealthScoresTable } from "@workspace/db";
+import { db, revenueManualEntriesTable, memberHealthScoresTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { computeRevenueMetrics, getCachedMetrics, getMetricsTrend } from "../lib/revenue-metrics";
 import { computeCohortAnalysis } from "../lib/cohort-analysis";
@@ -8,29 +8,12 @@ import { computeChurnRisks, computeUpgradeCandidates } from "../lib/churn-upgrad
 import { computeFunnelPerformance, computeLTVAnalysis } from "../lib/funnel-performance";
 import { computeRevenueForecast } from "../lib/revenue-forecasting";
 import { triggerForceRecompute, getCachedPipelineResult } from "../lib/revenue-pipeline";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-async function requireAdmin(req: Request, res: Response): Promise<boolean> {
-  if (!req.userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
-  const [user] = await db
-    .select({ role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.id, req.userId))
-    .limit(1);
-  if (!user || user.role !== "admin") {
-    res.status(403).json({ error: "Admin access required" });
-    return false;
-  }
-  return true;
-}
 
-router.get("/admin/revenue/overview", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/overview", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const period = (req.query.period as string) || undefined;
     const cached = period ? await getCachedMetrics(period) : null;
@@ -43,9 +26,7 @@ router.get("/admin/revenue/overview", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/revenue/trend", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/trend", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const months = parseInt(req.query.months as string) || 12;
     const trend = await getMetricsTrend(months);
@@ -57,9 +38,7 @@ router.get("/admin/revenue/trend", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/revenue/cohorts", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/cohorts", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const dimension = (req.query.dimension as string) || "signup_month";
     const maxPeriods = parseInt(req.query.maxPeriods as string) || 12;
@@ -89,9 +68,7 @@ router.get("/admin/revenue/cohorts", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/revenue/health-scores", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/health-scores", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const distribution = await getHealthScoreDistribution();
 
@@ -116,9 +93,7 @@ router.get("/admin/revenue/health-scores", async (req: Request, res: Response) =
   }
 });
 
-router.get("/admin/revenue/health-scores/:userId", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/health-scores/:userId", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId as string);
     if (isNaN(userId)) {
@@ -147,9 +122,7 @@ router.get("/admin/revenue/health-scores/:userId", async (req: Request, res: Res
   }
 });
 
-router.get("/admin/revenue/churn-risks", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/churn-risks", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("churn_risks");
     if (cached && !req.query.fresh) {
@@ -165,9 +138,7 @@ router.get("/admin/revenue/churn-risks", async (req: Request, res: Response) => 
   }
 });
 
-router.get("/admin/revenue/upgrade-candidates", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/upgrade-candidates", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("upgrade_candidates");
     if (cached && !req.query.fresh) {
@@ -183,9 +154,7 @@ router.get("/admin/revenue/upgrade-candidates", async (req: Request, res: Respon
   }
 });
 
-router.get("/admin/revenue/funnels", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/funnels", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const cached = await getCachedPipelineResult<unknown>("funnel_performance");
     if (cached && !req.query.fresh) {
@@ -201,9 +170,7 @@ router.get("/admin/revenue/funnels", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/revenue/ltv", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/ltv", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const segmentBy = (req.query.segmentBy as string) || "first_product";
     const validSegments = ["first_product", "experience_level", "funnel_source"];
@@ -227,9 +194,7 @@ router.get("/admin/revenue/ltv", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/admin/revenue/forecast", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.get("/admin/revenue/forecast", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const months = parseInt(req.query.months as string) || 6;
 
@@ -248,9 +213,7 @@ router.get("/admin/revenue/forecast", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/admin/revenue/manual-entry", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/revenue/manual-entry", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const { metric, period, value, source, notes } = req.body;
 
@@ -294,9 +257,7 @@ router.post("/admin/revenue/manual-entry", async (req: Request, res: Response) =
   }
 });
 
-router.post("/admin/revenue/recompute", async (req: Request, res: Response) => {
-  if (!(await requireAdmin(req, res))) return;
-
+router.post("/admin/revenue/recompute", requirePermission("dashboard:view"), async (req: Request, res: Response) => {
   try {
     const result = await triggerForceRecompute();
     res.json(result);

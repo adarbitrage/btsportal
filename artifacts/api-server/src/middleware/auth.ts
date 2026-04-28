@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db, usersTable, apiKeysTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import { isAdminRole } from "./rbac";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
@@ -145,7 +146,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     .where(eq(usersTable.id, req.userId))
     .limit(1);
 
-  if (!user || user.role !== "admin") {
+  if (!user || !isAdminRole(user.role)) {
     sendError(res, 403, ErrorCodes.FORBIDDEN, "Admin access required");
     return;
   }

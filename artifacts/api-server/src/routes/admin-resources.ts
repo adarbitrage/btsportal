@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, lessonResourcesTable, lessonsTable } from "@workspace/db";
 import { eq, asc, sql } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { getUserEntitlements } from "../lib/entitlements";
 
@@ -18,7 +18,7 @@ const ALLOWED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-router.post("/admin/lessons/:lessonId/resources/upload-url", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/:lessonId/resources/upload-url", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId as string, 10);
     if (isNaN(lessonId)) {
@@ -59,7 +59,7 @@ router.post("/admin/lessons/:lessonId/resources/upload-url", requireAdmin, async
   }
 });
 
-router.post("/admin/lessons/:lessonId/resources", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/lessons/:lessonId/resources", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId as string, 10);
     if (isNaN(lessonId)) {
@@ -94,7 +94,7 @@ router.post("/admin/lessons/:lessonId/resources", requireAdmin, async (req: Requ
   }
 });
 
-router.get("/admin/lessons/:lessonId/resources", requireAdmin, async (req: Request, res: Response) => {
+router.get("/admin/lessons/:lessonId/resources", requirePermission("content:view"), async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId as string, 10);
     if (isNaN(lessonId)) {
@@ -114,7 +114,7 @@ router.get("/admin/lessons/:lessonId/resources", requireAdmin, async (req: Reque
   }
 });
 
-router.delete("/admin/resources/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/resources/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -135,7 +135,7 @@ router.delete("/admin/resources/:id", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.patch("/admin/lessons/:lessonId/resources/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/lessons/:lessonId/resources/reorder", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { orders } = req.body;
     if (!Array.isArray(orders)) {
@@ -154,7 +154,7 @@ router.patch("/admin/lessons/:lessonId/resources/reorder", requireAdmin, async (
   }
 });
 
-router.post("/admin/content/images/upload-url", requireAdmin, async (_req: Request, res: Response) => {
+router.post("/admin/content/images/upload-url", requirePermission("content:manage"), async (_req: Request, res: Response) => {
   try {
     const storageService = new ObjectStorageService();
     const uploadURL = await storageService.getObjectEntityUploadURL();

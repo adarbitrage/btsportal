@@ -11,11 +11,11 @@ import {
   ticketMessagesTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
 
-router.get("/admin/chat/analytics", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/chat/analytics", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -99,7 +99,7 @@ router.get("/admin/chat/analytics", requireAdmin, async (req, res): Promise<void
   });
 });
 
-router.get("/admin/chat/sessions", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/chat/sessions", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
   const offset = (page - 1) * limit;
@@ -228,7 +228,7 @@ router.get("/admin/chat/sessions", requireAdmin, async (req, res): Promise<void>
   });
 });
 
-router.get("/admin/chat/sessions/:sessionId", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/chat/sessions/:sessionId", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const sessionId = parseInt(req.params.sessionId);
   if (isNaN(sessionId)) {
     res.status(400).json({ error: "Invalid session ID" });
@@ -263,7 +263,7 @@ router.get("/admin/chat/sessions/:sessionId", requireAdmin, async (req, res): Pr
   res.json({ ...session, messages });
 });
 
-router.patch("/admin/chat/messages/:messageId/flag", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/admin/chat/messages/:messageId/flag", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const messageId = parseInt(req.params.messageId);
   if (isNaN(messageId)) {
     res.status(400).json({ error: "Invalid message ID" });
@@ -288,7 +288,7 @@ router.patch("/admin/chat/messages/:messageId/flag", requireAdmin, async (req, r
   res.json(updated);
 });
 
-router.patch("/admin/chat/messages/:messageId/notes", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/admin/chat/messages/:messageId/notes", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const messageId = parseInt(req.params.messageId);
   if (isNaN(messageId)) {
     res.status(400).json({ error: "Invalid message ID" });
@@ -312,7 +312,7 @@ router.patch("/admin/chat/messages/:messageId/notes", requireAdmin, async (req, 
   res.json(updated);
 });
 
-router.get("/admin/chat/system-prompts", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/admin/chat/system-prompts", requirePermission("chat:view"), async (_req, res): Promise<void> => {
   const prompts = await db
     .select()
     .from(chatSystemPromptsTable)
@@ -321,7 +321,7 @@ router.get("/admin/chat/system-prompts", requireAdmin, async (_req, res): Promis
   res.json(prompts);
 });
 
-router.post("/admin/chat/system-prompts", requireAdmin, async (req, res): Promise<void> => {
+router.post("/admin/chat/system-prompts", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const { name, content } = req.body as { name?: string; content?: string };
 
   if (!name || !content) {
@@ -343,7 +343,7 @@ router.post("/admin/chat/system-prompts", requireAdmin, async (req, res): Promis
   res.status(201).json(prompt);
 });
 
-router.patch("/admin/chat/system-prompts/:id/activate", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/admin/chat/system-prompts/:id/activate", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid prompt ID" });
@@ -368,7 +368,7 @@ router.patch("/admin/chat/system-prompts/:id/activate", requireAdmin, async (req
   res.json(updated);
 });
 
-router.post("/admin/chat/system-prompts/preview", requireAdmin, async (req, res): Promise<void> => {
+router.post("/admin/chat/system-prompts/preview", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const { content, testMessage } = req.body as { content?: string; testMessage?: string };
 
   if (!content || !testMessage) {
@@ -399,7 +399,7 @@ router.post("/admin/chat/system-prompts/preview", requireAdmin, async (req, res)
   }
 });
 
-router.get("/admin/chat/knowledgebase", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/chat/knowledgebase", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const category = req.query.category as string;
   const search = req.query.search as string;
 
@@ -429,7 +429,7 @@ router.get("/admin/chat/knowledgebase", requireAdmin, async (req, res): Promise<
   res.json(docsWithChunks);
 });
 
-router.post("/admin/chat/knowledgebase", requireAdmin, async (req, res): Promise<void> => {
+router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const { title, category, content } = req.body as { title?: string; category?: string; content?: string };
 
   if (!title || !content) {
@@ -445,7 +445,7 @@ router.post("/admin/chat/knowledgebase", requireAdmin, async (req, res): Promise
   res.status(201).json({ ...doc, chunkCount: Math.ceil(doc.content.length / 500) });
 });
 
-router.put("/admin/chat/knowledgebase/:id", requireAdmin, async (req, res): Promise<void> => {
+router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid document ID" });
@@ -478,7 +478,7 @@ router.put("/admin/chat/knowledgebase/:id", requireAdmin, async (req, res): Prom
   res.json({ ...updated, chunkCount: Math.ceil(updated.content.length / 500) });
 });
 
-router.delete("/admin/chat/knowledgebase/:id", requireAdmin, async (req, res): Promise<void> => {
+router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid document ID" });
@@ -496,7 +496,7 @@ router.delete("/admin/chat/knowledgebase/:id", requireAdmin, async (req, res): P
   res.json({ success: true });
 });
 
-router.get("/admin/chat/rate-limits", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/admin/chat/rate-limits", requirePermission("chat:view"), async (_req, res): Promise<void> => {
   const limits = await db
     .select()
     .from(chatRateLimitsTable)
@@ -505,7 +505,7 @@ router.get("/admin/chat/rate-limits", requireAdmin, async (_req, res): Promise<v
   res.json(limits);
 });
 
-router.put("/admin/chat/rate-limits", requireAdmin, async (req, res): Promise<void> => {
+router.put("/admin/chat/rate-limits", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const { limits } = req.body as { limits?: Array<{ tier: string; dailyLimit: number; maxOutputTokens: number }> };
 
   if (!limits || !Array.isArray(limits)) {

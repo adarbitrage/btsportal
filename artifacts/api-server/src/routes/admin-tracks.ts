@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { db, tracksTable, modulesTable, lessonsTable } from "@workspace/db";
 import { eq, sql, count, asc } from "drizzle-orm";
-import { requireAdmin } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
-router.get("/admin/tracks", requireAdmin, async (_req: Request, res: Response) => {
+router.get("/admin/tracks", requirePermission("content:view"), async (_req: Request, res: Response) => {
   try {
     const tracks = await db.select().from(tracksTable).orderBy(asc(tracksTable.sortOrder));
 
@@ -32,7 +32,7 @@ router.get("/admin/tracks", requireAdmin, async (_req: Request, res: Response) =
   }
 });
 
-router.post("/admin/tracks", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tracks", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { title, description, requiredEntitlement, status } = req.body;
 
@@ -60,7 +60,7 @@ router.post("/admin/tracks", requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-router.put("/admin/tracks/:id", requireAdmin, async (req: Request, res: Response) => {
+router.put("/admin/tracks/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -94,7 +94,7 @@ router.put("/admin/tracks/:id", requireAdmin, async (req: Request, res: Response
   }
 });
 
-router.patch("/admin/tracks/reorder", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/tracks/reorder", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const { orders } = req.body;
     if (!Array.isArray(orders)) {
@@ -114,7 +114,7 @@ router.patch("/admin/tracks/reorder", requireAdmin, async (req: Request, res: Re
   }
 });
 
-router.patch("/admin/tracks/:id/archive", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/tracks/:id/archive", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -139,7 +139,7 @@ router.patch("/admin/tracks/:id/archive", requireAdmin, async (req: Request, res
   }
 });
 
-router.patch("/admin/tracks/:id/unarchive", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/admin/tracks/:id/unarchive", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -164,7 +164,7 @@ router.patch("/admin/tracks/:id/unarchive", requireAdmin, async (req: Request, r
   }
 });
 
-router.post("/admin/tracks/:id/duplicate", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/tracks/:id/duplicate", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
