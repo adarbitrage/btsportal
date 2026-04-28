@@ -5,6 +5,7 @@ import {
   createStaffUser,
   disableStaffUserForLocation,
   findExistingStaffUser,
+  mintFlexyLoginUrl,
   reactivateStaffUserForLocation,
   generateRandomPassword,
   FLEXY_PORTAL_URL,
@@ -189,4 +190,47 @@ export function buildFlexyOpenUrl(opts: {
     return `${base}/v2/location/${encodeURIComponent(opts.providerLocationId)}/dashboard`;
   }
   return `${base}/`;
+}
+
+/**
+ * Resolve the URL to send the member to when they click "Open Flexy".
+ *
+ * For non-admin opens we first try to mint a one-time GHL login URL so the
+ * member lands inside the dashboard already authenticated. If that fails for
+ * any reason (endpoint changed, staff user not eligible, network blip) we
+ * fall back to the existing behavior — the white-label login page or, for
+ * admins, the location deep link — so the click never breaks.
+ */
+export async function resolveFlexyOpenUrl(opts: {
+  providerLocationId?: string | null;
+  providerStaffUserId?: string | null;
+  asAdmin?: boolean;
+}): Promise<string> {
+  const fallback = buildFlexyOpenUrl({
+    providerLocationId: opts.providerLocationId,
+    asAdmin: opts.asAdmin,
+  });
+
+  if (opts.asAdmin) {
+    // Admin "view as agency" deep link — keep behavior unchanged. Admins
+    // typically have an existing dashboard session and the deep link assumes
+    // that. Minting a member-scoped login URL would actually log them in as
+    // the member, which is not what the admin shortcut is for.
+    return fallback;
+  }
+
+  if (!opts.providerStaffUserId || !opts.providerLocationId) {
+    return fallback;
+  }
+
+  try {
+    const ssoUrl = await mintFlexyLoginUrl({
+      staffUserId: opts.providerStaffUserId,
+      locationId: opts.providerLocationId,
+    });
+    if (ssoUrl) return ssoUrl;
+  } catch (err) {
+    console.warn(`[Flexy] resolveFlexyOpenUrl: SSO mint threw, falling back:`, err);
+  }
+  return fallback;
 }

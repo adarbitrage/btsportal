@@ -549,6 +549,136 @@ export function locationExists(locationId: string): Promise<boolean> {
     .catch(() => false);
 }
 
+// ---------------------------------------------------------------------------
+// One-time SSO login URL minting
+// ---------------------------------------------------------------------------
+//
+// GHL's white-label SaaS dashboard supports a "log in as user" flow that
+// returns a one-time `loginUrl` the browser can be redirected to so the
+// member lands inside the dashboard already authenticated. The endpoint is
+// not part of the published Marketplace API docs — it's the same one GHL's
+// own agency UI calls when an admin clicks "View as user".
+//
+// Because the exact path is not contractually documented, we make this
+// configurable via `GHL_LOGIN_TOKEN_PATH`. Default uses the conventional
+// `/users/{userId}/login-token` path used by community integrations. Operators
+// can override without code changes if GHL exposes a different path.
+//
+// Returns `null` on any non-success response (404, 401, malformed body) so
+// callers can fall back to the existing login-page redirect rather than fail
+// the user's "Open" click outright.
+
+const LOGIN_TOKEN_PATH_TEMPLATE =
+  process.env.GHL_LOGIN_TOKEN_PATH ?? "/users/{userId}/login-token";
+
+interface MintLoginUrlOptions {
+  staffUserId: string;
+  locationId: string;
+}
+
+interface LoginTokenResponse {
+  loginUrl?: string;
+  url?: string;
+  redirectUrl?: string;
+  token?: string;
+  loginToken?: string;
+}
+
+function pickLoginUrl(data: LoginTokenResponse, locationId: string): string | null {
+  if (typeof data.loginUrl === "string" && data.loginUrl) return data.loginUrl;
+  if (typeof data.url === "string" && data.url) return data.url;
+  if (typeof data.redirectUrl === "string" && data.redirectUrl) return data.redirectUrl;
+  // Some variants return just a token; build the dashboard URL ourselves.
+  const token = (typeof data.token === "string" && data.token)
+    || (typeof data.loginToken === "string" && data.loginToken)
+    || null;
+  if (token) {
+    const base = FLEXY_PORTAL_URL.replace(/\/+$/, "");
+    return `${base}/v2/location/${encodeURIComponent(locationId)}/dashboard?token=${encodeURIComponent(token)}`;
+  }
+  return null;
+}
+
+export async function mintFlexyLoginUrl(
+  opts: MintLoginUrlOptions,
+): Promise<string | null> {
+  const { staffUserId, locationId } = opts;
+  if (!staffUserId) return null;
+
+  const { companyId } = decodeAgencyJwt();
+  const path = LOGIN_TOKEN_PATH_TEMPLATE.replace(
+    "{userId}",
+    encodeURIComponent(staffUserId),
+  );
+
+  let accessToken: string;
+  try {
+    accessToken = await resolveAccessToken("company");
+  } catch (err) {
+    console.warn(
+      `[GHLAgency] mintFlexyLoginUrl: cannot resolve company token, falling back to login page:`,
+      err,
+    );
+    return null;
+  }
+
+  const body: Record<string, unknown> = { companyId, locationId };
+  console.log(`[GHLAgency] Minting Flexy login URL via POST ${GHL_API_BASE}${path}`);
+  let result;
+  try {
+    result = await ghlAgencyRequestOnce<LoginTokenResponse>(
+      "POST",
+      path,
+      accessToken,
+      body,
+    );
+  } catch (err) {
+    console.warn(`[GHLAgency] mintFlexyLoginUrl network failure, falling back:`, err);
+    return null;
+  }
+
+  // Match the 401-eviction-and-retry behavior of `ghlAgencyRequest`: a
+  // server-side token invalidation shouldn't permanently suppress SSO until
+  // the cached token's TTL expires.
+  if (!result.ok && result.status === 401) {
+    console.warn(
+      `[GHLAgency] mintFlexyLoginUrl got 401; evicting cached company token and retrying once`,
+    );
+    tokenCache.delete("company");
+    try {
+      accessToken = await resolveAccessToken("company");
+      result = await ghlAgencyRequestOnce<LoginTokenResponse>(
+        "POST",
+        path,
+        accessToken,
+        body,
+      );
+    } catch (err) {
+      console.warn(`[GHLAgency] mintFlexyLoginUrl retry failed, falling back:`, err);
+      return null;
+    }
+  }
+
+  if (!result.ok) {
+    // Non-fatal: operator may have an outdated GHL_LOGIN_TOKEN_PATH or this
+    // staff user may not be eligible. Log at warn and let caller fall back.
+    console.warn(
+      `[GHLAgency] mintFlexyLoginUrl failed: HTTP ${result.status} — ${result.text}. Falling back to login page.`,
+    );
+    return null;
+  }
+
+  const url = pickLoginUrl(result.data ?? {}, locationId);
+  if (!url) {
+    console.warn(
+      `[GHLAgency] mintFlexyLoginUrl returned no usable URL/token: ${JSON.stringify(result.data)}. Falling back.`,
+    );
+    return null;
+  }
+  console.log(`[GHLAgency] Minted Flexy login URL for staff=${staffUserId} location=${locationId}`);
+  return url;
+}
+
 export function generateRandomPassword(): string {
   const charsets = [
     "ABCDEFGHJKLMNPQRSTUVWXYZ",

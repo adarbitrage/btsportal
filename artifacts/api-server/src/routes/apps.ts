@@ -16,7 +16,7 @@ import { getUserEntitlements } from "../lib/entitlements";
 import {
   provisionFlexyForUser,
   disableFlexyForUser,
-  buildFlexyOpenUrl,
+  resolveFlexyOpenUrl,
   revealFlexyCredentials,
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
@@ -708,8 +708,9 @@ router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
         .limit(1);
       asAdmin = !!u && isAdminRole(u.role);
     }
-    const url = buildFlexyOpenUrl({
+    const url = await resolveFlexyOpenUrl({
       providerLocationId: existing.providerLocationId,
+      providerStaffUserId: existing.providerStaffUserId,
       asAdmin,
     });
     res.json({ url });
