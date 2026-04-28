@@ -62,7 +62,7 @@ import { Button } from "@/components/ui/button";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
-import { hasPermission, isAdminRole, type AdminRole, type Permission } from "@/lib/permissions";
+import { ADMIN_ROLES, hasPermission, isAdminRole, type AdminRole, type Permission } from "@/lib/permissions";
 
 type LucideIcon = typeof LayoutDashboard;
 
@@ -553,8 +553,6 @@ function NavNodeRow({
     />
   );
 }
-
-const ADMIN_ROLES: AdminRole[] = ["super_admin", "admin", "support_agent", "content_manager"];
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location] = useLocation();
