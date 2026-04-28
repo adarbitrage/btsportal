@@ -553,23 +553,35 @@ export function locationExists(locationId: string): Promise<boolean> {
 // One-time SSO login URL minting
 // ---------------------------------------------------------------------------
 //
-// GHL's white-label SaaS dashboard supports a "log in as user" flow that
-// returns a one-time `loginUrl` the browser can be redirected to so the
-// member lands inside the dashboard already authenticated. The endpoint is
-// not part of the published Marketplace API docs — it's the same one GHL's
-// own agency UI calls when an admin clicks "View as user".
+// GHL's white-label SaaS dashboard has a "log in as user" feature in the
+// agency UI. We hoped to reuse that to drop members straight into Flexy
+// without showing the email/password screen.
 //
-// Because the exact path is not contractually documented, we make this
-// configurable via `GHL_LOGIN_TOKEN_PATH`. Default uses the conventional
-// `/users/{userId}/login-token` path used by community integrations. Operators
-// can override without code changes if GHL exposes a different path.
+// Verification (Apr 2026, see docs/flexy-sso-verification.md):
+//   - Probed every plausible path with a real installed staff user against
+//     the live Cherrington agency. All variants on
+//     `services.leadconnectorhq.com` (Marketplace API v2021-07-28),
+//     `services.msgsndr.com` (legacy app backend),
+//     `backend.leadconnectorhq.com`, and `rest.gohighlevel.com` (v1) returned
+//     404 or "switch to the new API token". The only adjacent endpoint that
+//     responded was `/oauth/locationToken`, which mints a *backend* API JWT
+//     for a sub-account — it is not a browser SSO link.
+//   - Conclusion: GHL does not expose a public "mint browser login URL"
+//     endpoint. Flexy's existing white-label login page is the only path.
 //
-// Returns `null` on any non-success response (404, 401, malformed body) so
-// callers can fall back to the existing login-page redirect rather than fail
-// the user's "Open" click outright.
+// The mint code is therefore *disabled by default*: with no override the
+// helper short-circuits and returns null without making any HTTP call, and
+// the caller falls back to the standard login-page redirect immediately.
+// We keep the env var hook (`GHL_LOGIN_TOKEN_PATH`) so that if GHL ever ships
+// a public endpoint, an operator can plug it in without a code change.
+//
+// To re-probe after a GHL API update, run:
+//   pnpm --filter @workspace/api-server exec tsx \
+//     src/scripts/probe-flexy-sso.ts
+//   pnpm --filter @workspace/api-server exec tsx \
+//     src/scripts/probe-flexy-sso2.ts
 
-const LOGIN_TOKEN_PATH_TEMPLATE =
-  process.env.GHL_LOGIN_TOKEN_PATH ?? "/users/{userId}/login-token";
+const LOGIN_TOKEN_PATH_TEMPLATE = process.env.GHL_LOGIN_TOKEN_PATH ?? "";
 
 interface MintLoginUrlOptions {
   staffUserId: string;
@@ -604,6 +616,12 @@ export async function mintFlexyLoginUrl(
 ): Promise<string | null> {
   const { staffUserId, locationId } = opts;
   if (!staffUserId) return null;
+
+  // No `GHL_LOGIN_TOKEN_PATH` configured → mint is disabled (default since
+  // the live probe confirmed no public GHL endpoint works). Skip the network
+  // call entirely so we don't waste a round-trip and emit a noisy warn on
+  // every "Open Flexy" click.
+  if (!LOGIN_TOKEN_PATH_TEMPLATE) return null;
 
   const { companyId } = decodeAgencyJwt();
   const path = LOGIN_TOKEN_PATH_TEMPLATE.replace(
