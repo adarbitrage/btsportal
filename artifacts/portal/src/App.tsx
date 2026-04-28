@@ -465,13 +465,13 @@ function Router() {
       <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} permission="members:view" />}</Route>
       <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} permission="system:view" />}</Route>
       <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} permission="settings:view" />}</Route>
-      <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} permission="dashboard:view" />}</Route>
-      <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="dashboard:view" />}</Route>
+      <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="revenue:view" />}</Route>
       <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>
       <Route component={NotFound} />
     </Switch>

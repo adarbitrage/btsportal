@@ -62,9 +62,9 @@ import { Button } from "@/components/ui/button";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
+import { hasPermission, isAdminRole, type AdminRole } from "@/lib/permissions";
 
 type LucideIcon = typeof LayoutDashboard;
-type AdminRole = "super_admin" | "admin" | "support_agent" | "content_manager";
 
 interface NavLeaf {
   kind: "leaf";
@@ -72,8 +72,8 @@ interface NavLeaf {
   label: string;
   icon: LucideIcon;
   requiredEntitlement?: string;
+  requiredPermission?: string;
   showNotificationBadge?: boolean;
-  visibleToRoles?: AdminRole[];
 }
 
 interface NavFolder {
@@ -83,7 +83,6 @@ interface NavFolder {
   icon: LucideIcon;
   defaultOpen?: boolean;
   children: NavNode[];
-  visibleToRoles?: AdminRole[];
 }
 
 type NavNode = NavLeaf | NavFolder;
@@ -171,21 +170,20 @@ const MEMBER_NAV: NavNode[] = [
 ];
 
 const ADMIN_CHILDREN: NavNode[] = [
-  { kind: "leaf", href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { kind: "leaf", href: "/admin/members", label: "Members", icon: Users },
-  { kind: "leaf", href: "/admin/settings", label: "Products & Entitlements", icon: Layers },
+  { kind: "leaf", href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, requiredPermission: "dashboard:view" },
+  { kind: "leaf", href: "/admin/members", label: "Members", icon: Users, requiredPermission: "members:view" },
+  { kind: "leaf", href: "/admin/settings", label: "Products & Entitlements", icon: Layers, requiredPermission: "settings:view" },
   {
     kind: "folder",
     storageKey: "admin-content",
     label: "Content",
     icon: FileEdit,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin", "content_manager"],
     children: [
-      { kind: "leaf", href: "/admin/content/tracks", label: "Training CMS", icon: GraduationCap },
-      { kind: "leaf", href: "/admin/resources", label: "Resource Vault", icon: FolderOpen },
-      { kind: "leaf", href: "/admin/collections", label: "Collections", icon: Layers },
-      { kind: "leaf", href: "/admin/vault/analytics", label: "Vault Analytics", icon: BarChart3 },
+      { kind: "leaf", href: "/admin/content/tracks", label: "Training CMS", icon: GraduationCap, requiredPermission: "content:manage" },
+      { kind: "leaf", href: "/admin/resources", label: "Resource Vault", icon: FolderOpen, requiredPermission: "vault:view" },
+      { kind: "leaf", href: "/admin/collections", label: "Collections", icon: Layers, requiredPermission: "vault:manage" },
+      { kind: "leaf", href: "/admin/vault/analytics", label: "Vault Analytics", icon: BarChart3, requiredPermission: "vault:view" },
     ],
   },
   {
@@ -194,13 +192,12 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Support",
     icon: LifeBuoy,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin", "support_agent"],
     children: [
-      { kind: "leaf", href: "/admin/tickets", label: "Ticket Queue", icon: Ticket },
-      { kind: "leaf", href: "/admin/routing-rules", label: "Routing Rules", icon: Network },
-      { kind: "leaf", href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquare },
-      { kind: "leaf", href: "/admin/agent-performance", label: "Agent Performance", icon: Users2 },
-      { kind: "leaf", href: "/admin/analytics", label: "Support Analytics", icon: PieChart },
+      { kind: "leaf", href: "/admin/tickets", label: "Ticket Queue", icon: Ticket, requiredPermission: "tickets:view" },
+      { kind: "leaf", href: "/admin/routing-rules", label: "Routing Rules", icon: Network, requiredPermission: "tickets:manage" },
+      { kind: "leaf", href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquare, requiredPermission: "tickets:manage" },
+      { kind: "leaf", href: "/admin/agent-performance", label: "Agent Performance", icon: Users2, requiredPermission: "tickets:view" },
+      { kind: "leaf", href: "/admin/analytics", label: "Support Analytics", icon: PieChart, requiredPermission: "tickets:view" },
     ],
   },
   {
@@ -209,11 +206,10 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Coaching",
     icon: Video,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin"],
     children: [
-      { kind: "leaf", href: "/admin/coaching/availability", label: "Call Schedules", icon: Activity },
-      { kind: "leaf", href: "/admin/coaching/sessions", label: "1-on-1 Sessions", icon: UserCheck },
-      { kind: "leaf", href: "/admin/coaching", label: "Coach Management", icon: Users2 },
+      { kind: "leaf", href: "/admin/coaching/availability", label: "Call Schedules", icon: Activity, requiredPermission: "coaching:manage" },
+      { kind: "leaf", href: "/admin/coaching/sessions", label: "1-on-1 Sessions", icon: UserCheck, requiredPermission: "coaching:view" },
+      { kind: "leaf", href: "/admin/coaching", label: "Coach Management", icon: Users2, requiredPermission: "coaching:view" },
     ],
   },
   {
@@ -222,11 +218,10 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Community",
     icon: Users,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin", "content_manager"],
     children: [
-      { kind: "leaf", href: "/admin/community/moderation", label: "Moderation Queue", icon: Eye },
-      { kind: "leaf", href: "/admin/community/categories", label: "Categories", icon: FolderOpen },
-      { kind: "leaf", href: "/admin/community/analytics", label: "Community Stats", icon: BarChart3 },
+      { kind: "leaf", href: "/admin/community/moderation", label: "Moderation Queue", icon: Eye, requiredPermission: "community:moderate" },
+      { kind: "leaf", href: "/admin/community/categories", label: "Categories", icon: FolderOpen, requiredPermission: "community:moderate" },
+      { kind: "leaf", href: "/admin/community/analytics", label: "Community Stats", icon: BarChart3, requiredPermission: "community:view" },
     ],
   },
   {
@@ -235,14 +230,13 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Commissions",
     icon: DollarSign,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin"],
     children: [
-      { kind: "leaf", href: "/admin/commissions", label: "Commission Overview", icon: DollarSign },
-      { kind: "leaf", href: "/admin/commissions/all", label: "All Commissions", icon: ScrollText },
-      { kind: "leaf", href: "/admin/commissions/payouts", label: "Payouts", icon: TrendingUp },
-      { kind: "leaf", href: "/admin/commissions/rates", label: "Rates", icon: BarChart3 },
-      { kind: "leaf", href: "/admin/commissions/affiliates", label: "Affiliates", icon: UserPlus },
-      { kind: "leaf", href: "/admin/commissions/fraud", label: "Fraud Alerts", icon: Shield },
+      { kind: "leaf", href: "/admin/commissions", label: "Commission Overview", icon: DollarSign, requiredPermission: "commissions:view" },
+      { kind: "leaf", href: "/admin/commissions/all", label: "All Commissions", icon: ScrollText, requiredPermission: "commissions:view" },
+      { kind: "leaf", href: "/admin/commissions/payouts", label: "Payouts", icon: TrendingUp, requiredPermission: "commissions:manage" },
+      { kind: "leaf", href: "/admin/commissions/rates", label: "Rates", icon: BarChart3, requiredPermission: "commissions:manage" },
+      { kind: "leaf", href: "/admin/commissions/affiliates", label: "Affiliates", icon: UserPlus, requiredPermission: "commissions:view" },
+      { kind: "leaf", href: "/admin/commissions/fraud", label: "Fraud Alerts", icon: Shield, requiredPermission: "commissions:view" },
     ],
   },
   {
@@ -251,14 +245,13 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Communications",
     icon: Mail,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin"],
     children: [
-      { kind: "leaf", href: "/admin/communications/templates", label: "Email Templates", icon: FileText },
-      { kind: "leaf", href: "/admin/communications/sms-templates", label: "SMS Templates", icon: MessageSquare },
-      { kind: "leaf", href: "/admin/communications/sequences", label: "Sequences", icon: Network },
-      { kind: "leaf", href: "/admin/communications/broadcasts", label: "Broadcasts", icon: Radio },
-      { kind: "leaf", href: "/admin/communications/log", label: "Log", icon: ScrollText },
-      { kind: "leaf", href: "/admin/communications/analytics", label: "Analytics", icon: BarChart3 },
+      { kind: "leaf", href: "/admin/communications/templates", label: "Email Templates", icon: FileText, requiredPermission: "communications:manage" },
+      { kind: "leaf", href: "/admin/communications/sms-templates", label: "SMS Templates", icon: MessageSquare, requiredPermission: "communications:manage" },
+      { kind: "leaf", href: "/admin/communications/sequences", label: "Sequences", icon: Network, requiredPermission: "communications:manage" },
+      { kind: "leaf", href: "/admin/communications/broadcasts", label: "Broadcasts", icon: Radio, requiredPermission: "communications:manage" },
+      { kind: "leaf", href: "/admin/communications/log", label: "Log", icon: ScrollText, requiredPermission: "communications:view" },
+      { kind: "leaf", href: "/admin/communications/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "communications:view" },
     ],
   },
   {
@@ -267,10 +260,9 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Knowledge Base",
     icon: Database,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin", "support_agent", "content_manager"],
     children: [
-      { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye },
-      { kind: "leaf", href: "/admin/chat/knowledgebase", label: "Live Documents", icon: Database },
+      { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/chat/knowledgebase", label: "Live Documents", icon: Database, requiredPermission: "chat:manage" },
     ],
   },
   {
@@ -279,10 +271,9 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Tools Management",
     icon: Hammer,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin"],
     children: [
-      { kind: "leaf", href: "/admin/tools", label: "Tool Registry", icon: Hammer },
-      { kind: "leaf", href: "/admin/tools/analytics", label: "Tool Analytics", icon: TrendingUp },
+      { kind: "leaf", href: "/admin/tools", label: "Tool Registry", icon: Hammer, requiredPermission: "apps:manage" },
+      { kind: "leaf", href: "/admin/tools/analytics", label: "Tool Analytics", icon: TrendingUp, requiredPermission: "apps:manage" },
     ],
   },
   {
@@ -291,18 +282,17 @@ const ADMIN_CHILDREN: NavNode[] = [
     label: "Integrations",
     icon: Activity,
     defaultOpen: false,
-    visibleToRoles: ["super_admin", "admin"],
     children: [
-      { kind: "leaf", href: "/admin/ghl", label: "GHL Sync", icon: Activity },
-      { kind: "leaf", href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users },
-      { kind: "leaf", href: "/admin/ghl/config", label: "GHL Config", icon: Settings },
-      { kind: "leaf", href: "/settings/api-keys", label: "API Keys", icon: Key },
+      { kind: "leaf", href: "/admin/ghl", label: "GHL Sync", icon: Activity, requiredPermission: "ghl:view" },
+      { kind: "leaf", href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users, requiredPermission: "ghl:view" },
+      { kind: "leaf", href: "/admin/ghl/config", label: "GHL Config", icon: Settings, requiredPermission: "ghl:manage" },
+      { kind: "leaf", href: "/settings/api-keys", label: "API Keys", icon: Key, requiredPermission: "api_keys:view" },
     ],
   },
-  { kind: "leaf", href: "/admin/wins", label: "Wins Curation", icon: Trophy, visibleToRoles: ["super_admin", "admin"] },
-  { kind: "leaf", href: "/admin/revenue", label: "Revenue Intelligence", icon: LineChart, visibleToRoles: ["super_admin", "admin"] },
-  { kind: "leaf", href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, visibleToRoles: ["super_admin", "admin"] },
-  { kind: "leaf", href: "/admin/system", label: "System Health", icon: Server, visibleToRoles: ["super_admin", "admin"] },
+  { kind: "leaf", href: "/admin/wins", label: "Wins Curation", icon: Trophy, requiredPermission: "wins:manage" },
+  { kind: "leaf", href: "/admin/revenue", label: "Revenue Intelligence", icon: LineChart, requiredPermission: "revenue:view" },
+  { kind: "leaf", href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, requiredPermission: "audit:view" },
+  { kind: "leaf", href: "/admin/system", label: "System Health", icon: Server, requiredPermission: "system:view" },
 ];
 
 const ADMIN_NAV_FOLDER: NavFolder = {
@@ -363,6 +353,26 @@ function allChildrenLocked(children: NavNode[], entitlements: Set<string>): bool
     if (!child.requiredEntitlement) return false;
     return !hasEntitlementCheck(child.requiredEntitlement, entitlements);
   });
+}
+
+function leafVisibleToRole(leaf: NavLeaf, role: string | undefined): boolean {
+  if (!leaf.requiredPermission) return true;
+  if (!isAdminRole(role)) return false;
+  return hasPermission(role, leaf.requiredPermission);
+}
+
+function filterNavByRole(nodes: NavNode[], role: string | undefined): NavNode[] {
+  const result: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") {
+      if (leafVisibleToRole(node, role)) result.push(node);
+      continue;
+    }
+    const filteredChildren = filterNavByRole(node.children, role);
+    if (filteredChildren.length === 0) continue;
+    result.push({ ...node, children: filteredChildren });
+  }
+  return result;
 }
 
 interface LeafRowProps {
@@ -508,7 +518,6 @@ interface NavNodeRowProps {
   indent?: number;
   isAdminNode?: boolean;
   onCollapseAdmin?: () => void;
-  userRole?: string;
 }
 
 function NavNodeRow({
@@ -519,12 +528,8 @@ function NavNodeRow({
   indent = 0,
   isAdminNode = false,
   onCollapseAdmin,
-  userRole,
 }: NavNodeRowProps) {
   if (node.kind === "leaf") {
-    if (node.visibleToRoles && userRole) {
-      if (!node.visibleToRoles.includes(userRole as AdminRole)) return null;
-    }
     return (
       <LeafRow
         leaf={node}
@@ -534,10 +539,6 @@ function NavNodeRow({
         indent={indent}
       />
     );
-  }
-
-  if (node.visibleToRoles && userRole) {
-    if (!node.visibleToRoles.includes(userRole as AdminRole)) return null;
   }
 
   return (
@@ -554,23 +555,6 @@ function NavNodeRow({
 }
 
 const ADMIN_ROLES: AdminRole[] = ["super_admin", "admin", "support_agent", "content_manager"];
-
-function filterAdminChildren(children: NavNode[], role: AdminRole): NavNode[] {
-  const supportOnly = ["super_admin", "admin"].includes(role)
-    ? null
-    : role === "support_agent"
-    ? ["admin-support", "admin-knowledge-base"]
-    : role === "content_manager"
-    ? ["admin-content", "admin-knowledge-base"]
-    : null;
-
-  if (!supportOnly) return children;
-
-  return children.filter((node) => {
-    if (node.kind === "folder") return supportOnly.includes(node.storageKey);
-    return false;
-  });
-}
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location] = useLocation();
@@ -605,13 +589,15 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const hasLifetime = highestSlug === "lifetime";
 
   const filteredAdminChildren = isAdminUser
-    ? filterAdminChildren(ADMIN_CHILDREN, userRole as AdminRole)
+    ? filterNavByRole(ADMIN_CHILDREN, userRole)
     : [];
 
   const adminFolder: NavFolder = {
     ...ADMIN_NAV_FOLDER,
     children: filteredAdminChildren,
   };
+
+  const showAdminSection = isAdminUser && filteredAdminChildren.length > 0;
 
   const collapseAdminFolder = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -647,11 +633,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             onNavClick={onNavClick}
             indent={0}
             isAdminNode={false}
-            userRole={userRole}
           />
         ))}
 
-        {isAdminUser && (
+        {showAdminSection && (
           <div className="mt-6 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2 px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <Shield className="w-3.5 h-3.5" />

@@ -30,6 +30,7 @@ export const PERMISSION_MATRIX: Record<string, AdminRole[]> = {
   "settings:view": ["super_admin", "admin"],
   "settings:manage": ["super_admin"],
   "system:view": ["super_admin", "admin"],
+  "revenue:view": ["super_admin", "admin"],
   "export:data": ["super_admin", "admin"],
   "ghl:view": ["super_admin", "admin"],
   "ghl:manage": ["super_admin", "admin"],
