@@ -387,6 +387,7 @@ export interface MemberProfile {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;
   highestProductName: string;
@@ -691,6 +692,7 @@ export interface PatchMemberProfileBody {
   experienceLevel?: string;
   primaryGoal?: string;
   smsOptIn?: boolean;
+  marketingOptIn?: boolean;
 }
 
 export interface PatchMemberProfileResponse {
@@ -704,6 +706,18 @@ export interface PatchMemberProfileResponse {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  marketingOptIn: boolean;
+}
+
+export interface ChangeMemberPasswordBody {
+  /** @minLength 1 */
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
+}
+
+export interface ChangeMemberPasswordResponse {
+  message: string;
 }
 
 export interface AdminTicket {
@@ -2458,13 +2472,6 @@ export type AdminImportContent201Imported = {
 
 export type AdminImportContent201 = {
   imported?: AdminImportContent201Imported;
-};
-
-export type LogToolUsageBodyMetadata = { [key: string]: unknown };
-
-export type LogToolUsageBody = {
-  action: string;
-  metadata?: LogToolUsageBodyMetadata;
 };
 
 export type LogToolUsage201 = {

@@ -1,11 +1,19 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { db, usersTable, sessionsTable } from "@workspace/db";
+import { eq, and, isNull } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
-import { GetCurrentMemberResponse, GetMemberProductsResponse, GetMemberEntitlementsResponse } from "@workspace/api-zod";
+import {
+  GetCurrentMemberResponse,
+  GetMemberProductsResponse,
+  GetMemberEntitlementsResponse,
+  ChangeMemberPasswordBody,
+  ChangeMemberPasswordResponse,
+} from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
+const BCRYPT_ROUNDS = 12;
 
 router.get("/members/me", async (req, res): Promise<void> => {
   const userId = req.userId!;
@@ -33,6 +41,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     experienceLevel: user.experienceLevel,
     primaryGoal: user.primaryGoal,
     smsOptIn: user.smsOptIn,
+    marketingOptIn: user.marketingOptIn,
     currentStreak: user.currentStreak,
     memberSince: user.memberSince.toISOString().split("T")[0],
     highestProductName: highest.name,
@@ -100,6 +109,56 @@ router.get("/members/me/entitlements", async (req, res): Promise<void> => {
     highestProductSlug: highest.slug,
     ticketLimit,
   }));
+});
+
+router.post("/members/me/password", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const parsed = ChangeMemberPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+
+  const { currentPassword, newPassword } = parsed.data;
+
+  if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    res.status(400).json({
+      error: "Password must be at least 8 characters with at least 1 letter and 1 number",
+    });
+    return;
+  }
+
+  if (currentPassword === newPassword) {
+    res.status(400).json({ error: "New password must be different from current password" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(400).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+
+  await db
+    .update(sessionsTable)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessionsTable.userId, userId), isNull(sessionsTable.revokedAt)));
+
+  res.json(
+    ChangeMemberPasswordResponse.parse({
+      message: "Password updated successfully. Other devices have been signed out.",
+    }),
+  );
 });
 
 export default router;

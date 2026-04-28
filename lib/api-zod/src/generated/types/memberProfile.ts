@@ -25,6 +25,7 @@ export interface MemberProfile {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;
   highestProductName: string;

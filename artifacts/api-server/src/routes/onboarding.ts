@@ -148,7 +148,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn } = parsed.data;
+  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, marketingOptIn } = parsed.data;
 
   const updateData: Record<string, any> = {};
   if (name !== undefined) updateData.name = name;
@@ -157,6 +157,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
   if (experienceLevel !== undefined) updateData.experienceLevel = experienceLevel;
   if (primaryGoal !== undefined) updateData.primaryGoal = primaryGoal;
   if (smsOptIn !== undefined) updateData.smsOptIn = smsOptIn;
+  if (marketingOptIn !== undefined) updateData.marketingOptIn = marketingOptIn;
 
   if (Object.keys(updateData).length === 0) {
     res.status(400).json({ error: "No fields to update" });
@@ -175,6 +176,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
       experienceLevel: updated.experienceLevel,
       primaryGoal: updated.primaryGoal,
       smsOptIn: updated.smsOptIn,
+      marketingOptIn: updated.marketingOptIn,
     })
   );
 });

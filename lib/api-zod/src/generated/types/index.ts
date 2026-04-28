@@ -127,6 +127,8 @@ export * from "./bookSessionRequest";
 export * from "./cancelSessionRequest";
 export * from "./cancelSessionResponse";
 export * from "./cannedResponse";
+export * from "./changeMemberPasswordBody";
+export * from "./changeMemberPasswordResponse";
 export * from "./chartDataPoint";
 export * from "./chatAnalytics";
 export * from "./chatAnalyticsMessages";

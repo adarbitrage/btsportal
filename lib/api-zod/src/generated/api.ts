@@ -30,6 +30,7 @@ export const GetCurrentMemberResponse = zod.object({
   experienceLevel: zod.string().nullish(),
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
+  marketingOptIn: zod.boolean(),
   currentStreak: zod.number(),
   memberSince: zod.string(),
   highestProductName: zod.string(),
@@ -114,6 +115,7 @@ export const PatchMemberProfileBody = zod.object({
   experienceLevel: zod.string().optional(),
   primaryGoal: zod.string().optional(),
   smsOptIn: zod.boolean().optional(),
+  marketingOptIn: zod.boolean().optional(),
 });
 
 export const PatchMemberProfileResponse = zod.object({
@@ -123,6 +125,22 @@ export const PatchMemberProfileResponse = zod.object({
   experienceLevel: zod.string().nullish(),
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
+  marketingOptIn: zod.boolean(),
+});
+
+/**
+ * @summary Change the current member's password
+ */
+
+export const changeMemberPasswordBodyNewPasswordMin = 8;
+
+export const ChangeMemberPasswordBody = zod.object({
+  currentPassword: zod.string().min(1),
+  newPassword: zod.string().min(changeMemberPasswordBodyNewPasswordMin),
+});
+
+export const ChangeMemberPasswordResponse = zod.object({
+  message: zod.string(),
 });
 
 /**

@@ -140,6 +140,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/PatchMemberProfileResponse"
 
+  /members/me/password:
+    post:
+      operationId: changeMemberPassword
+      tags: [members]
+      summary: Change the current member's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeMemberPasswordBody"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeMemberPasswordResponse"
+
   /documents:
     get:
       operationId: getLegalDocuments
@@ -5902,6 +5921,8 @@ components:
           type: ["string", "null"]
         smsOptIn:
           type: boolean
+        marketingOptIn:
+          type: boolean
         currentStreak:
           type: integer
         memberSince:
@@ -5920,7 +5941,7 @@ components:
             $ref: "#/components/schemas/OwnedProduct"
         ticketLimit:
           type: integer
-      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
 
     OwnedProduct:
       type: object
@@ -6407,6 +6428,8 @@ components:
           type: string
         smsOptIn:
           type: boolean
+        marketingOptIn:
+          type: boolean
 
     PatchMemberProfileResponse:
       type: object
@@ -6423,7 +6446,27 @@ components:
           type: ["string", "null"]
         smsOptIn:
           type: boolean
-      required: [name, smsOptIn]
+        marketingOptIn:
+          type: boolean
+      required: [name, smsOptIn, marketingOptIn]
+
+    ChangeMemberPasswordBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+      required: [currentPassword, newPassword]
+
+    ChangeMemberPasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
 
     AdminTicket:
       type: object

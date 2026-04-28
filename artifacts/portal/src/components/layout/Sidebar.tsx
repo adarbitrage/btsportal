@@ -54,6 +54,7 @@ import {
   Radio,
   BookMarked,
   Layers,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -166,6 +167,7 @@ const MEMBER_NAV: NavNode[] = [
   { kind: "leaf", href: "/wins", label: "Wins", icon: Trophy },
   { kind: "leaf", href: "/advantage", label: "BTS Advantage", icon: Wrench },
   { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
+  { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
 ];
 
 const ADMIN_CHILDREN: NavNode[] = [

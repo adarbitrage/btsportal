@@ -128,6 +128,8 @@ export type {
   CancelSessionRequest,
   CancelSessionResponse,
   CannedResponse,
+  ChangeMemberPasswordBody,
+  ChangeMemberPasswordResponse,
   ChartDataPoint,
   ChatAnalytics,
   ChatAnalyticsMessages,
