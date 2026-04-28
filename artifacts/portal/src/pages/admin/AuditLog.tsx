@@ -78,6 +78,8 @@ export default function AuditLog() {
                   <SelectItem value="revoke_product">Revoke Product</SelectItem>
                   <SelectItem value="impersonate_start">Impersonation</SelectItem>
                   <SelectItem value="update_setting">Setting Change</SelectItem>
+                  <SelectItem value="regenerate_password">Password regenerated</SelectItem>
+                  <SelectItem value="notify_password">Password notification sent</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.entityType} onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}>
@@ -88,6 +90,7 @@ export default function AuditLog() {
                   <SelectItem value="ticket">Ticket</SelectItem>
                   <SelectItem value="admin_note">Admin Note</SelectItem>
                   <SelectItem value="system_setting">System Setting</SelectItem>
+                  <SelectItem value="flexy_credentials">Flexy credentials</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
