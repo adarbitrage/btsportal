@@ -13,7 +13,28 @@ import {
 } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
-import { recordQueueFallback } from "./queue-fallback-tracker";
+import { recordQueueFallback, type QueueChannel } from "./queue-fallback-tracker";
+import { logAuditEvent } from "./audit-log";
+
+/**
+ * Persist a queue-fallback event to the audit log so admins can investigate
+ * after the fact (e.g. correlate a member's missing email with a Redis
+ * outage at the same time). Fire-and-forget — `logAuditEvent` already
+ * swallows DB errors so a failed audit write never breaks the send path.
+ */
+function recordQueueFallbackAudit(
+  channel: QueueChannel,
+  recipient: string,
+  reason: string,
+): void {
+  const channelLabel = channel === "email" ? "Email" : "SMS";
+  void logAuditEvent({
+    actionType: "queue_fallback",
+    entityType: "communication",
+    description: `${channelLabel} queue unavailable — direct-send fallback to ${recipient}`,
+    metadata: { channel, recipient, reason },
+  });
+}
 
 const QUEUE_ADD_TIMEOUT_MS = Number.parseInt(
   process.env.QUEUE_ADD_TIMEOUT_MS || "2000",
@@ -528,6 +549,7 @@ export const CommunicationService = {
     }
 
     recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
+    recordQueueFallbackAudit("email", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
     const direct = await sendEmailDirect(jobData);
     if (direct.success && looksSkippedDirectSend(direct.error)) {
@@ -575,6 +597,7 @@ export const CommunicationService = {
     }
 
     recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
+    recordQueueFallbackAudit("sms", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
     const direct = await sendSmsDirect(jobData);
     if (direct.success && looksSkippedDirectSend(direct.error)) {

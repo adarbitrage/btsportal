@@ -80,6 +80,7 @@ export default function AuditLog() {
                   <SelectItem value="update_setting">Setting Change</SelectItem>
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>
+                  <SelectItem value="queue_fallback">Queue fallback</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.entityType} onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}>
@@ -91,6 +92,7 @@ export default function AuditLog() {
                   <SelectItem value="admin_note">Admin Note</SelectItem>
                   <SelectItem value="system_setting">System Setting</SelectItem>
                   <SelectItem value="flexy_credentials">Flexy credentials</SelectItem>
+                  <SelectItem value="communication">Communication</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
@@ -130,11 +132,26 @@ export default function AuditLog() {
                           <div><span className="text-muted-foreground">IP Address:</span> {log.ipAddress || "N/A"}</div>
                           <div><span className="text-muted-foreground">User Agent:</span> <span className="truncate block max-w-md">{log.userAgent || "N/A"}</span></div>
                           <div><span className="text-muted-foreground">Actor ID:</span> {log.actorId || "N/A"}</div>
+                          {log.actionType === "queue_fallback" && (
+                            <>
+                              <div><span className="text-muted-foreground">Channel:</span> {log.metadata?.channel || "N/A"}</div>
+                              <div><span className="text-muted-foreground">Recipient:</span> {log.metadata?.recipient || "redacted"}</div>
+                              {log.metadata?.reason && (
+                                <div><span className="text-muted-foreground">Reason:</span> {log.metadata.reason}</div>
+                              )}
+                            </>
+                          )}
                         </div>
                         {log.changeDiff && (
                           <div className="mt-3">
                             <p className="text-xs text-muted-foreground mb-1">Changes:</p>
                             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.changeDiff, null, 2)}</pre>
+                          </div>
+                        )}
+                        {log.metadata && log.actionType !== "queue_fallback" && (
+                          <div className="mt-3">
+                            <p className="text-xs text-muted-foreground mb-1">Metadata:</p>
+                            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.metadata, null, 2)}</pre>
                           </div>
                         )}
                       </div>
