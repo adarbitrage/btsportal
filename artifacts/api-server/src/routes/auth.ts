@@ -336,7 +336,19 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   res.status(201).json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
 });
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+const LOGIN_LIMITS = {
+  perIp: { max: 20, windowSeconds: 15 * 60 },
+} as const;
+
+const loginIpLimiter = abuseRateLimit({
+  name: "login",
+  maxRequests: LOGIN_LIMITS.perIp.max,
+  windowSeconds: LOGIN_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("login"),
+  message: "Too many login attempts. Please try again later.",
+});
+
+router.post("/auth/login", loginIpLimiter, async (req, res): Promise<void> => {
   const { email, password } = req.body;
 
   if (!email || !password) {

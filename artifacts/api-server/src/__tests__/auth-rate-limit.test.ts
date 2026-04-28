@@ -275,3 +275,83 @@ describe("POST /api/auth/reset-password rate limiting", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("POST /api/auth/login rate limiting", () => {
+  it("allows up to 20 attempts per IP per window, then 429s the 21st", async () => {
+    // Vary email each request so the per-account 5-strike lockout never fires
+    // — we want to prove the per-IP cap kicks in across distinct accounts
+    // (i.e. credential stuffing).
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", "203.0.113.80")
+        .send({ email: `cs-${i}@example.test`, password: "WrongPass1!" });
+      // Invalid credentials path — expect 401, but the limiter ran first.
+      expect(res.status).toBe(401);
+    }
+
+    const blocked = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", "203.0.113.80")
+      .send({ email: "cs-21@example.test", password: "WrongPass1!" });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeDefined();
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    // Generic phrasing — must not reveal whether the email exists.
+    expect(blocked.body?.error?.message).not.toMatch(/exist/i);
+    expect(blocked.body?.error?.message).not.toMatch(/found/i);
+    expect(blocked.body?.error?.message).not.toMatch(/email/i);
+  });
+
+  it("isolates the login limit between distinct IPs", async () => {
+    for (let i = 0; i < 20; i++) {
+      await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", "203.0.113.90")
+        .send({ email: `iso-${i}@example.test`, password: "WrongPass1!" });
+    }
+
+    const ok = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", "203.0.113.91")
+      .send({ email: "iso-fresh@example.test", password: "WrongPass1!" });
+
+    // Different IP — rate limit shouldn't fire; falls through to 401.
+    expect(ok.status).toBe(401);
+  });
+
+  it("ignores forged X-Forwarded-For headers when trust proxy is not configured", async () => {
+    // Burn the per-IP budget on /login from the real socket.
+    for (let i = 0; i < 20; i++) {
+      await request(untrustedApp)
+        .post("/api/auth/login")
+        .send({ email: `spoof-${i}@example.test`, password: "WrongPass1!" });
+    }
+
+    // Attacker rotating X-Forwarded-For each request must NOT bypass the cap.
+    const blocked = await request(untrustedApp)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", "10.0.0.1")
+      .send({ email: "spoof-21@example.test", password: "WrongPass1!" });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+  });
+
+  it("does not share limits between login and forgot-password", async () => {
+    for (let i = 0; i < 20; i++) {
+      await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", "203.0.113.95")
+        .send({ email: `mix-${i}@example.test`, password: "WrongPass1!" });
+    }
+
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .set("X-Forwarded-For", "203.0.113.95")
+      .send({ email: "mix-fp@example.test" });
+
+    expect(res.status).toBe(200);
+  });
+});
