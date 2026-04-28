@@ -336,14 +336,20 @@ router.post("/auth/verify-email-change", async (req, res): Promise<void> => {
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(
-      and(
-        eq(usersTable.emailChangeToken, tokenHash),
-        gt(usersTable.emailChangeExpires, new Date()),
-      ),
-    );
+    .where(eq(usersTable.emailChangeToken, tokenHash));
 
   if (!user || !user.pendingEmail) {
+    res.status(400).json({ error: "Invalid or expired verification link" });
+    return;
+  }
+
+  if (!user.emailChangeExpires || user.emailChangeExpires <= new Date()) {
+    // Token is expired — clear the stale pending change so the member isn't
+    // stuck with a phantom pending email and can request a fresh change.
+    await db
+      .update(usersTable)
+      .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
+      .where(eq(usersTable.id, user.id));
     res.status(400).json({ error: "Invalid or expired verification link" });
     return;
   }

@@ -458,7 +458,7 @@ describe("POST /api/auth/verify-email-change", () => {
     expect(emitWebhookEventMock).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 400 when the token is expired and leaves the pending change in place", async () => {
+  it("returns 400 when the token is expired and clears the stale pending change", async () => {
     const user = await insertUser("verify-expired");
     const newEmail = `${TEST_TAG}-verify-expired-new@example.test`;
     const token = await seedPendingChange(
@@ -476,9 +476,11 @@ describe("POST /api/auth/verify-email-change", () => {
 
     const after = await getUser(user.id);
     expect(after.email).toBe(user.email);
-    // Expired token rows are NOT cleared by the verify route — they should
-    // remain so the cancel endpoint or a subsequent request can deal with them.
-    expect(after.pendingEmail).toBe(newEmail);
+    // Expired tokens should be cleared so the member isn't stuck with a
+    // phantom pending email and can request a fresh change immediately.
+    expect(after.pendingEmail).toBeNull();
+    expect(after.emailChangeToken).toBeNull();
+    expect(after.emailChangeExpires).toBeNull();
   });
 
   it("returns 400 and clears the pending change when another user has grabbed the email since the link was issued", async () => {
