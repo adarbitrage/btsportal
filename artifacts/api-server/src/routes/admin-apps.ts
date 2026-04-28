@@ -16,6 +16,7 @@ import {
   ensureFlexyPasswordResetTemplates,
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
+import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
 import { CommunicationService } from "../lib/communication-service";
 
 const router: IRouter = Router();
@@ -182,22 +183,7 @@ router.get(
         return;
       }
 
-      const [instance] = await db
-        .select({
-          status: memberAppInstancesTable.status,
-          providerStaffEmail: memberAppInstancesTable.providerStaffEmail,
-          providerLocationId: memberAppInstancesTable.providerLocationId,
-          providerStaffUserId: memberAppInstancesTable.providerStaffUserId,
-          updatedAt: memberAppInstancesTable.updatedAt,
-        })
-        .from(memberAppInstancesTable)
-        .where(
-          and(
-            eq(memberAppInstancesTable.userId, userId),
-            eq(memberAppInstancesTable.appName, "flexy"),
-          ),
-        )
-        .limit(1);
+      const instance = await findMemberAppInstance(userId, "flexy");
 
       res.json({
         member: {

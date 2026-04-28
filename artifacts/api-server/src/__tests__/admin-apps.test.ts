@@ -168,6 +168,51 @@ describe("GET /api/admin/apps/flexy/lookup/:userId", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/invalid user id/i);
   });
+
+  it("fails loudly with HTTP 500 if duplicate flexy rows exist for one member, instead of silently returning an arbitrary row", async () => {
+    // Seed an extra member who'll have two flexy rows. We deliberately
+    // bypass the (user_id, app_name) UNIQUE constraint so we can simulate
+    // the historical bug. The test restores the constraint and cleans up
+    // even if the assertion fails.
+    const dupMember = await insertUser("member", "dup");
+    try {
+      await db.execute(
+        sql`ALTER TABLE member_app_instances DROP CONSTRAINT member_app_instances_user_app_unique`,
+      );
+      try {
+        await db.insert(memberAppInstancesTable).values([
+          {
+            userId: dupMember.id,
+            appName: "flexy",
+            status: "not_installed",
+          },
+          {
+            userId: dupMember.id,
+            appName: "flexy",
+            status: "installed",
+            providerLocationId: "loc_dup_real",
+            providerStaffUserId: "staff_dup_real",
+            providerStaffEmail: `${TEST_TAG}-dup-real@example.test`,
+          },
+        ]);
+
+        const res = await request(app)
+          .get(`/api/admin/apps/flexy/lookup/${dupMember.id}`)
+          .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+        expect(res.status).toBe(500);
+        expect(res.body.error).toMatch(/failed to look up/i);
+      } finally {
+        await db
+          .delete(memberAppInstancesTable)
+          .where(eq(memberAppInstancesTable.userId, dupMember.id));
+      }
+    } finally {
+      await db.execute(
+        sql`ALTER TABLE member_app_instances ADD CONSTRAINT member_app_instances_user_app_unique UNIQUE (user_id, app_name)`,
+      );
+    }
+  });
 });
 
 describe("POST /api/admin/apps/flexy/regenerate-password/:userId", () => {

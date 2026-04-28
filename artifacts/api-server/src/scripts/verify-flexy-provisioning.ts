@@ -46,6 +46,7 @@ import {
   provisionFlexyForUser,
   revealFlexyCredentials,
 } from "../lib/flexy-provision";
+import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
 import {
   generateRandomPassword,
   getStaffUserPublic,
@@ -73,16 +74,7 @@ function step(title: string): void {
 }
 
 async function loadInstance(userId: number) {
-  const [row] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
-  return row ?? null;
+  return findMemberAppInstance(userId, "flexy");
 }
 
 async function loadUser(userId: number) {

@@ -11,6 +11,7 @@ import {
   generateRandomPassword,
   FLEXY_PORTAL_URL,
 } from "./ghl-agency-client";
+import { findMemberAppInstance } from "./member-app-instance-lookup";
 
 export const FLEXY_DOMAIN = (FLEXY_PORTAL_URL.replace(/^https?:\/\//, "")).replace(/\/+$/, "");
 
@@ -88,15 +89,7 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
     .limit(1);
   if (!user) throw new Error(`User ${userId} not found`);
 
-  const [existing] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
+  const existing = await findMemberAppInstance(userId, "flexy");
 
   let locationId = existing?.providerLocationId ?? null;
   let staffUserId = existing?.providerStaffUserId ?? null;
@@ -192,15 +185,7 @@ export async function provisionFlexyForUser(userId: number): Promise<FlexyInstal
  * — callers must NOT mark the local row as uninstalled if this throws.
  */
 export async function disableFlexyForUser(userId: number): Promise<void> {
-  const [row] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
+  const row = await findMemberAppInstance(userId, "flexy");
   if (!row) return;
   if (row.providerStaffUserId && row.providerLocationId) {
     await disableStaffUserForLocation(
@@ -216,15 +201,7 @@ export async function disableFlexyForUser(userId: number): Promise<void> {
 export async function revealFlexyCredentials(userId: number): Promise<{
   email: string;
 }> {
-  const [row] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
+  const row = await findMemberAppInstance(userId, "flexy");
   if (!row || row.status !== "installed" || !row.providerStaffEmail) {
     throw new Error("Flexy is not installed for this user");
   }
@@ -242,15 +219,7 @@ export async function regenerateFlexyPassword(userId: number): Promise<{
   email: string;
   newPassword: string;
 }> {
-  const [row] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, "flexy"),
-      ),
-    );
+  const row = await findMemberAppInstance(userId, "flexy");
   if (!row || row.status !== "installed" || !row.providerStaffUserId || !row.providerStaffEmail) {
     throw new Error("Flexy is not installed for this user");
   }

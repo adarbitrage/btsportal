@@ -20,6 +20,7 @@ import {
   revealFlexyCredentials,
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
+import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
 import { isAdminRole } from "../middleware/rbac";
 
 const isFlexy = (appName: string): boolean => appName === "flexy";
@@ -155,15 +156,7 @@ router.post("/apps/:appName/install", async (req, res): Promise<void> => {
 
   if (!(await requireActiveMember(userId, res))) return;
 
-  const [existing] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, appName),
-      ),
-    );
+  const existing = await findMemberAppInstance(userId, appName);
 
   if (existing && existing.status !== "not_installed") {
     res.status(409).json({ error: `App is already ${existing.status}` });
@@ -227,15 +220,7 @@ router.post("/apps/:appName/install", async (req, res): Promise<void> => {
       res.status(502).json({ error: "App could not be created" });
       return;
     }
-    const [updated] = await db
-      .select()
-      .from(memberAppInstancesTable)
-      .where(
-        and(
-          eq(memberAppInstancesTable.userId, userId),
-          eq(memberAppInstancesTable.appName, appName),
-        ),
-      );
+    const updated = await findMemberAppInstance(userId, appName);
     res.status(201).json(updated);
     return;
   }
@@ -340,15 +325,7 @@ router.post("/apps/:appName/install", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, appName),
-      ),
-    );
+  const updated = await findMemberAppInstance(userId, appName);
 
   res.status(201).json(updated);
 });
@@ -370,15 +347,7 @@ router.post("/apps/:appName/retry", async (req, res): Promise<void> => {
 
   if (!(await requireActiveMember(userId, res))) return;
 
-  const [existing] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, appName),
-      ),
-    );
+  const existing = await findMemberAppInstance(userId, appName);
 
   if (!existing) {
     res.status(404).json({ error: "App instance not found" });
@@ -536,15 +505,7 @@ router.delete("/apps/:appName", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existing] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, appName),
-      ),
-    );
+  const existing = await findMemberAppInstance(userId, appName);
 
   if (!existing || existing.status === "not_installed") {
     res.status(404).json({ error: "App instance not found" });
@@ -679,15 +640,7 @@ router.get("/apps/:appName/sso-redirect", async (req, res): Promise<void> => {
 
   if (!(await requireActiveMember(userId, res))) return;
 
-  const [existing] = await db
-    .select()
-    .from(memberAppInstancesTable)
-    .where(
-      and(
-        eq(memberAppInstancesTable.userId, userId),
-        eq(memberAppInstancesTable.appName, appName),
-      ),
-    );
+  const existing = await findMemberAppInstance(userId, appName);
 
   if (!existing || existing.status !== "installed" || !existing.domain) {
     res.status(409).json({ error: "App is not installed" });
