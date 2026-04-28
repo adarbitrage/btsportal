@@ -771,7 +771,11 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
 
-  lib/auth: {}
+  lib/auth:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@25.3.5)(lightningcss@1.31.1)
 
   lib/db:
     dependencies:
