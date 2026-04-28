@@ -254,3 +254,130 @@ describe("POST /api/admin/apps/flexy/regenerate-password/:userId", () => {
     expect(updateStaffUserPasswordMock).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/admin/apps/flexy/password-reset-history", () => {
+  let historyAdmin: SeededUser;
+  let historyOtherAdmin: SeededUser;
+  let historyMember: SeededUser;
+
+  beforeAll(async () => {
+    historyAdmin = await insertUser("super_admin", "history-admin");
+    historyOtherAdmin = await insertUser("super_admin", "history-other-admin");
+    historyMember = await insertUser("member", "history-member");
+
+    // Seed a regenerate event from historyAdmin
+    await db.insert(auditLogTable).values({
+      actorId: historyAdmin.id,
+      actorEmail: historyAdmin.email,
+      actionType: "regenerate_password",
+      entityType: "flexy_credentials",
+      entityId: String(historyMember.id),
+      description: `Regenerated Flexy password for member ${historyMember.email}`,
+      changeDiff: { memberId: historyMember.id, memberEmail: historyMember.email },
+    });
+
+    // Seed a notify event from historyOtherAdmin with channels payload
+    await db.insert(auditLogTable).values({
+      actorId: historyOtherAdmin.id,
+      actorEmail: historyOtherAdmin.email,
+      actionType: "notify_password",
+      entityType: "flexy_credentials",
+      entityId: String(historyMember.id),
+      description: `Sent new Flexy password to member ${historyMember.email} via email=sent`,
+      changeDiff: {
+        memberId: historyMember.id,
+        memberEmail: historyMember.email,
+        channels: {
+          email: { status: "sent" },
+          sms: { status: "skipped", reason: "no_phone_on_file" },
+        },
+      },
+    });
+
+    // Unrelated audit row that must NOT be returned
+    await db.insert(auditLogTable).values({
+      actorId: historyAdmin.id,
+      actorEmail: historyAdmin.email,
+      actionType: "update",
+      entityType: "user",
+      entityId: String(historyMember.id),
+      description: "Updated member profile",
+    });
+  });
+
+  it("returns flexy_credentials reset events for a specific member", async () => {
+    const res = await request(app)
+      .get(`/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`)
+      .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.events)).toBe(true);
+    const events = res.body.events as Array<{
+      actionType: string;
+      actorEmail: string | null;
+      memberId: number | null;
+      channels: unknown;
+    }>;
+
+    expect(events.length).toBe(2);
+    for (const event of events) {
+      expect(["regenerate_password", "notify_password"]).toContain(event.actionType);
+      expect(event.memberId).toBe(historyMember.id);
+    }
+
+    const notify = events.find((e) => e.actionType === "notify_password");
+    expect(notify).toBeDefined();
+    expect(notify!.channels).toEqual({
+      email: { status: "sent" },
+      sms: { status: "skipped", reason: "no_phone_on_file" },
+    });
+
+    // Plaintext password must never be exposed by this endpoint.
+    expect(JSON.stringify(res.body)).not.toContain("MockedPassw0rd");
+    expect(JSON.stringify(res.body)).not.toMatch(/"password"/i);
+  });
+
+  it("can be filtered by initiator email", async () => {
+    const res = await request(app)
+      .get(
+        `/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}&actorEmail=${encodeURIComponent(historyOtherAdmin.email)}`,
+      )
+      .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+    expect(res.status).toBe(200);
+    const events = res.body.events as Array<{ actorEmail: string | null; actionType: string }>;
+    expect(events.length).toBe(1);
+    expect(events[0].actionType).toBe("notify_password");
+    expect(events[0].actorEmail).toBe(historyOtherAdmin.email);
+  });
+
+  it("returns no events for a member who has never had a reset", async () => {
+    const res = await request(app)
+      .get(`/api/admin/apps/flexy/password-reset-history?userId=${memberUser.id}`)
+      .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+    expect(res.status).toBe(200);
+    expect(res.body.events).toEqual([]);
+  });
+
+  it("returns 400 for a malformed userId", async () => {
+    const res = await request(app)
+      .get(`/api/admin/apps/flexy/password-reset-history?userId=not-a-number`)
+      .set("Cookie", signCookie(adminUser.id, adminUser.email));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 401 without an auth cookie", async () => {
+    const res = await request(app).get(
+      `/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when called by a non-admin member", async () => {
+    const res = await request(app)
+      .get(`/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`)
+      .set("Cookie", signCookie(memberUser.id, memberUser.email));
+    expect(res.status).toBe(403);
+  });
+});

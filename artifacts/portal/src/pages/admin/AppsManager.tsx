@@ -18,10 +18,12 @@ import type { ComponentType } from "react";
 import {
   AppWindow,
   Copy,
+  History,
   KeyRound,
   Loader2,
   Mail,
   MessageSquare,
+  RefreshCw,
   Search,
   User as UserIcon,
 } from "lucide-react";
@@ -130,6 +132,42 @@ async function fetchFlexyLookup(userId: number): Promise<FlexyLookup> {
     throw new Error(body.error ?? "Failed to look up Flexy details");
   }
   return res.json();
+}
+
+type FlexyResetEvent = {
+  id: number;
+  createdAt: string | null;
+  actionType: "regenerate_password" | "notify_password" | string;
+  actorId: number | null;
+  actorEmail: string | null;
+  memberId: number | null;
+  memberEmail: string | null;
+  description: string;
+  channels: {
+    email?: { status: string; reason?: string };
+    sms?: { status: string; reason?: string };
+  } | null;
+};
+
+async function fetchFlexyResetHistory(params: {
+  userId?: number;
+  actorEmail?: string;
+  limit?: number;
+}): Promise<FlexyResetEvent[]> {
+  const qs = new URLSearchParams();
+  if (params.userId) qs.set("userId", String(params.userId));
+  if (params.actorEmail) qs.set("actorEmail", params.actorEmail);
+  if (params.limit) qs.set("limit", String(params.limit));
+  const res = await fetch(
+    `/api/admin/apps/flexy/password-reset-history?${qs.toString()}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Failed to load reset history");
+  }
+  const data = (await res.json()) as { events?: FlexyResetEvent[] };
+  return data.events ?? [];
 }
 
 async function regenerateFlexyPassword(
@@ -369,7 +407,14 @@ function FlexyLookupCard() {
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifySms, setNotifySms] = useState(false);
   const [lastNotifications, setLastNotifications] = useState<RegenerateResponse["notifications"] | null>(null);
+  const [history, setHistory] = useState<FlexyResetEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [actorFilter, setActorFilter] = useState("");
+  const [historyVersion, setHistoryVersion] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyRequestRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -420,6 +465,9 @@ function FlexyLookupCard() {
     setLastNotifications(null);
     setNotifyEmail(true);
     setNotifySms(false);
+    setHistory([]);
+    setHistoryError(null);
+    setActorFilter("");
     setLookupLoading(true);
     try {
       const result = await fetchFlexyLookup(member.id);
@@ -439,8 +487,42 @@ function FlexyLookupCard() {
     setLastNotifications(null);
     setNotifyEmail(true);
     setNotifySms(false);
+    setHistory([]);
+    setHistoryError(null);
+    setActorFilter("");
     setQuery("");
   };
+
+  useEffect(() => {
+    if (!selectedMember) return;
+    if (actorDebounceRef.current) clearTimeout(actorDebounceRef.current);
+    const memberId = selectedMember.id;
+    const filter = actorFilter.trim();
+    const requestId = ++historyRequestRef.current;
+    actorDebounceRef.current = setTimeout(async () => {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const events = await fetchFlexyResetHistory({
+          userId: memberId,
+          actorEmail: filter.length > 0 ? filter : undefined,
+          limit: 25,
+        });
+        if (historyRequestRef.current !== requestId) return;
+        setHistory(events);
+      } catch (err) {
+        if (historyRequestRef.current !== requestId) return;
+        setHistoryError(err instanceof Error ? err.message : "Failed to load history");
+      } finally {
+        if (historyRequestRef.current === requestId) {
+          setHistoryLoading(false);
+        }
+      }
+    }, 250);
+    return () => {
+      if (actorDebounceRef.current) clearTimeout(actorDebounceRef.current);
+    };
+  }, [selectedMember, actorFilter, historyVersion]);
 
   const handleRegenerate = async () => {
     if (!selectedMember) return;
@@ -455,6 +537,7 @@ function FlexyLookupCard() {
       });
       setNewPassword(result.newPassword);
       setLastNotifications(result.notifications);
+      setHistoryVersion((v) => v + 1);
 
       const sentParts: string[] = [];
       const failedParts: string[] = [];
@@ -729,6 +812,55 @@ function FlexyLookupCard() {
                     </p>
                   )}
                 </div>
+
+                <div className="space-y-2 border-t pt-3" data-testid="flexy-reset-history">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <History className="w-3.5 h-3.5" />
+                      Recent password resets for this member
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setHistoryVersion((v) => v + 1)}
+                      disabled={historyLoading}
+                      data-testid="button-refresh-flexy-history"
+                      aria-label="Refresh password reset history"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${historyLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      value={actorFilter}
+                      onChange={(e) => setActorFilter(e.target.value)}
+                      placeholder="Filter by initiator email..."
+                      className="pl-8 h-8 text-xs"
+                      data-testid="input-flexy-history-actor"
+                    />
+                  </div>
+                  {historyLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading history...
+                    </div>
+                  ) : historyError ? (
+                    <p className="text-xs text-red-700 py-2">{historyError}</p>
+                  ) : history.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">
+                      {actorFilter.trim().length > 0
+                        ? "No password reset events for this initiator."
+                        : "No password reset events recorded for this member yet."}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2" data-testid="list-flexy-history">
+                      {history.map((event) => (
+                        <FlexyResetHistoryItem key={event.id} event={event} />
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
@@ -765,5 +897,63 @@ function FlexyLookupCard() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+function channelStatusClass(status: string): string {
+  if (status === "sent") return "bg-green-50 text-green-700 border-green-200";
+  if (status === "skipped") return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-red-50 text-red-700 border-red-200";
+}
+
+function FlexyResetHistoryItem({ event }: { event: FlexyResetEvent }) {
+  const when = event.createdAt ? new Date(event.createdAt).toLocaleString() : "Unknown time";
+  const actor = event.actorEmail ?? (event.actorId ? `Admin #${event.actorId}` : "System");
+  const isNotify = event.actionType === "notify_password";
+  const channels = event.channels ?? {};
+  const channelEntries = (
+    [
+      ["email", channels.email, Mail],
+      ["sms", channels.sms, MessageSquare],
+    ] as const
+  ).filter(([, c]) => !!c);
+
+  return (
+    <li
+      className="rounded-md border bg-white px-3 py-2 text-xs space-y-1"
+      data-testid={`flexy-history-event-${event.id}`}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge
+          variant="outline"
+          className={
+            isNotify
+              ? "bg-blue-50 text-blue-700 border-blue-200 text-[10px]"
+              : "bg-purple-50 text-purple-700 border-purple-200 text-[10px]"
+          }
+        >
+          {isNotify ? "Notification sent" : "Password regenerated"}
+        </Badge>
+        <span className="text-muted-foreground">{when}</span>
+      </div>
+      <p className="text-muted-foreground">
+        Initiated by <span className="font-medium text-foreground">{actor}</span>
+      </p>
+      {isNotify && channelEntries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {channelEntries.map(([key, channel, Icon]) => (
+            <Badge
+              key={key}
+              variant="outline"
+              className={`text-[10px] ${channelStatusClass(channel!.status)}`}
+            >
+              <Icon className="w-3 h-3 mr-1" />
+              {key === "sms" ? "SMS" : "Email"}: {channel!.status}
+              {channel!.reason ? ` (${channel!.reason})` : ""}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </li>
   );
 }

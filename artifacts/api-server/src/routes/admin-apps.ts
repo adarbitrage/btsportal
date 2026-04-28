@@ -2,11 +2,12 @@ import { Router, type IRouter } from "express";
 import {
   db,
   appGlobalSettingsTable,
+  auditLogTable,
   memberAppInstancesTable,
   usersTable,
   APP_NAMES,
 } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
 import {
@@ -217,6 +218,132 @@ router.get(
     } catch (err) {
       console.error("[AdminApps] Flexy lookup failed:", err);
       res.status(500).json({ error: "Failed to look up Flexy credentials" });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Flexy password-reset history
+// ---------------------------------------------------------------------------
+//
+// Returns recent audit-log events for Flexy password resets so admins can see
+// who reset which member's password, when, and which channels were notified.
+// Plaintext passwords are NEVER stored in the audit log (and never returned
+// here) — we only surface metadata that was already written by the regenerate
+// and notify flows above.
+
+const FLEXY_RESET_ACTIONS = ["regenerate_password", "notify_password"] as const;
+
+interface FlexyResetEvent {
+  id: number;
+  createdAt: string | null;
+  actionType: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  memberId: number | null;
+  memberEmail: string | null;
+  description: string;
+  channels: {
+    email?: { status: string; reason?: string };
+    sms?: { status: string; reason?: string };
+  } | null;
+}
+
+router.get(
+  "/admin/apps/flexy/password-reset-history",
+  requirePermission("apps:support"),
+  async (req, res): Promise<void> => {
+    const userIdRaw = req.query.userId;
+    const actorEmailRaw = req.query.actorEmail;
+    const limitRaw = req.query.limit;
+
+    let userId: number | null = null;
+    if (typeof userIdRaw === "string" && userIdRaw.length > 0) {
+      userId = parseUserId(userIdRaw);
+      if (userId === null) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+      }
+    }
+
+    let actorEmail: string | null = null;
+    if (typeof actorEmailRaw === "string") {
+      const trimmed = actorEmailRaw.trim();
+      if (trimmed.length > 0) actorEmail = trimmed;
+    }
+
+    let limit = 25;
+    if (typeof limitRaw === "string" && limitRaw.length > 0) {
+      const parsed = Number.parseInt(limitRaw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        limit = Math.min(parsed, 100);
+      }
+    }
+
+    try {
+      const conditions = [
+        eq(auditLogTable.entityType, "flexy_credentials"),
+        inArray(
+          auditLogTable.actionType,
+          FLEXY_RESET_ACTIONS as unknown as string[],
+        ),
+      ];
+      if (userId !== null) {
+        conditions.push(eq(auditLogTable.entityId, String(userId)));
+      }
+      if (actorEmail) {
+        conditions.push(ilike(auditLogTable.actorEmail, `%${actorEmail}%`));
+      }
+
+      const rows = await db
+        .select({
+          id: auditLogTable.id,
+          createdAt: auditLogTable.createdAt,
+          actionType: auditLogTable.actionType,
+          actorId: auditLogTable.actorId,
+          actorEmail: auditLogTable.actorEmail,
+          entityId: auditLogTable.entityId,
+          description: auditLogTable.description,
+          changeDiff: auditLogTable.changeDiff,
+        })
+        .from(auditLogTable)
+        .where(and(...conditions))
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(limit);
+
+      const events: FlexyResetEvent[] = rows.map((row) => {
+        const diff = (row.changeDiff ?? {}) as Record<string, unknown>;
+        const memberEmail =
+          typeof diff.memberEmail === "string" ? diff.memberEmail : null;
+        const channels =
+          row.actionType === "notify_password" &&
+          diff.channels &&
+          typeof diff.channels === "object"
+            ? (diff.channels as FlexyResetEvent["channels"])
+            : null;
+
+        let memberId: number | null = null;
+        if (row.entityId && /^[1-9]\d*$/.test(row.entityId)) {
+          memberId = Number.parseInt(row.entityId, 10);
+        }
+
+        return {
+          id: row.id,
+          createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+          actionType: row.actionType,
+          actorId: row.actorId,
+          actorEmail: row.actorEmail,
+          memberId,
+          memberEmail,
+          description: row.description,
+          channels,
+        };
+      });
+
+      res.json({ events });
+    } catch (err) {
+      console.error("[AdminApps] Flexy password-reset history failed:", err);
+      res.status(500).json({ error: "Failed to load password reset history" });
     }
   },
 );
