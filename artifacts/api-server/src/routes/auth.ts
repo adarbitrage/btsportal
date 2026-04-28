@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable, sessionsTable, emailChangeHistoryTable } from "@workspace/db";
-import { eq, and, gt, isNull, desc } from "drizzle-orm";
+import { db, usersTable, sessionsTable, emailChangeHistoryTable, passwordResetAttemptsTable } from "@workspace/db";
+import { eq, and, gt, gte, isNull, desc, sql } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
-import { abuseRateLimit, ipKey, emailKey } from "../middleware/abuse-rate-limit";
+import { abuseRateLimit, ipKey } from "../middleware/abuse-rate-limit";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
@@ -49,6 +49,182 @@ async function wasEmailRecentlyChanged(email: string): Promise<boolean> {
     .orderBy(desc(emailChangeHistoryTable.changedAt))
     .limit(1);
   return Boolean(row);
+}
+
+// Per-identifier rate limits for the unauthenticated forgot-password endpoint.
+// We log one row per dimension (email + IP) for each accepted request and count
+// rows in the trailing windows to decide whether to accept the next attempt.
+// The cap survives Redis being offline because it's enforced via the database.
+const PASSWORD_RESET_EMAIL_HOURLY_LIMIT = 3;
+const PASSWORD_RESET_EMAIL_DAILY_LIMIT = 10;
+const PASSWORD_RESET_IP_HOURLY_LIMIT = 10;
+const PASSWORD_RESET_IP_DAILY_LIMIT = 30;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+// Namespace for pg_advisory_xact_lock(int4, int4) so password-reset locks
+// can never collide with advisory locks used elsewhere in the system.
+const PASSWORD_RESET_LOCK_NAMESPACE = 842318;
+
+function int32FromHexHash(hash: string): number {
+  // Take the first 4 bytes of the sha256 hex digest and reinterpret as a
+  // signed 32-bit integer for use as a Postgres advisory-lock key.
+  return Buffer.from(hash.slice(0, 8), "hex").readInt32BE(0);
+}
+
+function hashIdentifier(kind: "email" | "ip", value: string): string {
+  return crypto.createHash("sha256").update(`${kind}:${value}`).digest("hex");
+}
+
+/**
+ * Reserve a slot in the password-reset rate limit. Returns `true` if the
+ * caller is under both the per-email and per-IP caps and a row has been
+ * recorded; `false` if either cap was already reached. The whole check +
+ * insert runs in a single transaction guarded by per-identifier advisory
+ * locks (sorted to avoid deadlocks) so concurrent requests targeting the
+ * same email or IP cannot bypass the cap.
+ */
+async function reservePasswordResetSlot(
+  emailHash: string,
+  ipHash: string | null,
+): Promise<boolean> {
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - HOUR_MS);
+  const dayAgo = new Date(now.getTime() - DAY_MS);
+
+  const emailKey = int32FromHexHash(emailHash);
+  const ipKey = ipHash ? int32FromHexHash(ipHash) : null;
+  const lockKeys =
+    ipKey != null ? [emailKey, ipKey].sort((a, b) => a - b) : [emailKey];
+
+  return db.transaction(async (tx) => {
+    let lastKey: number | null = null;
+    for (const key of lockKeys) {
+      if (lastKey !== null && key === lastKey) continue;
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(${PASSWORD_RESET_LOCK_NAMESPACE}, ${key})`,
+      );
+      lastKey = key;
+    }
+
+    const [emailCounts] = await tx
+      .select({
+        hour: sql<number>`count(*) filter (where ${passwordResetAttemptsTable.createdAt} >= ${hourAgo})`.mapWith(Number),
+        day: sql<number>`count(*) filter (where ${passwordResetAttemptsTable.createdAt} >= ${dayAgo})`.mapWith(Number),
+      })
+      .from(passwordResetAttemptsTable)
+      .where(
+        and(
+          eq(passwordResetAttemptsTable.identifierType, "email"),
+          eq(passwordResetAttemptsTable.identifierHash, emailHash),
+          gte(passwordResetAttemptsTable.createdAt, dayAgo),
+        ),
+      );
+
+    if (
+      (emailCounts?.hour ?? 0) >= PASSWORD_RESET_EMAIL_HOURLY_LIMIT ||
+      (emailCounts?.day ?? 0) >= PASSWORD_RESET_EMAIL_DAILY_LIMIT
+    ) {
+      return false;
+    }
+
+    if (ipHash) {
+      const [ipCounts] = await tx
+        .select({
+          hour: sql<number>`count(*) filter (where ${passwordResetAttemptsTable.createdAt} >= ${hourAgo})`.mapWith(Number),
+          day: sql<number>`count(*) filter (where ${passwordResetAttemptsTable.createdAt} >= ${dayAgo})`.mapWith(Number),
+        })
+        .from(passwordResetAttemptsTable)
+        .where(
+          and(
+            eq(passwordResetAttemptsTable.identifierType, "ip"),
+            eq(passwordResetAttemptsTable.identifierHash, ipHash),
+            gte(passwordResetAttemptsTable.createdAt, dayAgo),
+          ),
+        );
+
+      if (
+        (ipCounts?.hour ?? 0) >= PASSWORD_RESET_IP_HOURLY_LIMIT ||
+        (ipCounts?.day ?? 0) >= PASSWORD_RESET_IP_DAILY_LIMIT
+      ) {
+        return false;
+      }
+    }
+
+    const rows: { identifierType: string; identifierHash: string }[] = [
+      { identifierType: "email", identifierHash: emailHash },
+    ];
+    if (ipHash) {
+      rows.push({ identifierType: "ip", identifierHash: ipHash });
+    }
+    await tx.insert(passwordResetAttemptsTable).values(rows);
+
+    return true;
+  });
+}
+
+/**
+ * Background worker for /auth/forgot-password. Enforces the per-email and
+ * per-IP rate limit, and (if allowed) generates a reset token and sends the
+ * password-reset email. Exported for tests so they can deterministically
+ * await the work that the route handler dispatches asynchronously.
+ */
+export async function processForgotPasswordRequest(
+  rawEmail: unknown,
+  rawIp: string | undefined,
+): Promise<void> {
+  if (typeof rawEmail !== "string" || rawEmail.length === 0) return;
+
+  const normalizedEmail = rawEmail.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const emailHash = hashIdentifier("email", normalizedEmail);
+  const ipHash =
+    rawIp && rawIp.length > 0 ? hashIdentifier("ip", rawIp) : null;
+
+  let allowed: boolean;
+  try {
+    allowed = await reservePasswordResetSlot(emailHash, ipHash);
+  } catch (err) {
+    console.error("[AUTH] Password-reset rate-limit check failed:", err);
+    return;
+  }
+
+  if (!allowed) {
+    console.log(
+      `[AUTH] Password reset request for ${normalizedEmail} suppressed by rate limit`,
+    );
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizedEmail));
+  if (!user) return;
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  await db
+    .update(usersTable)
+    .set({
+      resetToken: resetTokenHash,
+      resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
+    })
+    .where(eq(usersTable.id, user.id));
+
+  console.log(`[AUTH] Password reset token for ${normalizedEmail}: ${resetToken}`);
+  await CommunicationService.sendEmailNow({
+    templateSlug: "password_reset",
+    to: normalizedEmail,
+    variables: { member_name: user.name, reset_token: resetToken },
+    userId: user.id,
+  }).catch((err) =>
+    console.error("[AUTH] Failed to send password reset email:", err),
+  );
 }
 
 const router: IRouter = Router();
@@ -282,30 +458,13 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
-const FORGOT_PASSWORD_LIMITS = {
-  perIp: { max: 10, windowSeconds: 15 * 60 },
-  perEmail: { max: 5, windowSeconds: 15 * 60 },
-} as const;
-
+// IP-based, Redis-backed limiter for the /auth/reset-password endpoint
+// (brought in alongside Task #91). Forgot-password uses the DB-backed
+// `processForgotPasswordRequest` helper below instead, because that endpoint
+// must continue to rate-limit even when Redis is offline (Task #91 spec).
 const RESET_PASSWORD_LIMITS = {
   perIp: { max: 10, windowSeconds: 15 * 60 },
 } as const;
-
-const forgotPasswordIpLimiter = abuseRateLimit({
-  name: "forgot-password",
-  maxRequests: FORGOT_PASSWORD_LIMITS.perIp.max,
-  windowSeconds: FORGOT_PASSWORD_LIMITS.perIp.windowSeconds,
-  keyResolver: ipKey("forgot-password"),
-  message: "Too many password reset requests. Please try again later.",
-});
-
-const forgotPasswordEmailLimiter = abuseRateLimit({
-  name: "forgot-password",
-  maxRequests: FORGOT_PASSWORD_LIMITS.perEmail.max,
-  windowSeconds: FORGOT_PASSWORD_LIMITS.perEmail.windowSeconds,
-  keyResolver: emailKey("forgot-password", "email"),
-  message: "Too many password reset requests. Please try again later.",
-});
 
 const resetPasswordIpLimiter = abuseRateLimit({
   name: "reset-password",
@@ -315,34 +474,18 @@ const resetPasswordIpLimiter = abuseRateLimit({
   message: "Too many password reset attempts. Please try again later.",
 });
 
-router.post(
-  "/auth/forgot-password",
-  forgotPasswordIpLimiter,
-  forgotPasswordEmailLimiter,
-  async (req, res): Promise<void> => {
-  const { email } = req.body;
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  // Always return the same friendly response, regardless of whether the email
+  // exists or whether the request was throttled by the rate limit. This avoids
+  // leaking which addresses have an account and which are being rate-limited.
   res.json({ message: "If that email exists, we sent a reset link." });
 
-  if (!email) return;
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
-  if (!user) return;
-
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-  await db.update(usersTable).set({
-    resetToken: resetTokenHash,
-    resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
-  }).where(eq(usersTable.id, user.id));
-
-  console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
-  CommunicationService.sendEmailNow({
-    templateSlug: "password_reset",
-    to: email.toLowerCase(),
-    variables: { member_name: user.name, reset_token: resetToken },
-    userId: user.id,
-  });
+  // Fire-and-forget the actual work so the response timing is the same on
+  // every call. The rate-limit check is enforced inside the helper, backed by
+  // the `password_reset_attempts` table so it survives Redis being offline.
+  void processForgotPasswordRequest(req.body?.email, req.ip).catch((err) =>
+    console.error("[AUTH] Unexpected error processing forgot-password:", err),
+  );
 });
 
 router.post("/auth/reset-password", resetPasswordIpLimiter, async (req, res): Promise<void> => {
