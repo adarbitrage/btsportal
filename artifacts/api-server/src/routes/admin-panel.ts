@@ -186,8 +186,10 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
 
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, format = "csv" } = req.query;
+    const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
     const conditions: any[] = [];
+    if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
+    if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
     if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
     if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

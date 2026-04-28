@@ -35,7 +35,7 @@ export default function AuditLog() {
 
   const handleExport = async (fmt: string) => {
     try {
-      const res = await adminPanelApi.exportAuditLog(fmt);
+      const res = await adminPanelApi.exportAuditLog(fmt, filters);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

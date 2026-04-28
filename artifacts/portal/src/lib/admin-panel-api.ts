@@ -44,8 +44,14 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async exportAuditLog(format: string = "csv") {
-    const res = await authFetch(`/admin/audit-log/export?format=${format}`);
+  async exportAuditLog(format: string = "csv", filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string } = {}) {
+    const qs = new URLSearchParams();
+    qs.set("format", format);
+    if (filters.actionType) qs.set("actionType", filters.actionType);
+    if (filters.entityType) qs.set("entityType", filters.entityType);
+    if (filters.startDate) qs.set("startDate", filters.startDate);
+    if (filters.endDate) qs.set("endDate", filters.endDate);
+    const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to export audit log");
     return res;
   },
