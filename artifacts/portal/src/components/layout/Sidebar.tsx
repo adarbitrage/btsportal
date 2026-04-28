@@ -62,7 +62,7 @@ import { Button } from "@/components/ui/button";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
-import { hasPermission, isAdminRole, type AdminRole } from "@/lib/permissions";
+import { hasPermission, isAdminRole, type AdminRole, type Permission } from "@/lib/permissions";
 
 type LucideIcon = typeof LayoutDashboard;
 
@@ -72,7 +72,7 @@ interface NavLeaf {
   label: string;
   icon: LucideIcon;
   requiredEntitlement?: string;
-  requiredPermission?: string;
+  requiredPermission?: Permission;
   showNotificationBadge?: boolean;
 }
 

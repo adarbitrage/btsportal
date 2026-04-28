@@ -61,6 +61,7 @@
     "@tiptap/starter-kit": "^3.20.1",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/auth": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",

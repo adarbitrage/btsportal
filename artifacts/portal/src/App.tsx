@@ -125,7 +125,7 @@ import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
 import AccessDenied from "@/pages/AccessDenied";
 import Account from "@/pages/Account";
-import { hasPermission, isAdminRole } from "@/lib/permissions";
+import { hasPermission, isAdminRole, type Permission } from "@/lib/permissions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -289,7 +289,7 @@ function AdminRoute({
   permission,
 }: {
   component: React.ComponentType<any>;
-  permission?: string;
+  permission?: Permission;
 }) {
   const { user, loading } = useAuth();
   const { data: member, isLoading: memberLoading } = useGetCurrentMember();
