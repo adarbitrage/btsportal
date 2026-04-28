@@ -34,6 +34,14 @@ import adminVaultRouter from "../routes/admin-vault";
 import adminApiKeysRouter from "../routes/admin-api-keys";
 import adminAppsRouter from "../routes/admin-apps";
 import adminRevenueRouter from "../routes/admin-revenue";
+import adminBulkRouter from "../routes/admin-bulk";
+import adminToolsRouter from "../routes/admin-tools";
+import adminModulesRouter from "../routes/admin-modules";
+import adminLessonsRouter from "../routes/admin-lessons";
+import adminResourcesRouter from "../routes/admin-resources";
+import adminWebhooksRouter from "../routes/admin-webhooks";
+import adminOutgoingWebhooksRouter from "../routes/admin-outgoing-webhooks";
+import adminExpirationRouter from "../routes/admin-expiration";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
@@ -100,6 +108,14 @@ beforeAll(async () => {
     adminApiKeysRouter,
     adminAppsRouter,
     adminRevenueRouter,
+    adminBulkRouter,
+    adminToolsRouter,
+    adminModulesRouter,
+    adminLessonsRouter,
+    adminResourcesRouter,
+    adminWebhooksRouter,
+    adminOutgoingWebhooksRouter,
+    adminExpirationRouter,
   ]);
 
   for (const role of ADMIN_ROLES) {
@@ -260,6 +276,52 @@ function rbacCases(): RbacCase[] {
       resource: "revenue",
       permission: "revenue:view",
       buildPath: () => "/api/admin/revenue/overview",
+    },
+    // ----- Per-router coverage for admin-bulk / admin-modules / admin-lessons
+    // / admin-resources / admin-tools / admin-webhooks /
+    // admin-outgoing-webhooks. Each handler below is an independent endpoint
+    // gated by the same permission key as one of the existing cases above —
+    // these extra cases exist so that if a handler in one of those routers
+    // gets its permission swapped (e.g. content:manage -> content:view), the
+    // suite catches the drift instead of trusting that the representative
+    // case in the original router is enough.
+    {
+      resource: "bulk_export",
+      permission: "content:view",
+      buildPath: () => "/api/admin/content/export",
+    },
+    {
+      // Non-existent track id -> handler returns 200 with an empty array.
+      resource: "modules_view",
+      permission: "content:view",
+      buildPath: () => "/api/admin/tracks/9999999/modules",
+    },
+    {
+      // Non-existent module id -> handler returns 200 with an empty array.
+      resource: "lessons_view",
+      permission: "content:view",
+      buildPath: () => "/api/admin/modules/9999999/lessons",
+    },
+    {
+      // Non-existent lesson id -> handler returns 200 with an empty array.
+      resource: "resources_view",
+      permission: "content:view",
+      buildPath: () => "/api/admin/lessons/9999999/resources",
+    },
+    {
+      resource: "tool_categories_view",
+      permission: "apps:manage",
+      buildPath: () => "/api/admin/tool-categories",
+    },
+    {
+      resource: "webhook_logs",
+      permission: "system:view",
+      buildPath: () => "/api/admin/webhook-logs",
+    },
+    {
+      resource: "outgoing_webhooks_view",
+      permission: "settings:view",
+      buildPath: () => "/api/admin/outgoing-webhooks",
     },
   ];
 }
@@ -482,6 +544,84 @@ function rbacWriteCases(): RbacWriteCase[] {
       method: "post",
       // Non-existent member id -> 404 ("Member not found"). No token issued.
       buildPath: () => "/api/admin/impersonate/9999999",
+    },
+    // ----- Per-router coverage for admin-bulk / admin-modules / admin-lessons
+    // / admin-resources / admin-tools / admin-outgoing-webhooks /
+    // admin-webhooks / admin-expiration. Same rationale as the view-side
+    // additions: each handler is independently gated and a permission swap on
+    // any one of them must be caught by the suite. All of these (except
+    // run-expiration-check) short-circuit at validation with 400, so the
+    // permitted role's request never mutates data.
+    {
+      resource: "bulk_publish",
+      permission: "content:manage",
+      method: "post",
+      // Empty body -> 400 ("lessonIds must be a non-empty array").
+      buildPath: () => "/api/admin/lessons/bulk-publish",
+      body: {},
+    },
+    {
+      resource: "modules_create",
+      permission: "content:manage",
+      method: "post",
+      // Empty body -> 400 ("trackId, title, and description are required").
+      buildPath: () => "/api/admin/modules",
+      body: {},
+    },
+    {
+      resource: "lessons_create",
+      permission: "content:manage",
+      method: "post",
+      // Empty body -> 400 ("moduleId, title, and description are required").
+      buildPath: () => "/api/admin/lessons",
+      body: {},
+    },
+    {
+      resource: "resources_create",
+      permission: "content:manage",
+      method: "post",
+      // Empty body -> 400 ("fileName, fileUrl, and fileType are required")
+      // before the lesson lookup, so a bogus lessonId is fine.
+      buildPath: () => "/api/admin/lessons/9999999/resources",
+      body: {},
+    },
+    {
+      resource: "tool_categories_create",
+      permission: "apps:manage",
+      method: "post",
+      // Empty body -> 400 ("name and slug are required").
+      buildPath: () => "/api/admin/tool-categories",
+      body: {},
+    },
+    {
+      resource: "outgoing_webhooks_create",
+      permission: "settings:manage",
+      method: "post",
+      // Empty body -> 400 ("name is required").
+      buildPath: () => "/api/admin/outgoing-webhooks",
+      body: {},
+    },
+    {
+      resource: "product_mappings_update",
+      permission: "settings:manage",
+      method: "put",
+      // Empty body -> 400 ("thrivecartProductId is required") before the
+      // lookup, so a non-existent product id never gets touched.
+      buildPath: () => "/api/admin/product-mappings/9999999",
+      body: {},
+    },
+    {
+      // run-expiration-check has no validation early-out, so a permitted role
+      // (only super_admin holds settings:manage) will execute the handler.
+      // In the test database no user_products are owned by the seeded
+      // RBAC test users, so the body of the handler is effectively a no-op:
+      // the bulk UPDATEs match nothing tied to seeded users, and the GHL/
+      // email queues degrade gracefully when their backends are unavailable.
+      // What we're asserting is purely the permission gate.
+      resource: "expiration_run",
+      permission: "settings:manage",
+      method: "post",
+      buildPath: () => "/api/admin/run-expiration-check",
     },
   ];
 }
