@@ -112,11 +112,15 @@ describe("GET /api/admin/apps/flexy/lookup/:userId", () => {
       .set("Cookie", signCookie(adminUser.id, adminUser.email));
 
     expect(res.status).toBe(200);
-    expect(res.body.member).toEqual({
-      id: installedMember.id,
-      name: installedMember.name,
-      email: installedMember.email,
-    });
+    expect(res.body.member).toEqual(
+      expect.objectContaining({
+        id: installedMember.id,
+        name: installedMember.name,
+        email: installedMember.email,
+        hasPhone: false,
+        smsOptIn: false,
+      }),
+    );
     expect(res.body.flexy.status).toBe("installed");
     expect(res.body.flexy.email).toBe(`${TEST_TAG}-flexy-staff@example.test`);
     expect(res.body.flexy.locationId).toBe("loc_test_123");
