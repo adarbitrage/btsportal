@@ -1,0 +1,94 @@
+Paste this into Replit:
+
+---
+
+The admin sidebar has too many top-level navigation items. Restructure the admin navigation into a collapsible folder system. Here's the target structure:
+
+**Member-facing nav (always visible based on entitlements):**
+```
+Dashboard
+Training
+Software & Tools          (if software:base)
+Coaching Calls            (if coaching:group)
+1-on-1 Coaching           (if coaching:one_on_one:*)
+Community                 (if community:access)
+Commissions               (if commissions:*)
+Wins                      
+Resources
+Support
+Account
+```
+
+**Admin nav (only visible to admin/super_admin roles, collapsed by default):**
+```
+▶ Admin
+  ├─ Dashboard (admin overview/KPIs)
+  ├─ Members
+  ├─ Products & Entitlements
+  ├─ ▶ Content
+  │    ├─ Training CMS
+  │    ├─ Resource Vault
+  │    ├─ Collections
+  │    └─ Vault Analytics
+  ├─ ▶ Support
+  │    ├─ Ticket Queue
+  │    ├─ Routing Rules
+  │    ├─ Canned Responses
+  │    ├─ Agent Performance
+  │    └─ Support Analytics
+  ├─ ▶ Coaching
+  │    ├─ Call Schedules
+  │    ├─ 1-on-1 Sessions
+  │    └─ Coach Management
+  ├─ ▶ Community
+  │    ├─ Moderation Queue
+  │    └─ Categories
+  ├─ ▶ Commissions
+  │    ├─ Commission Management
+  │    ├─ Payouts
+  │    ├─ Rates
+  │    ├─ Affiliates
+  │    └─ Fraud Alerts
+  ├─ ▶ Communications
+  │    ├─ Email Templates
+  │    ├─ SMS Templates
+  │    ├─ Sequences
+  │    └─ Broadcasts
+  ├─ ▶ Knowledge Base
+  │    ├─ Document Review
+  │    ├─ Live Documents
+  │    └─ Run Pipeline
+  ├─ ▶ Tools Management
+  │    ├─ Tool Registry
+  │    └─ Tool Analytics
+  ├─ ▶ Integrations
+  │    ├─ GHL Sync
+  │    ├─ Webhook Logs
+  │    └─ API Keys
+  ├─ Wins Curation
+  ├─ Revenue Intelligence
+  ├─ Audit Log
+  └─ System Health
+```
+
+**Implementation details:**
+
+1. The top-level "Admin" item is a collapsible folder with a chevron icon. Clicking it expands/collapses the entire admin section. Persist the expanded/collapsed state in localStorage so it remembers between page loads.
+
+2. Sub-folders (Content, Support, Coaching, etc.) are also collapsible. Clicking a sub-folder expands just that section. When you navigate to a page within a sub-folder, that sub-folder auto-expands.
+
+3. The active page should be highlighted AND its parent folder(s) should be auto-expanded.
+
+4. Admin nav items are ONLY rendered if the user has an admin role (admin, super_admin, support_agent, content_manager). Role-based filtering: support agents only see the Support sub-folder and Knowledge Base. Content managers only see Content and Knowledge Base.
+
+5. On mobile: the admin section should be at the bottom of the navigation, clearly separated from member-facing nav with a divider and "Admin" label.
+
+6. Visual distinction: admin nav items should have a slightly different style (subtle background tint or left border) so it's visually clear these are admin functions, not member features.
+
+7. Move ALL current admin pages under `/admin/*` routes if they aren't already. The sidebar should map to these routes.
+
+8. Keep "Back to Portal" link at the bottom of the admin section so admins can quickly switch back to the member view.
+
+---
+
+This will clean up the nav significantly. Right now everything's flat — once it's foldered, a member sees ~10 clean nav items and an admin sees the same 10 plus one expandable "Admin" folder.
