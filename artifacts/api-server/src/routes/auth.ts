@@ -284,6 +284,10 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
 
   await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.userId, user.id));
 
+  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("refresh_token", { path: "/api/auth" });
+  res.clearCookie("csrf_token", { path: "/" });
+
   res.json({ message: "Password updated successfully. Please log in." });
 });
 
