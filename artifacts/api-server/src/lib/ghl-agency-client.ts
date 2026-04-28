@@ -569,13 +569,20 @@ export function locationExists(locationId: string): Promise<boolean> {
 //   - Conclusion: GHL does not expose a public "mint browser login URL"
 //     endpoint. Flexy's existing white-label login page is the only path.
 //
-// The mint code is therefore *disabled by default*: with no override the
-// helper short-circuits and returns null without making any HTTP call, and
-// the caller falls back to the standard login-page redirect immediately.
-// We keep the env var hook (`GHL_LOGIN_TOKEN_PATH`) so that if GHL ever ships
-// a public endpoint, an operator can plug it in without a code change.
+// **Decision (Apr 2026, see docs/flexy-sso-verification.md "Decision"
+// section):** we will keep showing the white-label Flexy login page
+// indefinitely and will NOT pursue any non-API workaround (form-replay,
+// per-click password rotation, firebase-token reuse, UI scraping all
+// rejected — see the per-option table in the doc). This file therefore
+// stays exactly as-is: the mint code is *disabled by default* (with no
+// override the helper short-circuits and returns null without making any
+// HTTP call) and the caller falls back to the standard login-page
+// redirect immediately. The env var hook (`GHL_LOGIN_TOKEN_PATH`) is
+// retained so that if GHL ever ships a public endpoint an operator can
+// plug it in without a code change.
 //
-// To re-probe after a GHL API update, run:
+// To re-probe after a GHL API update (the trigger to revisit the
+// decision), run:
 //   pnpm --filter @workspace/api-server exec tsx \
 //     src/scripts/probe-flexy-sso.ts
 //   pnpm --filter @workspace/api-server exec tsx \

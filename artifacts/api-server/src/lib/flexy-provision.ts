@@ -200,6 +200,12 @@ export function buildFlexyOpenUrl(opts: {
  * any reason (endpoint changed, staff user not eligible, network blip) we
  * fall back to the existing behavior — the white-label login page or, for
  * admins, the location deep link — so the click never breaks.
+ *
+ * NOTE (Apr 2026): the mint helper is disabled by default — see
+ * `docs/flexy-sso-verification.md` ("Decision" section) for the recorded
+ * decision to keep showing the Flexy login page indefinitely. With no
+ * `GHL_LOGIN_TOKEN_PATH` set, `mintFlexyLoginUrl` short-circuits to null
+ * and this function always returns the white-label fallback.
  */
 export async function resolveFlexyOpenUrl(opts: {
   providerLocationId?: string | null;

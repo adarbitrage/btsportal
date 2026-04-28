@@ -13,6 +13,56 @@ The plumbing is left in place so that if GHL ever ships such an endpoint, an
 operator can drop in `GHL_LOGIN_TOKEN_PATH=/users/{userId}/whatever` and the
 mint will start working without a code change.
 
+## Decision (April 2026)
+
+**We will keep showing the white-label Flexy login page to members
+indefinitely. We will NOT pursue any non-API auto-login workaround.**
+
+Concretely this means:
+
+1. `mintFlexyLoginUrl` stays disabled by default (`GHL_LOGIN_TOKEN_PATH=""`).
+   `resolveFlexyOpenUrl` returns the standard portal URL, and the member
+   types their email + password (or uses Flexy's "Forgot password" flow on
+   first open) on the white-label login page. Subsequent clicks are silent
+   because GHL sets a session cookie on `dashboard.getflexy.app`.
+2. We will NOT persist the GHL staff password (the
+   `providerStaffPasswordEncrypted` column stays null on every install),
+   and we will NOT add a "regenerate password on every open" cycle. See the
+   tradeoffs below.
+3. The "Hide the Flexy email panel..." follow-up is **superseded by this
+   decision**: members need a way to know which email to log in with, so the
+   `GET /apps/flexy/credentials` endpoint stays, and any future Flexy card
+   UI work should surface the staff email (read-only — no password column).
+4. Re-probe trigger: this decision is revisited if any future run of
+   `probe-flexy-sso.ts` / `probe-flexy-sso2.ts` returns a `200`/`201`
+   response, OR if GoHighLevel publishes a "log in as user" / "mint
+   one-time login URL" endpoint in their public API changelog. Operators
+   should re-run both scripts after every GHL release notes update that
+   touches the Users API or the agency dashboard.
+
+### Why we rejected each non-API alternative
+
+| Option | Rejected because |
+| --- | --- |
+| Persist the GHL staff password at provision time and replay it via a hidden form post against `dashboard.getflexy.app/login` | (a) Requires storing GHL passwords plaintext-recoverable; we deliberately do not. (b) Breaks the moment a member changes their password inside Flexy. (c) The GHL login page is a SPA that POSTs JSON to an internal endpoint with CSRF/session protections — a static form replay would not survive the next frontend release. (d) Almost certainly violates GHL's ToS for white-label integrations. |
+| Generate a fresh password on every "Open" click and rotate via `updateStaffUserPassword`, then auto-fill it | (a) Every click silently invalidates the password the member is using inside Flexy at that moment, breaking their own session if they have one open. (b) Race condition between rotate-and-redirect: there is no atomic "log in as this newly-set password" step. (c) Same SPA fragility as the form-replay option. |
+| Reuse the agency JWT's `firebaseToken` against `services.msgsndr.com` | The current decoded `GHL_CHERRINGTON_AGENCY_JWT` does not contain a `firebaseToken` field (`hasFirebase=false`). Even if we re-extracted one from the agency dashboard cookies, it would be short-lived, tied to a specific operator session, and rotates on every agency login — not safe for production. |
+| Scrape / drive the GHL agency UI server-side (puppeteer, etc.) | Brittle, slow, defeats the purpose of "click and land", and explicitly against GHL's ToS. |
+
+### What "good" UX looks like under this decision
+
+- The Flexy card on the member-facing Apps page should display the member's
+  Flexy email next to the **Open** button (read-only, with a copy button),
+  with a one-line hint: *"First time opening Flexy? Click 'Forgot
+  password' on the Flexy login screen to set your password."*
+- After the first successful login, the GHL session cookie carries the
+  member; subsequent **Open** clicks land directly in the dashboard.
+- No password is ever surfaced or persisted by the BTS portal.
+
+This UX work is intentionally **not** done in this task — it lives in the
+existing "Hide the Flexy email panel..." / Apps-card-polish task, which
+this decision unblocks.
+
 ## What we tried
 
 We probed every plausible path against a real installed Flexy staff user
@@ -102,15 +152,5 @@ auto-login will start working in production immediately.
 
 ## Why we didn't fix this another way
 
-A few non-API approaches were considered and rejected:
-
-- **Persist and replay the staff password.** Possible but would require
-  storing GHL passwords (we deliberately don't) and would break if a member
-  ever changes their password in Flexy.
-- **Reuse the agency JWT's `firebaseToken`.** The current decoded JWT does
-  not include one (`hasFirebase=false`).
-- **Scrape the GHL agency UI.** Brittle and against ToS.
-
-The pragmatic outcome is: keep the email/password panel visible so members
-can copy their email and use Flexy's "Forgot password" flow on first login,
-which is exactly what the existing UI already does.
+See the "Decision (April 2026)" section at the top of this document for the
+full rationale and the per-option rejection table.
