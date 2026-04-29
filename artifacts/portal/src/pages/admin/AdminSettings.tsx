@@ -4,8 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw } from "lucide-react";
-import { adminPanelApi, type AuthRateLimitAlertConfigStatus } from "@/lib/admin-panel-api";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive } from "lucide-react";
+import {
+  adminPanelApi,
+  type AuthRateLimitAlertConfigStatus,
+  type ChangeHistoryRetentionConfigStatus,
+} from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSettings() {
@@ -75,6 +79,8 @@ export default function AdminSettings() {
         <OnCallDestinationsCard />
 
         <AuthRateLimitAlertConfigCard />
+
+        <ChangeHistoryRetentionConfigCard />
 
         <Card>
           <CardHeader><CardTitle className="text-base">Add New Setting</CardTitle></CardHeader>
@@ -988,6 +994,266 @@ function AlertConfigRow({
       </div>
       {error && (
         <p className="text-xs text-destructive" data-testid={`alert-${field}-error`}>{error}</p>
+      )}
+    </div>
+  );
+}
+
+type RetentionField = "emailRetentionDays" | "phoneRetentionDays";
+
+const RETENTION_FIELD_LABELS: Record<RetentionField, string> = {
+  emailRetentionDays: "Email-change history retention (days)",
+  phoneRetentionDays: "Phone-change history retention (days)",
+};
+
+const RETENTION_FIELD_HINTS: Record<RetentionField, string> = {
+  emailRetentionDays:
+    "How many days to keep email-change history rows before the cleanup job deletes them.",
+  phoneRetentionDays:
+    "How many days to keep phone-change history rows before the cleanup job deletes them.",
+};
+
+function ChangeHistoryRetentionConfigCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<ChangeHistoryRetentionConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ emailRetentionDays: string; phoneRetentionDays: string }>({
+    emailRetentionDays: "",
+    phoneRetentionDays: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RetentionField, string>>>({});
+
+  const hydrate = (s: ChangeHistoryRetentionConfigStatus) => {
+    setStatus(s);
+    setDraft({
+      emailRetentionDays: String(s.config.emailRetentionDays),
+      phoneRetentionDays: String(s.config.phoneRetentionDays),
+    });
+    setFieldErrors({});
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getChangeHistoryRetentionConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const validateLocal = (): { ok: boolean; payload: { emailRetentionDays: number; phoneRetentionDays: number } } => {
+    if (!status) return { ok: false, payload: { emailRetentionDays: 0, phoneRetentionDays: 0 } };
+    const errors: Partial<Record<RetentionField, string>> = {};
+
+    const emailNum = Number(draft.emailRetentionDays);
+    if (!Number.isFinite(emailNum) || !Number.isInteger(emailNum)) {
+      errors.emailRetentionDays = "Must be a whole number of days";
+    } else if (
+      emailNum < status.bounds.emailRetentionDays.min ||
+      emailNum > status.bounds.emailRetentionDays.max
+    ) {
+      errors.emailRetentionDays = `Must be between ${status.bounds.emailRetentionDays.min} and ${status.bounds.emailRetentionDays.max} days`;
+    }
+
+    const phoneNum = Number(draft.phoneRetentionDays);
+    if (!Number.isFinite(phoneNum) || !Number.isInteger(phoneNum)) {
+      errors.phoneRetentionDays = "Must be a whole number of days";
+    } else if (
+      phoneNum < status.bounds.phoneRetentionDays.min ||
+      phoneNum > status.bounds.phoneRetentionDays.max
+    ) {
+      errors.phoneRetentionDays = `Must be between ${status.bounds.phoneRetentionDays.min} and ${status.bounds.phoneRetentionDays.max} days`;
+    }
+
+    setFieldErrors(errors);
+    return {
+      ok: Object.keys(errors).length === 0,
+      payload: { emailRetentionDays: emailNum, phoneRetentionDays: phoneNum },
+    };
+  };
+
+  const isDirty = !!status && (
+    Number(draft.emailRetentionDays) !== status.config.emailRetentionDays ||
+    Number(draft.phoneRetentionDays) !== status.config.phoneRetentionDays
+  );
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted fields and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateChangeHistoryRetentionConfig(v.payload);
+      hydrate(data);
+      if (data.changedFields.length === 0) {
+        toast({ title: "No changes to save" });
+      } else {
+        toast({ title: "Retention windows saved" });
+      }
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const next: Partial<Record<RetentionField, string>> = {};
+        for (const e of err.fieldErrors as Array<{ field: string; message: string }>) {
+          if (e.field === "emailRetentionDays" || e.field === "phoneRetentionDays") {
+            next[e.field] = e.message;
+          }
+        }
+        setFieldErrors(next);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    // Same pattern as the auth rate-limit card: if nothing is customized
+    // there's nothing to reset on the server — just refill the inputs
+    // locally. Otherwise send `null` for every field so the server deletes
+    // the rows and per-field provenance flips back to "default".
+    const anyCustomized =
+      status.sources.emailRetentionDays === "db" ||
+      status.sources.phoneRetentionDays === "db";
+    if (!anyCustomized) {
+      setDraft({
+        emailRetentionDays: String(status.defaults.emailRetentionDays),
+        phoneRetentionDays: String(status.defaults.phoneRetentionDays),
+      });
+      setFieldErrors({});
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateChangeHistoryRetentionConfig({
+        emailRetentionDays: null,
+        phoneRetentionDays: null,
+      });
+      hydrate(data);
+      setFieldErrors({});
+      toast({ title: "Reset to defaults" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Archive className="w-4 h-4" /> Change-history retention
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Controls how long the cleanup jobs keep old email-change and phone-change history rows. Values are read by the cleanup jobs at runtime, so changes take effect on the next scheduled run (no restart needed). Compliance-strict deployments can lower these; support-heavy ones can raise them.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading retention windows...</div>
+        ) : (
+          <>
+            <RetentionConfigRow
+              field="emailRetentionDays"
+              draftValue={draft.emailRetentionDays}
+              currentValue={status.config.emailRetentionDays}
+              defaultValue={status.defaults.emailRetentionDays}
+              source={status.sources.emailRetentionDays}
+              bounds={status.bounds.emailRetentionDays}
+              error={fieldErrors.emailRetentionDays}
+              onChange={(v) => setDraft((prev) => ({ ...prev, emailRetentionDays: v }))}
+            />
+            <RetentionConfigRow
+              field="phoneRetentionDays"
+              draftValue={draft.phoneRetentionDays}
+              currentValue={status.config.phoneRetentionDays}
+              defaultValue={status.defaults.phoneRetentionDays}
+              source={status.sources.phoneRetentionDays}
+              bounds={status.bounds.phoneRetentionDays}
+              error={fieldErrors.phoneRetentionDays}
+              onChange={(v) => setDraft((prev) => ({ ...prev, phoneRetentionDays: v }))}
+            />
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={saving} data-testid="reset-retention-defaults">
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
+              </Button>
+              <Button onClick={handleSave} disabled={saving || !isDirty} data-testid="save-retention-config">
+                <Save className="w-4 h-4 mr-1" />{saving ? "Saving..." : "Save retention windows"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RetentionConfigRow({
+  field,
+  draftValue,
+  currentValue,
+  defaultValue,
+  source,
+  bounds,
+  error,
+  onChange,
+}: {
+  field: RetentionField;
+  draftValue: string;
+  currentValue: number;
+  defaultValue: number;
+  source: "db" | "default";
+  bounds: { min: number; max: number };
+  error?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="border rounded-md p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">{RETENTION_FIELD_LABELS[field]}</p>
+          <p className="text-xs text-muted-foreground">{RETENTION_FIELD_HINTS[field]}</p>
+        </div>
+        <span
+          className={`text-xs px-2 py-0.5 rounded ${
+            source === "db"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {source === "db" ? "Customized" : "Using default"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          step={1}
+          min={bounds.min}
+          max={bounds.max}
+          value={draftValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-40"
+          data-testid={`retention-${field}-input`}
+          aria-invalid={!!error}
+        />
+        <span className="text-xs text-muted-foreground">
+          Range {bounds.min}–{bounds.max} days. Current: {currentValue}. Default: {defaultValue}.
+        </span>
+      </div>
+      {error && (
+        <p className="text-xs text-destructive" data-testid={`retention-${field}-error`}>{error}</p>
       )}
     </div>
   );

@@ -17,6 +17,21 @@ export type AuthRateLimitAlertConfigStatus = {
   };
 };
 
+export type ChangeHistoryRetentionConfig = {
+  emailRetentionDays: number;
+  phoneRetentionDays: number;
+};
+
+export type ChangeHistoryRetentionConfigStatus = {
+  config: ChangeHistoryRetentionConfig;
+  sources: Record<keyof ChangeHistoryRetentionConfig, "db" | "default">;
+  defaults: ChangeHistoryRetentionConfig;
+  bounds: {
+    emailRetentionDays: { min: number; max: number };
+    phoneRetentionDays: { min: number; max: number };
+  };
+};
+
 export const adminPanelApi = {
   async getDashboardKpis() {
     const res = await authFetch("/admin/dashboard/kpis");
@@ -535,6 +550,45 @@ export const adminPanelApi = {
       throw err;
     }
     return res.json() as Promise<AuthRateLimitAlertConfigStatus & { changedFields: Array<"threshold" | "windowMinutes" | "dominantIpRatio"> }>;
+  },
+
+  async getChangeHistoryRetentionConfig() {
+    const res = await authFetch("/admin/change-history-retention-config");
+    if (!res.ok) throw new Error("Failed to fetch change-history retention config");
+    return res.json() as Promise<ChangeHistoryRetentionConfigStatus>;
+  },
+
+  // A `null` value means "reset this field to its default" — the underlying
+  // row is deleted server-side so per-field provenance flips back to
+  // "default". Omit a field entirely to leave it untouched.
+  async updateChangeHistoryRetentionConfig(payload: {
+    emailRetentionDays?: number | null;
+    phoneRetentionDays?: number | null;
+  }) {
+    const res = await authFetch("/admin/change-history-retention-config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const fieldErrors = Array.isArray(body.fieldErrors)
+        ? (body.fieldErrors as Array<{ field: string; message: string }>)
+        : [];
+      const detail =
+        fieldErrors.length > 0
+          ? fieldErrors.map((e) => `${e.field}: ${e.message}`).join("; ")
+          : body.error || "Failed to update change-history retention config";
+      const err = new Error(detail) as Error & {
+        fieldErrors?: Array<{ field: string; message: string }>;
+      };
+      if (fieldErrors.length > 0) err.fieldErrors = fieldErrors;
+      throw err;
+    }
+    return res.json() as Promise<
+      ChangeHistoryRetentionConfigStatus & {
+        changedFields: Array<"emailRetentionDays" | "phoneRetentionDays">;
+      }
+    >;
   },
 
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {

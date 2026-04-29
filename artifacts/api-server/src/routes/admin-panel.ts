@@ -42,6 +42,12 @@ import {
   isAuthRateLimitAlertSettingKey,
 } from "../lib/auth-rate-limit-alert-settings";
 import {
+  getChangeHistoryRetentionConfigStatus,
+  applyChangeHistoryRetentionConfigUpdate,
+  validateUpdate as validateChangeHistoryRetentionUpdate,
+  isChangeHistoryRetentionSettingKey,
+} from "../lib/change-history-retention-settings";
+import {
   sendOnCallTestAlert,
   probePagerDutyDestination,
   probeEmailDestination,
@@ -2456,7 +2462,10 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
     // as raw JSON in the generic list bypasses the bounds and would let an
     // admin save a value the alert engine can't actually use.
     const filtered = settings.filter(
-      (s) => !isOnCallSettingKey(s.key) && !isAuthRateLimitAlertSettingKey(s.key),
+      (s) =>
+        !isOnCallSettingKey(s.key) &&
+        !isAuthRateLimitAlertSettingKey(s.key) &&
+        !isChangeHistoryRetentionSettingKey(s.key),
     );
     res.json(filtered);
   } catch (error) {
@@ -2483,6 +2492,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     }
     if (isAuthRateLimitAlertSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/auth-rate-limit-alert-config to manage auth rate-limit alert thresholds" });
+      return;
+    }
+    if (isChangeHistoryRetentionSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/change-history-retention-config to manage change-history retention windows" });
       return;
     }
 
@@ -2690,6 +2703,64 @@ router.put("/admin/auth-rate-limit-alert-config", requirePermission("settings:ma
   } catch (error) {
     console.error("[Admin] Update auth rate-limit alert config error:", error);
     res.status(500).json({ error: "Failed to update auth rate-limit alert config" });
+  }
+});
+
+/**
+ * Read the current change-history retention windows (one per channel: email
+ * and phone) plus their defaults and accepted bounds. The bounds are returned
+ * alongside the values so the admin UI can mirror the server's validation
+ * without hard-coding it. Both cleanup jobs read these values at runtime, so
+ * a save here takes effect on the next scheduled tick (no restart needed).
+ */
+router.get("/admin/change-history-retention-config", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getChangeHistoryRetentionConfigStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get change-history retention config error:", error);
+    res.status(500).json({ error: "Failed to fetch change-history retention config" });
+  }
+});
+
+/**
+ * Update one or both of the change-history retention windows. Body is a
+ * partial — any field omitted is left untouched. A `null` field value means
+ * "reset to default" (the underlying row is deleted so per-field provenance
+ * flips back to "default"). Out-of-bounds values are rejected with a 400
+ * listing every invalid field at once. Successful saves are recorded in the
+ * audit log with the before/after values per changed field.
+ */
+router.put("/admin/change-history-retention-config", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const validation = validateChangeHistoryRetentionUpdate(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: "Invalid retention config", fieldErrors: validation.errors });
+      return;
+    }
+    const { before, after, changedFields } = await applyChangeHistoryRetentionConfigUpdate(
+      validation.update,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (changedFields.length > 0) {
+      const diff: Record<string, { from: number; to: number }> = {};
+      for (const field of changedFields) {
+        diff[field] = { from: before[field], to: after[field] };
+      }
+      await logAdminAction(
+        req,
+        "update_setting",
+        "change_history_retention_config",
+        "change_history_retention",
+        `Updated change-history retention: ${changedFields.join(", ")}`,
+        { changedFields, diff },
+      );
+    }
+    const status = await getChangeHistoryRetentionConfigStatus();
+    res.json({ ...status, changedFields });
+  } catch (error) {
+    console.error("[Admin] Update change-history retention config error:", error);
+    res.status(500).json({ error: "Failed to update change-history retention config" });
   }
 });
 
