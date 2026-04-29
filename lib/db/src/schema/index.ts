@@ -66,3 +66,4 @@ export * from "./email-change-attempts";
 export * from "./email-change-history";
 export * from "./phone-change-history";
 export * from "./password-reset-attempts";
+export * from "./upgrade-prompt-events";

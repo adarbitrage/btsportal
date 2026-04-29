@@ -55,6 +55,7 @@ import kbPipelineRouter from "./admin/knowledgebase-pipeline.js";
 import kbStagingRouter from "./admin/knowledgebase-staging.js";
 import appsRouter from "./apps";
 import adminAppsRouter from "./admin-apps";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -114,5 +115,6 @@ router.use("/admin/knowledgebase/pipeline", kbPipelineRouter);
 router.use("/admin/knowledgebase/staging", kbStagingRouter);
 router.use(appsRouter);
 router.use(adminAppsRouter);
+router.use(analyticsRouter);
 
 export default router;

@@ -583,6 +583,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           entitlements={entitlements}
           hasLifetime={hasLifetime}
           variant="sidebar"
+          sourceTier={member ? highestSlug : null}
           onCtaClick={() => {
             onNavClick?.();
             setLocation("/plans");

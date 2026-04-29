@@ -162,6 +162,7 @@ export default function Dashboard() {
               entitlements={memberEntitlements}
               hasLifetime={hasLifetime}
               variant="dashboard"
+              sourceTier={member ? (member.sourceProduct ?? "free") : null}
               onCtaClick={() => navigate("/plans")}
               onFeatureClick={(featureKey) => {
                 const planSlug = FEATURE_TO_PLAN_SLUG[featureKey];

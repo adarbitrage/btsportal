@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +14,7 @@ import {
   Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { authFetch } from "@/lib/auth";
 
 interface LockedFeature {
   key: string;
@@ -71,10 +73,39 @@ export function getLockedFeatures(entitlements: Set<string>): LockedFeature[] {
   return FEATURE_CATALOG.filter((f) => f.matches(entitlements));
 }
 
+type UpgradePromptVariant = "dashboard" | "sidebar";
+type UpgradePromptEventType = "impression" | "cta_click";
+
+function trackUpgradePromptEvent(
+  eventType: UpgradePromptEventType,
+  variant: UpgradePromptVariant,
+  sourceTier: string,
+  lockedFeatureKeys: string[],
+): void {
+  authFetch("/analytics/events", {
+    method: "POST",
+    body: JSON.stringify({
+      eventType,
+      variant,
+      sourceTier,
+      lockedFeatureKeys,
+    }),
+  }).catch(() => {
+    // Analytics is best-effort; never break the UI on failure.
+  });
+}
+
 interface UpgradeFeaturesCardProps {
   entitlements: Set<string>;
   hasLifetime: boolean;
-  variant?: "dashboard" | "sidebar";
+  variant?: UpgradePromptVariant;
+  /**
+   * The member's source product tier (e.g. "reserve_income", "3month").
+   * Pass `null` when the member profile is still loading — the card will
+   * not render or fire analytics events until a real tier is available,
+   * avoiding bogus impressions captured against placeholder data.
+   */
+  sourceTier: string | null;
   onCtaClick?: () => void;
   onFeatureClick?: (featureKey: string) => void;
 }
@@ -83,13 +114,41 @@ export function UpgradeFeaturesCard({
   entitlements,
   hasLifetime,
   variant = "dashboard",
+  sourceTier,
   onCtaClick,
   onFeatureClick,
 }: UpgradeFeaturesCardProps) {
-  if (hasLifetime) return null;
+  const isReady = sourceTier !== null && sourceTier.length > 0;
+  const locked = hasLifetime || !isReady ? [] : getLockedFeatures(entitlements);
+  // The sidebar variant only shows the first 4 locked features (with a "+N
+  // more" hint), so for tracking purposes we report the keys that were
+  // actually rendered. That keeps "keys shown" honest in analytics while
+  // the dashboard variant continues to report every locked feature.
+  const visibleLocked = variant === "sidebar" ? locked.slice(0, 4) : locked;
+  const lockedKeys = visibleLocked.map((f) => f.key);
+  const impressionSignature = isReady
+    ? `${variant}|${sourceTier}|${lockedKeys.join(",")}`
+    : null;
+  const lastImpressionRef = useRef<string | null>(null);
+  const shouldRender = isReady && !hasLifetime && locked.length > 0;
 
-  const locked = getLockedFeatures(entitlements);
-  if (locked.length === 0) return null;
+  useEffect(() => {
+    if (!shouldRender || !isReady || impressionSignature === null) return;
+    if (lastImpressionRef.current === impressionSignature) return;
+    lastImpressionRef.current = impressionSignature;
+    trackUpgradePromptEvent("impression", variant, sourceTier as string, lockedKeys);
+    // We intentionally only re-fire when the signature changes (variant,
+    // tier, or the set of locked features). The lockedKeys array is captured
+    // through the signature so it does not need to be a dependency itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [impressionSignature, shouldRender, isReady]);
+
+  if (!shouldRender) return null;
+
+  const handleCtaClick = () => {
+    trackUpgradePromptEvent("cta_click", variant, sourceTier as string, lockedKeys);
+    onCtaClick?.();
+  };
 
   if (variant === "sidebar") {
     return (
@@ -122,7 +181,7 @@ export function UpgradeFeaturesCard({
           <Button
             className="w-full text-xs h-8"
             variant="default"
-            onClick={onCtaClick}
+            onClick={handleCtaClick}
             data-testid="upgrade-features-cta-sidebar"
           >
             View Plans
@@ -193,7 +252,7 @@ export function UpgradeFeaturesCard({
         </ul>
         <Button
           className="w-full sm:w-auto"
-          onClick={onCtaClick}
+          onClick={handleCtaClick}
           data-testid="upgrade-features-cta-dashboard"
         >
           <Crown className="w-4 h-4 mr-2" />
