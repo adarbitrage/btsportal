@@ -165,7 +165,7 @@ describe("MemberDetail email-change attempts paging", () => {
     expect(getMemberEmailAttempts).not.toHaveBeenCalled();
   });
 
-  it("still renders the card and 'Show older' when the first page has no unconfirmed attempts but older ones may exist", async () => {
+  it("renders confirmed attempts as clickable rows and exposes 'Show older' when more pages exist", async () => {
     const firstPage = Array.from({ length: 50 }, (_, i) => makeAttempt(i, "confirmed"));
     getMemberFull.mockResolvedValue({
       ...baseMember,
@@ -181,7 +181,10 @@ describe("MemberDetail email-change attempts paging", () => {
     });
 
     expect(screen.getByTestId("card-email-attempts")).toBeInTheDocument();
-    expect(screen.getByTestId("text-email-attempts-empty")).toBeInTheDocument();
+    // Confirmed rows are now clickable detail-panel surfaces too, so the
+    // empty-state copy should NOT appear when confirmed rows exist.
+    expect(screen.queryByTestId("text-email-attempts-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId(`row-email-attempt-${firstPage[0].id}`)).toBeInTheDocument();
     expect(screen.getByTestId("button-load-older-email-attempts")).toBeInTheDocument();
   });
 });

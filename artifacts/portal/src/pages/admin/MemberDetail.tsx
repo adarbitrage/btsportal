@@ -98,6 +98,19 @@ export default function MemberDetail() {
   const [emailAttemptsPageSize, setEmailAttemptsPageSize] = useState<number>(50);
   const [emailAttemptsLoadingMore, setEmailAttemptsLoadingMore] = useState(false);
 
+  // Click-through detail panel for a single attempt. The list view only
+  // shows status + dates; the detail panel adds the matching audit log
+  // entry and "what happened next" (next attempt or eventual confirmation)
+  // so support staff can resolve old abandoned attempts.
+  type AttemptDetail = Awaited<
+    ReturnType<typeof adminPanelApi.getMemberEmailAttemptDetail>
+  >;
+  const [attemptDetailOpen, setAttemptDetailOpen] = useState(false);
+  const [attemptDetailLoading, setAttemptDetailLoading] = useState(false);
+  const [attemptDetailError, setAttemptDetailError] = useState<string | null>(null);
+  const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(null);
+  const [attemptDetailRowId, setAttemptDetailRowId] = useState<number | null>(null);
+
   const { user: currentUser } = useAuth();
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
 
@@ -161,6 +174,47 @@ export default function MemberDetail() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenAttemptDetail = async (attemptId: number) => {
+    setAttemptDetailRowId(attemptId);
+    setAttemptDetailOpen(true);
+    setAttemptDetailLoading(true);
+    setAttemptDetailError(null);
+    setAttemptDetail(null);
+    try {
+      const result = await adminPanelApi.getMemberEmailAttemptDetail(
+        memberId,
+        attemptId,
+      );
+      // Guard against a stale response: if the admin clicked a different
+      // row (or closed the dialog) while this request was in flight,
+      // discard the result so we don't render the wrong attempt.
+      setAttemptDetailRowId((current) => {
+        if (current === attemptId) {
+          setAttemptDetail(result);
+          setAttemptDetailLoading(false);
+        }
+        return current;
+      });
+    } catch (err: any) {
+      setAttemptDetailRowId((current) => {
+        if (current === attemptId) {
+          setAttemptDetailError(err?.message || "Failed to load attempt detail");
+          setAttemptDetailLoading(false);
+        }
+        return current;
+      });
+    }
+  };
+
+  const handleAttemptDetailOpenChange = (open: boolean) => {
+    setAttemptDetailOpen(open);
+    if (!open) {
+      setAttemptDetail(null);
+      setAttemptDetailError(null);
+      setAttemptDetailRowId(null);
     }
   };
 
@@ -283,7 +337,7 @@ export default function MemberDetail() {
   }
 
   const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [] } = data;
-  const unconfirmedAttempts = emailAttempts.filter((a) => a.status !== "confirmed");
+  const visibleAttempts = emailAttempts;
   const hasMoreAttempts = emailAttempts.length < emailAttemptsTotal;
 
   const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
@@ -301,6 +355,8 @@ export default function MemberDetail() {
         return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>Abandoned</Badge>;
       case "cancelled_by_admin":
         return <Badge variant="outline" className="bg-red-100 text-red-800 border-transparent" data-testid={`badge-attempt-status-${status}`}>Cancelled by admin</Badge>;
+      case "confirmed":
+        return <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600" data-testid={`badge-attempt-status-${status}`}>Confirmed</Badge>;
       default:
         return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>{status}</Badge>;
     }
@@ -518,28 +574,28 @@ export default function MemberDetail() {
           </Card>
         )}
 
-        {(unconfirmedAttempts.length > 0 || hasMoreAttempts) && (
+        {(visibleAttempts.length > 0 || hasMoreAttempts) && (
           <Card data-testid="card-email-attempts">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Mail className="w-4 h-4" /> Email change attempts
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Pending or unconfirmed change requests that never resulted in a completed switch.
+                Every email change request — confirmed, expired, abandoned, or cancelled. Click any row to see what happened.
               </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {unconfirmedAttempts.length === 0 && (
+                {visibleAttempts.length === 0 && (
                   <p
                     className="text-xs text-muted-foreground"
                     data-testid="text-email-attempts-empty"
                   >
-                    No unconfirmed attempts in the most recent {emailAttempts.length}.
+                    No email change attempts in the most recent {emailAttempts.length}.
                     {hasMoreAttempts ? " There may be older ones below." : ""}
                   </p>
                 )}
-                {unconfirmedAttempts.map((entry: any) => {
+                {visibleAttempts.map((entry: any) => {
                   const cancelledByLabel =
                     entry.cancelledByAdminName ||
                     entry.cancelledByAdminEmail ||
@@ -549,7 +605,16 @@ export default function MemberDetail() {
                   return (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 text-sm"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleOpenAttemptDetail(entry.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenAttemptDetail(entry.id);
+                        }
+                      }}
+                      className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 hover:bg-muted text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                       data-testid={`row-email-attempt-${entry.id}`}
                     >
                       <div className="min-w-0 flex-1">
@@ -579,13 +644,26 @@ export default function MemberDetail() {
                             Cancelled by {cancelledByLabel} on {format(new Date(entry.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
                           </div>
                         )}
+                        {entry.status === "confirmed" && entry.confirmedAt && (
+                          <div
+                            className="text-xs text-muted-foreground mt-0.5"
+                            data-testid={`text-attempt-confirmed-${entry.id}`}
+                          >
+                            Confirmed {format(new Date(entry.confirmedAt), "MMM d, yyyy 'at' h:mm a")}
+                          </div>
+                        )}
                       </div>
                       {entry.status === "pending" && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="shrink-0"
-                          onClick={handleCancelEmailChange}
+                          onClick={(e) => {
+                            // Don't bubble up to the row's click handler —
+                            // cancelling shouldn't also open the detail panel.
+                            e.stopPropagation();
+                            handleCancelEmailChange();
+                          }}
                           disabled={cancellingEmailChange}
                           data-testid={`button-cancel-email-attempt-${entry.id}`}
                         >
@@ -934,6 +1012,219 @@ export default function MemberDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={attemptDetailOpen} onOpenChange={handleAttemptDetailOpenChange}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-email-attempt-detail">
+          <DialogHeader>
+            <DialogTitle>Email change attempt detail</DialogTitle>
+            <DialogDescription>
+              The audit trail and what happened next for this attempt.
+            </DialogDescription>
+          </DialogHeader>
+          {attemptDetailLoading && (
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground py-4"
+              data-testid="text-attempt-detail-loading"
+            >
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading attempt detail...
+            </div>
+          )}
+          {!attemptDetailLoading && attemptDetailError && (
+            <p
+              className="text-sm text-red-700 py-4"
+              data-testid="text-attempt-detail-error"
+            >
+              {attemptDetailError}
+            </p>
+          )}
+          {!attemptDetailLoading && !attemptDetailError && attemptDetail && (
+            <div className="space-y-5 py-2">
+              <section className="space-y-1.5" data-testid="section-attempt-detail-attempt">
+                <h3 className="text-sm font-medium">This attempt</h3>
+                <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="font-mono break-all"
+                      data-testid="text-attempt-detail-email"
+                    >
+                      {attemptDetail.attempt.newEmail || (
+                        <span className="text-muted-foreground italic">(no target email recorded)</span>
+                      )}
+                    </span>
+                    {attemptStatusBadge(attemptDetail.attempt.status)}
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid="text-attempt-detail-requested"
+                  >
+                    Requested {format(new Date(attemptDetail.attempt.requestedAt), "MMM d, yyyy 'at' h:mm a")}
+                  </p>
+                  {attemptDetail.attempt.expiresAt && (
+                    <p className="text-xs text-muted-foreground">
+                      {attemptDetail.attempt.status === "pending"
+                        ? "Expires"
+                        : attemptDetail.attempt.status === "expired"
+                        ? "Expired"
+                        : "Would have expired"}{" "}
+                      {format(new Date(attemptDetail.attempt.expiresAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  )}
+                  {attemptDetail.attempt.confirmedAt && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid="text-attempt-detail-confirmed"
+                    >
+                      Confirmed {format(new Date(attemptDetail.attempt.confirmedAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  )}
+                  {attemptDetail.attempt.cancelledAt && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid="text-attempt-detail-cancelled"
+                    >
+                      Cancelled by{" "}
+                      {attemptDetail.attempt.cancelledByAdminName ||
+                        attemptDetail.attempt.cancelledByAdminEmail ||
+                        (attemptDetail.attempt.cancelledByAdminId
+                          ? `admin #${attemptDetail.attempt.cancelledByAdminId}`
+                          : "an admin")}{" "}
+                      on {format(new Date(attemptDetail.attempt.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-1.5" data-testid="section-attempt-detail-resolution">
+                <h3 className="text-sm font-medium">What happened next</h3>
+                {!attemptDetail.subsequentConfirmation && !attemptDetail.nextAttempt && (
+                  <p
+                    className="text-xs text-muted-foreground rounded-md border border-dashed p-3"
+                    data-testid="text-attempt-detail-no-resolution"
+                  >
+                    No follow-up attempt or confirmed change after this one.
+                  </p>
+                )}
+                {attemptDetail.subsequentConfirmation && (
+                  <div
+                    className="rounded-md border bg-emerald-50 p-3 text-sm space-y-1"
+                    data-testid="row-attempt-detail-confirmation"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge
+                        variant="default"
+                        className="bg-emerald-600 hover:bg-emerald-600"
+                        data-testid="badge-attempt-detail-confirmation"
+                      >
+                        Confirmed change
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(attemptDetail.subsequentConfirmation.changedAt), "MMM d, yyyy 'at' h:mm a")}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="font-mono break-all"
+                        data-testid="text-attempt-detail-confirmation-old"
+                      >
+                        {attemptDetail.subsequentConfirmation.oldEmail}
+                      </span>
+                      <span className="text-muted-foreground">→</span>
+                      <span
+                        className="font-mono break-all"
+                        data-testid="text-attempt-detail-confirmation-new"
+                      >
+                        {attemptDetail.subsequentConfirmation.newEmail}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {attemptDetail.nextAttempt && (
+                  <div
+                    className="rounded-md border bg-muted/30 p-3 text-sm space-y-1"
+                    data-testid="row-attempt-detail-next-attempt"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" data-testid="badge-attempt-detail-next-attempt">
+                        Next attempt
+                      </Badge>
+                      <span
+                        className="font-mono break-all"
+                        data-testid="text-attempt-detail-next-attempt-email"
+                      >
+                        {attemptDetail.nextAttempt.newEmail || (
+                          <span className="text-muted-foreground italic">(no target email)</span>
+                        )}
+                      </span>
+                      {attemptStatusBadge(attemptDetail.nextAttempt.status)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Requested {format(new Date(attemptDetail.nextAttempt.requestedAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-1.5" data-testid="section-attempt-detail-audit">
+                <h3 className="text-sm font-medium">Audit trail</h3>
+                {attemptDetail.auditEntries.length === 0 ? (
+                  <p
+                    className="text-xs text-muted-foreground rounded-md border border-dashed p-3"
+                    data-testid="text-attempt-detail-no-audit"
+                  >
+                    No admin audit entries recorded for this member during this attempt's window.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {attemptDetail.auditEntries.map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-md border bg-muted/30 p-3 text-sm space-y-1"
+                        data-testid={`row-attempt-detail-audit-${log.id}`}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px]"
+                            data-testid={`badge-attempt-detail-audit-${log.id}`}
+                          >
+                            {log.actionType}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {log.createdAt ? format(new Date(log.createdAt), "MMM d, yyyy 'at' h:mm a") : ""}
+                          </span>
+                          {log.actorEmail && (
+                            <span
+                              className="text-xs text-muted-foreground font-mono break-all"
+                              data-testid={`text-attempt-detail-audit-actor-${log.id}`}
+                            >
+                              {log.actorEmail}
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className="text-xs text-foreground/80 break-words"
+                          data-testid={`text-attempt-detail-audit-description-${log.id}`}
+                        >
+                          {log.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handleAttemptDetailOpenChange(false)}
+              data-testid="button-attempt-detail-close"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

@@ -189,6 +189,66 @@ export const adminPanelApi = {
     }>;
   },
 
+  async getMemberEmailAttemptDetail(userId: number, attemptId: number) {
+    const res = await authFetch(
+      `/admin/members/${userId}/email-attempts/${attemptId}`,
+    );
+    if (!res.ok) throw new Error("Failed to fetch email-change attempt detail");
+    return res.json() as Promise<{
+      attempt: {
+        id: number;
+        newEmail: string | null;
+        requestedAt: string;
+        expiresAt: string | null;
+        confirmedAt: string | null;
+        cancelledAt: string | null;
+        cancelledByAdminId: number | null;
+        cancelledByAdminName: string | null;
+        cancelledByAdminEmail: string | null;
+        status:
+          | "pending"
+          | "confirmed"
+          | "expired"
+          | "abandoned"
+          | "cancelled_by_admin";
+      };
+      auditEntries: Array<{
+        id: number;
+        actorId: number | null;
+        actorEmail: string | null;
+        actionType: string;
+        entityType: string;
+        entityId: string | null;
+        description: string;
+        changeDiff: unknown;
+        ipAddress: string | null;
+        userAgent: string | null;
+        metadata: unknown;
+        createdAt: string;
+      }>;
+      nextAttempt: {
+        id: number;
+        newEmail: string | null;
+        requestedAt: string;
+        expiresAt: string | null;
+        confirmedAt: string | null;
+        cancelledAt: string | null;
+        status:
+          | "pending"
+          | "confirmed"
+          | "expired"
+          | "abandoned"
+          | "cancelled_by_admin";
+      } | null;
+      subsequentConfirmation: {
+        id: number;
+        oldEmail: string;
+        newEmail: string;
+        changedAt: string;
+      } | null;
+    }>;
+  },
+
   async addMemberNote(userId: number, content: string) {
     const res = await authFetch(`/admin/members/${userId}/notes`, { method: "POST", body: JSON.stringify({ content }) });
     if (!res.ok) throw new Error("Failed to add note");

@@ -1270,6 +1270,185 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
   }
 });
 
+// Per-attempt detail panel for the admin Member Detail page. The list view
+// only shows status + requested-at + would-have-expired-at; this endpoint
+// answers the "what happened next?" question support staff have when
+// looking at an old abandoned/expired attempt — i.e. did the member
+// eventually confirm a different email, or follow up with another attempt?
+//
+// Returns:
+//   - `attempt`: the same classified shape `/email-attempts` returns
+//   - `auditEntries`: audit_log rows tied to this user (entity_type=user,
+//     entity_id=:id) within the attempt's lifetime window. Today the
+//     primary writer for this entity is `cancel_email_change`; other
+//     admin actions on the same user that fall inside the window are
+//     surfaced too so support has full context. PII-redacted for viewers
+//     without `members:pii`.
+//   - `nextAttempt`: the next classified attempt by the same member after
+//     this one's createdAt (or null if this is the latest)
+//   - `subsequentConfirmation`: the next email_change_history row by this
+//     member with changedAt >= attempt.createdAt (or null if none). For a
+//     confirmed attempt this *is* its own confirmation row; for an
+//     abandoned/expired attempt this is the eventual change that
+//     superseded it (if any), which is exactly what the task is asking for.
+router.get("/admin/members/:id/email-attempts/:attemptId", requirePermission("members:view"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+    const attemptId = parseInt(req.params.attemptId, 10);
+    if (isNaN(attemptId)) { res.status(400).json({ error: "Invalid attempt ID" }); return; }
+
+    const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    // Confirm the attempt belongs to this user before doing more work, so
+    // we don't leak attempt rows from a different user via a swapped id.
+    const [targetAttemptRow] = await db
+      .select({
+        id: emailChangeAttemptsTable.id,
+        userId: emailChangeAttemptsTable.userId,
+        createdAt: emailChangeAttemptsTable.createdAt,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(
+        and(
+          eq(emailChangeAttemptsTable.id, attemptId),
+          eq(emailChangeAttemptsTable.userId, id),
+        ),
+      )
+      .limit(1);
+    if (!targetAttemptRow) {
+      res.status(404).json({ error: "Email-change attempt not found" });
+      return;
+    }
+
+    const cancelledByAdmin = alias(usersTable, "cancelled_by_admin");
+    const [emailHistoryFull, emailAttemptRowsFull] = await Promise.all([
+      safeQuery(
+        db.select({
+          id: emailChangeHistoryTable.id,
+          oldEmail: emailChangeHistoryTable.oldEmail,
+          newEmail: emailChangeHistoryTable.newEmail,
+          changedAt: emailChangeHistoryTable.changedAt,
+        })
+          .from(emailChangeHistoryTable)
+          .where(eq(emailChangeHistoryTable.userId, id))
+          .orderBy(desc(emailChangeHistoryTable.changedAt))
+          .limit(EMAIL_HISTORY_CLASSIFICATION_CAP),
+      ),
+      safeQuery(
+        db.select({
+          id: emailChangeAttemptsTable.id,
+          newEmail: emailChangeAttemptsTable.newEmail,
+          createdAt: emailChangeAttemptsTable.createdAt,
+          expiresAt: emailChangeAttemptsTable.expiresAt,
+          cancelledAt: emailChangeAttemptsTable.cancelledAt,
+          cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+          cancelledByAdminName: cancelledByAdmin.name,
+          cancelledByAdminEmail: cancelledByAdmin.email,
+        })
+          .from(emailChangeAttemptsTable)
+          .leftJoin(
+            cancelledByAdmin,
+            eq(cancelledByAdmin.id, emailChangeAttemptsTable.cancelledByAdminId),
+          )
+          .where(and(
+            eq(emailChangeAttemptsTable.userId, id),
+            isNotNull(emailChangeAttemptsTable.newEmail),
+          ))
+          .orderBy(desc(emailChangeAttemptsTable.createdAt))
+          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP),
+      ),
+    ]);
+
+    const classified = classifyEmailAttempts(
+      emailAttemptRowsFull,
+      emailHistoryFull,
+      { pendingEmail: member.pendingEmail, emailChangeExpires: member.emailChangeExpires },
+    );
+
+    const attempt = classified.find((c) => c.id === attemptId) ?? null;
+    if (!attempt) {
+      // Either the attempt was a legacy row with no newEmail (filtered out
+      // upstream) or it fell off the classification cap. Both are unusual
+      // for the click-through path.
+      res.status(404).json({ error: "Email-change attempt not found" });
+      return;
+    }
+
+    // The classifier preserves DESC order, so to find "the attempt
+    // immediately after this one" we walk the list in reverse and pick
+    // the one with the smallest createdAt strictly greater than ours.
+    const attemptCreatedAt = new Date(attempt.requestedAt);
+    let nextAttempt: ClassifiedEmailAttempt | null = null;
+    for (let i = classified.length - 1; i >= 0; i--) {
+      const candidate = classified[i];
+      if (candidate.id === attempt.id) continue;
+      const candidateAt = new Date(candidate.requestedAt);
+      if (candidateAt.getTime() > attemptCreatedAt.getTime()) {
+        nextAttempt = candidate;
+        break;
+      }
+    }
+
+    // Subsequent confirmation: the oldest email_change_history row whose
+    // changedAt is at or after this attempt's createdAt. For a confirmed
+    // attempt this returns the matching history row; for an abandoned
+    // one this returns the next change the member ever made (which is
+    // exactly the resolution support is hunting for).
+    const historyAsc = [...emailHistoryFull].sort(
+      (a, b) => a.changedAt.getTime() - b.changedAt.getTime(),
+    );
+    const subsequentConfirmationRow = historyAsc.find(
+      (h) => h.changedAt.getTime() >= attemptCreatedAt.getTime(),
+    ) ?? null;
+
+    // Audit-log window: from the attempt's createdAt up to the next
+    // attempt's createdAt (or now if this is the latest). Cap at a small
+    // number of rows since this is a click-through detail panel — the
+    // full audit log is reachable from the Audit tab if more is needed.
+    const auditWindowEnd = nextAttempt
+      ? new Date(nextAttempt.requestedAt)
+      : new Date();
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const auditRowsRaw = await safeQuery(
+      db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.entityType, "user"),
+            eq(auditLogTable.entityId, String(id)),
+            gte(auditLogTable.createdAt, attemptCreatedAt),
+            lte(auditLogTable.createdAt, auditWindowEnd),
+          ),
+        )
+        .orderBy(asc(auditLogTable.createdAt))
+        .limit(20),
+    );
+    const auditEntries = canSeePii
+      ? auditRowsRaw
+      : auditRowsRaw.map(redactAuditRowPii);
+
+    res.json({
+      attempt,
+      auditEntries,
+      nextAttempt,
+      subsequentConfirmation: subsequentConfirmationRow
+        ? {
+            id: subsequentConfirmationRow.id,
+            oldEmail: subsequentConfirmationRow.oldEmail,
+            newEmail: subsequentConfirmationRow.newEmail,
+            changedAt: subsequentConfirmationRow.changedAt.toISOString(),
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("[Admin] Member email attempt detail error:", error);
+    res.status(500).json({ error: "Failed to fetch email-change attempt detail" });
+  }
+});
+
 router.post("/admin/members/:id/notes", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);

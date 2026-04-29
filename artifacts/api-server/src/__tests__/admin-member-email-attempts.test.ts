@@ -8,6 +8,7 @@ import {
   usersTable,
   emailChangeAttemptsTable,
   emailChangeHistoryTable,
+  auditLogTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 
@@ -65,6 +66,9 @@ afterAll(async () => {
   await db
     .delete(emailChangeHistoryTable)
     .where(inArray(emailChangeHistoryTable.userId, seededUserIds));
+  await db
+    .delete(auditLogTable)
+    .where(inArray(auditLogTable.actorId, seededUserIds));
   await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
 });
 
@@ -75,6 +79,11 @@ async function resetAttempts() {
   await db
     .delete(emailChangeHistoryTable)
     .where(eq(emailChangeHistoryTable.userId, member.id));
+  await db
+    .delete(auditLogTable)
+    .where(
+      sql`${auditLogTable.entityType} = 'user' AND ${auditLogTable.entityId} = ${String(member.id)}`,
+    );
   await db
     .update(usersTable)
     .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
@@ -643,6 +652,157 @@ describe("GET /admin/members/:id/full — emailAttempts classification", () => {
     expect(found.cancelledAt).toBe(cancelledAt.toISOString());
     expect(found.cancelledByAdminId).toBe(adminRow.id);
     expect(found.cancelledByAdminName).toBe("Paged Cancel Admin");
+  });
+
+  describe("GET /admin/members/:id/email-attempts/:attemptId — detail panel", () => {
+    it("returns the matching audit entry, next attempt, and confirmation for an abandoned attempt", async () => {
+      await resetAttempts();
+
+      const HOUR = 60 * 60 * 1000;
+      const baseTime = Date.now() - 30 * 24 * HOUR;
+
+      // Abandoned attempt — legacy row with no expiresAt, never confirmed,
+      // followed by a separate successful change. The classifier surfaces
+      // this as "abandoned" rather than "expired".
+      const abandonedTarget = "abandoned-target@example.test";
+      const [abandonedRow] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: abandonedTarget,
+          expiresAt: null,
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(abandonedRow.id, new Date(baseTime));
+
+      // Audit entry written inside the attempt's window (admin viewed/cancel etc.)
+      await db.insert(auditLogTable).values({
+        actorId: admin.id,
+        actorEmail: admin.email,
+        actionType: "view_member",
+        entityType: "user",
+        entityId: String(member.id),
+        description: `Admin viewed member ${member.id}`,
+        createdAt: new Date(baseTime + 30 * 60 * 1000),
+      });
+
+      // A subsequent (later) attempt that did confirm.
+      const nextTarget = "follow-up-confirmed@example.test";
+      const nextCreated = new Date(baseTime + 5 * HOUR);
+      const [nextRow] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: nextTarget,
+          expiresAt: new Date(baseTime + 6 * HOUR),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(nextRow.id, nextCreated);
+
+      // The history row that confirms the second attempt.
+      await db.insert(emailChangeHistoryTable).values({
+        userId: member.id,
+        oldEmail: member.email,
+        newEmail: nextTarget,
+        changedAt: new Date(baseTime + 5.5 * HOUR),
+      });
+
+      const res = await request(app)
+        .get(`/api/admin/members/${member.id}/email-attempts/${abandonedRow.id}`)
+        .set("Cookie", signCookie(admin.id, admin.email));
+
+      expect(res.status).toBe(200);
+      expect(res.body.attempt.id).toBe(abandonedRow.id);
+      expect(res.body.attempt.status).toBe("abandoned");
+      expect(res.body.nextAttempt).toBeTruthy();
+      expect(res.body.nextAttempt.id).toBe(nextRow.id);
+      expect(res.body.nextAttempt.newEmail).toBe(nextTarget);
+      expect(res.body.subsequentConfirmation).toBeTruthy();
+      expect(res.body.subsequentConfirmation.newEmail).toBe(nextTarget);
+      expect(res.body.auditEntries).toHaveLength(1);
+      expect(res.body.auditEntries[0].actionType).toBe("view_member");
+      // Audit entry that occurred AFTER the next attempt's window must be excluded.
+      await db.insert(auditLogTable).values({
+        actorId: admin.id,
+        actorEmail: admin.email,
+        actionType: "view_member",
+        entityType: "user",
+        entityId: String(member.id),
+        description: `Later admin view`,
+        createdAt: new Date(baseTime + 10 * HOUR),
+      });
+      const res2 = await request(app)
+        .get(`/api/admin/members/${member.id}/email-attempts/${abandonedRow.id}`)
+        .set("Cookie", signCookie(admin.id, admin.email));
+      expect(res2.status).toBe(200);
+      expect(res2.body.auditEntries).toHaveLength(1);
+    });
+
+    it("returns the matching confirmation history row for a confirmed attempt", async () => {
+      await resetAttempts();
+
+      const HOUR = 60 * 60 * 1000;
+      const baseTime = Date.now() - 10 * 24 * HOUR;
+
+      const confirmedTarget = "click-confirmed@example.test";
+      const [confirmedRow] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: confirmedTarget,
+          expiresAt: new Date(baseTime + HOUR),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(confirmedRow.id, new Date(baseTime));
+
+      await db.insert(emailChangeHistoryTable).values({
+        userId: member.id,
+        oldEmail: member.email,
+        newEmail: confirmedTarget,
+        changedAt: new Date(baseTime + 30 * 60 * 1000),
+      });
+
+      const res = await request(app)
+        .get(`/api/admin/members/${member.id}/email-attempts/${confirmedRow.id}`)
+        .set("Cookie", signCookie(admin.id, admin.email));
+
+      expect(res.status).toBe(200);
+      expect(res.body.attempt.status).toBe("confirmed");
+      expect(res.body.nextAttempt).toBeNull();
+      expect(res.body.subsequentConfirmation).toBeTruthy();
+      expect(res.body.subsequentConfirmation.newEmail).toBe(confirmedTarget);
+    });
+
+    it("rejects an attempt that belongs to a different user", async () => {
+      await resetAttempts();
+
+      const passwordHash = await bcrypt.hash("pw", 4);
+      const [otherMember] = await db
+        .insert(usersTable)
+        .values({
+          email: `${TAG}-other@example.test`,
+          name: "Other Member",
+          passwordHash,
+          role: "member",
+        })
+        .returning({ id: usersTable.id });
+      seededUserIds.push(otherMember.id);
+
+      const [otherAttempt] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: otherMember.id,
+          newEmail: "other-attempt@example.test",
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+
+      const res = await request(app)
+        .get(`/api/admin/members/${member.id}/email-attempts/${otherAttempt.id}`)
+        .set("Cookie", signCookie(admin.id, admin.email));
+
+      expect(res.status).toBe(404);
+    });
   });
 
   it("requires members:view permission", async () => {
