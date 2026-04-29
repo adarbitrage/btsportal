@@ -135,6 +135,103 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     expect(arl).toHaveProperty("lastError");
   });
 
+  it("returns an empty missingCriticalSecrets list outside production", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    delete (process.env as Record<string, string | undefined>).NODE_ENV;
+
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/health")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body?.services?.missingCriticalSecrets).toEqual([]);
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete (process.env as Record<string, string | undefined>).NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+    }
+  });
+
+  it("lists every misconfigured guarded secret in production", async () => {
+    const { GUARDED_SECRETS } = await import("../lib/production-env-guard");
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEnv: Record<string, string | undefined> = {};
+    for (const s of GUARDED_SECRETS) {
+      originalEnv[s.envVar] = process.env[s.envVar];
+      delete (process.env as Record<string, string | undefined>)[s.envVar];
+    }
+    process.env.NODE_ENV = "production";
+
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/health")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      const list = res.body?.services?.missingCriticalSecrets;
+      expect(Array.isArray(list)).toBe(true);
+      expect(list).toHaveLength(GUARDED_SECRETS.length);
+      const expected = GUARDED_SECRETS.map((s) => ({
+        id: s.id,
+        envVar: s.envVar,
+        title: s.title,
+        message: s.message,
+      }));
+      expect(list).toEqual(expected);
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete (process.env as Record<string, string | undefined>).NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+      for (const s of GUARDED_SECRETS) {
+        const v = originalEnv[s.envVar];
+        if (v === undefined) {
+          delete (process.env as Record<string, string | undefined>)[s.envVar];
+        } else {
+          process.env[s.envVar] = v;
+        }
+      }
+    }
+  });
+
+  it("omits secrets that are configured from missingCriticalSecrets in production", async () => {
+    const { GUARDED_SECRETS } = await import("../lib/production-env-guard");
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEnv: Record<string, string | undefined> = {};
+    for (const s of GUARDED_SECRETS) {
+      originalEnv[s.envVar] = process.env[s.envVar];
+      process.env[s.envVar] = `real-${s.envVar.toLowerCase()}-value`;
+    }
+    process.env.NODE_ENV = "production";
+
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/health")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body?.services?.missingCriticalSecrets).toEqual([]);
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete (process.env as Record<string, string | undefined>).NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+      for (const s of GUARDED_SECRETS) {
+        const v = originalEnv[s.envVar];
+        if (v === undefined) {
+          delete (process.env as Record<string, string | undefined>)[s.envVar];
+        } else {
+          process.env[s.envVar] = v;
+        }
+      }
+    }
+  });
+
   it("never echoes the secret value back in the response", async () => {
     const secret = "super-secret-do-not-leak-1234567890";
     process.env.TURNSTILE_SECRET_KEY = secret;

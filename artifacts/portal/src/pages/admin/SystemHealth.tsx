@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -352,6 +352,25 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {Array.isArray(health.services?.missingCriticalSecrets) && health.services.missingCriticalSecrets.length > 0 && (
+              <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="missing-critical-secrets-banner">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-red-900 dark:text-red-200">
+                      {health.services.missingCriticalSecrets.length === 1
+                        ? "1 production secret is unset or defaulted"
+                        : `${health.services.missingCriticalSecrets.length} production secrets are unset or defaulted`}
+                    </p>
+                    <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                      On-call has been paged. See the "Production secrets" card below for the
+                      affected env vars and remediation details.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {health.services?.signupChallenge && health.services.signupChallenge.enforced === false && (
               <Card className="border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950/30">
                 <CardContent className="py-4 flex items-start gap-3">
@@ -401,6 +420,79 @@ export default function SystemHealth() {
                   </div>
                 </CardContent>
               </Card>
+
+              {Array.isArray(health.services?.missingCriticalSecrets) && (
+                <Card
+                  className={
+                    health.services.missingCriticalSecrets.length > 0
+                      ? "border-red-500/40 bg-red-50/40 dark:bg-red-950/20"
+                      : undefined
+                  }
+                  data-testid="card-missing-critical-secrets"
+                >
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <KeyRound className="w-4 h-4" />Production secrets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        {health.services.missingCriticalSecrets.length > 0 ? (
+                          <span
+                            className="inline-flex items-center rounded-full border border-transparent bg-red-100 text-red-800 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider"
+                            data-testid="missing-critical-secrets-status"
+                          >
+                            {health.services.missingCriticalSecrets.length} missing
+                          </span>
+                        ) : (
+                          <Badge variant="success" data-testid="missing-critical-secrets-status">
+                            All set
+                          </Badge>
+                        )}
+                      </div>
+                      {health.services.missingCriticalSecrets.length > 0 ? (
+                        <ul className="space-y-3 pt-1">
+                          {(health.services.missingCriticalSecrets as Array<{
+                            id: string;
+                            envVar: string;
+                            title: string;
+                            message: string;
+                          }>).map((secret) => (
+                            <li
+                              key={secret.id}
+                              className="space-y-1 border-l-2 border-red-500/60 pl-3"
+                              data-testid={`missing-critical-secret-${secret.id}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs font-semibold">{secret.envVar}</code>
+                                <span className="inline-flex items-center rounded-full border border-transparent bg-red-100 text-red-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                                  unset
+                                </span>
+                              </div>
+                              <p className="text-xs font-medium" data-testid={`missing-critical-secret-title-${secret.id}`}>
+                                {secret.title}
+                              </p>
+                              <p
+                                className="text-xs text-muted-foreground"
+                                data-testid={`missing-critical-secret-message-${secret.id}`}
+                              >
+                                {secret.message}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          All guarded production secrets are configured on this server. Outside
+                          production this list is always empty.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {health.services?.signupChallenge && (
                 <Card>

@@ -1631,6 +1631,19 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         ? "degraded"
         : "up";
 
+    // Mirror the production env guard's view of the misconfigured secrets so
+    // an admin landing on /admin/system from the notification bell sees
+    // exactly which secret is the problem instead of having to cross-
+    // reference the bell. Outside production this is always empty (the
+    // guard is a no-op there), and we never echo the secret value itself —
+    // only its stable id, env var name, title, and remediation message.
+    const missingCriticalSecrets = getMisconfiguredCriticalSecrets().map((s) => ({
+      id: s.id,
+      envVar: s.envVar,
+      title: s.title,
+      message: s.message,
+    }));
+
     // Treat any rate-limit audit-write failure as a degradation: it means
     // the audit trail security on-callers depend on is silently dropping
     // entries while the 429s themselves keep flowing. Better to flip the
@@ -1650,6 +1663,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
         rateLimitAuditFailures,
+        missingCriticalSecrets,
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },
