@@ -208,6 +208,28 @@ export const DismissAdminCancelledEmailChangeResponse = zod
   );
 
 /**
+ * Verifies the signed `email_change_prefill` token issued in the
+admin-cancellation notice and returns the address the member had
+previously requested. The token is rejected unless it was signed
+for the currently-authenticated member, so the URL can't be
+reused to pre-seed someone else's email-change form.
+
+ * @summary Resolve a signed email-change prefill token into the address it carries
+ */
+
+export const GetMemberEmailChangePrefillQueryParams = zod.object({
+  token: zod.coerce.string().min(1),
+});
+
+export const GetMemberEmailChangePrefillResponse = zod.object({
+  prefillEmail: zod
+    .string()
+    .describe(
+      "The email address that the member had previously requested before an admin cancellation, suitable for pre-filling the email-change form.",
+    ),
+});
+
+/**
  * @summary Fetch legal documents
  */
 export const GetLegalDocumentsQueryParams = zod.object({

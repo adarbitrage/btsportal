@@ -153,6 +153,7 @@ import type {
   DismissAdminCancelledEmailChangeResponse,
   EditCommunityComment,
   EditCommunityPost,
+  EmailChangePrefillResponse,
   EmailResubscribeBody,
   EmailUnsubscribeParams,
   EntitlementSet,
@@ -167,6 +168,7 @@ import type {
   GetCommissionsEarningsParams,
   GetFlexyCredentials200,
   GetLegalDocumentsParams,
+  GetMemberEmailChangePrefillParams,
   GetOneOnOneSlotsParams,
   GhlConfig,
   GhlLogEntry,
@@ -1172,6 +1174,121 @@ export const useDismissAdminCancelledEmailChange = <
     getDismissAdminCancelledEmailChangeMutationOptions(options),
   );
 };
+
+/**
+ * Verifies the signed `email_change_prefill` token issued in the
+admin-cancellation notice and returns the address the member had
+previously requested. The token is rejected unless it was signed
+for the currently-authenticated member, so the URL can't be
+reused to pre-seed someone else's email-change form.
+
+ * @summary Resolve a signed email-change prefill token into the address it carries
+ */
+export const getGetMemberEmailChangePrefillUrl = (
+  params: GetMemberEmailChangePrefillParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/members/me/email/prefill?${stringifiedParams}`
+    : `/api/members/me/email/prefill`;
+};
+
+export const getMemberEmailChangePrefill = async (
+  params: GetMemberEmailChangePrefillParams,
+  options?: RequestInit,
+): Promise<EmailChangePrefillResponse> => {
+  return customFetch<EmailChangePrefillResponse>(
+    getGetMemberEmailChangePrefillUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMemberEmailChangePrefillQueryKey = (
+  params?: GetMemberEmailChangePrefillParams,
+) => {
+  return [
+    `/api/members/me/email/prefill`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetMemberEmailChangePrefillQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMemberEmailChangePrefill>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetMemberEmailChangePrefillParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMemberEmailChangePrefill>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMemberEmailChangePrefillQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMemberEmailChangePrefill>>
+  > = ({ signal }) =>
+    getMemberEmailChangePrefill(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberEmailChangePrefill>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMemberEmailChangePrefillQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMemberEmailChangePrefill>>
+>;
+export type GetMemberEmailChangePrefillQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Resolve a signed email-change prefill token into the address it carries
+ */
+
+export function useGetMemberEmailChangePrefill<
+  TData = Awaited<ReturnType<typeof getMemberEmailChangePrefill>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetMemberEmailChangePrefillParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMemberEmailChangePrefill>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMemberEmailChangePrefillQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Fetch legal documents

@@ -216,6 +216,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/DismissAdminCancelledEmailChangeResponse"
 
+  /members/me/email/prefill:
+    get:
+      operationId: getMemberEmailChangePrefill
+      tags: [members]
+      summary: Resolve a signed email-change prefill token into the address it carries
+      description: |
+        Verifies the signed `email_change_prefill` token issued in the
+        admin-cancellation notice and returns the address the member had
+        previously requested. The token is rejected unless it was signed
+        for the currently-authenticated member, so the URL can't be
+        reused to pre-seed someone else's email-change form.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Token verified — pre-fill payload returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailChangePrefillResponse"
+        "400":
+          description: Token missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Token does not belong to the current member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /documents:
     get:
       operationId: getLegalDocuments
@@ -6637,6 +6681,14 @@ components:
         dismissed:
           type: boolean
       required: [dismissed]
+
+    EmailChangePrefillResponse:
+      type: object
+      properties:
+        prefillEmail:
+          type: string
+          description: The email address that the member had previously requested before an admin cancellation, suitable for pre-filling the email-change form.
+      required: [prefillEmail]
 
     VerifyEmailChangeBody:
       type: object

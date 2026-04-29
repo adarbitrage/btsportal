@@ -278,6 +278,25 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(verifiedCall!.variables.member_email).toBe(target.email);
     expect(verifiedCall!.variables.cancelled_pending_email).toBe(pendingEmail);
 
+    // Deep-link variable: the restart URL must point at /account?
+    // email_change_prefill=<jwt> on the configured portal so legitimate
+    // members can retry the change in one click. The token must verify
+    // back to the same userId + prefill email so the portal can pre-fill
+    // the form without trusting client-supplied values.
+    const restartUrl = verifiedCall!.variables.restart_url as string;
+    expect(restartUrl).toBeTruthy();
+    expect(restartUrl).toMatch(/\/account\?email_change_prefill=/);
+    const tokenFromUrl = decodeURIComponent(
+      restartUrl.split("email_change_prefill=")[1] ?? "",
+    );
+    const verified = (
+      await import("../lib/email-change-prefill-token")
+    ).verifyEmailChangePrefillToken(tokenFromUrl);
+    expect(verified).toEqual({
+      userId: targetId,
+      prefillEmail: pendingEmail.toLowerCase(),
+    });
+
     expect(pendingCall, "notice to dropped pending address").toBeDefined();
     // The pending-address notice goes to the address that was queued (and
     // never confirmed), and is not tied to a userId — that inbox may not

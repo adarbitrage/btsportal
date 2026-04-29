@@ -14,9 +14,11 @@ import {
   RequestMemberEmailChangeResponse as RequestEmailChangeResponse,
   CancelMemberEmailChangeResponse as CancelEmailChangeResponse,
   DismissAdminCancelledEmailChangeResponse,
+  GetMemberEmailChangePrefillResponse as EmailChangePrefillResponse,
 } from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
+import { verifyEmailChangePrefillToken } from "../lib/email-change-prefill-token";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -395,6 +397,45 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
       message:
         "Verification link sent. Click the link in your new inbox within 24 hours to complete the change.",
       pendingEmail: newEmail,
+    }),
+  );
+});
+
+// Resolve the signed prefill token embedded in the
+// `email_change_cancelled_by_admin` deep link into the address it carries.
+// The token must have been signed for *this* authenticated member — otherwise
+// a stolen/forwarded link could be used to seed someone else's email-change
+// form (a phishing primitive). The signature also rules out callers
+// hand-crafting a token with an arbitrary email.
+router.get("/members/me/email/prefill", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const tokenRaw = typeof req.query.token === "string" ? req.query.token : "";
+  if (!tokenRaw) {
+    res.status(400).json({ error: "Missing token." });
+    return;
+  }
+
+  const payload = verifyEmailChangePrefillToken(tokenRaw);
+  if (!payload) {
+    res.status(410).json({
+      error:
+        "This pre-fill link is no longer valid — it may have expired or been altered. Please start the email change manually from your account settings.",
+    });
+    return;
+  }
+
+  if (payload.userId !== userId) {
+    // We deliberately don't tell the caller *whose* token this is.
+    res.status(403).json({
+      error: "This pre-fill link wasn't issued for the signed-in account.",
+    });
+    return;
+  }
+
+  res.json(
+    EmailChangePrefillResponse.parse({
+      prefillEmail: payload.prefillEmail,
     }),
   );
 });

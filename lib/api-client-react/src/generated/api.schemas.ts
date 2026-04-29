@@ -783,6 +783,11 @@ export interface DismissAdminCancelledEmailChangeResponse {
   dismissed: boolean;
 }
 
+export interface EmailChangePrefillResponse {
+  /** The email address that the member had previously requested before an admin cancellation, suitable for pre-filling the email-change form. */
+  prefillEmail: string;
+}
+
 export interface VerifyEmailChangeBody {
   /** @minLength 1 */
   token: string;
@@ -2344,6 +2349,13 @@ export type PageParamParameter = number;
  * Number of items per page
  */
 export type LimitParamParameter = number;
+
+export type GetMemberEmailChangePrefillParams = {
+  /**
+   * @minLength 1
+   */
+  token: string;
+};
 
 export type GetLegalDocumentsParams = {
   type?: string;

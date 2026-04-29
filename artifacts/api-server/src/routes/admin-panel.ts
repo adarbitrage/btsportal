@@ -6,6 +6,10 @@ import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import { CommunicationService } from "../lib/communication-service";
+import {
+  signEmailChangePrefillToken,
+  buildEmailChangeRestartUrl,
+} from "../lib/email-change-prefill-token";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
@@ -1423,6 +1427,20 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
     // Fire-and-forget — the cancellation itself has already succeeded and
     // we never want a transient SendGrid/Redis hiccup to surface as an
     // admin-facing 500.
+    // Sign a short-lived prefill token tied to this member so the cancellation
+    // email can deep-link straight to the email-change form with the discarded
+    // address pre-filled. The token is verified server-side against the
+    // authenticated session before any pre-fill occurs, so the URL can't be
+    // used to seed a phishing form on someone else's account.
+    const prefillToken = signEmailChangePrefillToken({
+      userId: id,
+      prefillEmail: previousPendingEmail,
+    });
+    const restartUrl = buildEmailChangeRestartUrl(
+      process.env.PORTAL_URL || "https://portal.buildtestscale.com",
+      prefillToken,
+    );
+
     CommunicationService.queueEmail({
       templateSlug: "email_change_cancelled_by_admin",
       to: member.email,
@@ -1430,6 +1448,7 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
         member_name: member.name,
         member_email: member.email,
         cancelled_pending_email: previousPendingEmail,
+        restart_url: restartUrl,
       },
       userId: id,
     }).catch((err) =>

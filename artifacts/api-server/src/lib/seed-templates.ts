@@ -132,13 +132,13 @@ const transactionalEmailTemplates = [
 <p>Hi {{member_name}},</p>
 <p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
 <p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
-<p>If you still want to switch your account to a different email address, you can start a new request anytime from your account settings:</p>
-<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Go to Account Settings</a></p>
+<p>If you still meant to switch your account to <strong>{{cancelled_pending_email}}</strong> (or another address), use the button below — we'll drop you straight onto the email-change form with the previously requested address pre-filled so you don't have to retype it. You'll still need to sign in and re-enter your password to confirm the change.</p>
+<p><a href="{{restart_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start a new email change</a></p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting support to cancel this change, or you have any questions, please reply to this email or reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still want to switch your account to a different email address, you can start a new request anytime from your account settings: {{portal_url}}/settings\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still meant to switch your account to {{cancelled_pending_email}} (or another address), open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
-    variables: ["member_name", "member_email", "cancelled_pending_email", "portal_url", "support_email", "current_year"],
+    variables: ["member_name", "member_email", "cancelled_pending_email", "restart_url", "portal_url", "support_email", "current_year"],
   },
   {
     slug: "email_change_cancelled_by_admin_pending",

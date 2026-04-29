@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import {
   useRequestMemberEmailChange,
   useCancelMemberEmailChange,
   useDismissAdminCancelledEmailChange,
+  getMemberEmailChangePrefill,
 } from "@workspace/api-client-react";
 
 export default function Account() {
@@ -44,6 +45,10 @@ export default function Account() {
   const [emailError, setEmailError] = useState("");
   const [cancellingEmail, setCancellingEmail] = useState(false);
   const [dismissingAdminCancelled, setDismissingAdminCancelled] = useState(false);
+  // Guard so that the prefill flow only runs once even if React effects
+  // re-fire (e.g. StrictMode double-invocation in dev). Without this we
+  // would re-open the dialog after the user manually closes it.
+  const prefillHandledRef = useRef(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -74,6 +79,67 @@ export default function Account() {
       setMarketingOptIn(member.marketingOptIn ?? true);
     }
   }, [member]);
+
+  // Members arriving from the "Start a new email change" CTA in the
+  // admin-cancellation email land here with a signed `email_change_prefill`
+  // token. We exchange it for the previously-discarded address and open the
+  // email-change dialog with that address pre-populated, so the legitimate
+  // case of a support-cancelled change can be retried in one click rather
+  // than forcing the member to remember and retype the address.
+  useEffect(() => {
+    if (!member || prefillHandledRef.current) return;
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("email_change_prefill");
+    if (!token) return;
+
+    prefillHandledRef.current = true;
+
+    const stripParam = () => {
+      params.delete("email_change_prefill");
+      const qs = params.toString();
+      const cleanUrl =
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+      window.history.replaceState({}, "", cleanUrl);
+    };
+
+    (async () => {
+      try {
+        const res = await getMemberEmailChangePrefill({ token });
+        const prefillEmail = (res?.prefillEmail || "").trim().toLowerCase();
+        // If the previously-requested address has since become the member's
+        // current verified email (e.g. a different change request completed
+        // in the meantime), there is nothing to retry — silently no-op.
+        if (
+          !prefillEmail ||
+          prefillEmail === (member.email || "").toLowerCase()
+        ) {
+          stripParam();
+          return;
+        }
+        setEmailError("");
+        setEmailCurrentPassword("");
+        setNewEmail(prefillEmail);
+        setEmailDialogOpen(true);
+        toast({
+          title: "Email change pre-filled",
+          description: `We've pre-filled ${prefillEmail} from your previous request. Confirm your password to retry the change.`,
+        });
+      } catch (err: any) {
+        toast({
+          title: "Couldn't pre-fill email",
+          description:
+            err?.data?.error ||
+            err?.message ||
+            "This pre-fill link is no longer valid. You can still start a new email change manually below.",
+          variant: "destructive",
+        });
+      } finally {
+        stripParam();
+      }
+    })();
+  }, [member, toast]);
 
   const profileDirty =
     !!member &&
