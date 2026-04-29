@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -74,8 +74,47 @@ interface AlerterHealth {
   serverTime: string;
 }
 
+type OnCallField = "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl";
+
+interface OnCallHistoryEvent {
+  id: number;
+  createdAt: string;
+  actionType: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  description: string;
+  changedFields: OnCallField[];
+  testResults: Array<{
+    channel: "pagerduty" | "email" | "slack";
+    ok: boolean;
+    skipped: boolean;
+    reason: string | null;
+  }>;
+}
+
+const ONCALL_FIELD_LABELS: Record<OnCallField, string> = {
+  pagerdutyIntegrationKey: "PagerDuty key",
+  opsAlertEmail: "Ops alert email",
+  opsAlertSlackWebhookUrl: "Slack webhook",
+};
+
+const ONCALL_CHANNEL_LABELS: Record<"pagerduty" | "email" | "slack", string> = {
+  pagerduty: "PagerDuty",
+  email: "Email",
+  slack: "Slack",
+};
+
+function oncallActorDisplay(event: OnCallHistoryEvent): string {
+  if (event.actorName && event.actorEmail) return `${event.actorName} (${event.actorEmail})`;
+  if (event.actorName) return event.actorName;
+  if (event.actorEmail) return event.actorEmail;
+  return "System";
+}
+
 const FALLBACK_EVENTS_LIMIT = 50;
 const ALERT_EVENTS_LIMIT = 20;
+const ONCALL_HISTORY_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const NEW_EVENT_HIGHLIGHT_MS = 6_000;
 const FALLBACK_SOUND_PREF_KEY = "systemHealth.fallbackSoundEnabled";
@@ -103,6 +142,14 @@ export default function SystemHealth() {
   const [alerterHealth, setAlerterHealth] = useState<AlerterHealth | null>(null);
   const [alerterHealthLoading, setAlerterHealthLoading] = useState(true);
   const [alerterHealthError, setAlerterHealthError] = useState<string | null>(null);
+  const [oncallHistory, setOncallHistory] = useState<OnCallHistoryEvent[]>([]);
+  const [oncallHistoryLoading, setOncallHistoryLoading] = useState(true);
+  const [oncallHistoryError, setOncallHistoryError] = useState<string | null>(null);
+  // Click-to-expand row id for the on-call destinations history table.
+  // Keeps the table compact by default — actor + changed-fields chips are
+  // visible at a glance, and the full description / probe results / exact
+  // timestamp are revealed on click for the row an admin is investigating.
+  const [expandedOncallEventId, setExpandedOncallEventId] = useState<number | null>(null);
   // Re-render driver so the throttle TTL countdowns visibly tick down between
   // backend refreshes (which only happen every 30s). Cheap: just bumps a
   // counter once per second while the alerter card is on screen.
@@ -322,18 +369,37 @@ export default function SystemHealth() {
     }
   }, []);
 
+  const loadOnCallHistory = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setOncallHistoryLoading(true);
+      const data = await adminPanelApi.getOnCallDestinationsHistory(ONCALL_HISTORY_LIMIT);
+      setOncallHistory(Array.isArray(data?.events) ? (data.events as OnCallHistoryEvent[]) : []);
+      setOncallHistoryError(null);
+      return true;
+    } catch (err: any) {
+      if (silent) {
+        return false;
+      }
+      setOncallHistoryError(err?.message ?? "Failed to load on-call destination history");
+      return false;
+    } finally {
+      if (!silent) setOncallHistoryLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (silent = false) => {
     if (inFlightRef.current > 0) return;
     inFlightRef.current += 1;
     setRefreshInFlight(inFlightRef.current);
     try {
-      const [healthOk, eventsOk, alertEventsOk, alerterHealthOk] = await Promise.all([
+      const [healthOk, eventsOk, alertEventsOk, alerterHealthOk, oncallHistoryOk] = await Promise.all([
         loadHealth(silent),
         loadFallbackEvents(silent),
         loadAlertEvents(silent),
         loadAlerterHealth(silent),
+        loadOnCallHistory(silent),
       ]);
-      const allOk = healthOk && eventsOk && alertEventsOk && alerterHealthOk;
+      const allOk = healthOk && eventsOk && alertEventsOk && alerterHealthOk && oncallHistoryOk;
       if (silent) {
         setSilentRefreshError(allOk ? null : "Last auto-refresh failed — showing previous data");
       } else {
@@ -347,7 +413,7 @@ export default function SystemHealth() {
       inFlightRef.current = Math.max(0, inFlightRef.current - 1);
       setRefreshInFlight(inFlightRef.current);
     }
-  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth]);
+  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth, loadOnCallHistory]);
 
   // Once we've loaded an alerter snapshot with at least one active throttle
   // slot, tick a counter every second so the "remaining" labels update in
@@ -1549,6 +1615,245 @@ export default function SystemHealth() {
                     </div>
                   </div>
                 ) : null}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-oncall-destinations-history">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  On-call destination changes
+                  <Badge variant="outline" className="ml-2 font-normal">last {ONCALL_HISTORY_LIMIT}</Badge>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Audit-log timeline of who edited an on-call destination (PagerDuty key, ops email, Slack webhook)
+                  or sent a test alert. Useful for correlating an outage window with a recent configuration change —
+                  click a row for the full actor + changed-fields detail, or open the audit row for everything else.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {oncallHistoryLoading && oncallHistory.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm" data-testid="oncall-history-loading">
+                    Loading recent destination changes...
+                  </div>
+                ) : oncallHistoryError ? (
+                  <div className="p-6 text-center text-sm text-red-600" data-testid="oncall-history-error">
+                    {oncallHistoryError}
+                  </div>
+                ) : oncallHistory.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm" data-testid="oncall-history-empty">
+                    No on-call destination changes recorded yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto" data-testid="oncall-history-table">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="text-left font-medium px-4 py-2">When</th>
+                          <th className="text-left font-medium px-4 py-2">Action</th>
+                          <th className="text-left font-medium px-4 py-2">Actor</th>
+                          <th className="text-left font-medium px-4 py-2">Details</th>
+                          <th className="text-right font-medium px-4 py-2">Audit row</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {oncallHistory.map((event) => {
+                          const ts = event.createdAt ? new Date(event.createdAt) : null;
+                          const tsLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString() : "Unknown";
+                          const actor = oncallActorDisplay(event);
+                          const isTest = event.actionType === "send_test_alert";
+                          const isUpdate = event.actionType === "update_setting";
+                          const isExpanded = expandedOncallEventId === event.id;
+                          // Tooltip on the row gives admins the actor + changed-fields
+                          // recap on hover without forcing a click; the same data is
+                          // also visible inline in the Details column for quick scanning.
+                          const hoverParts: string[] = [`Actor: ${actor}`];
+                          if (isUpdate && event.changedFields.length > 0) {
+                            hoverParts.push(
+                              `Changed: ${event.changedFields.map((f) => ONCALL_FIELD_LABELS[f]).join(", ")}`,
+                            );
+                          }
+                          if (isTest && event.testResults.length > 0) {
+                            hoverParts.push(
+                              `Tested: ${event.testResults
+                                .map((r) =>
+                                  `${ONCALL_CHANNEL_LABELS[r.channel]} ${r.skipped ? "skipped" : r.ok ? "ok" : "failed"}`,
+                                )
+                                .join(", ")}`,
+                            );
+                          }
+                          if (event.description) hoverParts.push(event.description);
+                          const hoverTitle = hoverParts.join(" — ");
+                          return (
+                            <Fragment key={event.id}>
+                              <tr
+                                className="hover:bg-muted/20 cursor-pointer"
+                                data-testid={`oncall-history-row-${event.id}`}
+                                title={hoverTitle}
+                                onClick={() =>
+                                  setExpandedOncallEventId((prev) => (prev === event.id ? null : event.id))
+                                }
+                              >
+                                <td className="px-4 py-2 whitespace-nowrap text-xs">{tsLabel}</td>
+                                <td className="px-4 py-2 text-xs">
+                                  {isTest ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] inline-flex items-center gap-1"
+                                      data-testid={`oncall-history-action-${event.id}`}
+                                    >
+                                      <Send className="w-3 h-3" /> Test alert
+                                    </Badge>
+                                  ) : isUpdate ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] inline-flex items-center gap-1"
+                                      data-testid={`oncall-history-action-${event.id}`}
+                                    >
+                                      <KeyRound className="w-3 h-3" /> Updated
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px]"
+                                      data-testid={`oncall-history-action-${event.id}`}
+                                    >
+                                      {event.actionType}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td
+                                  className="px-4 py-2 text-xs max-w-[16rem] truncate"
+                                  title={actor}
+                                  data-testid={`oncall-history-actor-${event.id}`}
+                                >
+                                  {actor}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {isUpdate && event.changedFields.length > 0 ? (
+                                    <div
+                                      className="flex flex-wrap gap-1"
+                                      data-testid={`oncall-history-fields-${event.id}`}
+                                    >
+                                      {event.changedFields.map((f) => (
+                                        <Badge
+                                          key={f}
+                                          variant="outline"
+                                          className="text-[10px]"
+                                        >
+                                          {ONCALL_FIELD_LABELS[f]}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : isTest && event.testResults.length > 0 ? (
+                                    <div
+                                      className="flex flex-wrap gap-1"
+                                      data-testid={`oncall-history-results-${event.id}`}
+                                    >
+                                      {event.testResults.map((r) => (
+                                        <span
+                                          key={r.channel}
+                                          className="text-[10px] px-1.5 py-0.5 rounded border inline-flex items-center gap-1 bg-background"
+                                          title={r.reason ?? undefined}
+                                        >
+                                          {r.skipped ? (
+                                            <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                                          ) : r.ok ? (
+                                            <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                          ) : (
+                                            <XCircle className="w-3 h-3 text-red-600" />
+                                          )}
+                                          <span>{ONCALL_CHANNEL_LABELS[r.channel]}</span>
+                                          <span className="text-muted-foreground">
+                                            {r.skipped ? "skipped" : r.ok ? "ok" : "failed"}
+                                          </span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      {event.description || "—"}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <Link
+                                    href={`/admin/audit-log?entityType=oncall_destinations&expand=${event.id}`}
+                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    data-testid={`link-oncall-history-audit-${event.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    #{event.id}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </Link>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr
+                                  className="bg-muted/10"
+                                  data-testid={`oncall-history-expanded-${event.id}`}
+                                >
+                                  <td colSpan={5} className="px-4 py-3">
+                                    <div className="space-y-1 text-xs">
+                                      <div>
+                                        <span className="text-muted-foreground">Actor: </span>
+                                        <span className="font-medium">{actor}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">When: </span>
+                                        <span className="font-medium">{tsLabel}</span>
+                                      </div>
+                                      {isUpdate && event.changedFields.length > 0 && (
+                                        <div>
+                                          <span className="text-muted-foreground">Changed fields: </span>
+                                          <span className="font-medium">
+                                            {event.changedFields
+                                              .map((f) => ONCALL_FIELD_LABELS[f])
+                                              .join(", ")}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {isTest && event.testResults.length > 0 && (
+                                        <div className="space-y-0.5">
+                                          <span className="text-muted-foreground">Test results:</span>
+                                          <ul className="ml-4 list-disc space-y-0.5">
+                                            {event.testResults.map((r) => (
+                                              <li key={r.channel}>
+                                                <span className="font-medium">
+                                                  {ONCALL_CHANNEL_LABELS[r.channel]}
+                                                </span>
+                                                {": "}
+                                                <span>
+                                                  {r.skipped ? "skipped" : r.ok ? "ok" : "failed"}
+                                                </span>
+                                                {r.reason && (
+                                                  <span className="text-muted-foreground">
+                                                    {" "}
+                                                    — {r.reason}
+                                                  </span>
+                                                )}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {event.description && (
+                                        <div>
+                                          <span className="text-muted-foreground">Description: </span>
+                                          <span>{event.description}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
