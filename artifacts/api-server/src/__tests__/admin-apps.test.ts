@@ -16,6 +16,25 @@ const { updateStaffUserPasswordMock, generateRandomPasswordMock } = vi.hoisted((
   generateRandomPasswordMock: vi.fn(() => "MockedPassw0rd!"),
 }));
 
+// Toggle the result of `members:pii` checks at runtime so the
+// reset-history endpoint can be exercised on both the unredacted
+// (admin with PII) and redacted (admin without PII) paths without
+// inventing a new role. Other permission checks keep their real
+// behavior so requirePermission middleware still authorizes apps:support.
+const piiState = vi.hoisted(() => ({ allowPii: true }));
+
+vi.mock("@workspace/auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@workspace/auth")>("@workspace/auth");
+  return {
+    ...actual,
+    hasPermission: (role: unknown, perm: unknown) => {
+      if (perm === "members:pii" && !piiState.allowPii) return false;
+      return actual.hasPermission(role as never, perm as never);
+    },
+  };
+});
+
 const {
   queueEmailMock,
   queueSmsMock,
@@ -130,6 +149,9 @@ beforeEach(() => {
   queueSmsMock.mockResolvedValue({ result: "queued" as const });
   sendEmailNowMock.mockClear();
   sendSmsNowMock.mockClear();
+  // Default to "viewer has members:pii" so existing tests see the
+  // unredacted shape; PII-gated tests opt in to false.
+  piiState.allowPii = true;
 });
 
 describe("GET /api/admin/apps/flexy/lookup/:userId", () => {
@@ -587,5 +609,73 @@ describe("GET /api/admin/apps/flexy/password-reset-history", () => {
       .get(`/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`)
       .set("Cookie", signCookie(memberUser.id, memberUser.email));
     expect(res.status).toBe(403);
+  });
+
+  // PII redaction: this endpoint reads the same audit rows the main audit
+  // log does, so it must respect the same `members:pii` gate. Otherwise an
+  // apps:support-only role (granted without `members:pii`) would still see
+  // the member's email in the structured `memberEmail` field and embedded
+  // in the description template.
+  describe("members:pii redaction", () => {
+    it("returns memberEmail and the raw description when the viewer has members:pii", async () => {
+      piiState.allowPii = true;
+
+      const res = await request(app)
+        .get(`/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+      expect(res.status).toBe(200);
+      const events = res.body.events as Array<{
+        actionType: string;
+        memberEmail: string | null;
+        description: string;
+      }>;
+      expect(events.length).toBe(2);
+      for (const event of events) {
+        expect(event.memberEmail).toBe(historyMember.email);
+        expect(event.description).toContain(historyMember.email);
+      }
+    });
+
+    it("nulls out memberEmail and scrubs the description when the viewer lacks members:pii", async () => {
+      piiState.allowPii = false;
+
+      const res = await request(app)
+        .get(`/api/admin/apps/flexy/password-reset-history?userId=${historyMember.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email));
+
+      expect(res.status).toBe(200);
+      const events = res.body.events as Array<{
+        actionType: string;
+        memberEmail: string | null;
+        description: string;
+        channels: unknown;
+      }>;
+      expect(events.length).toBe(2);
+
+      // The member's email must not leak anywhere in the response body.
+      expect(JSON.stringify(res.body)).not.toContain(historyMember.email);
+
+      for (const event of events) {
+        expect(event.memberEmail).toBeNull();
+        expect(event.description).not.toContain(historyMember.email);
+        expect(event.description).toContain("redacted");
+      }
+
+      const regen = events.find((e) => e.actionType === "regenerate_password");
+      expect(regen?.description).toBe(
+        "Regenerated Flexy password for member redacted",
+      );
+
+      const notify = events.find((e) => e.actionType === "notify_password");
+      expect(notify?.description).toBe(
+        "Sent new Flexy password to member redacted via email=sent",
+      );
+      // Non-PII fields the UI still renders must survive the scrub.
+      expect(notify?.channels).toEqual({
+        email: { status: "sent" },
+        sms: { status: "skipped", reason: "no_phone_on_file" },
+      });
+    });
   });
 });

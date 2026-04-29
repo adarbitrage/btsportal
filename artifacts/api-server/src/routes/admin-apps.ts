@@ -8,8 +8,8 @@ import {
   APP_NAMES,
 } from "@workspace/db";
 import { and, desc, eq, ilike, inArray } from "drizzle-orm";
-import { requirePermission } from "../middleware/rbac";
-import { logAdminAction } from "../lib/audit-log";
+import { hasPermission, requirePermission } from "../middleware/rbac";
+import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import {
   regenerateFlexyPassword,
   buildFlexyOpenUrl,
@@ -288,7 +288,7 @@ router.get(
         conditions.push(ilike(auditLogTable.actorEmail, `%${actorEmail}%`));
       }
 
-      const rows = await db
+      const rawRows = await db
         .select({
           id: auditLogTable.id,
           createdAt: auditLogTable.createdAt,
@@ -298,11 +298,22 @@ router.get(
           entityId: auditLogTable.entityId,
           description: auditLogTable.description,
           changeDiff: auditLogTable.changeDiff,
+          // `metadata` is required by the redactor's row shape, even though
+          // we don't surface it from this endpoint.
+          metadata: auditLogTable.metadata,
         })
         .from(auditLogTable)
         .where(and(...conditions))
         .orderBy(desc(auditLogTable.createdAt))
         .limit(limit);
+
+      // The reset-history endpoint pulls the same audit rows the main audit
+      // log does, so it has to honour the same `members:pii` gate. Without
+      // this, an `apps:support`-only role (no `members:pii`) would still
+      // see the member's email both in the structured `memberEmail` field
+      // and embedded in the `description` template.
+      const canSeePii = hasPermission(req.adminRole, "members:pii");
+      const rows = canSeePii ? rawRows : rawRows.map(redactAuditRowPii);
 
       const events: FlexyResetEvent[] = rows.map((row) => {
         const diff = (row.changeDiff ?? {}) as Record<string, unknown>;
