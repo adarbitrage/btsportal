@@ -399,6 +399,26 @@ const transactionalEmailTemplates = [
     category: "transactional",
     variables: ["member_name", "product_name", "portal_url", "current_year"],
   },
+  {
+    slug: "role_changed",
+    name: "Admin Role Changed",
+    subject: "Your Build Test Scale role is now {{new_role_label}}",
+    htmlBody: wrapHtml("Role Changed", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your role was updated</h2>
+<p>Hi {{member_name}},</p>
+<p>{{actor_name}} just updated your access on Build Test Scale.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Previous role:</strong> {{previous_role_label}}<br>
+<strong>New role:</strong> {{new_role_label}}
+</p>
+<p>This change takes effect the next time you sign in. You may notice that some admin tools you used before are no longer visible, or that new ones have appeared.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Your Dashboard</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting this change, please reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\n{{actor_name}} just updated your access on Build Test Scale.\n\nPrevious role: {{previous_role_label}}\nNew role: {{new_role_label}}\n\nThis change takes effect the next time you sign in. Open your dashboard at {{portal_url}}/dashboard.\n\nIf you weren't expecting this change, contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "actor_name", "previous_role_label", "new_role_label", "portal_url", "support_email", "current_year"],
+  },
 ];
 
 const marketingEmailTemplates = [
@@ -737,6 +757,7 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "email_change_cancelled_by_member",
   "email_change_cancelled_by_member_pending",
   "signup_attempted",
+  "role_changed",
 ] as const;
 
 /**

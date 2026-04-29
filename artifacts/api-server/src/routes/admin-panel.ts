@@ -1936,6 +1936,24 @@ router.post("/admin/members/:id/unlock", requirePermission("members:edit"), asyn
   }
 });
 
+// Friendly display label used inside the `role_changed` notification email
+// so the recipient sees "Support Agent" instead of the raw `support_agent`
+// identifier. Kept local to this route module on purpose — the admin role
+// dropdown is getting its own friendlier-labels treatment in a separate task,
+// and we don't want to pre-empt that work by promoting these strings to the
+// shared auth package yet.
+function roleDisplayLabel(role: string): string {
+  switch (role) {
+    case "super_admin": return "Super Admin";
+    case "admin": return "Admin";
+    case "support_agent": return "Support Agent";
+    case "content_manager": return "Content Manager";
+    case "compliance_reviewer": return "Compliance Reviewer";
+    case "member": return "Member";
+    default: return role;
+  }
+}
+
 router.post(
   "/admin/members/:id/role",
   requirePermission("members:assign_role"),
@@ -2003,6 +2021,36 @@ router.post(
           before: { role: target.role },
           after: { role: nextRole },
         },
+      );
+
+      // Notify the affected user that their role changed so they're not
+      // surprised the next time a feature 403s on them. Fire-and-forget — the
+      // role change itself has already succeeded and we never want a transient
+      // SendGrid/Redis hiccup to surface as an admin-facing 500. We only send
+      // when the role actually changed (the no-op case bailed out above).
+      const [actor] = await db
+        .select({ name: usersTable.name, email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.userId!))
+        .limit(1);
+      const actorLabel =
+        actor?.name?.trim() || actor?.email || "a Build Test Scale administrator";
+
+      CommunicationService.queueEmail({
+        templateSlug: "role_changed",
+        to: target.email,
+        variables: {
+          member_name: target.name?.trim() || target.email,
+          actor_name: actorLabel,
+          previous_role_label: roleDisplayLabel(target.role),
+          new_role_label: roleDisplayLabel(nextRole),
+        },
+        userId: target.id,
+      }).catch((err) =>
+        console.error(
+          "[Admin] Failed to enqueue role_changed notice:",
+          err,
+        ),
       );
 
       res.json({ id: target.id, role: nextRole, changed: true });
