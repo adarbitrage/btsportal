@@ -68,6 +68,65 @@ async function shouldExposeEmailChangedHint(ip: string | undefined): Promise<boo
   }
 }
 
+// Per-recipient throttle for the "someone tried to sign up with your email"
+// notice. The register endpoint sends this email every time someone POSTs
+// /auth/register against an existing address, so without a throttle an
+// attacker can repeatedly hit the endpoint to flood a victim's inbox. We
+// cap notices at one per address per window using a simple Redis SET NX EX
+// — atomic across concurrent requests, and self-expiring so we don't have
+// to schedule cleanup. If Redis is unavailable we fall through and allow
+// the send: failing closed would silently drop a real anti-account-takeover
+// signal, and the abuse-rate-limit middleware in front of /auth/register
+// (per-IP and per-email caps) still bounds how often any single attacker
+// can trigger the path in the first place.
+//
+// The window length is configurable via SIGNUP_ATTEMPTED_NOTICE_WINDOW_SEC
+// so operators can tune the trade-off between "useful early-warning signal"
+// and "noisy after the first hit" without a redeploy. We clamp to a 1h
+// floor so a misconfigured zero / negative value can't disable the throttle
+// entirely and re-open the spam vector this whole helper exists to close.
+const SIGNUP_ATTEMPTED_NOTICE_WINDOW_DEFAULT_SEC = 24 * 60 * 60; // 24h
+const SIGNUP_ATTEMPTED_NOTICE_WINDOW_MIN_SEC = 60 * 60; // 1h floor
+
+function resolveSignupAttemptedWindowSec(): number {
+  const raw = process.env.SIGNUP_ATTEMPTED_NOTICE_WINDOW_SEC;
+  if (!raw) return SIGNUP_ATTEMPTED_NOTICE_WINDOW_DEFAULT_SEC;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return SIGNUP_ATTEMPTED_NOTICE_WINDOW_DEFAULT_SEC;
+  }
+  return Math.max(parsed, SIGNUP_ATTEMPTED_NOTICE_WINDOW_MIN_SEC);
+}
+
+async function shouldSendSignupAttemptedNotice(email: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  const hash = crypto
+    .createHash("sha256")
+    .update(email.toLowerCase())
+    .digest("hex")
+    .slice(0, 24);
+  const key = `auth:signup-attempted-notice:${hash}`;
+  try {
+    // SET key 1 EX <window> NX — atomic "claim the slot if not already
+    // claimed". Returns "OK" the first time per window, null thereafter.
+    const result = await redis.set(
+      key,
+      "1",
+      "EX",
+      resolveSignupAttemptedWindowSec(),
+      "NX",
+    );
+    return result === "OK";
+  } catch (err) {
+    console.error(
+      "[AUTH] Redis error checking signup_attempted throttle:",
+      err,
+    );
+    return true;
+  }
+}
+
 async function wasEmailRecentlyChanged(email: string): Promise<boolean> {
   const cutoff = new Date(Date.now() - EMAIL_CHANGE_HINT_WINDOW_MS);
   const [row] = await db
@@ -393,17 +452,26 @@ export async function processRegisterRequest(params: {
     // Notify the existing owner so they can react if they didn't initiate
     // the signup (e.g. someone is probing their address, or they forgot
     // they already had an account and should sign in / reset instead).
-    console.log(
-      `[AUTH] Signup attempted on existing email ${normalizedEmail}; notifying owner`,
-    );
-    await CommunicationService.sendEmailNow({
-      templateSlug: "signup_attempted",
-      to: existing.email,
-      variables: { member_name: existing.name, member_email: existing.email },
-      userId: existing.id,
-    }).catch((err) =>
-      console.error("[AUTH] Failed to send signup_attempted notice:", err),
-    );
+    // The throttle below is what stops an attacker from spamming /register
+    // with this address to flood the inbox: only the first attempt per
+    // window actually sends mail; subsequent attempts are silent no-ops.
+    if (await shouldSendSignupAttemptedNotice(existing.email)) {
+      console.log(
+        `[AUTH] Signup attempted on existing email ${normalizedEmail}; notifying owner`,
+      );
+      await CommunicationService.sendEmailNow({
+        templateSlug: "signup_attempted",
+        to: existing.email,
+        variables: { member_name: existing.name, member_email: existing.email },
+        userId: existing.id,
+      }).catch((err) =>
+        console.error("[AUTH] Failed to send signup_attempted notice:", err),
+      );
+    } else {
+      console.log(
+        `[AUTH] Signup attempted on existing email ${normalizedEmail}; notice suppressed by throttle`,
+      );
+    }
     return;
   }
 
@@ -431,14 +499,18 @@ export async function processRegisterRequest(params: {
       .from(usersTable)
       .where(eq(usersTable.email, normalizedEmail));
     if (raced) {
-      await CommunicationService.sendEmailNow({
-        templateSlug: "signup_attempted",
-        to: raced.email,
-        variables: { member_name: raced.name, member_email: raced.email },
-        userId: raced.id,
-      }).catch((e) =>
-        console.error("[AUTH] Failed to send signup_attempted notice after race:", e),
-      );
+      // Same throttle as the non-race path above — keep them in sync so an
+      // attacker can't bypass the cap by repeatedly racing the insert.
+      if (await shouldSendSignupAttemptedNotice(raced.email)) {
+        await CommunicationService.sendEmailNow({
+          templateSlug: "signup_attempted",
+          to: raced.email,
+          variables: { member_name: raced.name, member_email: raced.email },
+          userId: raced.id,
+        }).catch((e) =>
+          console.error("[AUTH] Failed to send signup_attempted notice after race:", e),
+        );
+      }
       return;
     }
     throw err;
