@@ -98,6 +98,12 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getQueueFallbackEvents(limit: number = 50) {
+    const res = await authFetch(`/admin/system/queue-fallback-events?limit=${limit}`);
+    if (!res.ok) throw new Error("Failed to fetch queue fallback events");
+    return res.json();
+  },
+
   async getNotifications() {
     const res = await authFetch("/admin/notifications");
     if (!res.ok) throw new Error("Failed to fetch notifications");

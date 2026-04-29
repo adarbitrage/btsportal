@@ -677,6 +677,66 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
   }
 });
 
+/**
+ * Recent queue-fallback events from the audit log.
+ *
+ * The System Health card already shows aggregate counts (5m / 1h / 24h) but
+ * those numbers don't help an on-call investigating a Redis outage figure
+ * out *which* sends fell through. This endpoint returns the actual rows so
+ * the System Health page can render them as a timeline, with each entry
+ * deep-linking back to the matching audit log row for the full context
+ * (IP, actor, raw metadata).
+ *
+ * Query params:
+ *   - limit: number of events to return (default 50, max 200)
+ *
+ * Filters by `actionType = "queue_fallback"` and `entityType = "queue"` so
+ * the list lines up 1:1 with the counts in `getQueueFallbackStatsFromDb`
+ * (which uses the same filter). The communication-service writes a second
+ * audit row with `entityType = "communication"` for each fallback; we skip
+ * those here to avoid showing the same event twice.
+ */
+router.get("/admin/system/queue-fallback-events", requirePermission("system:view"), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        entityId: auditLogTable.entityId,
+        description: auditLogTable.description,
+        metadata: auditLogTable.metadata,
+      })
+      .from(auditLogTable)
+      .where(and(eq(auditLogTable.actionType, "queue_fallback"), eq(auditLogTable.entityType, "queue")))
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(limit);
+
+    const events = rows.map((row) => {
+      const meta = (row.metadata ?? {}) as Record<string, unknown>;
+      const channelRaw = typeof meta.channel === "string" ? meta.channel : row.entityId;
+      const channel = channelRaw === "email" || channelRaw === "sms" ? channelRaw : null;
+      const recipient = typeof meta.recipient === "string" && meta.recipient.length > 0 ? meta.recipient : null;
+      const reason = typeof meta.reason === "string" && meta.reason.length > 0 ? meta.reason : null;
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        channel,
+        recipient,
+        reason,
+        description: row.description,
+      };
+    });
+
+    res.json({ events, limit });
+  } catch (error) {
+    console.error("[Admin] Queue fallback events error:", error);
+    res.status(500).json({ error: "Failed to fetch queue fallback events" });
+  }
+});
+
 router.get("/admin/notifications", requirePermission("notifications:view"), async (_req: Request, res: Response) => {
   try {
     const notifications: { id: string; type: string; severity: string; title: string; message: string; link?: string; createdAt: string }[] = [];

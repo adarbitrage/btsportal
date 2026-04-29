@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useSearch } from "wouter";
+import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,22 +10,42 @@ import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
+/**
+ * Read filter + deep-link params from `window.location.search`. Used so other
+ * admin pages (notably System Health) can deep-link into a specific audit row
+ * — e.g. `/admin/audit-log?actionType=queue_fallback&expand=42` opens the page
+ * pre-filtered to queue_fallback rows and auto-expands row #42.
+ */
+function readUrlParams() {
+  if (typeof window === "undefined") {
+    return { actionType: "", entityType: "", startDate: "", endDate: "", expand: null as number | null };
+  }
+  const sp = new URLSearchParams(window.location.search);
+  const expandRaw = sp.get("expand");
+  const expand = expandRaw && /^\d+$/.test(expandRaw) ? Number.parseInt(expandRaw, 10) : null;
+  return {
+    actionType: sp.get("actionType") ?? "",
+    entityType: sp.get("entityType") ?? "",
+    startDate: sp.get("startDate") ?? "",
+    endDate: sp.get("endDate") ?? "",
+    expand,
+  };
+}
+
 export default function AuditLog() {
-  const searchString = useSearch();
-  const initialFilters = (() => {
-    const params = new URLSearchParams(searchString);
-    return {
-      actionType: params.get("actionType") || "",
-      entityType: params.get("entityType") || "",
-      startDate: params.get("startDate") || "",
-      endDate: params.get("endDate") || "",
-    };
-  })();
+  const initialParams = readUrlParams();
   const [logs, setLogs] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
-  const [filters, setFilters] = useState(initialFilters);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [filters, setFilters] = useState({
+    actionType: initialParams.actionType,
+    entityType: initialParams.entityType,
+    startDate: initialParams.startDate,
+    endDate: initialParams.endDate,
+  });
+  const [expandedId, setExpandedId] = useState<number | null>(initialParams.expand);
   const [loading, setLoading] = useState(true);
+  const pendingExpandRef = useRef<number | null>(initialParams.expand);
+  const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
 
   const load = async (page = 1) => {
@@ -43,6 +62,18 @@ export default function AuditLog() {
   };
 
   useEffect(() => { load(); }, [filters]);
+
+  // After the logs render, scroll the deep-linked row into view (one-shot —
+  // we don't want to keep auto-scrolling every time the user clicks a row).
+  useEffect(() => {
+    const target = pendingExpandRef.current;
+    if (target == null || loading) return;
+    const node = rowRefs.current[target];
+    if (node) {
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      pendingExpandRef.current = null;
+    }
+  }, [loading, logs]);
 
   const handleExport = async (fmt: string) => {
     try {
@@ -124,6 +155,7 @@ export default function AuditLog() {
                   <SelectItem value="system_setting">System Setting</SelectItem>
                   <SelectItem value="flexy_credentials">Flexy credentials</SelectItem>
                   <SelectItem value="communication">Communication</SelectItem>
+                  <SelectItem value="queue">Queue</SelectItem>
                   <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
                 </SelectContent>
               </Select>
@@ -142,7 +174,12 @@ export default function AuditLog() {
             ) : (
               <div className="divide-y">
                 {logs.map((log) => (
-                  <div key={log.id}>
+                  <div
+                    key={log.id}
+                    ref={(node) => { rowRefs.current[log.id] = node; }}
+                    className={initialParams.expand === log.id ? "ring-2 ring-primary/40 ring-inset" : undefined}
+                    data-testid={`audit-row-${log.id}`}
+                  >
                     <div className="flex items-center gap-4 p-4 hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{log.description}</p>
