@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { User, Lock, Bell, Mail, Clock, AlertTriangle } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock, AlertTriangle, X } from "lucide-react";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
   useChangeMemberPassword,
   useRequestMemberEmailChange,
   useCancelMemberEmailChange,
+  useDismissAdminCancelledEmailChange,
 } from "@workspace/api-client-react";
 
 export default function Account() {
@@ -34,6 +35,7 @@ export default function Account() {
   const changePassword = useChangeMemberPassword();
   const requestEmailChange = useRequestMemberEmailChange();
   const cancelEmailChange = useCancelMemberEmailChange();
+  const dismissAdminCancelled = useDismissAdminCancelledEmailChange();
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
@@ -41,6 +43,7 @@ export default function Account() {
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [cancellingEmail, setCancellingEmail] = useState(false);
+  const [dismissingAdminCancelled, setDismissingAdminCancelled] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -166,6 +169,22 @@ export default function Account() {
       );
     } finally {
       setEmailSaving(false);
+    }
+  };
+
+  const handleDismissAdminCancelled = async () => {
+    setDismissingAdminCancelled(true);
+    try {
+      await dismissAdminCancelled.mutateAsync();
+      await refetch();
+    } catch (err: any) {
+      toast({
+        title: "Couldn't dismiss",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDismissingAdminCancelled(false);
     }
   };
 
@@ -345,6 +364,16 @@ export default function Account() {
                       </span>
                       . Please contact support if you weren't expecting this.
                     </p>
+                    <button
+                      type="button"
+                      onClick={handleDismissAdminCancelled}
+                      disabled={dismissingAdminCancelled}
+                      aria-label="Dismiss notice"
+                      className="text-blue-900/70 hover:text-blue-900 disabled:opacity-50 shrink-0"
+                      data-testid="button-dismiss-admin-cancelled-banner"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">

@@ -200,6 +200,7 @@ export type {
   CreateTicketMessage,
   DashboardData,
   DashboardToolWidget,
+  DismissAdminCancelledEmailChangeResponse,
   EditCommunityComment,
   EditCommunityPost,
   EmailResubscribeBody,

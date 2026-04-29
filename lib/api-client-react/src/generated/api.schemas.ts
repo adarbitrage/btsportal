@@ -772,6 +772,17 @@ export interface CancelEmailChangeResponse {
   message: string;
 }
 
+/**
+ * Result of POST /members/me/email/admin-cancellation/dismiss. `dismissed`
+is true when an admin-cancelled attempt was just stamped, false when
+there was nothing eligible to dismiss (no attempt, the member already
+dismissed it, or the latest attempt is not admin-cancelled).
+
+ */
+export interface DismissAdminCancelledEmailChangeResponse {
+  dismissed: boolean;
+}
+
 export interface VerifyEmailChangeBody {
   /** @minLength 1 */
   token: string;

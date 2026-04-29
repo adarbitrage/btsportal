@@ -27,6 +27,15 @@ export const emailChangeAttemptsTable = pgTable(
       () => usersTable.id,
       { onDelete: "set null" },
     ),
+    // When the member dismissed the in-app banner that surfaces this
+    // admin-cancelled attempt on their account page. Set by
+    // POST /members/me/email/admin-cancellation/dismiss so the banner
+    // doesn't reappear on every page load. Only meaningful for rows where
+    // `cancelledByAdminId IS NOT NULL`; we still keep the timestamp for
+    // any row in case the dismissal semantics expand later.
+    dismissedByMemberAt: timestamp("dismissed_by_member_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

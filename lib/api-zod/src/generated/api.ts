@@ -191,6 +191,23 @@ export const CancelMemberEmailChangeResponse = zod.object({
 });
 
 /**
+ * Marks the member's most recent admin-cancelled email-change attempt
+as dismissed so the in-app banner on the account/settings page does
+not reappear on every page load. Idempotent — safe to call when
+there is nothing to dismiss; the response just reports `dismissed:
+false` in that case.
+
+ * @summary Dismiss the admin-cancelled email-change banner
+ */
+export const DismissAdminCancelledEmailChangeResponse = zod
+  .object({
+    dismissed: zod.boolean(),
+  })
+  .describe(
+    "Result of POST \/members\/me\/email\/admin-cancellation\/dismiss. `dismissed`\nis true when an admin-cancelled attempt was just stamped, false when\nthere was nothing eligible to dismiss (no attempt, the member already\ndismissed it, or the latest attempt is not admin-cancelled).\n",
+  );
+
+/**
  * @summary Fetch legal documents
  */
 export const GetLegalDocumentsQueryParams = zod.object({

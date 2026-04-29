@@ -83,6 +83,7 @@ async function insertAttempt(opts: {
   cancelledByAdminId?: number | null;
   cancelledAt?: Date | null;
   createdAt?: Date;
+  dismissedByMemberAt?: Date | null;
 }): Promise<number> {
   const [row] = await db
     .insert(emailChangeAttemptsTable)
@@ -92,6 +93,7 @@ async function insertAttempt(opts: {
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       cancelledByAdminId: opts.cancelledByAdminId ?? null,
       cancelledAt: opts.cancelledAt ?? null,
+      dismissedByMemberAt: opts.dismissedByMemberAt ?? null,
       // createdAt is `defaultNow()`, so callers that need a deterministic
       // ordering pass an explicit value to control which row is "latest".
       ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
@@ -189,6 +191,30 @@ describe("GET /api/members/me — lastAdminCancelledEmailChange", () => {
       userId: user.id,
       newEmail: `${TEST_TAG}-superseded-new@example.test`,
       createdAt: new Date("2026-04-12T09:00:00.000Z"),
+    });
+
+    const res = await request(app)
+      .get("/api/members/me")
+      .set("Cookie", signCookie(user.id, user.email));
+
+    expect(res.status).toBe(200);
+    expect(res.body.lastAdminCancelledEmailChange).toBeNull();
+  });
+
+  it("hides the admin cancellation once the member has dismissed the in-app banner", async () => {
+    // After the member clicks "X" on the in-app banner the API stamps
+    // `dismissed_by_member_at` on the attempt row so subsequent loads of the
+    // account page do not re-render the same notice. We assert that
+    // /members/me honours that stamp regardless of how recent the
+    // cancellation was.
+    const user = await insertUser("dismissed");
+    const adminId = await insertAdmin("dismissed");
+    await insertAttempt({
+      userId: user.id,
+      newEmail: `${TEST_TAG}-dismissed-target@example.test`,
+      cancelledByAdminId: adminId,
+      cancelledAt: new Date("2026-04-20T10:00:00.000Z"),
+      dismissedByMemberAt: new Date("2026-04-20T10:05:00.000Z"),
     });
 
     const res = await request(app)

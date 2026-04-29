@@ -197,6 +197,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/CancelEmailChangeResponse"
 
+  /members/me/email/admin-cancellation/dismiss:
+    post:
+      operationId: dismissAdminCancelledEmailChange
+      tags: [members]
+      summary: Dismiss the admin-cancelled email-change banner
+      description: |
+        Marks the member's most recent admin-cancelled email-change attempt
+        as dismissed so the in-app banner on the account/settings page does
+        not reappear on every page load. Idempotent — safe to call when
+        there is nothing to dismiss; the response just reports `dismissed:
+        false` in that case.
+      responses:
+        "200":
+          description: Dismissal recorded (or no-op if there was nothing to dismiss)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DismissAdminCancelledEmailChangeResponse"
+
   /documents:
     get:
       operationId: getLegalDocuments
@@ -6606,6 +6625,18 @@ components:
         message:
           type: string
       required: [message]
+
+    DismissAdminCancelledEmailChangeResponse:
+      type: object
+      description: |
+        Result of POST /members/me/email/admin-cancellation/dismiss. `dismissed`
+        is true when an admin-cancelled attempt was just stamped, false when
+        there was nothing eligible to dismiss (no attempt, the member already
+        dismissed it, or the latest attempt is not admin-cancelled).
+      properties:
+        dismissed:
+          type: boolean
+      required: [dismissed]
 
     VerifyEmailChangeBody:
       type: object

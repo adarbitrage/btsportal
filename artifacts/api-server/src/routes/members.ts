@@ -13,6 +13,7 @@ import {
   RequestMemberEmailChangeBody as RequestEmailChangeBody,
   RequestMemberEmailChangeResponse as RequestEmailChangeResponse,
   CancelMemberEmailChangeResponse as CancelEmailChangeResponse,
+  DismissAdminCancelledEmailChangeResponse,
 } from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
@@ -63,6 +64,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
       newEmail: emailChangeAttemptsTable.newEmail,
       cancelledAt: emailChangeAttemptsTable.cancelledAt,
       cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+      dismissedByMemberAt: emailChangeAttemptsTable.dismissedByMemberAt,
     })
     .from(emailChangeAttemptsTable)
     .where(eq(emailChangeAttemptsTable.userId, userId))
@@ -72,11 +74,15 @@ router.get("/members/me", async (req, res): Promise<void> => {
   // Pass the Date instance through unchanged: GetCurrentMemberResponse.parse()
   // is generated from `format: date-time` and therefore expects a real Date.
   // res.json() serialises it to an ISO string before it goes over the wire.
+  // We hide the snapshot once the member dismisses the in-app banner so it
+  // does not reappear on every page load — the dismissal is persisted on the
+  // attempt row itself by POST /members/me/email/admin-cancellation/dismiss.
   const lastAdminCancelledEmailChange =
     latestAttempt &&
     latestAttempt.cancelledByAdminId != null &&
     latestAttempt.cancelledAt &&
-    latestAttempt.newEmail
+    latestAttempt.newEmail &&
+    latestAttempt.dismissedByMemberAt == null
       ? {
           newEmail: latestAttempt.newEmail,
           cancelledAt: latestAttempt.cancelledAt,
@@ -411,5 +417,50 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
     }),
   );
 });
+
+// Marks the member's most recent admin-cancelled email-change attempt as
+// dismissed so the in-app banner on the account page stops re-rendering on
+// every page load. We dismiss the *latest* attempt row only — that mirrors
+// the same "freshest signal" logic GET /members/me uses to decide whether
+// to surface the banner in the first place. If the latest attempt is not
+// admin-cancelled (e.g. a newer self-initiated attempt is in flight) we
+// no-op so a stray click can't quietly stamp the wrong row.
+router.post(
+  "/members/me/email/admin-cancellation/dismiss",
+  async (req, res): Promise<void> => {
+    const userId = req.userId!;
+
+    const [latestAttempt] = await db
+      .select({
+        id: emailChangeAttemptsTable.id,
+        cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+        dismissedByMemberAt: emailChangeAttemptsTable.dismissedByMemberAt,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, userId))
+      .orderBy(desc(emailChangeAttemptsTable.createdAt))
+      .limit(1);
+
+    if (
+      !latestAttempt ||
+      latestAttempt.cancelledByAdminId == null ||
+      latestAttempt.dismissedByMemberAt != null
+    ) {
+      res.json(
+        DismissAdminCancelledEmailChangeResponse.parse({ dismissed: false }),
+      );
+      return;
+    }
+
+    await db
+      .update(emailChangeAttemptsTable)
+      .set({ dismissedByMemberAt: new Date() })
+      .where(eq(emailChangeAttemptsTable.id, latestAttempt.id));
+
+    res.json(
+      DismissAdminCancelledEmailChangeResponse.parse({ dismissed: true }),
+    );
+  },
+);
 
 export default router;

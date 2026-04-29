@@ -150,6 +150,7 @@ import type {
   CreateTicketFromChatBody,
   CreateTicketMessage,
   DashboardData,
+  DismissAdminCancelledEmailChangeResponse,
   EditCommunityComment,
   EditCommunityPost,
   EmailResubscribeBody,
@@ -1078,6 +1079,98 @@ export const useCancelMemberEmailChange = <
   TContext
 > => {
   return useMutation(getCancelMemberEmailChangeMutationOptions(options));
+};
+
+/**
+ * Marks the member's most recent admin-cancelled email-change attempt
+as dismissed so the in-app banner on the account/settings page does
+not reappear on every page load. Idempotent — safe to call when
+there is nothing to dismiss; the response just reports `dismissed:
+false` in that case.
+
+ * @summary Dismiss the admin-cancelled email-change banner
+ */
+export const getDismissAdminCancelledEmailChangeUrl = () => {
+  return `/api/members/me/email/admin-cancellation/dismiss`;
+};
+
+export const dismissAdminCancelledEmailChange = async (
+  options?: RequestInit,
+): Promise<DismissAdminCancelledEmailChangeResponse> => {
+  return customFetch<DismissAdminCancelledEmailChangeResponse>(
+    getDismissAdminCancelledEmailChangeUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDismissAdminCancelledEmailChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["dismissAdminCancelledEmailChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>,
+    void
+  > = () => {
+    return dismissAdminCancelledEmailChange(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissAdminCancelledEmailChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>
+>;
+
+export type DismissAdminCancelledEmailChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Dismiss the admin-cancelled email-change banner
+ */
+export const useDismissAdminCancelledEmailChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dismissAdminCancelledEmailChange>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getDismissAdminCancelledEmailChangeMutationOptions(options),
+  );
 };
 
 /**

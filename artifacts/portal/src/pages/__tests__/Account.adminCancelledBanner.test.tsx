@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 vi.mock("@/components/layout/AppLayout", () => ({
@@ -21,12 +21,14 @@ vi.mock("wouter", () => ({
 }));
 
 const useGetCurrentMember = vi.fn();
+const dismissMutate = vi.fn(async () => ({ dismissed: true }));
 vi.mock("@workspace/api-client-react", () => ({
   useGetCurrentMember: () => useGetCurrentMember(),
   usePatchMemberProfile: () => ({ mutateAsync: vi.fn() }),
   useChangeMemberPassword: () => ({ mutateAsync: vi.fn() }),
   useRequestMemberEmailChange: () => ({ mutateAsync: vi.fn() }),
   useCancelMemberEmailChange: () => ({ mutateAsync: vi.fn() }),
+  useDismissAdminCancelledEmailChange: () => ({ mutateAsync: dismissMutate }),
 }));
 
 import Account from "@/pages/Account";
@@ -45,6 +47,8 @@ const baseMember = {
 
 beforeEach(() => {
   useGetCurrentMember.mockReset();
+  dismissMutate.mockReset();
+  dismissMutate.mockResolvedValue({ dismissed: true });
 });
 
 afterEach(() => {
@@ -94,6 +98,59 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
     // a member-friendly absolute date and not a bare ISO string or "0".
     expect(cancelledAtNode.textContent?.trim()).not.toBe("");
     expect(cancelledAtNode).toHaveTextContent(/2026/);
+  });
+
+  it("calls the dismiss endpoint and refetches when the member clicks the dismiss button", async () => {
+    const refetch = vi.fn();
+    useGetCurrentMember.mockReturnValue({
+      data: {
+        ...baseMember,
+        lastAdminCancelledEmailChange: {
+          newEmail: "swap-target@example.test",
+          cancelledAt: new Date(2026, 3, 15, 14, 30, 0).toISOString(),
+        },
+      },
+      isLoading: false,
+      refetch,
+    });
+
+    render(<Account />);
+
+    const dismissButton = await screen.findByTestId(
+      "button-dismiss-admin-cancelled-banner",
+    );
+    fireEvent.click(dismissButton);
+
+    await waitFor(() => {
+      expect(dismissMutate).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(refetch).toHaveBeenCalled();
+    });
+  });
+
+  it("hides the banner once `lastAdminCancelledEmailChange` clears (post-refetch)", async () => {
+    // After the dismiss POST + refetch, the API returns
+    // `lastAdminCancelledEmailChange: null`. We simulate that second render
+    // by mocking the hook to return a payload with the field cleared and
+    // assert the banner is gone — proving the page fully relies on the
+    // server-stored dismissal rather than ephemeral local state.
+    useGetCurrentMember.mockReturnValue({
+      data: {
+        ...baseMember,
+        lastAdminCancelledEmailChange: null,
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<Account />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("email-admin-cancelled-banner"),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("does not render the admin-cancelled banner when there's a pending email change", async () => {
