@@ -7,6 +7,7 @@ import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
+import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
@@ -1128,13 +1129,19 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     ]);
 
     const queueFallbacks = await getQueueFallbackStatsFromDb();
+    const rateLimitAuditFailures = getRateLimitAuditFailureStats();
     const redisStatus = !redisConnected
       ? "down"
       : queueFallbacks.alerting
         ? "degraded"
         : "up";
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected
+    // Treat any rate-limit audit-write failure as a degradation: it means
+    // the audit trail security on-callers depend on is silently dropping
+    // entries while the 429s themselves keep flowing. Better to flip the
+    // top-level status to "degraded" so the banner pops than to leave the
+    // System Health page green.
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0
       ? "degraded"
       : "healthy";
 
@@ -1146,6 +1153,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         redis: { status: redisStatus, queueFallbacks },
         signupChallenge: { enforced: isSignupChallengeEnforced() },
         abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
+        rateLimitAuditFailures,
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },

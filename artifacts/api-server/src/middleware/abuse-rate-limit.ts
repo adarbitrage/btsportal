@@ -2,6 +2,7 @@ import { type Request, type Response, type NextFunction, type RequestHandler } f
 import crypto from "crypto";
 import { getRedis } from "../lib/redis";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import { recordRateLimitAuditFailure } from "../lib/rate-limit-audit-failure-tracker";
 
 export interface AbuseRateLimitOptions {
   name: string;
@@ -102,7 +103,11 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
             // downstream alerting and the tests both rely on "one 429 means
             // one audit row, observable as soon as the response returns".
             // Errors are swallowed so a flaky audit log can never turn a
-            // legitimate 429 into a 500.
+            // legitimate 429 into a 500. We DO bump a process-wide counter
+            // so the System Health page can flag "audit writes are silently
+            // failing" — without it, a database outage during a
+            // credential-stuffing wave would drop the audit trail while
+            // 429s kept flowing, leaving on-call with no visible signal.
             try {
               await onLimitExceeded(req);
             } catch (err: any) {
@@ -110,6 +115,7 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
                 `[AbuseRateLimit:${name}] onLimitExceeded error:`,
                 err?.message || err,
               );
+              recordRateLimitAuditFailure(name, err);
             }
           }
           sendError(

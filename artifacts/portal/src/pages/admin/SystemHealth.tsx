@@ -282,6 +282,27 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {health.services?.rateLimitAuditFailures?.totalCount > 0 && (
+              <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="rate-limit-audit-failure-banner">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-red-900 dark:text-red-200">
+                      Rate-limit audit writes are failing
+                    </p>
+                    <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                      {health.services.rateLimitAuditFailures.totalCount} blocked
+                      requests have served a 429 to the client but failed to record
+                      an audit-log row since this server started. The Audit Log will
+                      under-report attacks until the underlying write error clears.
+                      Check database health and recent server logs for{" "}
+                      <code>[AbuseRateLimit][AuditFailure]</code>.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {health.services?.signupChallenge && health.services.signupChallenge.enforced === false && (
               <Card className="border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950/30">
                 <CardContent className="py-4 flex items-start gap-3">
@@ -446,6 +467,55 @@ export default function SystemHealth() {
                   </Card>
                 );
               })()}
+
+              {health.services?.rateLimitAuditFailures && (
+                <Card data-testid="card-rate-limit-audit-failures">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" />
+                      Rate-limit audit writes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Failed writes</span>
+                        <span
+                          className={`text-sm font-medium ${health.services.rateLimitAuditFailures.totalCount > 0 ? "text-red-600" : ""}`}
+                          data-testid="rate-limit-audit-failure-total"
+                        >
+                          {health.services.rateLimitAuditFailures.totalCount ?? 0}
+                        </span>
+                      </div>
+                      {health.services.rateLimitAuditFailures.lastAt && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Last failure</span>
+                          <span className="text-sm font-medium">
+                            {new Date(health.services.rateLimitAuditFailures.lastAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {Object.entries(health.services.rateLimitAuditFailures.byName ?? {}).length > 0 ? (
+                        <div className="space-y-1 pt-2 border-t">
+                          {Object.entries(health.services.rateLimitAuditFailures.byName as Record<string, { count: number; lastError: string | null }>).map(([name, info]) => (
+                            <div key={name} className="flex justify-between text-xs">
+                              <span className="text-muted-foreground truncate">{name}</span>
+                              <span className="font-medium">
+                                {info.count}
+                                {info.lastError ? ` · ${info.lastError}` : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No audit-write failures since this server started.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {health.services?.redis && (
                 <Card>
