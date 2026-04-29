@@ -9,6 +9,10 @@ import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
 import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
+import {
+  evaluateProductionEnvGuards,
+  getMisconfiguredCriticalSecrets,
+} from "../lib/production-env-guard";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
   getOnCallDestinationsStatus,
@@ -1354,6 +1358,30 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
       // the response, and the alerter logs its own errors.
       evaluateSignupChallengeAlert().catch((err) => {
         console.error("[Admin] signup-challenge alerter dispatch failed:", err);
+      });
+    }
+
+    // Production-only: surface every other production-critical secret that
+    // is unset/defaulted (JWT_SECRET, SESSION_SECRET, SENDGRID_API_KEY, …).
+    // The list is centralized in production-env-guard so adding a new one
+    // is a one-line change. Also fan out to on-call — that path is per-
+    // secret throttled so this fires at most once per channel per secret
+    // per window even though /admin/notifications is polled every minute.
+    const missingCriticalSecrets = getMisconfiguredCriticalSecrets();
+    for (const secret of missingCriticalSecrets) {
+      notifications.push({
+        id: secret.id,
+        type: "production_env_secret_missing",
+        severity: "high",
+        title: secret.title,
+        message: secret.message,
+        link: "/admin/system",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    if (missingCriticalSecrets.length > 0) {
+      evaluateProductionEnvGuards().catch((err) => {
+        console.error("[Admin] production env guard dispatch failed:", err);
       });
     }
 
