@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -157,6 +157,7 @@ const ONCALL_HISTORY_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const NEW_EVENT_HIGHLIGHT_MS = 6_000;
 const FALLBACK_SOUND_PREF_KEY = "systemHealth.fallbackSoundEnabled";
+const FALLBACK_NOTIFY_PREF_KEY = "systemHealth.fallbackNotifyEnabled";
 const FALLBACK_CHIME_VOLUME = 0.4;
 // Per-beep peak gain for the synthesised two-tone "ding-ding" used when a
 // fresh failed/throttled on-call alert delivery row appears. Kept lower than
@@ -208,6 +209,30 @@ function readSoundPreference(): boolean {
   }
 }
 
+function readNotifyPreference(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(FALLBACK_NOTIFY_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// "unsupported" covers SSR and the (rare) browser without the Notifications
+// API; otherwise we mirror the standard Notification.permission tri-state so
+// the toggle UI can show an inline hint when the user has previously denied.
+type NotifyPermissionState = NotificationPermission | "unsupported";
+
+function readNotificationPermission(): NotifyPermissionState {
+  if (typeof window === "undefined") return "unsupported";
+  if (typeof Notification === "undefined") return "unsupported";
+  try {
+    return Notification.permission;
+  } catch {
+    return "unsupported";
+  }
+}
+
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -241,6 +266,10 @@ export default function SystemHealth() {
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
   const [recentNewEventCount, setRecentNewEventCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readSoundPreference());
+  const [notifyEnabled, setNotifyEnabled] = useState<boolean>(() => readNotifyPreference());
+  const [notificationPermission, setNotificationPermission] = useState<NotifyPermissionState>(
+    () => readNotificationPermission(),
+  );
   // Rolling window the on-call alert summary uses. Persisted in localStorage
   // so an admin who flipped to "24h" the night before still sees overnight
   // numbers when they come back in the morning.
@@ -256,6 +285,8 @@ export default function SystemHealth() {
   const highlightTimersRef = useRef<Map<number, number>>(new Map());
   const recentNewCountTimerRef = useRef<number | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
+  const notifyEnabledRef = useRef(notifyEnabled);
+  const notificationPermissionRef = useRef(notificationPermission);
   const chimeAudioRef = useRef<HTMLAudioElement | null>(null);
   // Lazy-created AudioContext used to synthesise the two-tone alert chime.
   // Created on the first attempted play so we never spin one up for admins
@@ -274,6 +305,20 @@ export default function SystemHealth() {
   }, [soundEnabled]);
 
   useEffect(() => {
+    notifyEnabledRef.current = notifyEnabled;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(FALLBACK_NOTIFY_PREF_KEY, notifyEnabled ? "1" : "0");
+    } catch {
+      // ignore — non-fatal if storage is unavailable
+    }
+  }, [notifyEnabled]);
+
+  useEffect(() => {
+    notificationPermissionRef.current = notificationPermission;
+  }, [notificationPermission]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(ALERT_STATS_WINDOW_PREF_KEY, String(alertStatsWindowMs));
@@ -281,6 +326,76 @@ export default function SystemHealth() {
       // ignore — non-fatal if storage is unavailable
     }
   }, [alertStatsWindowMs]);
+
+  // Show a desktop notification when new fallback rows arrive while the tab
+  // is hidden — pairs with the audible chime so an admin still notices the
+  // event when the OS volume or tab is muted, or when they're in another
+  // app entirely. Only fires when the toggle is on, permission is granted,
+  // and the page is actually backgrounded.
+  const showFallbackNotification = useCallback((count: number) => {
+    if (count <= 0) return;
+    if (!notifyEnabledRef.current) return;
+    if (typeof window === "undefined") return;
+    if (typeof document !== "undefined" && !document.hidden) return;
+    if (typeof Notification === "undefined") return;
+    if (notificationPermissionRef.current !== "granted") return;
+    try {
+      const body = count === 1
+        ? "1 new queue-fallback event"
+        : `${count} new queue-fallback events`;
+      const notif = new Notification("System Health", {
+        body,
+        // Replacing the previous notification keeps the OS tray tidy when a
+        // burst of refreshes each surface a few new rows.
+        tag: "system-health-fallback-events",
+      });
+      notif.onclick = () => {
+        try {
+          window.focus();
+          notif.close();
+        } catch {
+          // ignore — clicking through is best-effort
+        }
+      };
+    } catch {
+      // ignore — notifications are purely a nice-to-have
+    }
+  }, []);
+
+  // Toggle handler for the "Notify" button. Enabling the toggle for the
+  // first time prompts the browser permission dialog; if the user denies
+  // we still leave the preference enabled (so the inline hint can appear)
+  // and showFallbackNotification will simply no-op until permission is
+  // granted at the OS / browser level.
+  const handleToggleNotify = useCallback(async () => {
+    const next = !notifyEnabledRef.current;
+    if (!next) {
+      setNotifyEnabled(false);
+      return;
+    }
+    if (typeof window === "undefined" || typeof Notification === "undefined") {
+      setNotificationPermission("unsupported");
+      setNotifyEnabled(true);
+      return;
+    }
+    if (Notification.permission === "default") {
+      try {
+        const result = await Notification.requestPermission();
+        setNotificationPermission(result);
+      } catch {
+        // Some older browsers throw on the promise form; fall back to
+        // whatever permission state the browser currently reports.
+        try {
+          setNotificationPermission(Notification.permission);
+        } catch {
+          setNotificationPermission("unsupported");
+        }
+      }
+    } else {
+      setNotificationPermission(Notification.permission);
+    }
+    setNotifyEnabled(true);
+  }, []);
 
   const playFallbackChime = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -461,6 +576,7 @@ export default function SystemHealth() {
         if (newIds.length > 0) {
           markEventsAsNew(newIds);
           playFallbackChime();
+          showFallbackNotification(newIds.length);
           setRecentNewEventCount(newIds.length);
           if (recentNewCountTimerRef.current !== null) {
             window.clearTimeout(recentNewCountTimerRef.current);
@@ -484,7 +600,7 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setEventsLoading(false);
     }
-  }, [markEventsAsNew, playFallbackChime]);
+  }, [markEventsAsNew, playFallbackChime, showFallbackNotification]);
 
   const loadAlertEvents = useCallback(async (silent = false) => {
     try {
@@ -772,6 +888,54 @@ export default function SystemHealth() {
                 </>
               )}
             </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void handleToggleNotify();
+                }}
+                data-testid="button-toggle-fallback-notify"
+                aria-pressed={notifyEnabled}
+                title={
+                  notifyEnabled
+                    ? "Desktop notifications on — a short notification fires when new fallback events arrive while this tab is in the background"
+                    : "Desktop notifications off — fallback events will only highlight in the table"
+                }
+              >
+                {notifyEnabled ? (
+                  <>
+                    <Bell className="w-4 h-4 mr-1" />Notify on
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="w-4 h-4 mr-1" />Notify off
+                  </>
+                )}
+              </Button>
+              {notifyEnabled && notificationPermission !== "granted" && (
+                <span
+                  className="text-xs text-amber-600 inline-flex items-center gap-1"
+                  data-testid="notify-permission-hint"
+                  title={
+                    notificationPermission === "denied"
+                      ? "Your browser is blocking notifications for this site. Update the site permission to re-enable them."
+                      : notificationPermission === "unsupported"
+                        ? "This browser does not support desktop notifications."
+                        : "Click Notify on to allow notifications."
+                  }
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {notificationPermission === "denied"
+                      ? "blocked — chime only"
+                      : notificationPermission === "unsupported"
+                        ? "unsupported — chime only"
+                        : "permission needed"}
+                  </span>
+                </span>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
