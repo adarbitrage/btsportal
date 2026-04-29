@@ -757,3 +757,174 @@ describe("PUT /admin/oncall-destinations probe-on-save", () => {
     expect(probesRan).toBe(0);
   });
 });
+
+describe("GET /admin/oncall-destinations/probes", () => {
+  beforeEach(async () => {
+    // Each test in this block expects to start from a clean probe-history
+    // slate so we can assert exact counts and ordering without leakage from
+    // sibling describe blocks.
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+  });
+
+  it("requires settings:view (rejects non-admins with 403)", async () => {
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects a missing or unknown field with 400", async () => {
+    const missing = await request(app)
+      .get("/api/admin/oncall-destinations/probes")
+      .set("Cookie", adminCookie);
+    expect(missing.status).toBe(400);
+
+    const unknown = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=somethingElse")
+      .set("Cookie", adminCookie);
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.error).toMatch(/pagerdutyIntegrationKey/);
+  });
+
+  it("returns an empty list when no probe rows exist for the field", async () => {
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.field).toBe("pagerdutyIntegrationKey");
+    expect(res.body.probes).toEqual([]);
+    expect(res.body.limit).toBe(10);
+  });
+
+  it("returns only the probe entries for the requested field, newest-first", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: false, reason: "http_403" }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    // Save PD twice and email once. Each save writes one
+    // probe_oncall_destination audit row; the first PD save also has the
+    // email field in the same row to prove that filtering picks out only
+    // the matching entry.
+    const r1 = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "first", opsAlertEmail: "first@example.test" });
+    expect(r1.status).toBe(200);
+
+    const r2 = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "second" });
+    expect(r2.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.probes).toHaveLength(2);
+    // Newest first: the second save is the most recent.
+    const timestamps = res.body.probes.map((p: any) => new Date(p.createdAt).getTime());
+    expect(timestamps[0]).toBeGreaterThanOrEqual(timestamps[1]);
+    for (const p of res.body.probes) {
+      expect(p.ok).toBe(false);
+      expect(p.skipped).toBe(false);
+      expect(p.reason).toBe("http_403");
+    }
+
+    // Email-only filter should pull just the one email entry from the first
+    // save's probe row, ignoring the PD-only second save entirely.
+    const emailRes = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=opsAlertEmail")
+      .set("Cookie", adminCookie);
+    expect(emailRes.status).toBe(200);
+    expect(emailRes.body.probes).toHaveLength(1);
+    expect(emailRes.body.probes[0].ok).toBe(true);
+    expect(emailRes.body.probes[0].reason).toBeNull();
+  });
+
+  it("respects the limit param and clamps it to 1..50", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    // Five sequential saves to give us five probe rows for PD.
+    for (let i = 0; i < 5; i++) {
+      const r = await request(app)
+        .put("/api/admin/oncall-destinations")
+        .set("Cookie", adminCookie)
+        .send({ pagerdutyIntegrationKey: `key-${i}` });
+      expect(r.status).toBe(200);
+    }
+
+    const limited = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey&limit=2")
+      .set("Cookie", adminCookie);
+    expect(limited.status).toBe(200);
+    expect(limited.body.probes).toHaveLength(2);
+    expect(limited.body.limit).toBe(2);
+
+    const tooBig = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey&limit=999")
+      .set("Cookie", adminCookie);
+    expect(tooBig.body.limit).toBe(50);
+
+    const tooSmall = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey&limit=0")
+      .set("Cookie", adminCookie);
+    expect(tooSmall.body.limit).toBe(1);
+    expect(tooSmall.body.probes).toHaveLength(1);
+
+    const garbage = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey&limit=banana")
+      .set("Cookie", adminCookie);
+    expect(garbage.body.limit).toBe(10);
+  });
+
+  it("preserves skipped vs failed semantics in the per-entry shape", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true, skipped: true, reason: "not_configured" }),
+    });
+
+    const r = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ opsAlertSlackWebhookUrl: "https://hooks.slack.test/probe" });
+    expect(r.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=opsAlertSlackWebhookUrl")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.probes).toHaveLength(1);
+    const entry = res.body.probes[0];
+    expect(entry.ok).toBe(true);
+    expect(entry.skipped).toBe(true);
+    expect(entry.reason).toBe("not_configured");
+  });
+
+  it("never leaks the saved value through the probe-history response", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+    const secret = "probe-history-must-not-leak-this";
+    const r = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: secret });
+    expect(r.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/probes?field=pagerdutyIntegrationKey")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain(secret);
+  });
+});

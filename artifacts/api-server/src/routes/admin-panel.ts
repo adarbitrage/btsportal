@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
+import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
@@ -2803,6 +2803,11 @@ router.put("/admin/change-history-retention-config", requirePermission("settings
  *   - "send_test_alert" — admin clicked "Send test alert"
  *                         (changeDiff carries the per-channel results summary)
  *
+ * `probe_oncall_destination` rows are intentionally excluded here — the
+ * recent-changes UI is not built to render them and they have a dedicated
+ * per-channel disclosure backed by `/admin/oncall-destinations/probes` so
+ * each probe outcome already has a home next to its destination row.
+ *
  * Joining `usersTable` lets us return the admin's display name without making
  * the UI fan out a second lookup per row. The join is `leftJoin` because the
  * actor reference is nullable (e.g. system-initiated audit rows would not
@@ -2831,7 +2836,12 @@ router.get("/admin/oncall-destinations/history", requirePermission("settings:vie
       })
       .from(auditLogTable)
       .leftJoin(usersTable, eq(auditLogTable.actorId, usersTable.id))
-      .where(eq(auditLogTable.entityType, "oncall_destinations"))
+      .where(
+        and(
+          eq(auditLogTable.entityType, "oncall_destinations"),
+          ne(auditLogTable.actionType, "probe_oncall_destination"),
+        ),
+      )
       .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
       .limit(limit);
 
@@ -2883,6 +2893,95 @@ router.get("/admin/oncall-destinations/history", requirePermission("settings:vie
   } catch (error) {
     console.error("[Admin] On-call destinations history error:", error);
     res.status(500).json({ error: "Failed to fetch on-call destinations history" });
+  }
+});
+
+/**
+ * Recent reachability-probe history for a single on-call destination channel.
+ *
+ * Each PUT to `/admin/oncall-destinations` writes a `probe_oncall_destination`
+ * audit row whose `changeDiff.probes` array carries one entry per touched
+ * field (`{ field, ok, skipped, reason }`). This endpoint walks those rows
+ * newest-first and pulls out only the entries matching `?field=...`, so the
+ * settings card can show "the last 10 times we tried PagerDuty" without the
+ * admin having to open the dedicated Audit Log page and decode JSON by hand.
+ *
+ * We over-scan (limit * 5, capped at 250) because a single audit row may
+ * cover one to three fields — the channel of interest may not appear in
+ * every probe row. The over-scan keeps the response well-bounded while
+ * still returning a full page in the common case.
+ *
+ * Query params:
+ *   - field: required, one of the OnCallField names. Anything else returns
+ *     a 400 listing the accepted values.
+ *   - limit: per-channel result count, default 10, clamped to 1..50 to match
+ *     the sibling `/history` endpoint.
+ */
+router.get("/admin/oncall-destinations/probes", requirePermission("settings:view"), async (req: Request, res: Response) => {
+  try {
+    const allowedFields: OnCallField[] = ["pagerdutyIntegrationKey", "opsAlertEmail", "opsAlertSlackWebhookUrl"];
+    const fieldRaw = req.query.field;
+    if (typeof fieldRaw !== "string" || !(allowedFields as string[]).includes(fieldRaw)) {
+      res.status(400).json({
+        error: `field is required and must be one of: ${allowedFields.join(", ")}`,
+      });
+      return;
+    }
+    const field = fieldRaw as OnCallField;
+
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 10;
+    const scanLimit = Math.min(limit * 5, 250);
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        changeDiff: auditLogTable.changeDiff,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "oncall_destinations"),
+          eq(auditLogTable.actionType, "probe_oncall_destination"),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+      .limit(scanLimit);
+
+    const probes: Array<{
+      id: number;
+      createdAt: Date;
+      ok: boolean;
+      skipped: boolean;
+      reason: string | null;
+    }> = [];
+    for (const row of rows) {
+      const diff = (row.changeDiff ?? {}) as Record<string, unknown>;
+      const probesArr = Array.isArray(diff.probes) ? diff.probes : [];
+      for (const p of probesArr) {
+        if (!p || typeof p !== "object") continue;
+        const rec = p as Record<string, unknown>;
+        if (rec.field !== field) continue;
+        probes.push({
+          id: row.id,
+          createdAt: row.createdAt,
+          ok: rec.ok === true,
+          skipped: rec.skipped === true,
+          reason: typeof rec.reason === "string" ? rec.reason : null,
+        });
+        // Each save writes at most one entry per field, so we can break out
+        // of the inner loop as soon as we find this field's result for the
+        // current audit row.
+        break;
+      }
+      if (probes.length >= limit) break;
+    }
+
+    res.json({ field, probes, limit });
+  } catch (error) {
+    console.error("[Admin] On-call destination probe history error:", error);
+    res.status(500).json({ error: "Failed to fetch on-call destination probe history" });
   }
 });
 

@@ -539,6 +539,30 @@ export const adminPanelApi = {
     }>;
   },
 
+  async getOnCallDestinationProbes(
+    field: "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl",
+    limit?: number,
+  ) {
+    const qs = new URLSearchParams({ field });
+    if (limit) qs.set("limit", String(limit));
+    const res = await authFetch(`/admin/oncall-destinations/probes?${qs.toString()}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to fetch on-call destination probe history");
+    }
+    return res.json() as Promise<{
+      field: "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl";
+      probes: Array<{
+        id: number;
+        createdAt: string;
+        ok: boolean;
+        skipped: boolean;
+        reason: string | null;
+      }>;
+      limit: number;
+    }>;
+  },
+
   async getAuthRateLimitAlertConfig() {
     const res = await authFetch("/admin/auth-rate-limit-alert-config");
     if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert config");

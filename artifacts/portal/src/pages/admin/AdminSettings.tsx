@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 import {
   adminPanelApi,
   type AuthRateLimitAlertConfigStatus,
@@ -222,6 +222,14 @@ function OnCallDestinationsCard() {
   const [probes, setProbes] = useState<Partial<Record<OnCallField, ProbeResult>>>({});
   const [history, setHistory] = useState<OnCallHistoryEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  // Per-field counter that the disclosure components watch; bumping it
+  // re-fetches that field's probe history (only if the disclosure is open),
+  // so a save flushes its own probe row into the visible list immediately.
+  const [probeHistoryRefresh, setProbeHistoryRefresh] = useState<Record<OnCallField, number>>({
+    pagerdutyIntegrationKey: 0,
+    opsAlertEmail: 0,
+    opsAlertSlackWebhookUrl: 0,
+  });
 
   const load = async () => {
     try {
@@ -308,6 +316,9 @@ function OnCallDestinationsCard() {
       } else {
         toast({ title: "Destination saved and verified" });
       }
+      // Bump the per-field disclosure refresh key so any open "View recent
+      // probes" panel pulls in the audit row this save just wrote.
+      setProbeHistoryRefresh((prev) => ({ ...prev, [field]: prev[field] + 1 }));
       await loadHistory();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -370,6 +381,8 @@ function OnCallDestinationsCard() {
               onSave={(v) => saveField("pagerdutyIntegrationKey", v)}
               onClear={status.pagerdutyConfigured ? () => saveField("pagerdutyIntegrationKey", null) : undefined}
               probe={probes.pagerdutyIntegrationKey}
+              field="pagerdutyIntegrationKey"
+              probeHistoryRefresh={probeHistoryRefresh.pagerdutyIntegrationKey}
             />
             <OnCallEmailRow
               configured={!!status.opsAlertEmail}
@@ -381,6 +394,7 @@ function OnCallDestinationsCard() {
               onSave={(v) => saveField("opsAlertEmail", v)}
               onClear={status.opsAlertEmail ? () => saveField("opsAlertEmail", null) : undefined}
               probe={probes.opsAlertEmail}
+              probeHistoryRefresh={probeHistoryRefresh.opsAlertEmail}
             />
             <OnCallSecretRow
               label="Slack webhook URL"
@@ -395,6 +409,8 @@ function OnCallDestinationsCard() {
               onSave={(v) => saveField("opsAlertSlackWebhookUrl", v)}
               onClear={status.slackConfigured ? () => saveField("opsAlertSlackWebhookUrl", null) : undefined}
               probe={probes.opsAlertSlackWebhookUrl}
+              field="opsAlertSlackWebhookUrl"
+              probeHistoryRefresh={probeHistoryRefresh.opsAlertSlackWebhookUrl}
             />
 
             <div className="flex items-center justify-between border-t pt-4">
@@ -481,6 +497,129 @@ function ProbeBadge({ probe }: { probe: ProbeResult | undefined }) {
         Reachability check failed{probe.reason ? `: ${probe.reason}` : ""} (value
         was still saved)
       </span>
+    </div>
+  );
+}
+
+interface ProbeHistoryEntry {
+  id: number;
+  createdAt: string;
+  ok: boolean;
+  skipped: boolean;
+  reason: string | null;
+}
+
+/**
+ * Lazy-loaded "View recent probes" disclosure for a single destination row.
+ * Fetches the last ~10 reachability probe outcomes for this channel from the
+ * audit log on first expand. Subsequent expands re-use the cached data; when
+ * the parent bumps `refreshKey` (e.g. after a save completes) and the panel
+ * is currently open, we silently re-fetch so the new probe row rolls in
+ * without the admin having to collapse and re-expand the disclosure.
+ */
+function RecentProbesDisclosure({
+  field,
+  refreshKey,
+}: {
+  field: OnCallField;
+  // Bumping `refreshKey` from the parent (e.g. after a save completes)
+  // triggers a refetch *only if* the disclosure is currently open — we don't
+  // want to silently fetch for collapsed rows.
+  refreshKey: number;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [entries, setEntries] = useState<ProbeHistoryEntry[]>([]);
+
+  const fetchProbes = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getOnCallDestinationProbes(field);
+      setEntries(data.probes);
+      setLoaded(true);
+    } catch (err: any) {
+      toast({ title: "Couldn't load recent probes", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh on save, but only when expanded — collapsed rows stay stale until
+  // the admin opens them, which avoids fanning out three audit-log reads on
+  // every save just in case someone is looking.
+  useEffect(() => {
+    if (open && loaded) {
+      fetchProbes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  const handleToggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && !loaded && !loading) {
+      fetchProbes();
+    }
+  };
+
+  return (
+    <div className="border-t pt-2">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        aria-expanded={open}
+        data-testid={`oncall-probes-toggle-${field}`}
+      >
+        {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        <span>View recent probes</span>
+      </button>
+      {open && (
+        <div className="mt-2" data-testid={`oncall-probes-panel-${field}`}>
+          {loading ? (
+            <div className="text-xs text-muted-foreground py-2">Loading recent probes...</div>
+          ) : entries.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2">
+              No probe history yet. Save this destination to record a probe outcome.
+            </div>
+          ) : (
+            <div className="border rounded-md divide-y bg-background">
+              {entries.map((entry) => (
+                <ProbeHistoryRow key={entry.id} entry={entry} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProbeHistoryRow({ entry }: { entry: ProbeHistoryEntry }) {
+  const outcomeLabel = entry.skipped ? "skipped" : entry.ok ? "ok" : "failed";
+  return (
+    <div
+      className="flex items-start gap-3 p-2 text-xs"
+      data-testid={`oncall-probe-history-row-${outcomeLabel}`}
+    >
+      {entry.skipped ? (
+        <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+      ) : entry.ok ? (
+        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 text-green-600 shrink-0" />
+      ) : (
+        <XCircle className="w-3.5 h-3.5 mt-0.5 text-destructive shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium capitalize">{outcomeLabel}</span>
+          <span className="text-muted-foreground">{formatHistoryTimestamp(entry.createdAt)}</span>
+        </div>
+        {entry.reason && (
+          <div className="text-muted-foreground break-words">{entry.reason}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -608,6 +747,8 @@ function OnCallSecretRow({
   onSave,
   onClear,
   probe,
+  field,
+  probeHistoryRefresh,
 }: {
   label: string;
   hint: string;
@@ -621,6 +762,8 @@ function OnCallSecretRow({
   onSave: (v: string) => void;
   onClear?: () => void;
   probe?: ProbeResult;
+  field: OnCallField;
+  probeHistoryRefresh: number;
 }) {
   return (
     <div className="border rounded-md p-3 space-y-2">
@@ -658,6 +801,7 @@ function OnCallSecretRow({
         )}
       </div>
       <ProbeBadge probe={probe} />
+      <RecentProbesDisclosure field={field} refreshKey={probeHistoryRefresh} />
     </div>
   );
 }
@@ -672,6 +816,7 @@ function OnCallEmailRow({
   onSave,
   onClear,
   probe,
+  probeHistoryRefresh,
 }: {
   configured: boolean;
   source: "db" | "env" | null;
@@ -682,6 +827,7 @@ function OnCallEmailRow({
   onSave: (v: string) => void;
   onClear?: () => void;
   probe?: ProbeResult;
+  probeHistoryRefresh: number;
 }) {
   const dirty = value.trim() !== (currentValue ?? "").trim();
   return (
@@ -719,6 +865,7 @@ function OnCallEmailRow({
         )}
       </div>
       <ProbeBadge probe={probe} />
+      <RecentProbesDisclosure field="opsAlertEmail" refreshKey={probeHistoryRefresh} />
     </div>
   );
 }
