@@ -3,7 +3,7 @@ import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLo
 import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
-import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
+import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
@@ -363,7 +363,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const sanitize = (rows: any[]) => (canSeePii ? rows : rows.map(redactQueueFallbackPii));
+    const sanitize = (rows: any[]) => (canSeePii ? rows : rows.map(redactAuditRowPii));
 
     const expandIdRaw = typeof expand === "string" && /^\d+$/.test(expand) ? parseInt(expand, 10) : null;
     const decodedCursor = decodeAuditCursor(cursor);
@@ -585,7 +585,7 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
     // recipient to viewers without PII access (CSV embeds the description,
     // JSON includes the full row).
     const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const visibleLogs = canSeePii ? logs : logs.map(redactQueueFallbackPii);
+    const visibleLogs = canSeePii ? logs : logs.map(redactAuditRowPii);
 
     if (format === "json") {
       res.setHeader("Content-Type", "application/json");
@@ -870,6 +870,11 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
       {
         before: { pendingEmail: previousPendingEmail, emailChangeExpires: previousExpiresAt },
         after: { pendingEmail: null, emailChangeExpires: null },
+        // Surfaced as structured fields so the audit-log redactor can
+        // strip them from both the description and the diff for viewers
+        // without `members:pii`.
+        memberEmail: member.email,
+        previousPendingEmail,
       },
     );
 
@@ -909,6 +914,9 @@ router.post("/admin/members/:id/unlock", requirePermission("members:edit"), asyn
       {
         before: { lockedUntil: member.lockedUntil, failedLoginCount: member.failedLoginCount },
         after: { lockedUntil: null, failedLoginCount: 0 },
+        // Surfaced so the audit-log redactor can scrub the email from the
+        // description for viewers without `members:pii`.
+        memberEmail: member.email,
       },
     );
 
@@ -935,7 +943,21 @@ router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), 
       { expiresIn: "30m" }
     );
 
-    await logAdminAction(req, "impersonate_start", "user", String(targetId), `Admin started impersonating member ${target.name} (${target.email})`);
+    await logAdminAction(
+      req,
+      "impersonate_start",
+      "user",
+      String(targetId),
+      `Admin started impersonating member ${target.name} (${target.email})`,
+      {
+        // Surfaced as structured fields so the audit-log redactor can
+        // scrub the member's name/email from the description for viewers
+        // without `members:pii`. The full description is still persisted
+        // verbatim so PII-cleared admins can investigate.
+        memberName: target.name,
+        memberEmail: target.email,
+      },
+    );
 
     res.json({
       token: impersonationToken,
