@@ -120,7 +120,7 @@ router.post("/conversations/:id/messages", async (req: Request, res: Response) =
       .where(eq(messages.conversationId, conversationId))
       .orderBy(asc(messages.createdAt));
 
-    const transcriptContext = searchTranscripts(trimmedContent);
+    const transcriptContext = await searchTranscripts(trimmedContent);
     const systemPrompt = getSystemPrompt() + transcriptContext;
 
     const recentHistory = history.slice(-20);

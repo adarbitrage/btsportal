@@ -1,16 +1,15 @@
 import fs from "fs";
 import path from "path";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 let qaContent = "";
 let glossaryContent = "";
-let transcriptChunks: { title: string; content: string }[] = [];
-let videoTranscriptChunks: { title: string; content: string }[] = [];
-let trainingDocChunks: { title: string; content: string }[] = [];
 
-function loadKnowledgeBase() {
-  if (qaContent) return;
+function loadStaticPromptContent() {
+  if (qaContent || glossaryContent) return;
 
   try {
     qaContent = fs.readFileSync(path.join(KB_DIR, "qa-articles.txt"), "utf-8");
@@ -23,64 +22,16 @@ function loadKnowledgeBase() {
   } catch {
     glossaryContent = "";
   }
-
-  try {
-    const raw = fs.readFileSync(path.join(KB_DIR, "coaching-transcripts.txt"), "utf-8");
-    const sections = raw.split(/\n---\n/).filter((s) => s.trim().length > 100);
-    transcriptChunks = sections.map((section) => {
-      const titleMatch = section.match(/^##\s*(.+)/m);
-      const title = titleMatch ? titleMatch[1].trim() : "Coaching Session";
-      return { title, content: section.slice(0, 4000) };
-    });
-  } catch {
-    transcriptChunks = [];
-  }
-
-  try {
-    const trainingDocsPath = path.join(KB_DIR, "training-documents.txt");
-    if (fs.existsSync(trainingDocsPath)) {
-      const raw = fs.readFileSync(trainingDocsPath, "utf-8");
-      const sections = raw
-        .split(/\n---\n/)
-        .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
-      trainingDocChunks = sections.map((section) => {
-        const titleMatch = section.match(/^Title:\s*(.+)/m);
-        const title = titleMatch ? titleMatch[1].trim() : "Training Document";
-        return { title, content: section.slice(0, 6000) };
-      });
-    }
-  } catch {
-    trainingDocChunks = [];
-  }
-
-  try {
-    if (trainingDocChunks.length === 0) {
-      const raw = fs.readFileSync(path.join(KB_DIR, "video-transcripts.txt"), "utf-8");
-      const sections = raw
-        .split(/\n---\n/)
-        .filter((s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s));
-      videoTranscriptChunks = sections.map((section) => {
-        const titleMatch = section.match(/^Title:\s*(.+)/m);
-        const title = titleMatch ? titleMatch[1].trim() : "Training Video";
-        return { title, content: section.slice(0, 6000) };
-      });
-    }
-  } catch {
-    videoTranscriptChunks = [];
-  }
 }
 
 export function reloadKnowledgeBase(): void {
   qaContent = "";
   glossaryContent = "";
-  transcriptChunks = [];
-  videoTranscriptChunks = [];
-  trainingDocChunks = [];
-  loadKnowledgeBase();
+  loadStaticPromptContent();
 }
 
 export function getSystemPrompt(): string {
-  loadKnowledgeBase();
+  loadStaticPromptContent();
   return `You are the BTS Assistant — the AI support chatbot for Build Test Scale (BTS), an affiliate marketing mentorship platform. You help mentees with questions about their mentorship program, tools, campaigns, and strategies.
 
 IMPORTANT RULES:
@@ -125,55 +76,26 @@ ${qaContent}
 ${glossaryContent}`;
 }
 
-function scoreChunks(
-  chunks: { title: string; content: string }[],
-  queryWords: string[],
-): { title: string; content: string; score: number }[] {
-  return chunks.map((chunk) => {
-    const lower = (chunk.title + " " + chunk.content).toLowerCase();
-    let score = 0;
-    for (const word of queryWords) {
-      let idx = 0;
-      while ((idx = lower.indexOf(word, idx)) !== -1) {
-        score++;
-        idx += word.length;
-      }
-    }
-    return { ...chunk, score };
-  });
-}
+export async function searchTranscripts(query: string, maxResults = 3): Promise<string> {
+  const trimmed = query.trim();
+  if (!trimmed) return "";
 
-export function searchTranscripts(query: string, maxResults = 3): string {
-  loadKnowledgeBase();
+  const results = await db.execute(
+    sql`SELECT title, content, category,
+        ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${trimmed})) AS rank
+      FROM knowledgebase_docs
+      WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${trimmed})
+      ORDER BY rank DESC
+      LIMIT ${maxResults}`
+  );
 
-  const queryWords = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2)
-    .slice(0, 20);
-
-  const coachingScored = scoreChunks(transcriptChunks, queryWords);
-  const videoScored = scoreChunks(videoTranscriptChunks, queryWords);
-  const trainingScored = scoreChunks(trainingDocChunks, queryWords);
-
-  const allScored = [
-    ...trainingScored.map((c) => ({ ...c, source: "training" as const })),
-    ...coachingScored.map((c) => ({ ...c, source: "coaching" as const })),
-    ...videoScored.map((c) => ({ ...c, source: "video" as const })),
-  ];
-
-  allScored.sort((a, b) => b.score - a.score);
-  const top = allScored.filter((s) => s.score > 0).slice(0, maxResults);
-
-  if (top.length === 0) return "";
+  const rows = results.rows as Array<{ title: string; content: string; category: string }>;
+  if (rows.length === 0) return "";
 
   return (
     "\n\n=== RELEVANT TRAINING CONTENT ===\n" +
-    top
-      .map(
-        (t) =>
-          `\n--- ${t.title} (${t.source === "training" ? "Training Guide" : t.source === "video" ? "Training Video" : "Coaching Session"}) ---\n${t.content}`,
-      )
+    rows
+      .map((r) => `\n--- ${r.title} (${r.category}) ---\n${r.content.slice(0, 6000)}`)
       .join("\n")
   );
 }

@@ -1,13 +1,8 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne } from "drizzle-orm";
-import fs from "fs";
-import path from "path";
-import { reloadKnowledgeBase } from "../openai/knowledge-base.js";
 import { requirePermission } from "../../middleware/rbac.js";
-
-const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
 const router = Router();
 router.use(requirePermission("chat:manage"));
@@ -276,7 +271,7 @@ OUTPUT FORMAT:
   }
 });
 
-router.post("/push-approved", async (req: Request, res: Response) => {
+router.post("/push-approved", async (_req: Request, res: Response) => {
   try {
     const newlyApproved = await db
       .select()
@@ -284,71 +279,51 @@ router.post("/push-approved", async (req: Request, res: Response) => {
       .where(eq(kbStagingDocsTable.status, "approved"));
 
     if (newlyApproved.length === 0) {
-      res.json({ message: "No approved documents to push", pushed: 0 });
+      const [{ cnt: totalInLiveKb }] = await db
+        .select({ cnt: count() })
+        .from(knowledgebaseDocsTable);
+      res.json({
+        message: "No approved documents to push",
+        pushed: 0,
+        totalInLiveKb,
+      });
       return;
     }
 
-    const previouslyPushed = await db
-      .select()
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.status, "pushed"));
+    await db.transaction(async (tx) => {
+      for (const doc of newlyApproved) {
+        const content = doc.editedContent ?? doc.content;
+        await tx
+          .insert(knowledgebaseDocsTable)
+          .values({
+            title: doc.title,
+            category: doc.category,
+            content,
+          })
+          .onConflictDoUpdate({
+            target: knowledgebaseDocsTable.title,
+            set: {
+              category: sql`EXCLUDED.category`,
+              content: sql`EXCLUDED.content`,
+              updatedAt: sql`NOW()`,
+            },
+          });
 
-    const allPublishable = [...previouslyPushed, ...newlyApproved];
+        await tx
+          .update(kbStagingDocsTable)
+          .set({ status: "pushed" })
+          .where(eq(kbStagingDocsTable.id, doc.id));
+      }
+    });
 
-    let kbContent =
-      "=== BTS TRAINING DOCUMENTS ===\n" +
-      "Clean, structured training content for the Build Test Scale knowledge base.\n" +
-      "=======================================\n\n";
-
-    for (const doc of allPublishable) {
-      const content = doc.editedContent || doc.content;
-      kbContent += "---\n";
-      kbContent += `Title: ${doc.title}\n`;
-      kbContent += `Category: ${doc.category}\n`;
-      kbContent += `Tags: ${doc.tags}\n\n`;
-      kbContent += content + "\n\n";
-    }
-
-    fs.mkdirSync(KB_DIR, { recursive: true });
-    const trainingDocPath = path.join(KB_DIR, "training-documents.txt");
-    fs.writeFileSync(trainingDocPath, kbContent);
-
-    const backupPath = path.join(
-      KB_DIR,
-      "video-transcripts-raw-backup.txt",
-    );
-    if (
-      !fs.existsSync(backupPath) &&
-      fs.existsSync(path.join(KB_DIR, "video-transcripts.txt"))
-    ) {
-      fs.copyFileSync(
-        path.join(KB_DIR, "video-transcripts.txt"),
-        backupPath,
-      );
-    }
-
-    for (const doc of newlyApproved) {
-      await db
-        .update(kbStagingDocsTable)
-        .set({ status: "pushed" })
-        .where(eq(kbStagingDocsTable.id, doc.id));
-    }
-
-    let reloaded = true;
-    try {
-      reloadKnowledgeBase();
-    } catch (reloadErr) {
-      reloaded = false;
-      console.error("[KB Push] reloadKnowledgeBase error (non-fatal):", reloadErr);
-    }
+    const [{ cnt: totalInLiveKb }] = await db
+      .select({ cnt: count() })
+      .from(knowledgebaseDocsTable);
 
     res.json({
-      message: `Pushed ${newlyApproved.length} documents to knowledge base (${allPublishable.length} total in file)`,
+      message: `Pushed ${newlyApproved.length} documents to live knowledge base`,
       pushed: newlyApproved.length,
-      totalInFile: allPublishable.length,
-      file: "training-documents.txt",
-      reloaded,
-      ...(reloaded ? {} : { reloadWarning: "In-memory KB reload failed; restart the server to apply changes" }),
+      totalInLiveKb,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

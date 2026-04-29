@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -13,6 +13,7 @@ export const knowledgebaseDocsTable = pgTable("knowledgebase_docs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("knowledgebase_docs_search_idx").using("gin", sql`to_tsvector('english', ${table.title} || ' ' || ${table.content})`),
+  uniqueIndex("knowledgebase_docs_title_uniq").on(table.title),
 ]);
 
 export const insertKnowledgebaseDocSchema = createInsertSchema(knowledgebaseDocsTable).omit({ id: true, searchVector: true, createdAt: true, updatedAt: true });
