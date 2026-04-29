@@ -10,9 +10,11 @@ The constraint is defined in two places:
   `pnpm --filter db push` will attach it on any environment where
   `entitlement_keys` is already clean (i.e. `0021` has been applied).
 - `lib/db/drizzle/0022_products_entitlement_keys_array_check.sql` — manual
-  SQL companion. Wraps an idempotent `0021`-style UPDATE plus the `ALTER
-  TABLE ... ADD CONSTRAINT` in a single transaction, for environments where
-  the data fix has not been applied yet (drizzle-kit push would fail there).
+  SQL companion. Wraps an idempotent `0021`-style UPDATE plus an
+  `IF NOT EXISTS`-guarded `ALTER TABLE ... ADD CONSTRAINT` in a single
+  transaction, for environments where the data fix has not been applied
+  yet (drizzle-kit push would fail there) and so it stays a safe no-op
+  if re-run after the schema sync has already attached the constraint.
 
 ## Dev DB — 2026-04-29
 
@@ -37,8 +39,8 @@ lengths (3, 3, 3, 5, 8, 10, 11, 12 for slugs `reserve_income`, `backroad`,
 
 ### Constraint attached
 
-`pnpm --filter db push` then attached the constraint cleanly. Catalog
-verification:
+`pnpm --filter db push` (or, equivalently, the `0022` SQL script above)
+attached the constraint cleanly. Catalog verification:
 
 ```sql
 SELECT conname, pg_get_constraintdef(oid) AS def
@@ -73,13 +75,26 @@ VALUES ('check-test-good', 'check test', 'backend',
 -- INSERT 0 1
 ```
 
-The regression test
-`artifacts/api-server/src/__tests__/products-entitlement-keys-shape.test.ts`
-locks all of the above in CI:
+## Regression guards
 
-- catalog assertion that the constraint exists with the right definition,
-- end-to-end assertion that a string-scalar insert is rejected with
-  SQLSTATE 23514 (or a message that names the constraint).
+Two test files lock the contract in CI from complementary angles:
+
+- `artifacts/api-server/src/__tests__/products-entitlement-keys-shape.test.ts`
+  asserts the read side (every row decodes to a JS array; raw
+  `jsonb_array_elements_text` works) **and** appends two checks for the
+  CHECK constraint itself: catalog presence, plus a simulated
+  `JSON.stringify`'d insert that must be rejected with SQLSTATE 23514 or
+  the constraint name.
+- `artifacts/api-server/src/__tests__/products-entitlement-keys-array-check.test.ts`
+  exercises the write side end-to-end via the raw `pg` pool (so the
+  Postgres SQLSTATE survives the round-trip cleanly): catalog presence,
+  rejection of string-scalar / number-scalar / object-scalar inserts,
+  rejection of an UPDATE that turns a real array back into a string
+  scalar, and positive-path acceptance of a real array (including an
+  empty array, to confirm the constraint isn't over-zealous).
+
+The two together cover both halves of "the constraint is real": it is
+declared, and it actually rejects every bad shape we know how to produce.
 
 ## Production
 
@@ -87,8 +102,10 @@ Pending. Recommended sequence (matches the dev flow above):
 
 1. Apply `0022_products_entitlement_keys_array_check.sql` against the
    production DB via the SQL console. The script wraps both the
-   data-repair UPDATE and the CHECK in a single transaction, so a stale
-   environment can run it as a one-shot.
+   data-repair UPDATE and the idempotent CHECK addition in a single
+   transaction, so a stale environment can run it as a one-shot. The
+   `IF NOT EXISTS` guard makes it safe to re-run, and safe to apply
+   after `pnpm --filter db push` has already attached the constraint.
 2. Deploy the schema change so `pnpm --filter db push` sees the constraint
    already in place and treats it as a no-op.
 3. Append a verification block here with the date and the catalog/INSERT
