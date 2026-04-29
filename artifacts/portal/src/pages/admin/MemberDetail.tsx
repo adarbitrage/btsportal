@@ -14,7 +14,7 @@ import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquar
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { FlexyResetHistoryPanel } from "@/components/admin/FlexyResetHistory";
+import { FlexyRegeneratePanel } from "@/components/admin/FlexyRegeneratePanel";
 
 interface ProductRow {
   id: number;
@@ -431,11 +431,12 @@ export default function MemberDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <FlexyResetHistoryPanel
+                <FlexyRegeneratePanel
                   userId={memberId}
-                  containerTestId="member-flexy-reset-history"
-                  itemTestIdPrefix="member-flexy-history"
-                  headerLabel="All password reset events for this member"
+                  historyContainerTestId="member-flexy-reset-history"
+                  historyItemTestIdPrefix="member-flexy-history"
+                  historyHeaderLabel="All password reset events for this member"
+                  showHistoryActorFilter={true}
                 />
               </CardContent>
             </Card>
