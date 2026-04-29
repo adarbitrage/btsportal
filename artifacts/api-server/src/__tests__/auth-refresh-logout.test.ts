@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
 import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, inArray, and, isNull } from "drizzle-orm";
+import { eq, inArray, and, isNull, sql } from "drizzle-orm";
 
 const { sendEmailNowMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(() => ({
   sendEmailNowMock: vi.fn(async () => ({ success: true })),
@@ -316,6 +316,94 @@ describe("POST /api/auth/refresh — error paths", () => {
       .from(sessionsTable)
       .where(eq(sessionsTable.id, session.id));
     expect(after.revokedAt).toBeNull();
+  });
+});
+
+describe("POST /api/auth/refresh — orphaned session (user hard-deleted)", () => {
+  const SESSIONS_USER_FK = "sessions_user_id_users_id_fk";
+
+  /**
+   * Removes a user row even though `sessionsTable.userId` has a non-cascading
+   * FK pointing at it. This mimics the operationally-rare case where an admin
+   * (or a manual fix-up) deletes a user without first cleaning up their
+   * sessions, so a session row ends up orphaned.
+   *
+   * Implementation: drop the FK, delete the user, then re-add the FK as
+   * NOT VALID inside the same transaction. NOT VALID skips validation of
+   * existing rows (the orphan we just made) but still enforces the
+   * constraint for any future insert or update — so other tests touching
+   * the sessions table continue to get full FK protection. After the
+   * orphan is cleaned up, `restoreFkValidation` marks the constraint VALID
+   * again so the schema state matches what drizzle expects.
+   *
+   * Uses only standard DDL — no superuser-only settings — so it works
+   * portably across CI/db environments.
+   */
+  async function deleteUserBypassingFk(userId: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql.raw(
+          `ALTER TABLE sessions DROP CONSTRAINT IF EXISTS ${SESSIONS_USER_FK}`,
+        ),
+      );
+      await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+      await tx.execute(
+        sql.raw(
+          `ALTER TABLE sessions ADD CONSTRAINT ${SESSIONS_USER_FK} FOREIGN KEY (user_id) REFERENCES users(id) NOT VALID`,
+        ),
+      );
+    });
+  }
+
+  async function restoreFkValidation(): Promise<void> {
+    await db.execute(
+      sql.raw(
+        `ALTER TABLE sessions VALIDATE CONSTRAINT ${SESSIONS_USER_FK}`,
+      ),
+    );
+  }
+
+  it("returns 401 'User not found' and does NOT revoke the orphaned session row (caller decided not to clean it up here)", async () => {
+    const user = await insertUser("refresh-orphaned");
+    const session = await insertSession(user.id);
+
+    // Hard-delete the user out from under the session, leaving the row
+    // orphaned but otherwise valid (not revoked, not expired).
+    await deleteUserBypassingFk(user.id);
+    // The user is gone now, so don't try to clean it up in afterAll.
+    const idx = seededUserIds.indexOf(user.id);
+    if (idx !== -1) seededUserIds.splice(idx, 1);
+
+    try {
+      const res = await request(app)
+        .post("/api/auth/refresh")
+        .set("Cookie", [`refresh_token=${session.refreshToken}`]);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: "User not found" });
+      // No new cookies should be set on this failure path. In particular,
+      // we must not rotate or clear cookies — the caller's other tabs may
+      // still be operating against a different (valid) session.
+      expect(res.headers["set-cookie"]).toBeUndefined();
+
+      // Pin the current behavior: the orphaned session row is left untouched
+      // (still un-revoked, original expiresAt). If a future change decides
+      // to proactively revoke orphans here, this assertion is the canary
+      // that forces an explicit decision.
+      const [after] = await db
+        .select()
+        .from(sessionsTable)
+        .where(eq(sessionsTable.id, session.id));
+      expect(after).toBeDefined();
+      expect(after.revokedAt).toBeNull();
+      expect(after.refreshTokenHash).toBe(session.refreshTokenHash);
+    } finally {
+      // Always clean up the orphan + restore the FK to fully VALID, even
+      // if the test assertions above threw — otherwise the schema would
+      // be left with a NOT VALID constraint and bleed into later tests.
+      await db.delete(sessionsTable).where(eq(sessionsTable.id, session.id));
+      await restoreFkValidation();
+    }
   });
 });
 
