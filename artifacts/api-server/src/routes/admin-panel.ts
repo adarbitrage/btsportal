@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
-import { requirePermission } from "../middleware/rbac";
-import { logAdminAction } from "../lib/audit-log";
+import { hasPermission, requirePermission } from "../middleware/rbac";
+import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import jwt from "jsonwebtoken";
@@ -202,8 +202,14 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
     ]);
 
+    // Hide member emails/phones in queue_fallback rows for viewers without
+    // PII access. Other action types are returned unchanged. The DB row is
+    // never modified — only the response payload is scrubbed.
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const visibleLogs = canSeePii ? logs : logs.map(redactQueueFallbackPii);
+
     res.json({
-      logs,
+      logs: visibleLogs,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -229,13 +235,19 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
 
     const logs = await db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt)).limit(10000);
 
+    // Same scrubbing as the read endpoint — exports must not leak the
+    // recipient to viewers without PII access (CSV embeds the description,
+    // JSON includes the full row).
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const visibleLogs = canSeePii ? logs : logs.map(redactQueueFallbackPii);
+
     if (format === "json") {
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", "attachment; filename=audit-log.json");
-      res.json(logs);
+      res.json(visibleLogs);
     } else {
       const header = "id,actor_id,actor_email,action_type,entity_type,entity_id,description,ip_address,created_at\n";
-      const rows = logs.map(l => `${l.id},${l.actorId || ""},${l.actorEmail || ""},${l.actionType},${l.entityType},${l.entityId || ""},"${(l.description || "").replace(/"/g, '""')}",${l.ipAddress || ""},${l.createdAt?.toISOString() || ""}`).join("\n");
+      const rows = visibleLogs.map(l => `${l.id},${l.actorId || ""},${l.actorEmail || ""},${l.actionType},${l.entityType},${l.entityId || ""},"${(l.description || "").replace(/"/g, '""')}",${l.ipAddress || ""},${l.createdAt?.toISOString() || ""}`).join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=audit-log.csv");
       res.send(header + rows);

@@ -16,6 +16,12 @@ export const PERMISSION_MATRIX = {
   "members:view": ["super_admin", "admin", "support_agent"],
   "members:edit": ["super_admin", "admin"],
   "members:impersonate": ["super_admin"],
+  // Permission to see member PII (emails, phone numbers, etc.) when surfaced
+  // outside the dedicated member views — e.g. in queue-fallback audit-log
+  // rows. Granted to the same roles that already see PII via members:view
+  // and to super_admin. Roles that lack this permission see "redacted"
+  // values while still being able to count/filter the events.
+  "members:pii": ["super_admin", "admin", "support_agent"],
   "tickets:view": ["super_admin", "admin", "support_agent"],
   "tickets:manage": ["super_admin", "admin", "support_agent"],
   "content:view": ["super_admin", "admin", "content_manager"],

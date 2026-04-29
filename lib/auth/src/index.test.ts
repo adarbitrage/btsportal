@@ -15,6 +15,7 @@ const EXPECTED_PERMISSIONS_BY_ROLE: Record<AdminRole, Permission[]> = {
     "members:view",
     "members:edit",
     "members:impersonate",
+    "members:pii",
     "tickets:view",
     "tickets:manage",
     "content:view",
@@ -51,6 +52,7 @@ const EXPECTED_PERMISSIONS_BY_ROLE: Record<AdminRole, Permission[]> = {
     "dashboard:view",
     "members:view",
     "members:edit",
+    "members:pii",
     "tickets:view",
     "tickets:manage",
     "content:view",
@@ -84,6 +86,7 @@ const EXPECTED_PERMISSIONS_BY_ROLE: Record<AdminRole, Permission[]> = {
   support_agent: [
     "dashboard:view",
     "members:view",
+    "members:pii",
     "tickets:view",
     "tickets:manage",
     "notifications:view",
@@ -323,6 +326,11 @@ describe("PERMISSION_MATRIX snapshot", () => {
         ],
         "members:impersonate": [
           "super_admin",
+        ],
+        "members:pii": [
+          "super_admin",
+          "admin",
+          "support_agent",
         ],
         "members:view": [
           "super_admin",
