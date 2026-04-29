@@ -1,3 +1,9 @@
+import {
+  streamDownload,
+  type StreamDownloadProgress,
+  type StreamDownloadResult,
+} from "./admin-panel-api";
+
 const BASE = import.meta.env.BASE_URL || "/";
 const API_BASE = `${BASE}api/admin/communications`.replace(/\/\//g, "/");
 
@@ -15,6 +21,23 @@ async function apiFetch(path: string, options: RequestInit = {}) {
     throw new Error(err.error || `Request failed: ${res.status}`);
   }
   return res.json();
+}
+
+// Bulk download — same auth/cookie posture as `apiFetch` but does not parse
+// the body as JSON because the server streams CSV/JSON in chunks. We hand
+// the response to the shared `streamDownload` helper so the caller can wire
+// in a transient "Downloading… N rows · K KB" hint while the file pulls.
+async function apiDownload(
+  path: string,
+  format: "csv" | "json" | string,
+  onProgress?: (progress: StreamDownloadProgress) => void,
+): Promise<StreamDownloadResult> {
+  const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(err.error || `Request failed: ${res.status}`);
+  }
+  return streamDownload(res, format, onProgress);
 }
 
 export const commsApi = {
@@ -61,6 +84,19 @@ export const commsApi = {
     return apiFetch(`/log${qs}`);
   },
   getLogEntry: (id: number) => apiFetch(`/log/${id}`),
+
+  // Streaming bulk download. The server walks (created_at, id) keyset chunks
+  // and streams the rows as CSV / JSON; the helper resolves only after every
+  // byte is on the wire so the caller's "Exporting…" UI accurately reflects
+  // the work, instead of toasting the moment the request is dispatched.
+  exportLog: (
+    params: Record<string, string> = {},
+    format: "csv" | "json" = "csv",
+    onProgress?: (progress: StreamDownloadProgress) => void,
+  ) => {
+    const qs = new URLSearchParams({ ...params, format });
+    return apiDownload(`/log/export?${qs.toString()}`, format, onProgress);
+  },
   getMemberHistory: (userId: number) => apiFetch(`/member/${userId}/history`),
 
   getBounces: () => apiFetch("/bounces"),

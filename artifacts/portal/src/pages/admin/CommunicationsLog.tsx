@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { commsApi } from "@/lib/communications-api";
-import { Search, ChevronLeft, ChevronRight, Mail, MessageSquare, Eye, ShieldAlert, ExternalLink } from "lucide-react";
+import { saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
+import { formatDownloadProgress } from "@/lib/download-progress";
+import { Search, ChevronLeft, ChevronRight, Mail, MessageSquare, Eye, ShieldAlert, ExternalLink, Download, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
@@ -100,6 +102,14 @@ export default function CommunicationsLog() {
   const [detailEntry, setDetailEntry] = useState<any>(null);
   const [bouncesOpen, setBouncesOpen] = useState(false);
   const [bounces, setBounces] = useState<any[]>([]);
+  // Tracks an in-flight CSV/JSON export so we can disable the buttons (no
+  // double submits) and surface a streamed bytes/rows hint while a multi-
+  // second download is being pulled. `null` whenever no export is running.
+  const [exportProgress, setExportProgress] = useState<{
+    fmt: "csv" | "json";
+    bytesReceived: number;
+    rowsReceived: number | null;
+  } | null>(null);
 
   async function load() {
     try {
@@ -153,17 +163,102 @@ export default function CommunicationsLog() {
     }
   }
 
+  // Streams the comms-log export honoring the current filters. We mirror the
+  // audit-log UX: a transient bytes/rows hint appears next to the button, the
+  // toast confirmation only fires once the file is fully on disk, and any
+  // server-side truncation surfaces a warning so the operator knows to
+  // narrow the date range.
+  async function handleExport(fmt: "csv" | "json") {
+    if (exportProgress) return;
+    setExportProgress({ fmt, bytesReceived: 0, rowsReceived: null });
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      if (channel !== "all") params.channel = channel;
+      if (status !== "all") params.status = status;
+      const result = await commsApi.exportLog(params, fmt, (p: StreamDownloadProgress) => {
+        setExportProgress({
+          fmt,
+          bytesReceived: p.bytesReceived,
+          rowsReceived: p.rowsReceived,
+        });
+      });
+      saveBlobAsFile(result.blob, `communications-log.${fmt}`);
+      // Final row count comes from the streaming reader's newline tally
+      // (CSV) — for JSON we just confirm completion. Authoritative counts
+      // sit server-side; the in-page hint above already showed live
+      // progress, so the toast just needs to flip the page from "exporting"
+      // to "done".
+      const finalRows = result.rowsReceived;
+      toast({
+        title: "Export complete",
+        description:
+          finalRows != null
+            ? `Downloaded ${finalRows.toLocaleString()} row${finalRows === 1 ? "" : "s"}.`
+            : undefined,
+      });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message, variant: "destructive" });
+    } finally {
+      setExportProgress(null);
+    }
+  }
+
   return (
     <CommunicationsLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Communication Log</h1>
             <p className="text-sm text-muted-foreground mt-1">Search and filter all sent communications</p>
           </div>
-          <Button variant="outline" onClick={loadBounces}>
-            <ShieldAlert className="w-4 h-4 mr-2" />Bounces
-          </Button>
+          <div className="flex items-center gap-3">
+            {exportProgress && (
+              <span
+                className="text-xs text-muted-foreground tabular-nums"
+                aria-live="polite"
+                data-testid="text-export-progress"
+              >
+                {formatDownloadProgress({
+                  bytesReceived: exportProgress.bytesReceived,
+                  rowsReceived: exportProgress.rowsReceived,
+                })}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => handleExport("csv")}
+              disabled={!!exportProgress}
+              data-testid="button-export-comms-csv"
+            >
+              {exportProgress?.fmt === "csv" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {exportProgress?.fmt === "csv" ? "Exporting…" : "Export CSV"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleExport("json")}
+              disabled={!!exportProgress}
+              data-testid="button-export-comms-json"
+            >
+              {exportProgress?.fmt === "json" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {exportProgress?.fmt === "json" ? "Exporting…" : "Export JSON"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={loadBounces}
+              disabled={!!exportProgress}
+            >
+              <ShieldAlert className="w-4 h-4 mr-2" />Bounces
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

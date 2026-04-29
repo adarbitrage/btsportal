@@ -1,5 +1,113 @@
 import { authFetch } from "./auth";
 
+export type StreamDownloadProgress = {
+  bytesReceived: number;
+  rowsReceived: number | null;
+};
+
+export type StreamDownloadResult = {
+  blob: Blob;
+  bytesReceived: number;
+  rowsReceived: number | null;
+};
+
+/**
+ * Stream a large download from the admin API while surfacing incremental
+ * "still working, here's how much has arrived" feedback. Reading the body as
+ * chunks (instead of `await res.blob()`) lets callers wire a progress hint
+ * into the UI during a multi-second pull, which is what the audit-log /
+ * communications-log / members exports use to disable their buttons + render
+ * a transient "Downloading… N rows · K KB" line.
+ *
+ * - `format` should be one of "csv" | "json" so we can decide whether to
+ *   approximate row count by counting newlines (CSV) or leave it null (JSON,
+ *   where commas across chunk boundaries are brittle to count). Any other
+ *   value just disables the row counter.
+ * - `onProgress` is throttled to ~one call per 150ms so a fast connection
+ *   doesn't thrash React with hundreds of setStates per second; the final
+ *   sample is always force-emitted so the UI can surface the authoritative
+ *   final byte/row count.
+ * - On platforms (or test fakes) that don't expose `res.body.getReader`,
+ *   we fall back to a plain `.blob()` read and still emit one final
+ *   progress sample so the caller's UI cleanup paths run.
+ */
+export async function streamDownload(
+  res: Response,
+  format: "csv" | "json" | string,
+  onProgress?: (progress: StreamDownloadProgress) => void,
+): Promise<StreamDownloadResult> {
+  const isCsv = format === "csv";
+  const contentType = res.headers.get("content-type") ?? (isCsv ? "text/csv" : "application/json");
+
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    const blob = await res.blob();
+    const final = { bytesReceived: blob.size, rowsReceived: null as number | null };
+    onProgress?.(final);
+    return { blob, ...final };
+  }
+
+  const chunks: BlobPart[] = [];
+  let bytesReceived = 0;
+  let newlineCount = 0;
+  let lastEmit = 0;
+  const NEWLINE = 0x0a;
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+  const emit = (force: boolean) => {
+    if (!onProgress) return;
+    const t = now();
+    if (!force && t - lastEmit < 150) return;
+    lastEmit = t;
+    const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
+    onProgress({ bytesReceived, rowsReceived });
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value && value.byteLength > 0) {
+        chunks.push(value);
+        bytesReceived += value.byteLength;
+        // For CSV we approximate rows-so-far by counting newlines on the
+        // raw bytes — fast, no decoding, and ~accurate where row content is
+        // mostly single-line. Descriptions that contain embedded LFs
+        // (RFC 4180 wraps them in quotes) will slightly over-count, but
+        // this value is only a "things are happening" hint during the
+        // download; the final toast still reports an authoritative count
+        // from the read endpoint. JSON exports leave rowsReceived null.
+        if (isCsv) {
+          for (let i = 0; i < value.byteLength; i++) {
+            if (value[i] === NEWLINE) newlineCount++;
+          }
+        }
+        emit(false);
+      }
+    }
+  } finally {
+    try { reader.releaseLock(); } catch { /* no-op */ }
+  }
+
+  const blob = new Blob(chunks, { type: contentType });
+  const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
+  emit(true);
+  return { blob, bytesReceived, rowsReceived };
+}
+
+/**
+ * Trigger a "Save As…" dialog in the browser for an in-memory blob. Used by
+ * the streaming export buttons after `streamDownload` resolves.
+ */
+export function saveBlobAsFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export type AuthRateLimitAlertConfig = {
   threshold: number;
   windowMinutes: number;
@@ -96,7 +204,7 @@ export const adminPanelApi = {
   async exportAuditLog(
     format: string = "csv",
     filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string; outcome?: string } = {},
-    onProgress?: (progress: { bytesReceived: number; rowsReceived: number | null }) => void,
+    onProgress?: (progress: StreamDownloadProgress) => void,
     // Optional AbortSignal so callers can cancel an in-flight export
     // (e.g. the admin realises the filters are wrong mid-download).
     // Aborting tears down the underlying fetch *and* the reader loop —
@@ -104,7 +212,7 @@ export const adminPanelApi = {
     // caller is expected to recognise as a user-initiated cancellation
     // rather than an unexpected failure.
     signal?: AbortSignal,
-  ): Promise<{ blob: Blob; bytesReceived: number; rowsReceived: number | null }> {
+  ): Promise<StreamDownloadResult> {
     const qs = new URLSearchParams();
     qs.set("format", format);
     if (filters.actionType) qs.set("actionType", filters.actionType);
@@ -114,76 +222,7 @@ export const adminPanelApi = {
     if (filters.outcome) qs.set("outcome", filters.outcome);
     const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`, { signal });
     if (!res.ok) throw new Error("Failed to export audit log");
-
-    const isCsv = format === "csv";
-    const contentType = res.headers.get("content-type") ?? (isCsv ? "text/csv" : "application/json");
-
-    // The server streams the entire result set in chunks. Reading the body
-    // through a ReadableStream lets us surface "still working, here's how much
-    // has arrived" feedback during a multi-second download instead of the user
-    // staring at a frozen button. Falls back to a plain `.blob()` read on
-    // platforms (or test fakes) that don't expose a body stream — we still
-    // return a final progress sample so callers can finalise their UI.
-    const reader = res.body?.getReader?.();
-    if (!reader) {
-      const blob = await res.blob();
-      const final = { bytesReceived: blob.size, rowsReceived: null as number | null };
-      onProgress?.(final);
-      return { blob, ...final };
-    }
-
-    const chunks: BlobPart[] = [];
-    let bytesReceived = 0;
-    let newlineCount = 0;
-    let lastEmit = 0;
-    const NEWLINE = 0x0a;
-    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-
-    // Throttle progress callbacks so we don't thrash React with hundreds of
-    // setStates per second on a fast connection. Force-emit on completion so
-    // the final byte/row count is always surfaced.
-    const emit = (force: boolean) => {
-      if (!onProgress) return;
-      const t = now();
-      if (!force && t - lastEmit < 150) return;
-      lastEmit = t;
-      const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
-      onProgress({ bytesReceived, rowsReceived });
-    };
-
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value && value.byteLength > 0) {
-          chunks.push(value);
-          bytesReceived += value.byteLength;
-          // For CSV we approximate rows-so-far by counting newlines on the
-          // raw bytes — fast, no decoding, and ~accurate for audit_log where
-          // descriptions are short single-line strings. Descriptions that
-          // contain embedded LFs (RFC 4180 wraps them in quotes) will
-          // slightly over-count, but this value is only a "things are
-          // happening" hint during the download; the final toast still
-          // reports the authoritative row count from the read endpoint.
-          // JSON exports are an array of objects; counting top-level commas
-          // is brittle across chunk boundaries, so we leave row count null
-          // and only show bytes for the JSON download.
-          if (isCsv) {
-            for (let i = 0; i < value.byteLength; i++) {
-              if (value[i] === NEWLINE) newlineCount++;
-            }
-          }
-          emit(false);
-        }
-      }
-    } finally {
-      try { reader.releaseLock(); } catch { /* no-op */ }
-    }
-
-    const blob = new Blob(chunks, { type: contentType });
-    const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
-    emit(true);
-    return { blob, bytesReceived, rowsReceived };
+    return streamDownload(res, format, onProgress);
   },
 
   async getMemberFull(id: number) {
@@ -656,12 +695,18 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async exportData(type: string, format: string = "csv", startDate?: string, endDate?: string) {
+  async exportData(
+    type: string,
+    format: string = "csv",
+    startDate?: string,
+    endDate?: string,
+    onProgress?: (progress: StreamDownloadProgress) => void,
+  ): Promise<StreamDownloadResult> {
     const qs = new URLSearchParams({ format });
     if (startDate) qs.set("startDate", startDate);
     if (endDate) qs.set("endDate", endDate);
     const res = await authFetch(`/admin/export/${type}?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to export data");
-    return res;
+    return streamDownload(res, format, onProgress);
   },
 };

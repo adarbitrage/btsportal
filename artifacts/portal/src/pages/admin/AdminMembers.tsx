@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Search, ChevronLeft, ChevronRight, Eye, Download } from "lucide-react";
-import { adminPanelApi } from "@/lib/admin-panel-api";
+import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2 } from "lucide-react";
+import { adminPanelApi, saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
+import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -15,6 +16,10 @@ export default function AdminMembers() {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  // Tracks an in-flight export so we can disable the button (no double
+  // submits) and surface a streamed bytes/rows hint while a wide member
+  // export is being pulled down. `null` whenever no export is running.
+  const [exportProgress, setExportProgress] = useState<StreamDownloadProgress | null>(null);
   const { toast } = useToast();
 
   const load = async (page = 1) => {
@@ -35,15 +40,25 @@ export default function AdminMembers() {
   const handleSearch = () => { load(1); };
 
   const handleExport = async () => {
+    // Belt-and-braces: the button is also disabled while an export runs,
+    // but a stale Enter key / double-tap could still re-enter this handler
+    // before React re-renders the disabled state.
+    if (exportProgress) return;
+    setExportProgress({ bytesReceived: 0, rowsReceived: null });
     try {
-      const res = await adminPanelApi.exportData("members", "csv");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "members-export.csv"; a.click();
-      URL.revokeObjectURL(url);
+      const { blob } = await adminPanelApi.exportData(
+        "members",
+        "csv",
+        undefined,
+        undefined,
+        (progress) => setExportProgress(progress),
+      );
+      saveBlobAsFile(blob, "members-export.csv");
+      toast({ title: "Export complete" });
     } catch (err: any) {
       toast({ title: "Export failed", description: err.message, variant: "destructive" });
+    } finally {
+      setExportProgress(null);
     }
   };
 
@@ -55,7 +70,34 @@ export default function AdminMembers() {
             <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Members</h1>
             <p className="text-muted-foreground mt-1">Manage all platform members</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-1" />Export CSV</Button>
+          <div className="flex items-center gap-3">
+            {exportProgress && (
+              <span
+                className="text-xs text-muted-foreground tabular-nums"
+                aria-live="polite"
+                data-testid="text-export-progress"
+              >
+                {formatDownloadProgress({
+                  bytesReceived: exportProgress.bytesReceived,
+                  rowsReceived: exportProgress.rowsReceived,
+                })}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={!!exportProgress}
+              data-testid="button-export-members"
+            >
+              {exportProgress ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-1" />
+              )}
+              {exportProgress ? "Exporting…" : "Export CSV"}
+            </Button>
+          </div>
         </div>
 
         <Card>

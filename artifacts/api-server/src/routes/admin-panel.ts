@@ -95,15 +95,12 @@ async function safeQuery<T>(query: Promise<T[]>, fallback: T[] = []): Promise<T[
   }
 }
 
-// RFC 4180-style escaping for a single CSV field. Values containing commas,
-// double quotes, or any kind of newline are wrapped in quotes, and embedded
-// quotes are doubled. Null/undefined become empty fields and Date instances
-// are serialized as ISO strings.
-export function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const s = value instanceof Date ? value.toISOString() : String(value);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+// RFC 4180-style escaping for a single CSV field. The implementation lives
+// in the shared `lib/csv` module so the audit-log, members, and comms-log
+// streaming exports apply identical escaping rules; we re-export it here so
+// any older callers that pulled it from this route module keep working.
+import { csvEscape } from "../lib/csv";
+export { csvEscape };
 
 // Page sizes for the admin Member Detail "Email change attempts" card. The
 // initial render embeds the most recent page in `/admin/members/:id/full`;

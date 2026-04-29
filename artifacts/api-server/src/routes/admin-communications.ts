@@ -18,7 +18,8 @@ import {
 } from "@workspace/db";
 import { eq, sql, desc, asc, and, or, ilike, count, gte, lte, inArray } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
-import { redactAuditRowPii } from "../lib/audit-log";
+import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
+import { csvEscape } from "../lib/csv";
 import { CommunicationService } from "../lib/communication-service";
 import {
   QUEUE_FALLBACK_ACTION_TYPE,
@@ -1008,6 +1009,268 @@ router.get("/admin/communications/log", requirePermission("communications:view")
   } catch (error) {
     console.error("[Admin] Error listing communication log:", error);
     res.status(500).json({ error: "Failed to list communication log" });
+  }
+});
+
+// Same permission gate as the read endpoint — anyone with communications:view
+// can export the rows they can already browse. PII redaction is applied per
+// row when the caller doesn't hold members:pii, mirroring the audit-log
+// export semantics so the same admin can't pull recipient addresses out via
+// the comms-log just because the audit-log export hides them.
+const COMMS_LOG_EXPORT_BATCH_SIZE = 1000;
+const DEFAULT_COMMS_LOG_EXPORT_HARD_CAP = 1_000_000;
+function resolveCommsLogExportHardCap(): number {
+  const raw = process.env.COMMS_LOG_EXPORT_HARD_CAP;
+  if (raw) {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isInteger(n) && n > 0) return n;
+  }
+  return DEFAULT_COMMS_LOG_EXPORT_HARD_CAP;
+}
+
+// Microsecond-precision keyset cursor for the comms-log export. Same shape
+// and rationale as the audit-log exporter — JS Dates would silently drop
+// sub-millisecond components, so we read createdAt as a microsecond ISO
+// string straight from Postgres and feed it back as the next batch's anchor.
+type CommsLogExportCursor = { ts: string; id: number };
+
+// Mask a recipient when the caller can't see PII. Keeps the local-part's
+// first character and the domain visible (`a***@example.com`) so the row is
+// still useful for matching against an audit-log entry / SendGrid bounce
+// without leaking the full address. Phone numbers are reduced to the last
+// four digits. Mirrors the spirit of `redactAuditRowPii` for the audit log
+// export.
+function maskCommsLogRecipient(value: string | null, kind: "email" | "phone"): string | null {
+  if (!value) return value;
+  if (kind === "email") {
+    const at = value.indexOf("@");
+    if (at <= 0) return "[redacted]";
+    const local = value.slice(0, at);
+    const domain = value.slice(at);
+    const head = local.charAt(0);
+    return `${head}${"*".repeat(Math.max(2, local.length - 1))}${domain}`;
+  }
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 4) return "[redacted]";
+  return `***${digits.slice(-4)}`;
+}
+
+router.get("/admin/communications/log/export", requirePermission("communications:view"), async (req: Request, res: Response) => {
+  const { channel, status, templateSlug, startDate, endDate, search, format = "csv" } = req.query;
+  const conditions: any[] = [];
+  if (channel && typeof channel === "string") conditions.push(eq(communicationLogTable.channel, channel));
+  if (status && typeof status === "string") conditions.push(eq(communicationLogTable.status, status));
+  if (templateSlug && typeof templateSlug === "string") conditions.push(eq(communicationLogTable.templateSlug, templateSlug));
+  if (startDate && typeof startDate === "string") conditions.push(gte(communicationLogTable.createdAt, new Date(startDate)));
+  if (endDate && typeof endDate === "string") conditions.push(lte(communicationLogTable.createdAt, new Date(endDate)));
+  if (search && typeof search === "string") {
+    conditions.push(or(
+      ilike(communicationLogTable.recipientEmail, `%${search}%`),
+      ilike(communicationLogTable.subject, `%${search}%`),
+    ));
+  }
+  const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
+  const hardCap = resolveCommsLogExportHardCap();
+
+  try {
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+
+    // Walk the (created_at, id) keyset in chunks and stream chunks to the
+    // client. We deliberately do NOT issue an upfront `count(*)` so a
+    // multi-million-row comms_log doesn't pay the COUNT cost on every
+    // export. Trailers carry the final returned count + a truncation flag
+    // so well-behaved clients can confirm completeness; browsers that
+    // ignore trailers still get a correct (or correctly-truncated) body.
+    res.setHeader("Trailer", "X-Comms-Log-Returned-Count, X-Comms-Log-Truncated");
+
+    const exposed = [
+      "Content-Disposition",
+      "Trailer",
+      "X-Comms-Log-Returned-Count",
+      "X-Comms-Log-Truncated",
+    ];
+    const existingExposed = res.getHeader("Access-Control-Expose-Headers");
+    const existingList = typeof existingExposed === "string"
+      ? existingExposed.split(",").map(s => s.trim()).filter(Boolean)
+      : [];
+    const merged = Array.from(new Set([...existingList, ...exposed]));
+    res.setHeader("Access-Control-Expose-Headers", merged.join(", "));
+
+    const isJson = format === "json";
+    if (isJson) {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", "attachment; filename=communications-log.json");
+      res.write("[");
+    } else {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=communications-log.csv");
+      res.write(
+        "id,channel,status,template_slug,category,recipient_email,recipient_phone,subject,from_email,user_name,delivered_at,opened_at,clicked_at,bounced_at,bounce_type,error_message,created_at\n",
+      );
+    }
+
+    let cursor: CommsLogExportCursor | null = null;
+    let firstRow = true;
+    let aborted = false;
+    let written = 0;
+    let truncated = false;
+    res.on("close", () => {
+      if (!res.writableEnded) aborted = true;
+    });
+
+    const cursorTsExpr = sql<string>`to_char(${communicationLogTable.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
+    while (!aborted && written < hardCap) {
+      const remaining = hardCap - written;
+      const batchSize = Math.min(COMMS_LOG_EXPORT_BATCH_SIZE, remaining);
+      const isFinalBatch = remaining <= COMMS_LOG_EXPORT_BATCH_SIZE;
+      const fetchSize = isFinalBatch ? batchSize + 1 : batchSize;
+
+      const cursorClause = cursor
+        ? sql`(${communicationLogTable.createdAt} < ${cursor.ts}::timestamptz OR (${communicationLogTable.createdAt} = ${cursor.ts}::timestamptz AND ${communicationLogTable.id} < ${cursor.id}))`
+        : undefined;
+      const whereClause = baseWhere && cursorClause
+        ? and(baseWhere, cursorClause)
+        : (cursorClause ?? baseWhere);
+
+      type ExportRow = {
+        id: number;
+        channel: string;
+        status: string;
+        templateSlug: string | null;
+        category: string | null;
+        recipientEmail: string | null;
+        recipientPhone: string | null;
+        subject: string | null;
+        fromEmail: string | null;
+        userName: string | null;
+        deliveredAt: Date | null;
+        openedAt: Date | null;
+        clickedAt: Date | null;
+        bouncedAt: Date | null;
+        bounceType: string | null;
+        errorMessage: string | null;
+        createdAt: Date;
+        cursorTs: string;
+      };
+
+      const rows: ExportRow[] = await db
+        .select({
+          id: communicationLogTable.id,
+          channel: communicationLogTable.channel,
+          status: communicationLogTable.status,
+          templateSlug: communicationLogTable.templateSlug,
+          category: communicationLogTable.category,
+          recipientEmail: communicationLogTable.recipientEmail,
+          recipientPhone: communicationLogTable.recipientPhone,
+          subject: communicationLogTable.subject,
+          fromEmail: communicationLogTable.fromEmail,
+          userName: usersTable.name,
+          deliveredAt: communicationLogTable.deliveredAt,
+          openedAt: communicationLogTable.openedAt,
+          clickedAt: communicationLogTable.clickedAt,
+          bouncedAt: communicationLogTable.bouncedAt,
+          bounceType: communicationLogTable.bounceType,
+          errorMessage: communicationLogTable.errorMessage,
+          createdAt: communicationLogTable.createdAt,
+          cursorTs: cursorTsExpr,
+        })
+        .from(communicationLogTable)
+        .leftJoin(usersTable, eq(communicationLogTable.userId, usersTable.id))
+        .where(whereClause)
+        .orderBy(desc(communicationLogTable.createdAt), desc(communicationLogTable.id))
+        .limit(fetchSize);
+
+      if (rows.length === 0) break;
+
+      const writeCount = Math.min(rows.length, batchSize);
+      if (isFinalBatch && rows.length > batchSize) truncated = true;
+
+      for (let i = 0; i < writeCount; i++) {
+        const { cursorTs: _omit, ...raw } = rows[i];
+        const recipientEmail = canSeePii
+          ? raw.recipientEmail
+          : maskCommsLogRecipient(raw.recipientEmail, "email");
+        const recipientPhone = canSeePii
+          ? raw.recipientPhone
+          : maskCommsLogRecipient(raw.recipientPhone, "phone");
+        const userName = canSeePii ? raw.userName : null;
+        const row = { ...raw, recipientEmail, recipientPhone, userName };
+
+        if (isJson) {
+          res.write(firstRow ? JSON.stringify(row) : "," + JSON.stringify(row));
+        } else {
+          const line = [
+            row.id,
+            row.channel,
+            row.status,
+            row.templateSlug,
+            row.category,
+            row.recipientEmail,
+            row.recipientPhone,
+            row.subject,
+            row.fromEmail,
+            row.userName,
+            row.deliveredAt,
+            row.openedAt,
+            row.clickedAt,
+            row.bouncedAt,
+            row.bounceType,
+            row.errorMessage,
+            row.createdAt,
+          ].map(csvEscape).join(",");
+          res.write(firstRow ? line : "\n" + line);
+        }
+        firstRow = false;
+        written++;
+      }
+
+      const lastWritten = rows[writeCount - 1];
+      cursor = { ts: lastWritten.cursorTs, id: lastWritten.id };
+
+      if (rows.length < fetchSize) break;
+      if (truncated || written >= hardCap) break;
+    }
+
+    if (isJson) res.write("]");
+    if (!aborted) {
+      const trailers: Record<string, string> = {
+        "X-Comms-Log-Returned-Count": String(written),
+      };
+      if (truncated) trailers["X-Comms-Log-Truncated"] = "true";
+      res.addTrailers(trailers);
+      // Best-effort audit trail so we know who pulled the export and how
+      // wide it was. Kept after `addTrailers` so a logging hiccup can't
+      // truncate the response. Filters live in the description string so
+      // the audit row stays self-contained without a bespoke schema.
+      try {
+        const filterParts: string[] = [];
+        if (channel) filterParts.push(`channel=${channel}`);
+        if (status) filterParts.push(`status=${status}`);
+        if (templateSlug) filterParts.push(`templateSlug=${templateSlug}`);
+        if (startDate) filterParts.push(`startDate=${startDate}`);
+        if (endDate) filterParts.push(`endDate=${endDate}`);
+        if (search) filterParts.push(`search=*`);
+        const filterSummary = filterParts.length > 0 ? ` (${filterParts.join(", ")})` : "";
+        await logAdminAction(
+          req,
+          "export_data",
+          "communication",
+          undefined,
+          `Exported ${written} communication log row${written === 1 ? "" : "s"} as ${isJson ? "JSON" : "CSV"}${truncated ? " (truncated)" : ""}${filterSummary}`,
+        );
+      } catch (auditErr) {
+        console.error("[Admin] Failed to write comms-log export audit row:", auditErr);
+      }
+    }
+    res.end();
+  } catch (error) {
+    console.error("[Admin] Comms log export error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to export communication log" });
+    } else {
+      res.destroy(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 });
 

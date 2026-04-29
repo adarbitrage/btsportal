@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2, X } from "lucide-react";
-import { adminPanelApi } from "@/lib/admin-panel-api";
+import { adminPanelApi, saveBlobAsFile } from "@/lib/admin-panel-api";
+import { formatBytes } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
@@ -334,12 +335,7 @@ export default function AuditLog() {
         },
         controller.signal,
       );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `audit-log.${fmt}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      saveBlobAsFile(blob, `audit-log.${fmt}`);
 
       if (totalMatching != null && totalMatching > 0) {
         const cappedCount = Math.min(totalMatching, exportCap);
@@ -381,13 +377,6 @@ export default function AuditLog() {
     exportAbortRef.current.abort();
   };
 
-  // Human-readable size formatter for the in-flight progress hint. We don't
-  // need TB precision — audit log exports cap out well under that.
-  const formatBytes = (n: number) => {
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const hasNewer = cursors.prev !== null;
   const hasOlder = cursors.next !== null;
