@@ -14,7 +14,10 @@ import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
 import { getEmailChangeAttemptsRetentionPolicy } from "../lib/email-change-attempts-cleanup";
-import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
+import {
+  getRateLimitAuditFailureStats,
+  getRateLimitAuditFailureStatsAggregated,
+} from "../lib/rate-limit-audit-failure-tracker";
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
@@ -1955,7 +1958,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     ]);
 
     const queueFallbacks = await getQueueFallbackStatsFromDb();
-    const rateLimitAuditFailures = getRateLimitAuditFailureStats();
+    const rateLimitAuditFailures = await getRateLimitAuditFailureStatsAggregated();
     const redisStatus = !redisConnected
       ? "down"
       : queueFallbacks.alerting

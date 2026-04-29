@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 
-const { redisGetMock, sortedSets } = vi.hoisted(() => {
+const { redisGetMock, sortedSets, hashes } = vi.hoisted(() => {
   const sortedSets = new Map<string, Array<{ score: number; member: string }>>();
+  const hashes = new Map<string, Map<string, string>>();
 
   function buildMulti() {
     const ops: Array<() => unknown> = [];
@@ -42,6 +43,28 @@ const { redisGetMock, sortedSets } = vi.hoisted(() => {
         ops.push(() => results.push([null, 1]));
         return multi;
       },
+      // The audit-failure tracker pipelines DEL + HSET + EXPIRE on every
+      // failure to mirror this pod's snapshot to a per-pod hash. Mirror
+      // those ops here so the test exercises the real code path without
+      // tripping over "is not a function" errors at the multi-builder.
+      del(key: string) {
+        ops.push(() => {
+          const existed = hashes.delete(key);
+          results.push([null, existed ? 1 : 0]);
+        });
+        return multi;
+      },
+      hset(key: string, ...fieldsAndValues: Array<string | number>) {
+        ops.push(() => {
+          const m = hashes.get(key) ?? new Map<string, string>();
+          for (let i = 0; i < fieldsAndValues.length; i += 2) {
+            m.set(String(fieldsAndValues[i]), String(fieldsAndValues[i + 1]));
+          }
+          hashes.set(key, m);
+          results.push([null, 1]);
+        });
+        return multi;
+      },
       async exec() {
         for (const op of ops) op();
         return results;
@@ -58,9 +81,23 @@ const { redisGetMock, sortedSets } = vi.hoisted(() => {
       sortedSets.set(key, next);
       return arr.length - next.length;
     },
+    async scan(cursor: string, _match: string, pattern: string, _count: string, _n: number) {
+      // Emulate just enough of SCAN to return all matching keys in one
+      // sweep — matches the small keyspace sizes this tracker creates.
+      const re = new RegExp(
+        "^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$",
+      );
+      const matches = Array.from(hashes.keys()).filter((k) => re.test(k));
+      return [cursor === "0" ? "0" : "0", matches];
+    },
+    async hgetall(key: string) {
+      const m = hashes.get(key);
+      if (!m) return {};
+      return Object.fromEntries(m.entries());
+    },
   };
 
-  return { redisGetMock: vi.fn(() => fakeRedis), sortedSets };
+  return { redisGetMock: vi.fn(() => fakeRedis), sortedSets, hashes };
 });
 
 vi.mock("../lib/redis", () => ({

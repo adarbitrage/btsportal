@@ -586,7 +586,15 @@ export default function SystemHealth() {
                     <p className="text-sm text-red-800/80 dark:text-red-200/80">
                       {health.services.rateLimitAuditFailures.totalCount} blocked
                       requests have served a 429 to the client but failed to record
-                      an audit-log row since this server started. The Audit Log will
+                      an audit-log row in the last 24h
+                      {Array.isArray(health.services.rateLimitAuditFailures.pods)
+                        && health.services.rateLimitAuditFailures.pods.length > 0
+                        && health.services.rateLimitAuditFailures.source === "redis"
+                        ? ` across ${health.services.rateLimitAuditFailures.pods.length} pod${health.services.rateLimitAuditFailures.pods.length === 1 ? "" : "s"}`
+                        : ""}
+                      {health.services.rateLimitAuditFailures.source === "memory"
+                        ? " (showing this pod only — Redis is unavailable so the cluster total may be higher)"
+                        : ""}. The Audit Log will
                       under-report attacks until the underlying write error clears.
                       Check database health and recent server logs for{" "}
                       <code>[AbuseRateLimit][AuditFailure]</code>.
@@ -1105,54 +1113,113 @@ export default function SystemHealth() {
                 );
               })()}
 
-              {health.services?.rateLimitAuditFailures && (
-                <Card data-testid="card-rate-limit-audit-failures">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4" />
-                      Rate-limit audit writes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Failed writes</span>
-                        <span
-                          className={`text-sm font-medium ${health.services.rateLimitAuditFailures.totalCount > 0 ? "text-red-600" : ""}`}
-                          data-testid="rate-limit-audit-failure-total"
+              {health.services?.rateLimitAuditFailures && (() => {
+                const ralf = health.services.rateLimitAuditFailures as {
+                  totalCount: number;
+                  lastAt: string | null;
+                  byName: Record<string, { count: number; lastAt: string | null; lastError: string | null }>;
+                  source: "redis" | "memory";
+                  pods: Array<{
+                    instanceId: string;
+                    totalCount: number;
+                    lastAt: string | null;
+                    byName: Record<string, { count: number; lastAt: string | null; lastError: string | null }>;
+                  }>;
+                };
+                const reportingPods = Array.isArray(ralf.pods) ? ralf.pods : [];
+                // The pods array always includes at least the request-handling
+                // pod once it has reported a failure; only filter to the ones
+                // that actually have non-zero counts so a stale-but-empty
+                // record doesn't add noise.
+                const podsWithFailures = reportingPods.filter((p) => p.totalCount > 0);
+                return (
+                  <Card data-testid="card-rate-limit-audit-failures">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Rate-limit audit writes
+                        <Badge
+                          variant={ralf.source === "redis" ? "outline" : "warning"}
+                          className="ml-2 font-normal"
+                          data-testid="rate-limit-audit-failure-source"
+                          title={
+                            ralf.source === "redis"
+                              ? "Counts aggregated across every reporting pod via Redis."
+                              : "Redis unavailable on this pod — showing per-instance fallback view only."
+                          }
                         >
-                          {health.services.rateLimitAuditFailures.totalCount ?? 0}
-                        </span>
-                      </div>
-                      {health.services.rateLimitAuditFailures.lastAt && (
+                          {ralf.source === "redis"
+                            ? `${podsWithFailures.length} pod${podsWithFailures.length === 1 ? "" : "s"} reporting`
+                            : "in-memory only"}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Last failure</span>
-                          <span className="text-sm font-medium">
-                            {new Date(health.services.rateLimitAuditFailures.lastAt).toLocaleString()}
+                          <span className="text-sm text-muted-foreground">
+                            Failed writes
+                            {ralf.source === "redis" ? " (cluster, last 24h)" : " (this pod)"}
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${ralf.totalCount > 0 ? "text-red-600" : ""}`}
+                            data-testid="rate-limit-audit-failure-total"
+                          >
+                            {ralf.totalCount ?? 0}
                           </span>
                         </div>
-                      )}
-                      {Object.entries(health.services.rateLimitAuditFailures.byName ?? {}).length > 0 ? (
-                        <div className="space-y-1 pt-2 border-t">
-                          {Object.entries(health.services.rateLimitAuditFailures.byName as Record<string, { count: number; lastError: string | null }>).map(([name, info]) => (
-                            <div key={name} className="flex justify-between text-xs">
-                              <span className="text-muted-foreground truncate">{name}</span>
-                              <span className="font-medium">
-                                {info.count}
-                                {info.lastError ? ` · ${info.lastError}` : ""}
-                              </span>
+                        {ralf.lastAt && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Last failure</span>
+                            <span className="text-sm font-medium">
+                              {new Date(ralf.lastAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {Object.entries(ralf.byName ?? {}).length > 0 ? (
+                          <div className="space-y-1 pt-2 border-t">
+                            {Object.entries(ralf.byName).map(([name, info]) => (
+                              <div key={name} className="flex justify-between text-xs">
+                                <span className="text-muted-foreground truncate">{name}</span>
+                                <span className="font-medium">
+                                  {info.count}
+                                  {info.lastError ? ` · ${info.lastError}` : ""}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No audit-write failures recorded.
+                          </p>
+                        )}
+                        {podsWithFailures.length > 1 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-[11px] uppercase text-muted-foreground mb-1">
+                              Per-pod breakdown
+                            </p>
+                            <div className="space-y-1" data-testid="rate-limit-audit-failure-pods">
+                              {podsWithFailures.map((pod) => (
+                                <div
+                                  key={pod.instanceId}
+                                  className="flex justify-between text-xs"
+                                  data-testid={`rate-limit-audit-failure-pod-${pod.instanceId}`}
+                                  title={pod.instanceId}
+                                >
+                                  <span className="text-muted-foreground truncate font-mono">
+                                    {pod.instanceId}
+                                  </span>
+                                  <span className="font-medium">{pod.totalCount}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          No audit-write failures since this server started.
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {health.services?.redis && (
                 <Card>
