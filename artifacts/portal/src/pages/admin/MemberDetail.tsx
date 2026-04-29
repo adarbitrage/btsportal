@@ -318,6 +318,9 @@ export default function MemberDetail() {
               <User className="w-6 h-6" /> {member.name}
             </h1>
             <p className="text-muted-foreground">{member.email}</p>
+            {member.phone ? (
+              <p className="text-muted-foreground" data-testid="text-member-phone">{member.phone}</p>
+            ) : null}
           </div>
           <Badge variant="outline" className="ml-auto">{member.role}</Badge>
         </div>
