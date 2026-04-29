@@ -30,6 +30,16 @@ async function safeQuery<T>(query: Promise<T[]>, fallback: T[] = []): Promise<T[
   }
 }
 
+// RFC 4180-style escaping for a single CSV field. Values containing commas,
+// double quotes, or any kind of newline are wrapped in quotes, and embedded
+// quotes are doubled. Null/undefined become empty fields and Date instances
+// are serialized as ISO strings.
+export function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = value instanceof Date ? value.toISOString() : String(value);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 router.get("/admin/dashboard/kpis", requirePermission("dashboard:view"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
@@ -315,7 +325,17 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
       res.json(visibleLogs);
     } else {
       const header = "id,actor_id,actor_email,action_type,entity_type,entity_id,description,ip_address,created_at\n";
-      const rows = visibleLogs.map(l => `${l.id},${l.actorId || ""},${l.actorEmail || ""},${l.actionType},${l.entityType},${l.entityId || ""},"${(l.description || "").replace(/"/g, '""')}",${l.ipAddress || ""},${l.createdAt?.toISOString() || ""}`).join("\n");
+      const rows = visibleLogs.map(l => [
+        l.id,
+        l.actorId,
+        l.actorEmail,
+        l.actionType,
+        l.entityType,
+        l.entityId,
+        l.description,
+        l.ipAddress,
+        l.createdAt,
+      ].map(csvEscape).join(",")).join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=audit-log.csv");
       res.send(header + rows);
@@ -660,14 +680,7 @@ router.get("/admin/export/:type", requirePermission("export:data"), async (req: 
       res.setHeader("Content-Disposition", `attachment; filename=${type}-export.json`);
       res.json(data);
     } else {
-      const csvRows = data.map(row => {
-        return Object.values(row).map(v => {
-          if (v === null || v === undefined) return "";
-          if (v instanceof Date) return v.toISOString();
-          const s = String(v);
-          return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-        }).join(",");
-      }).join("\n");
+      const csvRows = data.map(row => Object.values(row).map(csvEscape).join(",")).join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=${type}-export.csv`);
       res.send(headers + "\n" + csvRows);
