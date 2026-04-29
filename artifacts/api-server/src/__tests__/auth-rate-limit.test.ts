@@ -173,10 +173,19 @@ async function fetchAuditRows(endpoint: string) {
     .orderBy(desc(auditLogTable.createdAt));
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   sortedSets.clear();
   sendEmailNowMock.mockClear();
   redisGetMock.mockClear();
+  // The forgot-password tests below write rows into password_reset_attempts
+  // through the DB-backed limiter inside processForgotPasswordRequest. Sibling
+  // tests reuse some of the same emails (e.g. "victim@example.test"), so
+  // without per-test cleanup the per-email cap is already exhausted by the
+  // time later tests run, causing 200-vs-429 mismatches. Scope to rows this
+  // run inserted so we don't disturb anything else sharing the test DB.
+  await db
+    .delete(passwordResetAttemptsTable)
+    .where(gte(passwordResetAttemptsTable.createdAt, testRunStartedAt));
 });
 
 describe("abuse-rate sorted-set growth cap", () => {

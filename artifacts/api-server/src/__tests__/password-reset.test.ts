@@ -3,8 +3,13 @@ import request from "supertest";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, inArray, and, isNull } from "drizzle-orm";
+import {
+  db,
+  usersTable,
+  sessionsTable,
+  passwordResetAttemptsTable,
+} from "@workspace/db";
+import { eq, inArray, and, isNull, gte } from "drizzle-orm";
 
 const { sendEmailNowMock } = vi.hoisted(() => ({
   sendEmailNowMock: vi.fn(async () => ({ success: true })),
@@ -42,6 +47,12 @@ interface SeededUser {
 
 const seededUserIds: number[] = [];
 let app: ReturnType<typeof buildTestApp>;
+// Captured at beforeAll so beforeEach/afterAll can scope password_reset_attempts
+// cleanup to rows this run inserted. Without this cleanup the per-IP daily cap
+// (30 / 24h, keyed off 127.0.0.1 because this file doesn't trustProxy) fills
+// up after enough sequential test runs and then the happy-path tests can't
+// reserve a slot — surfacing as a 2s vi.waitFor timeout on the reset token.
+let testRunStartedAt: Date;
 
 async function insertUser(suffix: string, opts: { email?: string } = {}): Promise<SeededUser> {
   const email = opts.email ?? `${TEST_TAG}-${suffix}@example.test`;
@@ -153,17 +164,31 @@ function expectClearedCookie(cookies: ParsedCookie[], name: string, expectedPath
 
 beforeAll(() => {
   app = buildTestApp({ routers: [authRouter] });
+  testRunStartedAt = new Date(Date.now() - 1000);
 });
 
 afterAll(async () => {
+  // Drop any password_reset_attempts rows this file's run inserted (per-IP rows
+  // for 127.0.0.1 plus per-email rows for the seeded test users) so repeated
+  // runs don't accumulate against the per-identifier daily caps and starve
+  // the happy-path tests of reset-slot capacity.
+  await db
+    .delete(passwordResetAttemptsTable)
+    .where(gte(passwordResetAttemptsTable.createdAt, testRunStartedAt));
   if (seededUserIds.length > 0) {
     await db.delete(sessionsTable).where(inArray(sessionsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   sendEmailNowMock.mockClear();
+  // Wipe rows this run inserted so each test starts with a fresh per-email
+  // and per-IP window — otherwise tests within a single run also accumulate
+  // toward the cap (the happy path test alone burns one IP slot).
+  await db
+    .delete(passwordResetAttemptsTable)
+    .where(gte(passwordResetAttemptsTable.createdAt, testRunStartedAt));
 });
 
 describe("POST /api/auth/forgot-password", () => {
