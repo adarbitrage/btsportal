@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.redis
     pkgs.chromium
     pkgs.gtk3
     pkgs.freetype
