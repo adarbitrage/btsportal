@@ -319,6 +319,18 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async updateMemberRole(userId: number, role: string) {
+    const res = await authFetch(`/admin/members/${userId}/role`, {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to update role");
+    }
+    return res.json() as Promise<{ id: number; role: string; changed: boolean }>;
+  },
+
   async getSystemHealth() {
     const res = await authFetch("/admin/system/health");
     if (!res.ok) throw new Error("Failed to fetch system health");

@@ -2,25 +2,42 @@ export type AdminRole =
   | "super_admin"
   | "admin"
   | "support_agent"
-  | "content_manager";
+  | "content_manager"
+  // Read-only role for security/compliance staff who must investigate admin
+  // actions WITHOUT seeing member PII. Holds `audit:view` (so they can read
+  // the audit log) but explicitly NOT `members:pii` — every PII-bearing
+  // audit row is rebuilt with "redacted" placeholders by the audit-log
+  // endpoint before it leaves the server. The existing redaction plumbing
+  // (lib/audit-log.ts#redactAuditRowPii, gated on `members:pii` in
+  // routes/admin-panel.ts) is the single source of truth — adding this
+  // role finally exercises that path in production, since every other
+  // role that can see audit rows today also has `members:pii`.
+  | "compliance_reviewer";
 
 export const ADMIN_ROLES: readonly AdminRole[] = [
   "super_admin",
   "admin",
   "support_agent",
   "content_manager",
+  "compliance_reviewer",
 ] as const;
 
 export const PERMISSION_MATRIX = {
-  "dashboard:view": ["super_admin", "admin", "support_agent", "content_manager"],
+  "dashboard:view": ["super_admin", "admin", "support_agent", "content_manager", "compliance_reviewer"],
   "members:view": ["super_admin", "admin", "support_agent"],
   "members:edit": ["super_admin", "admin"],
   "members:impersonate": ["super_admin"],
+  // Assigning admin roles to a user is itself a super-power — anyone holding
+  // it can grant themselves any other admin role. Restricted to super_admin
+  // only, mirroring members:impersonate / settings:manage / api_keys:manage.
+  "members:assign_role": ["super_admin"],
   // Permission to see member PII (emails, phone numbers, etc.) when surfaced
   // outside the dedicated member views — e.g. in queue-fallback audit-log
   // rows. Granted to the same roles that already see PII via members:view
   // and to super_admin. Roles that lack this permission see "redacted"
   // values while still being able to count/filter the events.
+  // NOTE: compliance_reviewer is intentionally absent — that's the whole
+  // point of the role.
   "members:pii": ["super_admin", "admin", "support_agent"],
   "tickets:view": ["super_admin", "admin", "support_agent"],
   "tickets:manage": ["super_admin", "admin", "support_agent"],
@@ -36,7 +53,7 @@ export const PERMISSION_MATRIX = {
   "chat:manage": ["super_admin", "admin"],
   "communications:view": ["super_admin", "admin"],
   "communications:manage": ["super_admin", "admin"],
-  "audit:view": ["super_admin", "admin"],
+  "audit:view": ["super_admin", "admin", "compliance_reviewer"],
   "settings:view": ["super_admin", "admin"],
   "settings:manage": ["super_admin"],
   "system:view": ["super_admin", "admin"],
@@ -50,7 +67,7 @@ export const PERMISSION_MATRIX = {
   "vault:manage": ["super_admin", "admin", "content_manager"],
   "api_keys:view": ["super_admin", "admin"],
   "api_keys:manage": ["super_admin"],
-  "notifications:view": ["super_admin", "admin", "support_agent", "content_manager"],
+  "notifications:view": ["super_admin", "admin", "support_agent", "content_manager", "compliance_reviewer"],
   "apps:manage": ["super_admin", "admin"],
   "apps:support": ["super_admin", "admin", "support_agent"],
 } as const satisfies Record<string, readonly AdminRole[]>;

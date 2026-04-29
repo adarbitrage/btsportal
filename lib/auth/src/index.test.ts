@@ -15,6 +15,7 @@ const EXPECTED_PERMISSIONS_BY_ROLE: Record<AdminRole, Permission[]> = {
     "members:view",
     "members:edit",
     "members:impersonate",
+    "members:assign_role",
     "members:pii",
     "tickets:view",
     "tickets:manage",
@@ -104,15 +105,27 @@ const EXPECTED_PERMISSIONS_BY_ROLE: Record<AdminRole, Permission[]> = {
     "vault:manage",
     "notifications:view",
   ],
+  // Read-only audit reviewer. The whole point of this role is the
+  // combination it does NOT hold: audit:view WITHOUT members:pii.
+  // Adding it here is what wires the per-role exhaustive checks below
+  // (every permission outside this list must return false for the role)
+  // — so if anyone ever ticks members:pii or members:view onto
+  // compliance_reviewer in the matrix, this test fails immediately.
+  compliance_reviewer: [
+    "dashboard:view",
+    "audit:view",
+    "notifications:view",
+  ],
 };
 
 describe("ADMIN_ROLES", () => {
-  it("contains exactly the four known admin roles", () => {
+  it("contains exactly the five known admin roles", () => {
     expect([...ADMIN_ROLES]).toEqual([
       "super_admin",
       "admin",
       "support_agent",
       "content_manager",
+      "compliance_reviewer",
     ]);
   });
 });
@@ -185,6 +198,15 @@ describe("hasPermission", () => {
     expect(hasPermission("admin", "api_keys:manage")).toBe(false);
     expect(hasPermission("support_agent", "api_keys:manage")).toBe(false);
     expect(hasPermission("content_manager", "api_keys:manage")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "api_keys:manage")).toBe(false);
+  });
+
+  it("only super_admin has members:assign_role", () => {
+    expect(hasPermission("super_admin", "members:assign_role")).toBe(true);
+    expect(hasPermission("admin", "members:assign_role")).toBe(false);
+    expect(hasPermission("support_agent", "members:assign_role")).toBe(false);
+    expect(hasPermission("content_manager", "members:assign_role")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "members:assign_role")).toBe(false);
   });
 
   it("dashboard:view and notifications:view are available to every admin role", () => {
@@ -192,6 +214,19 @@ describe("hasPermission", () => {
       expect(hasPermission(role, "dashboard:view")).toBe(true);
       expect(hasPermission(role, "notifications:view")).toBe(true);
     }
+  });
+
+  it("compliance_reviewer can view audit log but cannot see member PII", () => {
+    expect(hasPermission("compliance_reviewer", "audit:view")).toBe(true);
+    expect(hasPermission("compliance_reviewer", "members:pii")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "members:view")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "members:edit")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "members:impersonate")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "tickets:view")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "settings:view")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "settings:manage")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "export:data")).toBe(false);
+    expect(hasPermission("compliance_reviewer", "system:view")).toBe(false);
   });
 });
 
@@ -249,6 +284,7 @@ describe("PERMISSION_MATRIX snapshot", () => {
         "audit:view": [
           "super_admin",
           "admin",
+          "compliance_reviewer",
         ],
         "chat:manage": [
           "super_admin",
@@ -307,6 +343,7 @@ describe("PERMISSION_MATRIX snapshot", () => {
           "admin",
           "support_agent",
           "content_manager",
+          "compliance_reviewer",
         ],
         "export:data": [
           "super_admin",
@@ -319,6 +356,9 @@ describe("PERMISSION_MATRIX snapshot", () => {
         "ghl:view": [
           "super_admin",
           "admin",
+        ],
+        "members:assign_role": [
+          "super_admin",
         ],
         "members:edit": [
           "super_admin",
@@ -342,6 +382,7 @@ describe("PERMISSION_MATRIX snapshot", () => {
           "admin",
           "support_agent",
           "content_manager",
+          "compliance_reviewer",
         ],
         "revenue:view": [
           "super_admin",

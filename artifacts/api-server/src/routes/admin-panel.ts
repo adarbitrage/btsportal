@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
 import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { hasPermission, requirePermission } from "../middleware/rbac";
+import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import { CommunicationService } from "../lib/communication-service";
@@ -1738,6 +1738,83 @@ router.post("/admin/members/:id/unlock", requirePermission("members:edit"), asyn
     res.status(500).json({ error: "Failed to unlock account" });
   }
 });
+
+router.post(
+  "/admin/members/:id/role",
+  requirePermission("members:assign_role"),
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) {
+        res.status(400).json({ error: "Invalid member ID" });
+        return;
+      }
+
+      const { role: nextRole } = req.body ?? {};
+      if (typeof nextRole !== "string" || nextRole.length === 0) {
+        res.status(400).json({ error: "role is required" });
+        return;
+      }
+      if (nextRole !== "member" && !isAdminRole(nextRole)) {
+        res.status(400).json({
+          error: `Invalid role. Allowed roles: ${["member", ...ADMIN_ROLES].join(", ")}`,
+        });
+        return;
+      }
+
+      const [target] = await db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          name: usersTable.name,
+          role: usersTable.role,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.id, id))
+        .limit(1);
+      if (!target) {
+        res.status(404).json({ error: "Member not found" });
+        return;
+      }
+
+      if (target.role === nextRole) {
+        res.status(200).json({ id: target.id, role: target.role, changed: false });
+        return;
+      }
+
+      // Prevent self-lockout: a super_admin cannot demote themselves.
+      if (target.id === req.userId && target.role === "super_admin" && nextRole !== "super_admin") {
+        res.status(400).json({
+          error: "You cannot remove your own super_admin role.",
+        });
+        return;
+      }
+
+      await db
+        .update(usersTable)
+        .set({ role: nextRole })
+        .where(eq(usersTable.id, id));
+
+      await logAdminAction(
+        req,
+        "update",
+        "user",
+        String(id),
+        `Changed role for member ${id} from ${target.role} to ${nextRole}`,
+        {
+          memberEmail: target.email,
+          before: { role: target.role },
+          after: { role: nextRole },
+        },
+      );
+
+      res.json({ id: target.id, role: nextRole, changed: true });
+    } catch (error) {
+      console.error("[Admin] Assign role error:", error);
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  },
+);
 
 router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), async (req: Request, res: Response) => {
   try {

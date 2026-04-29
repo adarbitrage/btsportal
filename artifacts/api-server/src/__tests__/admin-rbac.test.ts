@@ -50,6 +50,7 @@ const ADMIN_ROLES: AdminRole[] = [
   "admin",
   "support_agent",
   "content_manager",
+  "compliance_reviewer",
 ];
 
 interface SeededAdmin {
@@ -569,6 +570,14 @@ function rbacWriteCases(): RbacWriteCase[] {
       method: "post",
       // Non-existent member id -> 404 ("Member not found"). No token issued.
       buildPath: () => "/api/admin/impersonate/9999999",
+    },
+    {
+      // Empty body -> 400 ("role is required") before any user lookup.
+      resource: "members_assign_role",
+      permission: "members:assign_role",
+      method: "post",
+      buildPath: () => `/api/admin/members/${adminsByRole.super_admin.id}/role`,
+      body: {},
     },
     // ----- Per-router coverage for admin-bulk / admin-modules / admin-lessons
     // / admin-resources / admin-tools / admin-outgoing-webhooks /

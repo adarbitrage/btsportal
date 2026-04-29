@@ -21,7 +21,7 @@ import {
   type FlexyLookup,
 } from "@/components/admin/FlexyRegeneratePanel";
 import { useAuth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { ADMIN_ROLES, hasPermission } from "@/lib/permissions";
 
 interface ProductRow {
   id: number;
@@ -113,6 +113,8 @@ export default function MemberDetail() {
 
   const { user: currentUser } = useAuth();
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
+  const canAssignRole = hasPermission(currentUser?.role, "members:assign_role");
+  const [roleSaving, setRoleSaving] = useState(false);
 
   const openGrantDialog = async () => {
     setGrantProductId("");
@@ -125,6 +127,26 @@ export default function MemberDetail() {
       } catch (err: any) {
         toast({ title: "Failed to load products", description: err.message, variant: "destructive" });
       }
+    }
+  };
+
+  const handleRoleChange = async (nextRole: string) => {
+    if (!member) return;
+    if (nextRole === member.role) return;
+    setRoleSaving(true);
+    try {
+      const result = await adminPanelApi.updateMemberRole(memberId, nextRole);
+      if (result.changed) {
+        toast({ title: "Role updated", description: `Now: ${result.role}` });
+      } else {
+        toast({ title: "No change", description: `Already ${result.role}` });
+      }
+      load();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update role";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setRoleSaving(false);
     }
   };
 
@@ -378,7 +400,28 @@ export default function MemberDetail() {
               <p className="text-muted-foreground" data-testid="text-member-phone">{member.phone}</p>
             ) : null}
           </div>
-          <Badge variant="outline" className="ml-auto">{member.role}</Badge>
+          {canAssignRole && currentUser?.id !== member.id ? (
+            <div className="ml-auto flex items-center gap-2" data-testid="container-role-assign">
+              <Label htmlFor="select-member-role" className="text-xs text-muted-foreground">Role</Label>
+              <Select
+                value={member.role}
+                onValueChange={handleRoleChange}
+                disabled={roleSaving}
+              >
+                <SelectTrigger id="select-member-role" className="w-[180px]" data-testid="select-member-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member" data-testid="option-role-member">member</SelectItem>
+                  {ADMIN_ROLES.map((r: string) => (
+                    <SelectItem key={r} value={r} data-testid={`option-role-${r}`}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <Badge variant="outline" className="ml-auto" data-testid="badge-member-role">{member.role}</Badge>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
