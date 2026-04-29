@@ -5,12 +5,12 @@ const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // Rows without a `new_email` are legacy rate-limit-only counters: short-lived,
 // no audit value beyond the rolling 24h window the rate limiter inspects.
-const RATE_LIMIT_RETENTION_DAYS = 7;
+export const RATE_LIMIT_RETENTION_DAYS = 7;
 
 // Rows with a `new_email` represent an actual email change attempt that
 // support may need to look up when a member calls in confused. Keep these
 // long enough to cover follow-up calls well beyond the 7-day window.
-const AUDIT_RETENTION_DAYS = 90;
+export const AUDIT_RETENTION_DAYS = 90;
 
 // Rows that were explicitly cancelled by an admin (cancelled_at +
 // cancelled_by_admin_id populated by /admin/members/:id/cancel-email-change)
@@ -20,7 +20,28 @@ const AUDIT_RETENTION_DAYS = 90;
 // cancel this member's email change back in Q1?"), so they get a longer
 // retention window than ordinary attempt rows. Still bounded so the table
 // does not grow forever.
-const ADMIN_CANCELLED_RETENTION_DAYS = 365;
+export const ADMIN_CANCELLED_RETENTION_DAYS = 365;
+
+export interface EmailChangeAttemptsRetentionPolicy {
+  rateLimitRetentionDays: number;
+  auditRetentionDays: number;
+  adminCancelledRetentionDays: number;
+}
+
+/**
+ * Snapshot of the retention windows the cleanup job applies. Surfaced on the
+ * admin System Health page so admins can answer "how long do you keep
+ * email-change attempts?" without grepping through code or log lines. Sourced
+ * from the same constants the job itself uses so the UI cannot drift from
+ * the actual policy.
+ */
+export function getEmailChangeAttemptsRetentionPolicy(): EmailChangeAttemptsRetentionPolicy {
+  return {
+    rateLimitRetentionDays: RATE_LIMIT_RETENTION_DAYS,
+    auditRetentionDays: AUDIT_RETENTION_DAYS,
+    adminCancelledRetentionDays: ADMIN_CANCELLED_RETENTION_DAYS,
+  };
+}
 
 export async function runEmailChangeAttemptsCleanup(): Promise<number> {
   const now = Date.now();

@@ -9,6 +9,7 @@ import { CommunicationService } from "../lib/communication-service";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
+import { getEmailChangeAttemptsRetentionPolicy } from "../lib/email-change-attempts-cleanup";
 import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import {
@@ -1627,6 +1628,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         redis: { status: redisStatus, queueFallbacks },
         signupChallenge: { enforced: isSignupChallengeEnforced() },
         abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
+        emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
         rateLimitAuditFailures,
       },
       webhooks: { last24h: 0, failed24h: 0 },

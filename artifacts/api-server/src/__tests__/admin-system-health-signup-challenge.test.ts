@@ -96,6 +96,26 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     expect(res.body?.services?.signupChallenge).toEqual({ enforced: true });
   });
 
+  it("includes the email-change attempts retention policy sourced from the cleanup module", async () => {
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const retention = res.body?.services?.emailChangeAttemptsRetention;
+    expect(retention).toBeTruthy();
+    const {
+      RATE_LIMIT_RETENTION_DAYS,
+      AUDIT_RETENTION_DAYS,
+      ADMIN_CANCELLED_RETENTION_DAYS,
+    } = await import("../lib/email-change-attempts-cleanup");
+    expect(retention).toEqual({
+      rateLimitRetentionDays: RATE_LIMIT_RETENTION_DAYS,
+      auditRetentionDays: AUDIT_RETENTION_DAYS,
+      adminCancelledRetentionDays: ADMIN_CANCELLED_RETENTION_DAYS,
+    });
+  });
+
   it("includes an abuseRateLimitCleanup status field", async () => {
     const res = await request(app)
       .get("/api/admin/system/health")

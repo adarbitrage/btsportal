@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -511,6 +511,64 @@ export default function SystemHealth() {
                             REDIS_URL is not set, so the hourly sweep is disabled on this server.
                           </p>
                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.emailChangeAttemptsRetention && (() => {
+                const retention = health.services.emailChangeAttemptsRetention as {
+                  rateLimitRetentionDays: number;
+                  auditRetentionDays: number;
+                  adminCancelledRetentionDays: number;
+                };
+                const fmtDays = (days: number) => `${days}d`;
+                return (
+                  <Card data-testid="card-email-change-retention">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Archive className="w-4 h-4" />Email-change attempt retention
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Legacy rate-limit rows</span>
+                            <span className="text-sm font-medium" data-testid="email-change-retention-rate-limit">
+                              {fmtDays(retention.rateLimitRetentionDays)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Counter-only rows with no <code>new_email</code>. Kept just past the 24h
+                            rate-limit window so support can still spot bursts.
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Audit rows</span>
+                            <span className="text-sm font-medium" data-testid="email-change-retention-audit">
+                              {fmtDays(retention.auditRetentionDays)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Real change attempts (with a <code>new_email</code>). Kept long enough to
+                            answer "what address did this member try to switch to?" on follow-up calls.
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Admin-cancelled rows</span>
+                            <span className="text-sm font-medium" data-testid="email-change-retention-admin-cancelled">
+                              {fmtDays(retention.adminCancelledRetentionDays)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Attempts cancelled via the admin tool. Held longer so support can revisit
+                            the deliberate cancellation when stale tickets resurface.
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
