@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { AdminNotifications } from "@/components/admin/AdminNotifications";
+import { GlobalSearch } from "@/components/admin/GlobalSearch";
 
 const adminNav = [
   { href: "/admin/tickets", label: "Ticket Queue", icon: Ticket },
@@ -76,7 +77,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 w-full relative">
-        <div className="sticky top-0 z-30 flex justify-end items-center gap-2 px-8 lg:px-12 py-3 bg-background/80 backdrop-blur border-b border-border/40">
+        <div className="sticky top-0 z-30 flex items-center gap-3 px-8 lg:px-12 py-3 bg-background/80 backdrop-blur border-b border-border/40">
+          <div className="flex-1 min-w-0">
+            <GlobalSearch />
+          </div>
           <AdminNotifications />
         </div>
         <div className="max-w-7xl mx-auto p-8 lg:p-12">
