@@ -3,10 +3,14 @@
  * silently disabled in production (i.e. `TURNSTILE_SECRET_KEY` is unset
  * while `NODE_ENV === "production"`).
  *
- * Mirrors the queue-fallback alerter so on-call only ever has to learn one
- * pattern. Each delivery channel (PagerDuty / ops email / Slack) is
- * independently optional and configured via the same env vars used by the
- * queue-fallback alerter:
+ * The PagerDuty / SendGrid / Slack delivery, the per-channel throttle, and
+ * the SendGrid lazy init are all owned by `oncall-dispatcher.ts` — this
+ * module only contributes the state-transition detector (was the challenge
+ * enforced last time, is it enforced now?) and the alert title / message /
+ * dedup key.
+ *
+ * Delivery channels are configured via env vars (matching the historical
+ * behavior for this alerter):
  *   - PagerDuty:  PAGERDUTY_INTEGRATION_KEY   (Events API v2 routing key)
  *   - Ops email:  OPS_ALERT_EMAIL             (sent via SendGrid)
  *                 OPS_ALERT_FROM_EMAIL        (defaults to FROM_EMAIL or noreply@buildtestscale.com)
@@ -28,18 +32,21 @@
  *     legitimately run without TURNSTILE_SECRET_KEY.
  */
 
-import sgMail from "@sendgrid/mail";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
+import {
+  createInMemoryThrottleStore,
+  createOnCallDispatcher,
+  createPollRunner,
+  parseEnvInt,
+  type AlertKind,
+  type AlertMessages,
+  type DeliveryFn,
+  type DeliveryChannel,
+  type DeliveryResult,
+  type OnCallDestinations,
+} from "./oncall-dispatcher";
 
-type DeliveryChannel = "pagerduty" | "email" | "slack";
-type AlertKind = "fire" | "clear";
-
-function parseEnvInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-}
+export type { DeliveryResult };
 
 function getNotificationThrottleMs(): number {
   return parseEnvInt(
@@ -53,207 +60,93 @@ const POLL_MS = parseEnvInt(
   5 * 60 * 1000,
 );
 
-interface AlertState {
-  /** True if we currently consider the signup challenge "alerting". */
-  alerting: boolean;
-  /** Per-delivery-channel timestamp of the last successful "fire" send. */
-  lastFireAt: Partial<Record<DeliveryChannel, number>>;
-  /** Per-delivery-channel timestamp of the last successful "clear" send. */
-  lastClearAt: Partial<Record<DeliveryChannel, number>>;
-}
-
-const alertState: AlertState = {
-  alerting: false,
-  lastFireAt: {},
-  lastClearAt: {},
-};
-
 export interface SignupChallengeAlertPayload {
   kind: AlertKind;
   now: number;
 }
 
-export interface DeliveryResult {
-  channel: DeliveryChannel;
-  ok: boolean;
-  /** True if no notification was attempted (e.g. provider not configured or throttled). */
-  skipped?: boolean;
-  reason?: string;
-}
-
-type DeliveryFn = (
-  payload: SignupChallengeAlertPayload,
-) => Promise<DeliveryResult>;
-
-let sgMailInitialized = false;
-
 const FIRE_SUMMARY =
   "Signup challenge disabled in production — TURNSTILE_SECRET_KEY is unset, signups bypass Cloudflare Turnstile";
 
-const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
-  pagerduty: async (p) => {
-    const key = process.env.PAGERDUTY_INTEGRATION_KEY;
-    if (!key) {
-      return {
-        channel: "pagerduty",
-        ok: true,
-        skipped: true,
-        reason: "not_configured",
-      };
-    }
-    const dedupKey = "signup-challenge:disabled";
-    const body =
-      p.kind === "fire"
-        ? {
-            routing_key: key,
-            event_action: "trigger",
-            dedup_key: dedupKey,
-            payload: {
-              summary: FIRE_SUMMARY,
-              severity: "error",
-              source: process.env.HOSTNAME ?? "api-server",
-              component: "signup-challenge",
-              class: "signup_challenge_disabled",
-            },
-          }
-        : {
-            routing_key: key,
-            event_action: "resolve",
-            dedup_key: dedupKey,
-          };
-    const res = await fetch("https://events.pagerduty.com/v2/enqueue", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      return { channel: "pagerduty", ok: false, reason: `http_${res.status}` };
-    }
-    return { channel: "pagerduty", ok: true };
-  },
+function destinationsFromEnv(): OnCallDestinations {
+  return {
+    pagerdutyIntegrationKey: process.env.PAGERDUTY_INTEGRATION_KEY ?? null,
+    opsAlertEmail: process.env.OPS_ALERT_EMAIL ?? null,
+    opsAlertSlackWebhookUrl: process.env.OPS_ALERT_SLACK_WEBHOOK_URL ?? null,
+  };
+}
 
-  email: async (p) => {
-    const to = process.env.OPS_ALERT_EMAIL;
-    if (!to) {
-      return {
-        channel: "email",
-        ok: true,
-        skipped: true,
-        reason: "not_configured",
-      };
-    }
-    if (!process.env.SENDGRID_API_KEY) {
-      return {
-        channel: "email",
-        ok: true,
-        skipped: true,
-        reason: "sendgrid_not_configured",
-      };
-    }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
-    const from =
-      process.env.OPS_ALERT_FROM_EMAIL ??
-      process.env.FROM_EMAIL ??
-      "noreply@buildtestscale.com";
-    const subject =
-      p.kind === "fire"
-        ? "[ALERT] Signup challenge disabled in production"
-        : "[RESOLVED] Signup challenge re-enabled in production";
-    const text =
-      p.kind === "fire"
-        ? [
-            "TURNSTILE_SECRET_KEY is not set on the production API server.",
-            "Signup requests are passing through without Cloudflare Turnstile verification,",
-            "leaving the signup endpoint exposed to bots and credential-stuffing scripts.",
-            "",
-            "Restore TURNSTILE_SECRET_KEY on the API service and confirm via /admin/system.",
-          ].join("\n")
-        : [
-            "The signup challenge is now enforced again on the production API server.",
-            "TURNSTILE_SECRET_KEY is configured and verifying signup requests.",
-          ].join("\n");
-    await sgMail.send({ to, from, subject, text });
-    return { channel: "email", ok: true };
-  },
+function buildMessages(p: SignupChallengeAlertPayload): AlertMessages {
+  const subject =
+    p.kind === "fire"
+      ? "[ALERT] Signup challenge disabled in production"
+      : "[RESOLVED] Signup challenge re-enabled in production";
+  const text =
+    p.kind === "fire"
+      ? [
+          "TURNSTILE_SECRET_KEY is not set on the production API server.",
+          "Signup requests are passing through without Cloudflare Turnstile verification,",
+          "leaving the signup endpoint exposed to bots and credential-stuffing scripts.",
+          "",
+          "Restore TURNSTILE_SECRET_KEY on the API service and confirm via /admin/system.",
+        ].join("\n")
+      : [
+          "The signup challenge is now enforced again on the production API server.",
+          "TURNSTILE_SECRET_KEY is configured and verifying signup requests.",
+        ].join("\n");
+  const slackText =
+    p.kind === "fire"
+      ? ":rotating_light: *Signup challenge disabled in production* — TURNSTILE_SECRET_KEY is not set on the API server, signups bypass Cloudflare Turnstile. Restore the secret to re-enable verification."
+      : ":white_check_mark: *Signup challenge re-enabled in production* — TURNSTILE_SECRET_KEY is configured again.";
+  return {
+    pagerduty: {
+      dedupKey: "signup-challenge:disabled",
+      summary: FIRE_SUMMARY,
+      severity: "error",
+      component: "signup-challenge",
+      class: "signup_challenge_disabled",
+    },
+    email: { subject, text },
+    slack: { text: slackText },
+  };
+}
 
-  slack: async (p) => {
-    const url = process.env.OPS_ALERT_SLACK_WEBHOOK_URL;
-    if (!url) {
-      return {
-        channel: "slack",
-        ok: true,
-        skipped: true,
-        reason: "not_configured",
-      };
-    }
-    const text =
-      p.kind === "fire"
-        ? ":rotating_light: *Signup challenge disabled in production* — TURNSTILE_SECRET_KEY is not set on the API server, signups bypass Cloudflare Turnstile. Restore the secret to re-enable verification."
-        : ":white_check_mark: *Signup challenge re-enabled in production* — TURNSTILE_SECRET_KEY is configured again.";
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) {
-      return { channel: "slack", ok: false, reason: `http_${res.status}` };
-    }
-    return { channel: "slack", ok: true };
-  },
-};
+const throttleStore = createInMemoryThrottleStore();
 
-let deliveryOverrides: Partial<Record<DeliveryChannel, DeliveryFn>> | null =
-  null;
+const dispatcher = createOnCallDispatcher<
+  SignupChallengeAlertPayload,
+  string
+>({
+  name: "SignupChallengeAlerter",
+  destinations: destinationsFromEnv,
+  throttleMs: getNotificationThrottleMs,
+  throttleStore,
+  throttleKey: (p, dc) => `${p.kind}:${dc}`,
+  buildMessages,
+  kindOf: (p) => p.kind,
+});
 
 /** Test-only: replace one or more delivery functions with stubs. */
 export function __setSignupChallengeAlerterDeliveriesForTests(
-  overrides: Partial<Record<DeliveryChannel, DeliveryFn>> | null,
+  overrides: Partial<
+    Record<DeliveryChannel, DeliveryFn<SignupChallengeAlertPayload>>
+  > | null,
 ): void {
-  deliveryOverrides = overrides;
+  dispatcher.setDeliveryOverrides(overrides);
 }
+
+interface AlertingState {
+  /** True if we currently consider the signup challenge "alerting". */
+  alerting: boolean;
+}
+
+const alertingState: AlertingState = { alerting: false };
 
 /** Test-only: reset all alerter state. */
 export function __resetSignupChallengeAlerterForTests(): void {
-  alertState.alerting = false;
-  alertState.lastFireAt = {};
-  alertState.lastClearAt = {};
-  deliveryOverrides = null;
-}
-
-async function dispatchAll(
-  payload: SignupChallengeAlertPayload,
-): Promise<DeliveryResult[]> {
-  const lastMap =
-    payload.kind === "fire" ? alertState.lastFireAt : alertState.lastClearAt;
-  const promises: Promise<DeliveryResult>[] = (
-    ["pagerduty", "email", "slack"] as const
-  ).map(async (dc) => {
-    const last = lastMap[dc] ?? 0;
-    if (last > 0 && payload.now - last < getNotificationThrottleMs()) {
-      return { channel: dc, ok: true, skipped: true, reason: "throttled" };
-    }
-    const fn = deliveryOverrides?.[dc] ?? defaultDeliveries[dc];
-    try {
-      const result = await fn(payload);
-      // Only consume the throttle slot when something was actually sent —
-      // a "skipped" (no provider configured) shouldn't gate the next attempt.
-      if (result.ok && !result.skipped) {
-        lastMap[dc] = payload.now;
-      }
-      return result;
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[SignupChallengeAlerter] ${dc} ${payload.kind} failed:`,
-        err,
-      );
-      return { channel: dc, ok: false, reason };
-    }
-  });
-  return Promise.all(promises);
+  alertingState.alerting = false;
+  throttleStore.reset();
+  dispatcher.setDeliveryOverrides(null);
 }
 
 /**
@@ -264,7 +157,7 @@ async function dispatchAll(
  *
  * Concurrency: the route-level dispatch is fire-and-forget while the
  * background poll runs every few minutes. Both call sites share
- * `alertState.alerting`, so we flip the transition flag *before* awaiting
+ * `alertingState.alerting`, so we flip the transition flag *before* awaiting
  * the dispatch. Any concurrent call that arrives mid-dispatch sees the new
  * state and returns immediately instead of double-paging.
  */
@@ -276,46 +169,34 @@ export async function evaluateSignupChallengeAlert(
   }
   const enforced = isSignupChallengeEnforced();
   const currentlyDisabled = !enforced;
-  const prev = alertState.alerting;
+  const prev = alertingState.alerting;
   if (currentlyDisabled && !prev) {
-    alertState.alerting = true;
-    return dispatchAll({ kind: "fire", now });
+    alertingState.alerting = true;
+    return dispatcher.dispatch({ kind: "fire", now }, now);
   }
   if (!currentlyDisabled && prev) {
-    alertState.alerting = false;
-    return dispatchAll({ kind: "clear", now });
+    alertingState.alerting = false;
+    return dispatcher.dispatch({ kind: "clear", now }, now);
   }
   return [];
 }
 
-let pollHandle: ReturnType<typeof setInterval> | null = null;
-let started = false;
+const runner = createPollRunner({
+  name: "SignupChallengeAlerter",
+  pollMs: POLL_MS,
+  evaluate: () => evaluateSignupChallengeAlert(),
+  startupEvaluate: true,
+});
 
 /**
  * Run a startup check and start the recovery poll so a misconfiguration is
  * detected even if no admin loads the dashboard. Idempotent.
  */
 export function startSignupChallengeAlerter(): void {
-  if (started) return;
-  started = true;
-  evaluateSignupChallengeAlert().catch((err) => {
-    console.error("[SignupChallengeAlerter] startup error:", err);
-  });
-  if (POLL_MS > 0) {
-    pollHandle = setInterval(() => {
-      evaluateSignupChallengeAlert().catch((err) => {
-        console.error("[SignupChallengeAlerter] poll error:", err);
-      });
-    }, POLL_MS);
-    pollHandle.unref?.();
-  }
+  runner.start();
 }
 
 /** Stop the poll. */
 export function stopSignupChallengeAlerter(): void {
-  if (pollHandle) {
-    clearInterval(pollHandle);
-    pollHandle = null;
-  }
-  started = false;
+  runner.stop();
 }
