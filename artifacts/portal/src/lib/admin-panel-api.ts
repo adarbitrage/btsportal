@@ -75,6 +75,32 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getMemberEmailAttempts(
+    userId: number,
+    options: { limit?: number; offset?: number } = {},
+  ) {
+    const qs = new URLSearchParams();
+    if (typeof options.limit === "number") qs.set("limit", String(options.limit));
+    if (typeof options.offset === "number") qs.set("offset", String(options.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/members/${userId}/email-attempts${suffix}`);
+    if (!res.ok) throw new Error("Failed to fetch email-change attempts");
+    return res.json() as Promise<{
+      attempts: Array<{
+        id: number;
+        newEmail: string | null;
+        requestedAt: string;
+        expiresAt: string | null;
+        confirmedAt: string | null;
+        status: "pending" | "confirmed" | "expired" | "abandoned";
+      }>;
+      total: number;
+      offset: number;
+      limit: number;
+      hasMore: boolean;
+    }>;
+  },
+
   async addMemberNote(userId: number, content: string) {
     const res = await authFetch(`/admin/members/${userId}/notes`, { method: "POST", body: JSON.stringify({ content }) });
     if (!res.ok) throw new Error("Failed to add note");

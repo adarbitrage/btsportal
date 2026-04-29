@@ -71,6 +71,135 @@ export function csvEscape(value: unknown): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+// Page sizes for the admin Member Detail "Email change attempts" card. The
+// initial render embeds the most recent page in `/admin/members/:id/full`;
+// older attempts are paged in via `/admin/members/:id/email-attempts` so
+// support staff can reach attempts that fall outside the first page within
+// the current 90-day retention window.
+const EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE = 50;
+const EMAIL_ATTEMPTS_MAX_PAGE_SIZE = 100;
+// Safety cap on in-memory classification: with a 90-day retention window and
+// per-member email-change rate limits, real members never approach this many
+// rows. The cap exists purely to keep a misconfigured account from OOMing the
+// admin endpoint.
+const EMAIL_ATTEMPT_CLASSIFICATION_CAP = 1000;
+const EMAIL_HISTORY_CLASSIFICATION_CAP = 1000;
+// Cap on the embedded `emailHistory` array returned by `/full`. Older
+// history rows are still considered when classifying attempts, but only
+// the most recent page is rendered on the Member Detail page.
+const EMAIL_HISTORY_RESPONSE_PAGE_SIZE = 50;
+
+type RawEmailAttempt = {
+  id: number;
+  newEmail: string | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+};
+
+type RawEmailHistory = {
+  id: number;
+  oldEmail: string;
+  newEmail: string;
+  changedAt: Date;
+};
+
+export type ClassifiedEmailAttempt = {
+  id: number;
+  newEmail: string | null;
+  requestedAt: string;
+  expiresAt: string | null;
+  confirmedAt: string | null;
+  status: "pending" | "confirmed" | "expired" | "abandoned";
+};
+
+// Classify each attempt as confirmed / pending / expired / abandoned by
+// matching against `email_change_history` (confirmed) and the user's
+// current pending state.
+//
+// Confirmation matching: every new attempt overwrites the previous
+// attempt's verification token on the user record, so a confirmation can
+// only ever come from the *most recent* attempt with that target email
+// whose createdAt is at or before the history row's changedAt. We walk
+// history rows oldest-first and claim the latest eligible unclaimed
+// attempt for each one.
+//
+// Output preserves the order of `attemptRows` (callers pass DESC so the
+// returned list is also DESC).
+export function classifyEmailAttempts(
+  attemptRows: RawEmailAttempt[],
+  historyRows: RawEmailHistory[],
+  member: { pendingEmail: string | null; emailChangeExpires: Date | null },
+  now: Date = new Date(),
+): ClassifiedEmailAttempt[] {
+  const claimedAttemptIds = new Set<number>();
+  const matched = new Map<number, Date>();
+
+  const historyAsc = [...historyRows].sort(
+    (a, b) => a.changedAt.getTime() - b.changedAt.getTime(),
+  );
+  const attemptsAsc = [...attemptRows].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+
+  for (const history of historyAsc) {
+    const targetEmail = history.newEmail.toLowerCase();
+    let bestAttemptId: number | null = null;
+    let bestAttemptCreatedAt = -Infinity;
+    for (const attempt of attemptsAsc) {
+      if (claimedAttemptIds.has(attempt.id)) continue;
+      if ((attempt.newEmail ?? "").toLowerCase() !== targetEmail) continue;
+      const createdAtMs = attempt.createdAt.getTime();
+      if (createdAtMs > history.changedAt.getTime()) continue;
+      if (createdAtMs > bestAttemptCreatedAt) {
+        bestAttemptCreatedAt = createdAtMs;
+        bestAttemptId = attempt.id;
+      }
+    }
+    if (bestAttemptId !== null) {
+      claimedAttemptIds.add(bestAttemptId);
+      matched.set(bestAttemptId, history.changedAt);
+    }
+  }
+
+  const memberPendingEmail = member.pendingEmail?.toLowerCase() ?? null;
+  const memberExpiresAtMs = member.emailChangeExpires
+    ? member.emailChangeExpires.getTime()
+    : null;
+  const nowMs = now.getTime();
+
+  return attemptRows.map((a) => {
+    const confirmedAt = matched.get(a.id) ?? null;
+    const expiresAtMs = a.expiresAt ? a.expiresAt.getTime() : null;
+    let status: "pending" | "confirmed" | "expired" | "abandoned";
+    if (confirmedAt) {
+      status = "confirmed";
+    } else if (
+      memberPendingEmail &&
+      memberPendingEmail === a.newEmail?.toLowerCase() &&
+      memberExpiresAtMs !== null &&
+      expiresAtMs !== null &&
+      memberExpiresAtMs === expiresAtMs &&
+      expiresAtMs > nowMs
+    ) {
+      status = "pending";
+    } else if (expiresAtMs !== null && expiresAtMs <= nowMs) {
+      status = "expired";
+    } else {
+      // Either superseded by a newer attempt or explicitly cancelled by
+      // the member — in both cases it never resulted in a confirmed change.
+      status = "abandoned";
+    }
+    return {
+      id: a.id,
+      newEmail: a.newEmail,
+      requestedAt: a.createdAt.toISOString(),
+      expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
+      confirmedAt: confirmedAt ? confirmedAt.toISOString() : null,
+      status,
+    };
+  });
+}
+
 router.get("/admin/dashboard/kpis", requirePermission("dashboard:view"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
@@ -712,7 +841,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-    const [products, tickets, progress, notes, auditHistory, emailHistory, emailAttemptRows] = await Promise.all([
+    const [products, tickets, progress, notes, auditHistory, emailHistoryFull, emailAttemptRowsFull] = await Promise.all([
       safeQuery(
         db.select({ id: userProductsTable.id, productId: userProductsTable.productId, status: userProductsTable.status, expiresAt: userProductsTable.expiresAt, createdAt: userProductsTable.createdAt, productName: productsTable.name, productSlug: productsTable.slug })
           .from(userProductsTable).innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id)).where(eq(userProductsTable.userId, id))
@@ -721,12 +850,115 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       safeCount(db.select({ count: sql<number>`count(*)` }).from(progressTable).where(eq(progressTable.userId, id))),
       safeQuery(db.select().from(adminNotesTable).where(eq(adminNotesTable.userId, id)).orderBy(desc(adminNotesTable.createdAt))),
       safeQuery(db.select().from(auditLogTable).where(and(eq(auditLogTable.entityType, "user"), eq(auditLogTable.entityId, String(id)))).orderBy(desc(auditLogTable.createdAt)).limit(20)),
+      // Load the full history (within a generous safety cap) so attempt
+      // classification stays correct even when older confirmed attempts fall
+      // outside the most recent page.
       safeQuery(
         db.select({ id: emailChangeHistoryTable.id, oldEmail: emailChangeHistoryTable.oldEmail, newEmail: emailChangeHistoryTable.newEmail, changedAt: emailChangeHistoryTable.changedAt })
           .from(emailChangeHistoryTable)
           .where(eq(emailChangeHistoryTable.userId, id))
           .orderBy(desc(emailChangeHistoryTable.changedAt))
-          .limit(50)
+          .limit(EMAIL_HISTORY_CLASSIFICATION_CAP)
+      ),
+      // Load the full attempts list (within a safety cap) for two reasons:
+      //   1. Classification accuracy across the whole window (a newer attempt
+      //      with the same email can shift which row a history row claims).
+      //   2. To know the total so the UI can offer "Show older" paging.
+      safeQuery(
+        db.select({
+          id: emailChangeAttemptsTable.id,
+          newEmail: emailChangeAttemptsTable.newEmail,
+          createdAt: emailChangeAttemptsTable.createdAt,
+          expiresAt: emailChangeAttemptsTable.expiresAt,
+        })
+          .from(emailChangeAttemptsTable)
+          .where(and(
+            eq(emailChangeAttemptsTable.userId, id),
+            isNotNull(emailChangeAttemptsTable.newEmail),
+          ))
+          .orderBy(desc(emailChangeAttemptsTable.createdAt))
+          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP)
+      ),
+    ]);
+
+    const classified = classifyEmailAttempts(
+      emailAttemptRowsFull,
+      emailHistoryFull,
+      { pendingEmail: member.pendingEmail, emailChangeExpires: member.emailChangeExpires },
+    );
+    const emailAttempts = classified.slice(0, EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE);
+    const emailHistory = emailHistoryFull.slice(0, EMAIL_HISTORY_RESPONSE_PAGE_SIZE);
+
+    res.json({
+      member: { ...member, passwordHash: undefined },
+      products,
+      tickets,
+      trainingProgress: { completedLessons: progress },
+      coachingSessions: [],
+      commissions: [],
+      community: { posts: 0, comments: 0 },
+      adminNotes: notes,
+      auditHistory,
+      emailHistory,
+      emailAttempts,
+      emailAttemptsTotal: classified.length,
+      emailAttemptsPageSize: EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE,
+    });
+  } catch (error) {
+    console.error("[Admin] Member detail error:", error);
+    res.status(500).json({ error: "Failed to fetch member details" });
+  }
+});
+
+// Page through a member's email-change attempts. The Member Detail page embeds
+// the most recent page via `/full`; this endpoint backs the "Show older" UI
+// so support staff can reach attempts that fall outside the first page within
+// the audit retention window. Classification is computed across the user's
+// full history+attempts (subject to a generous safety cap) so statuses are
+// stable across pages.
+router.get("/admin/members/:id/email-attempts", requirePermission("members:view"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const rawLimit = req.query.limit;
+    const rawOffset = req.query.offset;
+
+    let limit = EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE;
+    if (typeof rawLimit === "string" && rawLimit.length > 0) {
+      const parsed = parseInt(rawLimit, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        res.status(400).json({ error: "limit must be a positive integer" });
+        return;
+      }
+      limit = Math.min(parsed, EMAIL_ATTEMPTS_MAX_PAGE_SIZE);
+    }
+
+    let offset = 0;
+    if (typeof rawOffset === "string" && rawOffset.length > 0) {
+      const parsed = parseInt(rawOffset, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        res.status(400).json({ error: "offset must be a non-negative integer" });
+        return;
+      }
+      offset = parsed;
+    }
+
+    const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const [emailHistoryFull, emailAttemptRowsFull] = await Promise.all([
+      safeQuery(
+        db.select({
+          id: emailChangeHistoryTable.id,
+          oldEmail: emailChangeHistoryTable.oldEmail,
+          newEmail: emailChangeHistoryTable.newEmail,
+          changedAt: emailChangeHistoryTable.changedAt,
+        })
+          .from(emailChangeHistoryTable)
+          .where(eq(emailChangeHistoryTable.userId, id))
+          .orderBy(desc(emailChangeHistoryTable.changedAt))
+          .limit(EMAIL_HISTORY_CLASSIFICATION_CAP),
       ),
       safeQuery(
         db.select({
@@ -741,104 +973,29 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
             isNotNull(emailChangeAttemptsTable.newEmail),
           ))
           .orderBy(desc(emailChangeAttemptsTable.createdAt))
-          .limit(50)
+          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP),
       ),
     ]);
 
-    // Classify each attempt as confirmed / pending / expired / abandoned by
-    // matching against `email_change_history` (confirmed) and the user's
-    // current pending state.
-    //
-    // Confirmation matching: every new attempt overwrites the previous
-    // attempt's verification token on the user record, so a confirmation can
-    // only ever come from the *most recent* attempt with that target email
-    // whose createdAt is at or before the history row's changedAt. We walk
-    // history rows oldest-first and claim the latest eligible unclaimed
-    // attempt for each one.
-    const now = new Date();
-    const claimedAttemptIds = new Set<number>();
-    const matched = new Map<number, Date>();
-
-    const historyAsc = [...emailHistory].sort(
-      (a, b) => a.changedAt.getTime() - b.changedAt.getTime(),
-    );
-    const attemptsAsc = [...emailAttemptRows].sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    const classified = classifyEmailAttempts(
+      emailAttemptRowsFull,
+      emailHistoryFull,
+      { pendingEmail: member.pendingEmail, emailChangeExpires: member.emailChangeExpires },
     );
 
-    for (const history of historyAsc) {
-      const targetEmail = history.newEmail.toLowerCase();
-      let bestAttemptId: number | null = null;
-      let bestAttemptCreatedAt = -Infinity;
-      for (const attempt of attemptsAsc) {
-        if (claimedAttemptIds.has(attempt.id)) continue;
-        if ((attempt.newEmail ?? "").toLowerCase() !== targetEmail) continue;
-        const createdAtMs = attempt.createdAt.getTime();
-        if (createdAtMs > history.changedAt.getTime()) continue;
-        if (createdAtMs > bestAttemptCreatedAt) {
-          bestAttemptCreatedAt = createdAtMs;
-          bestAttemptId = attempt.id;
-        }
-      }
-      if (bestAttemptId !== null) {
-        claimedAttemptIds.add(bestAttemptId);
-        matched.set(bestAttemptId, history.changedAt);
-      }
-    }
-
-    const memberPendingEmail = member.pendingEmail?.toLowerCase() ?? null;
-    const memberExpiresAtMs = member.emailChangeExpires
-      ? member.emailChangeExpires.getTime()
-      : null;
-
-    const emailAttempts = emailAttemptRows.map((a) => {
-      const confirmedAt = matched.get(a.id) ?? null;
-      const expiresAtMs = a.expiresAt ? a.expiresAt.getTime() : null;
-      let status: "pending" | "confirmed" | "expired" | "abandoned";
-      if (confirmedAt) {
-        status = "confirmed";
-      } else if (
-        memberPendingEmail &&
-        memberPendingEmail === a.newEmail?.toLowerCase() &&
-        memberExpiresAtMs !== null &&
-        expiresAtMs !== null &&
-        memberExpiresAtMs === expiresAtMs &&
-        expiresAtMs > now.getTime()
-      ) {
-        status = "pending";
-      } else if (expiresAtMs !== null && expiresAtMs <= now.getTime()) {
-        status = "expired";
-      } else {
-        // Either superseded by a newer attempt or explicitly cancelled by
-        // the member — in both cases it never resulted in a confirmed change.
-        status = "abandoned";
-      }
-      return {
-        id: a.id,
-        newEmail: a.newEmail,
-        requestedAt: a.createdAt.toISOString(),
-        expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
-        confirmedAt: confirmedAt ? confirmedAt.toISOString() : null,
-        status,
-      };
-    });
+    const total = classified.length;
+    const page = classified.slice(offset, offset + limit);
 
     res.json({
-      member: { ...member, passwordHash: undefined },
-      products,
-      tickets,
-      trainingProgress: { completedLessons: progress },
-      coachingSessions: [],
-      commissions: [],
-      community: { posts: 0, comments: 0 },
-      adminNotes: notes,
-      auditHistory,
-      emailHistory,
-      emailAttempts,
+      attempts: page,
+      total,
+      offset,
+      limit,
+      hasMore: offset + page.length < total,
     });
   } catch (error) {
-    console.error("[Admin] Member detail error:", error);
-    res.status(500).json({ error: "Failed to fetch member details" });
+    console.error("[Admin] Member email attempts paging error:", error);
+    res.status(500).json({ error: "Failed to fetch email-change attempts" });
   }
 });
 

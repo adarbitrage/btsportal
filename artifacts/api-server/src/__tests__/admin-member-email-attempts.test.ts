@@ -233,6 +233,171 @@ describe("GET /admin/members/:id/full — emailAttempts classification", () => {
     expect(res.body.emailAttempts).toEqual([]);
   });
 
+  it("returns the first page and total count from /full and pages older attempts via /email-attempts", async () => {
+    await resetAttempts();
+
+    const HOUR = 60 * 60 * 1000;
+    const baseTime = Date.now() - 80 * 24 * HOUR;
+
+    // Seed 60 attempts so we exceed the 50-row first page and need to page.
+    const TOTAL = 60;
+    const expected: { id: number; newEmail: string; createdAtMs: number }[] = [];
+    for (let i = 0; i < TOTAL; i++) {
+      const newEmail = `paged-${i.toString().padStart(3, "0")}@example.test`;
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail,
+          // All in the past so none classify as pending.
+          expiresAt: new Date(baseTime + i * HOUR + 30 * 60 * 1000),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      const createdAtMs = baseTime + i * HOUR;
+      await backdateAttempt(row.id, new Date(createdAtMs));
+      expected.push({ id: row.id, newEmail, createdAtMs });
+    }
+    // DESC order — what the API should walk through.
+    expected.sort((a, b) => b.createdAtMs - a.createdAtMs);
+
+    // /full embeds the first page + total count.
+    const fullRes = await request(app)
+      .get(`/api/admin/members/${member.id}/full`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(fullRes.status).toBe(200);
+    expect(fullRes.body.emailAttemptsTotal).toBe(TOTAL);
+    expect(fullRes.body.emailAttemptsPageSize).toBe(50);
+    expect(Array.isArray(fullRes.body.emailAttempts)).toBe(true);
+    expect(fullRes.body.emailAttempts).toHaveLength(50);
+    const firstPageIds = fullRes.body.emailAttempts.map((a: { id: number }) => a.id);
+    expect(firstPageIds).toEqual(expected.slice(0, 50).map((e) => e.id));
+
+    // /email-attempts paging — second page should pick up where /full left off.
+    const pageRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=50&limit=20`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(pageRes.status).toBe(200);
+    expect(pageRes.body.total).toBe(TOTAL);
+    expect(pageRes.body.offset).toBe(50);
+    expect(pageRes.body.limit).toBe(20);
+    expect(pageRes.body.hasMore).toBe(false);
+    expect(pageRes.body.attempts).toHaveLength(10);
+    const secondPageIds = pageRes.body.attempts.map((a: { id: number }) => a.id);
+    expect(secondPageIds).toEqual(expected.slice(50, 60).map((e) => e.id));
+
+    // hasMore=true when more rows remain after the requested page.
+    const partialRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=0&limit=20`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(partialRes.status).toBe(200);
+    expect(partialRes.body.attempts).toHaveLength(20);
+    expect(partialRes.body.hasMore).toBe(true);
+    expect(partialRes.body.total).toBe(TOTAL);
+  });
+
+  it("classifies older attempts on a second page using full history", async () => {
+    // A confirmed history row matches an old attempt; the most recent 50
+    // attempts are all unrelated. Without classifying across pages, the older
+    // attempt would be misclassified as abandoned.
+    await resetAttempts();
+
+    const HOUR = 60 * 60 * 1000;
+    const baseTime = Date.now() - 80 * 24 * HOUR;
+
+    // Seed 55 dummy attempts (older than the confirmed one) — all unrelated.
+    for (let i = 0; i < 55; i++) {
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: `noise-${i}@example.test`,
+          expiresAt: new Date(baseTime + i * HOUR + 30 * 60 * 1000),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(row.id, new Date(baseTime + i * HOUR));
+    }
+
+    // The confirmed attempt is older than all of the noise rows — it lands on
+    // page 2 (offset=50). Its matching history row exists.
+    const confirmedTarget = "confirmed-paged-target@example.test";
+    const confirmedAttemptCreated = new Date(baseTime - 5 * HOUR);
+    const confirmedAt = new Date(baseTime - 4 * HOUR);
+    const [confirmedAttempt] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: confirmedTarget,
+        expiresAt: new Date(baseTime - 1 * HOUR),
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+    await backdateAttempt(confirmedAttempt.id, confirmedAttemptCreated);
+    await db.insert(emailChangeHistoryTable).values({
+      userId: member.id,
+      oldEmail: member.email,
+      newEmail: confirmedTarget,
+      changedAt: confirmedAt,
+    });
+
+    const pageRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=50&limit=20`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(pageRes.status).toBe(200);
+    expect(pageRes.body.total).toBe(56);
+    const found = pageRes.body.attempts.find(
+      (a: { id: number }) => a.id === confirmedAttempt.id,
+    );
+    expect(found).toBeTruthy();
+    expect(found.status).toBe("confirmed");
+    expect(found.confirmedAt).toBe(confirmedAt.toISOString());
+  });
+
+  it("rejects invalid limit/offset on /email-attempts", async () => {
+    await resetAttempts();
+
+    const badLimit = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?limit=0`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(badLimit.status).toBe(400);
+
+    const badOffset = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=-1`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(badOffset.status).toBe(400);
+
+    const nonNumeric = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?limit=abc`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(nonNumeric.status).toBe(400);
+  });
+
+  it("caps /email-attempts limit at the documented max", async () => {
+    await resetAttempts();
+    const res = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?limit=10000`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(res.status).toBe(200);
+    expect(res.body.limit).toBeLessThanOrEqual(100);
+  });
+
+  it("/email-attempts requires members:view permission", async () => {
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [memberOnly] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-pageguard@example.test`,
+        name: "Page Guard",
+        passwordHash,
+        role: "member",
+      })
+      .returning({ id: usersTable.id, email: usersTable.email });
+    seededUserIds.push(memberOnly.id);
+
+    const res = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts`)
+      .set("Cookie", signCookie(memberOnly.id, memberOnly.email));
+    expect(res.status).toBe(403);
+  });
+
   it("requires members:view permission", async () => {
     const passwordHash = await bcrypt.hash("pw", 4);
     const [memberOnly] = await db

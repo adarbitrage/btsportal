@@ -71,6 +71,22 @@ export default function MemberDetail() {
   const [grantSubmitting, setGrantSubmitting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
+  // Email-change attempts are paged so support can reach attempts older than
+  // the most recent page (audit retention is 90 days). The first page comes in
+  // on `/full`; "Show older" calls the dedicated paginated endpoint.
+  type EmailAttemptRow = {
+    id: number;
+    newEmail: string | null;
+    requestedAt: string;
+    expiresAt: string | null;
+    confirmedAt: string | null;
+    status: "pending" | "confirmed" | "expired" | "abandoned";
+  };
+  const [emailAttempts, setEmailAttempts] = useState<EmailAttemptRow[]>([]);
+  const [emailAttemptsTotal, setEmailAttemptsTotal] = useState<number>(0);
+  const [emailAttemptsPageSize, setEmailAttemptsPageSize] = useState<number>(50);
+  const [emailAttemptsLoadingMore, setEmailAttemptsLoadingMore] = useState(false);
+
   const { user: currentUser } = useAuth();
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
 
@@ -119,10 +135,44 @@ export default function MemberDetail() {
       setLoading(true);
       const result = await adminPanelApi.getMemberFull(memberId);
       setData(result);
+      const initialAttempts: EmailAttemptRow[] = Array.isArray(result?.emailAttempts)
+        ? result.emailAttempts
+        : [];
+      setEmailAttempts(initialAttempts);
+      const total = typeof result?.emailAttemptsTotal === "number"
+        ? result.emailAttemptsTotal
+        : initialAttempts.length;
+      setEmailAttemptsTotal(total);
+      if (typeof result?.emailAttemptsPageSize === "number" && result.emailAttemptsPageSize > 0) {
+        setEmailAttemptsPageSize(result.emailAttemptsPageSize);
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadOlderEmailAttempts = async () => {
+    if (emailAttemptsLoadingMore) return;
+    setEmailAttemptsLoadingMore(true);
+    try {
+      const offset = emailAttempts.length;
+      const result = await adminPanelApi.getMemberEmailAttempts(memberId, {
+        offset,
+        limit: emailAttemptsPageSize,
+      });
+      // Dedupe by id in case the underlying list shifted between calls (e.g.
+      // a new attempt was inserted between the initial /full and this paged
+      // request).
+      const existingIds = new Set(emailAttempts.map((a) => a.id));
+      const newer = result.attempts.filter((a) => !existingIds.has(a.id));
+      setEmailAttempts((prev) => [...prev, ...newer]);
+      setEmailAttemptsTotal(result.total);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setEmailAttemptsLoadingMore(false);
     }
   };
 
@@ -219,8 +269,9 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], emailAttempts = [] } = data;
-  const unconfirmedAttempts = emailAttempts.filter((a: any) => a.status !== "confirmed");
+  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [] } = data;
+  const unconfirmedAttempts = emailAttempts.filter((a) => a.status !== "confirmed");
+  const hasMoreAttempts = emailAttempts.length < emailAttemptsTotal;
 
   const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
   const isLocked = !!(lockedUntilDate && lockedUntilDate.getTime() > Date.now());
@@ -361,7 +412,7 @@ export default function MemberDetail() {
           </Card>
         )}
 
-        {unconfirmedAttempts.length > 0 && (
+        {(unconfirmedAttempts.length > 0 || hasMoreAttempts) && (
           <Card data-testid="card-email-attempts">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -373,7 +424,16 @@ export default function MemberDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {unconfirmedAttempts.map((entry: any) => (
+                {unconfirmedAttempts.length === 0 && (
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid="text-email-attempts-empty"
+                  >
+                    No unconfirmed attempts in the most recent {emailAttempts.length}.
+                    {hasMoreAttempts ? " There may be older ones below." : ""}
+                  </p>
+                )}
+                {unconfirmedAttempts.map((entry) => (
                   <div
                     key={entry.id}
                     className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 text-sm"
@@ -415,6 +475,34 @@ export default function MemberDetail() {
                   </div>
                 ))}
               </div>
+              {(hasMoreAttempts || emailAttemptsTotal > 0) && (
+                <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid="text-email-attempts-pagination"
+                  >
+                    Showing {emailAttempts.length} of {emailAttemptsTotal}
+                    {emailAttemptsTotal === 1 ? " attempt" : " attempts"}
+                  </p>
+                  {hasMoreAttempts && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLoadOlderEmailAttempts}
+                      disabled={emailAttemptsLoadingMore}
+                      data-testid="button-load-older-email-attempts"
+                    >
+                      {emailAttemptsLoadingMore ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Loading...
+                        </>
+                      ) : (
+                        "Show older attempts"
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
