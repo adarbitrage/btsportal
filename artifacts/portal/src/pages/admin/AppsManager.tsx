@@ -280,7 +280,7 @@ export default function AppsManager() {
   );
 }
 
-function FlexyLookupCard() {
+export function FlexyLookupCard() {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MemberSearchResult[]>([]);
