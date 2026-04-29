@@ -6,6 +6,7 @@ import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
+import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
@@ -1079,6 +1080,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         database: { status: dbOk ? "up" : "down", totalUsers: userCount, totalTickets: ticketCount },
         redis: { status: redisStatus, queueFallbacks },
         signupChallenge: { enforced: isSignupChallengeEnforced() },
+        abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },

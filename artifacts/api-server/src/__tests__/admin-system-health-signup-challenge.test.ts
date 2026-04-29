@@ -96,6 +96,25 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     expect(res.body?.services?.signupChallenge).toEqual({ enforced: true });
   });
 
+  it("includes an abuseRateLimitCleanup status field", async () => {
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const arl = res.body?.services?.abuseRateLimitCleanup;
+    expect(arl).toBeTruthy();
+    expect(typeof arl.enabled).toBe("boolean");
+    expect(typeof arl.intervalMs).toBe("number");
+    expect(arl.intervalMs).toBeGreaterThan(0);
+    expect(typeof arl.stale).toBe("boolean");
+    // lastRanAt and lastResult may be null before any sweep has run; both
+    // shapes are valid as long as the keys are present.
+    expect(arl).toHaveProperty("lastRanAt");
+    expect(arl).toHaveProperty("lastResult");
+    expect(arl).toHaveProperty("lastError");
+  });
+
   it("never echoes the secret value back in the response", async () => {
     const secret = "super-secret-do-not-leak-1234567890";
     process.env.TURNSTILE_SECRET_KEY = secret;

@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -315,6 +315,100 @@ export default function SystemHealth() {
                   </CardContent>
                 </Card>
               )}
+
+              {health.services?.abuseRateLimitCleanup && (() => {
+                const arl = health.services.abuseRateLimitCleanup as {
+                  enabled: boolean;
+                  intervalMs: number;
+                  lastRanAt: string | null;
+                  lastResult: { scanned: number; trimmed: number; deleted: number } | null;
+                  lastError: { at: string; message: string } | null;
+                  stale: boolean;
+                };
+                const lastRanLabel = arl.lastRanAt ? new Date(arl.lastRanAt).toLocaleString() : "Never";
+                const intervalLabel = arl.intervalMs >= 60000
+                  ? `${Math.round(arl.intervalMs / 60000)}m`
+                  : `${Math.round(arl.intervalMs / 1000)}s`;
+                const statusLabel = !arl.enabled
+                  ? "Disabled"
+                  : arl.stale
+                    ? "Stale"
+                    : arl.lastRanAt
+                      ? "Healthy"
+                      : "Pending";
+                const statusVariant: "default" | "warning" | "secondary" = !arl.enabled
+                  ? "secondary"
+                  : arl.stale
+                    ? "warning"
+                    : "default";
+                return (
+                  <Card data-testid="card-abuse-rate-limit-cleanup">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Brush className="w-4 h-4" />Rate-limit hygiene
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Badge variant={statusVariant} data-testid="abuse-rate-limit-status">
+                            {statusLabel}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Last run</span>
+                          <span
+                            className={`text-sm font-medium ${arl.stale ? "text-red-600" : ""}`}
+                            data-testid="abuse-rate-limit-last-ran"
+                          >
+                            {lastRanLabel}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Keys scanned</span>
+                          <span className="text-sm font-medium" data-testid="abuse-rate-limit-scanned">
+                            {arl.lastResult?.scanned ?? 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Stale entries trimmed</span>
+                          <span className="text-sm font-medium" data-testid="abuse-rate-limit-trimmed">
+                            {arl.lastResult?.trimmed ?? 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Empty keys deleted</span>
+                          <span className="text-sm font-medium" data-testid="abuse-rate-limit-deleted">
+                            {arl.lastResult?.deleted ?? 0}
+                          </span>
+                        </div>
+                        {arl.stale && (
+                          <p className="text-xs text-red-600" data-testid="abuse-rate-limit-stale-warning">
+                            {arl.lastRanAt
+                              ? `Sweep hasn't reported in over 2× its ${intervalLabel} interval — the cleanup job may have stopped. Check the API server logs.`
+                              : `Sweep hasn't reported a single run in over 2× its ${intervalLabel} interval since this server started — check the API server logs to confirm the job is running.`}
+                          </p>
+                        )}
+                        {arl.lastError && (
+                          <p
+                            className="text-xs text-amber-700 dark:text-amber-300"
+                            data-testid="abuse-rate-limit-last-error"
+                            title={`Failed at ${new Date(arl.lastError.at).toLocaleString()}`}
+                          >
+                            Last sweep error: {arl.lastError.message}
+                          </p>
+                        )}
+                        {!arl.enabled && (
+                          <p className="text-xs text-muted-foreground">
+                            REDIS_URL is not set, so the hourly sweep is disabled on this server.
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {health.services?.redis && (
                 <Card>

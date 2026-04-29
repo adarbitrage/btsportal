@@ -38,49 +38,122 @@ export interface AbuseRateLimitCleanupResult {
   deleted: number;
 }
 
+export interface AbuseRateLimitCleanupStatus {
+  enabled: boolean;
+  intervalMs: number;
+  lastRanAt: string | null;
+  lastResult: AbuseRateLimitCleanupResult | null;
+  lastError: { at: string; message: string } | null;
+  stale: boolean;
+}
+
+// Surfaced to the admin System Health page so on-call can confirm the sweep
+// is still running and has trimmed memory recently. The status is updated at
+// the end of every `runAbuseRateLimitCleanup` call (success OR failure), so
+// `lastRanAt` doubles as a heartbeat and a silent crash in the inner loop
+// still flips the panel out of "Pending".
+let lastRanAt: Date | null = null;
+let lastResult: AbuseRateLimitCleanupResult | null = null;
+let lastError: { at: Date; message: string } | null = null;
+
+// Baseline used to compute staleness when the job has not yet reported a
+// run. Set at module load — which in production is process start, the same
+// moment `startAbuseRateLimitCleanupJob` would have started running. If the
+// job is supposed to be running (REDIS_URL set) but no run shows up after
+// 2 intervals from this baseline, the System Health panel surfaces it as
+// stale instead of leaving it on "Pending" forever.
+let baselineSince: Date = new Date();
+
 export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupResult> {
-  const redis = getRedis();
   const stats: AbuseRateLimitCleanupResult = { scanned: 0, trimmed: 0, deleted: 0 };
-  if (!redis) return stats;
-
-  const cutoff = Date.now() - SWEEP_HORIZON_MS;
-  let cursor = "0";
-
-  do {
-    const [nextCursor, keys] = await redis.scan(
-      cursor,
-      "MATCH",
-      KEY_PATTERN,
-      "COUNT",
-      SCAN_BATCH,
-    );
-    cursor = nextCursor;
-
-    for (const key of keys) {
-      stats.scanned++;
-      try {
-        const removed = await redis.zremrangebyscore(key, 0, cutoff);
-        if (removed > 0) stats.trimmed += removed;
-        const remaining = await redis.zcard(key);
-        if (remaining === 0) {
-          const wasDeleted = await redis.del(key);
-          if (wasDeleted > 0) stats.deleted++;
-        }
-      } catch (err) {
-        console.error(
-          `[AbuseRateLimitCleanup] Failed to clean key ${key}:`,
-          (err as Error)?.message || err,
-        );
-      }
+  try {
+    const redis = getRedis();
+    if (!redis) {
+      return stats;
     }
-  } while (cursor !== "0");
 
-  if (stats.trimmed > 0 || stats.deleted > 0) {
-    console.log(
-      `[AbuseRateLimitCleanup] Scanned ${stats.scanned} key(s); trimmed ${stats.trimmed} stale entry(ies); deleted ${stats.deleted} empty key(s)`,
-    );
+    const cutoff = Date.now() - SWEEP_HORIZON_MS;
+    let cursor = "0";
+
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        KEY_PATTERN,
+        "COUNT",
+        SCAN_BATCH,
+      );
+      cursor = nextCursor;
+
+      for (const key of keys) {
+        stats.scanned++;
+        try {
+          const removed = await redis.zremrangebyscore(key, 0, cutoff);
+          if (removed > 0) stats.trimmed += removed;
+          const remaining = await redis.zcard(key);
+          if (remaining === 0) {
+            const wasDeleted = await redis.del(key);
+            if (wasDeleted > 0) stats.deleted++;
+          }
+        } catch (err) {
+          console.error(
+            `[AbuseRateLimitCleanup] Failed to clean key ${key}:`,
+            (err as Error)?.message || err,
+          );
+        }
+      }
+    } while (cursor !== "0");
+
+    if (stats.trimmed > 0 || stats.deleted > 0) {
+      console.log(
+        `[AbuseRateLimitCleanup] Scanned ${stats.scanned} key(s); trimmed ${stats.trimmed} stale entry(ies); deleted ${stats.deleted} empty key(s)`,
+      );
+    }
+
+    lastError = null;
+    return stats;
+  } catch (err) {
+    // Outer-loop failures (e.g. SCAN throws) used to leave `lastRanAt`
+    // unchanged, so a job that broke immediately would look like it had
+    // never run. We record a heartbeat on the failure path and remember
+    // the error so the System Health page can surface it.
+    lastError = {
+      at: new Date(),
+      message: (err as Error)?.message ?? String(err),
+    };
+    throw err;
+  } finally {
+    lastRanAt = new Date();
+    lastResult = stats;
   }
-  return stats;
+}
+
+export function getAbuseRateLimitCleanupStatus(): AbuseRateLimitCleanupStatus {
+  const enabled = Boolean(process.env.REDIS_URL);
+  // When the job has never reported a run we fall back to the module-load
+  // baseline: if the process has been up longer than 2 intervals without a
+  // single sweep landing, that is itself a regression worth surfacing.
+  const referenceTs = (lastRanAt ?? baselineSince).getTime();
+  const stale = enabled && Date.now() - referenceTs > 2 * RUN_INTERVAL_MS;
+  return {
+    enabled,
+    intervalMs: RUN_INTERVAL_MS,
+    lastRanAt: lastRanAt ? lastRanAt.toISOString() : null,
+    lastResult: lastResult ? { ...lastResult } : null,
+    lastError: lastError
+      ? { at: lastError.at.toISOString(), message: lastError.message }
+      : null,
+    stale,
+  };
+}
+
+// Test hook: reset the in-memory status back to its initial state so each
+// test can assert against a clean slate. Not intended for production use.
+export function __resetAbuseRateLimitCleanupStatusForTests(): void {
+  lastRanAt = null;
+  lastResult = null;
+  lastError = null;
+  baselineSince = new Date();
 }
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;
