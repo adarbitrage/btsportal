@@ -666,7 +666,9 @@ export default function SystemHealth() {
                   lastResult: { scanned: number; trimmed: number; deleted: number } | null;
                   lastError: { at: string; message: string } | null;
                   stale: boolean;
+                  recentRuns?: Array<{ at: string; scanned: number; trimmed: number; deleted: number }>;
                 };
+                const recentRuns = Array.isArray(arl.recentRuns) ? arl.recentRuns : [];
                 const lastRanLabel = arl.lastRanAt ? new Date(arl.lastRanAt).toLocaleString() : "Never";
                 const intervalLabel = arl.intervalMs >= 60000
                   ? `${Math.round(arl.intervalMs / 60000)}m`
@@ -725,6 +727,55 @@ export default function SystemHealth() {
                             {arl.lastResult?.deleted ?? 0}
                           </span>
                         </div>
+                        {recentRuns.length > 0 && (() => {
+                          // Tiny inline bar chart of "stale entries trimmed
+                          // per run" so a sustained spam wave (a tall run
+                          // of bars) or a regressing sweep (suddenly all
+                          // zeros) jumps out at a glance, where the single
+                          // "Stale entries trimmed" row above only shows
+                          // the latest snapshot.
+                          const max = Math.max(1, ...recentRuns.map((r) => r.trimmed));
+                          const totalTrimmed = recentRuns.reduce((sum, r) => sum + r.trimmed, 0);
+                          return (
+                            <div className="pt-1" data-testid="abuse-rate-limit-recent-runs-chart">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-muted-foreground">Trimmed per run</span>
+                                <span
+                                  className="text-xs text-muted-foreground"
+                                  data-testid="abuse-rate-limit-recent-runs-count"
+                                >
+                                  last {recentRuns.length} {recentRuns.length === 1 ? "run" : "runs"}
+                                </span>
+                              </div>
+                              <div className="flex items-end gap-0.5 h-10" role="img" aria-label={`Trimmed entries across the last ${recentRuns.length} cleanup runs (total ${totalTrimmed})`}>
+                                {recentRuns.map((run, idx) => {
+                                  const heightPct = run.trimmed === 0
+                                    ? 4
+                                    : Math.max(8, Math.round((run.trimmed / max) * 100));
+                                  const at = new Date(run.at);
+                                  const tooltip = `${at.toLocaleString()}\nScanned ${run.scanned} · Trimmed ${run.trimmed} · Deleted ${run.deleted}`;
+                                  return (
+                                    <div
+                                      key={`${run.at}-${idx}`}
+                                      className={`flex-1 min-w-[3px] rounded-sm ${
+                                        run.trimmed === 0
+                                          ? "bg-muted"
+                                          : "bg-primary/70 hover:bg-primary"
+                                      }`}
+                                      style={{ height: `${heightPct}%` }}
+                                      title={tooltip}
+                                      data-testid="abuse-rate-limit-recent-runs-bar"
+                                      data-trimmed={run.trimmed}
+                                      data-scanned={run.scanned}
+                                      data-deleted={run.deleted}
+                                      data-at={run.at}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {arl.stale && (
                           <p className="text-xs text-red-600" data-testid="abuse-rate-limit-stale-warning">
                             {arl.lastRanAt

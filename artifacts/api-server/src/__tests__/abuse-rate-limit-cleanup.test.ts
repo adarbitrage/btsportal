@@ -242,6 +242,56 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     expect(getAbuseRateLimitCleanupStatus().lastError).toBeNull();
   });
 
+  it("appends each run to recentRuns and caps the buffer at 24 entries", async () => {
+    sortedSets.set("abuse-rate:register:email:run", [
+      { score: Date.now() - 2 * HOUR_MS, member: "old" },
+    ]);
+
+    for (let i = 0; i < 30; i++) {
+      // Re-seed each iteration so trimmed/deleted vary, exercising the
+      // per-run snapshot (not just zeros).
+      sortedSets.set(`abuse-rate:fake:ip:${i}`, [
+        { score: Date.now() - 2 * HOUR_MS, member: "x" },
+      ]);
+      await runAbuseRateLimitCleanup();
+    }
+
+    const status = getAbuseRateLimitCleanupStatus();
+    expect(status.recentRuns.length).toBe(24);
+    // Newest entry's timestamp should match lastRanAt (same Date object).
+    expect(status.recentRuns[status.recentRuns.length - 1].at).toBe(status.lastRanAt);
+    // Each entry exposes the per-run counters.
+    for (const entry of status.recentRuns) {
+      expect(typeof entry.scanned).toBe("number");
+      expect(typeof entry.trimmed).toBe("number");
+      expect(typeof entry.deleted).toBe("number");
+      expect(typeof entry.at).toBe("string");
+    }
+  });
+
+  it("records zeros in recentRuns when the sweep throws partway through", async () => {
+    redisGetMock.mockReturnValueOnce({
+      async scan() {
+        throw new Error("redis exploded");
+      },
+    } as any);
+
+    await expect(runAbuseRateLimitCleanup()).rejects.toThrow("redis exploded");
+
+    const status = getAbuseRateLimitCleanupStatus();
+    expect(status.recentRuns.length).toBe(1);
+    expect(status.recentRuns[0]).toMatchObject({
+      scanned: 0,
+      trimmed: 0,
+      deleted: 0,
+    });
+  });
+
+  it("starts with an empty recentRuns buffer", () => {
+    const status = getAbuseRateLimitCleanupStatus();
+    expect(status.recentRuns).toEqual([]);
+  });
+
   it("reports stale=false when REDIS_URL is unset, regardless of last-run age", async () => {
     delete process.env.REDIS_URL;
     await runAbuseRateLimitCleanup();

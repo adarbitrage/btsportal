@@ -133,6 +133,7 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     expect(arl).toHaveProperty("lastRanAt");
     expect(arl).toHaveProperty("lastResult");
     expect(arl).toHaveProperty("lastError");
+    expect(Array.isArray(arl.recentRuns)).toBe(true);
   });
 
   it("returns an empty missingCriticalSecrets list outside production", async () => {

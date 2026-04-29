@@ -38,6 +38,13 @@ export interface AbuseRateLimitCleanupResult {
   deleted: number;
 }
 
+export interface AbuseRateLimitCleanupRunEntry {
+  at: string;
+  scanned: number;
+  trimmed: number;
+  deleted: number;
+}
+
 export interface AbuseRateLimitCleanupStatus {
   enabled: boolean;
   intervalMs: number;
@@ -45,7 +52,15 @@ export interface AbuseRateLimitCleanupStatus {
   lastResult: AbuseRateLimitCleanupResult | null;
   lastError: { at: string; message: string } | null;
   stale: boolean;
+  recentRuns: AbuseRateLimitCleanupRunEntry[];
 }
+
+// Bounded so the in-process buffer can never grow unbounded under any
+// run cadence. At the default 1h interval, 24 entries covers the last
+// day, which is enough to eyeball a sustained spam wave or a sweep
+// that has regressed to trimming nothing without bloating the JSON
+// payload returned to the System Health page.
+const RECENT_RUNS_CAPACITY = 24;
 
 // Surfaced to the admin System Health page so on-call can confirm the sweep
 // is still running and has trimmed memory recently. The status is updated at
@@ -55,6 +70,14 @@ export interface AbuseRateLimitCleanupStatus {
 let lastRanAt: Date | null = null;
 let lastResult: AbuseRateLimitCleanupResult | null = null;
 let lastError: { at: Date; message: string } | null = null;
+
+// Ring buffer of the most-recent runs (oldest → newest). Pushed in the
+// `finally` block of `runAbuseRateLimitCleanup` so both successful and
+// failed sweeps land here, mirroring the heartbeat semantics of
+// `lastRanAt`. Failed runs that never made it past SCAN show up as a
+// row of zeros, which is exactly the "regression that suddenly trims
+// nothing" signal the sparkline is meant to surface.
+let recentRuns: Array<{ at: Date; result: AbuseRateLimitCleanupResult }> = [];
 
 // Baseline used to compute staleness when the job has not yet reported a
 // run. Set at module load — which in production is process start, the same
@@ -123,8 +146,13 @@ export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupR
     };
     throw err;
   } finally {
-    lastRanAt = new Date();
+    const ranAt = new Date();
+    lastRanAt = ranAt;
     lastResult = stats;
+    recentRuns.push({ at: ranAt, result: { ...stats } });
+    if (recentRuns.length > RECENT_RUNS_CAPACITY) {
+      recentRuns = recentRuns.slice(-RECENT_RUNS_CAPACITY);
+    }
   }
 }
 
@@ -144,6 +172,12 @@ export function getAbuseRateLimitCleanupStatus(): AbuseRateLimitCleanupStatus {
       ? { at: lastError.at.toISOString(), message: lastError.message }
       : null,
     stale,
+    recentRuns: recentRuns.map((r) => ({
+      at: r.at.toISOString(),
+      scanned: r.result.scanned,
+      trimmed: r.result.trimmed,
+      deleted: r.result.deleted,
+    })),
   };
 }
 
@@ -153,6 +187,7 @@ export function __resetAbuseRateLimitCleanupStatusForTests(): void {
   lastRanAt = null;
   lastResult = null;
   lastError = null;
+  recentRuns = [];
   baselineSince = new Date();
 }
 
