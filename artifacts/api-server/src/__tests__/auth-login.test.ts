@@ -371,6 +371,31 @@ describe("POST /api/auth/login — account lockout", () => {
     expect(sessions).toHaveLength(1);
   });
 
+  it("a wrong-password attempt after a stale lock resets the counter to 1 and does NOT immediately re-lock the account", async () => {
+    const user = await insertUser("stale-lock-wrong-pw");
+
+    // Account hit the 5-strike lock, sat past the 15-minute window.
+    const stale = new Date(Date.now() - 60 * 1000);
+    await db
+      .update(usersTable)
+      .set({ failedLoginCount: 5, lockedUntil: stale })
+      .where(eq(usersTable.id, user.id));
+
+    // One more wrong password after the lock window must NOT re-lock the
+    // account. The 5-strike budget should have refreshed: this is attempt #1
+    // of a new window, not attempt #6 of the previous one.
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: user.email, password: WRONG_PASSWORD });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "Invalid credentials" });
+
+    const after = await getUser(user.id);
+    expect(after.failedLoginCount).toBe(1);
+    expect(after.lockedUntil).toBeNull();
+  });
+
   it("a wrong-password attempt during an active lock is rejected with 423 and does not bump failedLoginCount further", async () => {
     const user = await insertUser("active-lock-wrong-pw");
 

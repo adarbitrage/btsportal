@@ -336,6 +336,45 @@ router.post("/admin/members/:id/revoke-product", requirePermission("members:edit
   }
 });
 
+router.post("/admin/members/:id/unlock", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, lockedUntil: usersTable.lockedUntil, failedLoginCount: usersTable.failedLoginCount })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    // Clear both fields so the next login attempt starts from a clean slate.
+    // We always run the update (even if nothing was set) so the response is
+    // idempotent and the audit trail records the admin's intent either way.
+    await db
+      .update(usersTable)
+      .set({ lockedUntil: null, failedLoginCount: 0 })
+      .where(eq(usersTable.id, id));
+
+    await logAdminAction(
+      req,
+      "unlock_account",
+      "user",
+      String(id),
+      `Unlocked account for member ${member.email} (cleared lockedUntil and failedLoginCount)`,
+      {
+        before: { lockedUntil: member.lockedUntil, failedLoginCount: member.failedLoginCount },
+        after: { lockedUntil: null, failedLoginCount: 0 },
+      },
+    );
+
+    res.json({ success: true, id, lockedUntil: null, failedLoginCount: 0 });
+  } catch (error) {
+    console.error("[Admin] Unlock account error:", error);
+    res.status(500).json({ error: "Failed to unlock account" });
+  }
+});
+
 router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), async (req: Request, res: Response) => {
   try {
     if (!JWT_SECRET) { res.status(503).json({ error: "Impersonation unavailable — JWT_SECRET not configured" }); return; }

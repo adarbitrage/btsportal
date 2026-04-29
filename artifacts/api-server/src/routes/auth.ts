@@ -481,10 +481,16 @@ router.post("/auth/login", loginIpLimiter, async (req, res): Promise<void> => {
     return;
   }
 
+  // If a previous lock window has elapsed, the 5-strike budget refreshes:
+  // the next attempt starts from a clean counter rather than ticking up from
+  // the pre-lock total (which would re-lock the account on a single mistype).
+  const lockExpired = Boolean(user.lockedUntil && user.lockedUntil <= new Date());
+  const priorFailedCount = lockExpired ? 0 : (user.failedLoginCount || 0);
+
   const passwordValid = await bcrypt.compare(password, user.passwordHash);
   if (!passwordValid) {
-    const newCount = (user.failedLoginCount || 0) + 1;
-    const updates: any = { failedLoginCount: newCount };
+    const newCount = priorFailedCount + 1;
+    const updates: any = { failedLoginCount: newCount, lockedUntil: null };
     if (newCount >= 5) {
       updates.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
     }
