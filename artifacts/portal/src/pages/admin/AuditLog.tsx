@@ -145,6 +145,28 @@ export default function AuditLog() {
   const hasNewer = cursors.prev !== null;
   const hasOlder = cursors.next !== null;
   const willTruncate = totalMatching != null && totalMatching > exportCap;
+  // Date-range hint for the current page. Logs are returned newest-first
+  // (descending by createdAt), so logs[0] is the newest row in the visible
+  // window and logs[last] is the oldest. Computing these client-side avoids
+  // an extra server round-trip and naturally tracks filters + pagination.
+  const pageRange = (() => {
+    if (logs.length === 0) return null;
+    const parse = (raw: any) => {
+      if (!raw) return null;
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const newest = parse(logs[0]?.createdAt);
+    const oldest = parse(logs[logs.length - 1]?.createdAt);
+    if (!newest || !oldest) return null;
+    return { newest, oldest };
+  })();
+  const formatRangeBoundary = (d: Date) => format(d, "MMM d, yyyy h:mm a");
+  const pageRangeLabel = pageRange
+    ? pageRange.newest.getTime() === pageRange.oldest.getTime()
+      ? formatRangeBoundary(pageRange.newest)
+      : `${formatRangeBoundary(pageRange.newest)} → ${formatRangeBoundary(pageRange.oldest)}`
+    : null;
   const exportRowCount = totalMatching == null
     ? null
     : Math.min(totalMatching, exportCap);
@@ -174,6 +196,15 @@ export default function AuditLog() {
                   ? "Counting…"
                   : `${totalMatching.toLocaleString()} matching row${totalMatching === 1 ? "" : "s"}`}
               </span>
+              {pageRangeLabel && (
+                <span
+                  className="text-xs text-muted-foreground"
+                  data-testid="audit-page-range"
+                  title="Date range of the entries on this page"
+                >
+                  {pageRangeLabel}
+                </span>
+              )}
               {willTruncate && (
                 <span
                   className="text-xs text-destructive flex items-center gap-1"
@@ -330,14 +361,24 @@ export default function AuditLog() {
         </Card>
 
         {(hasNewer || hasOlder) && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {logs.length > 0
-                ? totalMatching != null
-                  ? `Showing ${logs.length.toLocaleString()} of ${totalMatching.toLocaleString()} entr${totalMatching === 1 ? "y" : "ies"}`
-                  : `Showing ${logs.length.toLocaleString()} entr${logs.length === 1 ? "y" : "ies"}`
-                : ""}
-            </p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <p className="text-sm text-muted-foreground">
+                {logs.length > 0
+                  ? totalMatching != null
+                    ? `Showing ${logs.length.toLocaleString()} of ${totalMatching.toLocaleString()} entr${totalMatching === 1 ? "y" : "ies"}`
+                    : `Showing ${logs.length.toLocaleString()} entr${logs.length === 1 ? "y" : "ies"}`
+                  : ""}
+              </p>
+              {pageRangeLabel && (
+                <p
+                  className="text-xs text-muted-foreground"
+                  data-testid="audit-page-range-footer"
+                >
+                  {pageRangeLabel}
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
