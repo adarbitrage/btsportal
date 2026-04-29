@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, asc, sql, ilike, or } from "drizzle-orm";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
+import { eq, and, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { logAdminAction } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
@@ -254,7 +254,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-    const [products, tickets, progress, notes, auditHistory, emailHistory] = await Promise.all([
+    const [products, tickets, progress, notes, auditHistory, emailHistory, emailAttemptRows] = await Promise.all([
       safeQuery(
         db.select({ id: userProductsTable.id, productId: userProductsTable.productId, status: userProductsTable.status, expiresAt: userProductsTable.expiresAt, createdAt: userProductsTable.createdAt, productName: productsTable.name, productSlug: productsTable.slug })
           .from(userProductsTable).innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id)).where(eq(userProductsTable.userId, id))
@@ -270,7 +270,100 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
           .orderBy(desc(emailChangeHistoryTable.changedAt))
           .limit(50)
       ),
+      safeQuery(
+        db.select({
+          id: emailChangeAttemptsTable.id,
+          newEmail: emailChangeAttemptsTable.newEmail,
+          createdAt: emailChangeAttemptsTable.createdAt,
+          expiresAt: emailChangeAttemptsTable.expiresAt,
+        })
+          .from(emailChangeAttemptsTable)
+          .where(and(
+            eq(emailChangeAttemptsTable.userId, id),
+            isNotNull(emailChangeAttemptsTable.newEmail),
+          ))
+          .orderBy(desc(emailChangeAttemptsTable.createdAt))
+          .limit(50)
+      ),
     ]);
+
+    // Classify each attempt as confirmed / pending / expired / abandoned by
+    // matching against `email_change_history` (confirmed) and the user's
+    // current pending state.
+    //
+    // Confirmation matching: every new attempt overwrites the previous
+    // attempt's verification token on the user record, so a confirmation can
+    // only ever come from the *most recent* attempt with that target email
+    // whose createdAt is at or before the history row's changedAt. We walk
+    // history rows oldest-first and claim the latest eligible unclaimed
+    // attempt for each one.
+    const now = new Date();
+    const claimedAttemptIds = new Set<number>();
+    const matched = new Map<number, Date>();
+
+    const historyAsc = [...emailHistory].sort(
+      (a, b) => a.changedAt.getTime() - b.changedAt.getTime(),
+    );
+    const attemptsAsc = [...emailAttemptRows].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
+    for (const history of historyAsc) {
+      const targetEmail = history.newEmail.toLowerCase();
+      let bestAttemptId: number | null = null;
+      let bestAttemptCreatedAt = -Infinity;
+      for (const attempt of attemptsAsc) {
+        if (claimedAttemptIds.has(attempt.id)) continue;
+        if ((attempt.newEmail ?? "").toLowerCase() !== targetEmail) continue;
+        const createdAtMs = attempt.createdAt.getTime();
+        if (createdAtMs > history.changedAt.getTime()) continue;
+        if (createdAtMs > bestAttemptCreatedAt) {
+          bestAttemptCreatedAt = createdAtMs;
+          bestAttemptId = attempt.id;
+        }
+      }
+      if (bestAttemptId !== null) {
+        claimedAttemptIds.add(bestAttemptId);
+        matched.set(bestAttemptId, history.changedAt);
+      }
+    }
+
+    const memberPendingEmail = member.pendingEmail?.toLowerCase() ?? null;
+    const memberExpiresAtMs = member.emailChangeExpires
+      ? member.emailChangeExpires.getTime()
+      : null;
+
+    const emailAttempts = emailAttemptRows.map((a) => {
+      const confirmedAt = matched.get(a.id) ?? null;
+      const expiresAtMs = a.expiresAt ? a.expiresAt.getTime() : null;
+      let status: "pending" | "confirmed" | "expired" | "abandoned";
+      if (confirmedAt) {
+        status = "confirmed";
+      } else if (
+        memberPendingEmail &&
+        memberPendingEmail === a.newEmail?.toLowerCase() &&
+        memberExpiresAtMs !== null &&
+        expiresAtMs !== null &&
+        memberExpiresAtMs === expiresAtMs &&
+        expiresAtMs > now.getTime()
+      ) {
+        status = "pending";
+      } else if (expiresAtMs !== null && expiresAtMs <= now.getTime()) {
+        status = "expired";
+      } else {
+        // Either superseded by a newer attempt or explicitly cancelled by
+        // the member — in both cases it never resulted in a confirmed change.
+        status = "abandoned";
+      }
+      return {
+        id: a.id,
+        newEmail: a.newEmail,
+        requestedAt: a.createdAt.toISOString(),
+        expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
+        confirmedAt: confirmedAt ? confirmedAt.toISOString() : null,
+        status,
+      };
+    });
 
     res.json({
       member: { ...member, passwordHash: undefined },
@@ -283,6 +376,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       adminNotes: notes,
       auditHistory,
       emailHistory,
+      emailAttempts,
     });
   } catch (error) {
     console.error("[Admin] Member detail error:", error);

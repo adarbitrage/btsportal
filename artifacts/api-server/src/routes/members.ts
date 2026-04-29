@@ -297,7 +297,11 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     // Insert the attempt and update the user record in the same transaction
     // so that a follow-up request that also acquires the lock sees this row
     // in its count.
-    await tx.insert(emailChangeAttemptsTable).values({ userId });
+    await tx.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail,
+      expiresAt: expires,
+    });
 
     await tx
       .update(usersTable)

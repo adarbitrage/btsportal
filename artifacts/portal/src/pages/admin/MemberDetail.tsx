@@ -141,7 +141,21 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [] } = data;
+  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], emailAttempts = [] } = data;
+  const unconfirmedAttempts = emailAttempts.filter((a: any) => a.status !== "confirmed");
+
+  const attemptStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="default" data-testid={`badge-attempt-status-${status}`}>Pending</Badge>;
+      case "expired":
+        return <Badge variant="secondary" data-testid={`badge-attempt-status-${status}`}>Expired</Badge>;
+      case "abandoned":
+        return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>Abandoned</Badge>;
+      default:
+        return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>{status}</Badge>;
+    }
+  };
 
   return (
     <AdminLayout>
@@ -189,6 +203,51 @@ export default function MemberDetail() {
                     <span className="text-xs text-muted-foreground shrink-0 ml-3">
                       {entry.changedAt ? format(new Date(entry.changedAt), "MMM d, yyyy") : ""}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {unconfirmedAttempts.length > 0 && (
+          <Card data-testid="card-email-attempts">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Email change attempts
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Pending or unconfirmed change requests that never resulted in a completed switch.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {unconfirmedAttempts.map((entry: any) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 text-sm"
+                    data-testid={`row-email-attempt-${entry.id}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono break-all" data-testid={`text-attempt-email-${entry.id}`}>
+                          {entry.newEmail}
+                        </span>
+                        {attemptStatusBadge(entry.status)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Requested {entry.requestedAt ? format(new Date(entry.requestedAt), "MMM d, yyyy 'at' h:mm a") : ""}
+                        {entry.expiresAt
+                          ? ` · ${
+                              entry.status === "pending"
+                                ? "expires"
+                                : entry.status === "expired"
+                                ? "expired"
+                                : "would have expired"
+                            } ${format(new Date(entry.expiresAt), "MMM d, yyyy 'at' h:mm a")}`
+                          : ""}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
