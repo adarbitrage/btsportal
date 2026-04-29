@@ -1,9 +1,19 @@
 import { db, auditLogTable } from "@workspace/db";
-import { and, eq, lt } from "drizzle-orm";
+import { and, inArray, lt } from "drizzle-orm";
+import { QUEUE_FALLBACK_ACTION_TYPE } from "./queue-fallback-tracker";
+import { QUEUE_FALLBACK_ALERT_ACTION_TYPE } from "./queue-fallback-alerter";
 
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RETENTION_DAYS = 30;
-const QUEUE_FALLBACK_ACTION_TYPE = "queue_fallback";
+// Both the raw queue-fallback events AND the on-call alert delivery rows
+// produced by `queue-fallback-alerter` need bounded retention — a sustained
+// outage can write many of either kind, and admins only need the recent
+// history for incident retros. Constants are imported so renames in either
+// module propagate here.
+const QUEUE_FALLBACK_ACTION_TYPES = [
+  QUEUE_FALLBACK_ACTION_TYPE,
+  QUEUE_FALLBACK_ALERT_ACTION_TYPE,
+] as const;
 
 export async function runQueueFallbackAuditCleanup(): Promise<number> {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -11,14 +21,14 @@ export async function runQueueFallbackAuditCleanup(): Promise<number> {
     .delete(auditLogTable)
     .where(
       and(
-        eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE),
+        inArray(auditLogTable.actionType, [...QUEUE_FALLBACK_ACTION_TYPES]),
         lt(auditLogTable.createdAt, cutoff),
       ),
     );
   const deletedCount = result.rowCount ?? 0;
   if (deletedCount > 0) {
     console.log(
-      `[QueueFallbackAuditCleanup] Deleted ${deletedCount} queue_fallback audit row(s) older than ${RETENTION_DAYS}d`,
+      `[QueueFallbackAuditCleanup] Deleted ${deletedCount} ${QUEUE_FALLBACK_ACTION_TYPES.join("/")} audit row(s) older than ${RETENTION_DAYS}d`,
     );
   }
   return deletedCount;

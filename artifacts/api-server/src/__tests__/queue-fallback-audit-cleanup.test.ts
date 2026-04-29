@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { randomUUID } from "crypto";
 import { db, auditLogTable } from "@workspace/db";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { runQueueFallbackAuditCleanup } from "../lib/queue-fallback-audit-cleanup";
 
 const TAG = `qfb-cleanup-${randomUUID().slice(0, 8)}`;
@@ -13,7 +13,7 @@ async function clearTaggedRows() {
     .where(
       and(
         gt(auditLogTable.id, baselineAuditId),
-        eq(auditLogTable.actionType, "queue_fallback"),
+        inArray(auditLogTable.actionType, ["queue_fallback", "queue_fallback_alert"]),
         eq(auditLogTable.entityId, TAG),
       ),
     );
@@ -36,12 +36,12 @@ beforeEach(async () => {
   await clearTaggedRows();
 });
 
-async function insertFallbackRow(ageDays: number) {
+async function insertFallbackRow(ageDays: number, actionType: "queue_fallback" | "queue_fallback_alert" = "queue_fallback") {
   const [row] = await db
     .insert(auditLogTable)
     .values({
-      actionType: "queue_fallback",
-      entityType: "queue",
+      actionType,
+      entityType: actionType === "queue_fallback_alert" ? "alert" : "queue",
       entityId: TAG,
       description: `test row aged ${ageDays}d`,
       metadata: { tag: TAG, ageDays },
@@ -55,13 +55,13 @@ async function insertFallbackRow(ageDays: number) {
   return row.id;
 }
 
-async function countTaggedRows() {
+async function countTaggedRows(actionType: "queue_fallback" | "queue_fallback_alert" = "queue_fallback") {
   const rows = await db
     .select({ id: auditLogTable.id })
     .from(auditLogTable)
     .where(
       and(
-        eq(auditLogTable.actionType, "queue_fallback"),
+        eq(auditLogTable.actionType, actionType),
         eq(auditLogTable.entityId, TAG),
       ),
     );
@@ -95,6 +95,21 @@ describe("runQueueFallbackAuditCleanup", () => {
     const secondDeleted = await runQueueFallbackAuditCleanup();
     expect(secondDeleted).toBe(0);
     expect(await countTaggedRows()).toBe(2);
+  });
+
+  it("also deletes old queue_fallback_alert rows so on-call alert audit history doesn't grow forever", async () => {
+    await insertFallbackRow(40, "queue_fallback_alert");
+    await insertFallbackRow(31, "queue_fallback_alert");
+    await insertFallbackRow(2, "queue_fallback_alert");
+
+    const beforeCount = await countTaggedRows("queue_fallback_alert");
+    expect(beforeCount).toBe(3);
+
+    const deleted = await runQueueFallbackAuditCleanup();
+    expect(deleted).toBeGreaterThanOrEqual(2);
+
+    const remaining = await countTaggedRows("queue_fallback_alert");
+    expect(remaining).toBe(1);
   });
 
   it("only touches queue_fallback rows, leaving other audit rows alone", async () => {

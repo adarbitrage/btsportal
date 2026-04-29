@@ -26,6 +26,7 @@
  */
 
 import sgMail from "@sendgrid/mail";
+import { logAuditEvent } from "./audit-log";
 import {
   getQueueFallbackStats,
   setQueueFallbackListener,
@@ -35,6 +36,26 @@ import {
 
 type DeliveryChannel = "pagerduty" | "email" | "slack";
 type AlertKind = "fire" | "clear";
+
+/**
+ * Audit log action / entity types used to record on-call alert delivery
+ * attempts. Exported so the cleanup job, admin filters, and tests can refer
+ * to a single source of truth.
+ */
+export const QUEUE_FALLBACK_ALERT_ACTION_TYPE = "queue_fallback_alert";
+export const QUEUE_FALLBACK_ALERT_ENTITY_TYPE = "alert";
+
+/**
+ * Outcome of a single delivery attempt, derived from the DeliveryResult.
+ * Stored on the audit row so admins can filter / count without parsing the
+ * description string.
+ *
+ *   - sent:      delivery actually went out
+ *   - failed:    provider returned an error or threw
+ *   - throttled: suppressed by the per-delivery throttle window
+ *   - skipped:   no provider configured (or other intentional no-op)
+ */
+export type AlertDeliveryOutcome = "sent" | "failed" | "throttled" | "skipped";
 
 function parseEnvInt(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -198,6 +219,70 @@ export function __resetQueueFallbackAlerterForTests(): void {
   deliveryOverrides = null;
 }
 
+/**
+ * Map a `DeliveryResult` to the coarse outcome bucket we record on the
+ * audit row. Keeping this derivation in one place means the description
+ * string and `metadata.outcome` always agree.
+ */
+function classifyOutcome(result: DeliveryResult): AlertDeliveryOutcome {
+  if (!result.ok) return "failed";
+  if (result.skipped) {
+    return result.reason === "throttled" ? "throttled" : "skipped";
+  }
+  return "sent";
+}
+
+function describeAttempt(
+  payload: AlertPayload,
+  result: DeliveryResult,
+  outcome: AlertDeliveryOutcome,
+): string {
+  const verb = payload.kind === "fire" ? "fire" : "clear";
+  const reasonSuffix = result.reason ? ` (${result.reason})` : "";
+  switch (outcome) {
+    case "sent":
+      return `Sent ${verb} alert via ${result.channel} for ${payload.queueChannel} queue`;
+    case "failed":
+      return `Failed to send ${verb} alert via ${result.channel} for ${payload.queueChannel} queue${reasonSuffix}`;
+    case "throttled":
+      return `Throttled ${verb} alert via ${result.channel} for ${payload.queueChannel} queue${reasonSuffix}`;
+    case "skipped":
+      return `Skipped ${verb} alert via ${result.channel} for ${payload.queueChannel} queue${reasonSuffix}`;
+  }
+}
+
+/**
+ * Persist a single delivery attempt as an audit log row so admins reviewing
+ * an incident later can confirm whether on-call was paged, why an attempt
+ * was skipped, etc. Fire-and-forget — `logAuditEvent` already swallows DB
+ * errors so a flaky audit table can never break alert dispatch.
+ */
+async function recordDeliveryAttempt(
+  payload: AlertPayload,
+  result: DeliveryResult,
+): Promise<void> {
+  const outcome = classifyOutcome(result);
+  const channelStats = payload.stats[payload.queueChannel];
+  await logAuditEvent({
+    actionType: QUEUE_FALLBACK_ALERT_ACTION_TYPE,
+    entityType: QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
+    entityId: payload.queueChannel,
+    description: describeAttempt(payload, result, outcome),
+    metadata: {
+      queueChannel: payload.queueChannel,
+      deliveryChannel: result.channel,
+      kind: payload.kind,
+      outcome,
+      reason: result.reason ?? null,
+      recentCount: channelStats.recentCount,
+      hourCount: channelStats.hourCount,
+      dayCount: channelStats.dayCount,
+      lastAt: channelStats.lastAt,
+      recentWindowMs: payload.stats.recentWindowMs,
+    },
+  });
+}
+
 async function dispatchAll(payload: AlertPayload): Promise<DeliveryResult[]> {
   const ch = alertState[payload.queueChannel];
   const lastMap = payload.kind === "fire" ? ch.lastFireAt : ch.lastClearAt;
@@ -226,7 +311,16 @@ async function dispatchAll(payload: AlertPayload): Promise<DeliveryResult[]> {
       return { channel: dc, ok: false, reason };
     }
   });
-  return Promise.all(promises);
+  const results = await Promise.all(promises);
+
+  // Record one audit row per delivery attempt (including throttled/skipped
+  // ones) so admins can later see why no page went out. We await all of
+  // them so callers / tests observing dispatch completion also see the
+  // audit rows; logAuditEvent swallows DB errors internally so this can't
+  // throw on us.
+  await Promise.all(results.map((r) => recordDeliveryAttempt(payload, r)));
+
+  return results;
 }
 
 /**

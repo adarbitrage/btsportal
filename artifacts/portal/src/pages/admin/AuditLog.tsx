@@ -169,6 +169,7 @@ export default function AuditLog() {
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>
                   <SelectItem value="queue_fallback">Queue fallback</SelectItem>
+                  <SelectItem value="queue_fallback_alert">Queue fallback alert</SelectItem>
                   <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
                 </SelectContent>
               </Select>
@@ -183,6 +184,7 @@ export default function AuditLog() {
                   <SelectItem value="flexy_credentials">Flexy credentials</SelectItem>
                   <SelectItem value="communication">Communication</SelectItem>
                   <SelectItem value="queue">Queue</SelectItem>
+                  <SelectItem value="alert">Alert</SelectItem>
                   <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
                 </SelectContent>
               </Select>
