@@ -42,6 +42,7 @@ import ResourceDetail from "@/pages/ResourceDetail";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
+import VerifyEmail from "@/pages/VerifyEmail";
 import VerifyEmailChange from "@/pages/VerifyEmailChange";
 import NotFound from "@/pages/not-found";
 import GhlDashboard from "@/pages/admin/GhlDashboard";
@@ -361,6 +362,7 @@ function Router() {
       <Route path="/login">{() => <GuestRoute component={Login} />}</Route>
       <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
       <Route path="/forgot-password">{() => <GuestRoute component={ForgotPassword} />}</Route>
+      <Route path="/verify-email">{() => <VerifyEmail />}</Route>
       <Route path="/verify-email-change">{() => <VerifyEmailChange />}</Route>
       <Route path="/onboarding/welcome">{() => <OnboardingRoute component={OnboardingWelcome} step={1} />}</Route>
       <Route path="/onboarding/documents">{() => <OnboardingRoute component={OnboardingDocuments} step={2} />}</Route>
