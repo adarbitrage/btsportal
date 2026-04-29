@@ -533,6 +533,11 @@ export async function processRegisterRequest(params: {
   }).catch(() => {});
 }
 
+// Rate limiters before `verifyCaptcha()` for the same reasons documented on
+// the /auth/login route below: a 429 must short-circuit before we burn a
+// Turnstile siteverify call (which would (a) hit Cloudflare's API on every
+// blocked request under attack and (b) consume the user's single-use token,
+// forcing a re-solve on retry).
 router.post("/auth/register", registerIpLimiter, registerEmailLimiter, verifyCaptcha(), async (req, res): Promise<void> => {
   const { email, password, name, phone } = req.body;
 
@@ -576,6 +581,24 @@ const loginIpLimiter = abuseRateLimit({
     recordAuthRateLimitHit("login", { req, email: extractAuthEmail(req) }),
 });
 
+// MIDDLEWARE ORDER MATTERS: rate limiter MUST run BEFORE `verifyCaptcha()`.
+//
+// Two consequences flow from this ordering:
+//   1. When a request is over its per-IP budget we 429 immediately without
+//      calling Cloudflare's siteverify endpoint. Under a real attack that
+//      would otherwise mean one outbound HTTPS round-trip per blocked
+//      request — easy to push past Turnstile's API quota and slow every
+//      request down on top.
+//   2. Cloudflare consumes a Turnstile token the moment we POST it to
+//      siteverify; tokens are single-use. Skipping that call when we're
+//      about to 429 leaves the token unused, so a user who got rate-
+//      limited briefly can re-submit with the same token instead of being
+//      forced to solve a fresh challenge. (See the matching portal logic in
+//      `pages/Login.tsx` — it deliberately does NOT reset the widget on a
+//      429 response so this saving actually reaches the user.)
+//
+// Reversing the order would defeat both. Add `verifyCaptcha()` AFTER the
+// limiter for /auth/register and /auth/forgot-password as well.
 router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Promise<void> => {
   const { email, password } = req.body;
 
@@ -794,6 +817,10 @@ const forgotPasswordEmailLimiter = abuseRateLimit({
     }),
 });
 
+// Rate limiters before `verifyCaptcha()` for the same reasons documented on
+// the /auth/login route: skip the Cloudflare siteverify call on requests
+// we're about to 429, both to spare Turnstile's API budget under attack and
+// to leave the user's single-use token unused for a quick retry.
 router.post(
   "/auth/forgot-password",
   forgotPasswordIpLimiter,

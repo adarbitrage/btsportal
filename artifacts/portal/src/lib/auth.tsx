@@ -12,6 +12,17 @@ interface User {
 export interface LoginError extends Error {
   emailRecentlyChanged?: boolean;
   emailUnverified?: boolean;
+  // Structured backend error code (e.g. "RATE_LIMIT_EXCEEDED",
+  // "CAPTCHA_REQUIRED"). Pages use this to decide whether to reset the
+  // Turnstile widget — a 429 from the per-IP limiter never reaches captcha
+  // verification on the server, so the user's solved token is still valid
+  // and shouldn't be discarded.
+  code?: string;
+}
+
+export interface RegisterError extends Error {
+  // See LoginError.code — same anti-reset rule on 429 applies to /register.
+  code?: string;
 }
 
 interface AuthContextType {
@@ -109,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message = "Login failed";
       }
       const err = new Error(message) as LoginError;
+      if (typeof code === "string") {
+        err.code = code;
+      }
       if (data && data.emailRecentlyChanged === true) {
         err.emailRecentlyChanged = true;
       }
@@ -160,11 +174,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => ({}));
       // Support both the legacy `{ error: "msg" }` shape and the structured
       // `{ error: { code, message } }` shape returned by sendError().
+      const code: string | undefined = data?.error?.code;
       const message =
         (typeof data?.error === "string" && data.error) ||
         data?.error?.message ||
         "Registration failed";
-      throw new Error(message);
+      const err = new Error(message) as RegisterError;
+      if (typeof code === "string") {
+        err.code = code;
+      }
+      throw err;
     }
 
     // Register no longer auto-logs-in: the server returns the same generic

@@ -121,6 +121,7 @@ import authRouter, {
   AUTH_RATE_LIMIT_AUDIT_ENTITY,
   processForgotPasswordRequest,
 } from "../routes/auth";
+import { __resetCaptchaWarningForTests } from "../middleware/captcha";
 
 // Test app trusts X-Forwarded-For so we can simulate distinct client IPs in
 // tests. Production app does NOT trust forwarded headers unless an operator
@@ -600,6 +601,138 @@ describe("POST /api/auth/login rate limiting", () => {
       .send({ email: "mix-fp@example.test" });
 
     expect(res.status).toBe(200);
+  });
+});
+
+describe("Rate limiter short-circuits before captcha verification", () => {
+  // The middleware order on /auth/{login,register,forgot-password} is
+  // intentional: rate limiter runs BEFORE verifyCaptcha(). That way a 429
+  // never burns a Cloudflare siteverify call (which would (a) consume the
+  // user's single-use token and (b) hit Turnstile's API on every blocked
+  // request under attack). These tests lock in that contract by enabling
+  // the captcha and asserting we never call siteverify on a 429.
+  const realFetch = global.fetch;
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    __resetCaptchaWarningForTests();
+    process.env.TURNSTILE_SECRET_KEY = "test-secret-rate-limit-order";
+    fetchMock.mockReset();
+    // Resolve with a fresh Response on every call — Response bodies are
+    // single-read, so reusing one instance across calls would make the
+    // captcha middleware fail with "Body has already been read" instead of
+    // verifying successfully.
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterAll(() => {
+    global.fetch = realFetch;
+    delete process.env.TURNSTILE_SECRET_KEY;
+  });
+
+  it("does not call Cloudflare siteverify on a 429 from /auth/login", async () => {
+    const ip = "203.0.113.231";
+
+    // Burn the per-IP login budget (20). Each pre-cap request has a valid
+    // captcha token, so siteverify is called once per request.
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", ip)
+        .send({
+          email: `cap-${i}@example.test`,
+          password: "WrongPass1!",
+          captchaToken: "good-token",
+        });
+      expect(res.status).toBe(401);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(20);
+
+    fetchMock.mockClear();
+    const blocked = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", ip)
+      .send({
+        email: "cap-21@example.test",
+        password: "WrongPass1!",
+        captchaToken: "good-token",
+      });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    // The whole point: a request we're about to 429 must NOT trigger an
+    // outbound call to Cloudflare's siteverify endpoint.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not call Cloudflare siteverify on a 429 from /auth/register", async () => {
+    const ip = "203.0.113.232";
+
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", ip)
+        .send({
+          email: `cap-reg-${i}`,
+          password: "Brandnew1!",
+          name: "X",
+          captchaToken: "good-token",
+        });
+      // 400 from email-format validator after captcha verifies.
+      expect(res.status).toBe(400);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+
+    fetchMock.mockClear();
+    const blocked = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ip)
+      .send({
+        email: "cap-reg-final",
+        password: "Brandnew1!",
+        name: "X",
+        captchaToken: "good-token",
+      });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not call Cloudflare siteverify on a 429 from /auth/forgot-password", async () => {
+    const ip = "203.0.113.233";
+
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post("/api/auth/forgot-password")
+        .set("X-Forwarded-For", ip)
+        .send({
+          email: `cap-fp-${i}@example.test`,
+          captchaToken: "good-token",
+        });
+      expect(res.status).toBe(200);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(10);
+
+    fetchMock.mockClear();
+    const blocked = await request(app)
+      .post("/api/auth/forgot-password")
+      .set("X-Forwarded-For", ip)
+      .send({
+        email: "cap-fp-11@example.test",
+        captchaToken: "good-token",
+      });
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body?.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

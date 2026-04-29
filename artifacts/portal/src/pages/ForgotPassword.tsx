@@ -41,23 +41,37 @@ export default function ForgotPassword() {
 
       if (!res.ok) {
         let message = "We couldn't send your reset link. Please try again.";
+        let code: string | undefined;
         try {
           const body = await res.json();
-          const code = body?.error?.code;
+          code = body?.error?.code;
           if (code === "CAPTCHA_REQUIRED" || code === "CAPTCHA_INVALID") {
             message = "Please complete the challenge below and try again.";
+          } else if (typeof body?.error?.message === "string") {
+            message = body.error.message;
           }
         } catch {
           // ignore — fall through to generic message
         }
         setError(message);
-        setCaptchaToken("");
+        // Keep the Turnstile token across a 429: the rate limiters on the
+        // backend run BEFORE captcha verification, so on a rate-limit hit
+        // the token was never sent to Cloudflare and remains valid for a
+        // retry. Discard it on any other failure (CAPTCHA_INVALID, server
+        // error) because Turnstile tokens are single-use once siteverify
+        // consumes them. (See `routes/auth.ts` — middleware ordering doc.)
+        if (code !== "RATE_LIMIT_EXCEEDED") {
+          setCaptchaToken("");
+        }
         return;
       }
 
       setSent(true);
     } catch {
       setError("We couldn't reach the server. Please try again.");
+      // Network failure — we don't know whether the request reached the
+      // server, let alone whether captcha verification ran, so play it
+      // safe and force a fresh challenge on the next attempt.
       setCaptchaToken("");
     } finally {
       setLoading(false);

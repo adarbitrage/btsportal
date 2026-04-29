@@ -67,9 +67,17 @@ export default function Login() {
       if (loginErr.emailRecentlyChanged) {
         setEmailRecentlyChanged(true);
       }
-      // Reset the captcha token after any failure so the user re-solves the
-      // widget before the next attempt — Turnstile tokens are single-use.
-      setCaptchaToken("");
+      // Reset the captcha token after most failures so the user re-solves
+      // the widget before the next attempt — Turnstile tokens are
+      // single-use once the server actually verifies them. The exception
+      // is RATE_LIMIT_EXCEEDED: the server's rate limiter runs BEFORE
+      // captcha verification, so on a 429 the token was never sent to
+      // Cloudflare and is still valid for a retry. Discarding it would
+      // force the user to solve a fresh challenge for no reason. (See
+      // `routes/auth.ts` — middleware ordering doc above /auth/login.)
+      if (loginErr.code !== "RATE_LIMIT_EXCEEDED") {
+        setCaptchaToken("");
+      }
     } finally {
       setLoading(false);
     }

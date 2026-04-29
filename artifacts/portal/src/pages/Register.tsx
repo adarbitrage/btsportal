@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type RegisterError } from "@/lib/auth";
 import { Link } from "wouter";
 import { Turnstile } from "@/components/Turnstile";
 
@@ -59,7 +59,17 @@ export default function Register() {
       setSubmittedEmail(email);
     } catch (err: any) {
       setError(err.message);
-      setCaptchaToken("");
+      // Keep the Turnstile token across a 429: the per-IP rate limiter on
+      // the backend runs BEFORE captcha verification, so on a rate-limit
+      // hit the token was never sent to Cloudflare and remains valid for a
+      // retry. Reset it on any other failure (CAPTCHA_INVALID, server
+      // error, validation rejection after captcha was already verified)
+      // because Turnstile tokens are single-use once siteverify consumes
+      // them. (See `routes/auth.ts` — middleware ordering doc.)
+      const code = (err as RegisterError | undefined)?.code;
+      if (code !== "RATE_LIMIT_EXCEEDED") {
+        setCaptchaToken("");
+      }
     } finally {
       setLoading(false);
     }
