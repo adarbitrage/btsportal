@@ -82,3 +82,37 @@ export function filterNavByEntitlements(
   }
   return result;
 }
+
+export function leafMatchesLocation(leaf: NavLeaf, location: string): boolean {
+  return (
+    location === leaf.href ||
+    (leaf.href !== "/" && location.startsWith(leaf.href))
+  );
+}
+
+export function nodeContainsLocation(
+  node: NavNode,
+  location: string,
+): boolean {
+  if (node.kind === "leaf") return leafMatchesLocation(node, location);
+  return node.children.some((child) => nodeContainsLocation(child, location));
+}
+
+export const PRODUCT_DISPLAY_NAMES: Record<string, string> = {
+  frontend: "Front-End Member",
+  launchpad: "LaunchPad Member",
+  "3month": "3-Month Mentorship",
+  "6month": "6-Month Mentorship",
+  "1year": "1-Year Mentorship",
+  lifetime: "Lifetime Member",
+  free: "Free Member",
+};
+
+export function getProductDisplayName(slug: string | undefined | null): string {
+  const resolved = slug ?? "free";
+  return PRODUCT_DISPLAY_NAMES[resolved] ?? resolved;
+}
+
+export function isLifetimeSlug(slug: string | undefined | null): boolean {
+  return (slug ?? "free") === "lifetime";
+}

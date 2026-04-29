@@ -63,6 +63,10 @@ import { ADMIN_ROLES, type AdminRole } from "@/lib/permissions";
 import {
   filterNavByEntitlements,
   filterNavByRole,
+  getProductDisplayName,
+  isLifetimeSlug,
+  leafMatchesLocation,
+  nodeContainsLocation,
   type NavFolder,
   type NavLeaf,
   type NavNode,
@@ -308,15 +312,6 @@ function useFolderState(key: string, defaultOpen: boolean) {
   return [open, setOpen] as const;
 }
 
-function leafMatchesLocation(leaf: NavLeaf, location: string): boolean {
-  return location === leaf.href || (leaf.href !== "/" && location.startsWith(leaf.href));
-}
-
-function nodeContainsLocation(node: NavNode, location: string): boolean {
-  if (node.kind === "leaf") return leafMatchesLocation(node, location);
-  return node.children.some((child) => nodeContainsLocation(child, location));
-}
-
 interface LeafRowProps {
   leaf: NavLeaf;
   location: string;
@@ -496,18 +491,8 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     ADMIN_ROLES.includes(roleFromAuth as AdminRole) ||
     ADMIN_ROLES.includes(roleFromMember as AdminRole);
 
-  const productDisplayNames: Record<string, string> = {
-    frontend: "Front-End Member",
-    launchpad: "LaunchPad Member",
-    "3month": "3-Month Mentorship",
-    "6month": "6-Month Mentorship",
-    "1year": "1-Year Mentorship",
-    lifetime: "Lifetime Member",
-    free: "Free Member",
-  };
-
   const highestSlug: string = member?.sourceProduct ?? "free";
-  const hasLifetime = highestSlug === "lifetime";
+  const hasLifetime = isLifetimeSlug(highestSlug);
 
   const filteredMemberNav = filterNavByEntitlements(MEMBER_NAV, entitlements);
 
@@ -619,7 +604,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               {member?.name ?? "Loading..."}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {productDisplayNames[highestSlug] ?? highestSlug}
+              {getProductDisplayName(highestSlug)}
             </p>
           </div>
           {entitlements.has("community:access") && <NotificationBell />}

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   filterNavByEntitlements,
   filterNavByRole,
+  getProductDisplayName,
   hasEntitlementCheck,
+  isLifetimeSlug,
+  leafMatchesLocation,
+  nodeContainsLocation,
+  PRODUCT_DISPLAY_NAMES,
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
@@ -293,5 +298,139 @@ describe("filterNavByRole", () => {
     ];
     expect(filterNavByRole(nav, "support_agent")).toEqual([]);
     expect(filterNavByRole(nav, "super_admin")).toHaveLength(1);
+  });
+});
+
+describe("leafMatchesLocation", () => {
+  it("matches when the location is exactly the leaf href", () => {
+    expect(leafMatchesLocation(leaf("/dashboard"), "/dashboard")).toBe(true);
+  });
+
+  it("matches when the location is a sub-path of the leaf href", () => {
+    expect(
+      leafMatchesLocation(leaf("/admin/members"), "/admin/members/123"),
+    ).toBe(true);
+    expect(
+      leafMatchesLocation(leaf("/coaching"), "/coaching/one-on-one"),
+    ).toBe(true);
+  });
+
+  it("does not match unrelated locations", () => {
+    expect(leafMatchesLocation(leaf("/dashboard"), "/wins")).toBe(false);
+    expect(leafMatchesLocation(leaf("/admin/members"), "/admin/tickets")).toBe(
+      false,
+    );
+  });
+
+  it("treats href '/' specially: matches only the root location", () => {
+    // Without the special case, "/" would be a prefix of every URL and
+    // highlight the root link on every page.
+    expect(leafMatchesLocation(leaf("/"), "/")).toBe(true);
+    expect(leafMatchesLocation(leaf("/"), "/dashboard")).toBe(false);
+    expect(leafMatchesLocation(leaf("/"), "/admin/members")).toBe(false);
+  });
+
+  it("does not match when the leaf href is a prefix of a different word boundary", () => {
+    // The current implementation uses startsWith, so '/admin' does match
+    // '/administrators'. This test documents that current behavior so
+    // anyone changing it has to update this assertion intentionally.
+    expect(leafMatchesLocation(leaf("/admin"), "/administrators")).toBe(true);
+  });
+});
+
+describe("nodeContainsLocation", () => {
+  it("returns true for a leaf when the leaf matches the location", () => {
+    expect(nodeContainsLocation(leaf("/dashboard"), "/dashboard")).toBe(true);
+  });
+
+  it("returns false for a leaf when the leaf does not match the location", () => {
+    expect(nodeContainsLocation(leaf("/dashboard"), "/wins")).toBe(false);
+  });
+
+  it("returns true for a folder when any child leaf matches the location", () => {
+    const node = folder("training", [
+      leaf("/blitz"),
+      leaf("/core-training"),
+    ]);
+    expect(nodeContainsLocation(node, "/core-training")).toBe(true);
+  });
+
+  it("returns false for a folder when no child matches the location", () => {
+    const node = folder("training", [
+      leaf("/blitz"),
+      leaf("/core-training"),
+    ]);
+    expect(nodeContainsLocation(node, "/wins")).toBe(false);
+  });
+
+  it("returns true for a nested folder when any deep descendant matches", () => {
+    const node = folder("outer", [
+      folder("inner", [leaf("/deep/page")]),
+    ]);
+    expect(nodeContainsLocation(node, "/deep/page")).toBe(true);
+    expect(nodeContainsLocation(node, "/deep/page/sub")).toBe(true);
+  });
+
+  it("returns false for an empty folder", () => {
+    const node = folder("empty", []);
+    expect(nodeContainsLocation(node, "/anything")).toBe(false);
+  });
+});
+
+describe("getProductDisplayName", () => {
+  it("returns the friendly label for each known product slug", () => {
+    expect(getProductDisplayName("frontend")).toBe("Front-End Member");
+    expect(getProductDisplayName("launchpad")).toBe("LaunchPad Member");
+    expect(getProductDisplayName("3month")).toBe("3-Month Mentorship");
+    expect(getProductDisplayName("6month")).toBe("6-Month Mentorship");
+    expect(getProductDisplayName("1year")).toBe("1-Year Mentorship");
+    expect(getProductDisplayName("lifetime")).toBe("Lifetime Member");
+    expect(getProductDisplayName("free")).toBe("Free Member");
+  });
+
+  it("falls back to 'Free Member' when the slug is undefined or null", () => {
+    expect(getProductDisplayName(undefined)).toBe("Free Member");
+    expect(getProductDisplayName(null)).toBe("Free Member");
+  });
+
+  it("returns the raw slug when it is not in the known map", () => {
+    // This is intentional: an unknown slug should be visible (not silently
+    // shown as "Free Member") so the bug is obvious to whoever sees it.
+    expect(getProductDisplayName("enterprise")).toBe("enterprise");
+    expect(getProductDisplayName("")).toBe("");
+  });
+
+  it("the exported map covers exactly the documented product slugs", () => {
+    expect(Object.keys(PRODUCT_DISPLAY_NAMES).sort()).toEqual(
+      [
+        "1year",
+        "3month",
+        "6month",
+        "free",
+        "frontend",
+        "launchpad",
+        "lifetime",
+      ].sort(),
+    );
+  });
+});
+
+describe("isLifetimeSlug", () => {
+  it("returns true only for the 'lifetime' slug", () => {
+    expect(isLifetimeSlug("lifetime")).toBe(true);
+  });
+
+  it("returns false for all other known slugs", () => {
+    expect(isLifetimeSlug("free")).toBe(false);
+    expect(isLifetimeSlug("frontend")).toBe(false);
+    expect(isLifetimeSlug("launchpad")).toBe(false);
+    expect(isLifetimeSlug("3month")).toBe(false);
+    expect(isLifetimeSlug("6month")).toBe(false);
+    expect(isLifetimeSlug("1year")).toBe(false);
+  });
+
+  it("returns false when the slug is undefined or null", () => {
+    expect(isLifetimeSlug(undefined)).toBe(false);
+    expect(isLifetimeSlug(null)).toBe(false);
   });
 });
