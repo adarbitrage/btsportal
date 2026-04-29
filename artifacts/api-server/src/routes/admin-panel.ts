@@ -28,6 +28,13 @@ import {
   type OnCallField,
 } from "../lib/oncall-settings";
 import {
+  getAuthRateLimitAlertConfig,
+  getAuthRateLimitAlertConfigStatus,
+  applyAuthRateLimitAlertConfigUpdate,
+  validateUpdate as validateAuthRateLimitAlertUpdate,
+  isAuthRateLimitAlertSettingKey,
+} from "../lib/auth-rate-limit-alert-settings";
+import {
   sendOnCallTestAlert,
   probePagerDutyDestination,
   probeEmailDestination,
@@ -42,14 +49,9 @@ const router = Router();
 
 // "Needs Attention" surfaces a burst of `auth_rate_limit_blocked` audit rows so
 // admins can react to a credential-stuffing wave without polling the audit log.
-// The threshold and window are intentionally modest defaults — tuning them is
-// a follow-up if false positives become noisy.
-const AUTH_RATE_LIMIT_ALERT_WINDOW_MS = 15 * 60 * 1000;
-const AUTH_RATE_LIMIT_ALERT_THRESHOLD = 10;
-// If a single source IP accounts for at least this fraction of the burst, we
-// call it out by name in the alert so the on-call admin can immediately tell
-// whether they're looking at a focused attack or a broader spray.
-const AUTH_RATE_LIMIT_DOMINANT_IP_RATIO = 0.6;
+// The threshold (default 10), window (default 15 min), and dominant-IP ratio
+// (default 0.6) live in `system_settings` and are editable from the admin
+// Settings page — see `auth-rate-limit-alert-settings.ts`.
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.warn("[Admin] JWT_SECRET not set — impersonation will be unavailable");
@@ -311,13 +313,17 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
       alerts.push({ type: "expiring_products", severity: "low", title: "Expiring Subscriptions", description: `${expiringProducts} subscription(s) expiring in 30 days` });
     }
 
-    // Detect a burst of auth rate-limit hits in the last 15 minutes. We group
-    // by ip_address in a single query so we can both count the total and
-    // identify a dominant source IP without a second round-trip. The query
-    // is wrapped in `safeQuery` so a transient DB error degrades to "no
-    // alert" instead of breaking the whole panel.
-    const rateLimitWindowStart = new Date(now.getTime() - AUTH_RATE_LIMIT_ALERT_WINDOW_MS);
-    const rateLimitWindowMinutes = Math.round(AUTH_RATE_LIMIT_ALERT_WINDOW_MS / 60000);
+    // Detect a burst of auth rate-limit hits in the configured window. We
+    // group by ip_address in a single query so we can both count the total
+    // and identify a dominant source IP without a second round-trip. The
+    // query is wrapped in `safeQuery` so a transient DB error degrades to
+    // "no alert" instead of breaking the whole panel. Threshold/window/ratio
+    // come from `system_settings` (with defaults) and are cached for ~10s
+    // inside `getAuthRateLimitAlertConfig` to keep this read cheap.
+    const alertConfig = await getAuthRateLimitAlertConfig();
+    const alertWindowMs = alertConfig.windowMinutes * 60 * 1000;
+    const rateLimitWindowStart = new Date(now.getTime() - alertWindowMs);
+    const rateLimitWindowMinutes = alertConfig.windowMinutes;
     const rateLimitGroups = await safeQuery(
       db
         .select({
@@ -335,7 +341,7 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
       [] as Array<{ ip: string | null; count: number }>,
     );
     const rateLimitTotal = rateLimitGroups.reduce((sum, row) => sum + Number(row.count || 0), 0);
-    if (rateLimitTotal >= AUTH_RATE_LIMIT_ALERT_THRESHOLD) {
+    if (rateLimitTotal >= alertConfig.threshold) {
       let dominantIp: string | null = null;
       let dominantCount = 0;
       for (const row of rateLimitGroups) {
@@ -347,7 +353,7 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
       }
       const dominantShare = rateLimitTotal > 0 ? dominantCount / rateLimitTotal : 0;
       const ipSuffix =
-        dominantIp && dominantShare >= AUTH_RATE_LIMIT_DOMINANT_IP_RATIO
+        dominantIp && dominantShare >= alertConfig.dominantIpRatio
           ? ` — ${dominantCount} from ${dominantIp}`
           : "";
       alerts.push({
@@ -2294,8 +2300,14 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
     // Hide on-call destination rows from the generic settings list — those
     // hold encrypted secrets and have a dedicated UI/endpoint that knows how
     // to decrypt and mask them. Returning the raw row here would dump the
-    // ciphertext blob into the generic Settings page.
-    const filtered = settings.filter((s) => !isOnCallSettingKey(s.key));
+    // ciphertext blob into the generic Settings page. Auth rate-limit alert
+    // thresholds are also hidden here because they have their own dedicated
+    // card with bounds enforcement and reset-to-defaults UX — editing them
+    // as raw JSON in the generic list bypasses the bounds and would let an
+    // admin save a value the alert engine can't actually use.
+    const filtered = settings.filter(
+      (s) => !isOnCallSettingKey(s.key) && !isAuthRateLimitAlertSettingKey(s.key),
+    );
     res.json(filtered);
   } catch (error) {
     console.error("[Admin] Settings error:", error);
@@ -2317,6 +2329,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     // actual value.
     if (isOnCallSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/oncall-destinations to manage on-call destination settings" });
+      return;
+    }
+    if (isAuthRateLimitAlertSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/auth-rate-limit-alert-config to manage auth rate-limit alert thresholds" });
       return;
     }
 
@@ -2470,6 +2486,62 @@ async function runProbeForField(field: OnCallField, value: string): Promise<Prob
       return probeSlackDestination(value);
   }
 }
+
+/**
+ * Read the current auth rate-limit alert thresholds plus their defaults and
+ * accepted bounds. The bounds are returned alongside the values so the admin
+ * UI can mirror the server's validation without hard-coding it.
+ */
+router.get("/admin/auth-rate-limit-alert-config", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getAuthRateLimitAlertConfigStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get auth rate-limit alert config error:", error);
+    res.status(500).json({ error: "Failed to fetch auth rate-limit alert config" });
+  }
+});
+
+/**
+ * Update one or more of the auth rate-limit alert thresholds. Body is a
+ * partial — any field omitted is left untouched. Out-of-bounds values are
+ * rejected with a 400 listing every invalid field at once so the UI can
+ * surface them inline. Successful saves are recorded in the audit log with
+ * the before/after values per changed field, and the in-process cache is
+ * invalidated so the dashboard reflects the new thresholds on its next read.
+ */
+router.put("/admin/auth-rate-limit-alert-config", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const validation = validateAuthRateLimitAlertUpdate(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: "Invalid alert config", fieldErrors: validation.errors });
+      return;
+    }
+    const { before, after, changedFields } = await applyAuthRateLimitAlertConfigUpdate(
+      validation.update,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (changedFields.length > 0) {
+      const diff: Record<string, { from: number; to: number }> = {};
+      for (const field of changedFields) {
+        diff[field] = { from: before[field], to: after[field] };
+      }
+      await logAdminAction(
+        req,
+        "update_setting",
+        "auth_rate_limit_alert_config",
+        "auth_rate_limit_alert",
+        `Updated auth rate-limit alert config: ${changedFields.join(", ")}`,
+        { changedFields, diff },
+      );
+    }
+    const status = await getAuthRateLimitAlertConfigStatus();
+    res.json({ ...status, changedFields });
+  } catch (error) {
+    console.error("[Admin] Update auth rate-limit alert config error:", error);
+    res.status(500).json({ error: "Failed to update auth rate-limit alert config" });
+  }
+});
 
 /**
  * Recent change history for the on-call destinations card.

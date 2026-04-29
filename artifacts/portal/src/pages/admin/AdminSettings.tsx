@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History } from "lucide-react";
-import { adminPanelApi } from "@/lib/admin-panel-api";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw } from "lucide-react";
+import { adminPanelApi, type AuthRateLimitAlertConfigStatus } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSettings() {
@@ -73,6 +73,8 @@ export default function AdminSettings() {
         </div>
 
         <OnCallDestinationsCard />
+
+        <AuthRateLimitAlertConfigCard />
 
         <Card>
           <CardHeader><CardTitle className="text-base">Add New Setting</CardTitle></CardHeader>
@@ -699,6 +701,294 @@ function OnCallEmailRow({
         )}
       </div>
       <ProbeBadge probe={probe} />
+    </div>
+  );
+}
+
+type AlertField = "threshold" | "windowMinutes" | "dominantIpRatio";
+
+const ALERT_FIELD_LABELS: Record<AlertField, string> = {
+  threshold: "Alert threshold",
+  windowMinutes: "Window (minutes)",
+  dominantIpRatio: "Dominant IP ratio",
+};
+
+const ALERT_FIELD_HINTS: Record<AlertField, string> = {
+  threshold: "Number of auth rate-limit hits required in the window before the alert fires.",
+  windowMinutes: "How many minutes of recent activity to consider when counting hits.",
+  dominantIpRatio: "If a single source IP accounts for at least this fraction of hits (0–1), it is called out by name.",
+};
+
+function formatAlertValue(field: AlertField, value: number): string {
+  if (field === "dominantIpRatio") return value.toFixed(2);
+  return String(value);
+}
+
+function AuthRateLimitAlertConfigCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<AuthRateLimitAlertConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ threshold: string; windowMinutes: string; dominantIpRatio: string }>({
+    threshold: "",
+    windowMinutes: "",
+    dominantIpRatio: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<AlertField, string>>>({});
+
+  const hydrate = (s: AuthRateLimitAlertConfigStatus) => {
+    setStatus(s);
+    setDraft({
+      threshold: String(s.config.threshold),
+      windowMinutes: String(s.config.windowMinutes),
+      dominantIpRatio: String(s.config.dominantIpRatio),
+    });
+    setFieldErrors({});
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getAuthRateLimitAlertConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const validateLocal = (): { ok: boolean; payload: { threshold: number; windowMinutes: number; dominantIpRatio: number } } => {
+    if (!status) return { ok: false, payload: { threshold: 0, windowMinutes: 0, dominantIpRatio: 0 } };
+    const errors: Partial<Record<AlertField, string>> = {};
+
+    const thresholdNum = Number(draft.threshold);
+    if (!Number.isFinite(thresholdNum) || !Number.isInteger(thresholdNum)) {
+      errors.threshold = "Must be a whole number";
+    } else if (thresholdNum < status.bounds.threshold.min || thresholdNum > status.bounds.threshold.max) {
+      errors.threshold = `Must be between ${status.bounds.threshold.min} and ${status.bounds.threshold.max}`;
+    }
+
+    const windowNum = Number(draft.windowMinutes);
+    if (!Number.isFinite(windowNum) || !Number.isInteger(windowNum)) {
+      errors.windowMinutes = "Must be a whole number";
+    } else if (windowNum < status.bounds.windowMinutes.min || windowNum > status.bounds.windowMinutes.max) {
+      errors.windowMinutes = `Must be between ${status.bounds.windowMinutes.min} and ${status.bounds.windowMinutes.max} minutes`;
+    }
+
+    const ratioNum = Number(draft.dominantIpRatio);
+    if (!Number.isFinite(ratioNum)) {
+      errors.dominantIpRatio = "Must be a number";
+    } else if (ratioNum < status.bounds.dominantIpRatio.min || ratioNum > status.bounds.dominantIpRatio.max) {
+      errors.dominantIpRatio = `Must be between ${status.bounds.dominantIpRatio.min} and ${status.bounds.dominantIpRatio.max}`;
+    }
+
+    setFieldErrors(errors);
+    return {
+      ok: Object.keys(errors).length === 0,
+      payload: { threshold: thresholdNum, windowMinutes: windowNum, dominantIpRatio: ratioNum },
+    };
+  };
+
+  const isDirty = !!status && (
+    Number(draft.threshold) !== status.config.threshold ||
+    Number(draft.windowMinutes) !== status.config.windowMinutes ||
+    Number(draft.dominantIpRatio) !== status.config.dominantIpRatio
+  );
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted fields and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateAuthRateLimitAlertConfig(v.payload);
+      hydrate(data);
+      if (data.changedFields.length === 0) {
+        toast({ title: "No changes to save" });
+      } else {
+        toast({ title: "Alert thresholds saved" });
+      }
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const next: Partial<Record<AlertField, string>> = {};
+        for (const e of err.fieldErrors as Array<{ field: string; message: string }>) {
+          if (e.field === "threshold" || e.field === "windowMinutes" || e.field === "dominantIpRatio") {
+            next[e.field] = e.message;
+          }
+        }
+        setFieldErrors(next);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    // If nothing is customized there's nothing to reset — just clear the
+    // local form and any field errors. Otherwise send `null` for every
+    // field so the server deletes the rows and per-field provenance flips
+    // back to "default" (a plain re-save of the defaults would leave the
+    // rows in place and the source still showing as "Customized").
+    const anyCustomized =
+      status.sources.threshold === "db" ||
+      status.sources.windowMinutes === "db" ||
+      status.sources.dominantIpRatio === "db";
+    if (!anyCustomized) {
+      setDraft({
+        threshold: String(status.defaults.threshold),
+        windowMinutes: String(status.defaults.windowMinutes),
+        dominantIpRatio: String(status.defaults.dominantIpRatio),
+      });
+      setFieldErrors({});
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateAuthRateLimitAlertConfig({
+        threshold: null,
+        windowMinutes: null,
+        dominantIpRatio: null,
+      });
+      hydrate(data);
+      setFieldErrors({});
+      toast({ title: "Reset to defaults" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> Auth rate-limit burst alert
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Tunes the dashboard "Auth rate-limit burst" alert. The alert fires when at least <em>threshold</em> auth rate-limit hits land within the rolling <em>window</em>; the dominant-IP ratio controls when a single source IP is called out by name. Changes take effect on the next dashboard refresh.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading alert thresholds...</div>
+        ) : (
+          <>
+            <AlertConfigRow
+              field="threshold"
+              draftValue={draft.threshold}
+              currentValue={status.config.threshold}
+              defaultValue={status.defaults.threshold}
+              source={status.sources.threshold}
+              bounds={status.bounds.threshold}
+              error={fieldErrors.threshold}
+              inputProps={{ inputMode: "numeric", step: 1 }}
+              onChange={(v) => setDraft((prev) => ({ ...prev, threshold: v }))}
+            />
+            <AlertConfigRow
+              field="windowMinutes"
+              draftValue={draft.windowMinutes}
+              currentValue={status.config.windowMinutes}
+              defaultValue={status.defaults.windowMinutes}
+              source={status.sources.windowMinutes}
+              bounds={status.bounds.windowMinutes}
+              error={fieldErrors.windowMinutes}
+              inputProps={{ inputMode: "numeric", step: 1 }}
+              onChange={(v) => setDraft((prev) => ({ ...prev, windowMinutes: v }))}
+            />
+            <AlertConfigRow
+              field="dominantIpRatio"
+              draftValue={draft.dominantIpRatio}
+              currentValue={status.config.dominantIpRatio}
+              defaultValue={status.defaults.dominantIpRatio}
+              source={status.sources.dominantIpRatio}
+              bounds={status.bounds.dominantIpRatio}
+              error={fieldErrors.dominantIpRatio}
+              inputProps={{ inputMode: "decimal", step: 0.05 }}
+              onChange={(v) => setDraft((prev) => ({ ...prev, dominantIpRatio: v }))}
+            />
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={saving} data-testid="reset-alert-defaults">
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
+              </Button>
+              <Button onClick={handleSave} disabled={saving || !isDirty} data-testid="save-alert-config">
+                <Save className="w-4 h-4 mr-1" />{saving ? "Saving..." : "Save thresholds"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertConfigRow({
+  field,
+  draftValue,
+  currentValue,
+  defaultValue,
+  source,
+  bounds,
+  error,
+  inputProps,
+  onChange,
+}: {
+  field: AlertField;
+  draftValue: string;
+  currentValue: number;
+  defaultValue: number;
+  source: "db" | "default";
+  bounds: { min: number; max: number };
+  error?: string;
+  inputProps?: { inputMode?: "numeric" | "decimal"; step?: number };
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="border rounded-md p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">{ALERT_FIELD_LABELS[field]}</p>
+          <p className="text-xs text-muted-foreground">{ALERT_FIELD_HINTS[field]}</p>
+        </div>
+        <span
+          className={`text-xs px-2 py-0.5 rounded ${
+            source === "db"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {source === "db" ? "Customized" : "Using default"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode={inputProps?.inputMode}
+          step={inputProps?.step}
+          min={bounds.min}
+          max={bounds.max}
+          value={draftValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-40"
+          data-testid={`alert-${field}-input`}
+          aria-invalid={!!error}
+        />
+        <span className="text-xs text-muted-foreground">
+          Range {bounds.min}–{bounds.max}. Current: {formatAlertValue(field, currentValue)}. Default: {formatAlertValue(field, defaultValue)}.
+        </span>
+      </div>
+      {error && (
+        <p className="text-xs text-destructive" data-testid={`alert-${field}-error`}>{error}</p>
+      )}
     </div>
   );
 }

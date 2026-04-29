@@ -1,5 +1,22 @@
 import { authFetch } from "./auth";
 
+export type AuthRateLimitAlertConfig = {
+  threshold: number;
+  windowMinutes: number;
+  dominantIpRatio: number;
+};
+
+export type AuthRateLimitAlertConfigStatus = {
+  config: AuthRateLimitAlertConfig;
+  sources: Record<keyof AuthRateLimitAlertConfig, "db" | "default">;
+  defaults: AuthRateLimitAlertConfig;
+  bounds: {
+    threshold: { min: number; max: number };
+    windowMinutes: { min: number; max: number };
+    dominantIpRatio: { min: number; max: number };
+  };
+};
+
 export const adminPanelApi = {
   async getDashboardKpis() {
     const res = await authFetch("/admin/dashboard/kpis");
@@ -456,6 +473,42 @@ export const adminPanelApi = {
       }>;
       limit: number;
     }>;
+  },
+
+  async getAuthRateLimitAlertConfig() {
+    const res = await authFetch("/admin/auth-rate-limit-alert-config");
+    if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert config");
+    return res.json() as Promise<AuthRateLimitAlertConfigStatus>;
+  },
+
+  // A `null` value means "reset this field to its default" — the underlying
+  // row is deleted server-side so per-field provenance flips back to
+  // "default". Omit a field entirely to leave it untouched.
+  async updateAuthRateLimitAlertConfig(payload: {
+    threshold?: number | null;
+    windowMinutes?: number | null;
+    dominantIpRatio?: number | null;
+  }) {
+    const res = await authFetch("/admin/auth-rate-limit-alert-config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const fieldErrors = Array.isArray(body.fieldErrors)
+        ? (body.fieldErrors as Array<{ field: string; message: string }>)
+        : [];
+      const detail =
+        fieldErrors.length > 0
+          ? fieldErrors.map((e) => `${e.field}: ${e.message}`).join("; ")
+          : body.error || "Failed to update auth rate-limit alert config";
+      const err = new Error(detail) as Error & {
+        fieldErrors?: Array<{ field: string; message: string }>;
+      };
+      if (fieldErrors.length > 0) err.fieldErrors = fieldErrors;
+      throw err;
+    }
+    return res.json() as Promise<AuthRateLimitAlertConfigStatus & { changedFields: Array<"threshold" | "windowMinutes" | "dominantIpRatio"> }>;
   },
 
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
