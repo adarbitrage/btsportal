@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,17 @@ const FALLBACK_EVENTS_LIMIT = 50;
 const ALERT_EVENTS_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const NEW_EVENT_HIGHLIGHT_MS = 6_000;
+const FALLBACK_SOUND_PREF_KEY = "systemHealth.fallbackSoundEnabled";
+const FALLBACK_CHIME_VOLUME = 0.4;
+
+function readSoundPreference(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(FALLBACK_SOUND_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
@@ -59,11 +70,54 @@ export default function SystemHealth() {
   const [refreshInFlight, setRefreshInFlight] = useState(0);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readSoundPreference());
   const inFlightRef = useRef(0);
   const previousMaxEventIdRef = useRef<number | null>(null);
   const hasLoadedFallbackEventsRef = useRef(false);
   const highlightTimersRef = useRef<Map<number, number>>(new Map());
+  const soundEnabledRef = useRef(soundEnabled);
+  const chimeAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(FALLBACK_SOUND_PREF_KEY, soundEnabled ? "1" : "0");
+    } catch {
+      // ignore — non-fatal if storage is unavailable
+    }
+  }, [soundEnabled]);
+
+  const playFallbackChime = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      if (!chimeAudioRef.current) {
+        const audio = new Audio(`${import.meta.env.BASE_URL}sounds/fallback-chime.wav`);
+        audio.preload = "auto";
+        audio.volume = FALLBACK_CHIME_VOLUME;
+        chimeAudioRef.current = audio;
+      }
+      const audio = chimeAudioRef.current;
+      audio.volume = FALLBACK_CHIME_VOLUME;
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // some browsers throw if the audio hasn't loaded yet — that's fine
+      }
+      const result = audio.play();
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>).catch(() => {
+          // Browsers may block playback before the user interacts with the page.
+          // Silently swallow — the toggle itself is a user gesture, so subsequent
+          // plays will succeed.
+        });
+      }
+    } catch {
+      // ignore — playback is purely a nice-to-have
+    }
+  }, []);
 
   const markEventsAsNew = useCallback((ids: number[]) => {
     if (ids.length === 0) return;
@@ -126,6 +180,7 @@ export default function SystemHealth() {
         const newIds = events.filter((e) => e.id > prevMax).map((e) => e.id);
         if (newIds.length > 0) {
           markEventsAsNew(newIds);
+          playFallbackChime();
         }
       }
       previousMaxEventIdRef.current = newMaxId;
@@ -141,7 +196,7 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setEventsLoading(false);
     }
-  }, [markEventsAsNew]);
+  }, [markEventsAsNew, playFallbackChime]);
 
   const loadAlertEvents = useCallback(async (silent = false) => {
     try {
@@ -296,6 +351,28 @@ export default function SystemHealth() {
                 </span>
               )}
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSoundEnabled((prev) => !prev)}
+              data-testid="button-toggle-fallback-sound"
+              aria-pressed={soundEnabled}
+              title={
+                soundEnabled
+                  ? "Sound on — chime when new fallback events arrive"
+                  : "Sound off — no chime when new fallback events arrive"
+              }
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-4 h-4 mr-1" />Sound on
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-4 h-4 mr-1" />Sound off
+                </>
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
