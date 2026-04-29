@@ -398,6 +398,84 @@ describe("GET /admin/members/:id/full — emailAttempts classification", () => {
     expect(res.status).toBe(403);
   });
 
+  it("classifies admin-cancelled attempts and exposes cancelledBy admin info", async () => {
+    await resetAttempts();
+
+    const now = Date.now();
+    const HOUR = 60 * 60 * 1000;
+
+    // Admin who did the cancellation.
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [adminRow] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-cancel-admin@example.test`,
+        name: "Cancel Admin",
+        passwordHash,
+        role: "super_admin",
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(adminRow.id);
+
+    // 1) Admin-cancelled attempt: cancelled_at + cancelled_by_admin_id set.
+    //    Even though its expiresAt is still in the future, the status must
+    //    surface as cancelled_by_admin so support staff can tell why it died.
+    const cancelledTarget = "cancelled-target@example.test";
+    const cancelledExpires = new Date(now + 6 * HOUR);
+    const cancelledAt = new Date(now - 1 * HOUR);
+    const [cancelledRow] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: cancelledTarget,
+        expiresAt: cancelledExpires,
+        cancelledAt,
+        cancelledByAdminId: adminRow.id,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+
+    // 2) Cancelled attempt whose admin user has since been deleted — the
+    //    join must still classify it as cancelled_by_admin and the row's
+    //    cancelledByAdmin* fields just come back null.
+    const orphanTarget = "orphan-cancelled@example.test";
+    const [orphanRow] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: orphanTarget,
+        expiresAt: new Date(now + 8 * HOUR),
+        cancelledAt: new Date(now - 30 * 60 * 1000),
+        cancelledByAdminId: null,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+
+    const res = await request(app)
+      .get(`/api/admin/members/${member.id}/full`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+
+    expect(res.status).toBe(200);
+    const attempts: Array<{
+      id: number;
+      status: string;
+      cancelledAt: string | null;
+      cancelledByAdminId: number | null;
+      cancelledByAdminName: string | null;
+      cancelledByAdminEmail: string | null;
+    }> = res.body.emailAttempts;
+
+    const cancelled = attempts.find((a) => a.id === cancelledRow.id);
+    expect(cancelled?.status).toBe("cancelled_by_admin");
+    expect(cancelled?.cancelledAt).toBeTruthy();
+    expect(cancelled?.cancelledByAdminId).toBe(adminRow.id);
+    expect(cancelled?.cancelledByAdminName).toBe("Cancel Admin");
+    expect(cancelled?.cancelledByAdminEmail).toBe(`${TAG}-cancel-admin@example.test`);
+
+    const orphan = attempts.find((a) => a.id === orphanRow.id);
+    expect(orphan?.status).toBe("cancelled_by_admin");
+    expect(orphan?.cancelledByAdminId).toBeNull();
+    expect(orphan?.cancelledByAdminName).toBeNull();
+  });
+
   it("requires members:view permission", async () => {
     const passwordHash = await bcrypt.hash("pw", 4);
     const [memberOnly] = await db

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, type SQL } from "drizzle-orm";
+import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
@@ -95,6 +96,13 @@ type RawEmailAttempt = {
   newEmail: string | null;
   createdAt: Date;
   expiresAt: Date | null;
+  // Populated when an admin cancelled this still-pending attempt via the
+  // member-detail page. The join on `users` is left-joined so the admin
+  // name/email may be null if the admin user has since been deleted.
+  cancelledAt?: Date | null;
+  cancelledByAdminId?: number | null;
+  cancelledByAdminName?: string | null;
+  cancelledByAdminEmail?: string | null;
 };
 
 type RawEmailHistory = {
@@ -110,7 +118,11 @@ export type ClassifiedEmailAttempt = {
   requestedAt: string;
   expiresAt: string | null;
   confirmedAt: string | null;
-  status: "pending" | "confirmed" | "expired" | "abandoned";
+  cancelledAt: string | null;
+  cancelledByAdminId: number | null;
+  cancelledByAdminName: string | null;
+  cancelledByAdminEmail: string | null;
+  status: "pending" | "confirmed" | "expired" | "abandoned" | "cancelled_by_admin";
 };
 
 // Classify each attempt as confirmed / pending / expired / abandoned by
@@ -171,9 +183,21 @@ export function classifyEmailAttempts(
   return attemptRows.map((a) => {
     const confirmedAt = matched.get(a.id) ?? null;
     const expiresAtMs = a.expiresAt ? a.expiresAt.getTime() : null;
-    let status: "pending" | "confirmed" | "expired" | "abandoned";
+    let status:
+      | "pending"
+      | "confirmed"
+      | "expired"
+      | "abandoned"
+      | "cancelled_by_admin";
     if (confirmedAt) {
+      // Confirmation always wins, even on rows we also marked cancelled —
+      // in practice an attempt can't be both, but if a race ever produces
+      // such a row the user-visible truth is "this email actually changed".
       status = "confirmed";
+    } else if (a.cancelledAt) {
+      // Admin-cancelled rows take precedence over the expired/abandoned
+      // bucket so support staff can tell why the attempt died.
+      status = "cancelled_by_admin";
     } else if (
       memberPendingEmail &&
       memberPendingEmail === a.newEmail?.toLowerCase() &&
@@ -196,6 +220,10 @@ export function classifyEmailAttempts(
       requestedAt: a.createdAt.toISOString(),
       expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
       confirmedAt: confirmedAt ? confirmedAt.toISOString() : null,
+      cancelledAt: a.cancelledAt ? a.cancelledAt.toISOString() : null,
+      cancelledByAdminId: a.cancelledByAdminId ?? null,
+      cancelledByAdminName: a.cancelledByAdminName ?? null,
+      cancelledByAdminEmail: a.cancelledByAdminEmail ?? null,
       status,
     };
   });
@@ -1021,21 +1049,32 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       //   1. Classification accuracy across the whole window (a newer attempt
       //      with the same email can shift which row a history row claims).
       //   2. To know the total so the UI can offer "Show older" paging.
-      safeQuery(
-        db.select({
+      safeQuery((async () => {
+        // Aliased self-join so we can render "cancelled by <admin name>" on
+        // the member detail page without a second round-trip per row.
+        const cancelledByAdmin = alias(usersTable, "cancelled_by_admin");
+        return db.select({
           id: emailChangeAttemptsTable.id,
           newEmail: emailChangeAttemptsTable.newEmail,
           createdAt: emailChangeAttemptsTable.createdAt,
           expiresAt: emailChangeAttemptsTable.expiresAt,
+          cancelledAt: emailChangeAttemptsTable.cancelledAt,
+          cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+          cancelledByAdminName: cancelledByAdmin.name,
+          cancelledByAdminEmail: cancelledByAdmin.email,
         })
           .from(emailChangeAttemptsTable)
+          .leftJoin(
+            cancelledByAdmin,
+            eq(cancelledByAdmin.id, emailChangeAttemptsTable.cancelledByAdminId),
+          )
           .where(and(
             eq(emailChangeAttemptsTable.userId, id),
             isNotNull(emailChangeAttemptsTable.newEmail),
           ))
           .orderBy(desc(emailChangeAttemptsTable.createdAt))
-          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP)
-      ),
+          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP);
+      })()),
       safeQuery(
         db.select({ id: phoneChangeHistoryTable.id, oldPhone: phoneChangeHistoryTable.oldPhone, newPhone: phoneChangeHistoryTable.newPhone, changedAt: phoneChangeHistoryTable.changedAt })
           .from(phoneChangeHistoryTable)
@@ -1125,21 +1164,32 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
           .orderBy(desc(emailChangeHistoryTable.changedAt))
           .limit(EMAIL_HISTORY_CLASSIFICATION_CAP),
       ),
-      safeQuery(
-        db.select({
+      safeQuery((async () => {
+        // Aliased self-join so we can render "cancelled by <admin name>" on
+        // the member detail page without a second round-trip per row.
+        const cancelledByAdmin = alias(usersTable, "cancelled_by_admin");
+        return db.select({
           id: emailChangeAttemptsTable.id,
           newEmail: emailChangeAttemptsTable.newEmail,
           createdAt: emailChangeAttemptsTable.createdAt,
           expiresAt: emailChangeAttemptsTable.expiresAt,
+          cancelledAt: emailChangeAttemptsTable.cancelledAt,
+          cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+          cancelledByAdminName: cancelledByAdmin.name,
+          cancelledByAdminEmail: cancelledByAdmin.email,
         })
           .from(emailChangeAttemptsTable)
+          .leftJoin(
+            cancelledByAdmin,
+            eq(cancelledByAdmin.id, emailChangeAttemptsTable.cancelledByAdminId),
+          )
           .where(and(
             eq(emailChangeAttemptsTable.userId, id),
             isNotNull(emailChangeAttemptsTable.newEmail),
           ))
           .orderBy(desc(emailChangeAttemptsTable.createdAt))
-          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP),
-      ),
+          .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP);
+      })()),
     ]);
 
     const classified = classifyEmailAttempts(
@@ -1268,11 +1318,35 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
 
     const previousPendingEmail = member.pendingEmail;
     const previousExpiresAt = member.emailChangeExpires;
+    const cancelledAt = new Date();
 
-    await db
-      .update(usersTable)
-      .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
-      .where(eq(usersTable.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(usersTable)
+        .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
+        .where(eq(usersTable.id, id));
+
+      // Mark the matching still-pending attempt row(s) as cancelled-by-admin
+      // so the Email change attempts card on the member detail page can
+      // surface this as a distinct status (vs. expired / abandoned). The
+      // attempt is identified by the same (newEmail, expiresAt) pair the
+      // member's user record had — those values were copied straight from
+      // the attempt row when /members/me/email created it. We only touch
+      // rows that aren't already cancelled so re-running the cancel doesn't
+      // overwrite the original admin/timestamp.
+      const matchClauses = [
+        eq(emailChangeAttemptsTable.userId, id),
+        isNull(emailChangeAttemptsTable.cancelledAt),
+        sql`lower(${emailChangeAttemptsTable.newEmail}) = lower(${previousPendingEmail})`,
+      ];
+      if (previousExpiresAt) {
+        matchClauses.push(eq(emailChangeAttemptsTable.expiresAt, previousExpiresAt));
+      }
+      await tx
+        .update(emailChangeAttemptsTable)
+        .set({ cancelledAt, cancelledByAdminId: req.userId! })
+        .where(and(...matchClauses));
+    });
 
     await logAdminAction(
       req,

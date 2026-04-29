@@ -3,7 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, auditLogTable } from "@workspace/db";
+import { db, usersTable, auditLogTable, emailChangeAttemptsTable } from "@workspace/db";
 import { eq, inArray, and, desc } from "drizzle-orm";
 
 vi.mock("../lib/redis", () => ({
@@ -77,6 +77,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (seededUserIds.length > 0) {
+    await db
+      .delete(emailChangeAttemptsTable)
+      .where(inArray(emailChangeAttemptsTable.userId, seededUserIds));
     await db
       .delete(auditLogTable)
       .where(inArray(auditLogTable.actorId, seededUserIds));
@@ -288,5 +291,54 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(after.pendingEmail).toBeNull();
     expect(after.emailChangeToken).toBeNull();
     expect(after.emailChangeExpires).toBeNull();
+  });
+
+  it("marks the matching email_change_attempts row as cancelled-by-admin", async () => {
+    const future = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    const targetEmail = `${TEST_TAG}-attempt-mark-new@example.test`;
+    const targetId = await seedMemberWithPending("attempt-mark", {
+      pendingEmail: targetEmail,
+      emailChangeToken: "feedface".repeat(8),
+      emailChangeExpires: future,
+    });
+
+    // Insert the matching attempt row that the cancel handler should mark.
+    const [matchingAttempt] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: targetId,
+        newEmail: targetEmail,
+        expiresAt: future,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+
+    // An older, unrelated attempt — must NOT be touched.
+    const [olderAttempt] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: targetId,
+        newEmail: `${TEST_TAG}-attempt-mark-other@example.test`,
+        expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+
+    const res = await request(app)
+      .post(`/api/admin/members/${targetId}/cancel-email-change`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const [matchedAfter] = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.id, matchingAttempt.id));
+    expect(matchedAfter.cancelledAt).toBeInstanceOf(Date);
+    expect(matchedAfter.cancelledByAdminId).toBe(adminId);
+
+    const [otherAfter] = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.id, olderAttempt.id));
+    expect(otherAfter.cancelledAt).toBeNull();
+    expect(otherAfter.cancelledByAdminId).toBeNull();
   });
 });

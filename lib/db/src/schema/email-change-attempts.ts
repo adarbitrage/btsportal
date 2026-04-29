@@ -16,6 +16,17 @@ export const emailChangeAttemptsTable = pgTable(
     // with the existence of a confirmed row in `email_change_history` to
     // classify each attempt as pending / confirmed / expired / abandoned.
     expiresAt: timestamp("expires_at", { withTimezone: true }),
+    // When an admin cancelled this still-pending attempt via the admin
+    // member-detail page. Both columns are populated together by the
+    // /admin/members/:id/cancel-email-change handler so support staff
+    // reviewing a member's history later can tell that the row was killed
+    // intentionally by an admin (vs. expired or abandoned by the member),
+    // who did it, and when.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledByAdminId: integer("cancelled_by_admin_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

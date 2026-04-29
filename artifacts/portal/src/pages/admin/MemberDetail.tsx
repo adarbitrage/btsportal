@@ -84,7 +84,11 @@ export default function MemberDetail() {
     requestedAt: string;
     expiresAt: string | null;
     confirmedAt: string | null;
-    status: "pending" | "confirmed" | "expired" | "abandoned";
+    cancelledAt: string | null;
+    cancelledByAdminId: number | null;
+    cancelledByAdminName: string | null;
+    cancelledByAdminEmail: string | null;
+    status: "pending" | "confirmed" | "expired" | "abandoned" | "cancelled_by_admin";
   };
   const [emailAttempts, setEmailAttempts] = useState<EmailAttemptRow[]>([]);
   const [emailAttemptsTotal, setEmailAttemptsTotal] = useState<number>(0);
@@ -291,6 +295,8 @@ export default function MemberDetail() {
         return <Badge variant="secondary" data-testid={`badge-attempt-status-${status}`}>Expired</Badge>;
       case "abandoned":
         return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>Abandoned</Badge>;
+      case "cancelled_by_admin":
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-transparent" data-testid={`badge-attempt-status-${status}`}>Cancelled by admin</Badge>;
       default:
         return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>{status}</Badge>;
     }
@@ -490,47 +496,63 @@ export default function MemberDetail() {
                     {hasMoreAttempts ? " There may be older ones below." : ""}
                   </p>
                 )}
-                {unconfirmedAttempts.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 text-sm"
-                    data-testid={`row-email-attempt-${entry.id}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono break-all" data-testid={`text-attempt-email-${entry.id}`}>
-                          {entry.newEmail}
-                        </span>
-                        {attemptStatusBadge(entry.status)}
+                {unconfirmedAttempts.map((entry: any) => {
+                  const cancelledByLabel =
+                    entry.cancelledByAdminName ||
+                    entry.cancelledByAdminEmail ||
+                    (entry.cancelledByAdminId
+                      ? `admin #${entry.cancelledByAdminId}`
+                      : "an admin");
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-3 p-2 rounded-md bg-muted/50 text-sm"
+                      data-testid={`row-email-attempt-${entry.id}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono break-all" data-testid={`text-attempt-email-${entry.id}`}>
+                            {entry.newEmail}
+                          </span>
+                          {attemptStatusBadge(entry.status)}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Requested {entry.requestedAt ? format(new Date(entry.requestedAt), "MMM d, yyyy 'at' h:mm a") : ""}
+                          {entry.expiresAt
+                            ? ` · ${
+                                entry.status === "pending"
+                                  ? "expires"
+                                  : entry.status === "expired"
+                                  ? "expired"
+                                  : "would have expired"
+                              } ${format(new Date(entry.expiresAt), "MMM d, yyyy 'at' h:mm a")}`
+                            : ""}
+                        </div>
+                        {entry.status === "cancelled_by_admin" && entry.cancelledAt && (
+                          <div
+                            className="text-xs text-muted-foreground mt-0.5"
+                            data-testid={`text-attempt-cancelled-by-${entry.id}`}
+                          >
+                            Cancelled by {cancelledByLabel} on {format(new Date(entry.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        Requested {entry.requestedAt ? format(new Date(entry.requestedAt), "MMM d, yyyy 'at' h:mm a") : ""}
-                        {entry.expiresAt
-                          ? ` · ${
-                              entry.status === "pending"
-                                ? "expires"
-                                : entry.status === "expired"
-                                ? "expired"
-                                : "would have expired"
-                            } ${format(new Date(entry.expiresAt), "MMM d, yyyy 'at' h:mm a")}`
-                          : ""}
-                      </div>
+                      {entry.status === "pending" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={handleCancelEmailChange}
+                          disabled={cancellingEmailChange}
+                          data-testid={`button-cancel-email-attempt-${entry.id}`}
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          {cancellingEmailChange ? "Cancelling..." : "Cancel pending change"}
+                        </Button>
+                      )}
                     </div>
-                    {entry.status === "pending" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={handleCancelEmailChange}
-                        disabled={cancellingEmailChange}
-                        data-testid={`button-cancel-email-attempt-${entry.id}`}
-                      >
-                        <X className="w-3 h-3 mr-1" />
-                        {cancellingEmailChange ? "Cancelling..." : "Cancel pending change"}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {(hasMoreAttempts || emailAttemptsTotal > 0) && (
                 <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
