@@ -566,32 +566,41 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
   }
 });
 
+// We page through the matching audit rows in chunks of this size and stream
+// each chunk to the response as we go. This keeps memory use bounded
+// regardless of how broad an admin's filters are — a year of activity that
+// previously hit the 10,000 row truncation cap now exports in full without
+// holding the whole result set in memory at once. The size is a balance:
+// larger batches mean fewer round-trips to Postgres but more memory per
+// batch and longer pauses between writes; 1,000 keeps both modest.
+const AUDIT_LOG_EXPORT_BATCH_SIZE = 1000;
+
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
+  const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
+  const conditions: any[] = [];
+  if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
+  if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
+  if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
+  if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
+  const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
+
   try {
-    const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
-    const conditions: any[] = [];
-    if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
-    if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
-    if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
-    if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    // Total count is computed up front so we can advertise it in a response
+    // header before we start streaming the body. That lets the UI show a
+    // "Exported N rows" toast without having to count rows itself. This is
+    // intentionally an *intent* count — the streaming body could still be
+    // truncated mid-flight by a client disconnect or a database error, in
+    // which case the partial download won't carry a separate "actually
+    // delivered" header. Clients that need a definitive count should treat
+    // a successful (full-body) download as authoritative.
+    const totalMatching = await safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(baseWhere),
+    );
 
-    const [totalMatching, logs] = await Promise.all([
-      safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
-      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id)).limit(AUDIT_LOG_EXPORT_CAP),
-    ]);
-
-    const truncated = totalMatching > logs.length;
     res.setHeader("X-Audit-Log-Total-Count", String(totalMatching));
-    res.setHeader("X-Audit-Log-Returned-Count", String(logs.length));
-    res.setHeader("X-Audit-Log-Export-Cap", String(AUDIT_LOG_EXPORT_CAP));
-    res.setHeader("X-Audit-Log-Truncated", truncated ? "true" : "false");
 
     const auditExposed = [
       "X-Audit-Log-Total-Count",
-      "X-Audit-Log-Returned-Count",
-      "X-Audit-Log-Export-Cap",
-      "X-Audit-Log-Truncated",
       "Content-Disposition",
     ];
     const existingExposed = res.getHeader("Access-Control-Expose-Headers");
@@ -605,32 +614,84 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
     // recipient to viewers without PII access (CSV embeds the description,
     // JSON includes the full row).
     const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const visibleLogs = canSeePii ? logs : logs.map(redactAuditRowPii);
+    const sanitize = (row: any) => (canSeePii ? row : redactAuditRowPii(row));
 
-    if (format === "json") {
+    const isJson = format === "json";
+    if (isJson) {
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", "attachment; filename=audit-log.json");
-      res.json(visibleLogs);
+      res.write("[");
     } else {
-      const header = "id,actor_id,actor_email,action_type,entity_type,entity_id,description,ip_address,created_at\n";
-      const rows = visibleLogs.map(l => [
-        l.id,
-        l.actorId,
-        l.actorEmail,
-        l.actionType,
-        l.entityType,
-        l.entityId,
-        l.description,
-        l.ipAddress,
-        l.createdAt,
-      ].map(csvEscape).join(",")).join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=audit-log.csv");
-      res.send(header + rows);
+      res.write("id,actor_id,actor_email,action_type,entity_type,entity_id,description,ip_address,created_at\n");
     }
+
+    // Keyset pagination over the id (the audit log's serial PK). We don't
+    // include created_at in the cursor on purpose: Postgres stores
+    // `timestamptz` to microsecond precision, but the JS Date round-trip
+    // collapses that to millisecond precision, so a `created_at = $cursor`
+    // comparison silently drops every row whose stored createdAt has any
+    // sub-millisecond component. Audit rows are inserted strictly in time
+    // order, and `id` is a monotonic serial, so ordering by `id DESC`
+    // produces the same row sequence as the more elaborate
+    // `(createdAt, id) DESC` keyset would — but the cursor is exact.
+    let cursorId: number | null = null;
+    let firstRow = true;
+    let aborted = false;
+    res.on("close", () => {
+      if (!res.writableEnded) aborted = true;
+    });
+
+    while (!aborted) {
+      const cursorClause = cursorId !== null ? lt(auditLogTable.id, cursorId) : undefined;
+      const whereClause = baseWhere && cursorClause
+        ? and(baseWhere, cursorClause)
+        : (cursorClause ?? baseWhere);
+
+      const batch = await db.select().from(auditLogTable)
+        .where(whereClause)
+        .orderBy(desc(auditLogTable.id))
+        .limit(AUDIT_LOG_EXPORT_BATCH_SIZE);
+
+      if (batch.length === 0) break;
+
+      for (const raw of batch) {
+        const row = sanitize(raw);
+        if (isJson) {
+          res.write(firstRow ? JSON.stringify(row) : "," + JSON.stringify(row));
+        } else {
+          const line = [
+            row.id,
+            row.actorId,
+            row.actorEmail,
+            row.actionType,
+            row.entityType,
+            row.entityId,
+            row.description,
+            row.ipAddress,
+            row.createdAt,
+          ].map(csvEscape).join(",");
+          res.write(firstRow ? line : "\n" + line);
+        }
+        firstRow = false;
+      }
+
+      cursorId = batch[batch.length - 1].id;
+      if (batch.length < AUDIT_LOG_EXPORT_BATCH_SIZE) break;
+    }
+
+    if (isJson) res.write("]");
+    res.end();
   } catch (error) {
     console.error("[Admin] Audit log export error:", error);
-    res.status(500).json({ error: "Failed to export audit log" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to export audit log" });
+    } else {
+      // Headers are already on the wire — best we can do is hang up so the
+      // client sees a truncated download instead of a silently-complete one.
+      res.destroy(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 });
 

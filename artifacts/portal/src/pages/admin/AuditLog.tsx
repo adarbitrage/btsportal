@@ -116,11 +116,13 @@ export default function AuditLog() {
   const handleExport = async (fmt: string) => {
     try {
       const res = await adminPanelApi.exportAuditLog(fmt, filters);
-      const truncated = res.headers.get("X-Audit-Log-Truncated") === "true";
       const totalCount = Number(res.headers.get("X-Audit-Log-Total-Count") || 0);
-      const returnedCount = Number(res.headers.get("X-Audit-Log-Returned-Count") || 0);
-      const cap = Number(res.headers.get("X-Audit-Log-Export-Cap") || 10000);
 
+      // The server now streams the full result set, so we no longer have to
+      // warn about a row cap. The await on res.blob() below only resolves
+      // once the entire stream has arrived, so by the time we show the
+      // toast the download really is complete and the matched count
+      // reflects what the file contains.
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -129,17 +131,10 @@ export default function AuditLog() {
       a.click();
       URL.revokeObjectURL(url);
 
-      if (truncated) {
-        toast({
-          title: "Export truncated",
-          description: `Your filters matched ${totalCount.toLocaleString()} rows, but the export is capped at ${cap.toLocaleString()} (${returnedCount.toLocaleString()} included). Narrow the date range or add filters to capture all rows.`,
-          variant: "destructive",
-          duration: 10000,
-        });
-      } else if (totalCount > 0) {
+      if (totalCount > 0) {
         toast({
           title: "Export complete",
-          description: `Exported ${returnedCount.toLocaleString()} row${returnedCount === 1 ? "" : "s"}.`,
+          description: `Exported ${totalCount.toLocaleString()} row${totalCount === 1 ? "" : "s"}.`,
         });
       }
     } catch (err: any) {
