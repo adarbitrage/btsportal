@@ -62,6 +62,10 @@ export function AdminNotifications() {
     low: "text-blue-600",
   };
 
+  const count = notifications.length;
+  const displayCount = count > 99 ? "99+" : String(count);
+  const ariaLabel = count > 0 ? `Notifications, ${count} unread` : "Notifications";
+
   return (
     <div ref={ref} className="relative" data-testid="admin-notifications">
       <Button
@@ -70,15 +74,16 @@ export function AdminNotifications() {
         className="relative p-2"
         onClick={() => setOpen(!open)}
         data-testid="button-admin-notifications"
-        aria-label="Notifications"
+        aria-label={ariaLabel}
       >
         <Bell className="w-4 h-4" />
-        {notifications.length > 0 && (
+        {count > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center"
+            className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-red-500 text-white text-[10px] leading-none rounded-full flex items-center justify-center"
             data-testid="badge-admin-notifications-count"
+            aria-hidden="true"
           >
-            {notifications.length}
+            {displayCount}
           </span>
         )}
       </Button>
