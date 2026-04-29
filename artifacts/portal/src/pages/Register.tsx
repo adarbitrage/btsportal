@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAuth, type RegisterError } from "@/lib/auth";
 import { Link } from "wouter";
-import { Turnstile } from "@/components/Turnstile";
+import { Turnstile, type TurnstileHandle } from "@/components/Turnstile";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | string
@@ -23,6 +23,7 @@ export default function Register() {
   // user which case happened.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState("");
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
     setCaptchaToken(token);
@@ -65,10 +66,14 @@ export default function Register() {
       // retry. Reset it on any other failure (CAPTCHA_INVALID, server
       // error, validation rejection after captcha was already verified)
       // because Turnstile tokens are single-use once siteverify consumes
-      // them. (See `routes/auth.ts` — middleware ordering doc.)
+      // them. (See `routes/auth.ts` — middleware ordering doc.) When we do
+      // clear the token, also reset the widget so a fresh challenge appears
+      // instead of leaving the user with a "solved" widget but a disabled
+      // submit button.
       const code = (err as RegisterError | undefined)?.code;
       if (code !== "RATE_LIMIT_EXCEEDED") {
         setCaptchaToken("");
+        turnstileRef.current?.reset();
       }
     } finally {
       setLoading(false);
@@ -231,6 +236,7 @@ export default function Register() {
           {TURNSTILE_SITE_KEY && (
             <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
               <Turnstile
+                ref={turnstileRef}
                 siteKey={TURNSTILE_SITE_KEY}
                 onToken={handleCaptchaToken}
               />

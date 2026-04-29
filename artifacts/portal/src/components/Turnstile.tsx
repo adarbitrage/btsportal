@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 declare global {
   interface Window {
@@ -62,19 +62,29 @@ interface TurnstileProps {
   theme?: "light" | "dark" | "auto";
 }
 
+export interface TurnstileHandle {
+  /**
+   * Reset the rendered widget back to its unsolved state. Safe to call before
+   * the widget has finished mounting — the call is silently ignored in that
+   * case. Use this after a submission failure so the user can solve the
+   * challenge again without manually re-clicking it.
+   */
+  reset: () => void;
+}
+
 /**
  * Cloudflare Turnstile widget. Loads the Turnstile script on demand and
  * renders a single widget into a managed container. Calls `onToken` with the
  * latest token whenever the user solves the challenge (or with `""` if the
  * token expires or the widget errors).
+ *
+ * Forwards a ref exposing a `reset()` handle so callers can re-arm the
+ * challenge after a failed submission.
  */
-export function Turnstile({
-  siteKey,
-  onToken,
-  onExpire,
-  onError,
-  theme = "auto",
-}: TurnstileProps) {
+export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(function Turnstile(
+  { siteKey, onToken, onExpire, onError, theme = "auto" },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   // Keep callbacks in refs so we can re-mount the widget only when siteKey
@@ -85,6 +95,21 @@ export function Turnstile({
   onTokenRef.current = onToken;
   onExpireRef.current = onExpire;
   onErrorRef.current = onError;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => {
+        if (!widgetIdRef.current || !window.turnstile) return;
+        try {
+          window.turnstile.reset(widgetIdRef.current);
+        } catch {
+          // ignore — widget may have been removed mid-reset
+        }
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -124,4 +149,4 @@ export function Turnstile({
   }, [siteKey, theme]);
 
   return <div ref={containerRef} />;
-}
+});

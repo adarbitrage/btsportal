@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAuth, type LoginError } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
-import { Turnstile } from "@/components/Turnstile";
+import { Turnstile, type TurnstileHandle } from "@/components/Turnstile";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | string
@@ -28,6 +28,7 @@ export default function Login() {
   const [resendNotice, setResendNotice] = useState("");
   const [resendError, setResendError] = useState("");
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
     setCaptchaToken(token);
@@ -75,8 +76,12 @@ export default function Login() {
       // Cloudflare and is still valid for a retry. Discarding it would
       // force the user to solve a fresh challenge for no reason. (See
       // `routes/auth.ts` — middleware ordering doc above /auth/login.)
+      // When we do clear the token, also reset the widget itself so a
+      // fresh challenge appears, otherwise the user is stuck with a
+      // "solved"-looking widget but a disabled submit button.
       if (loginErr.code !== "RATE_LIMIT_EXCEEDED") {
         setCaptchaToken("");
+        turnstileRef.current?.reset();
       }
     } finally {
       setLoading(false);
@@ -316,6 +321,7 @@ export default function Login() {
           {TURNSTILE_SITE_KEY && (
             <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
               <Turnstile
+                ref={turnstileRef}
                 siteKey={TURNSTILE_SITE_KEY}
                 onToken={handleCaptchaToken}
               />

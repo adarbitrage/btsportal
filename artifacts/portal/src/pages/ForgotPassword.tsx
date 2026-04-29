@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Turnstile } from "@/components/Turnstile";
+import { Turnstile, type TurnstileHandle } from "@/components/Turnstile";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
@@ -13,6 +13,7 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
     setCaptchaToken(token);
@@ -60,8 +61,12 @@ export default function ForgotPassword() {
         // retry. Discard it on any other failure (CAPTCHA_INVALID, server
         // error) because Turnstile tokens are single-use once siteverify
         // consumes them. (See `routes/auth.ts` — middleware ordering doc.)
+        // When we do clear the token, also reset the widget so a fresh
+        // challenge appears instead of leaving the user with a "solved"
+        // widget but a disabled submit button.
         if (code !== "RATE_LIMIT_EXCEEDED") {
           setCaptchaToken("");
+          turnstileRef.current?.reset();
         }
         return;
       }
@@ -73,6 +78,7 @@ export default function ForgotPassword() {
       // server, let alone whether captcha verification ran, so play it
       // safe and force a fresh challenge on the next attempt.
       setCaptchaToken("");
+      turnstileRef.current?.reset();
     } finally {
       setLoading(false);
     }
@@ -176,6 +182,7 @@ export default function ForgotPassword() {
             {TURNSTILE_SITE_KEY && (
               <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
                 <Turnstile
+                  ref={turnstileRef}
                   siteKey={TURNSTILE_SITE_KEY}
                   onToken={handleCaptchaToken}
                 />
