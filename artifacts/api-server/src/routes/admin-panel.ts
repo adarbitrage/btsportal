@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
 import { eq, and, gt, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
+import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
@@ -720,6 +721,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         api: { status: "up", uptime: process.uptime() },
         database: { status: dbOk ? "up" : "down", totalUsers: userCount, totalTickets: ticketCount },
         redis: { status: redisStatus, queueFallbacks },
+        signupChallenge: { enforced: isSignupChallengeEnforced() },
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },

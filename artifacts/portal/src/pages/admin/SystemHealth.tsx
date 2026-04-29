@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -112,6 +112,22 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {health.services?.signupChallenge && health.services.signupChallenge.enforced === false && (
+              <Card className="border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950/30">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-yellow-900 dark:text-yellow-200">Signup challenge is disabled</p>
+                    <p className="text-sm text-yellow-800/80 dark:text-yellow-200/80">
+                      The Cloudflare Turnstile secret is not configured, so signup requests
+                      are passing through without verification. Set <code>TURNSTILE_SECRET_KEY</code>
+                      in this environment to enforce the challenge.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Server className="w-4 h-4" />API Server</CardTitle></CardHeader>
@@ -145,6 +161,27 @@ export default function SystemHealth() {
                   </div>
                 </CardContent>
               </Card>
+
+              {health.services?.signupChallenge && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Signup Challenge</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <Badge variant={health.services.signupChallenge.enforced ? "success" : "warning"} data-testid="signup-challenge-status">
+                          {health.services.signupChallenge.enforced ? "Enforced" : "Disabled"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {health.services.signupChallenge.enforced
+                          ? "Cloudflare Turnstile is verifying signup requests on this server."
+                          : "TURNSTILE_SECRET_KEY is not set — signups bypass verification on this server."}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {health.services?.redis && (
                 <Card>

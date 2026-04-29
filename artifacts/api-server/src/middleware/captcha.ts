@@ -126,6 +126,16 @@ export function verifyCaptcha(
 }
 
 /**
+ * Returns whether the signup captcha challenge is actively enforced on
+ * the backend — i.e. whether `TURNSTILE_SECRET_KEY` is set to a
+ * non-empty value. Never returns or exposes the secret itself.
+ */
+export function isSignupChallengeEnforced(): boolean {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  return typeof secret === "string" && secret.trim().length > 0;
+}
+
+/**
  * Test-only helper: clear the cached "warned" flag so each test can
  * independently observe the dev-mode warning.
  */
