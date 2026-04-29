@@ -1756,27 +1756,49 @@ router.get("/admin/system/queue-fallback-events", requirePermission("system:view
  * `recordDeliveryAttempt` in `queue-fallback-alerter.ts`. The entityType
  * filter is belt-and-braces protection in case a future audit row reuses
  * the action type with a different entityType.
+ *
+ * In addition to the per-row events, the response includes a `stats` object
+ * grouping the outcomes of *all* alert deliveries from the last hour (not
+ * just the ones in the page) so the System Health UI can show a one-line
+ * summary ("last hour: 4 sent · 1 failed · 2 throttled") above the table
+ * without making a second round-trip. The window is independent of `limit`
+ * so the counter stays accurate even when fewer than 20 rows fit on screen.
  */
+const QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS = 60 * 60 * 1000;
 router.get("/admin/system/queue-fallback-alert-events", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
     const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
 
-    const rows = await db
-      .select({
-        id: auditLogTable.id,
-        createdAt: auditLogTable.createdAt,
-        entityId: auditLogTable.entityId,
-        description: auditLogTable.description,
-        metadata: auditLogTable.metadata,
-      })
-      .from(auditLogTable)
-      .where(and(
-        eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
-        eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
-      ))
-      .orderBy(desc(auditLogTable.createdAt))
-      .limit(limit);
+    const baseFilter = and(
+      eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+      eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
+    );
+
+    const statsSince = new Date(Date.now() - QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS);
+    const outcomeExpr = sql<string>`COALESCE(${auditLogTable.metadata}->>'outcome', 'unknown')`;
+    const [rows, statsRows] = await Promise.all([
+      db
+        .select({
+          id: auditLogTable.id,
+          createdAt: auditLogTable.createdAt,
+          entityId: auditLogTable.entityId,
+          description: auditLogTable.description,
+          metadata: auditLogTable.metadata,
+        })
+        .from(auditLogTable)
+        .where(baseFilter)
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(limit),
+      db
+        .select({
+          outcome: outcomeExpr,
+          count: sql<number>`count(*)`,
+        })
+        .from(auditLogTable)
+        .where(and(baseFilter, gte(auditLogTable.createdAt, statsSince)))
+        .groupBy(outcomeExpr),
+    ]);
 
     const events = rows.map((row) => {
       const meta = (row.metadata ?? {}) as Record<string, unknown>;
@@ -1805,7 +1827,33 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       };
     });
 
-    res.json({ events, limit });
+    const stats = { sent: 0, failed: 0, throttled: 0, skipped: 0, unknown: 0, total: 0 };
+    for (const row of statsRows) {
+      const count = Number(row.count) || 0;
+      stats.total += count;
+      switch (row.outcome) {
+        case "sent":
+          stats.sent += count;
+          break;
+        case "failed":
+          stats.failed += count;
+          break;
+        case "throttled":
+          stats.throttled += count;
+          break;
+        case "skipped":
+          stats.skipped += count;
+          break;
+        default:
+          stats.unknown += count;
+      }
+    }
+
+    res.json({
+      events,
+      limit,
+      stats: { windowMs: QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS, ...stats },
+    });
   } catch (error) {
     console.error("[Admin] Queue fallback alert events error:", error);
     res.status(500).json({ error: "Failed to fetch queue fallback alert events" });

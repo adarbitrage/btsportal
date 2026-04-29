@@ -244,6 +244,93 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
     expect(garbage.body.limit).toBe(50);
   });
 
+  it("excludes audit rows older than the rolling window from stats", async () => {
+    // Snapshot the current stats, then insert a single >1h-old "sent" row
+    // and re-snapshot. The stale row must not bump any stats bucket — that's
+    // the whole point of the rolling window being independent of `limit`.
+    const before = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=1")
+      .set("Cookie", adminCookie);
+    expect(before.status).toBe(200);
+    const baseline = before.body.stats;
+    expect(baseline).toBeDefined();
+    expect(baseline.windowMs).toBe(60 * 60 * 1000);
+
+    await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "sent",
+      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+    });
+
+    const after = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=1")
+      .set("Cookie", adminCookie);
+    expect(after.status).toBe(200);
+    const updated = after.body.stats;
+    expect(updated.sent).toBe(baseline.sent);
+    expect(updated.failed).toBe(baseline.failed);
+    expect(updated.throttled).toBe(baseline.throttled);
+    expect(updated.skipped).toBe(baseline.skipped);
+    expect(updated.unknown).toBe(baseline.unknown);
+    expect(updated.total).toBe(baseline.total);
+  });
+
+  it("returns rolling stats grouped by outcome over the last hour", async () => {
+    const now = Date.now();
+    const recentSent = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "sent",
+      createdAt: new Date(now - 5 * 60 * 1000),
+    });
+    const recentFailed = await insertAlertRow({
+      queueChannel: "sms",
+      deliveryChannel: "slack",
+      kind: "fire",
+      outcome: "failed",
+      reason: "boom",
+      createdAt: new Date(now - 2 * 60 * 1000),
+    });
+    const recentThrottled = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "email",
+      kind: "fire",
+      outcome: "throttled",
+      reason: "throttled",
+      createdAt: new Date(now - 30 * 1000),
+    });
+    // > 1 hour old; must not be counted in the rolling window.
+    const stale = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "sent",
+      createdAt: new Date(now - 2 * 60 * 60 * 1000),
+    });
+
+    const res = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=200")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.stats).toBeDefined();
+    expect(res.body.stats.windowMs).toBe(60 * 60 * 1000);
+    // Other tests in the suite seed rows with `createdAt` defaulting to "now",
+    // so we use >= rather than equality on each bucket.
+    expect(res.body.stats.sent).toBeGreaterThanOrEqual(1);
+    expect(res.body.stats.failed).toBeGreaterThanOrEqual(1);
+    expect(res.body.stats.throttled).toBeGreaterThanOrEqual(1);
+    expect(res.body.stats.total).toBeGreaterThanOrEqual(3);
+    // Sanity: at least our 3 in-window rows are reflected, but the stale row
+    // (2h old) should not push `sent` higher than the rows visible in the page.
+    const ourRecentIds = [recentSent, recentFailed, recentThrottled];
+    const visibleIds = res.body.events.map((e: { id: number }) => e.id);
+    for (const id of ourRecentIds) expect(visibleIds).toContain(id);
+    expect(visibleIds).toContain(stale);
+  });
+
   it("rejects callers without system:view permission", async () => {
     const res = await request(app)
       .get("/api/admin/system/queue-fallback-alert-events")

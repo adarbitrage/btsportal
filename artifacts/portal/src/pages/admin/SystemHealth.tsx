@@ -28,6 +28,16 @@ interface QueueFallbackAlertEvent {
   description: string;
 }
 
+interface QueueFallbackAlertStats {
+  windowMs: number;
+  sent: number;
+  failed: number;
+  throttled: number;
+  skipped: number;
+  unknown: number;
+  total: number;
+}
+
 const FALLBACK_EVENTS_LIMIT = 50;
 const ALERT_EVENTS_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
@@ -40,6 +50,7 @@ export default function SystemHealth() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [alertEvents, setAlertEvents] = useState<QueueFallbackAlertEvent[]>([]);
+  const [alertStats, setAlertStats] = useState<QueueFallbackAlertStats | null>(null);
   const [alertEventsLoading, setAlertEventsLoading] = useState(true);
   const [alertEventsError, setAlertEventsError] = useState<string | null>(null);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
@@ -137,6 +148,7 @@ export default function SystemHealth() {
       if (!silent) setAlertEventsLoading(true);
       const data = await adminPanelApi.getQueueFallbackAlertEvents(ALERT_EVENTS_LIMIT);
       setAlertEvents(Array.isArray(data?.events) ? data.events : []);
+      setAlertStats(data?.stats && typeof data.stats === "object" ? (data.stats as QueueFallbackAlertStats) : null);
       setAlertEventsError(null);
       return true;
     } catch (err: any) {
@@ -234,6 +246,17 @@ export default function SystemHealth() {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m}m`;
+  };
+
+  const formatAlertStatsWindow = (windowMs: number) => {
+    if (!Number.isFinite(windowMs) || windowMs <= 0) return "recent";
+    const minutes = Math.round(windowMs / 60000);
+    if (minutes < 60) return `last ${minutes}m`;
+    const hours = Math.round(windowMs / (60 * 60 * 1000));
+    if (hours === 1) return "last hour";
+    if (hours < 24) return `last ${hours}h`;
+    const days = Math.round(windowMs / (24 * 60 * 60 * 1000));
+    return days === 1 ? "last 24h" : `last ${days}d`;
   };
 
   return (
@@ -874,6 +897,52 @@ export default function SystemHealth() {
                 </p>
               </CardHeader>
               <CardContent className="p-0">
+                {alertStats && (
+                  <div
+                    className="px-4 py-2 border-b bg-muted/20 text-xs flex flex-wrap items-center gap-x-3 gap-y-1"
+                    data-testid="alert-events-summary"
+                  >
+                    <span className="text-muted-foreground">
+                      {formatAlertStatsWindow(alertStats.windowMs)}:
+                    </span>
+                    <span data-testid="alert-stats-sent">
+                      <span className="font-medium">{alertStats.sent}</span>
+                      <span className="text-muted-foreground"> sent</span>
+                    </span>
+                    <span className="text-muted-foreground">·</span>
+                    <span
+                      className={alertStats.failed > 0 ? "text-red-600" : ""}
+                      data-testid="alert-stats-failed"
+                    >
+                      <span className="font-medium">{alertStats.failed}</span>
+                      <span className={alertStats.failed > 0 ? "text-red-600/80" : "text-muted-foreground"}> failed</span>
+                    </span>
+                    <span className="text-muted-foreground">·</span>
+                    <span data-testid="alert-stats-throttled">
+                      <span className="font-medium">{alertStats.throttled}</span>
+                      <span className="text-muted-foreground"> throttled</span>
+                    </span>
+                    <span className="text-muted-foreground">·</span>
+                    <span data-testid="alert-stats-skipped">
+                      <span className="font-medium">{alertStats.skipped}</span>
+                      <span className="text-muted-foreground"> skipped</span>
+                    </span>
+                    {alertStats.unknown > 0 && (
+                      <>
+                        <span className="text-muted-foreground">·</span>
+                        <span data-testid="alert-stats-unknown">
+                          <span className="font-medium">{alertStats.unknown}</span>
+                          <span className="text-muted-foreground"> unknown</span>
+                        </span>
+                      </>
+                    )}
+                    {alertStats.total === 0 && (
+                      <span className="text-muted-foreground italic" data-testid="alert-stats-quiet">
+                        — no alerts dispatched
+                      </span>
+                    )}
+                  </div>
+                )}
                 {alertEventsLoading && alertEvents.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground text-sm" data-testid="alert-events-loading">Loading recent alert deliveries...</div>
                 ) : alertEventsError ? (
