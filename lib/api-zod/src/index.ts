@@ -14,6 +14,7 @@ export type {
   AdminBulkPublishLessons200,
   AdminBulkPublishLessons200PublishedItem,
   AdminBulkPublishLessonsBody,
+  AdminCancelledEmailChange,
   AdminChatSessionDetail,
   AdminChatSessionList,
   AdminChatSessionSummary,

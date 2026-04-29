@@ -5,6 +5,7 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { AdminCancelledEmailChange } from "./adminCancelledEmailChange";
 import type { OwnedProduct } from "./ownedProduct";
 
 export interface MemberProfile {
@@ -16,6 +17,14 @@ export interface MemberProfile {
    * @nullable
    */
   pendingEmail?: string | null;
+  /** Set when the member's most recent email-change attempt was cancelled
+by an admin and there's no newer attempt since. The portal uses this
+to surface a one-line note on the security/account page so members
+understand why a pending change vanished. `null` when there is no
+recent admin cancellation to surface (e.g. the member completed,
+cancelled themselves, or has a newer attempt in flight).
+ */
+  lastAdminCancelledEmailChange?: AdminCancelledEmailChange | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */

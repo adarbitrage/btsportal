@@ -25,6 +25,28 @@ export const GetCurrentMemberResponse = zod.object({
     .string()
     .nullish()
     .describe("Address awaiting click-to-confirm verification, if any."),
+  lastAdminCancelledEmailChange: zod
+    .union([
+      zod
+        .object({
+          newEmail: zod
+            .string()
+            .describe(
+              "The address the member tried to change to before the cancellation.",
+            ),
+          cancelledAt: zod
+            .date()
+            .describe("When the admin cancelled the pending change."),
+        })
+        .describe(
+          "Snapshot of the most recent email-change attempt that an admin\ncancelled on the member's behalf. Surfaced on \/members\/me so the\nportal can explain why a previously pending change has disappeared.\n",
+        ),
+      zod.null(),
+    ])
+    .optional()
+    .describe(
+      "Set when the member's most recent email-change attempt was cancelled\nby an admin and there's no newer attempt since. The portal uses this\nto surface a one-line note on the security\/account page so members\nunderstand why a pending change vanished. `null` when there is no\nrecent admin cancellation to surface (e.g. the member completed,\ncancelled themselves, or has a newer attempt in flight).\n",
+    ),
   phone: zod.string().nullish(),
   timezone: zod.string().nullish(),
   sourceProduct: zod.string().nullish(),

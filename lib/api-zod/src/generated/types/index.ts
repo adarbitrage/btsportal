@@ -13,6 +13,7 @@ export * from "./adminBulkMoveLessonsBody";
 export * from "./adminBulkPublishLessons200";
 export * from "./adminBulkPublishLessons200PublishedItem";
 export * from "./adminBulkPublishLessonsBody";
+export * from "./adminCancelledEmailChange";
 export * from "./adminChatSessionDetail";
 export * from "./adminChatSessionList";
 export * from "./adminChatSessionSummary";

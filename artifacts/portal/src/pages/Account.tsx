@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { User, Lock, Bell, Mail, Clock } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock, AlertTriangle } from "lucide-react";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
@@ -319,6 +319,32 @@ export default function Account() {
                         {cancellingEmail ? "Cancelling..." : "Cancel pending change"}
                       </button>
                     </div>
+                  </div>
+                ) : member.lastAdminCancelledEmailChange ? (
+                  <div
+                    className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-900 flex items-start gap-2"
+                    data-testid="email-admin-cancelled-banner"
+                  >
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <p className="flex-1">
+                      Your pending change to{" "}
+                      <strong data-testid="text-admin-cancelled-email">
+                        {member.lastAdminCancelledEmailChange.newEmail}
+                      </strong>{" "}
+                      was cancelled by an administrator on{" "}
+                      <span data-testid="text-admin-cancelled-at">
+                        {new Date(
+                          member.lastAdminCancelledEmailChange.cancelledAt,
+                        ).toLocaleString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      . Please contact support if you weren't expecting this.
+                    </p>
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">

@@ -482,6 +482,42 @@ export default function AuditLog() {
                               )}
                             </>
                           )}
+                          {log.actionType === "cancel_email_change" && (
+                            <>
+                              {/* Structured snapshot of the cancelled email-change attempt.
+                                  Member email and the cancelled target address are PII —
+                                  the audit-log endpoint strips them from `metadata` for
+                                  viewers without `members:pii`, so we surface "redacted"
+                                  in their place rather than guessing or omitting the row.
+                                  `before.pendingEmail` is the same value as
+                                  `previousPendingEmail` and is shown as a fallback for
+                                  legacy rows written before the structured field landed.
+                                  Cancelled-at is the audit log's own createdAt. */}
+                              <div data-testid={`cancel-email-member-${log.id}`}>
+                                <span className="text-muted-foreground">Member:</span>{" "}
+                                {log.metadata?.memberEmail || (
+                                  <span className="text-muted-foreground italic">redacted</span>
+                                )}
+                              </div>
+                              <div data-testid={`cancel-email-target-${log.id}`}>
+                                <span className="text-muted-foreground">Cancelled target:</span>{" "}
+                                {log.metadata?.previousPendingEmail ||
+                                  log.metadata?.before?.pendingEmail || (
+                                    <span className="text-muted-foreground italic">redacted</span>
+                                  )}
+                              </div>
+                              <div data-testid={`cancel-email-cancelled-at-${log.id}`}>
+                                <span className="text-muted-foreground">Cancelled at:</span>{" "}
+                                {log.createdAt
+                                  ? format(new Date(log.createdAt), "MMM d, yyyy h:mm a")
+                                  : "N/A"}
+                              </div>
+                              <div data-testid={`cancel-email-cancelled-by-${log.id}`}>
+                                <span className="text-muted-foreground">Cancelled by:</span>{" "}
+                                {log.actorEmail || (log.actorId ? `admin #${log.actorId}` : "an admin")}
+                              </div>
+                            </>
+                          )}
                           {log.actionType === "queue_fallback_alert" && (
                             <>
                               <div data-testid={`alert-queue-channel-${log.id}`}>
@@ -531,7 +567,7 @@ export default function AuditLog() {
                             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.changeDiff, null, 2)}</pre>
                           </div>
                         )}
-                        {log.metadata && log.actionType !== "queue_fallback" && log.actionType !== "queue_fallback_alert" && (
+                        {log.metadata && log.actionType !== "queue_fallback" && log.actionType !== "queue_fallback_alert" && log.actionType !== "cancel_email_change" && (
                           <div className="mt-3">
                             <p className="text-xs text-muted-foreground mb-1">Metadata:</p>
                             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.metadata, null, 2)}</pre>

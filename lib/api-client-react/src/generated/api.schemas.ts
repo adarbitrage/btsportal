@@ -368,6 +368,19 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * Snapshot of the most recent email-change attempt that an admin
+cancelled on the member's behalf. Surfaced on /members/me so the
+portal can explain why a previously pending change has disappeared.
+
+ */
+export interface AdminCancelledEmailChange {
+  /** The address the member tried to change to before the cancellation. */
+  newEmail: string;
+  /** When the admin cancelled the pending change. */
+  cancelledAt: string;
+}
+
 export interface OwnedProduct {
   id: number;
   productId: number;
@@ -389,6 +402,14 @@ export interface MemberProfile {
    * @nullable
    */
   pendingEmail?: string | null;
+  /** Set when the member's most recent email-change attempt was cancelled
+by an admin and there's no newer attempt since. The portal uses this
+to surface a one-line note on the security/account page so members
+understand why a pending change vanished. `null` when there is no
+recent admin cancellation to surface (e.g. the member completed,
+cancelled themselves, or has a newer attempt in flight).
+ */
+  lastAdminCancelledEmailChange?: AdminCancelledEmailChange | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */

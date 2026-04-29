@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db, usersTable, sessionsTable, emailChangeAttemptsTable } from "@workspace/db";
-import { eq, and, isNull, ne, gte, sql } from "drizzle-orm";
+import { eq, and, isNull, ne, gte, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import {
   GetCurrentMemberResponse,
@@ -52,6 +52,37 @@ router.get("/members/me", async (req, res): Promise<void> => {
   const highest = getHighestProductLabel(entitlements);
   const ticketLimit = getSupportTicketLimit(entitlements);
 
+  // Surface the most recent admin-cancelled email change so the security
+  // page can explain why a previously-pending change has disappeared.
+  // We only look at the very latest attempt — if the member has since
+  // started a new attempt (or completed one) the cancellation is no
+  // longer the freshest signal and we hide it to avoid stale toasts on
+  // the account page.
+  const [latestAttempt] = await db
+    .select({
+      newEmail: emailChangeAttemptsTable.newEmail,
+      cancelledAt: emailChangeAttemptsTable.cancelledAt,
+      cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
+    })
+    .from(emailChangeAttemptsTable)
+    .where(eq(emailChangeAttemptsTable.userId, userId))
+    .orderBy(desc(emailChangeAttemptsTable.createdAt))
+    .limit(1);
+
+  // Pass the Date instance through unchanged: GetCurrentMemberResponse.parse()
+  // is generated from `format: date-time` and therefore expects a real Date.
+  // res.json() serialises it to an ISO string before it goes over the wire.
+  const lastAdminCancelledEmailChange =
+    latestAttempt &&
+    latestAttempt.cancelledByAdminId != null &&
+    latestAttempt.cancelledAt &&
+    latestAttempt.newEmail
+      ? {
+          newEmail: latestAttempt.newEmail,
+          cancelledAt: latestAttempt.cancelledAt,
+        }
+      : null;
+
   res.json(GetCurrentMemberResponse.parse({
     id: user.id,
     name: user.name,
@@ -62,6 +93,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
       user.emailChangeExpires > new Date()
         ? user.pendingEmail
         : null,
+    lastAdminCancelledEmailChange,
     phone: user.phone,
     timezone: user.timezone,
     sourceProduct: user.sourceProduct,

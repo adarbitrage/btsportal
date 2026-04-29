@@ -5988,6 +5988,17 @@ components:
         pendingEmail:
           type: ["string", "null"]
           description: Address awaiting click-to-confirm verification, if any.
+        lastAdminCancelledEmailChange:
+          oneOf:
+            - $ref: "#/components/schemas/AdminCancelledEmailChange"
+            - type: "null"
+          description: |
+            Set when the member's most recent email-change attempt was cancelled
+            by an admin and there's no newer attempt since. The portal uses this
+            to surface a one-line note on the security/account page so members
+            understand why a pending change vanished. `null` when there is no
+            recent admin cancellation to surface (e.g. the member completed,
+            cancelled themselves, or has a newer attempt in flight).
         phone:
           type: ["string", "null"]
         timezone:
@@ -6027,6 +6038,22 @@ components:
         ticketLimit:
           type: integer
       required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+
+    AdminCancelledEmailChange:
+      type: object
+      description: |
+        Snapshot of the most recent email-change attempt that an admin
+        cancelled on the member's behalf. Surfaced on /members/me so the
+        portal can explain why a previously pending change has disappeared.
+      properties:
+        newEmail:
+          type: string
+          description: The address the member tried to change to before the cancellation.
+        cancelledAt:
+          type: string
+          format: date-time
+          description: When the admin cancelled the pending change.
+      required: [newEmail, cancelledAt]
 
     OwnedProduct:
       type: object
