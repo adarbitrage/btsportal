@@ -82,20 +82,31 @@ async function fetchWith(query: Record<string, string | number>) {
   expect(res.status).toBe(200);
   return res.body as {
     logs: Array<{ id: number }>;
-    pagination: { page: number | null; limit: number; total: number | null; totalPages: number | null };
+    pagination: {
+      page: number | null;
+      limit: number;
+      total: number | null;
+      totalPages: number | null;
+      totalIsApproximate?: boolean;
+    };
     cursors: { next: string | null; prev: string | null };
     expand?: { targetId: number; found: boolean };
   };
 }
 
 describe("/admin/audit-log expand=<id>", () => {
-  it("defaults to the newest page in cursor mode (no page count required)", async () => {
+  it("defaults to the newest page in cursor mode and includes a bounded match count", async () => {
     const body = await fetchWith({ limit: PAGE_SIZE });
-    // Cursor-mode default: no page/totalPages, just the newest slice and a
-    // forward cursor pointing at the next (older) page.
+    // Cursor-mode default: no legacy page/totalPages numbers, just the
+    // newest slice and a forward cursor pointing at the next (older) page.
     expect(body.pagination.page).toBeNull();
-    expect(body.pagination.total).toBeNull();
     expect(body.pagination.totalPages).toBeNull();
+    // The "N matching rows" header on the portal still needs a count, so
+    // the first-page response carries it. With a small seeded set the
+    // bounded count returns the exact number and `totalIsApproximate` is
+    // false (the cap-fired path is exercised in the dedicated test).
+    expect(body.pagination.total).toBe(TOTAL_ROWS);
+    expect(body.pagination.totalIsApproximate).toBe(false);
     expect(body.logs.map((l) => l.id)).toEqual(newestFirstIds.slice(0, PAGE_SIZE));
     expect(body.cursors.next).toBeTruthy();
     expect(body.cursors.prev).toBeNull();

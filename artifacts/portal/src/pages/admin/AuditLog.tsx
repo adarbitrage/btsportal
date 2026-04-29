@@ -100,9 +100,14 @@ export default function AuditLog() {
   const [cursors, setCursors] = useState<{ next: string | null; prev: string | null }>({ next: null, prev: null });
   // Total rows matching the active filters and the server-enforced export
   // cap. Both come from the API on filter changes (the cursor-paginated
-  // calls intentionally skip the COUNT(*) so paging stays cheap), so we
-  // hold the most recent values across pagination here.
+  // calls intentionally skip the count so paging stays cheap), so we hold
+  // the most recent values across pagination here. The server caps the
+  // count at the export hard cap with a `LIMIT cap+1` subquery so the
+  // first paint isn't blocked on a multi-million-row count(*); when the
+  // true total exceeds the cap, `totalIsApproximate` is true and we
+  // render "More than N matching rows" / "N+ entries" in the UI.
   const [totalMatching, setTotalMatching] = useState<number | null>(null);
+  const [totalIsApproximate, setTotalIsApproximate] = useState<boolean>(false);
   const [exportCap, setExportCap] = useState<number>(10000);
   const [filters, setFilters] = useState<{
     actionType: string;
@@ -193,8 +198,14 @@ export default function AuditLog() {
       // load, deep-link `expand=`, and `jumpTo=`) — cursor pagination skips
       // it to stay O(log n + page_size). Keep the prior count when it's
       // null so the UI doesn't flicker as the user clicks Newer/Older.
+      // `totalIsApproximate` rides alongside `total` and is true when the
+      // server hit its `LIMIT cap+1` ceiling — the displayed count is then
+      // a lower bound and the UI renders "More than N matching rows".
       const apiTotal = data.pagination?.total;
-      if (typeof apiTotal === "number") setTotalMatching(apiTotal);
+      if (typeof apiTotal === "number") {
+        setTotalMatching(apiTotal);
+        setTotalIsApproximate(Boolean(data.pagination?.totalIsApproximate));
+      }
       if (typeof data.exportCap === "number") setExportCap(data.exportCap);
       if (expand != null) initialExpandRef.current = null;
       if (jumpTo != null) {
@@ -380,7 +391,12 @@ export default function AuditLog() {
 
   const hasNewer = cursors.prev !== null;
   const hasOlder = cursors.next !== null;
-  const willTruncate = totalMatching != null && totalMatching > exportCap;
+  // The server caps its count at `exportCap`, so when `totalIsApproximate`
+  // fires we know the true total exceeds the export cap → an export will
+  // be truncated. Either signal alone is sufficient (approximate ⇒ over
+  // the cap; an exact total over the cap can only come back from a non-
+  // capped path), so OR the two for safety.
+  const willTruncate = totalIsApproximate || (totalMatching != null && totalMatching > exportCap);
   // Date-range hint for the current page. Logs are returned newest-first
   // (descending by createdAt), so logs[0] is the newest row in the visible
   // window and logs[last] is the oldest. Computing these client-side avoids
@@ -406,10 +422,17 @@ export default function AuditLog() {
   const exportRowCount = totalMatching == null
     ? null
     : Math.min(totalMatching, exportCap);
+  // When the count is approximate we know the true total is at least
+  // `exportCap + 1`, so the export-truncation copy reads "more than N"
+  // rather than the exact-cap number — same shape as the matching-rows
+  // header below.
+  const matchedCopy = totalMatching != null
+    ? `${totalIsApproximate ? "more than " : ""}${totalMatching.toLocaleString()}`
+    : "";
   const exportTooltip = totalMatching == null
     ? "Loading row count…"
     : willTruncate
-      ? `Your filters match ${totalMatching.toLocaleString()} rows, but exports are capped at ${exportCap.toLocaleString()}. Narrow the date range or add filters to capture all rows.`
+      ? `Your filters match ${matchedCopy} rows, but exports are capped at ${exportCap.toLocaleString()}. Narrow the date range or add filters to capture all rows.`
       : `Exports all ${totalMatching.toLocaleString()} matching row${totalMatching === 1 ? "" : "s"}.`;
 
   return (
@@ -430,7 +453,7 @@ export default function AuditLog() {
               >
                 {totalMatching == null
                   ? "Counting…"
-                  : `${totalMatching.toLocaleString()} matching row${totalMatching === 1 ? "" : "s"}`}
+                  : `${totalIsApproximate ? "More than " : ""}${totalMatching.toLocaleString()} matching row${totalMatching === 1 && !totalIsApproximate ? "" : "s"}`}
               </span>
               {pageRangeLabel && (
                 <span
@@ -862,7 +885,7 @@ export default function AuditLog() {
               <p className="text-sm text-muted-foreground">
                 {logs.length > 0
                   ? totalMatching != null
-                    ? `Showing ${logs.length.toLocaleString()} of ${totalMatching.toLocaleString()} entr${totalMatching === 1 ? "y" : "ies"}`
+                    ? `Showing ${logs.length.toLocaleString()} of ${totalIsApproximate ? "more than " : ""}${totalMatching.toLocaleString()} entr${totalMatching === 1 && !totalIsApproximate ? "y" : "ies"}`
                     : `Showing ${logs.length.toLocaleString()} entr${logs.length === 1 ? "y" : "ies"}`
                   : ""}
               </p>

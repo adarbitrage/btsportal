@@ -581,6 +581,39 @@ function rowToCursor(row: { cursorTs?: string | null; id: number }): AuditCursor
   return { t: row.cursorTs, i: row.id };
 }
 
+// Bounded "N matching rows" count for the admin Audit Log read endpoint.
+// The export-truncation warning and the "N matching rows" display both
+// depend on this value, but a full filtered `count(*)` against a multi-
+// million-row audit_log is the dominant cost of the page load. Instead we
+// aggregate inside a `LIMIT cap+1` subquery so Postgres stops reading
+// after at most `cap + 1` matching rows — bounded work even when the true
+// total is in the millions. When the true total exceeds the cap we report
+// `capped: true` so the UI can render "More than N matching rows" and the
+// truncation warning still fires. The cap is always the export hard cap
+// (so `total > exportCap` and `capped` carry the same information about
+// whether an export will be truncated).
+async function safeCappedAuditCount(
+  whereClause: SQL | undefined,
+  cap: number,
+): Promise<{ count: number; capped: boolean }> {
+  try {
+    const whereSql = whereClause ? sql`WHERE ${whereClause}` : sql``;
+    const result = await db.execute(sql`
+      SELECT count(*)::int AS count FROM (
+        SELECT 1 FROM ${auditLogTable}
+        ${whereSql}
+        LIMIT ${cap + 1}
+      ) sub
+    `);
+    const rows = (result as unknown as { rows?: Array<{ count: number | string }> }).rows ?? [];
+    const raw = Number(rows[0]?.count ?? 0);
+    if (raw > cap) return { count: cap, capped: true };
+    return { count: raw, capped: false };
+  } catch {
+    return { count: 0, capped: false };
+  }
+}
+
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
     const { actionType, entityType, actorId, startDate, endDate, outcome, page, limit = "50", expand, cursor, direction, jumpTo } = req.query;
@@ -679,18 +712,26 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           const first = logs[0];
           const last = logs[logs.length - 1];
 
-          // Single COUNT(*) over the active filters so the UI can show
-          // "N matching" alongside the export buttons. This runs once per
-          // filter change (the deep-link path is a first fetch); follow-up
-          // cursor pagination skips it.
-          const total = await safeCount(
-            db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
-          );
+          // Bounded count (LIMIT cap+1 inside a subquery) so the UI can
+          // show "N matching" alongside the export buttons without paying
+          // for a full filtered count(*) on a multi-million-row audit log.
+          // Runs once per filter change (the deep-link path is a first
+          // fetch); follow-up cursor pagination skips it. When the true
+          // total exceeds the cap, `totalIsApproximate` flips to true and
+          // the UI renders "More than N matching rows".
+          const exportCap = resolveAuditLogExportHardCap();
+          const cappedTotal = await safeCappedAuditCount(whereClause, exportCap);
 
           res.json({
             logs: sanitize(logs),
-            pagination: { page: null, limit: limitNum, total, totalPages: null },
-            exportCap: resolveAuditLogExportHardCap(),
+            pagination: {
+              page: null,
+              limit: limitNum,
+              total: cappedTotal.count,
+              totalPages: null,
+              totalIsApproximate: cappedTotal.capped,
+            },
+            exportCap,
             cursors: {
               next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
               prev: hasMoreNewer && first ? encodeAuditCursor(rowToCursor(first)!) : null,
@@ -746,16 +787,23 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
         hasNewer = probe.length > 0;
       }
 
-      // Single COUNT(*) so the UI can show "N matching" alongside exports —
-      // matches the behaviour of the first-page and expand= branches.
-      const total = await safeCount(
-        db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
-      );
+      // Bounded count (LIMIT cap+1) so the UI can show "N matching"
+      // alongside exports — matches the behaviour of the first-page and
+      // expand= branches. See `safeCappedAuditCount` for why we don't
+      // issue a full count(*) here.
+      const exportCap = resolveAuditLogExportHardCap();
+      const cappedTotal = await safeCappedAuditCount(whereClause, exportCap);
 
       res.json({
         logs: sanitize(window),
-        pagination: { page: null, limit: limitNum, total, totalPages: null },
-        exportCap: resolveAuditLogExportHardCap(),
+        pagination: {
+          page: null,
+          limit: limitNum,
+          total: cappedTotal.count,
+          totalPages: null,
+          totalIsApproximate: cappedTotal.capped,
+        },
+        exportCap,
         cursors: {
           next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
           // If the window is empty (jumped before any matching rows exist)
@@ -858,22 +906,33 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     }
 
     // First page in cursor mode — no anchor yet, so just take the newest N.
-    // We also run a single COUNT(*) for the active filters so the UI can
-    // surface "N matching" alongside the export buttons. This only fires on
-    // filter changes (the cursor branches above stay count-free).
-    const [rows, totalForFilters] = await Promise.all([
+    // We also run a bounded "N matching" count for the active filters so
+    // the UI can surface the row count and export-truncation warning. The
+    // count is capped via a `LIMIT cap+1` subquery so it stays cheap on
+    // multi-million-row audit logs (see `safeCappedAuditCount`); when the
+    // cap fires the response carries `totalIsApproximate: true`. This
+    // only runs on filter changes — the cursor branches above stay
+    // count-free.
+    const exportCap = resolveAuditLogExportHardCap();
+    const [rows, cappedTotal] = await Promise.all([
       db.select(auditSelectWithCursor()).from(auditLogTable).where(whereClause)
         .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
         .limit(limitNum + 1),
-      safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
+      safeCappedAuditCount(whereClause, exportCap),
     ]);
     const hasMoreOlder = rows.length > limitNum;
     const window = hasMoreOlder ? rows.slice(0, limitNum) : rows;
     const last = window[window.length - 1];
     res.json({
       logs: sanitize(window),
-      pagination: { page: null, limit: limitNum, total: totalForFilters, totalPages: null },
-      exportCap: resolveAuditLogExportHardCap(),
+      pagination: {
+        page: null,
+        limit: limitNum,
+        total: cappedTotal.count,
+        totalPages: null,
+        totalIsApproximate: cappedTotal.capped,
+      },
+      exportCap,
       cursors: {
         next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
         prev: null,
