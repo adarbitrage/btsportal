@@ -74,6 +74,7 @@ export default function MemberDetail() {
   const [grantExpiresAt, setGrantExpiresAt] = useState<string>("");
   const [grantSubmitting, setGrantSubmitting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page (audit retention is 90 days). The first page comes in
@@ -237,6 +238,7 @@ export default function MemberDetail() {
       setUnlocking(true);
       await adminPanelApi.unlockMember(memberId);
       toast({ title: "Account unlocked" });
+      setUnlockConfirmOpen(false);
       load();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -358,15 +360,51 @@ export default function MemberDetail() {
                   )}
                 </div>
                 {canEditMembers && (
-                  <Button
-                    size="sm"
-                    onClick={handleUnlockAccount}
-                    disabled={unlocking}
-                    data-testid="button-unlock-account"
-                  >
-                    <LockOpen className="w-3 h-3 mr-1" />
-                    {unlocking ? "Unlocking..." : "Unlock account"}
-                  </Button>
+                  <Dialog open={unlockConfirmOpen} onOpenChange={setUnlockConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        disabled={unlocking}
+                        data-testid="button-unlock-account"
+                      >
+                        <LockOpen className="w-3 h-3 mr-1" />
+                        {unlocking ? "Unlocking..." : "Unlock account"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-confirm-unlock">
+                      <DialogHeader>
+                        <DialogTitle>Unlock account?</DialogTitle>
+                        <DialogDescription>
+                          Unlock <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}
+                          ? Clears the lockout and resets failed login count to 0,
+                          allowing them to retry login immediately.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setUnlockConfirmOpen(false)}
+                          disabled={unlocking}
+                          data-testid="button-cancel-unlock"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleUnlockAccount}
+                          disabled={unlocking}
+                          data-testid="button-confirm-unlock"
+                        >
+                          <LockOpen className="w-3 h-3 mr-1" />
+                          {unlocking ? "Unlocking..." : "Unlock account"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 )}
               </div>
             </CardContent>
