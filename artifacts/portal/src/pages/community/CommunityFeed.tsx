@@ -29,7 +29,7 @@ export default function CommunityFeed() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-1">Community</h1>
@@ -120,7 +120,7 @@ export default function CommunityFeed() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {pinnedPosts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}

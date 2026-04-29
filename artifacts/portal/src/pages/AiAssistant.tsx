@@ -329,7 +329,7 @@ export default function AiAssistant() {
               <p className="text-sm text-muted-foreground max-w-md mb-6">
                 Ask me anything about your mentorship, tools, campaigns, or strategies. I'm trained on BTS coaching sessions, Q&A articles, and your complete tool documentation.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl w-full">
                 {[
                   "How do I set up my first DIYTrax campaign?",
                   "What are the live coaching call times?",

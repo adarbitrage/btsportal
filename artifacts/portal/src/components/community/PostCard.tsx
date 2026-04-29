@@ -64,7 +64,7 @@ export function PostCard({ post }: { post: CommunityPost }) {
 
   return (
     <Card className={cn("border-border/50 hover:shadow-sm transition-shadow", post.isPinned && "border-primary/30 bg-primary/[0.02]")}>
-      <CardContent className="p-5">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <ProfilePopover author={author}>
