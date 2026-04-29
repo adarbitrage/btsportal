@@ -125,10 +125,9 @@ import UpgradePromptAnalytics from "@/pages/admin/UpgradePromptAnalytics";
 import LtvAnalysis from "@/pages/admin/LtvAnalysis";
 import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
-import AccessDenied from "@/pages/AccessDenied";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
-import { hasPermission, isAdminRole, type Permission } from "@/lib/permissions";
+import { AdminRoute } from "@/components/auth/AdminRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -282,59 +281,6 @@ function OnboardingRoute({ component: Component, step }: { component: React.Comp
   if (step > user.onboardingStep) {
     const currentRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={currentRoute} />;
-  }
-
-  return <Component />;
-}
-
-function AdminRoute({
-  component: Component,
-  permission,
-}: {
-  component: React.ComponentType<any>;
-  permission?: Permission;
-}) {
-  const { user, loading } = useAuth();
-  const { data: member, isLoading: memberLoading } = useGetCurrentMember();
-
-  if (loading || memberLoading) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#faf9f7",
-        fontFamily: "Roboto, sans-serif",
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: "3px solid #e8e4dc",
-            borderTop: "3px solid #1a56db",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 16px",
-          }} />
-          <p style={{ color: "#6b7280", fontSize: 14 }}>Loading...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Redirect to="/login" />;
-  }
-
-  const role = (member as any)?.role as string | undefined;
-  if (!isAdminRole(role)) {
-    return <Redirect to="/" />;
-  }
-
-  if (permission && !hasPermission(role, permission)) {
-    return <AccessDenied permission={permission} />;
   }
 
   return <Component />;
