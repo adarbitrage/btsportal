@@ -702,6 +702,15 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, session.userId));
   if (!user) {
+    // The session row points at a user that no longer exists (the user was
+    // hard-deleted out from under it — operationally rare, but possible
+    // after a manual fix-up). Revoke this orphaned row inline so it can't
+    // keep showing up on every refresh attempt and won't sit around in the
+    // sessions table waiting for `auth-token-cleanup` to expire it.
+    await db
+      .update(sessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(sessionsTable.id, session.id));
     res.status(401).json({ error: "User not found" });
     return;
   }

@@ -323,18 +323,25 @@ describe("POST /api/auth/refresh — orphaned session (user hard-deleted)", () =
   const SESSIONS_USER_FK = "sessions_user_id_users_id_fk";
 
   /**
-   * Removes a user row even though `sessionsTable.userId` has a non-cascading
-   * FK pointing at it. This mimics the operationally-rare case where an admin
-   * (or a manual fix-up) deletes a user without first cleaning up their
-   * sessions, so a session row ends up orphaned.
+   * Removes a user row while leaving one of their session rows intact. The
+   * sessions table now has ON DELETE CASCADE on `user_id`, so a plain
+   * `DELETE FROM users` would also wipe the session and there'd be no
+   * orphan left to test against. To recreate the operationally-rare case
+   * where a session ends up orphaned (e.g. a manual fix-up that bypassed
+   * cascade, or a row that pre-dates the cascade migration), we drop the
+   * FK, delete the user, and re-add the FK as NOT VALID inside the same
+   * transaction.
    *
-   * Implementation: drop the FK, delete the user, then re-add the FK as
-   * NOT VALID inside the same transaction. NOT VALID skips validation of
-   * existing rows (the orphan we just made) but still enforces the
-   * constraint for any future insert or update — so other tests touching
-   * the sessions table continue to get full FK protection. After the
-   * orphan is cleaned up, `restoreFkValidation` marks the constraint VALID
-   * again so the schema state matches what drizzle expects.
+   * The re-added FK must match the production schema's ON DELETE CASCADE
+   * — otherwise this helper would silently downgrade the constraint and
+   * break the cascade contract for every test that runs after this one.
+   *
+   * NOT VALID skips validation of existing rows (the orphan we just made)
+   * but still enforces the constraint for any future insert or update, so
+   * other tests touching the sessions table continue to get full FK
+   * protection. After the orphan is cleaned up, `restoreFkValidation`
+   * marks the constraint VALID again so the schema state matches what
+   * drizzle expects.
    *
    * Uses only standard DDL — no superuser-only settings — so it works
    * portably across CI/db environments.
@@ -349,7 +356,7 @@ describe("POST /api/auth/refresh — orphaned session (user hard-deleted)", () =
       await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
       await tx.execute(
         sql.raw(
-          `ALTER TABLE sessions ADD CONSTRAINT ${SESSIONS_USER_FK} FOREIGN KEY (user_id) REFERENCES users(id) NOT VALID`,
+          `ALTER TABLE sessions ADD CONSTRAINT ${SESSIONS_USER_FK} FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID`,
         ),
       );
     });
@@ -363,7 +370,7 @@ describe("POST /api/auth/refresh — orphaned session (user hard-deleted)", () =
     );
   }
 
-  it("returns 401 'User not found' and does NOT revoke the orphaned session row (caller decided not to clean it up here)", async () => {
+  it("returns 401 'User not found' and revokes the orphaned session row inline so it can't keep showing up on every refresh", async () => {
     const user = await insertUser("refresh-orphaned");
     const session = await insertSession(user.id);
 
@@ -386,16 +393,19 @@ describe("POST /api/auth/refresh — orphaned session (user hard-deleted)", () =
       // still be operating against a different (valid) session.
       expect(res.headers["set-cookie"]).toBeUndefined();
 
-      // Pin the current behavior: the orphaned session row is left untouched
-      // (still un-revoked, original expiresAt). If a future change decides
-      // to proactively revoke orphans here, this assertion is the canary
-      // that forces an explicit decision.
+      // The orphaned session row is now revoked inline so a retry of the
+      // same refresh-token cookie falls through the "Invalid or expired"
+      // branch instead of repeatedly hitting the User-not-found path, and
+      // the row no longer sits in the sessions table waiting for the
+      // auth-token-cleanup job to expire it. The token hash itself is
+      // intentionally left untouched so an admin can still trace which
+      // session row belonged to which (now-deleted) user if they need to.
       const [after] = await db
         .select()
         .from(sessionsTable)
         .where(eq(sessionsTable.id, session.id));
       expect(after).toBeDefined();
-      expect(after.revokedAt).toBeNull();
+      expect(after.revokedAt).toBeInstanceOf(Date);
       expect(after.refreshTokenHash).toBe(session.refreshTokenHash);
     } finally {
       // Always clean up the orphan + restore the FK to fully VALID, even
