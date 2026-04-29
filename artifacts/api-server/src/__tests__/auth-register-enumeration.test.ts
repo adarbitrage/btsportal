@@ -46,11 +46,10 @@ vi.mock("../lib/redis", () => ({
   isRedisConnected: vi.fn(async () => false),
 }));
 
-// The register handler currently constructs a per-email rate-limiter at
-// module load time using `emailKey(...)`, but `emailKey` is not imported in
-// `auth.ts` (tracked separately as "Fix the broken signup rate-limit
-// reference that's breaking 6 test files"). Stub the middleware module so
-// auth.ts loads here without depending on that fix.
+// The register handler constructs per-IP and per-email rate limiters at
+// module load time. We stub the middleware so the abuse-rate logic can't
+// interfere with the behavioral assertions below regardless of whether
+// Redis happens to be reachable from the test runner.
 vi.mock("../middleware/abuse-rate-limit", () => {
   const passthrough =
     () => (_req: unknown, _res: unknown, next: () => void) => next();
