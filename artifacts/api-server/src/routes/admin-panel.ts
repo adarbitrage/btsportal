@@ -2469,6 +2469,14 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
         outcome,
         reason,
         description: row.description,
+        // Raw metadata payload so the System Health admin can inline-inspect
+        // a flagged delivery (full reason text, recent/hour/day counts,
+        // delivery-channel-specific identifiers like a PagerDuty incident
+        // key, etc.) without leaving the on-call workflow. The metadata
+        // column is already free-form JSON; we forward the entire object so
+        // future fields written by the alerter automatically show up in the
+        // expanded row without a coordinating frontend change.
+        metadata: meta,
       };
     });
 

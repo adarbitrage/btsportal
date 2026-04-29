@@ -148,6 +148,54 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
     expect(typeof newRow.createdAt).toBe("string");
   });
 
+  it("forwards the raw audit metadata so System Health can inline-inspect a flagged delivery", async () => {
+    // Inject a few delivery-channel-specific identifiers (the kind of thing
+    // an admin would want surfaced inline during an incident — e.g. the
+    // PagerDuty incident key and routing key — alongside the standard
+    // alerter fields). The endpoint should hand all of these back verbatim
+    // under `metadata` so the frontend's expand-in-place row can render
+    // the full payload without a second round-trip.
+    const id = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "failed",
+      reason: "PagerDuty rejected dedup_key (HTTP 400)",
+      metaOverride: {
+        queueChannel: "email",
+        deliveryChannel: "pagerduty",
+        kind: "fire",
+        outcome: "failed",
+        reason: "PagerDuty rejected dedup_key (HTTP 400)",
+        recentCount: 7,
+        hourCount: 12,
+        dayCount: 42,
+        pagerDutyIncidentKey: "queue-fallback:email:fire",
+        pagerDutyRoutingKey: "rk-abcdef",
+      },
+    });
+
+    const res = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=200")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const row = res.body.events.find((e: { id: number }) => e.id === id);
+    expect(row).toBeDefined();
+    expect(row.metadata).toMatchObject({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "failed",
+      reason: "PagerDuty rejected dedup_key (HTTP 400)",
+      recentCount: 7,
+      hourCount: 12,
+      dayCount: 42,
+      pagerDutyIncidentKey: "queue-fallback:email:fire",
+      pagerDutyRoutingKey: "rk-abcdef",
+    });
+  });
+
   it("normalizes unknown delivery channel/kind/outcome values to null and falls back to entityId for queueChannel", async () => {
     const weirdId = await insertAlertRow({
       queueChannel: "carrier-pigeon",

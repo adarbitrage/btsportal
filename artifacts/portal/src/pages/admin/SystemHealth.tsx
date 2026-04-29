@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,11 @@ interface QueueFallbackAlertEvent {
   outcome: "sent" | "failed" | "throttled" | "skipped" | null;
   reason: string | null;
   description: string;
+  // Raw audit-log metadata payload — used by the inline expand-in-place row
+  // so an on-call admin investigating a flagged delivery can see the full
+  // reason text and channel-specific identifiers without leaving the
+  // System Health page. Server may omit on older deployments.
+  metadata?: Record<string, unknown> | null;
 }
 
 interface QueueFallbackAlertChannelStats {
@@ -254,6 +259,14 @@ export default function SystemHealth() {
   // visible at a glance, and the full description / probe results / exact
   // timestamp are revealed on click for the row an admin is investigating.
   const [expandedOncallEventId, setExpandedOncallEventId] = useState<number | null>(null);
+  // Click-to-expand row id for the on-call alert deliveries table. Lets an
+  // admin investigating a flagged delivery see the full reason text and raw
+  // metadata (delivery-channel-specific identifiers, recent/hour/day counts,
+  // etc.) without leaving the System Health workflow. Lives outside the
+  // table data so it survives the silent auto-refresh that re-fetches
+  // `alertEvents` every 30s — the expanded row stays open as long as the
+  // same id is still present.
+  const [expandedAlertEventId, setExpandedAlertEventId] = useState<number | null>(null);
   // Re-render driver so the throttle TTL countdowns visibly tick down between
   // backend refreshes (which only happen every 30s). Cheap: just bumps a
   // counter once per second while the alerter card is on screen.
@@ -654,6 +667,11 @@ export default function SystemHealth() {
   useEffect(() => {
     hasLoadedAlertEventsRef.current = false;
     previousMaxUrgentAlertIdRef.current = null;
+    // Also collapse any inline-expanded row when the active filter changes
+    // — otherwise an admin who narrows from "all" to "failed" could be
+    // staring at an expanded row whose parent has just been filtered out
+    // of the table (the detail panel would still render, looking orphaned).
+    setExpandedAlertEventId(null);
   }, [alertOutcomeFilter, alertChannelFilter, alertStatsWindowMs]);
 
   const loadAlerterHealth = useCallback(async (silent = false) => {
@@ -2343,7 +2361,9 @@ export default function SystemHealth() {
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
                   Each row is a single PagerDuty / ops email / Slack delivery attempt the alerter made when the queue
-                  started or stopped bypassing Redis. Click an event to open the matching audit log entry.
+                  started or stopped bypassing Redis. Click a row to expand the full reason text and raw audit
+                  metadata in place; the <span className="font-mono">#id</span> link still opens the matching audit
+                  log entry on its own page.
                 </p>
                 <div className="mt-3 space-y-2" data-testid="alert-events-filters">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -2589,6 +2609,7 @@ export default function SystemHealth() {
                     <table className="w-full text-sm">
                       <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                         <tr>
+                          <th className="w-6 px-2 py-2" aria-hidden="true"></th>
                           <th className="text-left font-medium px-4 py-2">When</th>
                           <th className="text-left font-medium px-4 py-2">Channel</th>
                           <th className="text-left font-medium px-4 py-2">Queue / Kind</th>
@@ -2611,49 +2632,117 @@ export default function SystemHealth() {
                                   : event.outcome === "skipped"
                                     ? "secondary"
                                     : "outline";
+                          const isExpanded = expandedAlertEventId === event.id;
+                          // Pretty-print the metadata payload as JSON for the
+                          // expanded view. Falls back to an empty object so
+                          // the panel always renders predictably even on the
+                          // brief window after deploy where older API replies
+                          // may not include `metadata` yet.
+                          const metadataJson = JSON.stringify(event.metadata ?? {}, null, 2);
                           return (
-                            <tr key={event.id} className="hover:bg-muted/20" data-testid={`alert-event-row-${event.id}`}>
-                              <td className="px-4 py-2 whitespace-nowrap text-xs">{tsLabel}</td>
-                              <td className="px-4 py-2">
-                                {event.deliveryChannel ? (
-                                  <Badge variant="outline" className="text-[10px]">
-                                    {event.deliveryChannel}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">unknown</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-xs">
-                                <span>{event.queueChannel ?? "—"}</span>
-                                {event.kind && (
-                                  <Badge variant="secondary" className="ml-2 text-[10px]">
-                                    {event.kind}
-                                  </Badge>
-                                )}
-                              </td>
-                              <td className="px-4 py-2">
-                                {event.outcome ? (
-                                  <Badge variant={outcomeVariant} className="text-[10px]" data-testid={`alert-event-outcome-${event.id}`}>
-                                    {event.outcome}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">unknown</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 max-w-[14rem] truncate text-xs" title={event.reason ?? ""}>
-                                {event.reason ?? <span className="text-muted-foreground">—</span>}
-                              </td>
-                              <td className="px-4 py-2 text-right">
-                                <Link
-                                  href={`/admin/audit-log?actionType=queue_fallback_alert&entityType=alert&expand=${event.id}`}
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                  data-testid={`link-alert-audit-${event.id}`}
+                            <Fragment key={event.id}>
+                              <tr
+                                className="hover:bg-muted/20 cursor-pointer"
+                                data-testid={`alert-event-row-${event.id}`}
+                                aria-expanded={isExpanded}
+                                onClick={() =>
+                                  setExpandedAlertEventId((prev) => (prev === event.id ? null : event.id))
+                                }
+                              >
+                                <td className="px-2 py-2 align-middle text-muted-foreground">
+                                  {isExpanded ? (
+                                    <ChevronDown
+                                      className="w-3.5 h-3.5"
+                                      data-testid={`alert-event-chevron-${event.id}`}
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      className="w-3.5 h-3.5"
+                                      data-testid={`alert-event-chevron-${event.id}`}
+                                    />
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 whitespace-nowrap text-xs">{tsLabel}</td>
+                                <td className="px-4 py-2">
+                                  {event.deliveryChannel ? (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {event.deliveryChannel}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">unknown</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-xs">
+                                  <span>{event.queueChannel ?? "—"}</span>
+                                  {event.kind && (
+                                    <Badge variant="secondary" className="ml-2 text-[10px]">
+                                      {event.kind}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {event.outcome ? (
+                                    <Badge variant={outcomeVariant} className="text-[10px]" data-testid={`alert-event-outcome-${event.id}`}>
+                                      {event.outcome}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">unknown</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 max-w-[14rem] truncate text-xs" title={event.reason ?? ""}>
+                                  {event.reason ?? <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <Link
+                                    href={`/admin/audit-log?actionType=queue_fallback_alert&entityType=alert&expand=${event.id}`}
+                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    data-testid={`link-alert-audit-${event.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    #{event.id}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </Link>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr
+                                  className="bg-muted/10"
+                                  data-testid={`alert-event-expanded-${event.id}`}
                                 >
-                                  #{event.id}
-                                  <ExternalLink className="w-3 h-3" />
-                                </Link>
-                              </td>
-                            </tr>
+                                  <td colSpan={7} className="px-4 py-3">
+                                    <div className="space-y-2 text-xs">
+                                      <div>
+                                        <span className="text-muted-foreground">When: </span>
+                                        <span className="font-medium">{tsLabel}</span>
+                                      </div>
+                                      {event.description && (
+                                        <div>
+                                          <span className="text-muted-foreground">Description: </span>
+                                          <span>{event.description}</span>
+                                        </div>
+                                      )}
+                                      {event.reason && (
+                                        <div data-testid={`alert-event-reason-${event.id}`}>
+                                          <span className="text-muted-foreground">Reason: </span>
+                                          <span className="whitespace-pre-wrap break-words font-medium">
+                                            {event.reason}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <div className="text-muted-foreground mb-1">Raw metadata</div>
+                                        <pre
+                                          className="rounded border bg-background p-2 text-[11px] leading-snug overflow-x-auto whitespace-pre-wrap break-words"
+                                          data-testid={`alert-event-metadata-${event.id}`}
+                                        >
+                                          {metadataJson}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
                           );
                         })}
                       </tbody>
