@@ -55,10 +55,15 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     .orderBy(coachingCallsTable.scheduledAt)
     .limit(3);
 
-  const upcomingCallsMapped = upcomingCalls.map((c) => ({
-    ...c,
-    isAccessible: entitlements.has(c.requiredEntitlement),
-  }));
+  const upcomingCallsMapped = upcomingCalls.map((c) => {
+    const isAccessible = entitlements.has(c.requiredEntitlement);
+    return {
+      ...c,
+      isAccessible,
+      meetLink: isAccessible ? c.meetLink : null,
+      recordingUrl: isAccessible ? c.recordingUrl : null,
+    };
+  });
 
   const recentAnnouncements = await db.select().from(announcementsTable).orderBy(desc(announcementsTable.createdAt)).limit(5);
 

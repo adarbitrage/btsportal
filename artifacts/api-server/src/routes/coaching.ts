@@ -36,10 +36,15 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
     ? await query.where(gte(coachingCallsTable.scheduledAt, now))
     : await query;
 
-  const mapped = calls.map((c) => ({
-    ...c,
-    isAccessible: entitlements.has(c.requiredEntitlement),
-  }));
+  const mapped = calls.map((c) => {
+    const isAccessible = entitlements.has(c.requiredEntitlement);
+    return {
+      ...c,
+      isAccessible,
+      meetLink: isAccessible ? c.meetLink : null,
+      recordingUrl: isAccessible ? c.recordingUrl : null,
+    };
+  });
 
   res.json(ListCoachingCallsResponse.parse(mapped));
 });
