@@ -224,6 +224,51 @@ export default function AuditLog() {
     await load();
   };
 
+  // Format a Date as the browser-local "YYYY-MM-DDTHH:mm" string that an
+  // <input type="datetime-local"> expects. We can't use `toISOString()` here
+  // because that returns UTC — the picker would then display the wrong wall
+  // time for any admin not in UTC.
+  const toDateTimeLocalValue = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Used by the preset chips. Mirrors handleJump but takes a Date directly
+  // so we don't have to round-trip through state (setJumpToValue would not
+  // be visible inside the same tick, so we'd otherwise jump using the *prior*
+  // value).
+  const handleJumpToDate = async (d: Date) => {
+    setJumpToValue(toDateTimeLocalValue(d));
+    pendingJumpRef.current = d.toISOString();
+    await load();
+  };
+
+  // Preset shortcuts for the most common incident-response jumps. All
+  // computed against the admin's local clock at click-time so e.g. "Today
+  // 9am" really means 9am today in their timezone.
+  const jumpPresets: { label: string; compute: () => Date }[] = [
+    { label: "1 hour ago", compute: () => new Date(Date.now() - 60 * 60 * 1000) },
+    { label: "24 hours ago", compute: () => new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    {
+      label: "Today 9am",
+      compute: () => {
+        const d = new Date();
+        d.setHours(9, 0, 0, 0);
+        return d;
+      },
+    },
+    {
+      label: "Yesterday 9am",
+      compute: () => {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        d.setHours(9, 0, 0, 0);
+        return d;
+      },
+    },
+    { label: "1 week ago", compute: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+  ];
+
   // Filter changes always restart at the newest page (cursors are filter-
   // specific, so a stale cursor would be meaningless under new filters).
   useEffect(() => { load(); }, [filters]);
@@ -505,41 +550,64 @@ export default function AuditLog() {
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
               <Input type="date" className="w-40" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} placeholder="End Date" />
-              <div
-                className="flex items-center gap-2 ml-auto"
-                data-testid="audit-jump-to-control"
-              >
-                <label
-                  htmlFor="audit-jump-to-input"
-                  className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1"
-                  title="Seek the first audit entry at-or-before the chosen date/time"
+              <div className="flex flex-col items-end gap-1 ml-auto">
+                <div
+                  className="flex items-center gap-2"
+                  data-testid="audit-jump-to-control"
                 >
-                  <CalendarSearch className="w-3.5 h-3.5" />
-                  Jump to:
-                </label>
-                <Input
-                  id="audit-jump-to-input"
-                  type="datetime-local"
-                  className="w-56"
-                  value={jumpToValue}
-                  onChange={(e) => setJumpToValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleJump();
-                    }
-                  }}
-                  data-testid="audit-jump-to-input"
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!jumpToValue || loading}
-                  onClick={handleJump}
-                  data-testid="audit-jump-to-button"
+                  <label
+                    htmlFor="audit-jump-to-input"
+                    className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1"
+                    title="Seek the first audit entry at-or-before the chosen date/time"
+                  >
+                    <CalendarSearch className="w-3.5 h-3.5" />
+                    Jump to:
+                  </label>
+                  <Input
+                    id="audit-jump-to-input"
+                    type="datetime-local"
+                    className="w-56"
+                    value={jumpToValue}
+                    onChange={(e) => setJumpToValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleJump();
+                      }
+                    }}
+                    data-testid="audit-jump-to-input"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!jumpToValue || loading}
+                    onClick={handleJump}
+                    data-testid="audit-jump-to-button"
+                  >
+                    Jump
+                  </Button>
+                </div>
+                <div
+                  className="flex flex-wrap items-center justify-end gap-1"
+                  data-testid="audit-jump-presets"
                 >
-                  Jump
-                </Button>
+                  <span className="text-xs text-muted-foreground mr-1">
+                    Quick jump:
+                  </span>
+                  {jumpPresets.map((preset) => (
+                    <Button
+                      key={preset.label}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      disabled={loading}
+                      onClick={() => void handleJumpToDate(preset.compute())}
+                      data-testid={`audit-jump-preset-${preset.label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           </CardContent>
