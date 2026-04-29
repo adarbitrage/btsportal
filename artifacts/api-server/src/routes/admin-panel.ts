@@ -128,10 +128,43 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 
     const searchPattern = `%${q}%`;
 
-    const members = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
+    const directMembers = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
       .from(usersTable)
       .where(or(ilike(usersTable.name, searchPattern), ilike(usersTable.email, searchPattern)))
       .limit(10);
+
+    const previousEmailMatches = await safeQuery(
+      db.select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: usersTable.role,
+        oldEmail: emailChangeHistoryTable.oldEmail,
+        changedAt: emailChangeHistoryTable.changedAt,
+      })
+        .from(emailChangeHistoryTable)
+        .innerJoin(usersTable, eq(emailChangeHistoryTable.userId, usersTable.id))
+        .where(ilike(emailChangeHistoryTable.oldEmail, searchPattern))
+        .orderBy(desc(emailChangeHistoryTable.changedAt))
+        .limit(20)
+    );
+
+    const directIds = new Set(directMembers.map((m) => m.id));
+    const seenPreviousIds = new Set<number>();
+    const previousOnlyMembers: Array<{ id: number; name: string; email: string; role: string; matchedPreviousEmail: string }> = [];
+    for (const row of previousEmailMatches) {
+      if (directIds.has(row.id) || seenPreviousIds.has(row.id)) continue;
+      seenPreviousIds.add(row.id);
+      previousOnlyMembers.push({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        matchedPreviousEmail: row.oldEmail,
+      });
+    }
+
+    const members = [...directMembers, ...previousOnlyMembers].slice(0, 10);
 
     const tickets = await safeQuery(
       db.select({ id: ticketsTable.id, ticketNumber: ticketsTable.ticketNumber, subject: ticketsTable.subject, status: ticketsTable.status })
