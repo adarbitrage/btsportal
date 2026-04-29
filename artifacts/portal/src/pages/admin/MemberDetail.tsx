@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Lock, LockOpen } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Lock, LockOpen, ExternalLink } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -643,16 +643,23 @@ export default function MemberDetail() {
                 ) : (
                   <div className="space-y-2">
                     {auditHistory.map((log: any) => (
-                      <div key={log.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm">{log.description}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{log.actionType}</Badge>
-                            <span className="text-[10px] text-muted-foreground">{log.createdAt ? format(new Date(log.createdAt), "MMM d, h:mm a") : ""}</span>
+                      <Link
+                        key={log.id}
+                        href={`/admin/audit-log?entityType=user&expand=${log.id}`}
+                        data-testid={`link-audit-${log.id}`}
+                      >
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                          <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm">{log.description}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-[10px]">{log.actionType}</Badge>
+                              <span className="text-[10px] text-muted-foreground">{log.createdAt ? format(new Date(log.createdAt), "MMM d, h:mm a") : ""}</span>
+                            </div>
                           </div>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
