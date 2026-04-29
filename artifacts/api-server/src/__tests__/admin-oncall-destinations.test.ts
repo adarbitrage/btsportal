@@ -928,3 +928,161 @@ describe("GET /admin/oncall-destinations/probes", () => {
     expect(JSON.stringify(res.body)).not.toContain(secret);
   });
 });
+
+describe("POST /admin/oncall-destinations/:field/probe", () => {
+  it("requires settings:manage", async () => {
+    await setOnCallDestination("opsAlertEmail", "ops@example.test", "seed");
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/opsAlertEmail/probe")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects unknown field names with a 400", async () => {
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/notARealField/probe")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Unknown on-call field/);
+  });
+
+  it("re-runs the matching probe against the stored value and returns the result", async () => {
+    await setOnCallDestination("opsAlertSlackWebhookUrl", "https://hooks.slack.test/stored", "seed");
+    let seenUrl: string | null = null;
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true }),
+      slack: async (url) => {
+        seenUrl = url;
+        return { ok: true };
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/opsAlertSlackWebhookUrl/probe")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.probe).toEqual({ ok: true });
+    expect(seenUrl).toBe("https://hooks.slack.test/stored");
+    // The stored value must never come back through the response — only
+    // the probe outcome.
+    expect(JSON.stringify(res.body)).not.toContain("hooks.slack.test/stored");
+  });
+
+  it("returns a skipped result when the destination is not configured", async () => {
+    // No DB row, no env var — nothing to probe.
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/pagerdutyIntegrationKey/probe")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.probe.ok).toBe(false);
+    expect(res.body.probe.skipped).toBe(true);
+    expect(res.body.probe.reason).toBe("not_configured");
+  });
+
+  it("falls back to the env-sourced value when no DB row exists", async () => {
+    process.env.PAGERDUTY_INTEGRATION_KEY = "env-pd";
+    let seen: string | null = null;
+    __setOnCallProbesForTests({
+      pagerduty: async (key) => {
+        seen = key;
+        return { ok: true };
+      },
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/pagerdutyIntegrationKey/probe")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.probe).toEqual({ ok: true });
+    expect(seen).toBe("env-pd");
+  });
+
+  it("surfaces a probe failure as a 200 with ok:false (not a 5xx)", async () => {
+    await setOnCallDestination("pagerdutyIntegrationKey", "stored-key", "seed");
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: false, reason: "http_403" }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/pagerdutyIntegrationKey/probe")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.probe).toEqual({ ok: false, reason: "http_403" });
+  });
+
+  it("a probe exception degrades to a {ok:false, reason} response", async () => {
+    await setOnCallDestination("opsAlertSlackWebhookUrl", "https://hooks.slack.test/x", "seed");
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true }),
+      slack: async () => {
+        throw new Error("ECONNREFUSED");
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/opsAlertSlackWebhookUrl/probe")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.probe.ok).toBe(false);
+    expect(res.body.probe.reason).toContain("ECONNREFUSED");
+  });
+
+  it("writes a probe_oncall_destination audit row that omits the value", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+    await setOnCallDestination("pagerdutyIntegrationKey", "secret-pd-key", "seed");
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: false, reason: "http_500" }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/pagerdutyIntegrationKey/probe")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const audit = await db
+      .select()
+      .from(auditLogTable)
+      .where(eq(auditLogTable.entityType, "oncall_destinations"));
+    const probeRows = audit.filter((a) => a.actionType === "probe_oncall_destination");
+    expect(probeRows.length).toBe(1);
+    const row = probeRows[0];
+    expect(row.actorId).toBe(adminId);
+    expect(row.changeDiff).toEqual({
+      probes: [
+        { field: "pagerdutyIntegrationKey", ok: false, skipped: false, reason: "http_500" },
+      ],
+    });
+    // The stored secret must never be written to the audit row.
+    expect(JSON.stringify(row)).not.toContain("secret-pd-key");
+  });
+
+  it("does not audit-log when the destination is not configured (skipped probe)", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+    const res = await request(app)
+      .post("/api/admin/oncall-destinations/pagerdutyIntegrationKey/probe")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.probe.skipped).toBe(true);
+
+    // We deliberately don't write an audit row for "there was nothing to
+    // probe" — those rows would just be noise in the timeline.
+    const audit = await db
+      .select()
+      .from(auditLogTable)
+      .where(eq(auditLogTable.entityType, "oncall_destinations"));
+    expect(audit.filter((a) => a.actionType === "probe_oncall_destination")).toHaveLength(0);
+  });
+});

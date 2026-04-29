@@ -547,6 +547,27 @@ export const adminPanelApi = {
     }>;
   },
 
+  /**
+   * Re-run the per-channel reachability probe against the currently-stored
+   * destination value, without requiring the admin to retype the secret.
+   * Returns just the probe outcome — the value itself is never sent back.
+   */
+  async probeOnCallDestination(
+    field: "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl",
+  ) {
+    const res = await authFetch(
+      `/admin/oncall-destinations/${encodeURIComponent(field)}/probe`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to probe on-call destination");
+    }
+    return res.json() as Promise<{
+      probe: { ok: boolean; skipped?: boolean; reason?: string };
+    }>;
+  },
+
   async sendOnCallTestAlert() {
     const res = await authFetch("/admin/oncall-destinations/test", { method: "POST" });
     if (!res.ok) {

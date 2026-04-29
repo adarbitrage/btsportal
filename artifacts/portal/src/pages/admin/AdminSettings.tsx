@@ -216,10 +216,15 @@ function OnCallDestinationsCard() {
   const [savingField, setSavingField] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
-  // Per-field reachability check from the most recent save. Cleared when
-  // the field is cleared (no value to verify) and overwritten on each save
-  // so the green check / red cross always reflects the latest probe.
+  // Per-field reachability check from the most recent save *or* re-test.
+  // Cleared when the field is cleared (no value to verify) and overwritten
+  // on each save / re-test so the green check / red cross always reflects
+  // the latest probe.
   const [probes, setProbes] = useState<Partial<Record<OnCallField, ProbeResult>>>({});
+  // Tracks which row is currently re-running its probe so the button can
+  // show a spinner state and we can disable concurrent clicks on the same
+  // row while in flight.
+  const [retestingField, setRetestingField] = useState<OnCallField | null>(null);
   const [history, setHistory] = useState<OnCallHistoryEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   // Per-field counter that the disclosure components watch; bumping it
@@ -327,6 +332,42 @@ function OnCallDestinationsCard() {
     }
   };
 
+  const handleRetest = async (field: OnCallField) => {
+    try {
+      setRetestingField(field);
+      const data = await adminPanelApi.probeOnCallDestination(field);
+      // Replace this field's probe badge with the fresh result. Even when
+      // the server reports `skipped: true` (e.g. the destination is no
+      // longer configured) we surface it through the same badge so the
+      // admin sees a consistent UI for "we ran a check; here's what
+      // happened".
+      setProbes((prev) => ({ ...prev, [field]: data.probe }));
+      if (data.probe.skipped) {
+        toast({
+          title: "Re-test skipped",
+          description: data.probe.reason ?? undefined,
+        });
+      } else if (data.probe.ok) {
+        toast({ title: "Destination still reachable" });
+      } else {
+        toast({
+          title: "Destination unreachable",
+          description: data.probe.reason
+            ? `Re-test failed: ${data.probe.reason}`
+            : "Re-test failed",
+          variant: "destructive",
+        });
+      }
+      // The re-test is itself an audit row — refresh the timeline so the
+      // admin sees their own click reflected immediately.
+      await loadHistory();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setRetestingField(null);
+    }
+  };
+
   const handleTest = async () => {
     try {
       setTesting(true);
@@ -383,6 +424,9 @@ function OnCallDestinationsCard() {
               probe={probes.pagerdutyIntegrationKey}
               field="pagerdutyIntegrationKey"
               probeHistoryRefresh={probeHistoryRefresh.pagerdutyIntegrationKey}
+              onRetest={status.pagerdutyConfigured ? () => handleRetest("pagerdutyIntegrationKey") : undefined}
+              retesting={retestingField === "pagerdutyIntegrationKey"}
+              retestTestId="oncall-retest-pagerduty"
             />
             <OnCallEmailRow
               configured={!!status.opsAlertEmail}
@@ -395,6 +439,9 @@ function OnCallDestinationsCard() {
               onClear={status.opsAlertEmail ? () => saveField("opsAlertEmail", null) : undefined}
               probe={probes.opsAlertEmail}
               probeHistoryRefresh={probeHistoryRefresh.opsAlertEmail}
+              onRetest={status.opsAlertEmail ? () => handleRetest("opsAlertEmail") : undefined}
+              retesting={retestingField === "opsAlertEmail"}
+              retestTestId="oncall-retest-email"
             />
             <OnCallSecretRow
               label="Slack webhook URL"
@@ -411,6 +458,9 @@ function OnCallDestinationsCard() {
               probe={probes.opsAlertSlackWebhookUrl}
               field="opsAlertSlackWebhookUrl"
               probeHistoryRefresh={probeHistoryRefresh.opsAlertSlackWebhookUrl}
+              onRetest={status.slackConfigured ? () => handleRetest("opsAlertSlackWebhookUrl") : undefined}
+              retesting={retestingField === "opsAlertSlackWebhookUrl"}
+              retestTestId="oncall-retest-slack"
             />
 
             <div className="flex items-center justify-between border-t pt-4">
@@ -749,6 +799,9 @@ function OnCallSecretRow({
   probe,
   field,
   probeHistoryRefresh,
+  onRetest,
+  retesting,
+  retestTestId,
 }: {
   label: string;
   hint: string;
@@ -764,6 +817,9 @@ function OnCallSecretRow({
   probe?: ProbeResult;
   field: OnCallField;
   probeHistoryRefresh: number;
+  onRetest?: () => void;
+  retesting?: boolean;
+  retestTestId?: string;
 }) {
   return (
     <div className="border rounded-md p-3 space-y-2">
@@ -800,8 +856,14 @@ function OnCallSecretRow({
           </Button>
         )}
       </div>
-      <ProbeBadge probe={probe} />
-      <RecentProbesDisclosure field={field} refreshKey={probeHistoryRefresh} />
+      <ProbeBadgeRow
+        probe={probe}
+        onRetest={onRetest}
+        retesting={!!retesting}
+        retestTestId={retestTestId}
+        field={field}
+        probeHistoryRefresh={probeHistoryRefresh}
+      />
     </div>
   );
 }
@@ -817,6 +879,9 @@ function OnCallEmailRow({
   onClear,
   probe,
   probeHistoryRefresh,
+  onRetest,
+  retesting,
+  retestTestId,
 }: {
   configured: boolean;
   source: "db" | "env" | null;
@@ -828,6 +893,9 @@ function OnCallEmailRow({
   onClear?: () => void;
   probe?: ProbeResult;
   probeHistoryRefresh: number;
+  onRetest?: () => void;
+  retesting?: boolean;
+  retestTestId?: string;
 }) {
   const dirty = value.trim() !== (currentValue ?? "").trim();
   return (
@@ -864,8 +932,62 @@ function OnCallEmailRow({
           </Button>
         )}
       </div>
-      <ProbeBadge probe={probe} />
-      <RecentProbesDisclosure field="opsAlertEmail" refreshKey={probeHistoryRefresh} />
+      <ProbeBadgeRow
+        probe={probe}
+        onRetest={onRetest}
+        retesting={!!retesting}
+        retestTestId={retestTestId}
+        field="opsAlertEmail"
+        probeHistoryRefresh={probeHistoryRefresh}
+      />
+    </div>
+  );
+}
+
+/**
+ * Renders the per-row reachability badge alongside an optional Re-test
+ * button, with the "View recent probes" disclosure rendered below. Split
+ * out so both `OnCallSecretRow` and `OnCallEmailRow` get the same layout —
+ * and so the button is still rendered when there's no probe yet (a
+ * freshly-loaded card has no probe state but admins may still want to
+ * verify the saved destination is reachable).
+ */
+function ProbeBadgeRow({
+  probe,
+  onRetest,
+  retesting,
+  retestTestId,
+  field,
+  probeHistoryRefresh,
+}: {
+  probe: ProbeResult | undefined;
+  onRetest?: () => void;
+  retesting: boolean;
+  retestTestId?: string;
+  field: OnCallField;
+  probeHistoryRefresh: number;
+}) {
+  return (
+    <div className="space-y-2">
+      {(probe || onRetest) && (
+        <div className="flex items-center justify-between gap-2 min-h-[20px]">
+          <ProbeBadge probe={probe} />
+          {onRetest && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={onRetest}
+              disabled={retesting}
+              data-testid={retestTestId}
+            >
+              <RotateCcw className={`w-3.5 h-3.5 mr-1 ${retesting ? "animate-spin" : ""}`} />
+              {retesting ? "Re-testing..." : "Re-test"}
+            </Button>
+          )}
+        </div>
+      )}
+      <RecentProbesDisclosure field={field} refreshKey={probeHistoryRefresh} />
     </div>
   );
 }

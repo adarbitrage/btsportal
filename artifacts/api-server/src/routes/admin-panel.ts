@@ -33,6 +33,7 @@ import {
 } from "../lib/production-env-guard";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
+  getOnCallDestinations,
   getOnCallDestinationsStatus,
   setOnCallDestination,
   isOnCallSettingKey,
@@ -2757,6 +2758,87 @@ async function runProbeForField(field: OnCallField, value: string): Promise<Prob
       return probeSlackDestination(value);
   }
 }
+
+const ALL_ONCALL_FIELDS: ReadonlyArray<OnCallField> = [
+  "pagerdutyIntegrationKey",
+  "opsAlertEmail",
+  "opsAlertSlackWebhookUrl",
+];
+
+/**
+ * Re-run a single channel's reachability probe against the currently-stored
+ * destination value, without requiring the admin to retype the secret. Used
+ * by the "Re-test" button on each saved on-call row so admins can verify a
+ * previously-saved Slack webhook (or PagerDuty key, or ops email) still
+ * works after, e.g., a Slack workspace migration.
+ *
+ * The stored value is read server-side and never sent to the client — the
+ * response only carries the probe outcome. The probe is also audit-logged
+ * with the same `probe_oncall_destination` action type used by the bulk
+ * save flow so the timeline shows every reachability check uniformly.
+ */
+router.post(
+  "/admin/oncall-destinations/:field/probe",
+  requirePermission("settings:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const { field } = req.params;
+      if (!ALL_ONCALL_FIELDS.includes(field as OnCallField)) {
+        res.status(400).json({ error: `Unknown on-call field: ${field}` });
+        return;
+      }
+      const typedField = field as OnCallField;
+
+      // Resolve the value the alerter would actually use (DB-saved value
+      // wins over env fallback). This mirrors the dispatch path so the
+      // probe exercises the exact destination "fire" alerts will hit.
+      const destinations = await getOnCallDestinations();
+      const value = destinations[typedField];
+
+      if (value == null || value === "") {
+        // No value to probe — return a skipped result with a stable reason
+        // so the UI can render the same badge as the save flow does for
+        // unconfigured rows. We deliberately don't 4xx here so the client
+        // can keep its state machine simple (always read `probe` off the
+        // response).
+        const probe: ProbeResult = { ok: false, skipped: true, reason: "not_configured" };
+        res.json({ probe });
+        return;
+      }
+
+      const probe = await runProbeForField(typedField, value);
+
+      // Audit the re-test outcome so we can later answer "when did this
+      // destination last show a green check?" without re-probing. We only
+      // record the outcome (ok / skipped / reason) — never the value, in
+      // line with the bulk save flow's audit redaction.
+      await logAdminAction(
+        req,
+        "probe_oncall_destination",
+        "oncall_destinations",
+        "oncall",
+        `Re-tested on-call destination: ${typedField}=${
+          probe.skipped ? "skipped" : probe.ok ? "ok" : "failed"
+        }`,
+        {
+          probes: [
+            {
+              field: typedField,
+              ok: probe.ok,
+              skipped: !!probe.skipped,
+              reason: probe.reason ?? null,
+            },
+          ],
+        },
+      );
+
+      res.json({ probe });
+    } catch (error) {
+      console.error("[Admin] Re-probe on-call destination error:", error);
+      res.status(500).json({ error: "Failed to probe on-call destination" });
+    }
+  },
+);
 
 /**
  * Read the current auth rate-limit alert thresholds plus their defaults and
