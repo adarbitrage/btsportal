@@ -340,6 +340,66 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(queueEmailMock).toHaveBeenCalledTimes(2);
   });
 
+  it("surfaces the cancel_email_change row in /admin/members/:id/full's auditHistory slice", async () => {
+    // Sister-card coverage: the dedicated Email change attempts card is
+    // already verified by the "marks the matching email_change_attempts
+    // row as cancelled-by-admin" test below. This test guarantees the
+    // SAME event is also discoverable from the Audit History card on the
+    // member detail page, so support staff can see admin-cancellations
+    // in the same chronological list as other admin actions on the user
+    // (impersonation, regenerate password, …) without having to
+    // cross-reference cards.
+    const future = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const previousPendingEmail = `${TEST_TAG}-fullsl-new@example.test`;
+    const targetId = await seedMemberWithPending("full-slice", {
+      pendingEmail: previousPendingEmail,
+      emailChangeToken: "1234abcd".repeat(8),
+      emailChangeExpires: future,
+    });
+    const target = await getUser(targetId);
+
+    const cancelRes = await request(app)
+      .post(`/api/admin/members/${targetId}/cancel-email-change`)
+      .set("Cookie", adminCookie);
+    expect(cancelRes.status).toBe(200);
+
+    const fullRes = await request(app)
+      .get(`/api/admin/members/${targetId}/full`)
+      .set("Cookie", adminCookie);
+    expect(fullRes.status).toBe(200);
+    expect(Array.isArray(fullRes.body.auditHistory)).toBe(true);
+
+    const auditHistory = fullRes.body.auditHistory as Array<{
+      id: number;
+      actionType: string;
+      entityType: string;
+      entityId: string;
+      actorId: number | null;
+      description: string;
+      createdAt: string;
+    }>;
+
+    const cancelRow = auditHistory.find(
+      (r) => r.actionType === "cancel_email_change",
+    );
+    expect(cancelRow, "cancel_email_change row in auditHistory").toBeDefined();
+    expect(cancelRow!.entityType).toBe("user");
+    expect(cancelRow!.entityId).toBe(String(targetId));
+    // "who cancelled" — actor is the admin that posted the cancel.
+    expect(cancelRow!.actorId).toBe(adminId);
+    // "what email was being changed to" — the dropped pending address
+    // appears in the description so the audit history card shows it
+    // without needing to expand the row.
+    expect(cancelRow!.description).toContain(previousPendingEmail);
+    // …and the description also names the member's current address so
+    // the row is unambiguous when the audit log page is filtered by
+    // entity type alone.
+    expect(cancelRow!.description).toContain(target.email);
+    // "when" — must be a parseable timestamp the card can format.
+    expect(cancelRow!.createdAt).toBeTruthy();
+    expect(Number.isFinite(new Date(cancelRow!.createdAt).getTime())).toBe(true);
+  });
+
   it("marks the matching email_change_attempts row as cancelled-by-admin", async () => {
     const future = new Date(Date.now() + 12 * 60 * 60 * 1000);
     const targetEmail = `${TEST_TAG}-attempt-mark-new@example.test`;

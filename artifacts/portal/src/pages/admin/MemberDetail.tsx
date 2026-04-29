@@ -1231,10 +1231,18 @@ export default function MemberDetail() {
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
                           <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm">{log.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-[10px]">{log.actionType}</Badge>
+                            <p className="text-sm" data-testid={`text-audit-description-${log.id}`}>{log.description}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <Badge variant="outline" className="text-[10px]" data-testid={`badge-audit-action-${log.id}`}>{log.actionType}</Badge>
                               <span className="text-[10px] text-muted-foreground">{log.createdAt ? format(new Date(log.createdAt), "MMM d, h:mm a") : ""}</span>
+                              {log.actorEmail && (
+                                <span
+                                  className="text-[10px] text-muted-foreground font-mono break-all"
+                                  data-testid={`text-audit-actor-${log.id}`}
+                                >
+                                  by {log.actorEmail}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
