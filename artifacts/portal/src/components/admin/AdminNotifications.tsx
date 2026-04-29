@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { Bell, AlertTriangle, Webhook, DollarSign } from "lucide-react";
+import {
+  Bell,
+  AlertTriangle,
+  Webhook,
+  DollarSign,
+  Clock,
+  Inbox,
+  ServerCrash,
+  ShieldOff,
+  KeyRound,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
@@ -31,10 +41,19 @@ export function AdminNotifications() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Keep this map in sync with the notification `type` values emitted by
+  // GET /api/admin/notifications (artifacts/api-server/src/routes/admin-panel.ts).
+  // When the backend adds a new notification type, add a matching icon here so
+  // admins can scan the dropdown at a glance. The fallback below keeps things
+  // working until the entry is added.
   const iconMap: Record<string, typeof AlertTriangle> = {
-    sla_breach: AlertTriangle,
+    sla_breach: Clock,
     sync_failure: Webhook,
     payout_approval: DollarSign,
+    ticket_backlog: Inbox,
+    queue_fallback: ServerCrash,
+    signup_challenge_disabled: ShieldOff,
+    production_env_secret_missing: KeyRound,
   };
 
   const severityColors: Record<string, string> = {
