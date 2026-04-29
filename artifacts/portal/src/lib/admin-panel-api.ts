@@ -555,6 +555,133 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getAdminTicket(ticketId: number) {
+    const res = await authFetch(`/admin/tickets/${ticketId}`);
+    if (!res.ok) {
+      const status = res.status;
+      if (status === 404) {
+        const err = new Error("Ticket not found") as Error & { status?: number };
+        err.status = 404;
+        throw err;
+      }
+      throw new Error("Failed to fetch ticket");
+    }
+    return res.json() as Promise<{
+      id: number;
+      ticketNumber: string;
+      userId: number;
+      category: string;
+      priority: "urgent" | "high" | "normal" | "low";
+      status: "open" | "in_progress" | "awaiting_response" | "resolved" | "closed";
+      subject: string;
+      assignedTo: number | null;
+      createdAt: string;
+      updatedAt: string;
+      resolvedAt: string | null;
+      member: { id: number; name: string; email: string } | null;
+      assignee: { id: number; name: string; email: string } | null;
+      tier: string | null;
+      messages: Array<{
+        id: number;
+        ticketId: number;
+        senderType: "member" | "admin";
+        senderName: string;
+        body: string;
+        isInternal: boolean;
+        createdAt: string;
+      }>;
+    }>;
+  },
+
+  async getAdminTicketSla(ticketId: number) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/sla`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to fetch ticket SLA");
+    return res.json() as Promise<{
+      tierSlug: string;
+      firstResponseAt: string | null;
+      firstResponseBreached: boolean;
+      firstResponseWarning: boolean;
+      resolutionBreached: boolean;
+      resolutionWarning: boolean;
+      pausedAt: string | null;
+      elapsedBusinessMinutes: number;
+      firstResponsePct: number | null;
+      resolutionPct: number;
+    }>;
+  },
+
+  async getAdminTickets(params: { status?: string; category?: string; assignedTo?: number } = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.category) qs.set("category", params.category);
+    if (typeof params.assignedTo === "number") qs.set("assignedTo", String(params.assignedTo));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/tickets${suffix}`);
+    if (!res.ok) throw new Error("Failed to fetch tickets");
+    return res.json() as Promise<Array<{
+      id: number;
+      ticketNumber: string;
+      userId: number;
+      category: string;
+      priority: "urgent" | "high" | "normal" | "low";
+      status: "open" | "in_progress" | "awaiting_response" | "resolved" | "closed";
+      subject: string;
+      assignedTo: number | null;
+      createdAt: string;
+      updatedAt: string;
+      resolvedAt: string | null;
+      member: { id: number; name: string; email: string } | null;
+      assignee: { id: number; name: string; email: string } | null;
+    }>>;
+  },
+
+  async getTicketAssignees() {
+    const res = await authFetch("/admin/tickets/assignees");
+    if (!res.ok) throw new Error("Failed to fetch assignees");
+    return res.json() as Promise<Array<{ id: number; name: string; email: string }>>;
+  },
+
+  async updateTicketStatus(ticketId: number, status: string) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error("Failed to update ticket status");
+    return res.json();
+  },
+
+  async updateTicketPriority(ticketId: number, priority: string) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/priority`, {
+      method: "PUT",
+      body: JSON.stringify({ priority }),
+    });
+    if (!res.ok) throw new Error("Failed to update ticket priority");
+    return res.json();
+  },
+
+  async updateTicketAssignee(ticketId: number, assignedTo: number | null) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/assign`, {
+      method: "PUT",
+      body: JSON.stringify({ assignedTo }),
+    });
+    if (!res.ok) throw new Error("Failed to update ticket assignee");
+    return res.json();
+  },
+
+  async mergeTickets(primaryTicketId: number, ticketIds: number[]) {
+    const res = await authFetch("/admin/tickets/merge", {
+      method: "POST",
+      body: JSON.stringify({ primaryTicketId, ticketIds }),
+    });
+    if (!res.ok) throw new Error("Failed to merge tickets");
+    return res.json() as Promise<{
+      primaryTicket: { id: number; ticketNumber: string };
+      mergedCount: number;
+      totalMessages: number;
+    }>;
+  },
+
   async getTicketAuditHistory(ticketId: number) {
     const res = await authFetch(`/admin/tickets/${ticketId}/audit-history`);
     if (!res.ok) throw new Error("Failed to fetch ticket audit history");

@@ -10,6 +10,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import { requirePermission } from "../middleware/rbac";
@@ -381,17 +382,82 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
     if (category) conditions.push(eq(ticketsTable.category, category));
     if (assignedTo) conditions.push(eq(ticketsTable.assignedTo, parseInt(assignedTo)));
 
-    let query;
-    if (conditions.length > 0) {
-      query = db.select().from(ticketsTable).where(and(...conditions)).orderBy(desc(ticketsTable.createdAt));
-    } else {
-      query = db.select().from(ticketsTable).orderBy(desc(ticketsTable.createdAt));
-    }
+    // Join with users so the admin Ticket Detail merge dialog can render
+    // "<ticketNumber> · <member name>" for each candidate without an
+    // additional round-trip per row. assignedTo is nullable, so we use
+    // an aliased left join for the agent.
+    const assignedAgent = alias(usersTable, "assigned_agent");
+    const baseQuery = db
+      .select({
+        id: ticketsTable.id,
+        ticketNumber: ticketsTable.ticketNumber,
+        userId: ticketsTable.userId,
+        category: ticketsTable.category,
+        priority: ticketsTable.priority,
+        status: ticketsTable.status,
+        subject: ticketsTable.subject,
+        assignedTo: ticketsTable.assignedTo,
+        createdAt: ticketsTable.createdAt,
+        updatedAt: ticketsTable.updatedAt,
+        resolvedAt: ticketsTable.resolvedAt,
+        memberName: usersTable.name,
+        memberEmail: usersTable.email,
+        assignedAgentName: assignedAgent.name,
+        assignedAgentEmail: assignedAgent.email,
+      })
+      .from(ticketsTable)
+      .leftJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
+      .leftJoin(assignedAgent, eq(ticketsTable.assignedTo, assignedAgent.id));
 
-    const tickets = await query;
+    const rows = conditions.length > 0
+      ? await baseQuery.where(and(...conditions)).orderBy(desc(ticketsTable.createdAt))
+      : await baseQuery.orderBy(desc(ticketsTable.createdAt));
+
+    const tickets = rows.map((row) => ({
+      id: row.id,
+      ticketNumber: row.ticketNumber,
+      userId: row.userId,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      subject: row.subject,
+      assignedTo: row.assignedTo,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      resolvedAt: row.resolvedAt,
+      member: row.memberName
+        ? { id: row.userId, name: row.memberName, email: row.memberEmail }
+        : null,
+      assignee: row.assignedTo
+        ? { id: row.assignedTo, name: row.assignedAgentName, email: row.assignedAgentEmail }
+        : null,
+    }));
+
     res.json(tickets);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
+
+// Light-weight list of admin users who are eligible to be assigned to a
+// ticket. Powers the assignee dropdown on the admin Ticket Detail page —
+// using the same `role IN (...)` filter as agent-performance so the two
+// surfaces stay consistent.
+router.get("/admin/tickets/assignees", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
+  try {
+    const agents = await db
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+      })
+      .from(usersTable)
+      .where(inArray(usersTable.role, ["admin", "super_admin"]))
+      .orderBy(asc(usersTable.name));
+
+    res.json(agents);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch assignees" });
   }
 });
 
@@ -461,11 +527,36 @@ router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: 
       return;
     }
 
-    const [ticket] = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticketId));
-    if (!ticket) {
+    // Pull the ticket plus the joined member/assignee in a single query so the
+    // admin Ticket Detail page can render the header (name, email, current
+    // assignee) without two extra round-trips.
+    const assignedAgent = alias(usersTable, "assigned_agent");
+    const [row] = await db
+      .select({
+        ticket: ticketsTable,
+        memberId: usersTable.id,
+        memberName: usersTable.name,
+        memberEmail: usersTable.email,
+        assigneeId: assignedAgent.id,
+        assigneeName: assignedAgent.name,
+        assigneeEmail: assignedAgent.email,
+      })
+      .from(ticketsTable)
+      .leftJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
+      .leftJoin(assignedAgent, eq(ticketsTable.assignedTo, assignedAgent.id))
+      .where(eq(ticketsTable.id, ticketId));
+
+    if (!row) {
       res.status(404).json({ error: "Ticket not found" });
       return;
     }
+
+    // SLA gives us the canonical service tier for this ticket; reuse it so
+    // the page doesn't need a separate lookup just to label the header.
+    const [sla] = await db
+      .select({ tierSlug: ticketSlaTable.tierSlug })
+      .from(ticketSlaTable)
+      .where(eq(ticketSlaTable.ticketId, ticketId));
 
     const messages = await db
       .select()
@@ -473,7 +564,28 @@ router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: 
       .where(eq(ticketMessagesTable.ticketId, ticketId))
       .orderBy(ticketMessagesTable.createdAt);
 
-    res.json({ ...ticket, messages });
+    // The messages table only stores `senderType` (member|admin), not a
+    // user reference. Member messages are by definition the ticket owner;
+    // admin messages we surface as a generic label so the UI doesn't have
+    // to special-case unattributed admin notes/replies.
+    const enrichedMessages = messages.map((msg) => ({
+      ...msg,
+      senderName: msg.senderType === "member"
+        ? (row.memberName ?? "Member")
+        : "Admin",
+    }));
+
+    res.json({
+      ...row.ticket,
+      member: row.memberId
+        ? { id: row.memberId, name: row.memberName, email: row.memberEmail }
+        : null,
+      assignee: row.assigneeId
+        ? { id: row.assigneeId, name: row.assigneeName, email: row.assigneeEmail }
+        : null,
+      tier: sla?.tierSlug ?? null,
+      messages: enrichedMessages,
+    });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch ticket" });
   }
@@ -641,6 +753,81 @@ router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), asy
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: "Failed to update ticket status" });
+  }
+});
+
+router.put("/admin/tickets/:id/priority", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
+  try {
+    const ticketId = parseInt(req.params.id);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: "Invalid ticket ID" });
+      return;
+    }
+
+    const { priority } = req.body;
+    const validPriorities = ["urgent", "high", "normal", "low"];
+    if (!validPriorities.includes(priority)) {
+      res.status(400).json({ error: `Invalid priority. Must be one of: ${validPriorities.join(", ")}` });
+      return;
+    }
+
+    const [updated] = await db.update(ticketsTable)
+      .set({ priority })
+      .where(eq(ticketsTable.id, ticketId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update ticket priority" });
+  }
+});
+
+router.put("/admin/tickets/:id/assign", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
+  try {
+    const ticketId = parseInt(req.params.id);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: "Invalid ticket ID" });
+      return;
+    }
+
+    // `assignedTo: null` means "unassign". Anything else must be the id of an
+    // existing admin/super_admin user — we verify before writing so a stale
+    // id from the client doesn't silently dangle the FK.
+    const { assignedTo } = req.body as { assignedTo: number | null | undefined };
+    if (assignedTo !== null && (typeof assignedTo !== "number" || !Number.isFinite(assignedTo))) {
+      res.status(400).json({ error: "assignedTo must be a number or null" });
+      return;
+    }
+
+    if (assignedTo !== null) {
+      const [agent] = await db
+        .select({ id: usersTable.id, role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, assignedTo as number));
+      if (!agent || (agent.role !== "admin" && agent.role !== "super_admin")) {
+        res.status(400).json({ error: "Assignee must be an admin user" });
+        return;
+      }
+    }
+
+    const [updated] = await db.update(ticketsTable)
+      .set({ assignedTo: assignedTo as number | null })
+      .where(eq(ticketsTable.id, ticketId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update ticket assignee" });
   }
 });
 
