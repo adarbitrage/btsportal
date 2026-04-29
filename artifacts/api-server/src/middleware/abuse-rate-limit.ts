@@ -33,8 +33,21 @@ export function emailKey(prefix: string, fieldName: string = "email") {
   };
 }
 
+// Hard upper bound on how many entries we'll keep in any single rate-limit
+// sorted set. The middleware decides allow/deny based on the count *before*
+// the new entry is added, but during a sustained spam wave many writers can
+// race past the count check and pile entries into the same set faster than
+// the per-window TTL can clean them up. This cap (applied via
+// ZREMRANGEBYRANK on every request) bounds the per-key memory footprint to
+// a small multiple of the configured limit so a single attacker can't grow
+// one key without bound inside the window.
+function entryCapFor(maxRequests: number): number {
+  return Math.max(maxRequests * 4, 32);
+}
+
 export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
   const { name, maxRequests, windowSeconds, keyResolver, message } = opts;
+  const entryCap = entryCapFor(maxRequests);
   return function abuseRateLimitMiddleware(req: Request, res: Response, next: NextFunction): void {
     const redis = getRedis();
     if (!redis) {
@@ -58,6 +71,7 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
       .zremrangebyscore(key, 0, windowStart)
       .zcard(key)
       .zadd(key, now, member)
+      .zremrangebyrank(key, 0, -(entryCap + 1))
       .expire(key, windowSeconds)
       .exec()
       .then((results) => {

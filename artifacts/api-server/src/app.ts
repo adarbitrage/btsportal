@@ -16,6 +16,7 @@ import { startPasswordResetAttemptsCleanupJob } from "./lib/password-reset-attem
 import { startEmailChangeHistoryCleanupJob } from "./lib/email-change-history-cleanup";
 import { startPendingEmailCleanupJob } from "./lib/pending-email-cleanup";
 import { startAuthTokenCleanupJob } from "./lib/auth-token-cleanup";
+import { startAbuseRateLimitCleanupJob } from "./lib/abuse-rate-limit-cleanup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
@@ -130,6 +131,7 @@ startPasswordResetAttemptsCleanupJob();
 startEmailChangeHistoryCleanupJob();
 startPendingEmailCleanupJob();
 startAuthTokenCleanupJob();
+startAbuseRateLimitCleanupJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }

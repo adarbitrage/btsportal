@@ -33,6 +33,26 @@ const { redisGetMock, sortedSets } = vi.hoisted(() => {
         });
         return multi;
       },
+      zremrangebyrank(key: string, start: number, stop: number) {
+        ops.push(() => {
+          const arr = sortedSets.get(key) || [];
+          const sorted = [...arr].sort((a, b) => a.score - b.score);
+          const len = sorted.length;
+          const lo = start < 0 ? Math.max(0, len + start) : Math.min(start, len);
+          const hi = stop < 0 ? len + stop : Math.min(stop, len - 1);
+          if (lo > hi || len === 0) {
+            results.push([null, 0]);
+            return;
+          }
+          const toRemove = new Set(
+            sorted.slice(lo, hi + 1).map((e) => e.member),
+          );
+          const kept = arr.filter((e) => !toRemove.has(e.member));
+          sortedSets.set(key, kept);
+          results.push([null, toRemove.size]);
+        });
+        return multi;
+      },
       expire(_key: string, _seconds: number) {
         ops.push(() => {
           results.push([null, 1]);
@@ -113,6 +133,53 @@ beforeEach(() => {
   sortedSets.clear();
   sendEmailNowMock.mockClear();
   redisGetMock.mockClear();
+});
+
+describe("abuse-rate sorted-set growth cap", () => {
+  it("never lets a single per-email register key grow past the per-route cap, even under sustained spam", async () => {
+    // Hammer the same email far past its per-window budget (3). Even if
+    // every request races past the count check, the per-key sorted set must
+    // not balloon — the middleware applies a ZREMRANGEBYRANK cap on every
+    // write so a single attacker can't grow one key without bound. 60 hits
+    // is well past the 32-entry floor cap so any failure to trim shows up.
+    for (let i = 0; i < 60; i++) {
+      await request(app)
+        .post("/api/auth/register")
+        .set("X-Forwarded-For", `198.51.100.${(i % 250) + 1}`)
+        .send({ email: "spam-victim", password: "Brandnew1!", name: "X" });
+    }
+
+    // Full key shape is `abuse-rate:{name}:{resolved}` and the resolver
+    // already namespaces with the route prefix, so the per-email register
+    // key starts with `abuse-rate:register:register:email:`.
+    let largest = 0;
+    for (const [key, entries] of sortedSets.entries()) {
+      if (key.startsWith("abuse-rate:register:register:email:")) {
+        largest = Math.max(largest, entries.length);
+      }
+    }
+    // Cap is max(maxRequests * 4, 32). Per-email max is 3, floor wins → 32.
+    expect(largest).toBeLessThanOrEqual(32);
+    expect(largest).toBeGreaterThan(0);
+  }, 60_000);
+
+  it("never lets a single per-IP login key grow past the per-route cap", async () => {
+    // Cap for /login is max(20 * 4, 32) = 80. 100 hits proves the cap holds.
+    for (let i = 0; i < 100; i++) {
+      await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", "203.0.113.250")
+        .send({ email: `scrape-${i}@example.test`, password: "WrongPass1!" });
+    }
+
+    const key = Array.from(sortedSets.keys()).find((k) =>
+      k.startsWith("abuse-rate:login:login:ip:"),
+    );
+    expect(key).toBeDefined();
+    const size = (sortedSets.get(key!) || []).length;
+    expect(size).toBeLessThanOrEqual(80);
+    expect(size).toBeGreaterThan(0);
+  }, 60_000);
 });
 
 describe("POST /api/auth/forgot-password rate limiting", () => {
