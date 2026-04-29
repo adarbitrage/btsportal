@@ -3,6 +3,7 @@ import { db, upgradePromptEventsTable } from "@workspace/db";
 import { and, gte, lte, sql } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import { abuseRateLimit } from "../middleware/abuse-rate-limit";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,33 @@ const MAX_RANGE_DAYS = 366;
 const DEFAULT_RANGE_DAYS = 30;
 const TOP_FEATURE_COMBOS_LIMIT = 10;
 
+// Per-user cap on POST /analytics/events. The portal client de-dupes
+// impressions per render, so a real member only emits a handful of events
+// per page navigation (one impression + an optional cta_click for each of
+// the dashboard and sidebar variants). 120 events / 60s leaves plenty of
+// headroom for fast browsing across many tiers/feature combos while still
+// shutting down a tight loop or scripted abuser before they can pile
+// millions of rows into `upgrade_prompt_events`.
+export const ANALYTICS_EVENTS_RATE_LIMIT = {
+  maxRequests: 120,
+  windowSeconds: 60,
+} as const;
+
+const analyticsEventsUserLimiter = abuseRateLimit({
+  name: "analytics-events",
+  maxRequests: ANALYTICS_EVENTS_RATE_LIMIT.maxRequests,
+  windowSeconds: ANALYTICS_EVENTS_RATE_LIMIT.windowSeconds,
+  // Keyed off the authenticated user only. The route handler below requires
+  // authentication, so an anonymous flood is already short-circuited with a
+  // 401 before any DB write happens — no IP-level backstop needed, which
+  // also avoids tripping the limiter for many distinct members sitting
+  // behind a single NAT'd egress IP. Returning null when there's no
+  // userId simply lets the request fall through to the 401 check.
+  keyResolver: (req) =>
+    typeof req.userId === "number" ? `analytics-events:user:${req.userId}` : null,
+  message: "Too many analytics events. Please slow down.",
+});
+
 function sanitizeFeatureKeys(input: unknown): string[] | null {
   if (!Array.isArray(input)) return null;
   if (input.length > MAX_FEATURE_KEYS) return null;
@@ -28,7 +56,7 @@ function sanitizeFeatureKeys(input: unknown): string[] | null {
   return out;
 }
 
-router.post("/analytics/events", async (req, res): Promise<void> => {
+router.post("/analytics/events", analyticsEventsUserLimiter, async (req, res): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
