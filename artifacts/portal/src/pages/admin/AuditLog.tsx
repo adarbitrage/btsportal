@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch } from "lucide-react";
+import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -68,6 +68,14 @@ export default function AuditLog() {
   const [jumpToValue, setJumpToValue] = useState("");
   const pendingJumpRef = useRef<string | null>(null);
   const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // Tracks an in-flight export so we can disable the buttons (no double
+  // submits) and surface a streamed bytes/rows hint while a year-long
+  // download is being pulled down. `null` whenever no export is running.
+  const [exportProgress, setExportProgress] = useState<{
+    fmt: "csv" | "json";
+    bytesReceived: number;
+    rowsReceived: number | null;
+  } | null>(null);
   const { toast } = useToast();
 
   const load = async (opts?: { cursor?: string; direction?: "forward" | "backward" }) => {
@@ -151,20 +159,26 @@ export default function AuditLog() {
     }
   }, [loading, logs]);
 
-  const handleExport = async (fmt: string) => {
+  const handleExport = async (fmt: "csv" | "json") => {
+    // Belt-and-braces: the buttons are also disabled while an export runs,
+    // but a stale Enter key / double-tap could still re-enter this handler
+    // before React re-renders the disabled state.
+    if (exportProgress) return;
+    setExportProgress({ fmt, bytesReceived: 0, rowsReceived: null });
     try {
-      const res = await adminPanelApi.exportAuditLog(fmt, filters);
-
       // The server streams the full result set in chunks and no longer
       // computes an upfront `count(*)` for the export header — that count
-      // was the dominant cost on multi-million-row audit logs. The await
-      // on res.blob() below only resolves once the entire stream has
-      // arrived, so by the time we show the toast the download really
-      // is complete; we pull the matched count from the read endpoint's
-      // `totalMatching` (already in state for the "N matching rows"
-      // display) so the toast still surfaces a row count without the
-      // server having to recompute one per export.
-      const blob = await res.blob();
+      // was the dominant cost on multi-million-row audit logs. We read
+      // the body as a stream so we can surface a "downloading…" hint
+      // during the multi-second pull on large queries; the helper only
+      // resolves once every byte has arrived, so by the time we show the
+      // toast the download really is complete. The matched count for the
+      // toast comes from the read endpoint's `totalMatching` (already in
+      // state for the "N matching rows" display) so the toast still
+      // surfaces an authoritative row count.
+      const { blob } = await adminPanelApi.exportAuditLog(fmt, filters, (progress) => {
+        setExportProgress({ fmt, ...progress });
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -183,7 +197,17 @@ export default function AuditLog() {
       }
     } catch (err: any) {
       toast({ title: "Export failed", description: err.message, variant: "destructive" });
+    } finally {
+      setExportProgress(null);
     }
+  };
+
+  // Human-readable size formatter for the in-flight progress hint. We don't
+  // need TB precision — audit log exports cap out well under that.
+  const formatBytes = (n: number) => {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const hasNewer = cursors.prev !== null;
@@ -260,35 +284,75 @@ export default function AuditLog() {
               )}
             </div>
             <TooltipProvider>
-              <div className="flex gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExport("csv")}
-                      data-testid="audit-export-csv"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      CSV{exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{exportTooltip}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExport("json")}
-                      data-testid="audit-export-json"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      JSON{exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{exportTooltip}</TooltipContent>
-                </Tooltip>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExport("csv")}
+                        disabled={exportProgress !== null}
+                        aria-busy={exportProgress?.fmt === "csv"}
+                        data-testid="audit-export-csv"
+                      >
+                        {exportProgress?.fmt === "csv" ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-1" />
+                        )}
+                        {exportProgress?.fmt === "csv"
+                          ? "Exporting…"
+                          : `CSV${exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}`}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {exportProgress?.fmt === "csv"
+                        ? "Streaming the export — please don't close the tab."
+                        : exportTooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExport("json")}
+                        disabled={exportProgress !== null}
+                        aria-busy={exportProgress?.fmt === "json"}
+                        data-testid="audit-export-json"
+                      >
+                        {exportProgress?.fmt === "json" ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-1" />
+                        )}
+                        {exportProgress?.fmt === "json"
+                          ? "Exporting…"
+                          : `JSON${exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}`}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {exportProgress?.fmt === "json"
+                        ? "Streaming the export — please don't close the tab."
+                        : exportTooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                {exportProgress && (
+                  <span
+                    className="text-xs text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="audit-export-progress"
+                  >
+                    Downloading…{" "}
+                    {exportProgress.rowsReceived != null && exportProgress.rowsReceived > 0
+                      ? `${exportProgress.rowsReceived.toLocaleString()} rows · `
+                      : ""}
+                    {formatBytes(exportProgress.bytesReceived)}
+                  </span>
+                )}
               </div>
             </TooltipProvider>
           </div>

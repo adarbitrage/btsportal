@@ -59,7 +59,11 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async exportAuditLog(format: string = "csv", filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string } = {}) {
+  async exportAuditLog(
+    format: string = "csv",
+    filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string } = {},
+    onProgress?: (progress: { bytesReceived: number; rowsReceived: number | null }) => void,
+  ): Promise<{ blob: Blob; bytesReceived: number; rowsReceived: number | null }> {
     const qs = new URLSearchParams();
     qs.set("format", format);
     if (filters.actionType) qs.set("actionType", filters.actionType);
@@ -68,7 +72,76 @@ export const adminPanelApi = {
     if (filters.endDate) qs.set("endDate", filters.endDate);
     const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to export audit log");
-    return res;
+
+    const isCsv = format === "csv";
+    const contentType = res.headers.get("content-type") ?? (isCsv ? "text/csv" : "application/json");
+
+    // The server streams the entire result set in chunks. Reading the body
+    // through a ReadableStream lets us surface "still working, here's how much
+    // has arrived" feedback during a multi-second download instead of the user
+    // staring at a frozen button. Falls back to a plain `.blob()` read on
+    // platforms (or test fakes) that don't expose a body stream — we still
+    // return a final progress sample so callers can finalise their UI.
+    const reader = res.body?.getReader?.();
+    if (!reader) {
+      const blob = await res.blob();
+      const final = { bytesReceived: blob.size, rowsReceived: null as number | null };
+      onProgress?.(final);
+      return { blob, ...final };
+    }
+
+    const chunks: BlobPart[] = [];
+    let bytesReceived = 0;
+    let newlineCount = 0;
+    let lastEmit = 0;
+    const NEWLINE = 0x0a;
+    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+    // Throttle progress callbacks so we don't thrash React with hundreds of
+    // setStates per second on a fast connection. Force-emit on completion so
+    // the final byte/row count is always surfaced.
+    const emit = (force: boolean) => {
+      if (!onProgress) return;
+      const t = now();
+      if (!force && t - lastEmit < 150) return;
+      lastEmit = t;
+      const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
+      onProgress({ bytesReceived, rowsReceived });
+    };
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value && value.byteLength > 0) {
+          chunks.push(value);
+          bytesReceived += value.byteLength;
+          // For CSV we approximate rows-so-far by counting newlines on the
+          // raw bytes — fast, no decoding, and ~accurate for audit_log where
+          // descriptions are short single-line strings. Descriptions that
+          // contain embedded LFs (RFC 4180 wraps them in quotes) will
+          // slightly over-count, but this value is only a "things are
+          // happening" hint during the download; the final toast still
+          // reports the authoritative row count from the read endpoint.
+          // JSON exports are an array of objects; counting top-level commas
+          // is brittle across chunk boundaries, so we leave row count null
+          // and only show bytes for the JSON download.
+          if (isCsv) {
+            for (let i = 0; i < value.byteLength; i++) {
+              if (value[i] === NEWLINE) newlineCount++;
+            }
+          }
+          emit(false);
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch { /* no-op */ }
+    }
+
+    const blob = new Blob(chunks, { type: contentType });
+    const rowsReceived = isCsv ? Math.max(0, newlineCount - 1) : null;
+    emit(true);
+    return { blob, bytesReceived, rowsReceived };
   },
 
   async getMemberFull(id: number) {
