@@ -560,6 +560,49 @@ export default function AuditLog() {
                                 <span className="text-muted-foreground">Reason:</span>{" "}
                                 {log.metadata?.reason || <span className="text-muted-foreground italic">none</span>}
                               </div>
+                              {/* Fallback frequency context — the same recent / 1h / 24h
+                                  counts that the on-call email/Slack/PagerDuty alert
+                                  carries. Lets admins reading the audit row see *how
+                                  bad* the incident was without bouncing back to
+                                  System Health. `recentWindowMs` is rounded to whole
+                                  minutes (matching the alerter's `Math.round(ms/60000)`
+                                  in queue-fallback-alerter.ts) and then floored to 1m
+                                  so a sub-minute window never displays as the
+                                  nonsensical "in last 0m". All five fields are
+                                  written together by `recordDeliveryAttempt`, so
+                                  if any are missing this is a legacy row from before
+                                  task #188 — render nothing rather than confusing
+                                  the admin with "0 in last 0m". */}
+                              {(() => {
+                                const m = log.metadata ?? {};
+                                const hasFreq =
+                                  typeof m.recentCount === "number" &&
+                                  typeof m.hourCount === "number" &&
+                                  typeof m.dayCount === "number" &&
+                                  typeof m.recentWindowMs === "number";
+                                if (!hasFreq) return null;
+                                const recentMinutes = Math.max(1, Math.round(m.recentWindowMs / 60000));
+                                const lastAt = m.lastAt
+                                  ? (() => {
+                                      const d = new Date(m.lastAt);
+                                      return Number.isNaN(d.getTime())
+                                        ? String(m.lastAt)
+                                        : format(d, "MMM d, yyyy h:mm a");
+                                    })()
+                                  : "n/a";
+                                return (
+                                  <div
+                                    className="col-span-2"
+                                    data-testid={`alert-frequency-${log.id}`}
+                                  >
+                                    <span className="text-muted-foreground">Frequency:</span>{" "}
+                                    Recent: {m.recentCount.toLocaleString()} in last {recentMinutes}m
+                                    {" · "}1h: {m.hourCount.toLocaleString()}
+                                    {" · "}24h: {m.dayCount.toLocaleString()}
+                                    {" · "}Last: {lastAt}
+                                  </div>
+                                );
+                              })()}
                             </>
                           )}
                         </div>
