@@ -675,7 +675,7 @@ const smsTemplates = [
 
 export type StarterEmailTemplate = (typeof transactionalEmailTemplates)[number];
 
-type StarterContent = Pick<StarterEmailTemplate, "name" | "subject" | "htmlBody" | "textBody">;
+export type StarterContent = Pick<StarterEmailTemplate, "name" | "subject" | "htmlBody" | "textBody">;
 
 /**
  * SHA-256 fingerprint of a starter template's user-visible content. Stored on
@@ -707,7 +707,7 @@ export function templateContentHash(t: StarterContent): string {
  * an entry — the current copy in `transactionalEmailTemplates` is recognized
  * automatically.
  */
-const priorStarterRevisions: Record<string, StarterContent[]> = {
+export const priorStarterRevisions: Record<string, StarterContent[]> = {
   // Pre-Task #152 copy: button colors used #1a56db and the "no need to create
   // a new account" sub-clause was missing.
   signup_attempted: [
