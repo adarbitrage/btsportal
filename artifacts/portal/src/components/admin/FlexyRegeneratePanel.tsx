@@ -91,6 +91,71 @@ export function FlexyStatusBadge({ status }: { status: string }) {
   );
 }
 
+type FlexyStatusSummaryProps = {
+  lookup: FlexyLookup;
+  testIdPrefix?: string;
+};
+
+export function FlexyStatusSummary({
+  lookup,
+  testIdPrefix = "flexy",
+}: FlexyStatusSummaryProps) {
+  const status = lookup.flexy.status ?? "not_installed";
+  return (
+    <div
+      className="flex items-center gap-2 flex-wrap"
+      data-testid={`${testIdPrefix}-status-summary`}
+    >
+      <span className="text-xs text-muted-foreground">Status:</span>
+      <FlexyStatusBadge status={status} />
+      {lookup.flexy.hasStaffUser ? (
+        <Badge
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200 text-[10px]"
+          data-testid={`${testIdPrefix}-badge-staff-user`}
+        >
+          Staff user linked
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+          data-testid={`${testIdPrefix}-badge-staff-user`}
+        >
+          No staff user
+        </Badge>
+      )}
+      {lookup.member.hasPhone ? (
+        lookup.member.smsOptIn ? (
+          <Badge
+            variant="outline"
+            className="bg-green-50 text-green-700 border-green-200 text-[10px]"
+            data-testid={`${testIdPrefix}-badge-sms`}
+          >
+            SMS opt-in
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+            data-testid={`${testIdPrefix}-badge-sms`}
+          >
+            Phone on file, no SMS opt-in
+          </Badge>
+        )
+      ) : (
+        <Badge
+          variant="outline"
+          className="bg-muted text-muted-foreground text-[10px]"
+          data-testid={`${testIdPrefix}-badge-sms`}
+        >
+          No phone on file
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 type FlexyRegeneratePanelProps = {
   userId: number;
   showHistory?: boolean;
@@ -98,6 +163,7 @@ type FlexyRegeneratePanelProps = {
   historyItemTestIdPrefix?: string;
   historyHeaderLabel?: string;
   showHistoryActorFilter?: boolean;
+  initialLookup?: FlexyLookup | null;
 };
 
 export function FlexyRegeneratePanel({
@@ -107,9 +173,12 @@ export function FlexyRegeneratePanel({
   historyItemTestIdPrefix,
   historyHeaderLabel,
   showHistoryActorFilter = true,
+  initialLookup = null,
 }: FlexyRegeneratePanelProps) {
   const { toast } = useToast();
-  const [lookup, setLookup] = useState<FlexyLookup | null>(null);
+  const [lookup, setLookup] = useState<FlexyLookup | null>(
+    initialLookup && initialLookup.member.id === userId ? initialLookup : null,
+  );
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
@@ -123,12 +192,20 @@ export function FlexyRegeneratePanel({
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    setLookup(null);
+    const seeded =
+      initialLookup && initialLookup.member.id === userId ? initialLookup : null;
+    setLookup(seeded);
     setLookupError(null);
     setNewPassword(null);
     setLastNotifications(null);
     setNotifyEmail(true);
     setNotifySms(false);
+    if (seeded) {
+      setLookupLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     setLookupLoading(true);
     fetchFlexyLookup(userId)
       .then((result) => {
@@ -145,7 +222,7 @@ export function FlexyRegeneratePanel({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, initialLookup]);
 
   const flexyStatus = lookup?.flexy.status ?? "not_installed";
   const canRegenerate =
@@ -241,54 +318,7 @@ export function FlexyRegeneratePanel({
 
   return (
     <div className="space-y-3" data-testid="flexy-regenerate-panel">
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Status:</span>
-        <FlexyStatusBadge status={flexyStatus} />
-        {lookup.flexy.hasStaffUser ? (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-200 text-[10px]"
-            data-testid="badge-flexy-staff-user"
-          >
-            Staff user linked
-          </Badge>
-        ) : (
-          <Badge
-            variant="outline"
-            className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
-            data-testid="badge-flexy-staff-user"
-          >
-            No staff user
-          </Badge>
-        )}
-        {lookup.member.hasPhone ? (
-          lookup.member.smsOptIn ? (
-            <Badge
-              variant="outline"
-              className="bg-green-50 text-green-700 border-green-200 text-[10px]"
-              data-testid="badge-flexy-sms"
-            >
-              SMS opt-in
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
-              data-testid="badge-flexy-sms"
-            >
-              Phone on file, no SMS opt-in
-            </Badge>
-          )
-        ) : (
-          <Badge
-            variant="outline"
-            className="bg-muted text-muted-foreground text-[10px]"
-            data-testid="badge-flexy-sms"
-          >
-            No phone on file
-          </Badge>
-        )}
-      </div>
+      <FlexyStatusSummary lookup={lookup} testIdPrefix="flexy" />
 
       {lookup.flexy.email ? (
         <div className="space-y-1">

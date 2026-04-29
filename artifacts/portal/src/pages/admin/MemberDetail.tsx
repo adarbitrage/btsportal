@@ -10,11 +10,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Lock, LockOpen, ExternalLink } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { FlexyRegeneratePanel } from "@/components/admin/FlexyRegeneratePanel";
+import {
+  FlexyRegeneratePanel,
+  FlexyStatusSummary,
+  fetchFlexyLookup,
+  type FlexyLookup,
+} from "@/components/admin/FlexyRegeneratePanel";
 import { useAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
@@ -54,6 +59,9 @@ export default function MemberDetail() {
   const [loading, setLoading] = useState(true);
   const [noteContent, setNoteContent] = useState("");
   const [submittingNote, setSubmittingNote] = useState(false);
+  const [flexyLookup, setFlexyLookup] = useState<FlexyLookup | null>(null);
+  const [flexyLookupLoading, setFlexyLookupLoading] = useState(false);
+  const [flexyLookupError, setFlexyLookupError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [grantOpen, setGrantOpen] = useState(false);
@@ -119,6 +127,29 @@ export default function MemberDetail() {
   };
 
   useEffect(() => { if (memberId) load(); }, [memberId]);
+
+  useEffect(() => {
+    if (!memberId) return;
+    let cancelled = false;
+    setFlexyLookup(null);
+    setFlexyLookupError(null);
+    setFlexyLookupLoading(true);
+    fetchFlexyLookup(memberId)
+      .then((result) => {
+        if (!cancelled) setFlexyLookup(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setFlexyLookupError(err instanceof Error ? err.message : "Lookup failed");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFlexyLookupLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId]);
 
   useEffect(() => {
     if (!highlightOldEmail || !data) return;
@@ -388,6 +419,30 @@ export default function MemberDetail() {
           </Card>
         )}
 
+        {flexyLookupError ? null : (
+          <Card data-testid="card-flexy-summary">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <KeyRound className="w-4 h-4" /> Flexy
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {flexyLookupLoading && !flexyLookup ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Looking up Flexy details...
+                </div>
+              ) : flexyLookup ? (
+                <div className="space-y-2">
+                  <FlexyStatusSummary lookup={flexyLookup} testIdPrefix="member-flexy" />
+                  <p className="text-xs text-muted-foreground">
+                    Open the Password Resets tab to regenerate the password or view reset history.
+                  </p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="products">
           <TabsList className="grid w-full grid-cols-9 gap-1">
             <TabsTrigger value="products" className="text-xs"><Package className="w-3 h-3 mr-1" />Products</TabsTrigger>
@@ -625,6 +680,7 @@ export default function MemberDetail() {
               <CardContent>
                 <FlexyRegeneratePanel
                   userId={memberId}
+                  initialLookup={flexyLookup}
                   historyContainerTestId="member-flexy-reset-history"
                   historyItemTestIdPrefix="member-flexy-history"
                   historyHeaderLabel="All password reset events for this member"
