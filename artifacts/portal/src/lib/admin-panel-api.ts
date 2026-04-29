@@ -205,11 +205,25 @@ export const adminPanelApi = {
 
   async getMemberEmailAttempts(
     userId: number,
-    options: { limit?: number; offset?: number } = {},
+    options: {
+      limit?: number;
+      offset?: number;
+      // When set, the server filters classified rows to only this status
+      // before paginating, so the "Show older" pager keeps surfacing
+      // matching rows past the first page (used by the admin Member Detail
+      // attempts card to narrow to e.g. cancelled-by-admin only).
+      status?:
+        | "pending"
+        | "confirmed"
+        | "expired"
+        | "abandoned"
+        | "cancelled_by_admin";
+    } = {},
   ) {
     const qs = new URLSearchParams();
     if (typeof options.limit === "number") qs.set("limit", String(options.limit));
     if (typeof options.offset === "number") qs.set("offset", String(options.offset));
+    if (typeof options.status === "string") qs.set("status", options.status);
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     const res = await authFetch(`/admin/members/${userId}/email-attempts${suffix}`);
     if (!res.ok) throw new Error("Failed to fetch email-change attempts");
@@ -239,6 +253,15 @@ export const adminPanelApi = {
       offset: number;
       limit: number;
       hasMore: boolean;
+      // Echoes the active filter so callers can sanity-check that the
+      // server applied the requested status (or null when unfiltered).
+      status?:
+        | "pending"
+        | "confirmed"
+        | "expired"
+        | "abandoned"
+        | "cancelled_by_admin"
+        | null;
     }>;
   },
 

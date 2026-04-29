@@ -97,9 +97,10 @@ export default function MemberDetail() {
   const [emailAttemptsTotal, setEmailAttemptsTotal] = useState<number>(0);
   const [emailAttemptsPageSize, setEmailAttemptsPageSize] = useState<number>(50);
   const [emailAttemptsLoadingMore, setEmailAttemptsLoadingMore] = useState(false);
-  // Status filter is applied client-side over the rows the admin has loaded
-  // so far (including pages fetched via "Show older"). It persists across
-  // pagination so support can keep narrowing as they page in older rows.
+  // Status filter is sent to the server as `status=<filter>`, so the loaded
+  // rows AND the `total` reflect only matching rows. That way "Show older"
+  // can keep paging through e.g. cancelled-by-admin rows past page 1, even
+  // when newer non-matching rows would otherwise saturate the first page.
   type AttemptStatusFilter =
     | "all"
     | "pending"
@@ -109,6 +110,16 @@ export default function MemberDetail() {
     | "cancelled_by_admin";
   const [emailAttemptsStatusFilter, setEmailAttemptsStatusFilter] =
     useState<AttemptStatusFilter>("all");
+  const [emailAttemptsFilterLoading, setEmailAttemptsFilterLoading] =
+    useState(false);
+  // Snapshot of the unfiltered list (rows + total) at the moment the admin
+  // applied a filter, so clearing the filter restores any extra pages they
+  // had already loaded via "Show older". Without this, returning to "all"
+  // would fall back to just the embedded /full first page and silently
+  // drop everything they paginated through.
+  const [unfilteredSnapshot, setUnfilteredSnapshot] = useState<
+    { attempts: EmailAttemptRow[]; total: number } | null
+  >(null);
 
   // Click-through detail panel for a single attempt. The list view only
   // shows status + dates; the detail panel adds the matching audit log
@@ -201,6 +212,12 @@ export default function MemberDetail() {
         ? result.emailAttemptsTotal
         : initialAttempts.length;
       setEmailAttemptsTotal(total);
+      // /full embeds the unfiltered first page, so any active filter from a
+      // prior render would mismatch the rows we just dropped in. Reset the
+      // filter to "all" so what you see matches what's loaded, and drop any
+      // stale snapshot from a previous filter session on the old data.
+      setEmailAttemptsStatusFilter("all");
+      setUnfilteredSnapshot(null);
       if (typeof result?.emailAttemptsPageSize === "number" && result.emailAttemptsPageSize > 0) {
         setEmailAttemptsPageSize(result.emailAttemptsPageSize);
       }
@@ -257,10 +274,22 @@ export default function MemberDetail() {
     setEmailAttemptsLoadingMore(true);
     try {
       const offset = emailAttempts.length;
-      const result = await adminPanelApi.getMemberEmailAttempts(memberId, {
+      // Keep the same status filter on subsequent pages so the pager
+      // surfaces older matching rows (e.g. cancelled-by-admin rows that
+      // sit past page 1 of the unfiltered list). Omit the field entirely
+      // when "all" so a plain unfiltered request stays plain.
+      const params: {
+        offset: number;
+        limit: number;
+        status?: Exclude<AttemptStatusFilter, "all">;
+      } = {
         offset,
         limit: emailAttemptsPageSize,
-      });
+      };
+      if (emailAttemptsStatusFilter !== "all") {
+        params.status = emailAttemptsStatusFilter;
+      }
+      const result = await adminPanelApi.getMemberEmailAttempts(memberId, params);
       // Dedupe by id in case the underlying list shifted between calls (e.g.
       // a new attempt was inserted between the initial /full and this paged
       // request).
@@ -272,6 +301,71 @@ export default function MemberDetail() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setEmailAttemptsLoadingMore(false);
+    }
+  };
+
+  // Refetch the first page from the server when the admin changes the
+  // status filter. The server applies the filter before paginating so the
+  // returned `total` reflects only matching rows — that's what makes
+  // "Show older" able to reach matching rows past the unfiltered page 1.
+  // For the default "all" with no offset we can re-use the data the
+  // initial /full call embedded, so we avoid a second round-trip.
+  const handleStatusFilterChange = async (next: AttemptStatusFilter) => {
+    if (next === emailAttemptsStatusFilter) return;
+    const wasAll = emailAttemptsStatusFilter === "all";
+    setEmailAttemptsStatusFilter(next);
+    // Leaving "all" for a filter: snapshot whatever the admin had loaded
+    // (including any extra pages from "Show older") so we can restore it
+    // verbatim when they clear back to "all", instead of dropping them
+    // back to just the embedded /full first page.
+    if (wasAll && next !== "all") {
+      setUnfilteredSnapshot({
+        attempts: emailAttempts,
+        total: emailAttemptsTotal,
+      });
+    }
+    if (next === "all") {
+      // Prefer the live snapshot (preserves paginated rows). Fall back to
+      // the embedded /full data when there is no snapshot yet (e.g. the
+      // admin filtered before the page finished loading).
+      const restored = unfilteredSnapshot
+        ? unfilteredSnapshot
+        : data
+        ? {
+            attempts: Array.isArray(data?.emailAttempts) ? data.emailAttempts : [],
+            total:
+              typeof data?.emailAttemptsTotal === "number"
+                ? data.emailAttemptsTotal
+                : Array.isArray(data?.emailAttempts)
+                ? data.emailAttempts.length
+                : 0,
+          }
+        : null;
+      if (restored) {
+        setEmailAttempts(restored.attempts);
+        setEmailAttemptsTotal(restored.total);
+        setUnfilteredSnapshot(null);
+        return;
+      }
+    }
+    setEmailAttemptsFilterLoading(true);
+    try {
+      const params: {
+        offset: number;
+        limit: number;
+        status?: Exclude<AttemptStatusFilter, "all">;
+      } = {
+        offset: 0,
+        limit: emailAttemptsPageSize,
+      };
+      if (next !== "all") params.status = next;
+      const result = await adminPanelApi.getMemberEmailAttempts(memberId, params);
+      setEmailAttempts(result.attempts);
+      setEmailAttemptsTotal(result.total);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setEmailAttemptsFilterLoading(false);
     }
   };
 
@@ -371,10 +465,9 @@ export default function MemberDetail() {
   }
 
   const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [] } = data;
-  const visibleAttempts =
-    emailAttemptsStatusFilter === "all"
-      ? emailAttempts
-      : emailAttempts.filter((a) => a.status === emailAttemptsStatusFilter);
+  // The server applies the status filter before pagination, so the loaded
+  // rows AND `emailAttemptsTotal` already reflect only matching rows.
+  const visibleAttempts = emailAttempts;
   const hasMoreAttempts = emailAttempts.length < emailAttemptsTotal;
   const isStatusFilterActive = emailAttemptsStatusFilter !== "all";
   const statusFilterLabels: Record<AttemptStatusFilter, string> = {
@@ -384,6 +477,14 @@ export default function MemberDetail() {
     expired: "Expired",
     abandoned: "Abandoned",
     cancelled_by_admin: "Cancelled by admin",
+  };
+  const statusFilterShortLabels: Record<AttemptStatusFilter, string> = {
+    all: "attempts",
+    pending: "pending attempts",
+    confirmed: "confirmed attempts",
+    expired: "expired attempts",
+    abandoned: "abandoned attempts",
+    cancelled_by_admin: "cancelled-by-admin attempts",
   };
 
   const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
@@ -641,7 +742,7 @@ export default function MemberDetail() {
           </Card>
         )}
 
-        {(emailAttempts.length > 0 || hasMoreAttempts) && (
+        {(emailAttempts.length > 0 || hasMoreAttempts || isStatusFilterActive) && (
           <Card data-testid="card-email-attempts">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -662,8 +763,9 @@ export default function MemberDetail() {
                 <Select
                   value={emailAttemptsStatusFilter}
                   onValueChange={(value) =>
-                    setEmailAttemptsStatusFilter(value as AttemptStatusFilter)
+                    handleStatusFilterChange(value as AttemptStatusFilter)
                   }
+                  disabled={emailAttemptsFilterLoading}
                 >
                   <SelectTrigger
                     id="select-email-attempts-status"
@@ -689,11 +791,18 @@ export default function MemberDetail() {
                     variant="ghost"
                     size="sm"
                     className="h-8 px-2 text-xs"
-                    onClick={() => setEmailAttemptsStatusFilter("all")}
+                    onClick={() => handleStatusFilterChange("all")}
+                    disabled={emailAttemptsFilterLoading}
                     data-testid="button-clear-email-attempts-status"
                   >
                     <X className="w-3 h-3 mr-1" /> Clear
                   </Button>
+                )}
+                {emailAttemptsFilterLoading && (
+                  <Loader2
+                    className="w-3 h-3 animate-spin text-muted-foreground"
+                    data-testid="spinner-email-attempts-filter"
+                  />
                 )}
               </div>
               <div className="space-y-2">
@@ -704,10 +813,7 @@ export default function MemberDetail() {
                   >
                     {isStatusFilterActive ? (
                       <>
-                        No {statusFilterLabels[emailAttemptsStatusFilter].toLowerCase()} attempts in the {emailAttempts.length} loaded so far.
-                        {hasMoreAttempts
-                          ? " Older attempts haven't been loaded — use “Show older attempts” below to keep searching."
-                          : ""}
+                        No {statusFilterShortLabels[emailAttemptsStatusFilter]} on record for this member.
                       </>
                     ) : (
                       <>
@@ -805,8 +911,7 @@ export default function MemberDetail() {
                   >
                     {isStatusFilterActive ? (
                       <>
-                        Showing {visibleAttempts.length} {statusFilterLabels[emailAttemptsStatusFilter].toLowerCase()} of {emailAttempts.length} loaded ({emailAttemptsTotal} total)
-                        {hasMoreAttempts ? " — older attempts may match too." : ""}
+                        Showing {visibleAttempts.length} of {emailAttemptsTotal} {statusFilterShortLabels[emailAttemptsStatusFilter]}
                       </>
                     ) : (
                       <>

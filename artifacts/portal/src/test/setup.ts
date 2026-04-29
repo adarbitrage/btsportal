@@ -32,4 +32,23 @@ if (typeof window !== "undefined") {
     (window as unknown as { ResizeObserver: typeof ResizeObserverStub }).ResizeObserver =
       ResizeObserverStub;
   }
+
+  // JSDOM doesn't implement pointer capture or scrollIntoView, both of
+  // which Radix UI's Select primitive calls during open/close. Without
+  // these stubs `userEvent.click` on a SelectTrigger throws and the
+  // whole test file crashes with a TypeError.
+  if (typeof Element !== "undefined") {
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = () => false;
+    }
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = () => {};
+    }
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = () => {};
+    }
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => {};
+    }
+  }
 }

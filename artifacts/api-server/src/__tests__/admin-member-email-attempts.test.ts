@@ -654,6 +654,161 @@ describe("GET /admin/members/:id/full — emailAttempts classification", () => {
     expect(found.cancelledByAdminName).toBe("Paged Cancel Admin");
   });
 
+  it("filters /email-attempts to admin-cancelled rows when status=cancelled_by_admin and reflects the filtered total", async () => {
+    // Backs the Member Detail "Email change attempts" filter: when support
+    // narrows to cancelled_by_admin only, the server must return only those
+    // rows and report `total` as the filtered count so the "Show older"
+    // pager can keep paging through matching rows past the unfiltered
+    // page 1.
+    await resetAttempts();
+
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [adminRow] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-status-filter-admin@example.test`,
+        name: "Status Filter Admin",
+        passwordHash,
+        role: "super_admin",
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(adminRow.id);
+
+    const HOUR = 60 * 60 * 1000;
+    const DAY = 24 * HOUR;
+    const baseTime = Date.now() - 200 * DAY;
+
+    // Seed 60 newer noise (abandoned) attempts so any cancelled rows are
+    // older than every noise row and would otherwise sit past page 1.
+    for (let i = 0; i < 60; i++) {
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: `noise-status-${i}@example.test`,
+          expiresAt: new Date(baseTime + (i + 5) * HOUR + 30 * 60 * 1000),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(row.id, new Date(baseTime + (i + 5) * HOUR));
+    }
+
+    // Two admin-cancelled rows, both older than the noise. Without the
+    // filter they'd be on page 2; with the filter they should both be on
+    // page 1 and `total` should be 2.
+    const cancelledIds: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      const cancelledCreatedAt = new Date(baseTime - (10 + i) * HOUR);
+      const cancelledAt = new Date(baseTime - (9 + i) * HOUR);
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: `status-cancelled-${i}@example.test`,
+          expiresAt: new Date(baseTime - (8 + i) * HOUR),
+          cancelledAt,
+          cancelledByAdminId: adminRow.id,
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(row.id, cancelledCreatedAt);
+      cancelledIds.push(row.id);
+    }
+
+    const filteredRes = await request(app)
+      .get(
+        `/api/admin/members/${member.id}/email-attempts?status=cancelled_by_admin&offset=0&limit=50`,
+      )
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(filteredRes.status).toBe(200);
+    expect(filteredRes.body.total).toBe(2);
+    expect(filteredRes.body.status).toBe("cancelled_by_admin");
+    const filteredIds: number[] = filteredRes.body.attempts.map(
+      (a: { id: number }) => a.id,
+    );
+    expect(new Set(filteredIds)).toEqual(new Set(cancelledIds));
+    for (const a of filteredRes.body.attempts) {
+      expect(a.status).toBe("cancelled_by_admin");
+    }
+    expect(filteredRes.body.hasMore).toBe(false);
+
+    // The unfiltered call should still see all 62 rows.
+    const unfilteredRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=0&limit=50`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(unfilteredRes.status).toBe(200);
+    expect(unfilteredRes.body.total).toBe(62);
+    expect(unfilteredRes.body.status).toBeNull();
+  });
+
+  it("paginates the filtered set when status filter is active", async () => {
+    // With a filtered total of 3 and limit=2, the filtered first page must
+    // return 2 rows + hasMore, and offset=2 must return the third row.
+    await resetAttempts();
+
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [adminRow] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-status-page-admin@example.test`,
+        name: "Status Page Admin",
+        passwordHash,
+        role: "super_admin",
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(adminRow.id);
+
+    const HOUR = 60 * 60 * 1000;
+    const baseTime = Date.now() - 60 * 24 * HOUR;
+
+    for (let i = 0; i < 3; i++) {
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: `paginated-cancel-${i}@example.test`,
+          expiresAt: new Date(baseTime + (i + 5) * HOUR + 30 * 60 * 1000),
+          cancelledAt: new Date(baseTime + (i + 5) * HOUR + 60 * 60 * 1000),
+          cancelledByAdminId: adminRow.id,
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(row.id, new Date(baseTime + (i + 5) * HOUR));
+    }
+
+    const firstPage = await request(app)
+      .get(
+        `/api/admin/members/${member.id}/email-attempts?status=cancelled_by_admin&offset=0&limit=2`,
+      )
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.body.total).toBe(3);
+    expect(firstPage.body.attempts).toHaveLength(2);
+    expect(firstPage.body.hasMore).toBe(true);
+
+    const secondPage = await request(app)
+      .get(
+        `/api/admin/members/${member.id}/email-attempts?status=cancelled_by_admin&offset=2&limit=2`,
+      )
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(secondPage.status).toBe(200);
+    expect(secondPage.body.total).toBe(3);
+    expect(secondPage.body.attempts).toHaveLength(1);
+    expect(secondPage.body.hasMore).toBe(false);
+
+    // Combined ids should equal the full filtered set (no overlap, no gaps).
+    const combinedIds = new Set([
+      ...firstPage.body.attempts.map((a: { id: number }) => a.id),
+      ...secondPage.body.attempts.map((a: { id: number }) => a.id),
+    ]);
+    expect(combinedIds.size).toBe(3);
+  });
+
+  it("rejects unknown status values on /email-attempts with 400", async () => {
+    await resetAttempts();
+    const res = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?status=bogus`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(res.status).toBe(400);
+  });
+
   describe("GET /admin/members/:id/email-attempts/:attemptId — detail panel", () => {
     it("returns the matching audit entry, next attempt, and confirmation for an abandoned attempt", async () => {
       await resetAttempts();

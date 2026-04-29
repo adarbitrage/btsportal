@@ -1242,6 +1242,7 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
 
     const rawLimit = req.query.limit;
     const rawOffset = req.query.offset;
+    const rawStatus = req.query.status;
 
     let limit = EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE;
     if (typeof rawLimit === "string" && rawLimit.length > 0) {
@@ -1261,6 +1262,26 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
         return;
       }
       offset = parsed;
+    }
+
+    // Optional status filter — when set, the returned `total` reflects the
+    // filtered count so the "Show older" pager can keep paging through
+    // matching rows past the first page (the whole point of this filter
+    // for support staff is "show me only the admin-cancelled ones").
+    const ALLOWED_STATUSES = new Set([
+      "pending",
+      "confirmed",
+      "expired",
+      "abandoned",
+      "cancelled_by_admin",
+    ]);
+    let statusFilter: string | null = null;
+    if (typeof rawStatus === "string" && rawStatus.length > 0) {
+      if (!ALLOWED_STATUSES.has(rawStatus)) {
+        res.status(400).json({ error: "status must be one of pending, confirmed, expired, abandoned, cancelled_by_admin" });
+        return;
+      }
+      statusFilter = rawStatus;
     }
 
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -1313,8 +1334,11 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
       { pendingEmail: member.pendingEmail, emailChangeExpires: member.emailChangeExpires },
     );
 
-    const total = classified.length;
-    const page = classified.slice(offset, offset + limit);
+    const filtered = statusFilter
+      ? classified.filter((c) => c.status === statusFilter)
+      : classified;
+    const total = filtered.length;
+    const page = filtered.slice(offset, offset + limit);
 
     res.json({
       attempts: page,
@@ -1322,6 +1346,7 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
       offset,
       limit,
       hasMore: offset + page.length < total,
+      status: statusFilter,
     });
   } catch (error) {
     console.error("[Admin] Member email attempts paging error:", error);
