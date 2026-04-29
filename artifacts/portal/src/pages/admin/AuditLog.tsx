@@ -168,6 +168,7 @@ export default function AuditLog() {
                   <SelectItem value="update_setting">Setting Change</SelectItem>
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>
+                  <SelectItem value="unlock_account">Unlock account</SelectItem>
                   <SelectItem value="queue_fallback">Queue fallback</SelectItem>
                   <SelectItem value="queue_fallback_alert">Queue fallback alert</SelectItem>
                   <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
