@@ -338,6 +338,48 @@ export default function AuditLog() {
                               )}
                             </>
                           )}
+                          {log.actionType === "queue_fallback_alert" && (
+                            <>
+                              <div data-testid={`alert-queue-channel-${log.id}`}>
+                                <span className="text-muted-foreground">Queue Channel:</span>{" "}
+                                {log.metadata?.queueChannel
+                                  ? String(log.metadata.queueChannel).toUpperCase()
+                                  : "N/A"}
+                              </div>
+                              <div data-testid={`alert-delivery-channel-${log.id}`}>
+                                <span className="text-muted-foreground">Delivery Channel:</span>{" "}
+                                {log.metadata?.deliveryChannel || "N/A"}
+                              </div>
+                              <div data-testid={`alert-kind-${log.id}`}>
+                                <span className="text-muted-foreground">Kind:</span>{" "}
+                                {log.metadata?.kind === "fire" ? (
+                                  <Badge variant="warning" className="text-[10px] normal-case tracking-normal">Fire</Badge>
+                                ) : log.metadata?.kind === "clear" ? (
+                                  <Badge variant="success" className="text-[10px] normal-case tracking-normal">Clear</Badge>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </div>
+                              <div data-testid={`alert-outcome-${log.id}`}>
+                                <span className="text-muted-foreground">Outcome:</span>{" "}
+                                {log.metadata?.outcome === "sent" ? (
+                                  <Badge variant="success" className="text-[10px] normal-case tracking-normal">Sent</Badge>
+                                ) : log.metadata?.outcome === "failed" ? (
+                                  <Badge className="text-[10px] normal-case tracking-normal border-transparent bg-red-100 text-red-800">Failed</Badge>
+                                ) : log.metadata?.outcome === "throttled" ? (
+                                  <Badge variant="warning" className="text-[10px] normal-case tracking-normal">Throttled</Badge>
+                                ) : log.metadata?.outcome === "skipped" ? (
+                                  <Badge variant="secondary" className="text-[10px] normal-case tracking-normal">Skipped</Badge>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </div>
+                              <div className="col-span-2" data-testid={`alert-reason-${log.id}`}>
+                                <span className="text-muted-foreground">Reason:</span>{" "}
+                                {log.metadata?.reason || <span className="text-muted-foreground italic">none</span>}
+                              </div>
+                            </>
+                          )}
                         </div>
                         {log.changeDiff && (
                           <div className="mt-3">
@@ -345,7 +387,7 @@ export default function AuditLog() {
                             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.changeDiff, null, 2)}</pre>
                           </div>
                         )}
-                        {log.metadata && log.actionType !== "queue_fallback" && (
+                        {log.metadata && log.actionType !== "queue_fallback" && log.actionType !== "queue_fallback_alert" && (
                           <div className="mt-3">
                             <p className="text-xs text-muted-foreground mb-1">Metadata:</p>
                             <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(log.metadata, null, 2)}</pre>
