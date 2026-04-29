@@ -1,0 +1,86 @@
+Paste this into Replit:
+
+Run a full diagnostic on entitlement-based content gating across the portal. I need to verify that each of the 8 product levels sees exactly the right content, features, and navigation — and that locked content shows upgrade CTAs instead of being accessible.
+What to check:
+1. Database Verification
+sql-- Show all products with their entitlement keys
+SELECT id, slug, name, type, entitlement_keys FROM products ORDER BY id;
+
+-- Show all tracks with their required entitlements
+SELECT id, title, required_entitlement FROM tracks ORDER BY sort_order;
+
+-- Show what a front-end-only user would see vs a 6-month user
+-- (simulate entitlement resolution for each product level)
+Run the entitlement resolution function for each of the 8 products individually and output the full entitlement set each one grants. Confirm it matches the PRD:
+ProductExpected EntitlementsReserve Income / Backroad / Off-Marketcontent:frontend, support:basic, chat:basicLaunchPadAll above + content:advanced, software:base, support:standard, chat:full3-MonthAll above + coaching:group, community:access, commissions:entry, support:enhanced6-MonthAll above + software:expanded, coaching:mastermind, commissions:mid, support:unlimited1-YearAll above + coaching:one_on_one:monthly, commissions:premiumLifetimeAll above + coaching:one_on_one:weekly, commissions:top, support:vip, chat:custom, access:lifetime
+2. API-Level Gating Test
+For each product level, simulate an authenticated request and verify:
+
+GET /api/tracks — only returns tracks the user has entitlements for (or returns all with isLocked flags)
+GET /api/lessons/:id — returns 403 for a lesson in a locked track
+GET /api/tools — returns tools with correct access: "granted" vs access: "locked" per entitlement
+GET /api/coaching/calls — only returns calls the user's entitlements allow
+GET /api/community/posts — returns 403 if user lacks community:access
+GET /api/commissions/dashboard — returns 403 if user lacks any commissions:*
+GET /api/coaching/one-on-one/status — returns 403 if user lacks coaching:one_on_one:*
+POST /api/chat — enforces correct daily message limit per tier (20/50/100)
+
+3. Frontend Navigation Gating
+For each product level, check what sidebar navigation items are rendered:
+Nav ItemFront-EndLaunchPad3-Month6-Month1-YearLifetimeDashboard✓✓✓✓✓✓Training✓✓✓✓✓✓Software & Tools✗✓✓✓✓✓Coaching Calls✗✗✓✓✓✓1-on-1 Coaching✗✗✗✗✓✓Community✗✗✓✓✓✓Commissions✗✗✓✓✓✓Support✓✓✓✓✓✓
+4. Content-Level Gating
+Check that training tracks are properly gated:
+
+Tracks requiring content:frontend — visible and accessible to ALL product levels
+Tracks requiring content:advanced — locked for front-end-only buyers, accessible for LaunchPad+
+Any track with no required_entitlement — accessible to all
+
+For locked tracks/lessons, verify the UI shows:
+
+A locked indicator (lock icon, grayed out)
+The name of the product needed to unlock it
+An upgrade CTA that links to the plans page
+
+5. Tool-Level Gating
+
+Tools requiring software:base — accessible for LaunchPad+, locked for front-end
+Tools requiring software:expanded — accessible for 6-Month+, locked for LaunchPad and 3-Month
+Locked tools show upgrade CTA with correct product name
+
+6. Coaching Gating
+
+Group calls requiring coaching:group — accessible for 3-Month+
+Mastermind calls requiring coaching:mastermind — accessible for 6-Month+
+1-on-1 booking requiring coaching:one_on_one:monthly — accessible for 1-Year only
+1-on-1 booking requiring coaching:one_on_one:weekly — accessible for Lifetime only
+Frequency enforcement: 1-Year gets 1 session/month, Lifetime gets 1 session/week
+
+7. Support Ticket Limits
+
+Front-end: 3 tickets/month
+LaunchPad: 5 tickets/month
+3-Month: 10 tickets/month
+6-Month+: Unlimited
+
+8. AI Chat Limits
+
+chat:basic (front-end): 20 messages/day, 1000 max output tokens
+chat:full (LaunchPad through 1-Year): 50 messages/day, 2000 max output tokens
+chat:custom (Lifetime): 100 messages/day, 4000 max output tokens, saved prompts enabled
+
+How to test
+Create 6 test users (one per distinct product level) if they don't already exist, grant them the appropriate product, and run through every check above for each user. Output a report in this format:
+PRODUCT: Reserve Income System (front-end)
+──────────────────────────────────────────
+✅ Entitlements: correct (3 keys)
+✅ Navigation: Tools hidden, Coaching hidden, Community hidden, Commissions hidden
+✅ Training: Foundational tracks accessible, Advanced tracks locked with upgrade CTA
+✅ Tools page: 403 returned
+✅ Community: 403 returned
+✅ Commissions: 403 returned
+✅ Chat: 20 msg/day limit enforced
+✅ Support: 3 ticket/month limit shown
+❌ ISSUE: Locked training track shows "Upgrade" but links to /pricing instead of /plans
+Do this for all 6 levels. Report every pass and every failure with specifics on what's wrong and what the expected behavior should be.
+
+This will give you a complete picture of what's gated correctly and what's leaking. Let me know what the report shows.
