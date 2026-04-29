@@ -25,6 +25,7 @@ import {
   signEmailChangePrefillToken,
   buildEmailChangeRestartUrl,
 } from "../lib/email-change-prefill-token";
+import { logAuditEvent } from "../lib/audit-log";
 import { PRODUCT_RANK } from "../lib/product-rank";
 
 const router: IRouter = Router();
@@ -424,6 +425,28 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     });
     return;
   }
+
+  // Audit trail: record the request itself so the admin Member Detail
+  // click-through panel (which scopes audit rows by entityType=user /
+  // entityId=memberId) shows something happened, not "No admin audit
+  // entries". The current and new addresses both appear in the
+  // description so the row is self-explanatory in the audit log without
+  // needing to expand it; both are surfaced as structured fields too so
+  // the PII redactor has a handle to scrub them for non-PII viewers.
+  await logAuditEvent({
+    actorId: userId,
+    actorEmail: user.email,
+    actionType: "request_email_change",
+    entityType: "user",
+    entityId: String(userId),
+    description: `Member requested email change from ${user.email} to ${newEmail}`,
+    metadata: {
+      memberEmail: user.email,
+      newEmail,
+      expiresAt: expires.toISOString(),
+    },
+    req,
+  });
 
   // Verification link to the NEW address
   CommunicationService.sendEmailNow({

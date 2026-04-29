@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
-import { db, usersTable, sessionsTable, emailChangeAttemptsTable } from "@workspace/db";
+import { db, usersTable, sessionsTable, emailChangeAttemptsTable, auditLogTable } from "@workspace/db";
 import { eq, inArray, and, isNull, desc } from "drizzle-orm";
 
 const {
@@ -115,6 +115,20 @@ beforeAll(() => {
 afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(sessionsTable).where(inArray(sessionsTable.userId, seededUserIds));
+    // Drop the audit rows the tests trigger via real route hits — both as
+    // actor (member writes their own request_email_change /
+    // confirm_email_change rows) and as entity (entityId references the
+    // user being deleted) — so the FK constraint on usersTable doesn't
+    // refuse the user delete.
+    await db.delete(auditLogTable).where(inArray(auditLogTable.actorId, seededUserIds));
+    await db
+      .delete(auditLogTable)
+      .where(
+        inArray(
+          auditLogTable.entityId,
+          seededUserIds.map((id) => String(id)),
+        ),
+      );
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
@@ -253,6 +267,78 @@ describe("POST /api/members/me/email (request email change)", () => {
       .send({ currentPassword: TEST_PASSWORD, newEmail: "x@example.test" });
     expect(res.status).toBe(401);
     expect(sendEmailNowMock).not.toHaveBeenCalled();
+  });
+
+  it("writes a request_email_change audit row scoped to the member so the admin Member Detail panel can surface it", async () => {
+    // The admin Member Detail click-through panel queries audit rows by
+    // entityType=user / entityId=memberId within the attempt's lifetime
+    // window. Without this audit row the panel shows "No admin audit
+    // entries" even though the member clearly initiated the change —
+    // that's exactly the gap this task closes.
+    const user = await insertUser("audit-request");
+    const newEmail = `${TEST_TAG}-audit-request-new@example.test`;
+
+    const res = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail });
+    expect(res.status).toBe(200);
+
+    const auditRows = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "request_email_change"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(user.id)),
+        ),
+      );
+    expect(auditRows).toHaveLength(1);
+    const row = auditRows[0];
+    // Actor is the member themselves (this is a self-service action,
+    // not an admin one) so the panel can render "who" without falling
+    // back to "system".
+    expect(row.actorId).toBe(user.id);
+    // Both addresses appear in the description so the audit-log card
+    // and the click-through panel can show them without expanding
+    // the row's metadata blob.
+    expect(row.description).toContain(user.email);
+    expect(row.description).toContain(newEmail);
+    // Structured metadata gives the PII redactor a handle to scrub
+    // both addresses for non-PII viewers.
+    const meta = row.metadata as Record<string, unknown>;
+    expect(meta.memberEmail).toBe(user.email);
+    expect(meta.newEmail).toBe(newEmail);
+    expect(meta.expiresAt).toBeTruthy();
+  });
+
+  it("does not write the request_email_change audit row when the request is rejected (wrong password)", async () => {
+    // Failed requests must not pollute the audit trail — otherwise the
+    // rate-limit logic and the admin panel both gain a row for an action
+    // that never happened.
+    const user = await insertUser("audit-request-fail");
+
+    const res = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({
+        currentPassword: "definitely-not-the-real-password",
+        newEmail: `${TEST_TAG}-audit-request-fail-new@example.test`,
+      });
+    expect(res.status).toBe(400);
+
+    const auditRows = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "request_email_change"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(user.id)),
+        ),
+      );
+    expect(auditRows).toHaveLength(0);
   });
 
   it("replacing a still-pending email-change stamps the prior attempt as cancelled-by-member and inserts a fresh un-cancelled row", async () => {
@@ -638,6 +724,73 @@ describe("POST /api/auth/verify-email-change", () => {
       old_email: user.email,
       new_email: newEmail,
     });
+  });
+
+  it("writes a confirm_email_change audit row scoped to the member when the token is exercised", async () => {
+    // Sister-coverage to request_email_change above. Without this row
+    // the click-through panel still goes silent on the confirmation
+    // half of the flow even though the request half is now logged.
+    const user = await insertUser("audit-confirm");
+    const newEmail = `${TEST_TAG}-audit-confirm-new@example.test`;
+    const token = await seedPendingChange(user.id, newEmail);
+
+    const res = await request(app)
+      .post("/api/auth/verify-email-change")
+      .send({ token });
+    expect(res.status).toBe(200);
+
+    const auditRows = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "confirm_email_change"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(user.id)),
+        ),
+      );
+    expect(auditRows).toHaveLength(1);
+    const row = auditRows[0];
+    // Actor is the member themselves: the verify endpoint is unauthenticated
+    // (the token is the proof of identity) but the row must still attribute
+    // the change to the user, not be left actor-less.
+    expect(row.actorId).toBe(user.id);
+    // Both the previous and new addresses appear in the description so
+    // support can read the row without expanding metadata.
+    expect(row.description).toContain(user.email);
+    expect(row.description).toContain(newEmail);
+    const meta = row.metadata as Record<string, unknown>;
+    expect(meta.oldEmail).toBe(user.email);
+    expect(meta.newEmail).toBe(newEmail);
+  });
+
+  it("does not write the confirm_email_change audit row when verification fails (bogus token)", async () => {
+    // Failed confirmations must not write an audit row — otherwise an
+    // attacker probing tokens would leave a misleading "confirmed" row
+    // on the user even though the email never actually changed.
+    const user = await insertUser("audit-confirm-fail");
+    await seedPendingChange(
+      user.id,
+      `${TEST_TAG}-audit-confirm-fail-new@example.test`,
+    );
+
+    const bogus = crypto.randomBytes(32).toString("hex");
+    const res = await request(app)
+      .post("/api/auth/verify-email-change")
+      .send({ token: bogus });
+    expect(res.status).toBe(400);
+
+    const auditRows = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "confirm_email_change"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(user.id)),
+        ),
+      );
+    expect(auditRows).toHaveLength(0);
   });
 
   it("returns 400 when the token is missing from the body", async () => {

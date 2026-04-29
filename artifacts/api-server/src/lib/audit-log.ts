@@ -117,6 +117,18 @@ const DESCRIPTION_REWRITERS: Record<string, (description: string) => string> = {
       /^(Cancelled pending email change for member ).+?( \(was: ).+?(\))$/,
       `$1${REDACTED_RECIPIENT}$2${REDACTED_RECIPIENT}$3`,
     ),
+  // "Member requested email change from jane@example.com to new-jane@example.com"
+  request_email_change: (d) =>
+    d.replace(
+      /^(Member requested email change from ).+?( to ).+$/,
+      `$1${REDACTED_RECIPIENT}$2${REDACTED_RECIPIENT}`,
+    ),
+  // "Member confirmed email change from jane@example.com to new-jane@example.com"
+  confirm_email_change: (d) =>
+    d.replace(
+      /^(Member confirmed email change from ).+?( to ).+$/,
+      `$1${REDACTED_RECIPIENT}$2${REDACTED_RECIPIENT}`,
+    ),
   // "Unlocked account for member jane@example.com (cleared lockedUntil and failedLoginCount)"
   unlock_account: (d) =>
     d.replace(
@@ -151,6 +163,10 @@ const PII_KEYS: ReadonlySet<string> = new Set([
   // Nested under cancel_email_change's before/after: the user's pending
   // email-change target. Same PII risk as `memberEmail`.
   "pendingEmail",
+  // Surfaced by request_email_change / confirm_email_change so the panel
+  // can show the addresses inline. Same PII risk as `memberEmail`.
+  "newEmail",
+  "oldEmail",
 ]);
 
 type RedactableRow = {

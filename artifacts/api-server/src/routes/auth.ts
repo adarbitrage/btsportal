@@ -1301,6 +1301,27 @@ router.post("/auth/verify-email-change", async (req, res): Promise<void> => {
     newEmail,
   });
 
+  // Audit trail: record the successful confirmation against the user
+  // entity so the admin Member Detail click-through panel (which scopes
+  // audit rows by entityType=user / entityId=memberId) shows the
+  // confirmation alongside the matching request_email_change row. Both
+  // addresses are surfaced as structured fields so the PII redactor can
+  // scrub them for non-PII viewers; the description includes them inline
+  // so the audit-log row is self-explanatory without expansion.
+  await logAuditEvent({
+    actorId: user.id,
+    actorEmail: newEmail,
+    actionType: "confirm_email_change",
+    entityType: "user",
+    entityId: String(user.id),
+    description: `Member confirmed email change from ${oldEmail} to ${newEmail}`,
+    metadata: {
+      oldEmail,
+      newEmail,
+    },
+    req,
+  });
+
   // Force re-login on every device with the updated address.
   await db
     .update(sessionsTable)

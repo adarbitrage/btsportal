@@ -369,6 +369,59 @@ describe("redactAuditRowPii (member-action rows)", () => {
     }
   });
 
+  it("scrubs both addresses from request_email_change rows (description + metadata)", () => {
+    // The member-initiated request audit row carries the current email
+    // and the requested address — both are member PII and must be
+    // redacted for viewers without `members:pii`.
+    const row: AuditRowShape = {
+      id: 210,
+      actionType: "request_email_change",
+      entityType: "user",
+      description:
+        "Member requested email change from jane@example.com to new-jane@example.com",
+      metadata: {
+        memberEmail: "jane@example.com",
+        newEmail: "new-jane@example.com",
+        expiresAt: "2026-01-01T00:00:00Z",
+      },
+      changeDiff: null,
+    };
+
+    const redacted = redactAuditRowPii(row);
+    expect(redacted.description).toBe(
+      `Member requested email change from ${REDACTED_RECIPIENT} to ${REDACTED_RECIPIENT}`,
+    );
+    expect(redacted.metadata).toEqual({ expiresAt: "2026-01-01T00:00:00Z" });
+    const serialised = JSON.stringify(redacted);
+    expect(serialised).not.toContain("jane@example.com");
+    expect(serialised).not.toContain("new-jane@example.com");
+  });
+
+  it("scrubs both addresses from confirm_email_change rows (description + metadata)", () => {
+    // Same defense for the verify-token half of the flow.
+    const row: AuditRowShape = {
+      id: 211,
+      actionType: "confirm_email_change",
+      entityType: "user",
+      description:
+        "Member confirmed email change from jane@example.com to new-jane@example.com",
+      metadata: {
+        oldEmail: "jane@example.com",
+        newEmail: "new-jane@example.com",
+      },
+      changeDiff: null,
+    };
+
+    const redacted = redactAuditRowPii(row);
+    expect(redacted.description).toBe(
+      `Member confirmed email change from ${REDACTED_RECIPIENT} to ${REDACTED_RECIPIENT}`,
+    );
+    expect(redacted.metadata).toEqual({});
+    const serialised = JSON.stringify(redacted);
+    expect(serialised).not.toContain("jane@example.com");
+    expect(serialised).not.toContain("new-jane@example.com");
+  });
+
   it("is idempotent: redacting an already-redacted description is a no-op", () => {
     const row: AuditRowShape = {
       id: 204,
