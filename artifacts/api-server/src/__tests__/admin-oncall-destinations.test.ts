@@ -298,6 +298,139 @@ describe("/admin/oncall-destinations endpoints", () => {
   });
 });
 
+describe("GET /admin/oncall-destinations/history", () => {
+  it("requires settings:view (rejects non-admins with 403)", async () => {
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/history")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns an empty events list when no audit rows exist for the entity type", async () => {
+    // Wipe any oncall_destinations audit rows that previous tests in this
+    // suite might have left behind so this assertion is deterministic.
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/history")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.events).toEqual([]);
+    expect(res.body.limit).toBe(10);
+  });
+
+  it("surfaces update_setting rows with structured changedFields and the actor's name", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+
+    // Use the real PUT endpoint so we exercise the full write path that the
+    // history reader is meant to mirror.
+    const putRes = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "history-test-key", opsAlertEmail: "history@example.test" });
+    expect(putRes.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/history")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const events = res.body.events as Array<any>;
+    expect(events.length).toBe(1);
+    const ev = events[0];
+    expect(ev.actionType).toBe("update_setting");
+    expect(ev.actorId).toBe(adminId);
+    expect(ev.actorName).toBe("Test admin");
+    expect(ev.actorEmail).toContain("admin@example.test");
+    expect(ev.changedFields).toEqual(
+      expect.arrayContaining(["pagerdutyIntegrationKey", "opsAlertEmail"]),
+    );
+    // Test results array is empty for non-test rows.
+    expect(ev.testResults).toEqual([]);
+    // The new secret value must never come back through this endpoint.
+    expect(JSON.stringify(res.body)).not.toContain("history-test-key");
+  });
+
+  it("surfaces send_test_alert rows with per-channel results", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+    __setQueueFallbackAlerterDeliveriesForTests({
+      pagerduty: async () => ({ channel: "pagerduty", ok: true, skipped: true, reason: "not_configured" }),
+      email: async () => ({ channel: "email", ok: true }),
+      slack: async () => ({ channel: "slack", ok: false, reason: "http_500" }),
+    });
+
+    const testRes = await request(app)
+      .post("/api/admin/oncall-destinations/test")
+      .set("Cookie", adminCookie);
+    expect(testRes.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/admin/oncall-destinations/history")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const events = res.body.events as Array<any>;
+    const testEvent = events.find((e: any) => e.actionType === "send_test_alert");
+    expect(testEvent).toBeTruthy();
+    expect(testEvent.testResults).toHaveLength(3);
+    const slack = testEvent.testResults.find((r: any) => r.channel === "slack");
+    expect(slack.ok).toBe(false);
+    expect(slack.reason).toBe("http_500");
+    const pd = testEvent.testResults.find((r: any) => r.channel === "pagerduty");
+    expect(pd.skipped).toBe(true);
+  });
+
+  it("orders events newest-first and respects the limit query param", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+
+    // Three sequential edits — the response should put the most recent one
+    // first regardless of insertion id ordering quirks.
+    for (let i = 0; i < 3; i++) {
+      const r = await request(app)
+        .put("/api/admin/oncall-destinations")
+        .set("Cookie", adminCookie)
+        .send({ opsAlertEmail: `seq-${i}@example.test` });
+      expect(r.status).toBe(200);
+    }
+
+    const limited = await request(app)
+      .get("/api/admin/oncall-destinations/history?limit=2")
+      .set("Cookie", adminCookie);
+    expect(limited.status).toBe(200);
+    expect(limited.body.events).toHaveLength(2);
+    expect(limited.body.limit).toBe(2);
+
+    const all = await request(app)
+      .get("/api/admin/oncall-destinations/history")
+      .set("Cookie", adminCookie);
+    expect(all.body.events).toHaveLength(3);
+    const timestamps = all.body.events.map((e: any) => new Date(e.createdAt).getTime());
+    for (let i = 1; i < timestamps.length; i++) {
+      expect(timestamps[i - 1]).toBeGreaterThanOrEqual(timestamps[i]);
+    }
+  });
+
+  it("clamps the limit param to the documented bounds (1-50)", async () => {
+    await db.delete(auditLogTable).where(eq(auditLogTable.entityType, "oncall_destinations"));
+
+    const tooBig = await request(app)
+      .get("/api/admin/oncall-destinations/history?limit=999")
+      .set("Cookie", adminCookie);
+    expect(tooBig.status).toBe(200);
+    expect(tooBig.body.limit).toBe(50);
+
+    const tooSmall = await request(app)
+      .get("/api/admin/oncall-destinations/history?limit=0")
+      .set("Cookie", adminCookie);
+    expect(tooSmall.status).toBe(200);
+    expect(tooSmall.body.limit).toBe(1);
+
+    const garbage = await request(app)
+      .get("/api/admin/oncall-destinations/history?limit=banana")
+      .set("Cookie", adminCookie);
+    expect(garbage.status).toBe(200);
+    expect(garbage.body.limit).toBe(10);
+  });
+});
+
 describe("POST /admin/oncall-destinations/test", () => {
   it("requires settings:manage", async () => {
     const res = await request(app)

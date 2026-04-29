@@ -338,6 +338,16 @@ function rbacCases(): RbacCase[] {
       permission: "settings:view",
       buildPath: () => "/api/admin/oncall-destinations",
     },
+    {
+      // GET surfaces audit_log rows tagged entityType=oncall_destinations.
+      // The rows themselves never contain the secret values (the writers
+      // intentionally only persist the field name and per-channel test
+      // results), so this is fine to gate at the view-only permission
+      // level — same as /admin/oncall-destinations above.
+      resource: "oncall_destinations_history",
+      permission: "settings:view",
+      buildPath: () => "/api/admin/oncall-destinations/history",
+    },
   ];
 }
 

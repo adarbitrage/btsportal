@@ -318,6 +318,33 @@ export const adminPanelApi = {
     }>;
   },
 
+  async getOnCallDestinationsHistory(limit?: number) {
+    const qs = new URLSearchParams();
+    if (limit) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/oncall-destinations/history${suffix}`);
+    if (!res.ok) throw new Error("Failed to fetch on-call destinations history");
+    return res.json() as Promise<{
+      events: Array<{
+        id: number;
+        createdAt: string;
+        actionType: "update_setting" | "send_test_alert" | string;
+        actorId: number | null;
+        actorEmail: string | null;
+        actorName: string | null;
+        description: string;
+        changedFields: Array<"pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl">;
+        testResults: Array<{
+          channel: "pagerduty" | "email" | "slack";
+          ok: boolean;
+          skipped: boolean;
+          reason: string | null;
+        }>;
+      }>;
+      limit: number;
+    }>;
+  },
+
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));

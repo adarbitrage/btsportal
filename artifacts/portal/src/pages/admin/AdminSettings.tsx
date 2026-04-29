@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -144,10 +144,58 @@ interface ProbeResult {
   reason?: string;
 }
 
+interface OnCallHistoryEvent {
+  id: number;
+  createdAt: string;
+  actionType: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  description: string;
+  changedFields: OnCallField[];
+  testResults: Array<{
+    channel: "pagerduty" | "email" | "slack";
+    ok: boolean;
+    skipped: boolean;
+    reason: string | null;
+  }>;
+}
+
 function sourceLabel(source: "db" | "env" | null): string {
   if (source === "db") return "saved in admin";
   if (source === "env") return "from environment variable";
   return "not configured";
+}
+
+const FIELD_LABELS: Record<OnCallField, string> = {
+  pagerdutyIntegrationKey: "PagerDuty key",
+  opsAlertEmail: "Ops alert email",
+  opsAlertSlackWebhookUrl: "Slack webhook",
+};
+
+const CHANNEL_LABELS: Record<"pagerduty" | "email" | "slack", string> = {
+  pagerduty: "PagerDuty",
+  email: "Email",
+  slack: "Slack",
+};
+
+function formatHistoryTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function actorDisplay(event: OnCallHistoryEvent): string {
+  if (event.actorName && event.actorEmail) return `${event.actorName} (${event.actorEmail})`;
+  if (event.actorName) return event.actorName;
+  if (event.actorEmail) return event.actorEmail;
+  return "System";
 }
 
 function OnCallDestinationsCard() {
@@ -164,6 +212,8 @@ function OnCallDestinationsCard() {
   // the field is cleared (no value to verify) and overwritten on each save
   // so the green check / red cross always reflects the latest probe.
   const [probes, setProbes] = useState<Partial<Record<OnCallField, ProbeResult>>>({});
+  const [history, setHistory] = useState<OnCallHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const load = async () => {
     try {
@@ -183,7 +233,22 @@ function OnCallDestinationsCard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const data = await adminPanelApi.getOnCallDestinationsHistory();
+      setHistory(data.events);
+    } catch (err: any) {
+      // History is informational — surface a toast but don't take down the
+      // whole card if the log fetch fails (the configuration UI above is
+      // still operable).
+      toast({ title: "Couldn't load recent changes", description: err.message, variant: "destructive" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); loadHistory(); }, []);
 
   const saveField = async (
     field: OnCallField,
@@ -235,6 +300,7 @@ function OnCallDestinationsCard() {
       } else {
         toast({ title: "Destination saved and verified" });
       }
+      await loadHistory();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -258,6 +324,9 @@ function OnCallDestinationsCard() {
       } else {
         toast({ title: "Test alert dispatched" });
       }
+      // The test alert is itself an audit row — refresh the history so the
+      // admin sees their own click reflected in the timeline immediately.
+      await loadHistory();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -355,6 +424,8 @@ function OnCallDestinationsCard() {
                 ))}
               </div>
             )}
+
+            <OnCallHistorySection events={history} loading={historyLoading} />
           </>
         )}
       </CardContent>
@@ -402,6 +473,104 @@ function ProbeBadge({ probe }: { probe: ProbeResult | undefined }) {
         Reachability check failed{probe.reason ? `: ${probe.reason}` : ""} (value
         was still saved)
       </span>
+    </div>
+  );
+}
+
+function OnCallHistorySection({ events, loading }: { events: OnCallHistoryEvent[]; loading: boolean }) {
+  return (
+    <div className="border-t pt-4 space-y-2">
+      <div>
+        <p className="text-sm font-medium flex items-center gap-2">
+          <History className="w-4 h-4" /> Recent changes
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Who last touched these destinations and what they did. Sourced from the audit log.
+        </p>
+      </div>
+      {loading ? (
+        <div className="p-3 text-center text-xs text-muted-foreground">Loading recent changes...</div>
+      ) : events.length === 0 ? (
+        <div className="p-3 text-center text-xs text-muted-foreground border rounded-md bg-muted/20">
+          No changes recorded yet.
+        </div>
+      ) : (
+        <div className="border rounded-md divide-y bg-muted/20">
+          {events.map((event) => (
+            <OnCallHistoryRow key={event.id} event={event} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OnCallHistoryRow({ event }: { event: OnCallHistoryEvent }) {
+  const isTest = event.actionType === "send_test_alert";
+  const isUpdate = event.actionType === "update_setting";
+  return (
+    <div className="p-3 text-sm space-y-1">
+      <div className="flex items-start gap-3">
+        {isTest ? (
+          <Send className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+        ) : (
+          <Save className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-medium">
+              {isTest ? "Sent test alert" : isUpdate ? "Updated destination" : event.actionType}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              by {actorDisplay(event)}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatHistoryTimestamp(event.createdAt)}
+          </div>
+
+          {isUpdate && event.changedFields.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {event.changedFields.map((f) => (
+                <span
+                  key={f}
+                  className="text-xs px-2 py-0.5 rounded bg-background border text-foreground"
+                >
+                  {FIELD_LABELS[f]}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {isTest && event.testResults.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {event.testResults.map((r) => (
+                <span
+                  key={r.channel}
+                  className="text-xs px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-background"
+                  title={r.reason ?? undefined}
+                >
+                  {r.skipped ? (
+                    <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                  ) : r.ok ? (
+                    <CheckCircle2 className="w-3 h-3 text-green-600" />
+                  ) : (
+                    <XCircle className="w-3 h-3 text-destructive" />
+                  )}
+                  <span>{CHANNEL_LABELS[r.channel]}</span>
+                  <span className="text-muted-foreground">
+                    {r.skipped ? "skipped" : r.ok ? "ok" : "failed"}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {!isUpdate && !isTest && (
+            <div className="text-xs text-muted-foreground mt-1">{event.description}</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

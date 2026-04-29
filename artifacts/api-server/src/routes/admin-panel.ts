@@ -2043,6 +2043,100 @@ async function runProbeForField(field: OnCallField, value: string): Promise<Prob
   }
 }
 
+/**
+ * Recent change history for the on-call destinations card.
+ *
+ * Filters audit_log down to rows whose `entityType = "oncall_destinations"` —
+ * which today covers two action types written by the endpoints above:
+ *   - "update_setting"  — admin edited PagerDuty / ops email / Slack webhook
+ *                         (changeDiff carries `{ changedFields: [...] }`,
+ *                         never the new secret value itself)
+ *   - "send_test_alert" — admin clicked "Send test alert"
+ *                         (changeDiff carries the per-channel results summary)
+ *
+ * Joining `usersTable` lets us return the admin's display name without making
+ * the UI fan out a second lookup per row. The join is `leftJoin` because the
+ * actor reference is nullable (e.g. system-initiated audit rows would not
+ * have one), and we still want those rows to show up in the history.
+ *
+ * Query params:
+ *   - limit: number of events to return (default 10, max 50). Tuned small by
+ *     default because the card just needs the "last few changes" — admins
+ *     who want the full history can drill into the dedicated Audit Log page.
+ */
+router.get("/admin/oncall-destinations/history", requirePermission("settings:view"), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 10;
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        actionType: auditLogTable.actionType,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        actorName: usersTable.name,
+        description: auditLogTable.description,
+        changeDiff: auditLogTable.changeDiff,
+      })
+      .from(auditLogTable)
+      .leftJoin(usersTable, eq(auditLogTable.actorId, usersTable.id))
+      .where(eq(auditLogTable.entityType, "oncall_destinations"))
+      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+      .limit(limit);
+
+    const events = rows.map((row) => {
+      const diff = (row.changeDiff ?? {}) as Record<string, unknown>;
+
+      // For "update_setting" rows, the writer puts the touched fields in
+      // `changedFields`. Filter to the known on-call field names so a future
+      // schema change can't sneak an unexpected string into the UI.
+      const changedFieldsRaw = Array.isArray(diff.changedFields) ? diff.changedFields : [];
+      const allowedFields: OnCallField[] = ["pagerdutyIntegrationKey", "opsAlertEmail", "opsAlertSlackWebhookUrl"];
+      const changedFields = changedFieldsRaw.filter(
+        (f): f is OnCallField => typeof f === "string" && (allowedFields as string[]).includes(f),
+      );
+
+      // For "send_test_alert" rows, the writer puts a per-channel summary in
+      // `results`. Same defensive narrowing — only let through entries with
+      // the shape the UI knows how to render.
+      const resultsRaw = Array.isArray(diff.results) ? diff.results : [];
+      const testResults = resultsRaw
+        .map((r) => {
+          if (!r || typeof r !== "object") return null;
+          const rec = r as Record<string, unknown>;
+          const channel = typeof rec.channel === "string" ? rec.channel : null;
+          if (channel !== "pagerduty" && channel !== "email" && channel !== "slack") return null;
+          return {
+            channel,
+            ok: rec.ok === true,
+            skipped: rec.skipped === true,
+            reason: typeof rec.reason === "string" ? rec.reason : null,
+          };
+        })
+        .filter((r): r is { channel: "pagerduty" | "email" | "slack"; ok: boolean; skipped: boolean; reason: string | null } => r !== null);
+
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        actionType: row.actionType,
+        actorId: row.actorId,
+        actorEmail: row.actorEmail,
+        actorName: row.actorName,
+        description: row.description,
+        changedFields,
+        testResults,
+      };
+    });
+
+    res.json({ events, limit });
+  } catch (error) {
+    console.error("[Admin] On-call destinations history error:", error);
+    res.status(500).json({ error: "Failed to fetch on-call destinations history" });
+  }
+});
+
 router.post("/admin/oncall-destinations/test", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
     const results = await sendOnCallTestAlert();
