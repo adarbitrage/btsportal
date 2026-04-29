@@ -1,27 +1,71 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "wouter";
+import { Turnstile } from "@/components/Turnstile";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
+  | string
+  | undefined;
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleCaptchaToken = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("Please complete the challenge below before continuing.");
+      return;
+    }
+
     setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          ...(captchaToken ? { captchaToken } : {}),
+        }),
+      });
 
-    await fetch(`${API_BASE}/auth/forgot-password`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
+      if (!res.ok) {
+        let message = "We couldn't send your reset link. Please try again.";
+        try {
+          const body = await res.json();
+          const code = body?.error?.code;
+          if (code === "CAPTCHA_REQUIRED" || code === "CAPTCHA_INVALID") {
+            message = "Please complete the challenge below and try again.";
+          }
+        } catch {
+          // ignore — fall through to generic message
+        }
+        setError(message);
+        setCaptchaToken("");
+        return;
+      }
 
-    setSent(true);
-    setLoading(false);
+      setSent(true);
+    } catch {
+      setError("We couldn't reach the server. Please try again.");
+      setCaptchaToken("");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const submitDisabled =
+    loading || (TURNSTILE_SITE_KEY ? !captchaToken : false);
 
   return (
     <div style={{
@@ -73,6 +117,20 @@ export default function ForgotPassword() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
+            {error && (
+              <div style={{
+                padding: "12px 16px",
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: 8,
+                color: "#dc2626",
+                fontSize: 14,
+                marginBottom: 20,
+              }}>
+                {error}
+              </div>
+            )}
+
             <div style={{ marginBottom: 24 }}>
               <label style={{
                 display: "block",
@@ -101,19 +159,28 @@ export default function ForgotPassword() {
               />
             </div>
 
+            {TURNSTILE_SITE_KEY && (
+              <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+                <Turnstile
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onToken={handleCaptchaToken}
+                />
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitDisabled}
               style={{
                 width: "100%",
                 padding: "12px",
-                background: loading ? "#93b4f4" : "#1a56db",
+                background: submitDisabled ? "#93b4f4" : "#1a56db",
                 color: "white",
                 border: "none",
                 borderRadius: 8,
                 fontSize: 15,
                 fontWeight: 600,
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: submitDisabled ? "not-allowed" : "pointer",
               }}
             >
               {loading ? "Sending..." : "Send Reset Link"}

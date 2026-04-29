@@ -652,7 +652,7 @@ const resetPasswordIpLimiter = abuseRateLimit({
   onLimitExceeded: (req) => recordAuthRateLimitHit("reset-password", { req }),
 });
 
-router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+router.post("/auth/forgot-password", verifyCaptcha(), async (req, res): Promise<void> => {
   // Always return the same friendly response, regardless of whether the email
   // exists or whether the request was throttled by the rate limit. This avoids
   // leaking which addresses have an account and which are being rate-limited.
