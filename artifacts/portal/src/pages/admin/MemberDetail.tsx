@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +93,10 @@ export default function MemberDetail() {
     cancelledByAdminName: string | null;
     cancelledByAdminEmail: string | null;
     cancelledByMember: boolean;
+    // ISO timestamp of when the member dismissed the in-app banner that
+    // surfaced this admin-cancelled attempt. Null if the row is not
+    // admin-cancelled or the member has not yet dismissed the banner.
+    dismissedByMemberAt: string | null;
     status:
       | "pending"
       | "confirmed"
@@ -883,6 +888,35 @@ export default function MemberDetail() {
                           >
                             Cancelled by {cancelledByLabel} on {format(new Date(entry.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
                           </div>
+                        )}
+                        {entry.status === "cancelled_by_admin" && (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className="text-xs text-muted-foreground mt-0.5 inline-flex items-center cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2"
+                                  data-testid={`text-attempt-dismissed-${entry.id}`}
+                                  data-dismissed={entry.dismissedByMemberAt ? "true" : "false"}
+                                >
+                                  {entry.dismissedByMemberAt
+                                    ? `Member dismissed banner on ${format(new Date(entry.dismissedByMemberAt), "MMM d, yyyy 'at' h:mm a")}`
+                                    : "Member has not yet dismissed the cancellation banner"}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="max-w-xs text-xs"
+                                data-testid={`tooltip-attempt-dismissed-${entry.id}`}
+                              >
+                                After an admin cancels a pending email change,
+                                the member sees an in-app banner on their
+                                account page explaining what happened.
+                                "Dismissed" means the member clicked to close
+                                that banner, so support can confirm they saw
+                                the cancellation notice.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                         {entry.status === "cancelled_by_member" && entry.cancelledAt && (
                           <div

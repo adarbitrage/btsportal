@@ -145,6 +145,11 @@ type RawEmailAttempt = {
   // classifier distinguish member-initiated cancels from admin-initiated
   // ones (which set `cancelledByAdminId` instead).
   cancelledByMember?: boolean | null;
+  // Populated when the member dismissed the in-app banner that surfaced
+  // an admin-cancelled attempt. Surfaced on the admin Member Detail page
+  // so support staff can confirm whether the member ever acknowledged
+  // the cancellation in the portal.
+  dismissedByMemberAt?: Date | null;
 };
 
 type RawEmailHistory = {
@@ -169,6 +174,11 @@ export type ClassifiedEmailAttempt = {
   // "Cancelled by member" without having to infer it from the absence of
   // an admin id (which could also mean the admin user was deleted).
   cancelledByMember: boolean;
+  // ISO timestamp of when the member dismissed the in-app banner that
+  // surfaced an admin-cancelled attempt, or null if they have not yet
+  // dismissed it. Only meaningful for `cancelled_by_admin` rows; on other
+  // statuses the column is unused and serialized as null.
+  dismissedByMemberAt: string | null;
   status:
     | "pending"
     | "confirmed"
@@ -290,6 +300,9 @@ export function classifyEmailAttempts(
       cancelledByAdminName: a.cancelledByAdminName ?? null,
       cancelledByAdminEmail: a.cancelledByAdminEmail ?? null,
       cancelledByMember: a.cancelledByMember === true,
+      dismissedByMemberAt: a.dismissedByMemberAt
+        ? a.dismissedByMemberAt.toISOString()
+        : null,
       status,
     };
   });
@@ -1271,6 +1284,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
           cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
+          dismissedByMemberAt: emailChangeAttemptsTable.dismissedByMemberAt,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(
@@ -1442,6 +1456,7 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
           cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
+          dismissedByMemberAt: emailChangeAttemptsTable.dismissedByMemberAt,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(
@@ -1560,6 +1575,7 @@ router.get("/admin/members/:id/email-attempts/:attemptId", requirePermission("me
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
           cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
+          dismissedByMemberAt: emailChangeAttemptsTable.dismissedByMemberAt,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(

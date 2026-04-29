@@ -40,6 +40,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/permissions", () => ({
   hasPermission: () => true,
+  ADMIN_ROLES: ["admin", "support", "auditor"],
 }));
 
 vi.mock("wouter", () => ({
@@ -107,6 +108,7 @@ describe("MemberDetail — admin-cancelled email-change attempt rendering", () =
           cancelledByAdminId: 99,
           cancelledByAdminName: "Jane Admin",
           cancelledByAdminEmail: "jane.admin@example.test",
+          dismissedByMemberAt: null,
           status: "cancelled_by_admin",
         },
       ],
@@ -152,6 +154,7 @@ describe("MemberDetail — admin-cancelled email-change attempt rendering", () =
           cancelledByAdminId: 5,
           cancelledByAdminName: null,
           cancelledByAdminEmail: "ops@example.test",
+          dismissedByMemberAt: null,
           status: "cancelled_by_admin",
         },
         {
@@ -164,6 +167,7 @@ describe("MemberDetail — admin-cancelled email-change attempt rendering", () =
           cancelledByAdminId: 9,
           cancelledByAdminName: null,
           cancelledByAdminEmail: null,
+          dismissedByMemberAt: null,
           status: "cancelled_by_admin",
         },
       ],
@@ -210,6 +214,7 @@ describe("MemberDetail — admin-cancelled email-change attempt rendering", () =
           cancelledByAdminId: 12,
           cancelledByAdminName: "Old Admin",
           cancelledByAdminEmail: "old.admin@example.test",
+          dismissedByMemberAt: null,
           status: "cancelled_by_admin",
         },
       ],
@@ -237,5 +242,86 @@ describe("MemberDetail — admin-cancelled email-change attempt rendering", () =
     const byline = screen.getByTestId("text-attempt-cancelled-by-8200");
     expect(byline).toHaveTextContent(/Old Admin/);
     expect(byline).toHaveTextContent(/Jul 1, 2025/);
+  });
+
+  it("renders the member-dismissed-banner indicator next to the cancelled-by-admin badge", async () => {
+    // Two cancelled-by-admin rows: one the member already dismissed in the
+    // portal (so support sees the dismissal date), and one they have not
+    // (so support sees the "not yet dismissed" fallback). Both indicators
+    // sit on the same row as the existing cancelled-by-admin badge so
+    // support staff can confirm at a glance whether the member ever
+    // acknowledged the cancellation.
+    const dismissedAt = new Date(2026, 2, 10, 16, 45, 0).toISOString();
+
+    getMemberFull.mockResolvedValue({
+      ...baseMember,
+      emailAttempts: [
+        {
+          id: 7300,
+          newEmail: "dismissed@example.test",
+          requestedAt: new Date(2026, 2, 9, 9, 0, 0).toISOString(),
+          expiresAt: null,
+          confirmedAt: null,
+          cancelledAt: new Date(2026, 2, 9, 18, 0, 0).toISOString(),
+          cancelledByAdminId: 11,
+          cancelledByAdminName: "Cancel Admin",
+          cancelledByAdminEmail: "ca@example.test",
+          dismissedByMemberAt: dismissedAt,
+          status: "cancelled_by_admin",
+        },
+        {
+          id: 7301,
+          newEmail: "not-dismissed@example.test",
+          requestedAt: new Date(2026, 2, 11, 9, 0, 0).toISOString(),
+          expiresAt: null,
+          confirmedAt: null,
+          cancelledAt: new Date(2026, 2, 11, 18, 0, 0).toISOString(),
+          cancelledByAdminId: 11,
+          cancelledByAdminName: "Cancel Admin",
+          cancelledByAdminEmail: "ca@example.test",
+          dismissedByMemberAt: null,
+          status: "cancelled_by_admin",
+        },
+      ],
+      emailAttemptsTotal: 2,
+      emailAttemptsPageSize: 50,
+    });
+
+    render(<MemberDetail />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading member details/i)).not.toBeInTheDocument();
+    });
+
+    // The dismissed row shows the date the member acknowledged the banner.
+    const dismissedIndicator = screen.getByTestId("text-attempt-dismissed-7300");
+    expect(dismissedIndicator).toHaveAttribute("data-dismissed", "true");
+    expect(dismissedIndicator).toHaveTextContent(/Member dismissed banner on/i);
+    expect(dismissedIndicator).toHaveTextContent(/Mar 10, 2026/);
+
+    // The not-yet-dismissed row makes that explicit so support doesn't
+    // misread "no date" as "we don't know".
+    const notDismissedIndicator = screen.getByTestId("text-attempt-dismissed-7301");
+    expect(notDismissedIndicator).toHaveAttribute("data-dismissed", "false");
+    expect(notDismissedIndicator).toHaveTextContent(
+      /not yet dismissed the cancellation banner/i,
+    );
+
+    // The new indicator must sit on the same row container as the
+    // existing cancelled-by-admin badge, so support staff see the two
+    // pieces of context together rather than chasing them across the page.
+    const dismissedRow = screen.getByTestId("row-email-attempt-7300");
+    expect(dismissedRow).toContainElement(dismissedIndicator);
+    // Both rows render a cancelled-by-admin badge; confirm that the
+    // dismissed-row contains its own cancelled-by-admin badge so support
+    // sees the two pieces of context (cancelled + dismissed) together.
+    const cancelledByAdminBadges = screen.getAllByTestId(
+      "badge-attempt-status-cancelled_by_admin",
+    );
+    expect(cancelledByAdminBadges).toHaveLength(2);
+    const matchingBadge = cancelledByAdminBadges.find((badge) =>
+      dismissedRow.contains(badge),
+    );
+    expect(matchingBadge).toBeDefined();
   });
 });

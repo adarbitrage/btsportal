@@ -607,6 +607,12 @@ export const adminPanelApi = {
         // change. Set together with `cancelledAt` and lets the UI render
         // "Cancelled by member" without conflating it with admin cancels.
         cancelledByMember: boolean;
+        // ISO timestamp of when the member dismissed the in-app banner
+        // that surfaced this admin-cancelled attempt. Null when the row
+        // is not admin-cancelled, or when the member has not yet dismissed
+        // the banner. Surfaced on the admin Member Detail page so support
+        // can confirm whether the member acknowledged the cancellation.
+        dismissedByMemberAt: string | null;
         status:
           | "pending"
           | "confirmed"
@@ -649,6 +655,7 @@ export const adminPanelApi = {
         cancelledByAdminName: string | null;
         cancelledByAdminEmail: string | null;
         cancelledByMember: boolean;
+        dismissedByMemberAt: string | null;
         status:
           | "pending"
           | "confirmed"
