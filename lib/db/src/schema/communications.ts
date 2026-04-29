@@ -13,6 +13,11 @@ export const emailTemplatesTable = pgTable("email_templates", {
   fromName: text("from_name"),
   variables: jsonb("variables").$type<string[]>().default([]),
   active: boolean("active").notNull().default(true),
+  // SHA-256 fingerprint of the starter copy (name+subject+htmlBody+textBody) the
+  // last time this row was seeded or auto-refreshed by `ensureRequiredEmailTemplates`.
+  // Set to NULL when an admin edits the template via the admin UI; that signals
+  // "customized — do not silently overwrite from starter copy on next startup".
+  starterHash: text("starter_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { commsApi } from "@/lib/communications-api";
-import { Plus, Pencil, Trash2, Eye, History, RotateCcw, Search, Code } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, History, RotateCcw, Search, Code, FileWarning, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 
 export default function CommunicationsTemplates() {
@@ -120,6 +120,20 @@ export default function CommunicationsTemplates() {
     }
   }
 
+  async function handleRestoreDefault(t: any) {
+    const ok = confirm(
+      `Restore "${t.name}" to the latest starter copy? Your current version will be saved to the version history first so you can roll back if needed.`,
+    );
+    if (!ok) return;
+    try {
+      await commsApi.restoreTemplateDefault(t.id);
+      toast({ title: "Starter copy restored" });
+      loadTemplates();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
   const filtered = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.slug.toLowerCase().includes(search.toLowerCase())
@@ -151,10 +165,20 @@ export default function CommunicationsTemplates() {
               <Card key={t.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold text-foreground">{t.name}</h3>
                       <Badge variant={t.active ? "default" : "secondary"}>{t.active ? "Active" : "Inactive"}</Badge>
                       <Badge variant="outline">{t.category}</Badge>
+                      {t.editedFromDefault && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500 text-amber-700 bg-amber-50"
+                          title="This template has been edited away from the starter copy. New starter releases will not be auto-applied."
+                        >
+                          <FileWarning className="w-3 h-3 mr-1" />
+                          Customized
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground"><Code className="w-3 h-3 inline mr-1" />{t.slug}</p>
                     <p className="text-sm text-muted-foreground mt-1">Subject: {t.subject}</p>
@@ -169,6 +193,16 @@ export default function CommunicationsTemplates() {
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={() => handlePreview(t.id)}><Eye className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => handleVersions(t.id)}><History className="w-4 h-4" /></Button>
+                    {t.hasStarterDefault && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRestoreDefault(t)}
+                        title="Restore the starter copy shipped with the app"
+                      >
+                        <Undo2 className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(t.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
                   </div>

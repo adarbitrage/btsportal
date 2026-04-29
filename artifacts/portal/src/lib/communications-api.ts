@@ -25,6 +25,7 @@ export const commsApi = {
   deleteEmailTemplate: (id: number) => apiFetch(`/email-templates/${id}`, { method: "DELETE" }),
   getTemplateVersions: (id: number) => apiFetch(`/email-templates/${id}/versions`),
   restoreTemplateVersion: (id: number, versionId: number) => apiFetch(`/email-templates/${id}/restore/${versionId}`, { method: "POST" }),
+  restoreTemplateDefault: (id: number) => apiFetch(`/email-templates/${id}/restore-default`, { method: "POST" }),
   previewEmailTemplate: (id: number, sampleData?: any) => apiFetch(`/email-templates/${id}/preview`, { method: "POST", body: JSON.stringify({ sampleData }) }),
 
   listSmsTemplates: () => apiFetch("/sms-templates"),

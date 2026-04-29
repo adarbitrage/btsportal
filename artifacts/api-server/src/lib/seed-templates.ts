@@ -1,5 +1,6 @@
-import { db, emailTemplatesTable, smsTemplatesTable } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, emailTemplatesTable, emailTemplateVersionsTable, smsTemplatesTable } from "@workspace/db";
+import { sql, eq, inArray, desc } from "drizzle-orm";
+import crypto from "node:crypto";
 
 function wrapHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -620,13 +621,177 @@ const smsTemplates = [
   },
 ];
 
+export type StarterEmailTemplate = (typeof transactionalEmailTemplates)[number];
+
+type StarterContent = Pick<StarterEmailTemplate, "name" | "subject" | "htmlBody" | "textBody">;
+
+/**
+ * SHA-256 fingerprint of a starter template's user-visible content. Stored on
+ * `email_templates.starter_hash` so we can tell whether a row is still tracking
+ * the starter copy or has been customized via the admin UI.
+ *
+ * Field set deliberately excludes `category`, `variables`, `fromName`, and
+ * `active` — admins flipping `active`/`fromName` should not block starter copy
+ * refreshes, and category/variables are unlikely to drift in practice.
+ */
+export function templateContentHash(t: StarterContent): string {
+  const payload = JSON.stringify({
+    name: t.name,
+    subject: t.subject,
+    htmlBody: t.htmlBody,
+    textBody: t.textBody,
+  });
+  return crypto.createHash("sha256").update(payload).digest("hex");
+}
+
+/**
+ * Earlier versions of starter copy that we still want to recognize as
+ * "untouched" on existing deployments where the row was seeded before the
+ * `starter_hash` column existed (so the column is NULL but the content still
+ * matches a previous starter — meaning no admin has customized it).
+ *
+ * Keep in chronological order; only add an entry when the live starter copy
+ * for a slug actually changes. Slugs whose copy has never changed don't need
+ * an entry — the current copy in `transactionalEmailTemplates` is recognized
+ * automatically.
+ */
+const priorStarterRevisions: Record<string, StarterContent[]> = {
+  // Pre-Task #152 copy: button colors used #1a56db and the "no need to create
+  // a new account" sub-clause was missing.
+  signup_attempted: [
+    {
+      name: "Signup Attempted on Existing Email",
+      subject: "Someone tried to sign up with your email",
+      htmlBody: wrapHtml("Signup Attempted", `
+<h2 style="color:#1a1a2e;margin-top:0;">Signup Attempt on Your Account</h2>
+<p>Hi {{member_name}},</p>
+<p>Someone just tried to create a new Build Test Scale account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
+<p>If this was you, you can sign in or reset your password instead:</p>
+<p>
+<a href="{{portal_url}}/login" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-right:8px;">Sign In</a>
+<a href="{{portal_url}}/forgot-password" style="display:inline-block;background:#ffffff;color:#1a56db;border:1px solid #1a56db;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
+</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, you can safely ignore this email — your account is unchanged. If you're seeing repeated attempts, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>The BTS Team</p>`),
+      textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login\nOr reset your password: {{portal_url}}/forgot-password\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
+    },
+  ],
+  // Pre-Task #242 copy: pointed members at /settings instead of the dedicated
+  // restart link (no `restart_url` variable yet).
+  email_change_cancelled_by_admin: [
+    {
+      name: "Email Change Cancelled by Admin",
+      subject: "Your pending email change was cancelled by Build Test Scale support",
+      htmlBody: wrapHtml("Pending Email Change Cancelled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
+<p>If you still want to switch your account to a different email address, you can start a new request anytime from your account settings:</p>
+<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Go to Account Settings</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting support to cancel this change, or you have any questions, please reply to this email or reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+      textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still want to switch your account to a different email address, you can start a new request anytime from your account settings: {{portal_url}}/settings\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+};
+
+/** Slugs that the seed routine guarantees exist in every deployment. */
+export const REQUIRED_TEMPLATE_SLUGS = [
+  "email_change_verify",
+  "email_change_notice",
+  "email_change_cancelled_by_admin",
+  "email_change_cancelled_by_admin_pending",
+  "signup_attempted",
+] as const;
+
+/**
+ * Map of slug -> starter copy. Includes both transactional and marketing
+ * starter templates so the admin-facing "Restore default" endpoint works for
+ * any seeded slug.
+ */
+const allStarterTemplates: StarterEmailTemplate[] = [
+  ...transactionalEmailTemplates,
+  ...marketingEmailTemplates,
+];
+const starterTemplatesBySlug = new Map(allStarterTemplates.map(t => [t.slug, t]));
+
+/** Look up starter copy for a slug, or null if no starter is defined. */
+export function getStarterEmailTemplate(slug: string): StarterEmailTemplate | null {
+  return starterTemplatesBySlug.get(slug) ?? null;
+}
+
+/** Returns the set of starter slugs that have a starter copy on file. */
+export function listStarterEmailTemplateSlugs(): string[] {
+  return Array.from(starterTemplatesBySlug.keys());
+}
+
+/**
+ * Returns the set of content hashes the seed routine recognizes as starter
+ * copy for the given slug — the current starter plus any prior revisions
+ * captured in `priorStarterRevisions`. Used to detect untouched legacy rows
+ * whose `starter_hash` column was never populated.
+ */
+function knownStarterHashesForSlug(slug: string): Set<string> {
+  const current = starterTemplatesBySlug.get(slug);
+  const hashes = new Set<string>();
+  if (current) hashes.add(templateContentHash(current));
+  for (const prior of priorStarterRevisions[slug] ?? []) {
+    hashes.add(templateContentHash(prior));
+  }
+  return hashes;
+}
+
+async function snapshotTemplateVersion(template: {
+  id: number;
+  slug: string;
+  name: string;
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+  category: string;
+  fromName: string | null;
+  variables: string[] | null;
+}, savedBy: number | null): Promise<void> {
+  const versions = await db
+    .select({ id: emailTemplateVersionsTable.id, version: emailTemplateVersionsTable.version })
+    .from(emailTemplateVersionsTable)
+    .where(eq(emailTemplateVersionsTable.templateId, template.id))
+    .orderBy(desc(emailTemplateVersionsTable.version));
+  const nextVersion = versions[0] ? versions[0].version + 1 : 1;
+  await db.insert(emailTemplateVersionsTable).values({
+    templateId: template.id,
+    version: nextVersion,
+    slug: template.slug,
+    name: template.name,
+    subject: template.subject,
+    htmlBody: template.htmlBody,
+    textBody: template.textBody,
+    category: template.category,
+    fromName: template.fromName,
+    variables: template.variables,
+    savedBy,
+  });
+  // Same retention cap as the admin PUT endpoint: keep the most recent 10
+  // snapshots and drop the rest.
+  if (versions.length >= 10) {
+    const toDelete = versions.slice(9).map(v => v.id);
+    if (toDelete.length > 0) {
+      await db.delete(emailTemplateVersionsTable).where(inArray(emailTemplateVersionsTable.id, toDelete));
+    }
+  }
+}
+
 export async function seedCommunicationTemplates(): Promise<void> {
   console.log("Seeding communication templates...");
 
   await db.execute(sql`TRUNCATE TABLE email_templates, sms_templates RESTART IDENTITY CASCADE`);
 
-  const allEmailTemplates = [...transactionalEmailTemplates, ...marketingEmailTemplates];
-  await db.insert(emailTemplatesTable).values(allEmailTemplates);
+  const allEmailTemplatesWithHash = allStarterTemplates.map(t => ({
+    ...t,
+    starterHash: templateContentHash(t),
+  }));
+  await db.insert(emailTemplatesTable).values(allEmailTemplatesWithHash);
   console.log(`  Seeded ${transactionalEmailTemplates.length} transactional + ${marketingEmailTemplates.length} marketing email templates`);
 
   await db.insert(smsTemplatesTable).values(smsTemplates);
@@ -635,25 +800,130 @@ export async function seedCommunicationTemplates(): Promise<void> {
   console.log("Communication templates seeding complete!");
 }
 
-const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice", "email_change_cancelled_by_admin", "email_change_cancelled_by_admin_pending", "signup_attempted"];
+export interface EnsureRequiredEmailTemplatesResult {
+  inserted: string[];
+  refreshed: string[];
+  backfilled: string[];
+  skippedCustomized: string[];
+}
 
-export async function ensureRequiredEmailTemplates(): Promise<void> {
+/**
+ * Run on every API server boot. Guarantees the REQUIRED templates exist and,
+ * for rows we can prove are still untouched starter copy, refreshes them to
+ * the latest content. Rows that have been customized via the admin UI (i.e.
+ * `starter_hash` was cleared by the PUT route) are never overwritten.
+ *
+ * Pass `templates`/`requiredSlugs` to override the starter set in tests so
+ * specs can exercise the refresh logic without clobbering production starter
+ * rows.
+ */
+export async function ensureRequiredEmailTemplates(opts?: {
+  templates?: ReadonlyArray<StarterEmailTemplate>;
+  requiredSlugs?: ReadonlyArray<string>;
+  priorRevisions?: Record<string, StarterContent[]>;
+}): Promise<EnsureRequiredEmailTemplatesResult> {
+  const templates = opts?.templates ?? transactionalEmailTemplates;
+  const requiredSlugs = opts?.requiredSlugs ?? REQUIRED_TEMPLATE_SLUGS;
+  const priorRevs = opts?.priorRevisions ?? priorStarterRevisions;
+  const result: EnsureRequiredEmailTemplatesResult = {
+    inserted: [],
+    refreshed: [],
+    backfilled: [],
+    skippedCustomized: [],
+  };
+
   try {
-    const existing = await db
-      .select({ slug: emailTemplatesTable.slug })
-      .from(emailTemplatesTable);
-    const have = new Set(existing.map((r) => r.slug));
-    const missing = transactionalEmailTemplates.filter(
-      (t) => REQUIRED_TEMPLATE_SLUGS.includes(t.slug) && !have.has(t.slug),
-    );
-    if (missing.length === 0) return;
-    await db.insert(emailTemplatesTable).values(missing);
-    console.log(
-      `[Seed] Inserted ${missing.length} missing transactional email template(s): ${missing
-        .map((m) => m.slug)
-        .join(", ")}`,
-    );
+    const existingRows = await db
+      .select()
+      .from(emailTemplatesTable)
+      .where(inArray(emailTemplatesTable.slug, [...requiredSlugs]));
+    const existingBySlug = new Map(existingRows.map(r => [r.slug, r]));
+
+    for (const slug of requiredSlugs) {
+      const starter = templates.find(t => t.slug === slug);
+      if (!starter) continue;
+      const currentHash = templateContentHash(starter);
+      const existing = existingBySlug.get(slug);
+
+      if (!existing) {
+        await db.insert(emailTemplatesTable).values({
+          ...starter,
+          starterHash: currentHash,
+        });
+        result.inserted.push(slug);
+        continue;
+      }
+
+      // Already up to date.
+      if (existing.starterHash === currentHash) continue;
+
+      // Previously seeded by us, starter copy has changed since — refresh.
+      if (existing.starterHash !== null) {
+        await snapshotTemplateVersion(existing, null);
+        await db.update(emailTemplatesTable).set({
+          name: starter.name,
+          subject: starter.subject,
+          htmlBody: starter.htmlBody,
+          textBody: starter.textBody,
+          category: starter.category,
+          variables: starter.variables,
+          starterHash: currentHash,
+        }).where(eq(emailTemplatesTable.id, existing.id));
+        result.refreshed.push(slug);
+        continue;
+      }
+
+      // starter_hash is NULL — could be a legacy row from before the column
+      // existed, or an admin-customized row. Tell them apart by checking
+      // whether the row's actual content matches a known starter fingerprint.
+      const knownHashes: Set<string> = new Set([
+        currentHash,
+        ...(priorRevs[slug] ?? []).map(templateContentHash),
+      ]);
+      const rowHash = templateContentHash(existing);
+      if (!knownHashes.has(rowHash)) {
+        result.skippedCustomized.push(slug);
+        continue;
+      }
+
+      // Row content is a known starter version. If it already matches current,
+      // just stamp the hash. Otherwise snapshot + update + stamp.
+      if (rowHash === currentHash) {
+        await db.update(emailTemplatesTable)
+          .set({ starterHash: currentHash })
+          .where(eq(emailTemplatesTable.id, existing.id));
+        result.backfilled.push(slug);
+      } else {
+        await snapshotTemplateVersion(existing, null);
+        await db.update(emailTemplatesTable).set({
+          name: starter.name,
+          subject: starter.subject,
+          htmlBody: starter.htmlBody,
+          textBody: starter.textBody,
+          category: starter.category,
+          variables: starter.variables,
+          starterHash: currentHash,
+        }).where(eq(emailTemplatesTable.id, existing.id));
+        result.refreshed.push(slug);
+      }
+    }
+
+    if (
+      result.inserted.length ||
+      result.refreshed.length ||
+      result.backfilled.length ||
+      result.skippedCustomized.length
+    ) {
+      console.log(
+        `[Seed] ensureRequiredEmailTemplates: ` +
+          `inserted=[${result.inserted.join(",")}] ` +
+          `refreshed=[${result.refreshed.join(",")}] ` +
+          `backfilled=[${result.backfilled.join(",")}] ` +
+          `skippedCustomized=[${result.skippedCustomized.join(",")}]`,
+      );
+    }
   } catch (err) {
     console.error("[Seed] ensureRequiredEmailTemplates failed:", err);
   }
+  return result;
 }

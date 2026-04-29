@@ -24,6 +24,11 @@ import {
   QUEUE_FALLBACK_ACTION_TYPE,
   QUEUE_FALLBACK_ENTITY_TYPE,
 } from "../lib/queue-fallback-tracker";
+import {
+  getStarterEmailTemplate,
+  listStarterEmailTemplateSlugs,
+  templateContentHash,
+} from "../lib/seed-templates";
 
 /**
  * How far before/after a communication-log row's createdAt we look for audit
@@ -44,10 +49,27 @@ const RELATED_AUDIT_LIMIT = 10;
 
 const router = Router();
 
+const STARTER_SLUG_SET = new Set(listStarterEmailTemplateSlugs());
+
+/**
+ * Add UI-facing flags about whether the row is still tracking the starter
+ * copy. `editedFromDefault` is `true` when an admin has saved over the
+ * starter copy (the PUT route clears `starterHash` in that case);
+ * `hasStarterDefault` is `true` when there is a starter copy on file we can
+ * restore on demand.
+ */
+function enrichEmailTemplate<T extends { slug: string; starterHash: string | null }>(t: T) {
+  return {
+    ...t,
+    hasStarterDefault: STARTER_SLUG_SET.has(t.slug),
+    editedFromDefault: STARTER_SLUG_SET.has(t.slug) && t.starterHash === null,
+  };
+}
+
 router.get("/admin/communications/email-templates", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const templates = await db.select().from(emailTemplatesTable).orderBy(asc(emailTemplatesTable.name));
-    res.json(templates);
+    res.json(templates.map(enrichEmailTemplate));
   } catch (error) {
     console.error("[Admin] Error listing email templates:", error);
     res.status(500).json({ error: "Failed to list email templates" });
@@ -60,7 +82,7 @@ router.get("/admin/communications/email-templates/:id", requirePermission("commu
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [template] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
     if (!template) { res.status(404).json({ error: "Template not found" }); return; }
-    res.json(template);
+    res.json(enrichEmailTemplate(template));
   } catch (error) {
     console.error("[Admin] Error getting email template:", error);
     res.status(500).json({ error: "Failed to get email template" });
@@ -79,8 +101,10 @@ router.post("/admin/communications/email-templates", requirePermission("communic
       category: category || "transactional",
       fromName: fromName || null,
       variables: variables || [],
+      // Admin-created template: by definition not tracking starter copy.
+      starterHash: null,
     }).returning();
-    res.status(201).json(template);
+    res.status(201).json(enrichEmailTemplate(template));
   } catch (error: any) {
     if (error?.code === "23505") {
       res.status(409).json({ error: "Template slug already exists" });
@@ -136,8 +160,17 @@ router.put("/admin/communications/email-templates/:id", requirePermission("commu
     if (variables !== undefined) updates.variables = variables;
     if (active !== undefined) updates.active = active;
 
+    // Mark this row as customized so the startup seed routine
+    // (`ensureRequiredEmailTemplates`) never silently overwrites the admin's
+    // copy with the latest starter content. Admins can re-apply starter copy
+    // explicitly via the "restore-default" endpoint below.
+    const touchesContent = ["name", "subject", "htmlBody", "textBody"].some(k => k in updates);
+    if (touchesContent) {
+      updates.starterHash = null;
+    }
+
     const [updated] = await db.update(emailTemplatesTable).set(updates).where(eq(emailTemplatesTable.id, id)).returning();
-    res.json(updated);
+    res.json(enrichEmailTemplate(updated));
   } catch (error) {
     console.error("[Admin] Error updating email template:", error);
     res.status(500).json({ error: "Failed to update email template" });
@@ -189,12 +222,81 @@ router.post("/admin/communications/email-templates/:id/restore/:versionId", requ
       category: version.category,
       fromName: version.fromName,
       variables: version.variables,
+      // Restoring an admin-saved version is itself a customization — keep the
+      // row marked as such so the startup seed routine doesn't immediately
+      // overwrite it with the latest starter copy.
+      starterHash: null,
     }).where(eq(emailTemplatesTable.id, id)).returning();
 
-    res.json(updated);
+    res.json(enrichEmailTemplate(updated));
   } catch (error) {
     console.error("[Admin] Error restoring template version:", error);
     res.status(500).json({ error: "Failed to restore template version" });
+  }
+});
+
+/**
+ * Re-apply the starter copy from `seed-templates.ts` for this template's slug.
+ * Snapshots the current row to the version history first so admins can roll
+ * back if they didn't mean to. Returns 400 if no starter copy exists for the
+ * slug (e.g. the template was created in the admin UI from scratch).
+ */
+router.post("/admin/communications/email-templates/:id/restore-default", requirePermission("communications:manage"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [existing] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Template not found" }); return; }
+
+    const starter = getStarterEmailTemplate(existing.slug);
+    if (!starter) {
+      res.status(400).json({
+        error: "No starter copy is available for this template — it was not part of the original seeded set.",
+      });
+      return;
+    }
+
+    const versions = await db.select().from(emailTemplateVersionsTable)
+      .where(eq(emailTemplateVersionsTable.templateId, id))
+      .orderBy(desc(emailTemplateVersionsTable.version));
+    const nextVersion = versions.length > 0 ? versions[0].version + 1 : 1;
+
+    await db.insert(emailTemplateVersionsTable).values({
+      templateId: id,
+      version: nextVersion,
+      slug: existing.slug,
+      name: existing.name,
+      subject: existing.subject,
+      htmlBody: existing.htmlBody,
+      textBody: existing.textBody,
+      category: existing.category,
+      fromName: existing.fromName,
+      variables: existing.variables,
+      savedBy: req.userId,
+    });
+
+    if (versions.length >= 10) {
+      const toDelete = versions.slice(9).map(v => v.id);
+      if (toDelete.length > 0) {
+        await db.delete(emailTemplateVersionsTable).where(inArray(emailTemplateVersionsTable.id, toDelete));
+      }
+    }
+
+    const [updated] = await db.update(emailTemplatesTable).set({
+      name: starter.name,
+      subject: starter.subject,
+      htmlBody: starter.htmlBody,
+      textBody: starter.textBody,
+      category: starter.category,
+      variables: starter.variables,
+      starterHash: templateContentHash(starter),
+    }).where(eq(emailTemplatesTable.id, id)).returning();
+
+    res.json(enrichEmailTemplate(updated));
+  } catch (error) {
+    console.error("[Admin] Error restoring starter copy:", error);
+    res.status(500).json({ error: "Failed to restore starter copy" });
   }
 });
 
