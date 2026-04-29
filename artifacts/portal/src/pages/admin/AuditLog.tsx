@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2 } from "lucide-react";
+import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2, X } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -150,6 +150,16 @@ export default function AuditLog() {
     bytesReceived: number;
     rowsReceived: number | null;
   } | null>(null);
+  // Tracks the AbortController for the in-flight export so the Cancel
+  // button can tear down the streaming fetch (and the reader loop) when
+  // the admin realises the filters are wrong mid-download. Held in a ref
+  // — not state — because we only need to call .abort() on it; nothing
+  // about the controller itself drives rendering.
+  const exportAbortRef = useRef<AbortController | null>(null);
+  // Disambiguates "the user cancelled" from "the network blew up" when
+  // the streaming fetch rejects with AbortError, so the catch block can
+  // surface the right (neutral) toast.
+  const exportCancelledRef = useRef(false);
   const { toast } = useToast();
 
   const load = async (opts?: { cursor?: string; direction?: "forward" | "backward" }) => {
@@ -290,6 +300,9 @@ export default function AuditLog() {
     // but a stale Enter key / double-tap could still re-enter this handler
     // before React re-renders the disabled state.
     if (exportProgress) return;
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+    exportCancelledRef.current = false;
     setExportProgress({ fmt, bytesReceived: 0, rowsReceived: null });
     try {
       // The server streams the full result set in chunks and no longer
@@ -302,9 +315,14 @@ export default function AuditLog() {
       // toast comes from the read endpoint's `totalMatching` (already in
       // state for the "N matching rows" display) so the toast still
       // surfaces an authoritative row count.
-      const { blob } = await adminPanelApi.exportAuditLog(fmt, filters, (progress) => {
-        setExportProgress({ fmt, ...progress });
-      });
+      const { blob } = await adminPanelApi.exportAuditLog(
+        fmt,
+        filters,
+        (progress) => {
+          setExportProgress({ fmt, ...progress });
+        },
+        controller.signal,
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -322,10 +340,34 @@ export default function AuditLog() {
         toast({ title: "Export complete" });
       }
     } catch (err: any) {
-      toast({ title: "Export failed", description: err.message, variant: "destructive" });
+      // The streaming fetch rejects with AbortError both when the user
+      // hits Cancel (exportCancelledRef set) and when the page is
+      // navigated away. Either way, treat it as a neutral cancellation
+      // rather than a destructive "Export failed" toast.
+      const isAbort =
+        err?.name === "AbortError" ||
+        controller.signal.aborted ||
+        exportCancelledRef.current;
+      if (isAbort) {
+        toast({ title: "Export cancelled" });
+      } else {
+        toast({ title: "Export failed", description: err.message, variant: "destructive" });
+      }
     } finally {
+      exportAbortRef.current = null;
+      exportCancelledRef.current = false;
       setExportProgress(null);
     }
+  };
+
+  // Wired to the Cancel button next to the in-flight progress hint.
+  // Aborts the streaming fetch (which collapses the reader loop in the
+  // API helper), and the server's `res.on("close")` handler then stops
+  // walking batches and shuts the response down cleanly.
+  const handleCancelExport = () => {
+    if (!exportAbortRef.current) return;
+    exportCancelledRef.current = true;
+    exportAbortRef.current.abort();
   };
 
   // Human-readable size formatter for the in-flight progress hint. We don't
@@ -466,18 +508,31 @@ export default function AuditLog() {
                   </Tooltip>
                 </div>
                 {exportProgress && (
-                  <span
-                    className="text-xs text-muted-foreground"
-                    role="status"
-                    aria-live="polite"
-                    data-testid="audit-export-progress"
-                  >
-                    Downloading…{" "}
-                    {exportProgress.rowsReceived != null && exportProgress.rowsReceived > 0
-                      ? `${exportProgress.rowsReceived.toLocaleString()} rows · `
-                      : ""}
-                    {formatBytes(exportProgress.bytesReceived)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-xs text-muted-foreground"
+                      role="status"
+                      aria-live="polite"
+                      data-testid="audit-export-progress"
+                    >
+                      Downloading…{" "}
+                      {exportProgress.rowsReceived != null && exportProgress.rowsReceived > 0
+                        ? `${exportProgress.rowsReceived.toLocaleString()} rows · `
+                        : ""}
+                      {formatBytes(exportProgress.bytesReceived)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={handleCancelExport}
+                      data-testid="audit-export-cancel"
+                      aria-label="Cancel export"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
                 )}
               </div>
             </TooltipProvider>

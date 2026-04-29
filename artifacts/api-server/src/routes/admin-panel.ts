@@ -937,6 +937,14 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
   const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
   const hardCap = resolveAuditLogExportHardCap();
 
+  // Hoisted out of the try block so the catch handler can tell a
+  // user-initiated cancel (client closed the socket; downstream
+  // res.write / DB calls then throw) apart from a genuine 500.
+  let aborted = false;
+  res.on("close", () => {
+    if (!res.writableEnded) aborted = true;
+  });
+
   try {
     // Same scrubbing as the read endpoint — exports must not leak the
     // recipient to viewers without PII access (CSV embeds the description,
@@ -981,12 +989,8 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
 
     let cursor: ExportCursor | null = null;
     let firstRow = true;
-    let aborted = false;
     let written = 0;
     let truncated = false;
-    res.on("close", () => {
-      if (!res.writableEnded) aborted = true;
-    });
 
     // Microsecond-precision ISO of the row's createdAt, used as the next
     // batch's keyset anchor. Stored as a SELECT alias rather than computed
@@ -1047,6 +1051,13 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
       const writeCount = Math.min(rows.length, batchSize);
       if (isFinalBatch && rows.length > batchSize) truncated = true;
 
+      // The batch query is `await`ed above, so the client may have
+      // disconnected (and `aborted` flipped) while we were waiting for
+      // Postgres. Bail before writing rows to a closed socket so we don't
+      // emit ERR_STREAM_WRITE_AFTER_END or trip the catch block on a
+      // user-initiated cancellation.
+      if (aborted) break;
+
       for (let i = 0; i < writeCount; i++) {
         const { cursorTs: _omit, ...raw } = rows[i];
         const row = sanitize(raw);
@@ -1079,16 +1090,29 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
       if (truncated || written >= hardCap) break;
     }
 
+    // When the client disconnects mid-stream, the response is already in
+    // a closed/destroyed state — writing the JSON terminator, declared
+    // trailers, or calling res.end() would either no-op or emit an
+    // ERR_STREAM_WRITE_AFTER_END that surfaces as a 500-flavoured log
+    // line. Skip the entire wrap-up and let the closed socket be the
+    // signal to the client.
+    if (aborted) return;
+
     if (isJson) res.write("]");
-    if (!aborted) {
-      const trailers: Record<string, string> = {
-        "X-Audit-Log-Returned-Count": String(written),
-      };
-      if (truncated) trailers["X-Audit-Log-Truncated"] = "true";
-      res.addTrailers(trailers);
-    }
+    const trailers: Record<string, string> = {
+      "X-Audit-Log-Returned-Count": String(written),
+    };
+    if (truncated) trailers["X-Audit-Log-Truncated"] = "true";
+    res.addTrailers(trailers);
     res.end();
   } catch (error) {
+    // A user-initiated cancel surfaces here when an in-flight `res.write`
+    // / DB query happens to throw against the closed socket. Treat it as
+    // a normal cancellation rather than a 500 — the client already knows
+    // it tore the connection down.
+    if (aborted) {
+      return;
+    }
     console.error("[Admin] Audit log export error:", error);
     if (!res.headersSent) {
       res.status(500).json({ error: "Failed to export audit log" });

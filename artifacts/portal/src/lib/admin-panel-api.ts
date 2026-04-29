@@ -97,6 +97,13 @@ export const adminPanelApi = {
     format: string = "csv",
     filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string; outcome?: string } = {},
     onProgress?: (progress: { bytesReceived: number; rowsReceived: number | null }) => void,
+    // Optional AbortSignal so callers can cancel an in-flight export
+    // (e.g. the admin realises the filters are wrong mid-download).
+    // Aborting tears down the underlying fetch *and* the reader loop —
+    // the streaming reader.read() rejects with AbortError, which the
+    // caller is expected to recognise as a user-initiated cancellation
+    // rather than an unexpected failure.
+    signal?: AbortSignal,
   ): Promise<{ blob: Blob; bytesReceived: number; rowsReceived: number | null }> {
     const qs = new URLSearchParams();
     qs.set("format", format);
@@ -105,7 +112,7 @@ export const adminPanelApi = {
     if (filters.startDate) qs.set("startDate", filters.startDate);
     if (filters.endDate) qs.set("endDate", filters.endDate);
     if (filters.outcome) qs.set("outcome", filters.outcome);
-    const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`);
+    const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`, { signal });
     if (!res.ok) throw new Error("Failed to export audit log");
 
     const isCsv = format === "csv";
