@@ -157,6 +157,46 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getOnCallDestinations() {
+    const res = await authFetch("/admin/oncall-destinations");
+    if (!res.ok) throw new Error("Failed to fetch on-call destinations");
+    return res.json() as Promise<{
+      pagerdutyConfigured: boolean;
+      pagerdutySource: "db" | "env" | null;
+      opsAlertEmail: string | null;
+      opsAlertEmailSource: "db" | "env" | null;
+      slackConfigured: boolean;
+      slackSource: "db" | "env" | null;
+    }>;
+  },
+
+  async updateOnCallDestinations(payload: {
+    pagerdutyIntegrationKey?: string | null;
+    opsAlertEmail?: string | null;
+    opsAlertSlackWebhookUrl?: string | null;
+  }) {
+    const res = await authFetch("/admin/oncall-destinations", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to update on-call destinations");
+    }
+    return res.json();
+  },
+
+  async sendOnCallTestAlert() {
+    const res = await authFetch("/admin/oncall-destinations/test", { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to send test alert");
+    }
+    return res.json() as Promise<{
+      results: Array<{ channel: string; ok: boolean; skipped: boolean; reason?: string }>;
+    }>;
+  },
+
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));

@@ -8,6 +8,13 @@ import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
+import {
+  getOnCallDestinationsStatus,
+  setOnCallDestination,
+  isOnCallSettingKey,
+  type OnCallField,
+} from "../lib/oncall-settings";
+import { sendOnCallTestAlert } from "../lib/queue-fallback-alerter";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -1170,7 +1177,12 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
 router.get("/admin/settings", requirePermission("settings:view"), async (_req: Request, res: Response) => {
   try {
     const settings = await db.select().from(systemSettingsTable).orderBy(asc(systemSettingsTable.category), asc(systemSettingsTable.key));
-    res.json(settings);
+    // Hide on-call destination rows from the generic settings list — those
+    // hold encrypted secrets and have a dedicated UI/endpoint that knows how
+    // to decrypt and mask them. Returning the raw row here would dump the
+    // ciphertext blob into the generic Settings page.
+    const filtered = settings.filter((s) => !isOnCallSettingKey(s.key));
+    res.json(filtered);
   } catch (error) {
     console.error("[Admin] Settings error:", error);
     res.status(500).json({ error: "Failed to fetch settings" });
@@ -1183,6 +1195,16 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     const { value, category, description } = req.body;
 
     if (value === undefined) { res.status(400).json({ error: "Value is required" }); return; }
+
+    // The generic settings endpoint records both old and new value in the
+    // audit log in plaintext, which is fine for normal operational toggles
+    // but would leak PagerDuty / Slack secrets. Force admins to use the
+    // dedicated on-call endpoint, which encrypts at rest and never logs the
+    // actual value.
+    if (isOnCallSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/oncall-destinations to manage on-call destination settings" });
+      return;
+    }
 
     const existing = await db.select().from(systemSettingsTable).where(eq(systemSettingsTable.key, key)).limit(1);
 
@@ -1205,6 +1227,116 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
   } catch (error) {
     console.error("[Admin] Update setting error:", error);
     res.status(500).json({ error: "Failed to update setting" });
+  }
+});
+
+router.get("/admin/oncall-destinations", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getOnCallDestinationsStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get on-call destinations error:", error);
+    res.status(500).json({ error: "Failed to fetch on-call destinations" });
+  }
+});
+
+router.put("/admin/oncall-destinations", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const { pagerdutyIntegrationKey, opsAlertEmail, opsAlertSlackWebhookUrl } = req.body ?? {};
+
+    interface FieldUpdate {
+      field: OnCallField;
+      raw: unknown;
+    }
+    // `null` / "" means "clear the value"; a non-empty string means "save it".
+    // Any other type is rejected so the UI can't accidentally write a number
+    // or object into one of the secret fields.
+    const all: FieldUpdate[] = [
+      { field: "pagerdutyIntegrationKey", raw: pagerdutyIntegrationKey },
+      { field: "opsAlertEmail", raw: opsAlertEmail },
+      { field: "opsAlertSlackWebhookUrl", raw: opsAlertSlackWebhookUrl },
+    ];
+    const updates: FieldUpdate[] = all.filter((u) => u.raw !== undefined);
+
+    if (updates.length === 0) {
+      res.status(400).json({ error: "Provide at least one of pagerdutyIntegrationKey, opsAlertEmail, opsAlertSlackWebhookUrl" });
+      return;
+    }
+
+    const changed: OnCallField[] = [];
+    for (const { field, raw } of updates) {
+      let value: string | null;
+      if (raw === null || raw === "") {
+        value = null;
+      } else if (typeof raw === "string") {
+        value = raw.trim();
+        if (value === "") value = null;
+      } else {
+        res.status(400).json({ error: `${field} must be a string or null` });
+        return;
+      }
+      if (field === "opsAlertEmail" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        res.status(400).json({ error: "opsAlertEmail must be a valid email address" });
+        return;
+      }
+      await setOnCallDestination(field, value, req.userEmail || (req.userId ? String(req.userId) : null));
+      changed.push(field);
+    }
+
+    // Audit the change list (without leaking the new secret values) so admins
+    // can see who re-targeted on-call destinations and when.
+    await logAdminAction(
+      req,
+      "update_setting",
+      "oncall_destinations",
+      "oncall",
+      `Updated on-call destination(s): ${changed.join(", ")}`,
+      { changedFields: changed },
+    );
+
+    const status = await getOnCallDestinationsStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Update on-call destinations error:", error);
+    res.status(500).json({ error: "Failed to update on-call destinations" });
+  }
+});
+
+router.post("/admin/oncall-destinations/test", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const results = await sendOnCallTestAlert();
+    // Collapse the fire+clear pair per channel into a single per-channel
+    // result the UI can render. A channel is "ok" only if both halves of the
+    // pair succeeded; "skipped" still propagates as not_configured.
+    const byChannel = new Map<string, { channel: string; ok: boolean; skipped: boolean; reason?: string }>();
+    for (const r of results) {
+      const existing = byChannel.get(r.channel);
+      if (!existing) {
+        byChannel.set(r.channel, { channel: r.channel, ok: r.ok, skipped: !!r.skipped, reason: r.reason });
+        continue;
+      }
+      // If either half failed, the channel result is failed.
+      existing.ok = existing.ok && r.ok;
+      // A channel only counts as skipped if both halves were skipped (real
+      // sends mark only the fire half as throttled / not_configured for the
+      // pagerduty trigger payload).
+      existing.skipped = existing.skipped && !!r.skipped;
+      if (!r.ok && !existing.reason) existing.reason = r.reason;
+      if (r.skipped && !existing.reason) existing.reason = r.reason;
+    }
+    const summary = Array.from(byChannel.values());
+    await logAdminAction(
+      req,
+      "send_test_alert",
+      "oncall_destinations",
+      "oncall",
+      "Sent on-call test alert (synthetic fire+clear pair)",
+      { results: summary },
+    );
+    res.json({ results: summary });
+  } catch (error) {
+    console.error("[Admin] Send on-call test alert error:", error);
+    res.status(500).json({ error: "Failed to send test alert" });
   }
 });
 

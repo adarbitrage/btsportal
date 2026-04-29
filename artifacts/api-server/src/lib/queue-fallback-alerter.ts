@@ -4,7 +4,10 @@
  * also polls periodically so it can detect "all clear" recovery (which is
  * passive — events simply age out of the recent window).
  *
- * Delivery channels (each independently optional, configured via env):
+ * Delivery channels (each independently optional). Each destination is read
+ * fresh from `oncall-settings` at dispatch time, so admin edits via the
+ * Settings UI take effect without restarting. Values fall back to env vars
+ * for deploys that haven't migrated to the DB store:
  *   - PagerDuty:  PAGERDUTY_INTEGRATION_KEY   (Events API v2 routing key)
  *   - Ops email:  OPS_ALERT_EMAIL             (sent via SendGrid)
  *                 OPS_ALERT_FROM_EMAIL        (defaults to FROM_EMAIL or noreply@buildtestscale.com)
@@ -33,6 +36,7 @@ import {
   type QueueChannel,
   type QueueFallbackStats,
 } from "./queue-fallback-tracker";
+import { getOnCallDestinations } from "./oncall-settings";
 
 type DeliveryChannel = "pagerduty" | "email" | "slack";
 type AlertKind = "fire" | "clear";
@@ -88,6 +92,10 @@ export interface AlertPayload {
   kind: AlertKind;
   stats: QueueFallbackStats;
   now: number;
+  /** Set by `sendOnCallTestAlert` so deliveries can mark themselves as a test
+   *  drill (different PagerDuty dedup key, "[TEST]" subject prefix). Real
+   *  alerts leave it undefined. */
+  isTest?: boolean;
 }
 
 export interface DeliveryResult {
@@ -104,26 +112,34 @@ let sgMailInitialized = false;
 
 const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
   pagerduty: async (p) => {
-    const key = process.env.PAGERDUTY_INTEGRATION_KEY;
+    const dest = await getOnCallDestinations();
+    const key = dest.pagerdutyIntegrationKey;
     if (!key) {
       return { channel: "pagerduty", ok: true, skipped: true, reason: "not_configured" };
     }
-    const dedupKey = `queue-fallback:${p.queueChannel}`;
+    // Test alerts use a separate dedup key so the synthetic fire+clear pair
+    // can't collide with a real, ongoing incident in PagerDuty.
+    const dedupKey = p.isTest
+      ? `queue-fallback-test:${p.queueChannel}`
+      : `queue-fallback:${p.queueChannel}`;
     const minutes = Math.round(p.stats.recentWindowMs / 60000);
     const recent = p.stats[p.queueChannel].recentCount;
+    const summary = p.isTest
+      ? `[TEST] On-call routing test for ${p.queueChannel.toUpperCase()} queue`
+      : `${p.queueChannel.toUpperCase()} queue bypassing Redis — ${recent} direct-send fallback(s) in last ${minutes}m`;
     const body = p.kind === "fire"
       ? {
           routing_key: key,
           event_action: "trigger",
           dedup_key: dedupKey,
           payload: {
-            summary: `${p.queueChannel.toUpperCase()} queue bypassing Redis — ${recent} direct-send fallback(s) in last ${minutes}m`,
-            severity: "error",
+            summary,
+            severity: p.isTest ? "info" : "error",
             source: process.env.HOSTNAME ?? "api-server",
             component: "communication-queue",
             group: p.queueChannel,
-            class: "queue_fallback",
-            custom_details: p.stats,
+            class: p.isTest ? "queue_fallback_test" : "queue_fallback",
+            custom_details: { ...p.stats, isTest: p.isTest === true },
           },
         }
       : {
@@ -143,7 +159,8 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
   },
 
   email: async (p) => {
-    const to = process.env.OPS_ALERT_EMAIL;
+    const dest = await getOnCallDestinations();
+    const to = dest.opsAlertEmail;
     if (!to) {
       return { channel: "email", ok: true, skipped: true, reason: "not_configured" };
     }
@@ -160,10 +177,14 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
       "noreply@buildtestscale.com";
     const minutes = Math.round(p.stats.recentWindowMs / 60000);
     const ch = p.stats[p.queueChannel];
+    const testPrefix = p.isTest ? "[TEST] " : "";
     const subject = p.kind === "fire"
-      ? `[ALERT] ${p.queueChannel.toUpperCase()} queue is bypassing Redis`
-      : `[RESOLVED] ${p.queueChannel.toUpperCase()} queue back to normal`;
-    const text = p.kind === "fire"
+      ? `${testPrefix}[ALERT] ${p.queueChannel.toUpperCase()} queue is bypassing Redis`
+      : `${testPrefix}[RESOLVED] ${p.queueChannel.toUpperCase()} queue back to normal`;
+    const intro = p.isTest
+      ? "This is a synthetic on-call routing test fired from the admin Settings page; no action is required.\n\n"
+      : "";
+    const text = intro + (p.kind === "fire"
       ? [
           `The ${p.queueChannel} queue had ${ch.recentCount} direct-send fallback(s) in the last ${minutes} minute(s).`,
           `Last fallback: ${ch.lastAt ?? "n/a"}`,
@@ -176,21 +197,23 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
           `24h total still on record: ${ch.dayCount}.`,
           ``,
           `Marking the alert resolved.`,
-        ].join("\n");
+        ].join("\n"));
     await sgMail.send({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 
   slack: async (p) => {
-    const url = process.env.OPS_ALERT_SLACK_WEBHOOK_URL;
+    const dest = await getOnCallDestinations();
+    const url = dest.opsAlertSlackWebhookUrl;
     if (!url) {
       return { channel: "slack", ok: true, skipped: true, reason: "not_configured" };
     }
     const minutes = Math.round(p.stats.recentWindowMs / 60000);
     const ch = p.stats[p.queueChannel];
+    const testPrefix = p.isTest ? "[TEST] " : "";
     const text = p.kind === "fire"
-      ? `:rotating_light: *${p.queueChannel.toUpperCase()} queue bypassing Redis* — ${ch.recentCount} direct-send fallback(s) in the last ${minutes}m. Last at ${ch.lastAt ?? "n/a"}. Check Redis.`
-      : `:white_check_mark: *${p.queueChannel.toUpperCase()} queue recovered* — no fallbacks in the last ${minutes}m.`;
+      ? `${testPrefix}:rotating_light: *${p.queueChannel.toUpperCase()} queue bypassing Redis* — ${ch.recentCount} direct-send fallback(s) in the last ${minutes}m. Last at ${ch.lastAt ?? "n/a"}. Check Redis.`
+      : `${testPrefix}:white_check_mark: *${p.queueChannel.toUpperCase()} queue recovered* — no fallbacks in the last ${minutes}m.`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -373,6 +396,46 @@ export function startQueueFallbackAlerter(): void {
     }, POLL_MS);
     pollHandle.unref?.();
   }
+}
+
+/**
+ * Fire a synthetic fire+clear pair through every delivery channel using the
+ * current saved destinations. Bypasses the per-channel alerting state and the
+ * notification throttle so admins can verify routing on demand from the
+ * Settings UI. Each delivery still reports `skipped: true` when a destination
+ * isn't configured, so the UI can show which channels were actually exercised.
+ */
+export async function sendOnCallTestAlert(
+  now: number = Date.now(),
+): Promise<DeliveryResult[]> {
+  const stats = getQueueFallbackStats();
+  const results: DeliveryResult[] = [];
+  for (const kind of ["fire", "clear"] as const) {
+    const payload: AlertPayload = {
+      queueChannel: "email",
+      kind,
+      stats,
+      now,
+      isTest: true,
+    };
+    const promises: Promise<DeliveryResult>[] = (
+      ["pagerduty", "email", "slack"] as const
+    ).map(async (dc) => {
+      const fn = deliveryOverrides?.[dc] ?? defaultDeliveries[dc];
+      try {
+        return await fn(payload);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[QueueFallbackAlerter] test ${kind} on ${dc} failed:`,
+          err,
+        );
+        return { channel: dc, ok: false, reason };
+      }
+    });
+    results.push(...(await Promise.all(promises)));
+  }
+  return results;
 }
 
 /** Stop the poll and detach from the tracker. */

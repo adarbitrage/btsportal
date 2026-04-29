@@ -3,7 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, auditLogTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
 import {
@@ -125,6 +125,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (seededUserIds.length > 0) {
+    // Some write-side cases (e.g. POST /admin/oncall-destinations/test) run
+    // their handler end-to-end for the permitted role and write an audit_log
+    // row referencing the seeded admin. Drop those before deleting the user
+    // rows so the FK constraint doesn't reject the cleanup.
+    await db
+      .delete(auditLogTable)
+      .where(inArray(auditLogTable.actorId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
@@ -322,6 +329,14 @@ function rbacCases(): RbacCase[] {
       resource: "outgoing_webhooks_view",
       permission: "settings:view",
       buildPath: () => "/api/admin/outgoing-webhooks",
+    },
+    {
+      // GET surfaces only "configured/source" booleans for the on-call
+      // notification destinations — never the raw secrets — so it is gated
+      // by the same view-only permission as the rest of /admin/settings.
+      resource: "oncall_destinations_view",
+      permission: "settings:view",
+      buildPath: () => "/api/admin/oncall-destinations",
     },
   ];
 }
@@ -609,6 +624,26 @@ function rbacWriteCases(): RbacWriteCase[] {
       // lookup, so a non-existent product id never gets touched.
       buildPath: () => "/api/admin/product-mappings/9999999",
       body: {},
+    },
+    {
+      // PUT updates one or more on-call destinations. Empty body -> 400
+      // ("Provide at least one of ...") so a permitted role's request never
+      // mutates a row.
+      resource: "oncall_destinations_update",
+      permission: "settings:manage",
+      method: "put",
+      buildPath: () => "/api/admin/oncall-destinations",
+      body: {},
+    },
+    {
+      // POST /test fires a synthetic alert pair. The handler runs end-to-end,
+      // but the test environment has no destinations configured, so each
+      // delivery short-circuits with skipped=not_configured (no real
+      // PagerDuty / Slack / SMTP traffic).
+      resource: "oncall_destinations_test",
+      permission: "settings:manage",
+      method: "post",
+      buildPath: () => "/api/admin/oncall-destinations/test",
     },
     {
       // run-expiration-check has no validation early-out, so a permitted role
