@@ -124,10 +124,21 @@ async function reservePasswordResetSlot(
   const hourAgo = new Date(now.getTime() - HOUR_MS);
   const dayAgo = new Date(now.getTime() - DAY_MS);
 
-  const emailKey = int32FromHexHash(emailHash);
-  const ipKey = ipHash ? int32FromHexHash(ipHash) : null;
+  // NOTE: deliberately not named `emailKey`/`ipKey` — those are imported
+  // functions from `../middleware/abuse-rate-limit` used at module scope by
+  // the abuse-rate-limit middleware configs below. Reusing those names here
+  // would shadow the imports inside this function and (more importantly)
+  // make it dangerously easy for someone to refactor the module-scope
+  // limiters into a helper that runs inside a function body — at which
+  // point the call site would silently bind to one of these `number`s
+  // instead of the resolver function and the rate limiter would crash at
+  // request time. Keep these names distinct.
+  const emailLockKey = int32FromHexHash(emailHash);
+  const ipLockKey = ipHash ? int32FromHexHash(ipHash) : null;
   const lockKeys =
-    ipKey != null ? [emailKey, ipKey].sort((a, b) => a - b) : [emailKey];
+    ipLockKey != null
+      ? [emailLockKey, ipLockKey].sort((a, b) => a - b)
+      : [emailLockKey];
 
   return db.transaction(async (tx) => {
     let lastKey: number | null = null;
@@ -329,7 +340,14 @@ const registerIpLimiter = abuseRateLimit({
   message: "Too many requests. Please try again later.",
 });
 
-const registerEmailLimiter = abuseRateLimit({
+// Exported for the regression test in `auth-rate-limit.test.ts` that locks
+// in: (a) constructing the per-email register limiter at module load does
+// not throw, and (b) the per-email register limit is configured (max == 3).
+// This guards against the historical bug where `emailKey` here resolved to
+// a local `number` from another function, crashing the auth router on
+// import.
+export const REGISTER_EMAIL_LIMIT_MAX = REGISTER_LIMITS.perEmail.max;
+export const registerEmailLimiter = abuseRateLimit({
   name: "register",
   maxRequests: REGISTER_LIMITS.perEmail.max,
   windowSeconds: REGISTER_LIMITS.perEmail.windowSeconds,

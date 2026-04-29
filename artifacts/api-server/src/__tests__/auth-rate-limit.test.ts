@@ -401,6 +401,17 @@ describe("POST /api/auth/register rate limiting", () => {
 
     expect(res.status).toBe(200);
   });
+
+  // Regression: the per-email register limiter once referenced an `emailKey`
+  // symbol that wasn't a real key-resolver function, which crashed the auth
+  // router on import and broke six test files. This test asserts the limiter
+  // was constructed at module load (i.e. importing it did not throw) and is
+  // configured with the documented per-email cap.
+  it("constructs the per-email register limiter at module load (regression)", async () => {
+    const auth = await import("../routes/auth");
+    expect(typeof auth.registerEmailLimiter).toBe("function");
+    expect(auth.REGISTER_EMAIL_LIMIT_MAX).toBe(3);
+  });
 });
 
 describe("POST /api/auth/reset-password rate limiting", () => {
