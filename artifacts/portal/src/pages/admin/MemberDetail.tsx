@@ -10,11 +10,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Lock, LockOpen } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { FlexyRegeneratePanel } from "@/components/admin/FlexyRegeneratePanel";
+import { useAuth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface ProductRow {
   id: number;
@@ -59,6 +61,10 @@ export default function MemberDetail() {
   const [grantProductId, setGrantProductId] = useState<string>("");
   const [grantExpiresAt, setGrantExpiresAt] = useState<string>("");
   const [grantSubmitting, setGrantSubmitting] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+
+  const { user: currentUser } = useAuth();
+  const canEditMembers = hasPermission(currentUser?.role, "members:edit");
 
   const openGrantDialog = async () => {
     setGrantProductId("");
@@ -136,6 +142,19 @@ export default function MemberDetail() {
     }
   };
 
+  const handleUnlockAccount = async () => {
+    try {
+      setUnlocking(true);
+      await adminPanelApi.unlockMember(memberId);
+      toast({ title: "Account unlocked" });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const handleRevokeProduct = async (userProductId: number) => {
     try {
       await adminPanelApi.revokeProduct(memberId, userProductId);
@@ -172,6 +191,11 @@ export default function MemberDetail() {
   const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], emailAttempts = [] } = data;
   const unconfirmedAttempts = emailAttempts.filter((a: any) => a.status !== "confirmed");
 
+  const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
+  const isLocked = !!(lockedUntilDate && lockedUntilDate.getTime() > Date.now());
+  const failedLoginCount: number = Number(member.failedLoginCount) || 0;
+  const showLockCard = isLocked || failedLoginCount > 0;
+
   const attemptStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -207,6 +231,54 @@ export default function MemberDetail() {
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{tickets.length}</p><p className="text-xs text-muted-foreground">Tickets</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{community.posts + community.comments}</p><p className="text-xs text-muted-foreground">Community Activity</p></CardContent></Card>
         </div>
+
+        {showLockCard && (
+          <Card data-testid="card-account-lock">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                {isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+                Account lock state
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isLocked ? (
+                      <Badge variant="locked" data-testid="badge-lock-status">Locked</Badge>
+                    ) : (
+                      <Badge variant="secondary" data-testid="badge-lock-status">Not locked</Badge>
+                    )}
+                    <span className="text-sm text-muted-foreground" data-testid="text-failed-login-count">
+                      {failedLoginCount} failed login attempt{failedLoginCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {isLocked && lockedUntilDate && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-locked-until">
+                      Locked until {format(lockedUntilDate, "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  )}
+                  {!isLocked && failedLoginCount > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Account is not currently locked, but failed login attempts have not been cleared.
+                    </p>
+                  )}
+                </div>
+                {canEditMembers && (
+                  <Button
+                    size="sm"
+                    onClick={handleUnlockAccount}
+                    disabled={unlocking}
+                    data-testid="button-unlock-account"
+                  >
+                    <LockOpen className="w-3 h-3 mr-1" />
+                    {unlocking ? "Unlocking..." : "Unlock account"}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {emailHistory.length > 0 && (
           <Card data-testid="card-email-history">

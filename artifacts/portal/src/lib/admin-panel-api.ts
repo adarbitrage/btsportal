@@ -112,6 +112,15 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async unlockMember(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/unlock`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to unlock account");
+    }
+    return res.json();
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");
