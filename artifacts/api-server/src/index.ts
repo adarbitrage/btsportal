@@ -5,6 +5,7 @@ import { startSequenceEngine, shutdownSequenceEngine } from "./lib/sequence-engi
 import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-comms";
 import { startRevenuePipeline, shutdownRevenuePipeline } from "./lib/revenue-pipeline";
 import { startQueueFallbackAlerter, stopQueueFallbackAlerter } from "./lib/queue-fallback-alerter";
+import { startSignupChallengeAlerter, stopSignupChallengeAlerter } from "./lib/signup-challenge-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 
 const rawPort = process.env["PORT"];
@@ -47,6 +48,7 @@ if (process.env.REDIS_URL) {
 }
 
 startQueueFallbackAlerter();
+startSignupChallengeAlerter();
 
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
@@ -64,6 +66,7 @@ async function gracefulShutdown(signal: string) {
   await shutdownScheduledComms();
   await shutdownRevenuePipeline();
   stopQueueFallbackAlerter();
+  stopSignupChallengeAlerter();
   process.exit(0);
 }
 

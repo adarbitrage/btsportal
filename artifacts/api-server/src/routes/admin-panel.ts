@@ -6,6 +6,7 @@ import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
+import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -824,6 +825,30 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
         message: `Direct-send fallback fired ${recent}x in the last few minutes — Redis or the worker may be unhealthy.`,
         link: "/admin/system",
         createdAt: lastAt,
+      });
+    }
+
+    // Production-only: surface a missing Turnstile secret as a high-severity
+    // notification so admins notice without having to open System Health.
+    // Outside production an unset secret is normal (local dev / CI) and we
+    // stay quiet. Also fan out to the on-call alert pipeline — that path
+    // throttles itself so this fires at most once per channel per window
+    // even though /admin/notifications is polled every minute.
+    if (process.env.NODE_ENV === "production" && !isSignupChallengeEnforced()) {
+      notifications.push({
+        id: "signup-challenge-disabled",
+        type: "signup_challenge_disabled",
+        severity: "high",
+        title: "Signup challenge disabled in production",
+        message:
+          "TURNSTILE_SECRET_KEY is not set, so signup requests are passing through without Cloudflare Turnstile verification. Set it on the API service to restore enforcement.",
+        link: "/admin/system",
+        createdAt: new Date().toISOString(),
+      });
+      // Don't await — alerting on the dashboard fetch path shouldn't block
+      // the response, and the alerter logs its own errors.
+      evaluateSignupChallengeAlert().catch((err) => {
+        console.error("[Admin] signup-challenge alerter dispatch failed:", err);
       });
     }
 
