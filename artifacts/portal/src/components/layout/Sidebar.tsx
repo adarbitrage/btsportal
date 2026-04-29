@@ -59,7 +59,6 @@ import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
-import { ADMIN_ROLES, type AdminRole } from "@/lib/permissions";
 import {
   filterNavByEntitlements,
   filterNavByRole,
@@ -67,6 +66,7 @@ import {
   isLifetimeSlug,
   leafMatchesLocation,
   nodeContainsLocation,
+  resolveAdminRole,
   type NavFolder,
   type NavLeaf,
   type NavNode,
@@ -480,16 +480,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const entitlements = new Set<string>(member?.entitlements ?? []);
 
-  const roleFromAuth = user?.role ?? "";
-  const roleFromMember = member?.role ?? "";
-  const userRole: string = ADMIN_ROLES.includes(roleFromAuth as AdminRole)
-    ? roleFromAuth
-    : ADMIN_ROLES.includes(roleFromMember as AdminRole)
-    ? roleFromMember
-    : roleFromAuth || roleFromMember;
-  const isAdminUser =
-    ADMIN_ROLES.includes(roleFromAuth as AdminRole) ||
-    ADMIN_ROLES.includes(roleFromMember as AdminRole);
+  const { userRole, isAdminUser } = resolveAdminRole(user?.role, member?.role);
 
   const highestSlug: string = member?.sourceProduct ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);

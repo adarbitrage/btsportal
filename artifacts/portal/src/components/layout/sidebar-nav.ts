@@ -83,6 +83,27 @@ export function filterNavByEntitlements(
   return result;
 }
 
+export interface ResolvedAdminRole {
+  userRole: string;
+  isAdminUser: boolean;
+}
+
+export function resolveAdminRole(
+  roleFromAuth: string | undefined | null,
+  roleFromMember: string | undefined | null,
+): ResolvedAdminRole {
+  const auth = roleFromAuth ?? "";
+  const member = roleFromMember ?? "";
+  const authIsAdmin = isAdminRole(auth);
+  const memberIsAdmin = isAdminRole(member);
+  const userRole = authIsAdmin
+    ? auth
+    : memberIsAdmin
+      ? member
+      : auth || member;
+  return { userRole, isAdminUser: authIsAdmin || memberIsAdmin };
+}
+
 export function leafMatchesLocation(leaf: NavLeaf, location: string): boolean {
   return (
     location === leaf.href ||

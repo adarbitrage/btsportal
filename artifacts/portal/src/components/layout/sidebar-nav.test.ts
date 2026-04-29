@@ -8,6 +8,7 @@ import {
   leafMatchesLocation,
   nodeContainsLocation,
   PRODUCT_DISPLAY_NAMES,
+  resolveAdminRole,
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
@@ -412,6 +413,88 @@ describe("getProductDisplayName", () => {
         "lifetime",
       ].sort(),
     );
+  });
+});
+
+describe("resolveAdminRole", () => {
+  it("returns no admin and an empty role when both sources are empty", () => {
+    expect(resolveAdminRole("", "")).toEqual({
+      userRole: "",
+      isAdminUser: false,
+    });
+    expect(resolveAdminRole(undefined, undefined)).toEqual({
+      userRole: "",
+      isAdminUser: false,
+    });
+    expect(resolveAdminRole(null, null)).toEqual({
+      userRole: "",
+      isAdminUser: false,
+    });
+  });
+
+  it("treats an admin role from the auth source as admin", () => {
+    expect(resolveAdminRole("super_admin", "")).toEqual({
+      userRole: "super_admin",
+      isAdminUser: true,
+    });
+  });
+
+  it("treats an admin role from the member source as admin", () => {
+    expect(resolveAdminRole("", "support_agent")).toEqual({
+      userRole: "support_agent",
+      isAdminUser: true,
+    });
+  });
+
+  it("uses the auth role when both sources are admin (auth precedence)", () => {
+    expect(resolveAdminRole("super_admin", "support_agent")).toEqual({
+      userRole: "super_admin",
+      isAdminUser: true,
+    });
+    expect(resolveAdminRole("content_manager", "admin")).toEqual({
+      userRole: "content_manager",
+      isAdminUser: true,
+    });
+  });
+
+  it("does not treat non-admin roles as admin", () => {
+    expect(resolveAdminRole("free_member", "free_member")).toEqual({
+      userRole: "free_member",
+      isAdminUser: false,
+    });
+    expect(resolveAdminRole("member", "")).toEqual({
+      userRole: "member",
+      isAdminUser: false,
+    });
+  });
+
+  it("prefers the admin source when one is admin and the other is not", () => {
+    // member is admin, auth is a regular member -> use the admin (member) role
+    expect(resolveAdminRole("free_member", "admin")).toEqual({
+      userRole: "admin",
+      isAdminUser: true,
+    });
+    // auth is admin, member is a regular member -> use the admin (auth) role
+    expect(resolveAdminRole("admin", "free_member")).toEqual({
+      userRole: "admin",
+      isAdminUser: true,
+    });
+  });
+
+  it("falls back to the non-empty role when neither source is admin", () => {
+    expect(resolveAdminRole("free_member", "")).toEqual({
+      userRole: "free_member",
+      isAdminUser: false,
+    });
+    expect(resolveAdminRole("", "free_member")).toEqual({
+      userRole: "free_member",
+      isAdminUser: false,
+    });
+    // auth wins when both are non-empty non-admin
+    expect(resolveAdminRole("free_member", "lifetime_member")).toEqual({
+      userRole: "free_member",
+      isAdminUser: false,
+    });
   });
 });
 
