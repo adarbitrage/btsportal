@@ -14,13 +14,19 @@ function getInitialEmail(): string {
 }
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, resendVerificationEmail } = useAuth();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState(getInitialEmail);
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const [emailRecentlyChanged, setEmailRecentlyChanged] = useState(false);
+  const [emailUnverified, setEmailUnverified] = useState(false);
+  const [unverifiedMessage, setUnverifiedMessage] = useState("");
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState("");
+  const [resendError, setResendError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleCaptchaToken = useCallback((token: string) => {
@@ -31,6 +37,10 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setEmailRecentlyChanged(false);
+    setEmailUnverified(false);
+    setUnverifiedMessage("");
+    setResendNotice("");
+    setResendError("");
 
     if (TURNSTILE_SITE_KEY && !captchaToken) {
       setError("Please complete the challenge below before continuing.");
@@ -44,7 +54,16 @@ export default function Login() {
       navigate("/");
     } catch (err) {
       const loginErr = err as LoginError;
-      setError(loginErr.message);
+      if (loginErr.emailUnverified) {
+        // Surface the verification-specific banner instead of the generic
+        // red error block — the user's password was correct, the only
+        // thing missing is clicking the link in their inbox.
+        setEmailUnverified(true);
+        setUnverifiedMessage(loginErr.message);
+        setUnverifiedEmail(email);
+      } else {
+        setError(loginErr.message);
+      }
       if (loginErr.emailRecentlyChanged) {
         setEmailRecentlyChanged(true);
       }
@@ -53,6 +72,25 @@ export default function Login() {
       setCaptchaToken("");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!unverifiedEmail || resending) return;
+    setResending(true);
+    setResendNotice("");
+    setResendError("");
+    try {
+      const message = await resendVerificationEmail(unverifiedEmail);
+      setResendNotice(message);
+    } catch (err) {
+      const e = err as Error;
+      setResendError(
+        e.message ||
+          "Could not resend the verification email. Please try again in a few minutes.",
+      );
+    } finally {
+      setResending(false);
     }
   };
 
@@ -106,6 +144,80 @@ export default function Login() {
               marginBottom: 20,
             }}>
               {error}
+            </div>
+          )}
+
+          {emailUnverified && (
+            <div
+              role="status"
+              data-testid="email-unverified-hint"
+              style={{
+                padding: "14px 16px",
+                background: "#fef9c3",
+                border: "1px solid #fde68a",
+                borderRadius: 8,
+                color: "#854d0e",
+                fontSize: 14,
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ marginBottom: 12 }}>
+                {unverifiedMessage ||
+                  "Your account isn't verified yet. Check your inbox for the verification link, or request a new one below."}
+              </div>
+              {resendNotice ? (
+                <div
+                  data-testid="resend-verification-notice"
+                  style={{
+                    padding: "8px 12px",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    borderRadius: 6,
+                    color: "#065f46",
+                    fontSize: 13,
+                  }}
+                >
+                  {resendNotice}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    data-testid="resend-verification-button"
+                    style={{
+                      padding: "8px 14px",
+                      background: resending ? "#fde68a" : "#854d0e",
+                      color: resending ? "#854d0e" : "white",
+                      border: "none",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: resending ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {resending ? "Sending..." : "Resend verification email"}
+                  </button>
+                  {resendError && (
+                    <div
+                      data-testid="resend-verification-error"
+                      style={{
+                        marginTop: 10,
+                        padding: "8px 12px",
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        borderRadius: 6,
+                        color: "#dc2626",
+                        fontSize: 13,
+                      }}
+                    >
+                      {resendError}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 

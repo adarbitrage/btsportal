@@ -25,7 +25,7 @@ function extractAuthEmail(req: Request): string | undefined {
 }
 
 async function recordAuthRateLimitHit(
-  endpoint: "login" | "forgot-password" | "reset-password",
+  endpoint: "login" | "forgot-password" | "reset-password" | "resend-verification",
   opts: { req?: Request; ip?: string; email?: string },
 ): Promise<void> {
   const ip = opts.ip ?? opts.req?.ip ?? undefined;
@@ -630,6 +630,29 @@ router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Pr
     return;
   }
 
+  // Password was correct — but if the account hasn't completed email
+  // verification yet (post-Task #154 register flow), we refuse to mint a
+  // session. Returning a verification-specific 403 instead of the generic
+  // 401 lets the SPA show a "your account isn't verified" banner with a
+  // resend button. We still clear the failed-login counter because the
+  // password attempt itself was legitimate; otherwise an unverified user
+  // could lock themselves out by retrying. We deliberately do NOT update
+  // lastLoginAt — they didn't actually log in.
+  if (!user.emailVerified) {
+    if (priorFailedCount > 0 || user.lockedUntil) {
+      await db
+        .update(usersTable)
+        .set({ failedLoginCount: 0, lockedUntil: null })
+        .where(eq(usersTable.id, user.id));
+    }
+    res.status(403).json({
+      error:
+        "Your account isn't verified yet. Check your inbox for the verification link, or request a new one below.",
+      emailUnverified: true,
+    });
+    return;
+  }
+
   const now = new Date();
   await db.update(usersTable).set({
     failedLoginCount: 0,
@@ -823,6 +846,113 @@ router.post("/auth/reset-password", resetPasswordIpLimiter, async (req, res): Pr
 
   res.json({ message: "Password updated successfully. Please log in." });
 });
+
+// Anti-enumeration generic message for /auth/resend-verification. Sent on
+// every accepted (non-rate-limited) request regardless of whether the email
+// matched a real account or whether that account was already verified, so
+// callers can't probe for membership/verification state via this endpoint.
+const RESEND_VERIFICATION_GENERIC_MESSAGE =
+  "If that email is registered and not yet verified, we sent a new verification link.";
+
+const RESEND_VERIFICATION_LIMITS = {
+  perIp: { max: 10, windowSeconds: 60 * 60 },
+  perEmail: { max: 3, windowSeconds: 60 * 60 },
+} as const;
+
+const resendVerificationIpLimiter = abuseRateLimit({
+  name: "resend-verification",
+  maxRequests: RESEND_VERIFICATION_LIMITS.perIp.max,
+  windowSeconds: RESEND_VERIFICATION_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("resend-verification"),
+  message: "Too many verification email requests. Please try again later.",
+  onLimitExceeded: (req) =>
+    recordAuthRateLimitHit("resend-verification", {
+      req,
+      email: extractAuthEmail(req),
+    }),
+});
+
+const resendVerificationEmailLimiter = abuseRateLimit({
+  name: "resend-verification",
+  maxRequests: RESEND_VERIFICATION_LIMITS.perEmail.max,
+  windowSeconds: RESEND_VERIFICATION_LIMITS.perEmail.windowSeconds,
+  keyResolver: emailKey("resend-verification", "email"),
+  message: "Too many verification email requests. Please try again later.",
+  onLimitExceeded: (req) =>
+    recordAuthRateLimitHit("resend-verification", {
+      req,
+      email: extractAuthEmail(req),
+    }),
+});
+
+/**
+ * Background worker for /auth/resend-verification. Runs after the route
+ * handler has already returned the generic 200 so its outcome is invisible
+ * to the caller. Behavior:
+ *   - User exists and is unverified → mint a fresh email-verification token
+ *     (invalidating any previous one) and send the email_verification email.
+ *   - User exists and is already verified → no-op.
+ *   - User doesn't exist → no-op.
+ *
+ * Exported so tests can deterministically await the work the route handler
+ * dispatches asynchronously.
+ */
+export async function processResendVerificationRequest(
+  rawEmail: unknown,
+): Promise<void> {
+  if (typeof rawEmail !== "string") return;
+  const normalizedEmail = rawEmail.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizedEmail));
+  if (!user) return;
+  if (user.emailVerified) return;
+
+  const emailVerifyToken = crypto.randomBytes(32).toString("hex");
+  const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db
+    .update(usersTable)
+    .set({ emailVerifyToken, emailVerifyExpires })
+    .where(eq(usersTable.id, user.id));
+
+  // Note: do NOT log the raw verify_token. The token is a live credential —
+  // anyone who reads it (log aggregator, error reporter, console capture)
+  // could complete the email-verification step on this user's behalf. The
+  // log here records the action and the recipient so operators can correlate
+  // a "resend" event with delivery, without exposing the secret itself.
+  console.log(`[AUTH] Resent email verification email to ${normalizedEmail}`);
+  await CommunicationService.sendEmailNow({
+    templateSlug: "email_verification",
+    to: normalizedEmail,
+    variables: { member_name: user.name, verify_token: emailVerifyToken },
+    userId: user.id,
+  }).catch((err) =>
+    console.error("[AUTH] Failed to resend email_verification:", err),
+  );
+}
+
+router.post(
+  "/auth/resend-verification",
+  resendVerificationIpLimiter,
+  resendVerificationEmailLimiter,
+  async (req, res): Promise<void> => {
+    // Always return the same generic 200 — both for a real unverified
+    // account and for an unknown/already-verified email — so this endpoint
+    // can't be used to probe membership or verification state.
+    res.status(200).json({ message: RESEND_VERIFICATION_GENERIC_MESSAGE });
+
+    void processResendVerificationRequest(req.body?.email).catch((err) =>
+      console.error(
+        "[AUTH] Unexpected error processing resend-verification:",
+        err,
+      ),
+    );
+  },
+);
 
 router.post("/auth/verify-email", async (req, res): Promise<void> => {
   const { token } = req.body;

@@ -11,6 +11,7 @@ interface User {
 
 export interface LoginError extends Error {
   emailRecentlyChanged?: boolean;
+  emailUnverified?: boolean;
 }
 
 interface AuthContextType {
@@ -27,6 +28,7 @@ interface AuthContextType {
     password: string,
     captchaToken?: string,
   ) => Promise<string>;
+  resendVerificationEmail: (email: string) => Promise<string>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -110,11 +112,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && data.emailRecentlyChanged === true) {
         err.emailRecentlyChanged = true;
       }
+      if (data && data.emailUnverified === true) {
+        err.emailUnverified = true;
+      }
       throw err;
     }
 
     const data = await res.json();
     setUser(data);
+  };
+
+  const resendVerificationEmail = async (email: string): Promise<string> => {
+    const res = await authFetch("/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message =
+        (typeof data?.error === "string" && data.error) ||
+        data?.error?.message ||
+        "Could not resend the verification email. Please try again in a few minutes.";
+      throw new Error(message);
+    }
+
+    // The backend always returns the same generic message regardless of
+    // whether the address actually triggered a send (anti-enumeration).
+    return (
+      (data && data.message) ||
+      "If your account isn't verified yet, we sent a new verification link."
+    );
   };
 
   const register = async (
@@ -155,7 +183,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshAuth }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        resendVerificationEmail,
+        logout,
+        refreshAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
