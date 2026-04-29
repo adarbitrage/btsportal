@@ -14,10 +14,33 @@ import {
   usersTable,
   userProductsTable,
   productsTable,
+  auditLogTable,
 } from "@workspace/db";
 import { eq, sql, desc, asc, and, or, ilike, count, gte, lte, inArray } from "drizzle-orm";
-import { requirePermission } from "../middleware/rbac";
+import { hasPermission, requirePermission } from "../middleware/rbac";
+import { redactAuditRowPii } from "../lib/audit-log";
 import { CommunicationService } from "../lib/communication-service";
+import {
+  QUEUE_FALLBACK_ACTION_TYPE,
+  QUEUE_FALLBACK_ENTITY_TYPE,
+} from "../lib/queue-fallback-tracker";
+
+/**
+ * How far before/after a communication-log row's createdAt we look for audit
+ * rows that may have affected the send. queue_fallback always fires moments
+ * before the comms_log row is written, but we widen the window to a couple
+ * of minutes so reasonable clock skew between the two writes (or a slow
+ * direct-send round-trip) doesn't drop the link. Capped on both sides so an
+ * unrelated fallback that happened minutes earlier for a different send to
+ * the same recipient doesn't bleed into the wrong comms-log entry.
+ */
+const RELATED_AUDIT_WINDOW_MS = 2 * 60 * 1000;
+/**
+ * Hard cap on related-audit rows surfaced in the comms-log detail dialog.
+ * The dialog shows them inline (not paginated); the audit log page itself is
+ * one click away if an admin needs the full picture.
+ */
+const RELATED_AUDIT_LIMIT = 10;
 
 const router = Router();
 
@@ -900,12 +923,77 @@ router.get("/admin/communications/log/:id", requirePermission("communications:vi
       .where(eq(communicationLogTable.id, id));
 
     if (!entry) { res.status(404).json({ error: "Log entry not found" }); return; }
-    res.json(entry);
+
+    const relatedAudit = await fetchRelatedAuditRows(req, entry.log);
+    res.json({ ...entry, relatedAudit });
   } catch (error) {
     console.error("[Admin] Error getting communication log entry:", error);
     res.status(500).json({ error: "Failed to get log entry" });
   }
 });
+
+/**
+ * Find audit rows that plausibly affected a single comms-log entry so the
+ * detail dialog can deep-link them. Today this surfaces the queue_fallback
+ * row that fires when the email/SMS queue is unavailable and the comms
+ * service falls back to a direct send — that's the most common reason a
+ * support agent ends up wondering "why did this message take this path?".
+ *
+ * Match heuristic for queue_fallback:
+ *   - actionType = "queue_fallback" AND entityType = "queue"
+ *   - entityId equals the comms-log channel ("email" / "sms")
+ *   - createdAt is within ±RELATED_AUDIT_WINDOW_MS of the comms-log row's
+ *     createdAt (covers fallback-then-send and the rare reverse where the
+ *     direct-send finishes faster than the fallback row commits)
+ *   - if the comms-log row has a recipient_email or recipient_phone, the
+ *     fallback row's metadata.recipient must match — otherwise multiple
+ *     simultaneous sends to different recipients on the same channel would
+ *     all link to the same fallback row
+ *
+ * The queue_fallback action type is PII-bearing (recipient is in metadata
+ * and embedded in description), so we hand each row through the same
+ * redactor the audit log endpoint uses for callers without the
+ * `members:pii` permission.
+ */
+async function fetchRelatedAuditRows(
+  req: Request,
+  log: typeof communicationLogTable.$inferSelect,
+): Promise<unknown[]> {
+  if (!log.createdAt) return [];
+
+  const conditions: any[] = [
+    eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE),
+    eq(auditLogTable.entityType, QUEUE_FALLBACK_ENTITY_TYPE),
+    eq(auditLogTable.entityId, log.channel),
+    gte(auditLogTable.createdAt, new Date(log.createdAt.getTime() - RELATED_AUDIT_WINDOW_MS)),
+    lte(auditLogTable.createdAt, new Date(log.createdAt.getTime() + RELATED_AUDIT_WINDOW_MS)),
+  ];
+
+  // Channel-specific recipient match. Postgres jsonb operator `->>` returns
+  // NULL when the key is missing, which an `=` predicate naturally rejects,
+  // so legacy rows without metadata.recipient just don't match.
+  const recipient = log.recipientEmail ?? log.recipientPhone ?? null;
+  if (recipient) {
+    conditions.push(sql`${auditLogTable.metadata}->>'recipient' = ${recipient}`);
+  }
+
+  const rows = await db.select({
+    id: auditLogTable.id,
+    createdAt: auditLogTable.createdAt,
+    actionType: auditLogTable.actionType,
+    entityType: auditLogTable.entityType,
+    entityId: auditLogTable.entityId,
+    description: auditLogTable.description,
+    metadata: auditLogTable.metadata,
+  })
+    .from(auditLogTable)
+    .where(and(...conditions))
+    .orderBy(desc(auditLogTable.createdAt))
+    .limit(RELATED_AUDIT_LIMIT);
+
+  const canSeePii = hasPermission(req.adminRole, "members:pii");
+  return canSeePii ? rows : rows.map(redactAuditRowPii);
+}
 
 router.get("/admin/communications/member/:userId/history", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {

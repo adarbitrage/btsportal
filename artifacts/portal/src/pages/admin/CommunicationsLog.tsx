@@ -9,8 +9,69 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { commsApi } from "@/lib/communications-api";
-import { Search, ChevronLeft, ChevronRight, Mail, MessageSquare, Eye, ShieldAlert } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Mail, MessageSquare, Eye, ShieldAlert, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { Link } from "wouter";
+
+interface RelatedAuditRow {
+  id: number;
+  createdAt: string | null;
+  actionType: string;
+  entityType: string;
+  description: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+const RELATED_AUDIT_LABELS: Record<string, string> = {
+  queue_fallback: "Queue fallback",
+};
+
+function RelatedAuditList({ rows }: { rows?: RelatedAuditRow[] | null }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div data-testid="related-audit-list">
+      <label className="text-xs font-medium text-muted-foreground">Related audit activity</label>
+      <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+        Audit-log rows recorded around the same time as this send. Click an entry to open it on the audit log page.
+      </p>
+      <div className="space-y-1.5">
+        {rows.map((row) => {
+          const ts = row.createdAt ? new Date(row.createdAt) : null;
+          const tsLabel = ts && !Number.isNaN(ts.getTime())
+            ? format(ts, "MMM d, yyyy h:mm:ss a")
+            : "Unknown";
+          const label = RELATED_AUDIT_LABELS[row.actionType] ?? row.actionType;
+          const reason = row.metadata && typeof (row.metadata as Record<string, unknown>).reason === "string"
+            ? ((row.metadata as Record<string, unknown>).reason as string)
+            : null;
+          const href = `/admin/audit-log?actionType=${encodeURIComponent(row.actionType)}&entityType=${encodeURIComponent(row.entityType)}&expand=${row.id}`;
+          return (
+            <Link
+              key={row.id}
+              href={href}
+              className="block border rounded-md p-2 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+              data-testid={`related-audit-row-${row.id}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant="outline" className="text-[10px]">{label}</Badge>
+                  {reason && (
+                    <span className="text-[11px] text-muted-foreground truncate" title={reason}>{reason}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground whitespace-nowrap">
+                  <span>{tsLabel}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </div>
+              </div>
+              <p className="text-xs text-foreground/80 mt-1 truncate" title={row.description}>{row.description}</p>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -247,6 +308,8 @@ export default function CommunicationsLog() {
                   <strong>Error:</strong> {detailEntry.log.errorMessage}
                 </div>
               )}
+
+              <RelatedAuditList rows={detailEntry.relatedAudit} />
 
               {detailEntry.log.renderedHtml && (
                 <div>
