@@ -452,6 +452,29 @@ export interface ProductInfo {
   sortOrder: number;
 }
 
+/**
+ * Upgradeable membership plan as rendered on the /plans page. Combines
+DB-backed product fields (name, priceDisplay, durationDays,
+entitlements) with server-side static metadata (tagline, highlights,
+recommended, rank, durationLabel) for plan-only presentation
+attributes that aren't editable in the admin product editor.
+
+ */
+export interface Plan {
+  slug: string;
+  name: string;
+  tagline: string;
+  /** @nullable */
+  priceDisplay: string | null;
+  /** @nullable */
+  durationDays: number | null;
+  durationLabel: string;
+  highlights: string[];
+  entitlements: string[];
+  recommended: boolean;
+  rank: number;
+}
+
 export interface NextLesson {
   lessonId: number;
   lessonTitle: string;

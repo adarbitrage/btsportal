@@ -277,6 +277,34 @@ export const ListProductsResponseItem = zod.object({
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
+ * Returns the upgradeable membership plans rendered on the public
+/plans page. Plan name, priceDisplay, durationDays, and entitlements
+come from the `products` table (so admin edits propagate
+automatically). Tagline, highlights, the "recommended" flag, and
+upgrade rank are server-side static metadata for plan slugs that
+currently cannot be edited via the admin product editor.
+
+ * @summary List upgradeable membership plans for the public /plans page
+ */
+export const ListPlansResponseItem = zod
+  .object({
+    slug: zod.string(),
+    name: zod.string(),
+    tagline: zod.string(),
+    priceDisplay: zod.string().nullable(),
+    durationDays: zod.number().nullable(),
+    durationLabel: zod.string(),
+    highlights: zod.array(zod.string()),
+    entitlements: zod.array(zod.string()),
+    recommended: zod.boolean(),
+    rank: zod.number(),
+  })
+  .describe(
+    "Upgradeable membership plan as rendered on the \/plans page. Combines\nDB-backed product fields (name, priceDisplay, durationDays,\nentitlements) with server-side static metadata (tagline, highlights,\nrecommended, rank, durationLabel) for plan-only presentation\nattributes that aren't editable in the admin product editor.\n",
+  );
+export const ListPlansResponse = zod.array(ListPlansResponseItem);
+
+/**
  * @summary Get dashboard summary
  */
 export const GetDashboardResponse = zod.object({

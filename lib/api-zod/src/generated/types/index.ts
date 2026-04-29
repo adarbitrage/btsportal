@@ -276,6 +276,7 @@ export * from "./patchMemberProfileBody";
 export * from "./patchMemberProfileResponse";
 export * from "./patchOnboardingStepBody";
 export * from "./patchOnboardingStepResponse";
+export * from "./plan";
 export * from "./productInfo";
 export * from "./productMapping";
 export * from "./progress";

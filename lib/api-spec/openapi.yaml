@@ -314,6 +314,28 @@ paths:
                 items:
                   $ref: "#/components/schemas/ProductInfo"
 
+  /plans:
+    get:
+      operationId: listPlans
+      tags: [products]
+      summary: List upgradeable membership plans for the public /plans page
+      description: |
+        Returns the upgradeable membership plans rendered on the public
+        /plans page. Plan name, priceDisplay, durationDays, and entitlements
+        come from the `products` table (so admin edits propagate
+        automatically). Tagline, highlights, the "recommended" flag, and
+        upgrade rank are server-side static metadata for plan slugs that
+        currently cannot be edited via the admin product editor.
+      responses:
+        "200":
+          description: Ordered list of upgradeable plans (lowest to highest tier)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+
   /dashboard:
     get:
       operationId: getDashboard
@@ -6176,6 +6198,53 @@ components:
         sortOrder:
           type: integer
       required: [id, slug, name, type, sortOrder]
+
+    Plan:
+      type: object
+      description: |
+        Upgradeable membership plan as rendered on the /plans page. Combines
+        DB-backed product fields (name, priceDisplay, durationDays,
+        entitlements) with server-side static metadata (tagline, highlights,
+        recommended, rank, durationLabel) for plan-only presentation
+        attributes that aren't editable in the admin product editor.
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        priceDisplay:
+          type: ["string", "null"]
+        durationDays:
+          type: ["integer", "null"]
+        durationLabel:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        entitlements:
+          type: array
+          items:
+            type: string
+        recommended:
+          type: boolean
+        rank:
+          type: integer
+      required:
+        [
+          slug,
+          name,
+          tagline,
+          priceDisplay,
+          durationDays,
+          durationLabel,
+          highlights,
+          entitlements,
+          recommended,
+          rank,
+        ]
 
     DashboardData:
       type: object

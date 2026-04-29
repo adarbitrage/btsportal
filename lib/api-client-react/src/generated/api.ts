@@ -211,6 +211,7 @@ import type {
   PatchMemberProfileResponse,
   PatchOnboardingStepBody,
   PatchOnboardingStepResponse,
+  Plan,
   ProductInfo,
   ProductMapping,
   Progress,
@@ -1540,6 +1541,78 @@ export function useListProducts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the upgradeable membership plans rendered on the public
+/plans page. Plan name, priceDisplay, durationDays, and entitlements
+come from the `products` table (so admin edits propagate
+automatically). Tagline, highlights, the "recommended" flag, and
+upgrade rank are server-side static metadata for plan slugs that
+currently cannot be edited via the admin product editor.
+
+ * @summary List upgradeable membership plans for the public /plans page
+ */
+export const getListPlansUrl = () => {
+  return `/api/plans`;
+};
+
+export const listPlans = async (options?: RequestInit): Promise<Plan[]> => {
+  return customFetch<Plan[]>(getListPlansUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPlansQueryKey = () => {
+  return [`/api/plans`] as const;
+};
+
+export const getListPlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPlansQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlans>>> = ({
+    signal,
+  }) => listPlans({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlans>>
+>;
+export type ListPlansQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List upgradeable membership plans for the public /plans page
+ */
+
+export function useListPlans<
+  TData = Awaited<ReturnType<typeof listPlans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlansQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

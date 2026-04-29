@@ -277,6 +277,7 @@ export type {
   PatchMemberProfileResponse,
   PatchOnboardingStepBody,
   PatchOnboardingStepResponse,
+  Plan,
   ProductInfo,
   ProductMapping,
   Progress,
