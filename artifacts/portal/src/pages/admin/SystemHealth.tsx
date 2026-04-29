@@ -113,11 +113,13 @@ export default function SystemHealth() {
   const [refreshInFlight, setRefreshInFlight] = useState(0);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
+  const [recentNewEventCount, setRecentNewEventCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readSoundPreference());
   const inFlightRef = useRef(0);
   const previousMaxEventIdRef = useRef<number | null>(null);
   const hasLoadedFallbackEventsRef = useRef(false);
   const highlightTimersRef = useRef<Map<number, number>>(new Map());
+  const recentNewCountTimerRef = useRef<number | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
   const chimeAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
@@ -217,6 +219,10 @@ export default function SystemHealth() {
     return () => {
       timers.forEach((tid) => window.clearTimeout(tid));
       timers.clear();
+      if (recentNewCountTimerRef.current !== null) {
+        window.clearTimeout(recentNewCountTimerRef.current);
+        recentNewCountTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -251,6 +257,14 @@ export default function SystemHealth() {
         if (newIds.length > 0) {
           markEventsAsNew(newIds);
           playFallbackChime();
+          setRecentNewEventCount(newIds.length);
+          if (recentNewCountTimerRef.current !== null) {
+            window.clearTimeout(recentNewCountTimerRef.current);
+          }
+          recentNewCountTimerRef.current = window.setTimeout(() => {
+            setRecentNewEventCount(0);
+            recentNewCountTimerRef.current = null;
+          }, NEW_EVENT_HIGHLIGHT_MS);
         }
       }
       previousMaxEventIdRef.current = newMaxId;
@@ -1195,6 +1209,16 @@ export default function SystemHealth() {
                   <ListChecks className="w-4 h-4" />
                   Recent queue-fallback events
                   <Badge variant="outline" className="ml-2 font-normal">last {FALLBACK_EVENTS_LIMIT}</Badge>
+                  {recentNewEventCount > 0 && (
+                    <Badge
+                      variant="default"
+                      className="ml-1 font-normal bg-yellow-500 hover:bg-yellow-500 text-white border-transparent"
+                      data-testid="recent-new-events-badge"
+                      title={`${recentNewEventCount} new fallback event${recentNewEventCount === 1 ? "" : "s"} arrived in the last refresh`}
+                    >
+                      +{recentNewEventCount} new
+                    </Badge>
+                  )}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
                   Each row corresponds to a direct-send fallback recorded in the audit log. Click an event to open the
