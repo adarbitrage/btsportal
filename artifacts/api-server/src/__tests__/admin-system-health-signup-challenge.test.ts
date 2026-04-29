@@ -214,6 +214,24 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     __resetAuditLogRetentionStateForTests();
   });
 
+  it("includes an emailChangeAttemptsCleanup status field", async () => {
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const ecc = res.body?.services?.emailChangeAttemptsCleanup;
+    expect(ecc).toBeTruthy();
+    expect(typeof ecc.intervalMs).toBe("number");
+    expect(ecc.intervalMs).toBeGreaterThan(0);
+    expect(typeof ecc.stale).toBe("boolean");
+    // lastRanAt and lastDeletedCount may be null before any sweep has run;
+    // both shapes are valid as long as the keys are present.
+    expect(ecc).toHaveProperty("lastRanAt");
+    expect(ecc).toHaveProperty("lastDeletedCount");
+    expect(ecc).toHaveProperty("lastError");
+  });
+
   it("includes an abuseRateLimitCleanup status field", async () => {
     const res = await request(app)
       .get("/api/admin/system/health")

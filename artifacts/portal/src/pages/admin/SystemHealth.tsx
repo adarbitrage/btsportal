@@ -1165,6 +1165,93 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {health.services?.emailChangeAttemptsCleanup && (() => {
+                const ecc = health.services.emailChangeAttemptsCleanup as {
+                  intervalMs: number;
+                  lastRanAt: string | null;
+                  lastDeletedCount: number | null;
+                  lastError: { at: string; message: string } | null;
+                  stale: boolean;
+                };
+                const lastRanLabel = ecc.lastRanAt
+                  ? new Date(ecc.lastRanAt).toLocaleString()
+                  : "Never";
+                const intervalLabel = ecc.intervalMs >= 60 * 60 * 1000
+                  ? `${Math.round(ecc.intervalMs / (60 * 60 * 1000))}h`
+                  : ecc.intervalMs >= 60 * 1000
+                    ? `${Math.round(ecc.intervalMs / 60000)}m`
+                    : `${Math.round(ecc.intervalMs / 1000)}s`;
+                const statusLabel = ecc.stale
+                  ? "Stale"
+                  : ecc.lastRanAt
+                    ? "Healthy"
+                    : "Pending";
+                const statusVariant: "default" | "warning" | "secondary" = ecc.stale
+                  ? "warning"
+                  : ecc.lastRanAt
+                    ? "default"
+                    : "secondary";
+                return (
+                  <Card data-testid="card-email-change-attempts-cleanup">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Brush className="w-4 h-4" />Email-change retention sweep
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Badge
+                            variant={statusVariant}
+                            data-testid="email-change-cleanup-status"
+                          >
+                            {statusLabel}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Last run</span>
+                          <span
+                            className={`text-sm font-medium ${ecc.stale ? "text-red-600" : ""}`}
+                            data-testid="email-change-cleanup-last-ran"
+                          >
+                            {lastRanLabel}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Rows deleted last run</span>
+                          <span
+                            className="text-sm font-medium"
+                            data-testid="email-change-cleanup-deleted"
+                          >
+                            {ecc.lastDeletedCount ?? 0}
+                          </span>
+                        </div>
+                        {ecc.stale && (
+                          <p
+                            className="text-xs text-red-600"
+                            data-testid="email-change-cleanup-stale-warning"
+                          >
+                            {ecc.lastRanAt
+                              ? `Sweep hasn't reported in over 2× its ${intervalLabel} interval — the cleanup job may have stopped. Retention windows could lapse. Check the API server logs.`
+                              : `Sweep hasn't reported a single run in over 2× its ${intervalLabel} interval since this server started — check the API server logs to confirm the job is running.`}
+                          </p>
+                        )}
+                        {ecc.lastError && (
+                          <p
+                            className="text-xs text-amber-700 dark:text-amber-300"
+                            data-testid="email-change-cleanup-last-error"
+                            title={`Failed at ${new Date(ecc.lastError.at).toLocaleString()}`}
+                          >
+                            Last sweep error: {ecc.lastError.message}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.emailChangeAttemptsRetention && (() => {
                 const retention = health.services.emailChangeAttemptsRetention as {
                   rateLimitRetentionDays: number;

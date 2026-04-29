@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { db, usersTable, emailChangeAttemptsTable } from "@workspace/db";
 import { and, eq, sql, isNotNull, isNull } from "drizzle-orm";
-import { runEmailChangeAttemptsCleanup } from "../lib/email-change-attempts-cleanup";
+import {
+  runEmailChangeAttemptsCleanup,
+  getEmailChangeAttemptsCleanupStatus,
+  __resetEmailChangeAttemptsCleanupStatusForTests,
+} from "../lib/email-change-attempts-cleanup";
 
 const TAG = `ec-cleanup-${randomUUID().slice(0, 8)}`;
 let userId: number;
@@ -243,5 +247,113 @@ describe("runEmailChangeAttemptsCleanup", () => {
 
     expect(remaining).toHaveLength(1);
     expect(remaining[0].newEmail).toBe("fresh-admin-kill@example.test");
+  });
+});
+
+describe("getEmailChangeAttemptsCleanupStatus", () => {
+  beforeEach(() => {
+    __resetEmailChangeAttemptsCleanupStatusForTests();
+  });
+
+  afterEach(() => {
+    __resetEmailChangeAttemptsCleanupStatusForTests();
+  });
+
+  it("returns null lastRanAt and lastDeletedCount before the first run", () => {
+    const status = getEmailChangeAttemptsCleanupStatus();
+    expect(status.lastRanAt).toBeNull();
+    expect(status.lastDeletedCount).toBeNull();
+    expect(status.lastError).toBeNull();
+    expect(status.intervalMs).toBeGreaterThan(0);
+    // Baseline was just reset to "now", so we are within the grace window.
+    expect(status.stale).toBe(false);
+  });
+
+  it("populates lastRanAt and lastDeletedCount after a successful run", async () => {
+    const before = Date.now();
+    await runEmailChangeAttemptsCleanup();
+    const after = Date.now();
+
+    const status = getEmailChangeAttemptsCleanupStatus();
+    expect(status.lastRanAt).not.toBeNull();
+    const ranAt = new Date(status.lastRanAt as string).getTime();
+    expect(ranAt).toBeGreaterThanOrEqual(before);
+    expect(ranAt).toBeLessThanOrEqual(after);
+    expect(typeof status.lastDeletedCount).toBe("number");
+    expect(status.lastError).toBeNull();
+    expect(status.stale).toBe(false);
+  });
+
+  it("flips stale=true after 2× the run interval with no run", () => {
+    const baseline = getEmailChangeAttemptsCleanupStatus();
+    expect(baseline.lastRanAt).toBeNull();
+    expect(baseline.stale).toBe(false);
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + 3 * baseline.intervalMs;
+    try {
+      const stale = getEmailChangeAttemptsCleanupStatus();
+      expect(stale.lastRanAt).toBeNull();
+      expect(stale.stale).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it("flips stale=true when the last run is older than 2× the interval", async () => {
+    await runEmailChangeAttemptsCleanup();
+    const fresh = getEmailChangeAttemptsCleanupStatus();
+    expect(fresh.stale).toBe(false);
+    expect(fresh.lastRanAt).not.toBeNull();
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + 3 * fresh.intervalMs;
+    try {
+      const stale = getEmailChangeAttemptsCleanupStatus();
+      expect(stale.stale).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it("records a heartbeat and lastError when the sweep throws", async () => {
+    const dbModule = await import("@workspace/db");
+    const failureMessage = "synthetic-email-change-cleanup-failure";
+    const spy = vi.spyOn(dbModule.db, "delete").mockImplementation(() => {
+      throw new Error(failureMessage);
+    });
+
+    const before = Date.now();
+    try {
+      await expect(runEmailChangeAttemptsCleanup()).rejects.toThrow(failureMessage);
+    } finally {
+      spy.mockRestore();
+    }
+    const after = Date.now();
+
+    const status = getEmailChangeAttemptsCleanupStatus();
+    expect(status.lastRanAt).not.toBeNull();
+    const ranAt = new Date(status.lastRanAt as string).getTime();
+    expect(ranAt).toBeGreaterThanOrEqual(before);
+    expect(ranAt).toBeLessThanOrEqual(after);
+    expect(status.lastError?.message).toBe(failureMessage);
+    // No deletions actually completed, so the per-run counter is 0.
+    expect(status.lastDeletedCount).toBe(0);
+  });
+
+  it("clears lastError on the next successful run", async () => {
+    const dbModule = await import("@workspace/db");
+    const spy = vi.spyOn(dbModule.db, "delete").mockImplementation(() => {
+      throw new Error("transient");
+    });
+    try {
+      await expect(runEmailChangeAttemptsCleanup()).rejects.toThrow("transient");
+    } finally {
+      spy.mockRestore();
+    }
+    expect(getEmailChangeAttemptsCleanupStatus().lastError?.message).toBe("transient");
+
+    await runEmailChangeAttemptsCleanup();
+    expect(getEmailChangeAttemptsCleanupStatus().lastError).toBeNull();
   });
 });

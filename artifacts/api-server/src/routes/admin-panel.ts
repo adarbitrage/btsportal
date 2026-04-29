@@ -13,7 +13,10 @@ import {
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
-import { getEmailChangeAttemptsRetentionPolicy } from "../lib/email-change-attempts-cleanup";
+import {
+  getEmailChangeAttemptsCleanupStatus,
+  getEmailChangeAttemptsRetentionPolicy,
+} from "../lib/email-change-attempts-cleanup";
 import {
   getRateLimitAuditFailureStats,
   getRateLimitAuditFailureStatsAggregated,
@@ -2166,6 +2169,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         signupChallenge: { enforced: isSignupChallengeEnforced() },
         abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
+        emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
         auditLogRetention,
         rateLimitAuditFailures,
         missingCriticalSecrets,

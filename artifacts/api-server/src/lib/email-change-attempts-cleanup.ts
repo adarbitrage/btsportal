@@ -44,6 +44,30 @@ export function getEmailChangeAttemptsRetentionPolicy(): EmailChangeAttemptsRete
   };
 }
 
+export interface EmailChangeAttemptsCleanupStatus {
+  intervalMs: number;
+  lastRanAt: string | null;
+  lastDeletedCount: number | null;
+  lastError: { at: string; message: string } | null;
+  stale: boolean;
+}
+
+// Surfaced to the admin System Health page so on-call can confirm the daily
+// retention sweep is still running and pruning rows. The status is updated
+// at the end of every `runEmailChangeAttemptsCleanup` call (success OR
+// failure), so `lastRanAt` doubles as a heartbeat — a silent crash in the
+// inner loop still flips the panel out of "Pending" and surfaces the error.
+let lastRanAt: Date | null = null;
+let lastDeletedCount: number | null = null;
+let lastError: { at: Date; message: string } | null = null;
+
+// Baseline used to compute staleness when the job has not yet reported a
+// run. Set at module load — which in production is process start, the same
+// moment `startEmailChangeAttemptsCleanupJob` would have started running. If
+// no run shows up after 2 intervals from this baseline, the System Health
+// panel surfaces it as stale instead of leaving it on "Pending" forever.
+let baselineSince: Date = new Date();
+
 export async function runEmailChangeAttemptsCleanup(): Promise<number> {
   const now = Date.now();
   const rateLimitCutoff = new Date(
@@ -56,45 +80,95 @@ export async function runEmailChangeAttemptsCleanup(): Promise<number> {
     now - ADMIN_CANCELLED_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  // Classify explicitly-cancelled rows by `cancelledAt` rather than
-  // `cancelledByAdminId`: the schema populates both columns together for
-  // admin cancellations, but the admin FK is `onDelete: set null`, so
-  // deleting an admin user would null out `cancelledByAdminId` and silently
-  // demote a historical admin-cancelled row back into the 90-day audit
-  // cohort. `cancelledAt` is the durable marker that the cancellation
-  // actually happened — it's also set together with `cancelledByMember`
-  // for member-initiated cancel/replace flows, so both buckets get the
-  // longer retention window without further branching.
-  const result = await db.delete(emailChangeAttemptsTable).where(
-    or(
-      and(
-        isNull(emailChangeAttemptsTable.newEmail),
-        lt(emailChangeAttemptsTable.createdAt, rateLimitCutoff),
+  let deletedCount = 0;
+  try {
+    // Classify explicitly-cancelled rows by `cancelledAt` rather than
+    // `cancelledByAdminId`: the schema populates both columns together for
+    // admin cancellations, but the admin FK is `onDelete: set null`, so
+    // deleting an admin user would null out `cancelledByAdminId` and silently
+    // demote a historical admin-cancelled row back into the 90-day audit
+    // cohort. `cancelledAt` is the durable marker that the cancellation
+    // actually happened — it's also set together with `cancelledByMember`
+    // for member-initiated cancel/replace flows, so both buckets get the
+    // longer retention window without further branching.
+    const result = await db.delete(emailChangeAttemptsTable).where(
+      or(
+        and(
+          isNull(emailChangeAttemptsTable.newEmail),
+          lt(emailChangeAttemptsTable.createdAt, rateLimitCutoff),
+        ),
+        // Ordinary audit rows: have a new_email but were not explicitly
+        // cancelled (by either an admin or the member). Deleted at the
+        // standard 90-day mark.
+        and(
+          isNotNull(emailChangeAttemptsTable.newEmail),
+          isNull(emailChangeAttemptsTable.cancelledAt),
+          lt(emailChangeAttemptsTable.createdAt, auditCutoff),
+        ),
+        // Explicitly-cancelled rows (admin or member): kept for the longer
+        // 365-day window so support staff can investigate stale tickets
+        // months after the cancellation.
+        and(
+          isNotNull(emailChangeAttemptsTable.cancelledAt),
+          lt(emailChangeAttemptsTable.createdAt, adminCancelledCutoff),
+        ),
       ),
-      // Ordinary audit rows: have a new_email but were not explicitly
-      // cancelled (by either an admin or the member). Deleted at the
-      // standard 90-day mark.
-      and(
-        isNotNull(emailChangeAttemptsTable.newEmail),
-        isNull(emailChangeAttemptsTable.cancelledAt),
-        lt(emailChangeAttemptsTable.createdAt, auditCutoff),
-      ),
-      // Explicitly-cancelled rows (admin or member): kept for the longer
-      // 365-day window so support staff can investigate stale tickets
-      // months after the cancellation.
-      and(
-        isNotNull(emailChangeAttemptsTable.cancelledAt),
-        lt(emailChangeAttemptsTable.createdAt, adminCancelledCutoff),
-      ),
-    ),
-  );
-  const deletedCount = result.rowCount ?? 0;
-  if (deletedCount > 0) {
-    console.log(
-      `[EmailChangeAttemptsCleanup] Deleted ${deletedCount} attempt row(s) (rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d, admin-cancelled retention ${ADMIN_CANCELLED_RETENTION_DAYS}d)`,
     );
+    deletedCount = result.rowCount ?? 0;
+    if (deletedCount > 0) {
+      console.log(
+        `[EmailChangeAttemptsCleanup] Deleted ${deletedCount} attempt row(s) (rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d, admin-cancelled retention ${ADMIN_CANCELLED_RETENTION_DAYS}d)`,
+      );
+    }
+    lastError = null;
+    return deletedCount;
+  } catch (err) {
+    // Failures used to leave `lastRanAt` unchanged, so a job that broke
+    // immediately would look like it had never run. Record a heartbeat on
+    // the failure path and remember the error so the System Health page
+    // can surface it.
+    lastError = {
+      at: new Date(),
+      message: (err as Error)?.message ?? String(err),
+    };
+    throw err;
+  } finally {
+    lastRanAt = new Date();
+    lastDeletedCount = deletedCount;
   }
-  return deletedCount;
+}
+
+/**
+ * Snapshot of the cleanup job's runtime health for the admin System Health
+ * page. Mirrors `getAbuseRateLimitCleanupStatus()` so on-call only ever has
+ * to learn one shape: lastRanAt heartbeat, lastDeletedCount per-run counter,
+ * lastError message, and a stale flag that flips after 2× the run interval
+ * with no run.
+ */
+export function getEmailChangeAttemptsCleanupStatus(): EmailChangeAttemptsCleanupStatus {
+  // When the job has never reported a run we fall back to the module-load
+  // baseline: if the process has been up longer than 2 intervals without a
+  // single sweep landing, that is itself a regression worth surfacing.
+  const referenceTs = (lastRanAt ?? baselineSince).getTime();
+  const stale = Date.now() - referenceTs > 2 * RUN_INTERVAL_MS;
+  return {
+    intervalMs: RUN_INTERVAL_MS,
+    lastRanAt: lastRanAt ? lastRanAt.toISOString() : null,
+    lastDeletedCount,
+    lastError: lastError
+      ? { at: lastError.at.toISOString(), message: lastError.message }
+      : null,
+    stale,
+  };
+}
+
+// Test hook: reset the in-memory status back to its initial state so each
+// test can assert against a clean slate. Not intended for production use.
+export function __resetEmailChangeAttemptsCleanupStatusForTests(): void {
+  lastRanAt = null;
+  lastDeletedCount = null;
+  lastError = null;
+  baselineSince = new Date();
 }
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;
