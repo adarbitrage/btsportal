@@ -1119,6 +1119,32 @@ export const adminPanelApi = {
     return res.json() as Promise<AuthRateLimitAlertConfigStatus>;
   },
 
+  async getAuthRateLimitAlertConfigHistory(limit?: number) {
+    const qs = new URLSearchParams();
+    if (limit) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/auth-rate-limit-alert-config/history${suffix}`);
+    if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert config history");
+    return res.json() as Promise<{
+      events: Array<{
+        id: number;
+        createdAt: string;
+        actionType: string;
+        actorId: number | null;
+        actorEmail: string | null;
+        actorName: string | null;
+        description: string;
+        changedFields: Array<"threshold" | "windowMinutes" | "dominantIpRatio">;
+        diff: Array<{
+          field: "threshold" | "windowMinutes" | "dominantIpRatio";
+          from: number | null;
+          to: number | null;
+        }>;
+      }>;
+      limit: number;
+    }>;
+  },
+
   // A `null` value means "reset this field to its default" — the underlying
   // row is deleted server-side so per-field provenance flips back to
   // "default". Omit a field entirely to leave it untouched.

@@ -97,6 +97,7 @@ export default function AdminDashboard() {
                           <div>
                             <p className="font-medium text-sm">{alert.title}</p>
                             <p className="text-xs text-muted-foreground">{alert.description}</p>
+                            <AlertThresholdProvenance alert={alert} />
                           </div>
                         </div>
                         {alert.link && (
@@ -166,5 +167,65 @@ export default function AdminDashboard() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+/**
+ * Render a small "tuned to N hits / M min by <admin> on <date>" sub-line
+ * underneath an alert's description when the alert payload carries
+ * `thresholds` and `lastTuned` provenance (currently only the auth
+ * rate-limit burst alert does). Falls back gracefully on any of the
+ * shapes being absent — the dashboard endpoint omits both for alerts
+ * that don't have tunable thresholds.
+ */
+function AlertThresholdProvenance({ alert }: { alert: any }) {
+  const thresholds = alert?.thresholds as
+    | { threshold: number; windowMinutes: number }
+    | undefined;
+  const lastTuned = alert?.lastTuned as
+    | {
+        at: string;
+        actorId: number | null;
+        actorEmail: string | null;
+        actorName: string | null;
+        changedFields: string[];
+      }
+    | null
+    | undefined;
+
+  if (!thresholds) return null;
+
+  const tunedSummary = `Tuned to ${thresholds.threshold} hits / ${thresholds.windowMinutes} min`;
+
+  if (!lastTuned) {
+    return (
+      <p
+        className="text-[11px] text-muted-foreground mt-1"
+        data-testid="alert-threshold-provenance"
+      >
+        {tunedSummary} (still on default thresholds).
+      </p>
+    );
+  }
+
+  const actor = lastTuned.actorName && lastTuned.actorEmail
+    ? `${lastTuned.actorName} (${lastTuned.actorEmail})`
+    : lastTuned.actorName || lastTuned.actorEmail || "an admin";
+
+  let when = lastTuned.at;
+  try {
+    const d = new Date(lastTuned.at);
+    if (!Number.isNaN(d.getTime())) when = format(d, "MMM d, yyyy");
+  } catch {
+    // Fall through to the raw ISO string below.
+  }
+
+  return (
+    <p
+      className="text-[11px] text-muted-foreground mt-1"
+      data-testid="alert-threshold-provenance"
+    >
+      {tunedSummary} by {actor} on {when}.
+    </p>
   );
 }

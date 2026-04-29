@@ -1062,6 +1062,25 @@ function simulateWouldHaveFiredClient(
   return { wouldHaveFiredCount: firingCount, peakWindowHits: peak };
 }
 
+interface AlertConfigHistoryEvent {
+  id: number;
+  createdAt: string;
+  actionType: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  description: string;
+  changedFields: AlertField[];
+  diff: Array<{ field: AlertField; from: number | null; to: number | null }>;
+}
+
+function alertConfigActorDisplay(event: AlertConfigHistoryEvent): string {
+  if (event.actorName && event.actorEmail) return `${event.actorName} (${event.actorEmail})`;
+  if (event.actorName) return event.actorName;
+  if (event.actorEmail) return event.actorEmail;
+  return "System";
+}
+
 function AuthRateLimitAlertConfigCard() {
   const { toast } = useToast();
   const [status, setStatus] = useState<AuthRateLimitAlertConfigStatus | null>(null);
@@ -1076,6 +1095,8 @@ function AuthRateLimitAlertConfigCard() {
   const [trafficPreview, setTrafficPreview] = useState<AuthRateLimitAlertTrafficPreview | null>(null);
   const [trafficLoading, setTrafficLoading] = useState(true);
   const [trafficError, setTrafficError] = useState<string | null>(null);
+  const [history, setHistory] = useState<AlertConfigHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const hydrate = (s: AuthRateLimitAlertConfigStatus) => {
     setStatus(s);
@@ -1115,7 +1136,22 @@ function AuthRateLimitAlertConfigCard() {
     }
   };
 
-  useEffect(() => { load(); loadTraffic(); }, []);
+  const loadHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const data = await adminPanelApi.getAuthRateLimitAlertConfigHistory();
+      setHistory(data.events);
+    } catch (err: any) {
+      // History is informational — surface a toast but don't take down the
+      // whole card if the log fetch fails (the configuration UI above is
+      // still operable).
+      toast({ title: "Couldn't load recent threshold edits", description: err.message, variant: "destructive" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); loadTraffic(); loadHistory(); }, []);
 
   const validateLocal = (): { ok: boolean; payload: { threshold: number; windowMinutes: number; dominantIpRatio: number } } => {
     if (!status) return { ok: false, payload: { threshold: 0, windowMinutes: 0, dominantIpRatio: 0 } };
@@ -1174,6 +1210,10 @@ function AuthRateLimitAlertConfigCard() {
         // admin was tweaking thresholds get reflected in the "would have
         // fired" count next to the freshly-saved values.
         loadTraffic();
+        // The save itself wrote a new audit row — refresh the timeline so
+        // the admin sees their own change reflected immediately rather
+        // than having to reload the page.
+        await loadHistory();
       }
     } catch (err: any) {
       if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
@@ -1221,6 +1261,8 @@ function AuthRateLimitAlertConfigCard() {
       hydrate(data);
       setFieldErrors({});
       toast({ title: "Reset to defaults" });
+      // Reset is also an audit row — refresh so it shows up in the timeline.
+      await loadHistory();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -1296,10 +1338,132 @@ function AuthRateLimitAlertConfigCard() {
                 <Save className="w-4 h-4 mr-1" />{saving ? "Saving..." : "Save thresholds"}
               </Button>
             </div>
+
+            <AlertConfigHistorySection events={history} loading={historyLoading} />
           </>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * "Recent threshold edits" timeline for the auth rate-limit burst alert
+ * card. Mirrors the on-call destinations history section so an admin
+ * looking at either card sees the same shape of provenance information.
+ * Falls back to a "no edits yet" placeholder so admins can confirm the
+ * thresholds are still on the originally-shipped defaults at a glance.
+ */
+function AlertConfigHistorySection({
+  events,
+  loading,
+}: {
+  events: AlertConfigHistoryEvent[];
+  loading: boolean;
+}) {
+  return (
+    <div className="border-t pt-4 space-y-2">
+      <div>
+        <p className="text-sm font-medium flex items-center gap-2">
+          <History className="w-4 h-4" /> Recent threshold edits
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Who last tuned these thresholds and what they changed. Sourced from the audit log.
+        </p>
+      </div>
+      {loading ? (
+        <div className="p-3 text-center text-xs text-muted-foreground" data-testid="alert-config-history-loading">
+          Loading recent threshold edits...
+        </div>
+      ) : events.length === 0 ? (
+        <div
+          className="p-3 text-center text-xs text-muted-foreground border rounded-md bg-muted/20"
+          data-testid="alert-config-history-empty"
+        >
+          No threshold edits recorded yet — still on the original defaults.
+        </div>
+      ) : (
+        <div className="border rounded-md divide-y bg-muted/20" data-testid="alert-config-history-list">
+          {events.map((event) => (
+            <AlertConfigHistoryRow key={event.id} event={event} />
+          ))}
+        </div>
+      )}
+      {!loading && (
+        <div className="flex justify-end pt-1">
+          <a
+            href="/admin/audit-log?entityType=auth_rate_limit_alert_config"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            data-testid="link-alert-config-view-all-audit"
+          >
+            View all in Audit Log
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlertConfigHistoryRow({ event }: { event: AlertConfigHistoryEvent }) {
+  return (
+    <div className="p-3 text-sm space-y-1" data-testid={`alert-config-history-row-${event.id}`}>
+      <div className="flex items-start gap-3">
+        <Save className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-medium">Updated thresholds</span>
+            <span className="text-xs text-muted-foreground">by {alertConfigActorDisplay(event)}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">{formatHistoryTimestamp(event.createdAt)}</div>
+
+          {event.diff.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {event.diff.map((d) => (
+                <span
+                  key={d.field}
+                  className="text-xs px-2 py-0.5 rounded bg-background border text-foreground"
+                  data-testid={`alert-config-history-change-${d.field}`}
+                >
+                  <span className="font-medium">{ALERT_FIELD_LABELS[d.field]}</span>
+                  {d.from !== null && d.to !== null && (
+                    <span className="text-muted-foreground">
+                      {": "}
+                      {formatAlertValue(d.field, d.from)} → {formatAlertValue(d.field, d.to)}
+                    </span>
+                  )}
+                  {d.from === null && d.to !== null && (
+                    <span className="text-muted-foreground">
+                      {": set to "}
+                      {formatAlertValue(d.field, d.to)}
+                    </span>
+                  )}
+                  {d.from !== null && d.to === null && (
+                    <span className="text-muted-foreground">
+                      {": reset (was "}
+                      {formatAlertValue(d.field, d.from)})
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : event.changedFields.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {event.changedFields.map((f) => (
+                <span
+                  key={f}
+                  className="text-xs px-2 py-0.5 rounded bg-background border text-foreground"
+                >
+                  {ALERT_FIELD_LABELS[f]}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground mt-1">{event.description}</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

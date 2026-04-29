@@ -373,7 +373,25 @@ router.get("/admin/dashboard/activity-chart", requirePermission("dashboard:view"
 router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view"), async (_req: Request, res: Response) => {
   try {
     const now = new Date();
-    const alerts: { type: string; severity: string; title: string; description: string; link?: string }[] = [];
+    const alerts: {
+      type: string;
+      severity: string;
+      title: string;
+      description: string;
+      link?: string;
+      // Optional provenance for alerts whose thresholds are admin-tunable.
+      // Today only `auth_rate_limit_burst` populates these; declared as
+      // optional so future tunable alerts can opt in without widening
+      // every other alert's payload.
+      thresholds?: { threshold: number; windowMinutes: number };
+      lastTuned?: {
+        at: string;
+        actorId: number | null;
+        actorEmail: string | null;
+        actorName: string | null;
+        changedFields: string[];
+      } | null;
+    }[] = [];
 
     const openTicketCount = await safeCount(db.select({ count: sql<number>`count(*)` }).from(ticketsTable).where(eq(ticketsTable.status, "open")));
     if (openTicketCount > 10) {
@@ -413,12 +431,29 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
         stats.dominantIp && stats.dominantShare >= stats.dominantIpRatio
           ? ` — ${stats.dominantCount} from ${stats.dominantIp}`
           : "";
+      // Fetch the most recent threshold edit so the on-call admin can see
+      // whether the alert fired against freshly-changed values without
+      // having to leave the dashboard. Errors are swallowed: provenance is
+      // a nice-to-have, never gate the alert itself on it.
+      const lastTuned = await getLastAuthRateLimitAlertConfigEdit().catch(
+        (err) => {
+          console.error("[Admin] Auth rate-limit last-tuned lookup error:", err);
+          return null;
+        },
+      );
       alerts.push({
         type: "auth_rate_limit_burst",
         severity: "high",
         title: "Auth rate-limit burst",
         description: `${stats.total} auth rate-limit hits in the last ${rateLimitWindowMinutes} minutes${ipSuffix}`,
         link: `/admin/audit-log?actionType=${AUTH_RATE_LIMIT_AUDIT_ACTION}`,
+        // Live thresholds so the dashboard can render "tuned to N hits / M
+        // min ..." without having to fetch the alert config itself.
+        thresholds: {
+          threshold: stats.threshold,
+          windowMinutes: rateLimitWindowMinutes,
+        },
+        lastTuned,
       });
     }
 
@@ -3132,6 +3167,179 @@ router.put("/admin/auth-rate-limit-alert-config", requirePermission("settings:ma
   } catch (error) {
     console.error("[Admin] Update auth rate-limit alert config error:", error);
     res.status(500).json({ error: "Failed to update auth rate-limit alert config" });
+  }
+});
+
+// Audit-log entityType / actionType / allowed-fields for the burst-alert
+// threshold edits, kept next to the route that filters on them so the
+// dashboard alert and the Settings card stay in sync if the writer ever
+// changes its tags.
+const AUTH_RATE_LIMIT_ALERT_CONFIG_ENTITY_TYPE = "auth_rate_limit_alert_config";
+const AUTH_RATE_LIMIT_ALERT_CONFIG_ACTION_TYPE = "update_setting";
+type AuthRateLimitAlertConfigField = "threshold" | "windowMinutes" | "dominantIpRatio";
+const AUTH_RATE_LIMIT_ALERT_CONFIG_FIELDS: AuthRateLimitAlertConfigField[] = [
+  "threshold",
+  "windowMinutes",
+  "dominantIpRatio",
+];
+
+interface AuthRateLimitAlertConfigDiffEntry {
+  field: AuthRateLimitAlertConfigField;
+  from: number | null;
+  to: number | null;
+}
+
+interface AuthRateLimitAlertConfigEditEvent {
+  id: number;
+  createdAt: Date;
+  actionType: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  description: string;
+  changedFields: AuthRateLimitAlertConfigField[];
+  diff: AuthRateLimitAlertConfigDiffEntry[];
+}
+
+/**
+ * Narrow an audit row's `changeDiff` JSON down to the typed shape the UI
+ * knows how to render. The writer puts touched fields in `changedFields`
+ * and a per-field `{ from, to }` map in `diff`; both are filtered here so
+ * a future schema change can't sneak an unexpected key into the response.
+ */
+function parseAuthRateLimitAlertConfigDiff(raw: unknown): {
+  changedFields: AuthRateLimitAlertConfigField[];
+  diff: AuthRateLimitAlertConfigDiffEntry[];
+} {
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const changedRaw = Array.isArray(obj.changedFields) ? obj.changedFields : [];
+  const changedFields = changedRaw.filter(
+    (f): f is AuthRateLimitAlertConfigField =>
+      typeof f === "string" && (AUTH_RATE_LIMIT_ALERT_CONFIG_FIELDS as string[]).includes(f),
+  );
+  const diffMap = (obj.diff ?? {}) as Record<string, unknown>;
+  const diff: AuthRateLimitAlertConfigDiffEntry[] = [];
+  for (const field of changedFields) {
+    const entry = diffMap[field];
+    if (!entry || typeof entry !== "object") {
+      diff.push({ field, from: null, to: null });
+      continue;
+    }
+    const rec = entry as Record<string, unknown>;
+    const from = typeof rec.from === "number" && Number.isFinite(rec.from) ? rec.from : null;
+    const to = typeof rec.to === "number" && Number.isFinite(rec.to) ? rec.to : null;
+    diff.push({ field, from, to });
+  }
+  return { changedFields, diff };
+}
+
+/**
+ * Look up the most recent auth-rate-limit alert config edit so the dashboard
+ * can render "tuned to N hits / M min by <admin> on <date>" inline on the
+ * burst alert card. Returns `null` when no edits have happened yet (the
+ * thresholds are still on defaults), or on lookup failure — provenance is
+ * informational and must not gate the alert itself.
+ */
+async function getLastAuthRateLimitAlertConfigEdit(): Promise<{
+  at: string;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  changedFields: AuthRateLimitAlertConfigField[];
+} | null> {
+  const rows = await db
+    .select({
+      id: auditLogTable.id,
+      createdAt: auditLogTable.createdAt,
+      actorId: auditLogTable.actorId,
+      actorEmail: auditLogTable.actorEmail,
+      actorName: usersTable.name,
+      changeDiff: auditLogTable.changeDiff,
+    })
+    .from(auditLogTable)
+    .leftJoin(usersTable, eq(auditLogTable.actorId, usersTable.id))
+    .where(
+      and(
+        eq(auditLogTable.entityType, AUTH_RATE_LIMIT_ALERT_CONFIG_ENTITY_TYPE),
+        eq(auditLogTable.actionType, AUTH_RATE_LIMIT_ALERT_CONFIG_ACTION_TYPE),
+      ),
+    )
+    .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  const { changedFields } = parseAuthRateLimitAlertConfigDiff(row.changeDiff);
+  return {
+    at: row.createdAt.toISOString(),
+    actorId: row.actorId,
+    actorEmail: row.actorEmail,
+    actorName: row.actorName,
+    changedFields,
+  };
+}
+
+/**
+ * Recent change history for the auth rate-limit burst alert thresholds. Mirrors
+ * the on-call destinations history endpoint above — both let the matching
+ * Settings card render a small "who changed what" timeline so an on-call admin
+ * can see threshold provenance without leaving the page.
+ *
+ * Filters audit_log down to `entityType = "auth_rate_limit_alert_config"`
+ * rows, which today is just `update_setting` writes from the PUT endpoint
+ * above. The change diff carries `{ changedFields, diff: { field: { from, to } } }`
+ * — both are narrowed defensively against a future schema drift.
+ *
+ * Query params:
+ *   - limit: number of events to return (default 10, max 50). Tuned small by
+ *     default because the card just needs the "last few changes" — admins
+ *     who want the full history can drill into the dedicated Audit Log page.
+ */
+router.get("/admin/auth-rate-limit-alert-config/history", requirePermission("settings:view"), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 10;
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        actionType: auditLogTable.actionType,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        actorName: usersTable.name,
+        description: auditLogTable.description,
+        changeDiff: auditLogTable.changeDiff,
+      })
+      .from(auditLogTable)
+      .leftJoin(usersTable, eq(auditLogTable.actorId, usersTable.id))
+      .where(
+        and(
+          eq(auditLogTable.entityType, AUTH_RATE_LIMIT_ALERT_CONFIG_ENTITY_TYPE),
+          eq(auditLogTable.actionType, AUTH_RATE_LIMIT_ALERT_CONFIG_ACTION_TYPE),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+      .limit(limit);
+
+    const events: AuthRateLimitAlertConfigEditEvent[] = rows.map((row) => {
+      const { changedFields, diff } = parseAuthRateLimitAlertConfigDiff(row.changeDiff);
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        actionType: row.actionType,
+        actorId: row.actorId,
+        actorEmail: row.actorEmail,
+        actorName: row.actorName,
+        description: row.description,
+        changedFields,
+        diff,
+      };
+    });
+
+    res.json({ events, limit });
+  } catch (error) {
+    console.error("[Admin] Auth rate-limit alert config history error:", error);
+    res.status(500).json({ error: "Failed to fetch auth rate-limit alert config history" });
   }
 });
 
