@@ -18,6 +18,19 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("wouter", () => ({
   useLocation: () => ["/account", () => {}],
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: ReactNode;
+    [key: string]: unknown;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 const useGetCurrentMember = vi.fn();
@@ -151,6 +164,70 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
         screen.queryByTestId("email-admin-cancelled-banner"),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("renders a 'Contact support' link inside the banner pointing at the pre-filled support form", async () => {
+    useGetCurrentMember.mockReturnValue({
+      data: {
+        ...baseMember,
+        lastAdminCancelledEmailChange: {
+          newEmail: "swap-target@example.test",
+          cancelledAt: new Date(2026, 3, 15, 14, 30, 0).toISOString(),
+        },
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<Account />);
+
+    const link = await screen.findByTestId(
+      "link-admin-cancelled-contact-support",
+    );
+    expect(link).toBeInTheDocument();
+    // The link must live inside the cancelled-email banner so members can act
+    // on this security-sensitive notice without hunting for the support page.
+    const banner = screen.getByTestId("email-admin-cancelled-banner");
+    expect(banner).toContainElement(link);
+    // Pre-filling the support form via a topic param keeps the click count to
+    // one — without it, members would land on a blank form and have to retype
+    // the context themselves.
+    expect(link).toHaveAttribute(
+      "href",
+      "/support/contact?topic=email-admin-cancelled",
+    );
+    expect(link).toHaveTextContent(/contact support/i);
+  });
+
+  it("does not dismiss the banner when the support link is clicked", async () => {
+    const refetch = vi.fn();
+    useGetCurrentMember.mockReturnValue({
+      data: {
+        ...baseMember,
+        lastAdminCancelledEmailChange: {
+          newEmail: "swap-target@example.test",
+          cancelledAt: new Date(2026, 3, 15, 14, 30, 0).toISOString(),
+        },
+      },
+      isLoading: false,
+      refetch,
+    });
+
+    render(<Account />);
+
+    const link = await screen.findByTestId(
+      "link-admin-cancelled-contact-support",
+    );
+    // Stop the anchor from doing a real navigation in jsdom — we only care
+    // that activating the link does not also fire the dismiss endpoint.
+    link.addEventListener("click", (e) => e.preventDefault());
+    fireEvent.click(link);
+
+    // The dismiss endpoint must NOT have been hit. If we had wired the link
+    // inside the dismiss button, or wrapped the banner in a single click
+    // handler, this would call dismissMutate too.
+    expect(dismissMutate).not.toHaveBeenCalled();
+    expect(refetch).not.toHaveBeenCalled();
   });
 
   it("does not render the admin-cancelled banner when there's a pending email change", async () => {

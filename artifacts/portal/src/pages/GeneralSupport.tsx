@@ -7,18 +7,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
 import { Send, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
+
+const TOPIC_PRESETS: Record<string, { subject: string; messagePrompt: string }> = {
+  "email-admin-cancelled": {
+    subject: "Question about cancelled email change",
+    messagePrompt:
+      "I'm contacting you about a pending email change on my account that was cancelled by an administrator. Please help me understand what happened.\n\n",
+  },
+};
 
 export default function GeneralSupport() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const topic = searchParams.get("topic") ?? "";
+  const preset = TOPIC_PRESETS[topic];
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [firstName, setFirstName] = useState(user?.name?.split(" ")[0] || "");
   const [lastName, setLastName] = useState(user?.name?.split(" ").slice(1).join(" ") || "");
   const [email, setEmail] = useState(user?.email || "");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(preset?.messagePrompt ?? "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,11 +44,14 @@ export default function GeneralSupport() {
     try {
       const fullName = `${firstName} ${lastName}`.trim();
       const descriptionWithContact = `From: ${fullName} <${email}>\n\n${message}`;
+      const subject = preset
+        ? preset.subject
+        : `General Support Request from ${fullName}`;
       const res = await authFetch("/tickets", {
         method: "POST",
         body: JSON.stringify({
           category: "other",
-          subject: `General Support Request from ${fullName}`,
+          subject,
           description: descriptionWithContact,
         }),
       });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -411,25 +411,35 @@ export default function Account() {
                     data-testid="email-admin-cancelled-banner"
                   >
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <p className="flex-1">
-                      Your pending change to{" "}
-                      <strong data-testid="text-admin-cancelled-email">
-                        {member.lastAdminCancelledEmailChange.newEmail}
-                      </strong>{" "}
-                      was cancelled by an administrator on{" "}
-                      <span data-testid="text-admin-cancelled-at">
-                        {new Date(
-                          member.lastAdminCancelledEmailChange.cancelledAt,
-                        ).toLocaleString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      . Please contact support if you weren't expecting this.
-                    </p>
+                    <div className="flex-1">
+                      <p>
+                        Your pending change to{" "}
+                        <strong data-testid="text-admin-cancelled-email">
+                          {member.lastAdminCancelledEmailChange.newEmail}
+                        </strong>{" "}
+                        was cancelled by an administrator on{" "}
+                        <span data-testid="text-admin-cancelled-at">
+                          {new Date(
+                            member.lastAdminCancelledEmailChange.cancelledAt,
+                          ).toLocaleString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        . If you weren't expecting this,{" "}
+                        <Link
+                          href="/support/contact?topic=email-admin-cancelled"
+                          data-testid="link-admin-cancelled-contact-support"
+                          className="font-medium text-blue-900 underline hover:no-underline"
+                        >
+                          contact support
+                        </Link>
+                        .
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={handleDismissAdminCancelled}

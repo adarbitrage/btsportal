@@ -19,6 +19,19 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("wouter", () => ({
   useLocation: () => ["/account", () => {}],
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: ReactNode;
+    [key: string]: unknown;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 const useGetCurrentMember = vi.fn();
