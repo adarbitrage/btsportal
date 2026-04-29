@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,9 +29,23 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
+  ScrollText,
+  ExternalLink,
 } from "lucide-react";
 import { mockTickets, mockCannedResponses, type AdminTicket, type CannedResponse } from "@/lib/admin-mock-data";
+import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
+
+type TicketAuditRow = {
+  id: number;
+  actionType: string;
+  entityType: string;
+  entityId: string | null;
+  actorId: number | null;
+  actorEmail: string | null;
+  description: string;
+  createdAt: string;
+};
 
 function CannedResponsePicker({
   open,
@@ -208,6 +222,34 @@ export default function AdminTicketDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [showCannedPicker, setShowCannedPicker] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  // Recent audit-log rows for this ticket. The page itself still renders
+  // ticket data from mocks, but the audit feed comes from the live audit log
+  // so admins see real status/assignment/merge entries and can deep-link into
+  // /admin/audit-log?entityType=ticket&expand=<id> the same way the Member
+  // Detail audit tab does.
+  const [auditRows, setAuditRows] = useState<TicketAuditRow[] | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!Number.isFinite(ticketId)) return;
+    let cancelled = false;
+    setAuditRows(null);
+    setAuditError(null);
+    adminPanelApi
+      .getTicketAuditHistory(ticketId)
+      .then((data) => {
+        if (cancelled) return;
+        setAuditRows(data.auditHistory ?? []);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setAuditError(err instanceof Error ? err.message : "Failed to load activity");
+        setAuditRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ticketId]);
 
   if (!ticket) {
     return (
@@ -342,6 +384,56 @@ export default function AdminTicketDetail() {
             </Card>
           ))}
         </div>
+
+        <Card data-testid="ticket-recent-activity-card">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ScrollText className="w-4 h-4" /> Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {auditRows === null ? (
+              <p className="text-sm text-muted-foreground" data-testid="ticket-recent-activity-loading">
+                Loading activity…
+              </p>
+            ) : auditError ? (
+              <p className="text-sm text-destructive" data-testid="ticket-recent-activity-error">
+                {auditError}
+              </p>
+            ) : auditRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="ticket-recent-activity-empty">
+                No recent audit activity for this ticket
+              </p>
+            ) : (
+              <div className="space-y-2" data-testid="ticket-recent-activity-list">
+                {auditRows.map((log) => (
+                  <Link
+                    key={log.id}
+                    href={`/admin/audit-log?entityType=ticket&expand=${log.id}`}
+                    data-testid={`ticket-audit-link-${log.id}`}
+                  >
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                      <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{log.description}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge variant="outline" className="text-[10px]">{log.actionType}</Badge>
+                          {log.actorEmail && (
+                            <span className="text-[10px] text-muted-foreground truncate">{log.actorEmail}</span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {log.createdAt ? format(new Date(log.createdAt), "MMM d, h:mm a") : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {ticket.status !== "closed" && (
           <Card className="mt-8 overflow-hidden border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">

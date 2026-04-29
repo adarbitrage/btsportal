@@ -1170,6 +1170,39 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
   }
 });
 
+// Recent audit-log rows for a single ticket. Backs the "Recent activity" card
+// on the admin Ticket Detail page — each row is rendered there as a deep-link
+// to `/admin/audit-log?entityType=ticket&expand=<id>` so admins can jump
+// straight to the full audit row (status changes, assignments, merges, …).
+// Capped to a small recent window; the audit log page is the source of truth
+// for the full history.
+const TICKET_AUDIT_HISTORY_LIMIT = 20;
+router.get("/admin/tickets/:id/audit-history", requirePermission("tickets:view"), async (req: Request, res: Response) => {
+  try {
+    const rawId = req.params.id;
+    const id = typeof rawId === "string" ? parseInt(rawId, 10) : NaN;
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ticket ID" }); return; }
+
+    const auditHistory = await safeQuery(
+      db.select()
+        .from(auditLogTable)
+        .where(and(eq(auditLogTable.entityType, "ticket"), eq(auditLogTable.entityId, String(id))))
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(TICKET_AUDIT_HISTORY_LIMIT)
+    );
+
+    // Mirror the audit-log endpoint's redaction policy so non-PII viewers
+    // don't see member emails / IPs leak through the embedded card.
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const auditRows = canSeePii ? auditHistory : auditHistory.map(redactAuditRowPii);
+
+    res.json({ auditHistory: auditRows, limit: TICKET_AUDIT_HISTORY_LIMIT });
+  } catch (error) {
+    console.error("[Admin] Ticket audit history error:", error);
+    res.status(500).json({ error: "Failed to fetch ticket audit history" });
+  }
+});
+
 // Page through a member's email-change attempts. The Member Detail page embeds
 // the most recent page via `/full`; this endpoint backs the "Show older" UI
 // so support staff can reach attempts that fall outside the first page within

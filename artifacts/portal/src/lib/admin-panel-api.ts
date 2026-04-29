@@ -150,6 +150,24 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getTicketAuditHistory(ticketId: number) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/audit-history`);
+    if (!res.ok) throw new Error("Failed to fetch ticket audit history");
+    return res.json() as Promise<{
+      auditHistory: Array<{
+        id: number;
+        actionType: string;
+        entityType: string;
+        entityId: string | null;
+        actorId: number | null;
+        actorEmail: string | null;
+        description: string;
+        createdAt: string;
+      }>;
+      limit: number;
+    }>;
+  },
+
   async getMemberEmailAttempts(
     userId: number,
     options: { limit?: number; offset?: number } = {},
