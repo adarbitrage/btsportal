@@ -27,9 +27,32 @@ function normaliseOutcome(raw: string | null): AlertOutcomeFilter {
   return (ALERT_OUTCOME_OPTIONS as readonly string[]).includes(raw) ? (raw as AlertOutcomeFilter) : "";
 }
 
+// Parse a `?jumpTo=` query value into a normalized ISO string. We accept any
+// `Date`-parseable input (so `2026-04-22T12:00:00Z`, `2026-04-22T12:00`, etc.
+// all work when an admin hand-edits the URL) but always normalize to an ISO
+// string before threading it through state — that's what the server expects
+// and what we want back in the URL after the user clicks Jump.
+function normaliseJumpTo(raw: string | null): string | null {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+// Convert an ISO timestamp into the `YYYY-MM-DDTHH:mm` shape that an
+// `<input type="datetime-local">` expects. The picker is always rendered in
+// the admin's local timezone, so we read the local fields off the Date.
+function isoToDateTimeLocalValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function readUrlParams() {
   if (typeof window === "undefined") {
-    return { actionType: "", entityType: "", startDate: "", endDate: "", outcome: "" as AlertOutcomeFilter, expand: null as number | null };
+    return { actionType: "", entityType: "", startDate: "", endDate: "", outcome: "" as AlertOutcomeFilter, expand: null as number | null, jumpTo: null as string | null };
   }
   const sp = new URLSearchParams(window.location.search);
   const expandRaw = sp.get("expand");
@@ -41,7 +64,30 @@ function readUrlParams() {
     endDate: sp.get("endDate") ?? "",
     outcome: normaliseOutcome(sp.get("outcome")),
     expand,
+    jumpTo: normaliseJumpTo(sp.get("jumpTo")),
   };
+}
+
+// Update `?jumpTo=` in the current URL without triggering a navigation. We
+// use replaceState (not pushState) so the back button doesn't accumulate one
+// history entry per Jump click — the URL is meant for sharing the current
+// view, not browsing through past jumps. We also drop `?expand=` because
+// the user has explicitly signaled intent to jump to a time rather than
+// pin a specific row, and expand wins over jumpTo in load() — leaving
+// both in the URL would mean a freshly-shared link landed on the row
+// instead of the jump instant the admin just chose.
+function writeJumpToToUrl(iso: string | null) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  if (iso) {
+    params.set("jumpTo", iso);
+    params.delete("expand");
+  } else {
+    params.delete("jumpTo");
+  }
+  const qs = params.toString();
+  const cleanUrl = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+  window.history.replaceState({}, "", cleanUrl);
 }
 
 const PAGE_LIMIT = 50;
@@ -83,8 +129,18 @@ export default function AuditLog() {
   // string and stash it in pendingJumpRef so the very next load() seeks
   // that timestamp on the server. The ref is cleared after dispatch so
   // subsequent Newer/Older clicks paginate normally via cursors.
-  const [jumpToValue, setJumpToValue] = useState("");
-  const pendingJumpRef = useRef<string | null>(null);
+  // When the page loads with `?jumpTo=<iso>` in the URL we pre-fill the
+  // picker (rendered in the admin's local timezone) and prime the ref so
+  // the very first fetch seeks to that instant — that's what makes the
+  // shared deep-link land on the moment under discussion. We skip the
+  // pre-prime when `?expand=` is also present because expand wins in
+  // load() and we don't want to leak a stale jumpTo ref into a later call.
+  const [jumpToValue, setJumpToValue] = useState(() =>
+    isoToDateTimeLocalValue(initialParams.jumpTo),
+  );
+  const pendingJumpRef = useRef<string | null>(
+    initialParams.expand == null ? initialParams.jumpTo : null,
+  );
   const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   // Tracks an in-flight export so we can disable the buttons (no double
   // submits) and surface a streamed bytes/rows hint while a year-long
@@ -157,7 +213,14 @@ export default function AuditLog() {
       toast({ title: "Invalid date/time", description: "Pick a valid moment to jump to.", variant: "destructive" });
       return;
     }
-    pendingJumpRef.current = parsed.toISOString();
+    const iso = parsed.toISOString();
+    pendingJumpRef.current = iso;
+    // Reflect the chosen instant in the URL so an investigator can paste
+    // their browser bar into chat and have the next person land on the
+    // same moment. `?jumpTo=` lives alongside the other deep-link params
+    // (?actionType, ?entityType, ?startDate, ?endDate, ?expand) — see
+    // writeJumpToToUrl, which preserves any params already in the URL.
+    writeJumpToToUrl(iso);
     await load();
   };
 
