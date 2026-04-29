@@ -175,6 +175,30 @@ interface WindowWithWebkitAudio {
   webkitAudioContext?: typeof AudioContext;
 }
 
+// Allow-list mirrors the server's accepted statsWindowMs values. Changing
+// these here without updating the server allow-list will silently fall back
+// to the 1h default.
+const ALERT_STATS_WINDOW_1H_MS = 60 * 60 * 1000;
+const ALERT_STATS_WINDOW_24H_MS = 24 * 60 * 60 * 1000;
+const ALERT_STATS_WINDOW_OPTIONS: Array<{ ms: number; label: string }> = [
+  { ms: ALERT_STATS_WINDOW_1H_MS, label: "1h" },
+  { ms: ALERT_STATS_WINDOW_24H_MS, label: "24h" },
+];
+const ALERT_STATS_WINDOW_PREF_KEY = "systemHealth.alertStatsWindowMs";
+
+function readAlertStatsWindowPreference(): number {
+  if (typeof window === "undefined") return ALERT_STATS_WINDOW_1H_MS;
+  try {
+    const raw = window.localStorage.getItem(ALERT_STATS_WINDOW_PREF_KEY);
+    if (!raw) return ALERT_STATS_WINDOW_1H_MS;
+    const parsed = Number.parseInt(raw, 10);
+    if (ALERT_STATS_WINDOW_OPTIONS.some((opt) => opt.ms === parsed)) return parsed;
+    return ALERT_STATS_WINDOW_1H_MS;
+  } catch {
+    return ALERT_STATS_WINDOW_1H_MS;
+  }
+}
+
 function readSoundPreference(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -217,6 +241,10 @@ export default function SystemHealth() {
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
   const [recentNewEventCount, setRecentNewEventCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readSoundPreference());
+  // Rolling window the on-call alert summary uses. Persisted in localStorage
+  // so an admin who flipped to "24h" the night before still sees overnight
+  // numbers when they come back in the morning.
+  const [alertStatsWindowMs, setAlertStatsWindowMs] = useState<number>(() => readAlertStatsWindowPreference());
   const inFlightRef = useRef(0);
   const previousMaxEventIdRef = useRef<number | null>(null);
   const hasLoadedFallbackEventsRef = useRef(false);
@@ -244,6 +272,15 @@ export default function SystemHealth() {
       // ignore — non-fatal if storage is unavailable
     }
   }, [soundEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(ALERT_STATS_WINDOW_PREF_KEY, String(alertStatsWindowMs));
+    } catch {
+      // ignore — non-fatal if storage is unavailable
+    }
+  }, [alertStatsWindowMs]);
 
   const playFallbackChime = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -455,6 +492,7 @@ export default function SystemHealth() {
       const data = await adminPanelApi.getQueueFallbackAlertEvents(ALERT_EVENTS_LIMIT, {
         outcome: alertOutcomeFilter,
         deliveryChannel: alertChannelFilter,
+        statsWindowMs: alertStatsWindowMs,
       });
       const events: QueueFallbackAlertEvent[] = Array.isArray(data?.events) ? data.events : [];
       setAlertEvents(events);
@@ -491,15 +529,16 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setAlertEventsLoading(false);
     }
-  }, [alertOutcomeFilter, alertChannelFilter, playAlertChime]);
+  }, [alertOutcomeFilter, alertChannelFilter, alertStatsWindowMs, playAlertChime]);
 
-  // Reset alert-event "what's new" tracking whenever the active filter
-  // changes. Without this, switching from e.g. `sent` to `failed` could be
-  // mistaken for "new failed rows arrived" and spuriously chime.
+  // Reset alert-event "what's new" tracking whenever the active filter or
+  // stats window changes. Without this, switching from e.g. `sent` to
+  // `failed` — or expanding the window from 1h to 24h — could be mistaken
+  // for "new failed rows arrived" and spuriously chime.
   useEffect(() => {
     hasLoadedAlertEventsRef.current = false;
     previousMaxUrgentAlertIdRef.current = null;
-  }, [alertOutcomeFilter, alertChannelFilter]);
+  }, [alertOutcomeFilter, alertChannelFilter, alertStatsWindowMs]);
 
   const loadAlerterHealth = useCallback(async (silent = false) => {
     try {
@@ -2215,6 +2254,32 @@ export default function SystemHealth() {
                     className="px-4 py-2 border-b bg-muted/20 text-xs flex flex-wrap items-center gap-x-3 gap-y-1"
                     data-testid="alert-events-summary"
                   >
+                    <div
+                      className="inline-flex items-center rounded-md border bg-background p-0.5 mr-1"
+                      role="group"
+                      aria-label="Alert summary window"
+                      data-testid="alert-stats-window-toggle"
+                    >
+                      {ALERT_STATS_WINDOW_OPTIONS.map((opt) => {
+                        const active = alertStatsWindowMs === opt.ms;
+                        return (
+                          <button
+                            key={opt.ms}
+                            type="button"
+                            onClick={() => setAlertStatsWindowMs(opt.ms)}
+                            aria-pressed={active}
+                            className={`px-2 py-0.5 text-[11px] rounded-sm transition-colors ${
+                              active
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                            data-testid={`alert-stats-window-${opt.label}`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <span className="text-muted-foreground">
                       {formatAlertStatsWindow(alertStats.windowMs)}:
                     </span>

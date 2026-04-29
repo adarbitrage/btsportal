@@ -455,6 +455,68 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
     expect(after.body.stats.byChannel.unknown.failed).toBe(baselineUnknownFailed + 1);
   });
 
+  describe("statsWindowMs query param", () => {
+    it("defaults to a 1h rolling window when no statsWindowMs is supplied", async () => {
+      const res = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=1")
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.stats.windowMs).toBe(60 * 60 * 1000);
+    });
+
+    it("honors statsWindowMs=86400000 (24h) and includes rows older than 1h but newer than 24h", async () => {
+      // Anchor a row in the gap between 1h and 24h so we can prove the
+      // wider window picks it up while the default 1h window does not.
+      const gapId = await insertAlertRow({
+        queueChannel: "email",
+        deliveryChannel: "pagerduty",
+        kind: "fire",
+        outcome: "sent",
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+      });
+
+      const oneHour = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200")
+        .set("Cookie", adminCookie);
+      expect(oneHour.status).toBe(200);
+      expect(oneHour.body.stats.windowMs).toBe(60 * 60 * 1000);
+      const oneHourSent = oneHour.body.stats.sent;
+
+      const dayWindow = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200&statsWindowMs=86400000")
+        .set("Cookie", adminCookie);
+      expect(dayWindow.status).toBe(200);
+      expect(dayWindow.body.stats.windowMs).toBe(24 * 60 * 60 * 1000);
+      // The 6h-old "sent" row should bump the 24h bucket but not the 1h one.
+      expect(dayWindow.body.stats.sent).toBeGreaterThanOrEqual(oneHourSent + 1);
+
+      // The row itself does not have to appear in the events page (the page
+      // is bounded by limit, not the window) but it should at least exist.
+      expect(typeof gapId).toBe("number");
+    });
+
+    it("ignores statsWindowMs values outside the allow-list and falls back to 1h", async () => {
+      const garbage = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=1&statsWindowMs=999")
+        .set("Cookie", adminCookie);
+      expect(garbage.status).toBe(200);
+      expect(garbage.body.stats.windowMs).toBe(60 * 60 * 1000);
+
+      const nonNumeric = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=1&statsWindowMs=forever")
+        .set("Cookie", adminCookie);
+      expect(nonNumeric.status).toBe(200);
+      expect(nonNumeric.body.stats.windowMs).toBe(60 * 60 * 1000);
+
+      // 7d would be a reasonable-looking number that we still don't allow.
+      const tooBig = await request(app)
+        .get(`/api/admin/system/queue-fallback-alert-events?limit=1&statsWindowMs=${7 * 24 * 60 * 60 * 1000}`)
+        .set("Cookie", adminCookie);
+      expect(tooBig.status).toBe(200);
+      expect(tooBig.body.stats.windowMs).toBe(60 * 60 * 1000);
+    });
+  });
+
   it("rejects callers without system:view permission", async () => {
     const res = await request(app)
       .get("/api/admin/system/queue-fallback-alert-events")

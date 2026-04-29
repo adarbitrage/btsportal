@@ -2267,17 +2267,33 @@ router.get("/admin/system/queue-fallback-events", requirePermission("system:view
  * the action type with a different entityType.
  *
  * In addition to the per-row events, the response includes a `stats` object
- * grouping the outcomes of *all* alert deliveries from the last hour (not
- * just the ones in the page) so the System Health UI can show a one-line
- * summary ("last hour: 4 sent · 1 failed · 2 throttled") above the table
- * without making a second round-trip. The window is independent of `limit`
- * so the counter stays accurate even when fewer than 20 rows fit on screen.
+ * grouping the outcomes of *all* alert deliveries within a rolling window
+ * (default 1h) so the System Health UI can show a one-line summary
+ * ("last hour: 4 sent · 1 failed · 2 throttled") above the table without
+ * making a second round-trip. The window is independent of `limit` so the
+ * counter stays accurate even when fewer than 20 rows fit on screen.
+ *
+ * Admins can ask for a wider window via the `statsWindowMs` query param —
+ * useful the morning after an overnight incident ("did we page anyone
+ * overnight?"). The param is restricted to a small allow-list so we can't
+ * be coerced into a full table scan from the URL bar; anything else falls
+ * back to the 1h default.
  */
 const QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS = 60 * 60 * 1000;
+const QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS_24H = 24 * 60 * 60 * 1000;
+const QUEUE_FALLBACK_ALERT_STATS_WINDOW_ALLOWLIST = new Set<number>([
+  QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS,
+  QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS_24H,
+]);
 router.get("/admin/system/queue-fallback-alert-events", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
     const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+    const rawStatsWindow = Number.parseInt(String(req.query.statsWindowMs ?? ""), 10);
+    const statsWindowMs = Number.isFinite(rawStatsWindow) && QUEUE_FALLBACK_ALERT_STATS_WINDOW_ALLOWLIST.has(rawStatsWindow)
+      ? rawStatsWindow
+      : QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS;
 
     // Optional outcome / deliveryChannel filters applied server-side so the
     // row limit stays meaningful when an on-call admin narrows the view.
@@ -2314,7 +2330,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       rowConditions.push(sql`${auditLogTable.metadata}->>'deliveryChannel' = ${deliveryChannelFilter}`);
     }
 
-    const statsSince = new Date(Date.now() - QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS);
+    const statsSince = new Date(Date.now() - statsWindowMs);
     const outcomeExpr = sql<string>`COALESCE(${auditLogTable.metadata}->>'outcome', 'unknown')`;
     // Also group by deliveryChannel so the summary can answer "which channel
     // is broken?" — not just "did pages go out?". An unrecognized or missing
@@ -2415,7 +2431,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
         outcome: outcomeFilter,
         deliveryChannel: deliveryChannelFilter,
       },
-      stats: { windowMs: QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS, ...stats, byChannel },
+      stats: { windowMs: statsWindowMs, ...stats, byChannel },
     });
   } catch (error) {
     console.error("[Admin] Queue fallback alert events error:", error);

@@ -776,12 +776,14 @@ export const adminPanelApi = {
     filters?: {
       outcome?: "sent" | "failed" | "throttled" | "skipped" | null;
       deliveryChannel?: "pagerduty" | "email" | "slack" | null;
+      statsWindowMs?: number | null;
     },
   ) {
     const params = new URLSearchParams();
     params.set("limit", String(limit));
     if (filters?.outcome) params.set("outcome", filters.outcome);
     if (filters?.deliveryChannel) params.set("deliveryChannel", filters.deliveryChannel);
+    if (filters?.statsWindowMs) params.set("statsWindowMs", String(filters.statsWindowMs));
     const res = await authFetch(`/admin/system/queue-fallback-alert-events?${params.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch queue fallback alert events");
     return res.json();
