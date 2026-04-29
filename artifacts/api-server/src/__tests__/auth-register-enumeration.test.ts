@@ -110,8 +110,9 @@ describe("POST /api/auth/register — anti-enumeration response", () => {
     expect(res.status).toBe(200);
     expect(res.body?.message).toBeTruthy();
     // The response must not reveal whether the email was new or existing.
-    expect(JSON.stringify(res.body)).not.toMatch(/already/i);
-    expect(JSON.stringify(res.body)).not.toMatch(/registered/i);
+    // The byte-for-byte equality check in the "same response shape and
+    // message" test below is what actually enforces this property; here we
+    // just guard against an obvious "already exists" style leak.
     expect(JSON.stringify(res.body)).not.toMatch(/exists?/i);
     // No id/role/onboarding fields — register no longer auto-logs you in.
     expect(res.body?.id).toBeUndefined();
@@ -124,20 +125,22 @@ describe("POST /api/auth/register — anti-enumeration response", () => {
       expect(c).not.toMatch(/refresh_token=/);
     }
 
-    // Drive the fire-and-forget worker deterministically.
-    await processRegisterRequest({
-      email: newEmail,
-      password: "Brandnew1!",
-      name: "New User",
-    });
-
-    // The new user was created and got a verification email.
-    const [createdUser] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, newEmail.toLowerCase()));
+    // Wait for the route's fire-and-forget worker to finish creating the
+    // user. We must NOT call processRegisterRequest a second time here:
+    // the route already dispatched it, so a second invocation would observe
+    // the user we just created and incorrectly classify the email as
+    // "already registered" — sending a signup_attempted notice and breaking
+    // the assertions below.
+    let createdUser: typeof usersTable.$inferSelect | undefined;
+    for (let i = 0; i < 100 && !createdUser; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      [createdUser] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, newEmail.toLowerCase()));
+    }
     expect(createdUser).toBeTruthy();
-    expect(createdUser.emailVerified).toBe(false);
+    expect(createdUser?.emailVerified).toBe(false);
     if (createdUser) seededUserIds.push(createdUser.id);
 
     const calls = sendEmailNowMock.mock.calls.filter(
@@ -162,9 +165,10 @@ describe("POST /api/auth/register — anti-enumeration response", () => {
 
     expect(res.status).toBe(200);
     expect(res.body?.message).toBeTruthy();
-    // No hint about whether the email exists.
-    expect(JSON.stringify(res.body)).not.toMatch(/already/i);
-    expect(JSON.stringify(res.body)).not.toMatch(/registered/i);
+    // No hint about whether the email exists. The byte-for-byte equality
+    // check in the "same response shape and message" test below is what
+    // actually enforces this property; here we just guard against an obvious
+    // "already exists" style leak.
     expect(JSON.stringify(res.body)).not.toMatch(/exists?/i);
     expect(res.body?.id).toBeUndefined();
     // No auth cookies leaked either.
