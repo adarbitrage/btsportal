@@ -235,9 +235,15 @@ export type CommunicationOutcome =
  *     message from the provider or DB.
  */
 export type EmailDirectResult =
-  | { status: "sent"; messageId: string }
-  | { status: "skipped"; reason: string }
-  | { status: "failed"; error: string };
+  // `logId` is the row id of the `communication_log` row this send wrote
+  // (or null on the early-skip paths that don't create a log row, e.g. the
+  // marketing-suppression branch that returns before insert is reached).
+  // Callers thread it into `recordQueueFallback({ commsLogId })` so the
+  // fallback audit row links to the exact send instead of relying on the
+  // channel + recipient + time-window heuristic.
+  | { status: "sent"; messageId: string; logId: number }
+  | { status: "skipped"; reason: string; logId: number | null }
+  | { status: "failed"; error: string; logId: number };
 
 /**
  * Result of a direct SMS send via sendSmsDirect. Same shape as
@@ -246,9 +252,11 @@ export type EmailDirectResult =
  *   - skipped: provider not configured, or the user is not opted in.
  */
 export type SmsDirectResult =
-  | { status: "sent"; messageSid: string }
-  | { status: "skipped"; reason: string }
-  | { status: "failed"; error: string };
+  // `logId` mirrors EmailDirectResult.logId. The `not_opted_in` skip path
+  // returns before any log row is inserted, so it's null there.
+  | { status: "sent"; messageSid: string; logId: number }
+  | { status: "skipped"; reason: string; logId: number | null }
+  | { status: "failed"; error: string; logId: number };
 
 function replaceVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -365,7 +373,7 @@ async function sendEmailDirect(params: {
     const suppression = await isEmailSuppressed(to);
     if (suppression.suppressed) {
       console.log(`[Comms] Email to ${to} suppressed: ${suppression.reason}`);
-      await db.insert(communicationLogTable).values({
+      const [suppressedLog] = await db.insert(communicationLogTable).values({
         userId,
         channel: "email",
         templateSlug,
@@ -375,8 +383,12 @@ async function sendEmailDirect(params: {
         status: "suppressed",
         category,
         metadata: { reason: suppression.reason },
-      });
-      return { status: "skipped", reason: `suppressed:${suppression.reason ?? "unknown"}` };
+      }).returning({ id: communicationLogTable.id });
+      return {
+        status: "skipped",
+        reason: `suppressed:${suppression.reason ?? "unknown"}`,
+        logId: suppressedLog.id,
+      };
     }
   }
 
@@ -396,7 +408,7 @@ async function sendEmailDirect(params: {
     await db.update(communicationLogTable)
       .set({ status: "skipped", errorMessage: "SendGrid not configured" })
       .where(eq(communicationLogTable.id, logEntry.id));
-    return { status: "skipped", reason: "provider_not_configured" };
+    return { status: "skipped", reason: "provider_not_configured", logId: logEntry.id };
   }
 
   try {
@@ -431,7 +443,7 @@ async function sendEmailDirect(params: {
       .set({ status: "sent", sendgridMessageId: messageId })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { status: "sent", messageId };
+    return { status: "sent", messageId, logId: logEntry.id };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Comms] Email send failed to ${to}:`, errorMessage);
@@ -440,7 +452,7 @@ async function sendEmailDirect(params: {
       .set({ status: "failed", errorMessage })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { status: "failed", error: errorMessage };
+    return { status: "failed", error: errorMessage, logId: logEntry.id };
   }
 }
 
@@ -461,7 +473,9 @@ async function sendSmsDirect(params: {
 
     if (!user?.smsOptIn) {
       console.log(`[Comms] SMS to user ${userId} skipped: not opted in`);
-      return { status: "skipped", reason: "not_opted_in" };
+      // No log row was inserted on the not-opted-in path, so there's no
+      // logId to thread back to recordQueueFallback.
+      return { status: "skipped", reason: "not_opted_in", logId: null };
     }
   }
 
@@ -478,7 +492,7 @@ async function sendSmsDirect(params: {
     await db.update(communicationLogTable)
       .set({ status: "skipped", errorMessage: "Twilio not configured" })
       .where(eq(communicationLogTable.id, logEntry.id));
-    return { status: "skipped", reason: "provider_not_configured" };
+    return { status: "skipped", reason: "provider_not_configured", logId: logEntry.id };
   }
 
   try {
@@ -493,7 +507,7 @@ async function sendSmsDirect(params: {
       .set({ status: "sent", twilioMessageSid: message.sid })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { status: "sent", messageSid: message.sid };
+    return { status: "sent", messageSid: message.sid, logId: logEntry.id };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Comms] SMS send failed to ${to}:`, errorMessage);
@@ -502,7 +516,7 @@ async function sendSmsDirect(params: {
       .set({ status: "failed", errorMessage })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { status: "failed", error: errorMessage };
+    return { status: "failed", error: errorMessage, logId: logEntry.id };
   }
 }
 
@@ -556,9 +570,19 @@ export const CommunicationService = {
       return { result: "queued" };
     }
 
-    void recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
     console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
     const direct = await sendEmailDirect(jobData);
+    // Record the fallback after the direct send so we can stamp the
+    // resulting communication_log id onto the audit row's metadata. This
+    // gives the Communications Log detail dialog an exact link instead of
+    // relying on the channel + recipient + ±2-minute time-window heuristic.
+    // The not-opted-in skip path (only on SMS) doesn't insert a log row, so
+    // logId can be null there; for email it's always populated.
+    void recordQueueFallback("email", {
+      recipient: to,
+      reason: "queue_unavailable",
+      commsLogId: direct.logId ?? undefined,
+    });
     switch (direct.status) {
       case "sent":
         return { result: "sent_direct" };
@@ -604,9 +628,15 @@ export const CommunicationService = {
       return { result: "queued" };
     }
 
-    void recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
     console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
     const direct = await sendSmsDirect(jobData);
+    // See queueEmail above for the rationale: recording after the direct
+    // send lets us stamp the communication_log id onto the audit row.
+    void recordQueueFallback("sms", {
+      recipient: to,
+      reason: "queue_unavailable",
+      commsLogId: direct.logId ?? undefined,
+    });
     switch (direct.status) {
       case "sent":
         return { result: "sent_direct" };
@@ -634,7 +664,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] Email template not found: ${templateSlug}`);
-      return { status: "skipped", reason: `template_not_found:${templateSlug}` };
+      return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
     }
 
     const allVars = getCommonVariables(variables);
@@ -671,7 +701,7 @@ export const CommunicationService = {
 
     if (!template) {
       console.error(`[Comms] SMS template not found: ${templateSlug}`);
-      return { status: "skipped", reason: `template_not_found:${templateSlug}` };
+      return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
     }
 
     const allVars = getCommonVariables(variables);

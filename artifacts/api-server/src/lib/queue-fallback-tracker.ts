@@ -71,6 +71,16 @@ export interface RecordFallbackOptions {
   recipient?: string;
   /** Optional reason describing why the queue was unavailable (e.g. "redis_not_ready"). */
   reason?: string;
+  /**
+   * Optional id of the freshly-inserted `communication_log` row this
+   * fallback fired for. Stored under `metadata.commsLogId` so the
+   * Communications Log detail dialog can link the comms-log row to its
+   * exact fallback audit row instead of relying on the
+   * channel + recipient + ±2-minute time-window heuristic. Back-to-back
+   * sends to the same recipient and slow direct-sends that finish outside
+   * the heuristic's window both link correctly when this is set.
+   */
+  commsLogId?: number;
 }
 
 /**
@@ -94,6 +104,10 @@ async function persistFallback(
         recipient: opts.recipient ?? null,
         reason: opts.reason ?? null,
         occurredAt: occurredAt.toISOString(),
+        // Only emit the key when set so legacy queries that look for
+        // "metadata.commsLogId IS NULL" still distinguish old rows from
+        // new ones that were intentionally recorded without a log id.
+        ...(opts.commsLogId != null ? { commsLogId: opts.commsLogId } : {}),
       },
       createdAt: occurredAt,
     });

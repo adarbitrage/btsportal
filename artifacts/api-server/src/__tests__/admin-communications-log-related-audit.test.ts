@@ -107,10 +107,12 @@ async function insertFallback(args: {
   reason?: string;
   createdAt?: Date;
   entityType?: string;
+  commsLogId?: number;
 }): Promise<number> {
   const meta: Record<string, unknown> = { channel: args.channel };
   if (args.recipient !== null) meta.recipient = args.recipient;
   if (args.reason) meta.reason = args.reason;
+  if (args.commsLogId != null) meta.commsLogId = args.commsLogId;
   const [row] = await db
     .insert(auditLogTable)
     .values({
@@ -247,5 +249,101 @@ describe("GET /api/admin/communications/log/:id relatedAudit", () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.relatedAudit)).toBe(true);
     expect(res.body.relatedAudit).toHaveLength(0);
+  });
+
+  it("links a fallback by exact commsLogId even when it's outside the ±2 minute window", async () => {
+    // The whole point of the commsLogId stamp: a slow direct-send that took
+    // 10 minutes to finish would never link via the time-window heuristic,
+    // but it does link via the exact-id match.
+    const recipient = `${TEST_TAG}-exact-far@example.test`;
+    const sendAt = new Date();
+    const logId = await insertCommsLog({ channel: "email", recipient, createdAt: sendAt });
+    const fallbackId = await insertFallback({
+      channel: "email",
+      recipient,
+      reason: "queue_unavailable",
+      commsLogId: logId,
+      createdAt: new Date(sendAt.getTime() - 10 * 60 * 1000),
+    });
+
+    const res = await request(app)
+      .get(`/api/admin/communications/log/${logId}`)
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.relatedAudit.map((r: { id: number }) => r.id);
+    expect(ids).toContain(fallbackId);
+  });
+
+  it("prefers exact commsLogId match over a time-window heuristic match for a different send", async () => {
+    // Back-to-back sends to the same recipient on the same channel: under
+    // the heuristic both fallbacks would link to both logs. With commsLogId
+    // stamping, each log only links to its own fallback.
+    const recipient = `${TEST_TAG}-back-to-back@example.test`;
+    const sendAt = new Date();
+
+    // Log A and its fallback (close together, both stamped with A's id).
+    const logIdA = await insertCommsLog({ channel: "email", recipient, createdAt: sendAt });
+    const fallbackForA = await insertFallback({
+      channel: "email",
+      recipient,
+      reason: "queue_unavailable",
+      commsLogId: logIdA,
+      createdAt: new Date(sendAt.getTime() - 500),
+    });
+
+    // Log B fired ~30 seconds later (well within the heuristic window) with
+    // its own fallback stamped with B's id.
+    const sendAtB = new Date(sendAt.getTime() + 30 * 1000);
+    const logIdB = await insertCommsLog({ channel: "email", recipient, createdAt: sendAtB });
+    const fallbackForB = await insertFallback({
+      channel: "email",
+      recipient,
+      reason: "queue_unavailable",
+      commsLogId: logIdB,
+      createdAt: new Date(sendAtB.getTime() - 500),
+    });
+
+    const resA = await request(app)
+      .get(`/api/admin/communications/log/${logIdA}`)
+      .set("Cookie", adminCookie);
+    expect(resA.status).toBe(200);
+    const idsA = resA.body.relatedAudit.map((r: { id: number }) => r.id);
+    expect(idsA).toContain(fallbackForA);
+    // The other send's fallback carries a non-matching commsLogId, so the
+    // heuristic branch (which requires commsLogId IS NULL) cannot pull it in
+    // and pollute log A's relatedAudit.
+    expect(idsA).not.toContain(fallbackForB);
+
+    const resB = await request(app)
+      .get(`/api/admin/communications/log/${logIdB}`)
+      .set("Cookie", adminCookie);
+    expect(resB.status).toBe(200);
+    const idsB = resB.body.relatedAudit.map((r: { id: number }) => r.id);
+    expect(idsB).toContain(fallbackForB);
+    expect(idsB).not.toContain(fallbackForA);
+  });
+
+  it("still links legacy fallback rows (no commsLogId) via the time-window heuristic", async () => {
+    // Pre-existing fallback rows in the DB don't have metadata.commsLogId.
+    // They must still surface for their corresponding comms-log row.
+    const recipient = `${TEST_TAG}-legacy@example.test`;
+    const sendAt = new Date();
+    const legacyFallbackId = await insertFallback({
+      channel: "email",
+      recipient,
+      reason: "queue_unavailable",
+      createdAt: new Date(sendAt.getTime() - 1000),
+      // commsLogId intentionally omitted to simulate a legacy row.
+    });
+    const logId = await insertCommsLog({ channel: "email", recipient, createdAt: sendAt });
+
+    const res = await request(app)
+      .get(`/api/admin/communications/log/${logId}`)
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.relatedAudit.map((r: { id: number }) => r.id);
+    expect(ids).toContain(legacyFallbackId);
   });
 });

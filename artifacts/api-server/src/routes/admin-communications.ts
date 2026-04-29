@@ -1452,9 +1452,29 @@ router.get("/admin/communications/log/:id", requirePermission("communications:vi
  * detail dialog can deep-link them. Two sources are surfaced today:
  *
  * 1. queue_fallback rows fired when the email/SMS queue was unavailable and
- *    the comms service fell back to a direct send. Matched by channel +
- *    recipient + a tight ±2 minute window — that's the case the dialog was
- *    originally built for ("why did this message take this path?").
+ *    the comms service fell back to a direct send. That's the case the
+ *    dialog was originally built for ("why did this message take this
+ *    path?"). Match strategy:
+ *      - Always: actionType = "queue_fallback" AND entityType = "queue"
+ *      - Preferred: `metadata.commsLogId = log.id`. Modern fallback rows
+ *        stamp the freshly-inserted communication_log id onto themselves
+ *        (see `recordQueueFallback({ commsLogId })` in
+ *        queue-fallback-tracker.ts), giving an exact 1:1 link with no
+ *        ambiguity. Slow direct-sends that finish outside the heuristic's
+ *        ±2-minute window and back-to-back sends to the same recipient
+ *        still resolve correctly through this path.
+ *      - Fallback heuristic for legacy rows that predate the commsLogId
+ *        stamping (so `metadata.commsLogId` is absent):
+ *          - entityId equals the comms-log channel ("email" / "sms")
+ *          - createdAt is within ±RELATED_AUDIT_WINDOW_MS of the comms-log
+ *            row's createdAt
+ *          - if the comms-log row has a recipient, the fallback row's
+ *            metadata.recipient must match
+ *      The two branches are OR'd, so a row that satisfies either qualifies.
+ *      The heuristic branch explicitly excludes rows that already carry a
+ *      commsLogId — that way a matching commsLogId always represents the
+ *      truthful link, and a non-matching commsLogId can never sneak through
+ *      on a time-window match for the wrong send.
  *
  * 2. template_create / template_update / template_delete rows that touched
  *    the same template_slug as the comms-log row, written within a window
@@ -1476,21 +1496,34 @@ async function fetchRelatedAuditRows(
 ): Promise<unknown[]> {
   if (!log.createdAt) return [];
 
-  const queueFallbackConditions: any[] = [
-    eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE),
-    eq(auditLogTable.entityType, QUEUE_FALLBACK_ENTITY_TYPE),
+  // Exact-id match: the modern path. Beats the heuristic and works even
+  // when the fallback was recorded outside the time window.
+  const exactCommsLogIdMatch = sql`${auditLogTable.metadata}->>'commsLogId' = ${String(log.id)}`;
+
+  // Legacy heuristic. Restricted to rows without a commsLogId so a fallback
+  // for a different send can't false-positive on this log just because the
+  // recipient and channel happen to line up in time.
+  const heuristicConditions: any[] = [
+    sql`${auditLogTable.metadata}->>'commsLogId' IS NULL`,
     eq(auditLogTable.entityId, log.channel),
     gte(auditLogTable.createdAt, new Date(log.createdAt.getTime() - RELATED_AUDIT_WINDOW_MS)),
     lte(auditLogTable.createdAt, new Date(log.createdAt.getTime() + RELATED_AUDIT_WINDOW_MS)),
   ];
 
-  // Channel-specific recipient match. Postgres jsonb operator `->>` returns
-  // NULL when the key is missing, which an `=` predicate naturally rejects,
-  // so legacy rows without metadata.recipient just don't match.
+  // Channel-specific recipient match for the heuristic branch. Postgres jsonb
+  // operator `->>` returns NULL when the key is missing, which an `=`
+  // predicate naturally rejects, so legacy rows without metadata.recipient
+  // just don't match.
   const recipient = log.recipientEmail ?? log.recipientPhone ?? null;
   if (recipient) {
-    queueFallbackConditions.push(sql`${auditLogTable.metadata}->>'recipient' = ${recipient}`);
+    heuristicConditions.push(sql`${auditLogTable.metadata}->>'recipient' = ${recipient}`);
   }
+
+  const queueFallbackConditions: any[] = [
+    eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE),
+    eq(auditLogTable.entityType, QUEUE_FALLBACK_ENTITY_TYPE),
+    or(exactCommsLogIdMatch, and(...heuristicConditions)),
+  ];
 
   const selection = {
     id: auditLogTable.id,
