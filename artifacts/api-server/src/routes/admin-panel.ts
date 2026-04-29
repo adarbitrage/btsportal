@@ -50,6 +50,10 @@ import {
   isAuthRateLimitAlertSettingKey,
 } from "../lib/auth-rate-limit-alert-settings";
 import {
+  getAuthRateLimitAlertTrafficPreview,
+  coerceLookbackDays as coerceAlertTrafficPreviewLookbackDays,
+} from "../lib/auth-rate-limit-alert-traffic-preview";
+import {
   getChangeHistoryRetentionConfigStatus,
   applyChangeHistoryRetentionConfigUpdate,
   validateUpdate as validateChangeHistoryRetentionUpdate,
@@ -3130,6 +3134,30 @@ router.put("/admin/auth-rate-limit-alert-config", requirePermission("settings:ma
     res.status(500).json({ error: "Failed to update auth rate-limit alert config" });
   }
 });
+
+/**
+ * Returns a recent-traffic snapshot the admin Settings card uses to show
+ * "would have fired N times in the last D days" for the saved (or in-progress)
+ * thresholds. The response includes per-day totals (always accurate) and,
+ * when the volume is small enough, the raw event timestamps so the UI can
+ * recompute the "would have fired" count locally for any draft threshold
+ * without a network round trip. See
+ * `auth-rate-limit-alert-traffic-preview.ts` for cost guards.
+ */
+router.get(
+  "/admin/auth-rate-limit-alert-config/traffic-preview",
+  requirePermission("settings:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const lookbackDays = coerceAlertTrafficPreviewLookbackDays(req.query.lookbackDays);
+      const preview = await getAuthRateLimitAlertTrafficPreview({ lookbackDays });
+      res.json(preview);
+    } catch (error) {
+      console.error("[Admin] Get auth rate-limit alert traffic preview error:", error);
+      res.status(500).json({ error: "Failed to fetch auth rate-limit alert traffic preview" });
+    }
+  },
+);
 
 /**
  * Read the current change-history retention windows (one per channel: email

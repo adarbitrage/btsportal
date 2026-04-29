@@ -8,6 +8,7 @@ import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, H
 import {
   adminPanelApi,
   type AuthRateLimitAlertConfigStatus,
+  type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
 } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -1011,6 +1012,56 @@ function formatAlertValue(field: AlertField, value: number): string {
   return String(value);
 }
 
+/**
+ * Pure mirror of `simulateWouldHaveFired` in
+ * `artifacts/api-server/src/lib/auth-rate-limit-alert-traffic-preview.ts`.
+ * Kept in this file (rather than a shared package) because the only consumer
+ * is this card's draft-preview, and adding a workspace package round-trip
+ * for ~30 lines of arithmetic would be more friction than duplication.
+ *
+ * The two implementations must stay in lock-step — there's a frontend test
+ * that pins the exact transition behavior, and the server-side simulator
+ * has its own. If you change one, change the other.
+ */
+function simulateWouldHaveFiredClient(
+  eventTimestampsMs: number[],
+  threshold: number,
+  windowMinutes: number,
+): { wouldHaveFiredCount: number; peakWindowHits: number } {
+  if (
+    !Array.isArray(eventTimestampsMs) ||
+    eventTimestampsMs.length === 0 ||
+    !Number.isFinite(threshold) ||
+    threshold < 1 ||
+    !Number.isFinite(windowMinutes) ||
+    windowMinutes < 1
+  ) {
+    return { wouldHaveFiredCount: 0, peakWindowHits: 0 };
+  }
+  const windowMs = windowMinutes * 60 * 1000;
+  const sorted = eventTimestampsMs.slice().sort((a, b) => a - b);
+  let head = 0;
+  let firingCount = 0;
+  let isFiring = false;
+  let peak = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const ts = sorted[i];
+    const cutoff = ts - windowMs;
+    while (head <= i && sorted[head] < cutoff) {
+      head++;
+      const inWindow = i - head;
+      if (isFiring && inWindow < threshold) isFiring = false;
+    }
+    const count = i - head + 1;
+    if (count > peak) peak = count;
+    if (!isFiring && count >= threshold) {
+      isFiring = true;
+      firingCount++;
+    }
+  }
+  return { wouldHaveFiredCount: firingCount, peakWindowHits: peak };
+}
+
 function AuthRateLimitAlertConfigCard() {
   const { toast } = useToast();
   const [status, setStatus] = useState<AuthRateLimitAlertConfigStatus | null>(null);
@@ -1022,6 +1073,9 @@ function AuthRateLimitAlertConfigCard() {
     dominantIpRatio: "",
   });
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<AlertField, string>>>({});
+  const [trafficPreview, setTrafficPreview] = useState<AuthRateLimitAlertTrafficPreview | null>(null);
+  const [trafficLoading, setTrafficLoading] = useState(true);
+  const [trafficError, setTrafficError] = useState<string | null>(null);
 
   const hydrate = (s: AuthRateLimitAlertConfigStatus) => {
     setStatus(s);
@@ -1045,7 +1099,23 @@ function AuthRateLimitAlertConfigCard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // Refreshes the recent-traffic snapshot. Called once on mount and again
+  // after a successful save so the "would have fired" preview reflects any
+  // hits that landed while the admin was on the page.
+  const loadTraffic = async () => {
+    try {
+      setTrafficLoading(true);
+      setTrafficError(null);
+      const data = await adminPanelApi.getAuthRateLimitAlertTrafficPreview();
+      setTrafficPreview(data);
+    } catch (err: any) {
+      setTrafficError(err?.message || "Failed to load traffic preview");
+    } finally {
+      setTrafficLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); loadTraffic(); }, []);
 
   const validateLocal = (): { ok: boolean; payload: { threshold: number; windowMinutes: number; dominantIpRatio: number } } => {
     if (!status) return { ok: false, payload: { threshold: 0, windowMinutes: 0, dominantIpRatio: 0 } };
@@ -1100,6 +1170,10 @@ function AuthRateLimitAlertConfigCard() {
         toast({ title: "No changes to save" });
       } else {
         toast({ title: "Alert thresholds saved" });
+        // Refresh the traffic preview so any hits that landed while the
+        // admin was tweaking thresholds get reflected in the "would have
+        // fired" count next to the freshly-saved values.
+        loadTraffic();
       }
     } catch (err: any) {
       if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
@@ -1203,6 +1277,17 @@ function AuthRateLimitAlertConfigCard() {
               onChange={(v) => setDraft((prev) => ({ ...prev, dominantIpRatio: v }))}
             />
 
+            <AlertTrafficPreviewPanel
+              preview={trafficPreview}
+              loading={trafficLoading}
+              error={trafficError}
+              draftThreshold={Number(draft.threshold)}
+              draftWindowMinutes={Number(draft.windowMinutes)}
+              savedThreshold={status.config.threshold}
+              savedWindowMinutes={status.config.windowMinutes}
+              onRetry={loadTraffic}
+            />
+
             <div className="flex items-center justify-between border-t pt-4">
               <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={saving} data-testid="reset-alert-defaults">
                 <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
@@ -1275,6 +1360,200 @@ function AlertConfigRow({
       </div>
       {error && (
         <p className="text-xs text-destructive" data-testid={`alert-${field}-error`}>{error}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Renders the recent-traffic snapshot below the alert threshold inputs so
+ * admins can sanity-check their proposed values against real activity
+ * instead of waiting for a real incident. Three pieces:
+ *
+ *   1. A headline number — "Would have fired N times in the last 7 days at
+ *      the SAVED thresholds" — so a glance tells you whether the live alert
+ *      is reasonable. We deliberately base this on the SAVED config (not
+ *      the in-progress draft) so the number doesn't shift while typing
+ *      makes the threshold input briefly invalid.
+ *   2. A live "if you save this draft" line that updates as the admin types,
+ *      so they can dial values up/down with immediate feedback.
+ *   3. A per-day mini bar chart so admins can see whether traffic has been
+ *      steady or spikey — a single high-spike day should suggest a HIGHER
+ *      threshold than a flat-but-busy week with the same total.
+ *
+ * Warnings:
+ *   - "Effectively disabled" when the draft threshold is more than 2× the
+ *     largest single-window burst observed during the lookback. Above 2×
+ *     it's basically certain the admin would never have seen the alert
+ *     under recent traffic.
+ *   - "Would fire constantly" when the simulated fire count exceeds 1/day
+ *     on average — that's where notification fatigue starts to outweigh
+ *     the signal value of any individual page.
+ */
+function AlertTrafficPreviewPanel({
+  preview,
+  loading,
+  error,
+  draftThreshold,
+  draftWindowMinutes,
+  savedThreshold,
+  savedWindowMinutes,
+  onRetry,
+}: {
+  preview: AuthRateLimitAlertTrafficPreview | null;
+  loading: boolean;
+  error: string | null;
+  draftThreshold: number;
+  draftWindowMinutes: number;
+  savedThreshold: number;
+  savedWindowMinutes: number;
+  onRetry: () => void;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="border rounded-md p-3 text-sm text-muted-foreground"
+        data-testid="alert-traffic-preview"
+      >
+        Loading recent traffic preview...
+      </div>
+    );
+  }
+
+  if (error || !preview) {
+    return (
+      <div
+        className="border rounded-md p-3 text-sm space-y-2"
+        data-testid="alert-traffic-preview"
+      >
+        <p className="text-destructive">
+          Couldn't load the recent traffic preview{error ? `: ${error}` : "."}
+        </p>
+        <Button variant="outline" size="sm" onClick={onRetry} data-testid="alert-traffic-retry">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const events = preview.eventTimestampsMs;
+  const draftValid =
+    Number.isFinite(draftThreshold) &&
+    draftThreshold >= 1 &&
+    Number.isFinite(draftWindowMinutes) &&
+    draftWindowMinutes >= 1;
+
+  // We always compute the SAVED-config preview so the headline is stable.
+  // If the live values came back truncated the simulator returns zeros,
+  // and we surface a "too much data" note instead.
+  const saved = events
+    ? simulateWouldHaveFiredClient(events, savedThreshold, savedWindowMinutes)
+    : { wouldHaveFiredCount: 0, peakWindowHits: 0 };
+  const draft = events && draftValid
+    ? simulateWouldHaveFiredClient(events, draftThreshold, draftWindowMinutes)
+    : null;
+
+  const draftDiffersFromSaved =
+    draftValid && (draftThreshold !== savedThreshold || draftWindowMinutes !== savedWindowMinutes);
+
+  // Heuristics for the "you're way off" warnings. They're intentionally
+  // conservative so a healthy value never triggers a scary banner.
+  // - Disabled: peak burst we saw is less than half the threshold AND
+  //   we saw enough traffic for that to be meaningful (totalHits > 0).
+  // - Noisy: more than one fire per day on average.
+  const lookbackDays = Math.max(1, preview.lookbackDays);
+  const draftOrSaved = draft ?? saved;
+  const draftThresholdOrSaved = draftValid ? draftThreshold : savedThreshold;
+  const effectivelyDisabled =
+    !preview.truncated &&
+    preview.totalHits > 0 &&
+    draftOrSaved.peakWindowHits > 0 &&
+    draftThresholdOrSaved > draftOrSaved.peakWindowHits * 2;
+  const wouldFireConstantly =
+    !preview.truncated && draftOrSaved.wouldHaveFiredCount > lookbackDays;
+
+  // Sparkline scaling: the tallest bar fills the row; everything else is a
+  // proportional fraction. A floor of 1px keeps non-zero days visible.
+  const maxBucket = preview.dailyBuckets.reduce((m, b) => Math.max(m, b.hits), 0);
+
+  return (
+    <div className="border rounded-md p-3 space-y-3" data-testid="alert-traffic-preview">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">Recent traffic</p>
+        <span className="text-xs text-muted-foreground">
+          Last {preview.lookbackDays} day{preview.lookbackDays === 1 ? "" : "s"} · {preview.totalHits} hit{preview.totalHits === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {preview.truncated ? (
+        <p className="text-xs text-muted-foreground" data-testid="alert-traffic-truncated">
+          Too many auth rate-limit hits in the last {preview.lookbackDays} day{preview.lookbackDays === 1 ? "" : "s"} to preview live ({preview.totalHits.toLocaleString()} total). Save your changes and check back to see the recomputed counts.
+        </p>
+      ) : (
+        <>
+          <div className="text-xs space-y-1">
+            <p data-testid="alert-traffic-saved-summary">
+              At the saved thresholds (≥{savedThreshold} in {savedWindowMinutes} min), this alert would have fired{" "}
+              <strong>{saved.wouldHaveFiredCount} time{saved.wouldHaveFiredCount === 1 ? "" : "s"}</strong> in the last {preview.lookbackDays} day{preview.lookbackDays === 1 ? "" : "s"}.
+            </p>
+            {draftDiffersFromSaved && draft && (
+              <p className="text-muted-foreground" data-testid="alert-traffic-draft-summary">
+                With your draft (≥{draftThreshold} in {draftWindowMinutes} min): would fire <strong>{draft.wouldHaveFiredCount} time{draft.wouldHaveFiredCount === 1 ? "" : "s"}</strong>.
+              </p>
+            )}
+            <p className="text-muted-foreground">
+              Peak {draftValid ? `(${draftWindowMinutes}-min)` : `(${savedWindowMinutes}-min)`} window held{" "}
+              <strong>{draftOrSaved.peakWindowHits} hit{draftOrSaved.peakWindowHits === 1 ? "" : "s"}</strong>.
+            </p>
+          </div>
+
+          {preview.dailyBuckets.length > 0 && (
+            <div className="space-y-1" data-testid="alert-traffic-sparkline">
+              <div className="flex items-end gap-0.5 h-10">
+                {preview.dailyBuckets.map((b) => {
+                  const heightPct = maxBucket > 0 ? (b.hits / maxBucket) * 100 : 0;
+                  return (
+                    <div
+                      key={b.dayStart}
+                      className="flex-1 bg-muted rounded-sm relative"
+                      title={`${new Date(b.dayStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${b.hits} hit${b.hits === 1 ? "" : "s"}`}
+                    >
+                      <div
+                        className="absolute bottom-0 left-0 right-0 bg-primary rounded-sm"
+                        style={{ height: b.hits === 0 ? "0%" : `${Math.max(heightPct, 6)}%` }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>
+                  {new Date(preview.dailyBuckets[0].dayStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </span>
+                <span>
+                  {new Date(preview.dailyBuckets[preview.dailyBuckets.length - 1].dayStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {effectivelyDisabled && (
+            <div
+              className="text-xs rounded-md p-2 bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200"
+              data-testid="alert-traffic-warning-disabled"
+            >
+              Heads up: this threshold is more than twice the largest burst seen in the last {preview.lookbackDays} day{preview.lookbackDays === 1 ? "" : "s"} ({draftOrSaved.peakWindowHits} hit{draftOrSaved.peakWindowHits === 1 ? "" : "s"} in {draftValid ? draftWindowMinutes : savedWindowMinutes} min). The alert may be effectively disabled — consider lowering it.
+            </div>
+          )}
+          {wouldFireConstantly && (
+            <div
+              className="text-xs rounded-md p-2 bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200"
+              data-testid="alert-traffic-warning-noisy"
+            >
+              Heads up: this threshold would have fired {draftOrSaved.wouldHaveFiredCount} time{draftOrSaved.wouldHaveFiredCount === 1 ? "" : "s"} in the last {preview.lookbackDays} day{preview.lookbackDays === 1 ? "" : "s"} (more than once per day on average). Consider raising it to avoid notification fatigue.
+            </div>
+          )}
+        </>
       )}
     </div>
   );

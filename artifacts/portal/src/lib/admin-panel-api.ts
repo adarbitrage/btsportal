@@ -265,6 +265,16 @@ export type AuthRateLimitAlertConfigStatus = {
   };
 };
 
+export type AuthRateLimitAlertTrafficPreview = {
+  lookbackDays: number;
+  lookbackStart: string;
+  generatedAt: string;
+  totalHits: number;
+  dailyBuckets: Array<{ dayStart: string; hits: number }>;
+  eventTimestampsMs: number[] | null;
+  truncated: boolean;
+};
+
 export type ChangeHistoryRetentionConfig = {
   emailRetentionDays: number;
   phoneRetentionDays: number;
@@ -1010,6 +1020,13 @@ export const adminPanelApi = {
       throw err;
     }
     return res.json() as Promise<AuthRateLimitAlertConfigStatus & { changedFields: Array<"threshold" | "windowMinutes" | "dominantIpRatio"> }>;
+  },
+
+  async getAuthRateLimitAlertTrafficPreview(opts: { lookbackDays?: number } = {}) {
+    const qs = opts.lookbackDays ? `?lookbackDays=${encodeURIComponent(opts.lookbackDays)}` : "";
+    const res = await authFetch(`/admin/auth-rate-limit-alert-config/traffic-preview${qs}`);
+    if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert traffic preview");
+    return res.json() as Promise<AuthRateLimitAlertTrafficPreview>;
   },
 
   async getChangeHistoryRetentionConfig() {

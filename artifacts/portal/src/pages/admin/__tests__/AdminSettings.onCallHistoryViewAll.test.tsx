@@ -12,6 +12,7 @@ const getSettings = vi.fn();
 const getOnCallDestinations = vi.fn();
 const getOnCallDestinationsHistory = vi.fn();
 const getAuthRateLimitAlertConfig = vi.fn();
+const getAuthRateLimitAlertTrafficPreview = vi.fn();
 const getChangeHistoryRetentionConfig = vi.fn();
 
 vi.mock("@/lib/admin-panel-api", () => ({
@@ -22,6 +23,8 @@ vi.mock("@/lib/admin-panel-api", () => ({
       getOnCallDestinationsHistory(...args),
     getAuthRateLimitAlertConfig: (...args: unknown[]) =>
       getAuthRateLimitAlertConfig(...args),
+    getAuthRateLimitAlertTrafficPreview: (...args: unknown[]) =>
+      getAuthRateLimitAlertTrafficPreview(...args),
     getChangeHistoryRetentionConfig: (...args: unknown[]) =>
       getChangeHistoryRetentionConfig(...args),
   },
@@ -38,7 +41,18 @@ beforeEach(() => {
   getOnCallDestinations.mockReset();
   getOnCallDestinationsHistory.mockReset();
   getAuthRateLimitAlertConfig.mockReset();
+  getAuthRateLimitAlertTrafficPreview.mockReset();
   getChangeHistoryRetentionConfig.mockReset();
+
+  getAuthRateLimitAlertTrafficPreview.mockResolvedValue({
+    lookbackDays: 7,
+    lookbackStart: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+    totalHits: 0,
+    dailyBuckets: [],
+    eventTimestampsMs: [],
+    truncated: false,
+  });
 
   getSettings.mockResolvedValue([]);
   getOnCallDestinations.mockResolvedValue({
