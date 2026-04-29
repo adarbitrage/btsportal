@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +12,19 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 export default function AuditLog() {
+  const searchString = useSearch();
+  const initialFilters = (() => {
+    const params = new URLSearchParams(searchString);
+    return {
+      actionType: params.get("actionType") || "",
+      entityType: params.get("entityType") || "",
+      startDate: params.get("startDate") || "",
+      endDate: params.get("endDate") || "",
+    };
+  })();
   const [logs, setLogs] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
-  const [filters, setFilters] = useState({ actionType: "", entityType: "", startDate: "", endDate: "" });
+  const [filters, setFilters] = useState(initialFilters);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

@@ -1,16 +1,48 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
+interface QueueFallbackEvent {
+  id: number;
+  createdAt: string | null;
+  metadata?: { channel?: string; recipient?: string | null; reason?: string | null } | null;
+  entityId?: string | null;
+}
+
+const QUEUE_FALLBACK_RECENT_LIMIT = 10;
+
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fallbackEvents, setFallbackEvents] = useState<QueueFallbackEvent[]>([]);
+  const [fallbackLoading, setFallbackLoading] = useState(true);
+  const [fallbackError, setFallbackError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const loadFallbackEvents = async () => {
+    try {
+      setFallbackLoading(true);
+      setFallbackError(null);
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const data = await adminPanelApi.getAuditLog({
+        actionType: "queue_fallback",
+        startDate: since,
+        limit: QUEUE_FALLBACK_RECENT_LIMIT,
+        page: 1,
+      });
+      setFallbackEvents(Array.isArray(data?.logs) ? data.logs : []);
+    } catch (err: any) {
+      setFallbackError(err?.message || "Failed to fetch queue-fallback events");
+    } finally {
+      setFallbackLoading(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -22,6 +54,7 @@ export default function SystemHealth() {
     } finally {
       setLoading(false);
     }
+    void loadFallbackEvents();
   };
 
   useEffect(() => { load(); }, []);
@@ -162,6 +195,50 @@ export default function SystemHealth() {
                 </Card>
               )}
             </div>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />Recent Queue Fallback Events (24h)
+                  </CardTitle>
+                  <Link href="/admin/audit-log?actionType=queue_fallback" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                    View all <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {fallbackLoading ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Loading recent fallback events...</div>
+                ) : fallbackError ? (
+                  <div className="py-6 text-center text-sm text-red-600">{fallbackError}</div>
+                ) : fallbackEvents.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">No fallback events in the last 24h</div>
+                ) : (
+                  <div className="divide-y">
+                    {fallbackEvents.map((evt) => {
+                      const channel = evt.metadata?.channel || evt.entityId || "unknown";
+                      const recipient = evt.metadata?.recipient || "redacted";
+                      const when = evt.createdAt ? new Date(evt.createdAt) : null;
+                      return (
+                        <div key={evt.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Badge variant="outline" className="text-[10px] uppercase shrink-0">{channel}</Badge>
+                            <span className="text-muted-foreground truncate">{recipient}</span>
+                            {evt.metadata?.reason && (
+                              <span className="text-[10px] text-muted-foreground/80 shrink-0">({evt.metadata.reason})</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {when ? when.toLocaleString() : "—"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><Globe className="w-4 h-4" />Memory Usage</CardTitle></CardHeader>
