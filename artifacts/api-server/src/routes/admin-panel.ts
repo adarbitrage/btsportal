@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
@@ -457,11 +457,51 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 // Cursor format used by /admin/audit-log keyset pagination. We encode the
 // (createdAt, id) tuple of an anchor row as base64url JSON. The cursor is
 // opaque to clients — they only ever round-trip values produced by the
-// server. `t` is the anchor's createdAt as ms-since-epoch and `i` is its
-// numeric id; together they form the (created_at, id) tuple that the
+// server. `t` is the anchor's createdAt as a microsecond-precision UTC ISO
+// string (e.g. "2026-01-01T00:00:00.123456Z") and `i` is its numeric id;
+// together they form the (created_at, id) tuple that the
 // (audit_log_created_at_id_idx) composite index walks.
+//
+// We deliberately keep the timestamp as a string rather than a JS number:
+// `Date.getTime()` returns ms-since-epoch and silently drops Postgres'
+// microsecond component on the round-trip. When two rows share the same
+// sub-millisecond `created_at`, a ms-only cursor's equality predicate
+// (`created_at = $cursor`) fails to match the rows on the boundary timestamp
+// and they vanish from the paginated view. Binding the anchor as a
+// microsecond-precision string and casting to `timestamptz` in SQL preserves
+// the original precision and keeps the keyset compare correct.
 
-type AuditCursor = { t: number; i: number };
+type AuditCursor = { t: string; i: number };
+
+// Microsecond-precision ISO of a row's createdAt. Selected as an alias so
+// the value never round-trips through JS's millisecond-only Date type and
+// therefore preserves the column's full timestamptz precision.
+const auditCursorTsExpr = sql<string>`to_char(${auditLogTable.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
+// SELECT shape used everywhere a returned row may become a cursor anchor.
+// We pull every audit_log column (so callers still get a complete row) plus
+// the cursor-timestamp alias. The alias is stripped before the response is
+// serialized so it doesn't leak into the public payload.
+const auditSelectWithCursor = () => ({
+  ...getTableColumns(auditLogTable),
+  cursorTs: auditCursorTsExpr,
+});
+
+type AuditRowWithCursor = typeof auditLogTable.$inferSelect & { cursorTs: string };
+
+function stripCursorTs<T extends { cursorTs?: unknown }>(row: T): Omit<T, "cursorTs"> {
+  const { cursorTs: _omit, ...rest } = row;
+  return rest;
+}
+
+// Convert a JS Date to a microsecond-precision ISO string suitable for use
+// as a cursor anchor or `::timestamptz` bind. The Date itself only has ms
+// precision so the trailing microsecond digits are zero — that's fine for
+// inputs that originated from the user (e.g. /admin/audit-log?jumpTo=...).
+function dateToMicrosecondIso(d: Date): string {
+  // toISOString() yields "...sss.SSSZ"; pad to six fractional digits.
+  return d.toISOString().replace(/Z$/, "000Z");
+}
 
 function encodeAuditCursor(c: AuditCursor): string {
   return Buffer.from(JSON.stringify(c), "utf8").toString("base64url");
@@ -472,10 +512,20 @@ function decodeAuditCursor(raw: unknown): AuditCursor | null {
   try {
     const json = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
     if (!json || typeof json !== "object") return null;
-    const t = Number((json as Record<string, unknown>).t);
     const i = Number((json as Record<string, unknown>).i);
-    if (!Number.isFinite(t) || !Number.isInteger(i) || i <= 0) return null;
-    return { t, i };
+    if (!Number.isInteger(i) || i <= 0) return null;
+    const rawT = (json as Record<string, unknown>).t;
+    // Accept legacy (number / ms-since-epoch) cursors so in-flight requests
+    // from open browser tabs continue to work after the format change. The
+    // legacy form loses sub-millisecond precision, but a stale cursor only
+    // shows up for the brief window between deploy and the next page click.
+    if (typeof rawT === "string" && rawT.length > 0) {
+      return { t: rawT, i };
+    }
+    if (typeof rawT === "number" && Number.isFinite(rawT)) {
+      return { t: dateToMicrosecondIso(new Date(rawT)), i };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -486,35 +536,25 @@ function decodeAuditCursor(raw: unknown): AuditCursor | null {
 // driver path, so we expand the lexicographic compare by hand:
 //   strict_left  OR  (equal AND strict_inner)
 // where `equal` is (created_at = anchor.t) and `strict_inner` is the id
-// compare. This still uses the (created_at, id) btree because the planner
-// recognizes the equality + inequality split.
-function olderThanCursor(c: AuditCursor) {
-  const anchor = new Date(c.t);
-  return or(
-    lt(auditLogTable.createdAt, anchor),
-    and(eq(auditLogTable.createdAt, anchor), lt(auditLogTable.id, c.i)),
-  )!;
+// compare. The anchor timestamp is bound as a string and cast to
+// `timestamptz` so Postgres compares with full microsecond precision; this
+// still uses the (created_at, id) btree because the planner recognizes the
+// equality + inequality split.
+function olderThanCursor(c: AuditCursor): SQL {
+  return sql`(${auditLogTable.createdAt} < ${c.t}::timestamptz OR (${auditLogTable.createdAt} = ${c.t}::timestamptz AND ${auditLogTable.id} < ${c.i}))`;
 }
 
-function newerThanCursor(c: AuditCursor) {
-  const anchor = new Date(c.t);
-  return or(
-    gt(auditLogTable.createdAt, anchor),
-    and(eq(auditLogTable.createdAt, anchor), gt(auditLogTable.id, c.i)),
-  )!;
+function newerThanCursor(c: AuditCursor): SQL {
+  return sql`(${auditLogTable.createdAt} > ${c.t}::timestamptz OR (${auditLogTable.createdAt} = ${c.t}::timestamptz AND ${auditLogTable.id} > ${c.i}))`;
 }
 
-function olderOrEqualToCursor(c: AuditCursor) {
-  const anchor = new Date(c.t);
-  return or(
-    lt(auditLogTable.createdAt, anchor),
-    and(eq(auditLogTable.createdAt, anchor), lte(auditLogTable.id, c.i)),
-  )!;
+function olderOrEqualToCursor(c: AuditCursor): SQL {
+  return sql`(${auditLogTable.createdAt} < ${c.t}::timestamptz OR (${auditLogTable.createdAt} = ${c.t}::timestamptz AND ${auditLogTable.id} <= ${c.i}))`;
 }
 
-function rowToCursor(row: { createdAt: Date | null; id: number }): AuditCursor | null {
-  if (!row.createdAt) return null;
-  return { t: row.createdAt.getTime(), i: row.id };
+function rowToCursor(row: { cursorTs?: string | null; id: number }): AuditCursor | null {
+  if (!row.cursorTs) return null;
+  return { t: row.cursorTs, i: row.id };
 }
 
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
@@ -532,7 +572,12 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const sanitize = (rows: any[]) => (canSeePii ? rows : rows.map(redactAuditRowPii));
+    // Strip the cursor-timestamp alias from every row before serializing,
+    // and apply PII redaction in the same pass for non-privileged viewers.
+    const sanitize = (rows: AuditRowWithCursor[]) => {
+      const stripped = rows.map(stripCursorTs);
+      return canSeePii ? stripped : stripped.map(redactAuditRowPii);
+    };
 
     const expandIdRaw = typeof expand === "string" && /^\d+$/.test(expand) ? parseInt(expand, 10) : null;
     const decodedCursor = decodeAuditCursor(cursor);
@@ -554,7 +599,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     // centered on the target. No count(*) over the prefix is performed.
     if (expandIdRaw != null) {
       const [target] = await db
-        .select({ id: auditLogTable.id, createdAt: auditLogTable.createdAt })
+        .select({ id: auditLogTable.id, createdAt: auditLogTable.createdAt, cursorTs: auditCursorTsExpr })
         .from(auditLogTable)
         .where(eq(auditLogTable.id, expandIdRaw))
         .limit(1);
@@ -570,7 +615,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           .limit(1);
 
         if (matched) {
-          const targetCursor: AuditCursor = { t: target.createdAt.getTime(), i: target.id };
+          const targetCursor: AuditCursor = { t: target.cursorTs, i: target.id };
           const half = Math.floor(limitNum / 2);
 
           // Newer half: rows strictly newer than the target. Fetch one extra
@@ -579,7 +624,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
             ? and(whereClause, newerThanCursor(targetCursor))
             : newerThanCursor(targetCursor);
           const newerLookup = half > 0
-            ? await db.select().from(auditLogTable).where(newerWhere)
+            ? await db.select(auditSelectWithCursor()).from(auditLogTable).where(newerWhere)
                 .orderBy(asc(auditLogTable.createdAt), asc(auditLogTable.id))
                 .limit(half + 1)
             : [];
@@ -592,7 +637,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           const olderWhere = whereClause
             ? and(whereClause, olderOrEqualToCursor(targetCursor))
             : olderOrEqualToCursor(targetCursor);
-          const olderLookup = await db.select().from(auditLogTable).where(olderWhere)
+          const olderLookup = await db.select(auditSelectWithCursor()).from(auditLogTable).where(olderWhere)
             .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
             .limit(remaining + 1);
           const hasMoreOlder = olderLookup.length > remaining;
@@ -640,11 +685,11 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       // Audit row ids are int4 in Postgres, so the synthetic anchor uses
       // the int4 max (2^31 - 1) instead of MAX_SAFE_INTEGER. Anything
       // larger trips "value out of range for type integer" on the bind.
-      const anchor: AuditCursor = { t: jumpToDate.getTime(), i: 2_147_483_647 };
+      const anchor: AuditCursor = { t: dateToMicrosecondIso(jumpToDate), i: 2_147_483_647 };
       const olderWhere = whereClause
         ? and(whereClause, olderOrEqualToCursor(anchor))
         : olderOrEqualToCursor(anchor);
-      const olderLookup = await db.select().from(auditLogTable).where(olderWhere)
+      const olderLookup = await db.select(auditSelectWithCursor()).from(auditLogTable).where(olderWhere)
         .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
         .limit(limitNum + 1);
       const hasMoreOlder = olderLookup.length > limitNum;
@@ -678,7 +723,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       res.json({
         logs: sanitize(window),
         pagination: { page: null, limit: limitNum, total, totalPages: null },
-        exportCap: AUDIT_LOG_EXPORT_CAP,
+        exportCap: resolveAuditLogExportHardCap(),
         cursors: {
           next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
           // If the window is empty (jumped before any matching rows exist)
@@ -702,7 +747,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
         const where = whereClause
           ? and(whereClause, newerThanCursor(decodedCursor))
           : newerThanCursor(decodedCursor);
-        const rows = await db.select().from(auditLogTable).where(where)
+        const rows = await db.select(auditSelectWithCursor()).from(auditLogTable).where(where)
           .orderBy(asc(auditLogTable.createdAt), asc(auditLogTable.id))
           .limit(limitNum + 1);
         const hasMoreNewer = rows.length > limitNum;
@@ -728,7 +773,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       const where = whereClause
         ? and(whereClause, olderThanCursor(decodedCursor))
         : olderThanCursor(decodedCursor);
-      const rows = await db.select().from(auditLogTable).where(where)
+      const rows = await db.select(auditSelectWithCursor()).from(auditLogTable).where(where)
         .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
         .limit(limitNum + 1);
       const hasMoreOlder = rows.length > limitNum;
@@ -758,7 +803,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
       const offset = (pageNum - 1) * limitNum;
       const [rows, countResult] = await Promise.all([
-        db.select().from(auditLogTable).where(whereClause)
+        db.select(auditSelectWithCursor()).from(auditLogTable).where(whereClause)
           .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
           .limit(limitNum).offset(offset),
         db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
@@ -785,7 +830,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     // surface "N matching" alongside the export buttons. This only fires on
     // filter changes (the cursor branches above stay count-free).
     const [rows, totalForFilters] = await Promise.all([
-      db.select().from(auditLogTable).where(whereClause)
+      db.select(auditSelectWithCursor()).from(auditLogTable).where(whereClause)
         .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
         .limit(limitNum + 1),
       safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
