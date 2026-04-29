@@ -22,7 +22,7 @@ import {
   type FlexyLookup,
 } from "@/components/admin/FlexyRegeneratePanel";
 import { useAuth } from "@/lib/auth";
-import { ADMIN_ROLES, hasPermission } from "@/lib/permissions";
+import { ADMIN_ROLES, ROLE_INFO, getRoleLabel, hasPermission } from "@/lib/permissions";
 
 interface ProductRow {
   id: number;
@@ -151,6 +151,13 @@ export default function MemberDetail() {
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
   const canAssignRole = hasPermission(currentUser?.role, "members:assign_role");
   const [roleSaving, setRoleSaving] = useState(false);
+  // Role assignment is destructive (one click can demote an admin), so we
+  // intercept the dropdown's selection and stage it as `pendingRole` until
+  // the super-admin confirms in the dialog. The Select itself stays bound
+  // to `member.role`, so cancelling restores the original value with no
+  // request sent.
+  const [pendingRole, setPendingRole] = useState<string | null>(null);
+  const [roleConfirmOpen, setRoleConfirmOpen] = useState(false);
 
   const openGrantDialog = async () => {
     setGrantProductId("");
@@ -173,9 +180,15 @@ export default function MemberDetail() {
     try {
       const result = await adminPanelApi.updateMemberRole(memberId, nextRole);
       if (result.changed) {
-        toast({ title: "Role updated", description: `Now: ${result.role}` });
+        toast({
+          title: "Role updated",
+          description: `Now: ${getRoleLabel(result.role)}`,
+        });
       } else {
-        toast({ title: "No change", description: `Already ${result.role}` });
+        toast({
+          title: "No change",
+          description: `Already ${getRoleLabel(result.role)}`,
+        });
       }
       load();
     } catch (err: unknown) {
@@ -184,6 +197,29 @@ export default function MemberDetail() {
     } finally {
       setRoleSaving(false);
     }
+  };
+
+  // Staged in by the dropdown; the Select stays on member.role until this
+  // resolves, so closing the dialog without confirming silently restores
+  // the original selection.
+  const handleRoleSelect = (nextRole: string) => {
+    if (!member) return;
+    if (nextRole === member.role) return;
+    setPendingRole(nextRole);
+    setRoleConfirmOpen(true);
+  };
+
+  const handleConfirmRoleChange = async () => {
+    if (!pendingRole) return;
+    const next = pendingRole;
+    setRoleConfirmOpen(false);
+    setPendingRole(null);
+    await handleRoleChange(next);
+  };
+
+  const handleRoleConfirmOpenChange = (open: boolean) => {
+    setRoleConfirmOpen(open);
+    if (!open) setPendingRole(null);
   };
 
   const onSelectProduct = (idStr: string) => {
@@ -547,19 +583,84 @@ export default function MemberDetail() {
               <Label htmlFor="select-member-role" className="text-xs text-muted-foreground">Role</Label>
               <Select
                 value={member.role}
-                onValueChange={handleRoleChange}
+                onValueChange={handleRoleSelect}
                 disabled={roleSaving}
               >
-                <SelectTrigger id="select-member-role" className="w-[180px]" data-testid="select-member-role">
+                <SelectTrigger id="select-member-role" className="w-[240px]" data-testid="select-member-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member" data-testid="option-role-member">member</SelectItem>
+                  <SelectItem value="member" data-testid="option-role-member">
+                    {ROLE_INFO.member.label}
+                  </SelectItem>
                   {ADMIN_ROLES.map((r: string) => (
-                    <SelectItem key={r} value={r} data-testid={`option-role-${r}`}>{r}</SelectItem>
+                    <SelectItem key={r} value={r} data-testid={`option-role-${r}`}>
+                      {getRoleLabel(r)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <Dialog open={roleConfirmOpen} onOpenChange={handleRoleConfirmOpenChange}>
+                <DialogContent data-testid="dialog-confirm-role-change">
+                  <DialogHeader>
+                    <DialogTitle>Change role?</DialogTitle>
+                    <DialogDescription asChild>
+                      <div className="space-y-3 text-sm">
+                        <p>
+                          Change <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}{" "}
+                          from{" "}
+                          <span className="font-medium" data-testid="text-role-current">
+                            {getRoleLabel(member.role)}
+                          </span>{" "}
+                          to{" "}
+                          <span className="font-medium" data-testid="text-role-next">
+                            {pendingRole ? getRoleLabel(pendingRole) : ""}
+                          </span>
+                          ?
+                        </p>
+                        {pendingRole &&
+                        (ROLE_INFO as Record<string, { impact: string }>)[pendingRole] ? (
+                          <p
+                            className="text-muted-foreground"
+                            data-testid="text-role-impact"
+                          >
+                            {
+                              (ROLE_INFO as Record<string, { impact: string }>)[
+                                pendingRole
+                              ].impact
+                            }
+                          </p>
+                        ) : null}
+                        <p className="text-muted-foreground">
+                          The change takes effect immediately on save.
+                        </p>
+                      </div>
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRoleConfirmOpenChange(false)}
+                      disabled={roleSaving}
+                      data-testid="button-cancel-role-change"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleConfirmRoleChange}
+                      disabled={roleSaving || !pendingRole}
+                      data-testid="button-confirm-role-change"
+                    >
+                      {roleSaving ? "Saving..." : "Change role"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           ) : (
             <Badge variant="outline" className="ml-auto" data-testid="badge-member-role">{member.role}</Badge>

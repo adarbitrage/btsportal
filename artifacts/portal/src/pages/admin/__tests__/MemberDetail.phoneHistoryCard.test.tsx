@@ -34,6 +34,12 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/permissions", () => ({
   hasPermission: () => true,
   ADMIN_ROLES: ["admin", "super_admin"],
+  ROLE_INFO: {
+    member: { label: "Member", impact: "" },
+    admin: { label: "Admin", impact: "" },
+    super_admin: { label: "Super Admin", impact: "" },
+  },
+  getRoleLabel: (r: string) => r,
 }));
 
 vi.mock("wouter", () => ({
