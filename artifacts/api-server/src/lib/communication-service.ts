@@ -556,7 +556,7 @@ export const CommunicationService = {
       return { result: "queued" };
     }
 
-    recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
+    void recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
     console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
     const direct = await sendEmailDirect(jobData);
     switch (direct.status) {
@@ -604,7 +604,7 @@ export const CommunicationService = {
       return { result: "queued" };
     }
 
-    recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
+    void recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
     console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
     const direct = await sendSmsDirect(jobData);
     switch (direct.status) {

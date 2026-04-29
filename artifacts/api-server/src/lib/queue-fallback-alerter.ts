@@ -26,20 +26,38 @@
  *   - PagerDuty incidents use a stable dedup_key (`queue-fallback:<channel>`)
  *     so re-triggers fold into the existing incident and a "resolve" event
  *     auto-closes it.
+ *
+ * Multi-instance correctness:
+ *   - The "currently alerting" decision is sourced from the DB-backed
+ *     `getQueueFallbackStatsFromDb()` so every pod observes the same
+ *     cluster-wide truth (a fallback recorded on pod A is visible to pod B).
+ *   - The alerting flag and per-(queue,delivery,kind) throttle slots live in
+ *     Redis (see `queue-fallback-alerter-state.ts`) so transitions are
+ *     observed exactly once across the cluster and the throttle cap holds
+ *     globally — not per pod. With Redis unavailable we fall back to local
+ *     in-memory state, matching pre-multi-instance behavior.
  */
 
 import sgMail from "@sendgrid/mail";
 import { logAuditEvent } from "./audit-log";
 import {
   getQueueFallbackStats,
+  getQueueFallbackStatsFromDb,
   setQueueFallbackListener,
   type QueueChannel,
   type QueueFallbackStats,
 } from "./queue-fallback-tracker";
 import { getOnCallDestinations } from "./oncall-settings";
+import {
+  compareAndSetAlertingState,
+  releaseThrottleSlot,
+  tryClaimThrottleSlot,
+  __resetQueueFallbackAlerterStateForTests,
+  type AlertKind,
+  type DeliveryChannel,
+} from "./queue-fallback-alerter-state";
 
-type DeliveryChannel = "pagerduty" | "email" | "slack";
-type AlertKind = "fire" | "clear";
+export type { AlertKind, DeliveryChannel };
 
 /**
  * Audit log action / entity types used to record on-call alert delivery
@@ -72,20 +90,6 @@ function getNotificationThrottleMs(): number {
   return parseEnvInt("QUEUE_FALLBACK_NOTIFICATION_THROTTLE_MS", 5 * 60 * 1000);
 }
 const POLL_MS = parseEnvInt("QUEUE_FALLBACK_ALERTER_POLL_MS", 60 * 1000);
-
-interface ChannelAlertState {
-  /** True if we currently consider this queue channel "alerting". */
-  alerting: boolean;
-  /** Per-delivery-channel timestamp of the last successful "fire" send. */
-  lastFireAt: Partial<Record<DeliveryChannel, number>>;
-  /** Per-delivery-channel timestamp of the last successful "clear" send. */
-  lastClearAt: Partial<Record<DeliveryChannel, number>>;
-}
-
-const alertState: Record<QueueChannel, ChannelAlertState> = {
-  email: { alerting: false, lastFireAt: {}, lastClearAt: {} },
-  sms: { alerting: false, lastFireAt: {}, lastClearAt: {} },
-};
 
 export interface AlertPayload {
   queueChannel: QueueChannel;
@@ -235,10 +239,9 @@ export function __setQueueFallbackAlerterDeliveriesForTests(
   deliveryOverrides = overrides;
 }
 
-/** Test-only: reset all alerter state. */
+/** Test-only: reset all alerter state (in-memory shared-state fallback included). */
 export function __resetQueueFallbackAlerterForTests(): void {
-  alertState.email = { alerting: false, lastFireAt: {}, lastClearAt: {} };
-  alertState.sms = { alerting: false, lastFireAt: {}, lastClearAt: {} };
+  __resetQueueFallbackAlerterStateForTests();
   deliveryOverrides = null;
 }
 
@@ -307,25 +310,39 @@ async function recordDeliveryAttempt(
 }
 
 async function dispatchAll(payload: AlertPayload): Promise<DeliveryResult[]> {
-  const ch = alertState[payload.queueChannel];
-  const lastMap = payload.kind === "fire" ? ch.lastFireAt : ch.lastClearAt;
+  const throttleMs = getNotificationThrottleMs();
   const promises: Promise<DeliveryResult>[] = (
     ["pagerduty", "email", "slack"] as const
   ).map(async (dc) => {
-    const last = lastMap[dc] ?? 0;
-    if (last > 0 && payload.now - last < getNotificationThrottleMs()) {
+    // Claim the per-(queue,delivery,kind) throttle slot atomically before we
+    // attempt to send, so two pods racing on the same transition don't both
+    // page on-call. The slot is shared via Redis (in-memory fallback when no
+    // Redis is configured), so the throttle cap holds across the whole
+    // cluster — not per pod.
+    const claimed = await tryClaimThrottleSlot(
+      payload.queueChannel,
+      dc,
+      payload.kind,
+      throttleMs,
+      payload.now,
+    );
+    if (!claimed) {
       return { channel: dc, ok: true, skipped: true, reason: "throttled" };
     }
     const fn = deliveryOverrides?.[dc] ?? defaultDeliveries[dc];
     try {
       const result = await fn(payload);
-      // Only consume the throttle slot when something was actually sent —
-      // a "skipped" (no provider configured) shouldn't gate the next attempt.
-      if (result.ok && !result.skipped) {
-        lastMap[dc] = payload.now;
+      // If the provider was simply not configured, free the slot so we don't
+      // burn the whole throttle window on a no-op (matching prior behavior).
+      // If the send itself failed, also free the slot so the next attempt
+      // can immediately retry instead of waiting out the throttle.
+      if (!result.ok || result.skipped) {
+        await releaseThrottleSlot(payload.queueChannel, dc, payload.kind);
       }
       return result;
     } catch (err) {
+      // Free the slot on unexpected errors too — same reasoning as above.
+      await releaseThrottleSlot(payload.queueChannel, dc, payload.kind);
       const reason = err instanceof Error ? err.message : String(err);
       console.error(
         `[QueueFallbackAlerter] ${dc} ${payload.kind} for ${payload.queueChannel} failed:`,
@@ -351,24 +368,24 @@ async function dispatchAll(payload: AlertPayload): Promise<DeliveryResult[]> {
  * (fire on first event in the recent window, clear when the window empties).
  * Safe to call frequently; transitions are gated by per-channel state and
  * deliveries are throttled.
+ *
+ * The "currently alerting" decision uses DB-backed stats so all api-server
+ * instances agree on the same view, and the alerting-flag flip is a
+ * cluster-shared compare-and-set so a given transition is observed by
+ * exactly one pod.
  */
 export async function evaluateQueueFallbackAlerts(
   now: number = Date.now(),
 ): Promise<DeliveryResult[]> {
-  const stats = getQueueFallbackStats();
+  const stats = await getQueueFallbackStatsFromDb();
   const all: DeliveryResult[] = [];
   for (const ch of ["email", "sms"] as const) {
     const currently = stats[ch].recentCount > 0;
-    const prev = alertState[ch].alerting;
-    if (currently && !prev) {
-      const results = await dispatchAll({ queueChannel: ch, kind: "fire", stats, now });
-      all.push(...results);
-      alertState[ch].alerting = true;
-    } else if (!currently && prev) {
-      const results = await dispatchAll({ queueChannel: ch, kind: "clear", stats, now });
-      all.push(...results);
-      alertState[ch].alerting = false;
-    }
+    const transitioned = await compareAndSetAlertingState(ch, currently);
+    if (!transitioned) continue;
+    const kind: AlertKind = currently ? "fire" : "clear";
+    const results = await dispatchAll({ queueChannel: ch, kind, stats, now });
+    all.push(...results);
   }
   return all;
 }

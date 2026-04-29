@@ -1,4 +1,58 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+interface FakeAuditRow {
+  actionType: string;
+  entityType: string;
+  entityId: string | null;
+  description: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+}
+
+const auditRows: FakeAuditRow[] = [];
+let insertImpl: (row: FakeAuditRow) => Promise<void> = async (row) => {
+  auditRows.push(row);
+};
+
+// The alerter now reads from `getQueueFallbackStatsFromDb` (so all api-server
+// instances see the same cluster-wide truth), which goes through @workspace/db.
+// Mock the DB module so the alerter tests don't touch the real DB and don't
+// leak rows between tests.
+vi.mock("@workspace/db", () => {
+  const auditLogTable = {
+    actionType: { name: "action_type" },
+    entityType: { name: "entity_type" },
+    entityId: { name: "entity_id" },
+    createdAt: { name: "created_at" },
+  };
+
+  const db = {
+    insert: (_table: unknown) => ({
+      values: async (row: FakeAuditRow) => {
+        await insertImpl(row);
+      },
+    }),
+    select: (_cols: unknown) => ({
+      from: (_table: unknown) => ({
+        where: async (_condition: unknown) => {
+          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          return auditRows
+            .filter((r) => r.actionType === "queue_fallback" && r.createdAt.getTime() >= cutoff)
+            .map((r) => ({ entityId: r.entityId, createdAt: r.createdAt }));
+        },
+      }),
+    }),
+  };
+
+  return { db, auditLogTable };
+});
+
+vi.mock("drizzle-orm", () => ({
+  and: (...args: unknown[]) => ({ _and: args }),
+  eq: (a: unknown, b: unknown) => ({ _eq: [a, b] }),
+  gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
+}));
+
 import {
   evaluateQueueFallbackAlerts,
   startQueueFallbackAlerter,
@@ -27,6 +81,19 @@ function makeStub(channel: "pagerduty" | "email" | "slack"): StubDelivery {
   return { fn, calls };
 }
 
+/**
+ * The listener-driven path is fire-and-forget: it kicks off
+ * `evaluateQueueFallbackAlerts()` without awaiting. With the new
+ * implementation that read goes through an async DB query, so a single
+ * `setImmediate` flush isn't enough to settle every microtask. Spin a few
+ * macrotask flips so the chained promises resolve.
+ */
+async function flushListenerEvaluation(): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setImmediate(r));
+  }
+}
+
 describe("queue-fallback-alerter", () => {
   let pd: StubDelivery;
   let email: StubDelivery;
@@ -36,6 +103,10 @@ describe("queue-fallback-alerter", () => {
   let errSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    auditRows.length = 0;
+    insertImpl = async (row) => {
+      auditRows.push(row);
+    };
     __resetQueueFallbackTrackerForTests();
     __resetQueueFallbackAlerterForTests();
     pd = makeStub("pagerduty");
@@ -223,8 +294,7 @@ describe("queue-fallback-alerter", () => {
   it("auto-evaluates on tracker events once start() has wired the listener", async () => {
     startQueueFallbackAlerter();
     recordQueueFallback("email");
-    // Listener invokes evaluateQueueFallbackAlerts() asynchronously.
-    await new Promise((r) => setImmediate(r));
+    await flushListenerEvaluation();
     expect(pd.calls).toHaveLength(1);
     expect(pd.calls[0].kind).toBe("fire");
   });
@@ -234,7 +304,7 @@ describe("queue-fallback-alerter", () => {
     startQueueFallbackAlerter();
 
     recordQueueFallback("email");
-    await new Promise((r) => setImmediate(r));
+    await flushListenerEvaluation();
     expect(pd.calls).toHaveLength(1);
 
     stopQueueFallbackAlerter();
@@ -249,7 +319,7 @@ describe("queue-fallback-alerter", () => {
     });
 
     recordQueueFallback("email");
-    await new Promise((r) => setImmediate(r));
+    await flushListenerEvaluation();
     // Listener is detached, so no auto-dispatch.
     expect(pd.calls).toHaveLength(0);
   });

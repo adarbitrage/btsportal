@@ -129,11 +129,16 @@ export function setQueueFallbackListener(
  * survives api-server restarts. Emits a throttled `[Comms][ALERT]` warning
  * when the recent fallback count crosses the alert threshold and we haven't
  * alerted for this channel in the last throttle window.
+ *
+ * Returns a Promise that resolves once the durable audit row has been written
+ * (or its write rejected and was logged) and the alerter listener — if any —
+ * has been invoked. Production callers fire-and-forget by ignoring the return
+ * value; tests that need to assert downstream effects can `await` it.
  */
 export function recordQueueFallback(
   channel: QueueChannel,
   opts: RecordFallbackOptions = {},
-): void {
+): Promise<void> {
   const now = Date.now();
   const ch = state[channel];
   ch.events.push(now);
@@ -146,10 +151,6 @@ export function recordQueueFallback(
     `[Comms][Fallback] channel=${channel}${recipient}${reason} at=${new Date(now).toISOString()}`,
   );
 
-  // Fire-and-forget: durability of the audit row must never block the send
-  // path. Errors are logged inside persistFallback().
-  void persistFallback(channel, new Date(now), opts);
-
   const recentCount = countWithin(ch.events, RECENT_WINDOW_MS, now);
   const sinceLastAlert = now - ch.lastAlertAt;
   if (recentCount >= ALERT_THRESHOLD && sinceLastAlert >= ALERT_THROTTLE_MS) {
@@ -161,7 +162,15 @@ export function recordQueueFallback(
     );
   }
 
-  if (listener) {
+  // Persist the durable audit row, then invoke the listener AFTER the row
+  // has landed. The listener (queue-fallback-alerter) reads stats from the
+  // DB to decide whether to page on-call; firing it before the row is
+  // persisted would leave multi-instance pods with inconsistent views of
+  // "currently alerting" — see queue-fallback-alerter.ts for the cross-pod
+  // consistency model. persistFallback always resolves (errors are caught
+  // and logged inside it) so this chain is safe to await unconditionally.
+  return persistFallback(channel, new Date(now), opts).then(() => {
+    if (!listener) return;
     try {
       listener(channel, opts);
     } catch (err) {
@@ -169,7 +178,7 @@ export function recordQueueFallback(
       // fallback or returning to the caller. Log and move on.
       console.error("[QueueFallbackTracker] listener error:", err);
     }
-  }
+  });
 }
 
 export interface ChannelStats {
@@ -238,12 +247,25 @@ export function getQueueFallbackStats(): QueueFallbackStats {
 
 /**
  * Read fallback stats from `auditLogTable`. This is the source of truth that
- * operators see in the admin UI — it survives api-server restarts and works
- * correctly when more than one api-server instance is recording fallbacks.
+ * operators see in the admin UI — it survives api-server restarts and is the
+ * shared view all api-server instances use to decide whether on-call should
+ * be paged.
  *
- * If the DB query fails for any reason, falls back to the in-memory stats so
- * the health endpoint never blows up just because the audit table is having
- * a bad day.
+ * Multi-instance correctness note: we deliberately do NOT merge in this pod's
+ * in-memory events here. If we did, two pods evaluating the same outage could
+ * compute different "currently alerting" values during the brief window
+ * between an event being recorded and its DB write landing — pod A would see
+ * its own in-memory event and stay alerting, while pod B would see no DB row
+ * yet and clear. The clear/fire flap that races would result in pages and
+ * resolves leaking out of order. The recording side closes this gap by
+ * waiting for the persistFallback() write to land before invoking the
+ * tracker listener (see `recordQueueFallback` above).
+ *
+ * If the DB query fails, we fall back to the in-memory snapshot so the
+ * health endpoint never blows up just because the audit table is having a
+ * bad day. In a multi-instance deployment with a broken DB, alert routing
+ * is necessarily best-effort per pod — the audit table being down is also
+ * the only way an operator would notice the outage in the first place.
  */
 export async function getQueueFallbackStatsFromDb(): Promise<QueueFallbackStats> {
   const now = Date.now();

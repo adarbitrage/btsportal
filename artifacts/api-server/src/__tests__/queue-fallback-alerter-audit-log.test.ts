@@ -14,6 +14,7 @@ import {
 import {
   recordQueueFallback,
   __resetQueueFallbackTrackerForTests,
+  QUEUE_FALLBACK_ACTION_TYPE,
 } from "../lib/queue-fallback-tracker";
 
 const TAG = `qfb-alert-audit-${randomUUID().slice(0, 8)}`;
@@ -39,14 +40,34 @@ async function clearAlertRows() {
     );
 }
 
+// The alerter now reads "currently alerting" stats from the DB
+// (queue-fallback events the tracker persisted to auditLogTable). Clean
+// those rows between tests so each test sees a deterministic recent-event
+// count and prior tests don't leak into the alerter's transition decisions.
+//
+// We deliberately drop the baseline-id filter and delete every queue-fallback
+// tracker row, because vitest runs test files in a single fork against a
+// shared DB and `getQueueFallbackStatsFromDb` selects by `actionType +
+// createdAt`, not by id — so rows written by other test files (e.g. the
+// tracker test) within the last 24h would otherwise inflate `recentCount`
+// here. The tracker rows are owned end-to-end by tests and carry no
+// production data, so a wholesale delete is safe.
+async function clearTrackerEventRows() {
+  await db
+    .delete(auditLogTable)
+    .where(eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE));
+}
+
 afterAll(async () => {
   await clearAlertRows();
+  await clearTrackerEventRows();
 });
 
 beforeEach(async () => {
   __resetQueueFallbackTrackerForTests();
   __resetQueueFallbackAlerterForTests();
   await clearAlertRows();
+  await clearTrackerEventRows();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -78,7 +99,7 @@ describe("queue-fallback-alerter writes audit rows for delivery attempts", () =>
       slack: async (): Promise<DeliveryResult> => ({ channel: "slack", ok: true }),
     });
 
-    recordQueueFallback("email", { recipient: `${TAG}@example.test`, reason: "queue_unavailable" });
+    await recordQueueFallback("email", { recipient: `${TAG}@example.test`, reason: "queue_unavailable" });
     await evaluateQueueFallbackAlerts();
 
     const rows = await fetchAlertRows();
@@ -117,7 +138,7 @@ describe("queue-fallback-alerter writes audit rows for delivery attempts", () =>
       slack: async (): Promise<DeliveryResult> => ({ channel: "slack", ok: true }),
     });
 
-    recordQueueFallback("email");
+    await recordQueueFallback("email");
     await evaluateQueueFallbackAlerts();
 
     const rows = await fetchAlertRows();
@@ -155,7 +176,7 @@ describe("queue-fallback-alerter writes audit rows for delivery attempts", () =>
         slack: async (): Promise<DeliveryResult> => ({ channel: "slack", ok: true }),
       });
 
-      recordQueueFallback("email");
+      await recordQueueFallback("email");
       await evaluateQueueFallbackAlerts();
 
       // Recover (event ages out of the 5-minute recent window).
@@ -164,7 +185,7 @@ describe("queue-fallback-alerter writes audit rows for delivery attempts", () =>
 
       // Re-fire well inside the 60m throttle window.
       vi.setSystemTime(new Date("2026-01-01T00:11:00Z"));
-      recordQueueFallback("email");
+      await recordQueueFallback("email");
       await evaluateQueueFallbackAlerts();
 
       vi.useRealTimers();
@@ -212,7 +233,7 @@ describe("queue-fallback-alerter writes audit rows for delivery attempts", () =>
       slack: async (): Promise<DeliveryResult> => ({ channel: "slack", ok: true }),
     });
 
-    recordQueueFallback("sms");
+    await recordQueueFallback("sms");
     await evaluateQueueFallbackAlerts();
 
     vi.setSystemTime(new Date("2026-02-01T00:10:00Z"));
