@@ -133,6 +133,17 @@ interface TestResult {
   reason?: string;
 }
 
+type OnCallField =
+  | "pagerdutyIntegrationKey"
+  | "opsAlertEmail"
+  | "opsAlertSlackWebhookUrl";
+
+interface ProbeResult {
+  ok: boolean;
+  skipped?: boolean;
+  reason?: string;
+}
+
 function sourceLabel(source: "db" | "env" | null): string {
   if (source === "db") return "saved in admin";
   if (source === "env") return "from environment variable";
@@ -149,6 +160,10 @@ function OnCallDestinationsCard() {
   const [savingField, setSavingField] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+  // Per-field reachability check from the most recent save. Cleared when
+  // the field is cleared (no value to verify) and overwritten on each save
+  // so the green check / red cross always reflects the latest probe.
+  const [probes, setProbes] = useState<Partial<Record<OnCallField, ProbeResult>>>({});
 
   const load = async () => {
     try {
@@ -171,14 +186,55 @@ function OnCallDestinationsCard() {
   useEffect(() => { load(); }, []);
 
   const saveField = async (
-    field: "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl",
+    field: OnCallField,
     value: string | null,
   ) => {
     try {
       setSavingField(field);
-      await adminPanelApi.updateOnCallDestinations({ [field]: value });
-      toast({ title: value === null ? "Destination cleared" : "Destination saved" });
-      await load();
+      const data = await adminPanelApi.updateOnCallDestinations({ [field]: value });
+      setStatus({
+        pagerdutyConfigured: data.pagerdutyConfigured,
+        pagerdutySource: data.pagerdutySource,
+        opsAlertEmail: data.opsAlertEmail,
+        opsAlertEmailSource: data.opsAlertEmailSource,
+        slackConfigured: data.slackConfigured,
+        slackSource: data.slackSource,
+      });
+      setEmailInput(data.opsAlertEmail ?? "");
+      // Cleared rows have nothing to verify, so wipe any stale probe
+      // result. Otherwise replace this field's probe with the fresh one.
+      setProbes((prev) => {
+        const next = { ...prev };
+        const probeForField = data.probes?.[field];
+        if (value === null) {
+          delete next[field];
+        } else if (probeForField) {
+          next[field] = probeForField;
+        }
+        return next;
+      });
+      const probeResult = data.probes?.[field];
+      if (value === null) {
+        toast({ title: "Destination cleared" });
+      } else if (probeResult && !probeResult.ok) {
+        // Saving still succeeded — surface the reachability problem so the
+        // admin notices it before the next real incident hits, but don't
+        // make it look like the value wasn't stored.
+        toast({
+          title: "Saved, but verification failed",
+          description: probeResult.reason
+            ? `Destination test failed: ${probeResult.reason}`
+            : "Destination test failed",
+          variant: "destructive",
+        });
+      } else if (probeResult && probeResult.skipped) {
+        toast({
+          title: "Saved (verification skipped)",
+          description: probeResult.reason ?? undefined,
+        });
+      } else {
+        toast({ title: "Destination saved and verified" });
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -236,6 +292,7 @@ function OnCallDestinationsCard() {
               saving={savingField === "pagerdutyIntegrationKey"}
               onSave={(v) => saveField("pagerdutyIntegrationKey", v)}
               onClear={status.pagerdutyConfigured ? () => saveField("pagerdutyIntegrationKey", null) : undefined}
+              probe={probes.pagerdutyIntegrationKey}
             />
             <OnCallEmailRow
               configured={!!status.opsAlertEmail}
@@ -246,6 +303,7 @@ function OnCallDestinationsCard() {
               saving={savingField === "opsAlertEmail"}
               onSave={(v) => saveField("opsAlertEmail", v)}
               onClear={status.opsAlertEmail ? () => saveField("opsAlertEmail", null) : undefined}
+              probe={probes.opsAlertEmail}
             />
             <OnCallSecretRow
               label="Slack webhook URL"
@@ -259,6 +317,7 @@ function OnCallDestinationsCard() {
               saving={savingField === "opsAlertSlackWebhookUrl"}
               onSave={(v) => saveField("opsAlertSlackWebhookUrl", v)}
               onClear={status.slackConfigured ? () => saveField("opsAlertSlackWebhookUrl", null) : undefined}
+              probe={probes.opsAlertSlackWebhookUrl}
             />
 
             <div className="flex items-center justify-between border-t pt-4">
@@ -303,6 +362,50 @@ function OnCallDestinationsCard() {
   );
 }
 
+function ProbeBadge({ probe }: { probe: ProbeResult | undefined }) {
+  if (!probe) return null;
+  // We don't try to localize provider error strings here ("http_403",
+  // "invalid_token", etc.) — admins reading this card already know the
+  // shape of these messages from the provider's own dashboards, and a
+  // wrapped translation layer would just add another place to drift.
+  if (probe.skipped) {
+    return (
+      <div
+        className="flex items-center gap-2 text-xs text-muted-foreground"
+        data-testid="oncall-probe-skipped"
+      >
+        <AlertCircle className="w-3.5 h-3.5" />
+        <span>
+          Reachability check skipped{probe.reason ? ` (${probe.reason})` : ""}
+        </span>
+      </div>
+    );
+  }
+  if (probe.ok) {
+    return (
+      <div
+        className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400"
+        data-testid="oncall-probe-ok"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        <span>Reachability check passed</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex items-center gap-2 text-xs text-destructive"
+      data-testid="oncall-probe-failed"
+    >
+      <XCircle className="w-3.5 h-3.5" />
+      <span>
+        Reachability check failed{probe.reason ? `: ${probe.reason}` : ""} (value
+        was still saved)
+      </span>
+    </div>
+  );
+}
+
 function OnCallSecretRow({
   label,
   hint,
@@ -315,6 +418,7 @@ function OnCallSecretRow({
   saving,
   onSave,
   onClear,
+  probe,
 }: {
   label: string;
   hint: string;
@@ -327,6 +431,7 @@ function OnCallSecretRow({
   saving: boolean;
   onSave: (v: string) => void;
   onClear?: () => void;
+  probe?: ProbeResult;
 }) {
   return (
     <div className="border rounded-md p-3 space-y-2">
@@ -363,6 +468,7 @@ function OnCallSecretRow({
           </Button>
         )}
       </div>
+      <ProbeBadge probe={probe} />
     </div>
   );
 }
@@ -376,6 +482,7 @@ function OnCallEmailRow({
   saving,
   onSave,
   onClear,
+  probe,
 }: {
   configured: boolean;
   source: "db" | "env" | null;
@@ -385,6 +492,7 @@ function OnCallEmailRow({
   saving: boolean;
   onSave: (v: string) => void;
   onClear?: () => void;
+  probe?: ProbeResult;
 }) {
   const dirty = value.trim() !== (currentValue ?? "").trim();
   return (
@@ -421,6 +529,7 @@ function OnCallEmailRow({
           </Button>
         )}
       </div>
+      <ProbeBadge probe={probe} />
     </div>
   );
 }

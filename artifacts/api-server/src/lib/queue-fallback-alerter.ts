@@ -110,7 +110,33 @@ export interface DeliveryResult {
   reason?: string;
 }
 
+/**
+ * Result of a per-channel reachability probe (the lightweight "did the value
+ * the admin just typed actually work?" check fired from the Settings save
+ * flow). Distinct from `DeliveryResult` because probes:
+ *   - are not associated with an `AlertPayload` (no queue stats / no kind)
+ *   - take the destination value as a direct argument (so we can probe a
+ *     freshly saved value before re-reading it from storage)
+ *   - can themselves be skipped (e.g. email probe when SENDGRID_API_KEY is
+ *     not configured) without that being a failure of the saved value
+ */
+export interface ProbeResult {
+  ok: boolean;
+  /** True when the probe couldn't actually exercise the destination (e.g.
+   *  no SendGrid API key configured, so we couldn't verify the email). The
+   *  saved value is still stored; the UI just can't show a green check. */
+  skipped?: boolean;
+  reason?: string;
+}
+
 type DeliveryFn = (payload: AlertPayload) => Promise<DeliveryResult>;
+
+/** Per-channel probe signatures. Each takes the *value to probe* directly so
+ *  the save flow can verify the value the admin just typed without a
+ *  round-trip through storage. */
+export type PagerDutyProbeFn = (key: string) => Promise<ProbeResult>;
+export type EmailProbeFn = (to: string) => Promise<ProbeResult>;
+export type SlackProbeFn = (url: string) => Promise<ProbeResult>;
 
 let sgMailInitialized = false;
 
@@ -239,10 +265,181 @@ export function __setQueueFallbackAlerterDeliveriesForTests(
   deliveryOverrides = overrides;
 }
 
+/**
+ * Per-channel reachability probes. Lighter-weight than the full fire+clear
+ * test alert: each probe just confirms the value the admin saved is accepted
+ * by the corresponding provider. Used by the on-call destinations save flow
+ * so a typo'd Slack URL or revoked PagerDuty key surfaces inline instead of
+ * waiting for the next real incident.
+ *
+ * Implementation notes:
+ *   - PagerDuty: send a `trigger` event (severity=info, low-noise summary)
+ *     followed by an immediate `resolve` with the same dedup key, so the
+ *     synthetic incident auto-closes. PagerDuty rejects unknown / revoked
+ *     routing keys at trigger time, so a 4xx response is the failure signal.
+ *   - Email: send a one-line "test from BTS admin" message via SendGrid.
+ *     SendGrid validates the recipient domain on send and returns 4xx if
+ *     the address is malformed. When `SENDGRID_API_KEY` is unset we report
+ *     `skipped` rather than a failure — the saved address itself isn't bad,
+ *     we just can't reach SendGrid.
+ *   - Slack: POST a "configuration test" message to the webhook URL. Slack
+ *     returns 200 + body "ok" on success and 4xx with a short error string
+ *     ("invalid_token", "no_service") for revoked / typo'd webhooks.
+ */
+const defaultProbes = {
+  pagerduty: (async (key: string): Promise<ProbeResult> => {
+    if (!key) return { ok: false, reason: "missing_key" };
+    const dedupKey = "oncall-config-probe";
+    const summary = "BTS on-call destination probe (auto-resolves)";
+    const triggerBody = {
+      routing_key: key,
+      event_action: "trigger" as const,
+      dedup_key: dedupKey,
+      payload: {
+        summary,
+        severity: "info" as const,
+        source: process.env.HOSTNAME ?? "api-server",
+        component: "communication-queue",
+        class: "oncall_config_probe",
+      },
+    };
+    const triggerRes = await fetch("https://events.pagerduty.com/v2/enqueue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(triggerBody),
+    });
+    if (!triggerRes.ok) {
+      return { ok: false, reason: `http_${triggerRes.status}` };
+    }
+    // Best-effort resolve so the probe doesn't leave a dangling test
+    // incident in PagerDuty. A failure here doesn't invalidate the probe
+    // (the routing key was already proven accepted by the trigger above),
+    // so we just log and move on.
+    try {
+      const resolveRes = await fetch("https://events.pagerduty.com/v2/enqueue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          routing_key: key,
+          event_action: "resolve",
+          dedup_key: dedupKey,
+        }),
+      });
+      if (!resolveRes.ok) {
+        console.warn(
+          `[QueueFallbackAlerter] PagerDuty probe resolve returned http_${resolveRes.status}; trigger was accepted so probe still ok`,
+        );
+      }
+    } catch (err) {
+      console.warn("[QueueFallbackAlerter] PagerDuty probe resolve failed:", err);
+    }
+    return { ok: true };
+  }) satisfies PagerDutyProbeFn,
+
+  email: (async (to: string): Promise<ProbeResult> => {
+    if (!to) return { ok: false, reason: "missing_email" };
+    if (!process.env.SENDGRID_API_KEY) {
+      return { ok: true, skipped: true, reason: "sendgrid_not_configured" };
+    }
+    if (!sgMailInitialized) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      sgMailInitialized = true;
+    }
+    const from =
+      process.env.OPS_ALERT_FROM_EMAIL ??
+      process.env.FROM_EMAIL ??
+      "noreply@buildtestscale.com";
+    await sgMail.send({
+      to,
+      from,
+      subject: "[TEST] BTS on-call destination probe",
+      text: "test from BTS admin: this confirms the on-call email destination is reachable. No action required.",
+    });
+    return { ok: true };
+  }) satisfies EmailProbeFn,
+
+  slack: (async (url: string): Promise<ProbeResult> => {
+    if (!url) return { ok: false, reason: "missing_url" };
+    const text =
+      ":wrench: BTS on-call destination configuration test — webhook reachable. (You can ignore this message.)";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      return { ok: false, reason: `http_${res.status}` };
+    }
+    return { ok: true };
+  }) satisfies SlackProbeFn,
+};
+
+interface ProbeOverrides {
+  pagerduty?: PagerDutyProbeFn;
+  email?: EmailProbeFn;
+  slack?: SlackProbeFn;
+}
+
+let probeOverrides: ProbeOverrides | null = null;
+
+/** Test-only: replace one or more probe functions with stubs. */
+export function __setOnCallProbesForTests(overrides: ProbeOverrides | null): void {
+  probeOverrides = overrides;
+}
+
+/**
+ * Probe a freshly saved PagerDuty integration key. Wraps the underlying
+ * fetch so unexpected throws (network errors, DNS failures) become a normal
+ * `{ok:false, reason}` result instead of bubbling up and 500-ing the save.
+ */
+export async function probePagerDutyDestination(key: string): Promise<ProbeResult> {
+  const fn = probeOverrides?.pagerduty ?? defaultProbes.pagerduty;
+  try {
+    return await fn(key);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason };
+  }
+}
+
+/** Probe a freshly saved ops-alert email address. See the note above. */
+export async function probeEmailDestination(to: string): Promise<ProbeResult> {
+  const fn = probeOverrides?.email ?? defaultProbes.email;
+  try {
+    return await fn(to);
+  } catch (err) {
+    // SendGrid surfaces address-rejected errors as exceptions with a
+    // `response.body.errors[]` payload. We flatten that to the first
+    // message string when available so the UI can show "address rejected"
+    // instead of the raw stack trace.
+    const reason = sendgridErrorMessage(err) ?? (err instanceof Error ? err.message : String(err));
+    return { ok: false, reason };
+  }
+}
+
+/** Probe a freshly saved Slack incoming-webhook URL. See the note above. */
+export async function probeSlackDestination(url: string): Promise<ProbeResult> {
+  const fn = probeOverrides?.slack ?? defaultProbes.slack;
+  try {
+    return await fn(url);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason };
+  }
+}
+
+function sendgridErrorMessage(err: unknown): string | null {
+  if (!err || typeof err !== "object") return null;
+  const response = (err as { response?: { body?: { errors?: Array<{ message?: string }> } } }).response;
+  const first = response?.body?.errors?.[0]?.message;
+  return typeof first === "string" && first.length > 0 ? first : null;
+}
+
 /** Test-only: reset all alerter state (in-memory shared-state fallback included). */
 export function __resetQueueFallbackAlerterForTests(): void {
   __resetQueueFallbackAlerterStateForTests();
   deliveryOverrides = null;
+  probeOverrides = null;
 }
 
 /**

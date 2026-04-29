@@ -24,8 +24,12 @@ import {
 } from "../lib/oncall-settings";
 import {
   sendOnCallTestAlert,
+  probePagerDutyDestination,
+  probeEmailDestination,
+  probeSlackDestination,
   QUEUE_FALLBACK_ALERT_ACTION_TYPE,
   QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
+  type ProbeResult,
 } from "../lib/queue-fallback-alerter";
 import jwt from "jsonwebtoken";
 
@@ -1946,6 +1950,10 @@ router.put("/admin/oncall-destinations", requirePermission("settings:manage"), a
     }
 
     const changed: OnCallField[] = [];
+    // Track non-null saved values per field so we can probe them after the
+    // save completes. We probe *after* the row is written so that even if
+    // the probe explodes, the value the admin asked us to store is durable.
+    const probeTargets = new Map<OnCallField, string>();
     for (const { field, raw } of updates) {
       let value: string | null;
       if (raw === null || raw === "") {
@@ -1963,6 +1971,7 @@ router.put("/admin/oncall-destinations", requirePermission("settings:manage"), a
       }
       await setOnCallDestination(field, value, req.userEmail || (req.userId ? String(req.userId) : null));
       changed.push(field);
+      if (value !== null) probeTargets.set(field, value);
     }
 
     // Audit the change list (without leaking the new secret values) so admins
@@ -1976,13 +1985,63 @@ router.put("/admin/oncall-destinations", requirePermission("settings:manage"), a
       { changedFields: changed },
     );
 
+    // Lightweight per-channel reachability probe so admins get a green check
+    // / red cross inline instead of having to run a full fire+clear test
+    // separately. Probes run in parallel and never throw — failures degrade
+    // to a `{ok:false, reason}` entry in the response. The save itself has
+    // already committed regardless of probe outcome.
+    const probes: Partial<Record<OnCallField, ProbeResult>> = {};
+    const probeRuns: Array<Promise<void>> = [];
+    for (const [field, value] of probeTargets) {
+      probeRuns.push(
+        runProbeForField(field, value).then((result) => {
+          probes[field] = result;
+        }),
+      );
+    }
+    await Promise.all(probeRuns);
+
+    // Audit the probe outcomes so we can later answer "did the save show a
+    // red cross at the time?" without re-probing the destination. We only
+    // audit the outcome (ok / skipped / reason) — never the value itself,
+    // matching how the change-list audit row above redacts secrets.
+    const probeAuditEntries = Object.entries(probes).map(([field, result]) => ({
+      field,
+      ok: result.ok,
+      skipped: !!result.skipped,
+      reason: result.reason ?? null,
+    }));
+    if (probeAuditEntries.length > 0) {
+      await logAdminAction(
+        req,
+        "probe_oncall_destination",
+        "oncall_destinations",
+        "oncall",
+        `Probed on-call destination(s): ${probeAuditEntries
+          .map((p) => `${p.field}=${p.skipped ? "skipped" : p.ok ? "ok" : "failed"}`)
+          .join(", ")}`,
+        { probes: probeAuditEntries },
+      );
+    }
+
     const status = await getOnCallDestinationsStatus();
-    res.json(status);
+    res.json({ ...status, probes });
   } catch (error) {
     console.error("[Admin] Update on-call destinations error:", error);
     res.status(500).json({ error: "Failed to update on-call destinations" });
   }
 });
+
+async function runProbeForField(field: OnCallField, value: string): Promise<ProbeResult> {
+  switch (field) {
+    case "pagerdutyIntegrationKey":
+      return probePagerDutyDestination(value);
+    case "opsAlertEmail":
+      return probeEmailDestination(value);
+    case "opsAlertSlackWebhookUrl":
+      return probeSlackDestination(value);
+  }
+}
 
 router.post("/admin/oncall-destinations/test", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {

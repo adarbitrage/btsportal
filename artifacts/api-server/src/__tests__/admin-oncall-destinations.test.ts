@@ -22,8 +22,10 @@ import {
 import {
   __resetQueueFallbackAlerterForTests,
   __setQueueFallbackAlerterDeliveriesForTests,
+  __setOnCallProbesForTests,
   type AlertPayload,
   type DeliveryResult,
+  type ProbeResult,
 } from "../lib/queue-fallback-alerter";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -83,6 +85,15 @@ afterAll(async () => {
 beforeEach(async () => {
   await clearOnCallRows();
   __resetQueueFallbackAlerterForTests();
+  // Default: stub all probes to a deterministic "ok" so the existing
+  // happy-path tests don't actually hit the network when they save a
+  // destination. Tests that care about probe outcomes override these
+  // explicitly via __setOnCallProbesForTests.
+  __setOnCallProbesForTests({
+    pagerduty: async (): Promise<ProbeResult> => ({ ok: true }),
+    email: async (): Promise<ProbeResult> => ({ ok: true }),
+    slack: async (): Promise<ProbeResult> => ({ ok: true }),
+  });
   // Strip env vars so tests start from a clean "nothing configured" state.
   delete process.env.PAGERDUTY_INTEGRATION_KEY;
   delete process.env.OPS_ALERT_EMAIL;
@@ -91,6 +102,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   __setQueueFallbackAlerterDeliveriesForTests(null);
+  __setOnCallProbesForTests(null);
 });
 
 describe("oncall-settings library", () => {
@@ -217,11 +229,12 @@ describe("/admin/oncall-destinations endpoints", () => {
       .from(auditLogTable)
       .where(eq(auditLogTable.actorId, adminId));
     const oncallEntries = audit.filter((a) => a.entityType === "oncall_destinations");
-    expect(oncallEntries.length).toBeGreaterThan(0);
-    const entry = oncallEntries[oncallEntries.length - 1];
-    expect(entry.actionType).toBe("update_setting");
-    expect(JSON.stringify(entry)).not.toContain("fresh-pd-key");
-    expect(entry.changeDiff).toEqual({ changedFields: ["pagerdutyIntegrationKey"] });
+    // Two rows now: the change-list update_setting row and the
+    // probe_oncall_destination row recording reachability outcomes.
+    const updateEntry = oncallEntries.find((a) => a.actionType === "update_setting");
+    expect(updateEntry).toBeTruthy();
+    expect(JSON.stringify(updateEntry)).not.toContain("fresh-pd-key");
+    expect(updateEntry!.changeDiff).toEqual({ changedFields: ["pagerdutyIntegrationKey"] });
   });
 
   it("PUT can clear a destination by passing null", async () => {
@@ -367,5 +380,247 @@ describe("POST /admin/oncall-destinations/test", () => {
       .where(eq(auditLogTable.actorId, adminId));
     const testEntries = audit.filter((a) => a.actionType === "send_test_alert");
     expect(testEntries.length).toBeGreaterThan(0);
+  });
+});
+
+describe("PUT /admin/oncall-destinations probe-on-save", () => {
+  it("calls the matching probe with the freshly saved value and returns the result", async () => {
+    const seen: { field: string; value: string }[] = [];
+    __setOnCallProbesForTests({
+      pagerduty: async (key) => {
+        seen.push({ field: "pagerduty", value: key });
+        return { ok: true };
+      },
+      email: async (to) => {
+        seen.push({ field: "email", value: to });
+        return { ok: true };
+      },
+      slack: async (url) => {
+        seen.push({ field: "slack", value: url });
+        return { ok: true };
+      },
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({
+        pagerdutyIntegrationKey: "fresh-pd",
+        opsAlertEmail: "ops@example.test",
+        opsAlertSlackWebhookUrl: "https://hooks.slack.test/fresh",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.probes).toEqual({
+      pagerdutyIntegrationKey: { ok: true },
+      opsAlertEmail: { ok: true },
+      opsAlertSlackWebhookUrl: { ok: true },
+    });
+    // Each probe was invoked exactly once with the value the admin saved
+    // (so we know we're probing the user-supplied value, not a stale read
+    // from storage that could differ by trimming or encoding).
+    expect(seen).toHaveLength(3);
+    expect(seen.find((s) => s.field === "pagerduty")?.value).toBe("fresh-pd");
+    expect(seen.find((s) => s.field === "email")?.value).toBe("ops@example.test");
+    expect(seen.find((s) => s.field === "slack")?.value).toBe(
+      "https://hooks.slack.test/fresh",
+    );
+  });
+
+  it("only probes the fields included in the update", async () => {
+    let pdCalls = 0;
+    let emailCalls = 0;
+    let slackCalls = 0;
+    __setOnCallProbesForTests({
+      pagerduty: async () => {
+        pdCalls += 1;
+        return { ok: true };
+      },
+      email: async () => {
+        emailCalls += 1;
+        return { ok: true };
+      },
+      slack: async () => {
+        slackCalls += 1;
+        return { ok: true };
+      },
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "only-pd" });
+
+    expect(res.status).toBe(200);
+    expect(pdCalls).toBe(1);
+    expect(emailCalls).toBe(0);
+    expect(slackCalls).toBe(0);
+    expect(res.body.probes).toEqual({
+      pagerdutyIntegrationKey: { ok: true },
+    });
+  });
+
+  it("does not probe when the field is being cleared (null)", async () => {
+    await setOnCallDestination("pagerdutyIntegrationKey", "to-clear", "seed");
+    let pdCalls = 0;
+    __setOnCallProbesForTests({
+      pagerduty: async () => {
+        pdCalls += 1;
+        return { ok: true };
+      },
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: null });
+
+    expect(res.status).toBe(200);
+    expect(pdCalls).toBe(0);
+    // Empty `probes` rather than missing — the UI keys off the field name
+    // and "no probe ran" should leave the row's probe badge unchanged.
+    expect(res.body.probes).toEqual({});
+  });
+
+  it("a probe failure does not prevent the value from being saved", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: false, reason: "http_403" }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "bad-but-stored" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagerdutyConfigured).toBe(true);
+    expect(res.body.probes.pagerdutyIntegrationKey).toEqual({
+      ok: false,
+      reason: "http_403",
+    });
+
+    // The value is durable even though the probe said it isn't reachable.
+    const dest = await getOnCallDestinations();
+    expect(dest.pagerdutyIntegrationKey).toBe("bad-but-stored");
+  });
+
+  it("probe exceptions degrade to a {ok:false, reason} response, not a 500", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => {
+        throw new Error("ECONNREFUSED");
+      },
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "anything" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.probes.pagerdutyIntegrationKey.ok).toBe(false);
+    expect(res.body.probes.pagerdutyIntegrationKey.reason).toContain("ECONNREFUSED");
+  });
+
+  it("a probe that reports skipped is surfaced as such (not as a failure)", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: true }),
+      email: async () => ({ ok: true, skipped: true, reason: "sendgrid_not_configured" }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ opsAlertEmail: "ops@example.test" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.probes.opsAlertEmail).toEqual({
+      ok: true,
+      skipped: true,
+      reason: "sendgrid_not_configured",
+    });
+  });
+
+  it("records a probe_oncall_destination audit row alongside the update_setting row", async () => {
+    __setOnCallProbesForTests({
+      pagerduty: async () => ({ ok: false, reason: "http_403" }),
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "audit-me" });
+
+    const audit = await db
+      .select()
+      .from(auditLogTable)
+      .where(eq(auditLogTable.actorId, adminId));
+    const probeEntries = audit.filter((a) => a.actionType === "probe_oncall_destination");
+    expect(probeEntries.length).toBeGreaterThan(0);
+    const entry = probeEntries[probeEntries.length - 1];
+    // Outcome and reason recorded so admins can later answer "did the
+    // save show a red cross at the time?" without re-probing.
+    expect(entry.changeDiff).toEqual({
+      probes: [
+        { field: "pagerdutyIntegrationKey", ok: false, skipped: false, reason: "http_403" },
+      ],
+    });
+    // The value itself is never written to the audit row.
+    expect(JSON.stringify(entry)).not.toContain("audit-me");
+  });
+
+  it("probes the freshly saved value even when the DB row already had a different value", async () => {
+    await setOnCallDestination("pagerdutyIntegrationKey", "old-value", "seed");
+    let probedValue: string | null = null;
+    __setOnCallProbesForTests({
+      pagerduty: async (key) => {
+        probedValue = key;
+        return { ok: true };
+      },
+      email: async () => ({ ok: true }),
+      slack: async () => ({ ok: true }),
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ pagerdutyIntegrationKey: "new-value" });
+
+    expect(res.status).toBe(200);
+    expect(probedValue).toBe("new-value");
+  });
+
+  it("does not run any probes when the input is invalid (e.g. malformed email)", async () => {
+    let probesRan = 0;
+    __setOnCallProbesForTests({
+      pagerduty: async () => {
+        probesRan += 1;
+        return { ok: true };
+      },
+      email: async () => {
+        probesRan += 1;
+        return { ok: true };
+      },
+      slack: async () => {
+        probesRan += 1;
+        return { ok: true };
+      },
+    });
+
+    const res = await request(app)
+      .put("/api/admin/oncall-destinations")
+      .set("Cookie", adminCookie)
+      .send({ opsAlertEmail: "not-an-email" });
+
+    expect(res.status).toBe(400);
+    expect(probesRan).toBe(0);
   });
 });

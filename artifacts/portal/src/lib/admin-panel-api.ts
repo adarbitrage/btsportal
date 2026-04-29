@@ -290,7 +290,21 @@ export const adminPanelApi = {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || "Failed to update on-call destinations");
     }
-    return res.json();
+    return res.json() as Promise<{
+      pagerdutyConfigured: boolean;
+      pagerdutySource: "db" | "env" | null;
+      opsAlertEmail: string | null;
+      opsAlertEmailSource: "db" | "env" | null;
+      slackConfigured: boolean;
+      slackSource: "db" | "env" | null;
+      // Per-field reachability probe results from the save flow. Only the
+      // fields that were updated to a non-null value appear here, so a save
+      // that just clears a destination returns an empty `probes` object.
+      probes: Partial<Record<
+        "pagerdutyIntegrationKey" | "opsAlertEmail" | "opsAlertSlackWebhookUrl",
+        { ok: boolean; skipped?: boolean; reason?: string }
+      >>;
+    }>;
   },
 
   async sendOnCallTestAlert() {
