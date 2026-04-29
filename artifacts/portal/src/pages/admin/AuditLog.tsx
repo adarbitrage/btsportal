@@ -17,9 +17,19 @@ import { format } from "date-fns";
  * — e.g. `/admin/audit-log?actionType=queue_fallback&expand=42` opens the page
  * pre-filtered to queue_fallback rows and auto-expands row #42.
  */
+// Allow-list mirrored from the server's `AlertDeliveryOutcome` union — used
+// both to defend a deep-linked `?outcome=` value and to render the Select.
+const ALERT_OUTCOME_OPTIONS = ["sent", "failed", "throttled", "skipped"] as const;
+type AlertOutcomeFilter = "" | typeof ALERT_OUTCOME_OPTIONS[number];
+
+function normaliseOutcome(raw: string | null): AlertOutcomeFilter {
+  if (!raw) return "";
+  return (ALERT_OUTCOME_OPTIONS as readonly string[]).includes(raw) ? (raw as AlertOutcomeFilter) : "";
+}
+
 function readUrlParams() {
   if (typeof window === "undefined") {
-    return { actionType: "", entityType: "", startDate: "", endDate: "", expand: null as number | null };
+    return { actionType: "", entityType: "", startDate: "", endDate: "", outcome: "" as AlertOutcomeFilter, expand: null as number | null };
   }
   const sp = new URLSearchParams(window.location.search);
   const expandRaw = sp.get("expand");
@@ -29,6 +39,7 @@ function readUrlParams() {
     entityType: sp.get("entityType") ?? "",
     startDate: sp.get("startDate") ?? "",
     endDate: sp.get("endDate") ?? "",
+    outcome: normaliseOutcome(sp.get("outcome")),
     expand,
   };
 }
@@ -47,11 +58,18 @@ export default function AuditLog() {
   // hold the most recent values across pagination here.
   const [totalMatching, setTotalMatching] = useState<number | null>(null);
   const [exportCap, setExportCap] = useState<number>(10000);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<{
+    actionType: string;
+    entityType: string;
+    startDate: string;
+    endDate: string;
+    outcome: AlertOutcomeFilter;
+  }>({
     actionType: initialParams.actionType,
     entityType: initialParams.entityType,
     startDate: initialParams.startDate,
     endDate: initialParams.endDate,
+    outcome: initialParams.outcome,
   });
   const [expandedId, setExpandedId] = useState<number | null>(initialParams.expand);
   const [loading, setLoading] = useState(true);
@@ -379,6 +397,30 @@ export default function AuditLog() {
                   <SelectItem value="queue_fallback_alert">Queue fallback alert</SelectItem>
                   <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
                   <SelectItem value="signup_notice_suppressed">Signup notice suppressed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.outcome === "" ? "all" : filters.outcome}
+                onValueChange={(v) =>
+                  setFilters({
+                    ...filters,
+                    outcome: v === "all" ? "" : (v as AlertOutcomeFilter),
+                  })
+                }
+              >
+                <SelectTrigger
+                  className="w-40"
+                  data-testid="audit-filter-outcome"
+                  title="Filter alert rows by delivery outcome (queue_fallback_alert)"
+                >
+                  <SelectValue placeholder="Alert Outcome" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Outcomes</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="throttled">Throttled</SelectItem>
+                  <SelectItem value="skipped">Skipped</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.entityType} onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}>

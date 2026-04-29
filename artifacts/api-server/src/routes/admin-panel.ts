@@ -475,6 +475,12 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 
 type AuditCursor = { t: string; i: number };
 
+// Allow-list of `metadata.outcome` values accepted by the audit-log filter.
+// Mirrors the `AlertDeliveryOutcome` union in queue-fallback-alerter.ts —
+// arbitrary strings are rejected so a malformed `?outcome=` doesn't issue
+// a fruitless JSONB path scan or surface "no such outcome" rows.
+const ALERT_OUTCOME_FILTER_VALUES = new Set(["sent", "failed", "throttled", "skipped"]);
+
 // Microsecond-precision ISO of a row's createdAt. Selected as an alias so
 // the value never round-trips through JS's millisecond-only Date type and
 // therefore preserves the column's full timestamptz precision.
@@ -561,7 +567,7 @@ function rowToCursor(row: { cursorTs?: string | null; id: number }): AuditCursor
 
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
-    const { actionType, entityType, actorId, startDate, endDate, page, limit = "50", expand, cursor, direction, jumpTo } = req.query;
+    const { actionType, entityType, actorId, startDate, endDate, outcome, page, limit = "50", expand, cursor, direction, jumpTo } = req.query;
 
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
 
@@ -571,6 +577,14 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     if (actorId && typeof actorId === "string") conditions.push(eq(auditLogTable.actorId, parseInt(actorId, 10)));
     if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
     if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
+    // Alert outcome filter — only meaningful for queue_fallback_alert rows,
+    // whose `metadata.outcome` is one of sent/failed/throttled/skipped (see
+    // queue-fallback-alerter.ts AlertDeliveryOutcome). Allow-list the value
+    // so an arbitrary client-supplied string can't smuggle into the JSONB
+    // path expression even though it's parameterized.
+    if (outcome && typeof outcome === "string" && ALERT_OUTCOME_FILTER_VALUES.has(outcome)) {
+      conditions.push(sql`${auditLogTable.metadata}->>'outcome' = ${outcome}`);
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const canSeePii = hasPermission(req.adminRole, "members:pii");
@@ -893,12 +907,17 @@ function resolveAuditLogExportHardCap(): number {
 type ExportCursor = { ts: string; id: number };
 
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
-  const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
+  const { actionType, entityType, startDate, endDate, outcome, format = "csv" } = req.query;
   const conditions: any[] = [];
   if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
   if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
   if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
   if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
+  // Match the read endpoint's outcome filter so the export is consistent
+  // with the row count the UI displays.
+  if (outcome && typeof outcome === "string" && ALERT_OUTCOME_FILTER_VALUES.has(outcome)) {
+    conditions.push(sql`${auditLogTable.metadata}->>'outcome' = ${outcome}`);
+  }
   const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
   const hardCap = resolveAuditLogExportHardCap();
 

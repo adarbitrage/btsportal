@@ -55,6 +55,7 @@ export const adminPanelApi = {
     entityType?: string;
     startDate?: string;
     endDate?: string;
+    outcome?: string;
     expand?: number;
     cursor?: string;
     direction?: "forward" | "backward";
@@ -67,6 +68,7 @@ export const adminPanelApi = {
     if (params.entityType) qs.set("entityType", params.entityType);
     if (params.startDate) qs.set("startDate", params.startDate);
     if (params.endDate) qs.set("endDate", params.endDate);
+    if (params.outcome) qs.set("outcome", params.outcome);
     if (params.expand != null) qs.set("expand", String(params.expand));
     if (params.cursor) qs.set("cursor", params.cursor);
     if (params.direction) qs.set("direction", params.direction);
@@ -78,7 +80,7 @@ export const adminPanelApi = {
 
   async exportAuditLog(
     format: string = "csv",
-    filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string } = {},
+    filters: { actionType?: string; entityType?: string; startDate?: string; endDate?: string; outcome?: string } = {},
     onProgress?: (progress: { bytesReceived: number; rowsReceived: number | null }) => void,
   ): Promise<{ blob: Blob; bytesReceived: number; rowsReceived: number | null }> {
     const qs = new URLSearchParams();
@@ -87,6 +89,7 @@ export const adminPanelApi = {
     if (filters.entityType) qs.set("entityType", filters.entityType);
     if (filters.startDate) qs.set("startDate", filters.startDate);
     if (filters.endDate) qs.set("endDate", filters.endDate);
+    if (filters.outcome) qs.set("outcome", filters.outcome);
     const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to export audit log");
 
