@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,19 @@ interface QueueFallbackEvent {
   description: string;
 }
 
+interface QueueFallbackAlertEvent {
+  id: number;
+  createdAt: string;
+  queueChannel: "email" | "sms" | null;
+  deliveryChannel: "pagerduty" | "email" | "slack" | null;
+  kind: "fire" | "clear" | null;
+  outcome: "sent" | "failed" | "throttled" | "skipped" | null;
+  reason: string | null;
+  description: string;
+}
+
 const FALLBACK_EVENTS_LIMIT = 50;
+const ALERT_EVENTS_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export default function SystemHealth() {
@@ -26,6 +38,9 @@ export default function SystemHealth() {
   const [fallbackEvents, setFallbackEvents] = useState<QueueFallbackEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [alertEvents, setAlertEvents] = useState<QueueFallbackAlertEvent[]>([]);
+  const [alertEventsLoading, setAlertEventsLoading] = useState(true);
+  const [alertEventsError, setAlertEventsError] = useState<string | null>(null);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
@@ -68,13 +83,35 @@ export default function SystemHealth() {
     }
   }, []);
 
+  const loadAlertEvents = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setAlertEventsLoading(true);
+      const data = await adminPanelApi.getQueueFallbackAlertEvents(ALERT_EVENTS_LIMIT);
+      setAlertEvents(Array.isArray(data?.events) ? data.events : []);
+      setAlertEventsError(null);
+      return true;
+    } catch (err: any) {
+      if (silent) {
+        return false;
+      }
+      setAlertEventsError(err?.message ?? "Failed to load alert delivery events");
+      return false;
+    } finally {
+      if (!silent) setAlertEventsLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (silent = false) => {
     if (inFlightRef.current > 0) return;
     inFlightRef.current += 1;
     setRefreshInFlight(inFlightRef.current);
     try {
-      const [healthOk, eventsOk] = await Promise.all([loadHealth(silent), loadFallbackEvents(silent)]);
-      const allOk = healthOk && eventsOk;
+      const [healthOk, eventsOk, alertEventsOk] = await Promise.all([
+        loadHealth(silent),
+        loadFallbackEvents(silent),
+        loadAlertEvents(silent),
+      ]);
+      const allOk = healthOk && eventsOk && alertEventsOk;
       if (silent) {
         setSilentRefreshError(allOk ? null : "Last auto-refresh failed — showing previous data");
       } else {
@@ -88,7 +125,7 @@ export default function SystemHealth() {
       inFlightRef.current = Math.max(0, inFlightRef.current - 1);
       setRefreshInFlight(inFlightRef.current);
     }
-  }, [loadHealth, loadFallbackEvents]);
+  }, [loadHealth, loadFallbackEvents, loadAlertEvents]);
 
   const isRefreshing = refreshInFlight > 0;
 
@@ -519,6 +556,106 @@ export default function SystemHealth() {
                                   href={`/admin/audit-log?actionType=queue_fallback&entityType=queue&expand=${event.id}`}
                                   className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                                   data-testid={`link-audit-${event.id}`}
+                                >
+                                  #{event.id}
+                                  <ExternalLink className="w-3 h-3" />
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  On-call alert deliveries
+                  <Badge variant="outline" className="ml-2 font-normal">last {ALERT_EVENTS_LIMIT}</Badge>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Each row is a single PagerDuty / ops email / Slack delivery attempt the alerter made when the queue
+                  started or stopped bypassing Redis. Click an event to open the matching audit log entry.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {alertEventsLoading && alertEvents.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm" data-testid="alert-events-loading">Loading recent alert deliveries...</div>
+                ) : alertEventsError ? (
+                  <div className="p-6 text-center text-sm text-red-600" data-testid="alert-events-error">{alertEventsError}</div>
+                ) : alertEvents.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm" data-testid="alert-events-empty">
+                    No on-call alerts have been dispatched yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto" data-testid="alert-events-table">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="text-left font-medium px-4 py-2">When</th>
+                          <th className="text-left font-medium px-4 py-2">Channel</th>
+                          <th className="text-left font-medium px-4 py-2">Queue / Kind</th>
+                          <th className="text-left font-medium px-4 py-2">Outcome</th>
+                          <th className="text-left font-medium px-4 py-2">Reason</th>
+                          <th className="text-right font-medium px-4 py-2">Audit row</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {alertEvents.map((event) => {
+                          const ts = event.createdAt ? new Date(event.createdAt) : null;
+                          const tsLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString() : "Unknown";
+                          const outcomeVariant: "default" | "success" | "warning" | "secondary" | "outline" =
+                            event.outcome === "sent"
+                              ? "success"
+                              : event.outcome === "failed"
+                                ? "warning"
+                                : event.outcome === "throttled"
+                                  ? "outline"
+                                  : event.outcome === "skipped"
+                                    ? "secondary"
+                                    : "outline";
+                          return (
+                            <tr key={event.id} className="hover:bg-muted/20" data-testid={`alert-event-row-${event.id}`}>
+                              <td className="px-4 py-2 whitespace-nowrap text-xs">{tsLabel}</td>
+                              <td className="px-4 py-2">
+                                {event.deliveryChannel ? (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {event.deliveryChannel}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">unknown</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-xs">
+                                <span>{event.queueChannel ?? "—"}</span>
+                                {event.kind && (
+                                  <Badge variant="secondary" className="ml-2 text-[10px]">
+                                    {event.kind}
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-2">
+                                {event.outcome ? (
+                                  <Badge variant={outcomeVariant} className="text-[10px]" data-testid={`alert-event-outcome-${event.id}`}>
+                                    {event.outcome}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">unknown</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 max-w-[14rem] truncate text-xs" title={event.reason ?? ""}>
+                                {event.reason ?? <span className="text-muted-foreground">—</span>}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <Link
+                                  href={`/admin/audit-log?actionType=queue_fallback_alert&entityType=alert&expand=${event.id}`}
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                  data-testid={`link-alert-audit-${event.id}`}
                                 >
                                   #{event.id}
                                   <ExternalLink className="w-3 h-3" />

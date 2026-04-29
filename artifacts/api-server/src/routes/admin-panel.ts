@@ -15,7 +15,11 @@ import {
   isOnCallSettingKey,
   type OnCallField,
 } from "../lib/oncall-settings";
-import { sendOnCallTestAlert } from "../lib/queue-fallback-alerter";
+import {
+  sendOnCallTestAlert,
+  QUEUE_FALLBACK_ALERT_ACTION_TYPE,
+  QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
+} from "../lib/queue-fallback-alerter";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -1213,6 +1217,80 @@ router.get("/admin/system/queue-fallback-events", requirePermission("system:view
   } catch (error) {
     console.error("[Admin] Queue fallback events error:", error);
     res.status(500).json({ error: "Failed to fetch queue fallback events" });
+  }
+});
+
+/**
+ * List recent on-call alert delivery attempts for the System Health page.
+ *
+ * Mirrors `/admin/system/queue-fallback-events` but filters on the audit rows
+ * the queue-fallback alerter writes for *outbound notification* attempts
+ * (PagerDuty / ops email / Slack), not the underlying queue-bypass events.
+ * Surfacing these next to the queue-fallback timeline lets an on-call admin
+ * answer "did the page actually go out?" without leaving System Health and
+ * filtering the audit log by hand.
+ *
+ * Query params:
+ *   - limit: number of events to return (default 50, max 200)
+ *
+ * Filters by `actionType = "queue_fallback_alert"` and
+ * `entityType = "alert"` so the list lines up 1:1 with the rows written by
+ * `recordDeliveryAttempt` in `queue-fallback-alerter.ts`. The entityType
+ * filter is belt-and-braces protection in case a future audit row reuses
+ * the action type with a different entityType.
+ */
+router.get("/admin/system/queue-fallback-alert-events", requirePermission("system:view"), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        entityId: auditLogTable.entityId,
+        description: auditLogTable.description,
+        metadata: auditLogTable.metadata,
+      })
+      .from(auditLogTable)
+      .where(and(
+        eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+        eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
+      ))
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(limit);
+
+    const events = rows.map((row) => {
+      const meta = (row.metadata ?? {}) as Record<string, unknown>;
+      const queueChannelRaw = typeof meta.queueChannel === "string" ? meta.queueChannel : row.entityId;
+      const queueChannel = queueChannelRaw === "email" || queueChannelRaw === "sms" ? queueChannelRaw : null;
+      const deliveryChannelRaw = typeof meta.deliveryChannel === "string" ? meta.deliveryChannel : null;
+      const deliveryChannel = deliveryChannelRaw === "pagerduty" || deliveryChannelRaw === "email" || deliveryChannelRaw === "slack"
+        ? deliveryChannelRaw
+        : null;
+      const kindRaw = typeof meta.kind === "string" ? meta.kind : null;
+      const kind = kindRaw === "fire" || kindRaw === "clear" ? kindRaw : null;
+      const outcomeRaw = typeof meta.outcome === "string" ? meta.outcome : null;
+      const outcome = outcomeRaw === "sent" || outcomeRaw === "failed" || outcomeRaw === "throttled" || outcomeRaw === "skipped"
+        ? outcomeRaw
+        : null;
+      const reason = typeof meta.reason === "string" && meta.reason.length > 0 ? meta.reason : null;
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        queueChannel,
+        deliveryChannel,
+        kind,
+        outcome,
+        reason,
+        description: row.description,
+      };
+    });
+
+    res.json({ events, limit });
+  } catch (error) {
+    console.error("[Admin] Queue fallback alert events error:", error);
+    res.status(500).json({ error: "Failed to fetch queue fallback alert events" });
   }
 });
 
