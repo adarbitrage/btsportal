@@ -18,6 +18,10 @@ import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-t
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
+import {
+  evaluateRateLimitAuditFailureAlert,
+  getRateLimitAuditFailureAlertingState,
+} from "../lib/rate-limit-audit-failure-alerter";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import { evaluateAuthRateLimitAlert } from "../lib/auth-rate-limit-alerter";
 import {
@@ -2355,6 +2359,35 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
         createdAt: lastAt,
       });
     }
+
+    // Surface the rate-limit audit-failure alerter's state in the bell so
+    // an admin sees "audit writes are being dropped" without first opening
+    // System Health — the whole point of the alerter pipeline. Mirrors how
+    // `queue_fallback` is surfaced just above. Also fan out to the on-call
+    // alert pipeline so this also pages PagerDuty/email/Slack — that path
+    // throttles itself per delivery channel so this fires at most once
+    // per window even though /admin/notifications is polled every minute.
+    const auditFailureStats = getRateLimitAuditFailureStats();
+    const auditFailureAlerting = getRateLimitAuditFailureAlertingState();
+    if (auditFailureAlerting.alerting) {
+      notifications.push({
+        id: "rate-limit-audit-failure",
+        type: "rate_limit_audit_failure",
+        severity: "high",
+        title: "Rate-limit audit writes are silently dropping",
+        message: `${auditFailureStats.totalCount} audit row(s) have been dropped since process start — the 429s are still going out, but the audit trail isn't. Database may be flapping during a credential-stuffing wave.`,
+        link: "/admin/system",
+        createdAt: auditFailureStats.lastAt ?? new Date().toISOString(),
+      });
+    }
+    // Always evaluate so on-call gets paged on the first dropped-row burst
+    // even if the admin bell hasn't yet flipped to "alerting" (the bell
+    // reads the alerter state, the alerter sets it from this evaluation).
+    // Don't await — alerting on the dashboard fetch path shouldn't block
+    // the response, and the alerter logs its own errors.
+    evaluateRateLimitAuditFailureAlert().catch((err) => {
+      console.error("[Admin] rate-limit audit-failure alerter dispatch failed:", err);
+    });
 
     // Production-only: surface a missing Turnstile secret as a high-severity
     // notification so admins notice without having to open System Health.

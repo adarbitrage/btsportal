@@ -12,6 +12,10 @@ import {
   startAbuseRateLimitCleanupAlerter,
   stopAbuseRateLimitCleanupAlerter,
 } from "./lib/abuse-rate-limit-cleanup-alerter";
+import {
+  startRateLimitAuditFailureAlerter,
+  stopRateLimitAuditFailureAlerter,
+} from "./lib/rate-limit-audit-failure-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 
 const rawPort = process.env["PORT"];
@@ -58,6 +62,7 @@ startSignupChallengeAlerter();
 startAuthRateLimitAlerter();
 startProductionEnvGuard();
 startAbuseRateLimitCleanupAlerter();
+startRateLimitAuditFailureAlerter();
 
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
@@ -79,6 +84,7 @@ async function gracefulShutdown(signal: string) {
   stopAuthRateLimitAlerter();
   stopProductionEnvGuard();
   stopAbuseRateLimitCleanupAlerter();
+  stopRateLimitAuditFailureAlerter();
   process.exit(0);
 }
 
