@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2, X } from "lucide-react";
+import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch, Loader2, X, ExternalLink } from "lucide-react";
 import { adminPanelApi, saveBlobAsFile } from "@/lib/admin-panel-api";
 import { formatBytes } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +93,30 @@ function writeJumpToToUrl(iso: string | null) {
 }
 
 const PAGE_LIMIT = 50;
+
+// Map an audit row's `entityType` + `entityId` to a portal route, when one
+// exists. Returns null for entity types that don't have a dedicated detail
+// page, or when the id isn't a numeric primary key (templates, settings,
+// etc. use string slugs and have no per-row destination). Used to render a
+// "View ticket" / "View member" jump-link in the expanded row, closing the
+// round-trip with the audit links rendered on the Ticket Detail and Member
+// Detail pages (Task #192). PII redaction doesn't matter here — the id is
+// the same for all viewers, so the link is safe to surface even when other
+// metadata is redacted from the row.
+function entityLinkFor(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+): { href: string; label: string } | null {
+  if (!entityId || !/^\d+$/.test(entityId)) return null;
+  switch (entityType) {
+    case "ticket":
+      return { href: `/admin/tickets/${entityId}`, label: "View ticket" };
+    case "user":
+      return { href: `/admin/members/${entityId}`, label: "View member" };
+    default:
+      return null;
+  }
+}
 
 export default function AuditLog() {
   const initialParams = readUrlParams();
@@ -783,7 +808,24 @@ export default function AuditLog() {
                     {expandedId === log.id && (
                       <div className="px-4 pb-4 bg-muted/20">
                         <div className="grid grid-cols-2 gap-4 text-xs">
-                          <div><span className="text-muted-foreground">Entity ID:</span> {log.entityId || "N/A"}</div>
+                          <div>
+                            <span className="text-muted-foreground">Entity ID:</span>{" "}
+                            {log.entityId || "N/A"}
+                            {(() => {
+                              const target = entityLinkFor(log.entityType, log.entityId);
+                              if (!target) return null;
+                              return (
+                                <Link
+                                  href={target.href}
+                                  className="ml-2 inline-flex items-center gap-1 text-primary hover:underline"
+                                  data-testid={`audit-entity-link-${log.id}`}
+                                >
+                                  {target.label}
+                                  <ExternalLink className="w-3 h-3" />
+                                </Link>
+                              );
+                            })()}
+                          </div>
                           <div><span className="text-muted-foreground">IP Address:</span> {log.ipAddress || "N/A"}</div>
                           <div><span className="text-muted-foreground">User Agent:</span> <span className="truncate block max-w-md">{log.userAgent || "N/A"}</span></div>
                           <div><span className="text-muted-foreground">Actor ID:</span> {log.actorId || "N/A"}</div>
