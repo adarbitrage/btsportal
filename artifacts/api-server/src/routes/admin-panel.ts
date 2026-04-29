@@ -80,14 +80,16 @@ export function csvEscape(value: unknown): string {
 // Page sizes for the admin Member Detail "Email change attempts" card. The
 // initial render embeds the most recent page in `/admin/members/:id/full`;
 // older attempts are paged in via `/admin/members/:id/email-attempts` so
-// support staff can reach attempts that fall outside the first page within
-// the current 90-day retention window.
+// support staff can reach attempts that fall outside the first page. Ordinary
+// audit rows are kept for ~90 days, but admin-cancelled rows are kept for
+// ~1 year (see `email-change-attempts-cleanup`) so support can still see who
+// cancelled what when working stale tickets.
 const EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE = 50;
 const EMAIL_ATTEMPTS_MAX_PAGE_SIZE = 100;
-// Safety cap on in-memory classification: with a 90-day retention window and
-// per-member email-change rate limits, real members never approach this many
-// rows. The cap exists purely to keep a misconfigured account from OOMing the
-// admin endpoint.
+// Safety cap on in-memory classification: with retention windows of 90 days
+// (audit) / 365 days (admin-cancelled) and per-member email-change rate
+// limits, real members never approach this many rows. The cap exists purely
+// to keep a misconfigured account from OOMing the admin endpoint.
 const EMAIL_ATTEMPT_CLASSIFICATION_CAP = 1000;
 const EMAIL_HISTORY_CLASSIFICATION_CAP = 1000;
 // Cap on the embedded `emailHistory` array returned by `/full`. Older

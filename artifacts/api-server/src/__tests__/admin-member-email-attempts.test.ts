@@ -476,6 +476,175 @@ describe("GET /admin/members/:id/full — emailAttempts classification", () => {
     expect(orphan?.cancelledByAdminName).toBeNull();
   });
 
+  it("surfaces admin-cancelled attempts older than the 90-day audit window so support can investigate stale tickets", async () => {
+    // Admin-cancelled rows live for ~1 year (longer than the 90-day audit
+    // window) specifically so support can look them up later. The member
+    // detail endpoints must keep returning them past the 90-day mark
+    // — both on /full's first-page slice and on the /email-attempts pager
+    // — within the 365-day retention.
+    await resetAttempts();
+
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [adminRow] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-stale-admin@example.test`,
+        name: "Stale Admin",
+        passwordHash,
+        role: "super_admin",
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(adminRow.id);
+
+    const HOUR = 60 * 60 * 1000;
+    const DAY = 24 * HOUR;
+    const now = Date.now();
+
+    // 1) An admin-cancelled attempt aged ~120 days — well past the 90-day
+    //    audit cutoff but inside the 365-day admin-cancelled retention.
+    const staleTarget = "stale-cancelled@example.test";
+    const staleCreatedAt = new Date(now - 120 * DAY);
+    const staleCancelledAt = new Date(now - 119 * DAY);
+    const [staleRow] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: staleTarget,
+        // expiresAt was originally in the past relative to "today" — we want
+        // to confirm the cancelled status wins over the expired bucket even
+        // for very old rows.
+        expiresAt: new Date(now - 119 * DAY + 12 * HOUR),
+        cancelledAt: staleCancelledAt,
+        cancelledByAdminId: adminRow.id,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+    await backdateAttempt(staleRow.id, staleCreatedAt);
+
+    // 2) A near-the-edge admin-cancelled attempt aged ~360 days — still
+    //    within the 365-day retention; should still be returned.
+    const veryStaleTarget = "very-stale-cancelled@example.test";
+    const veryStaleCreatedAt = new Date(now - 360 * DAY);
+    const veryStaleCancelledAt = new Date(now - 359 * DAY);
+    const [veryStaleRow] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: veryStaleTarget,
+        expiresAt: new Date(now - 359 * DAY + 12 * HOUR),
+        cancelledAt: veryStaleCancelledAt,
+        cancelledByAdminId: adminRow.id,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+    await backdateAttempt(veryStaleRow.id, veryStaleCreatedAt);
+
+    // First-page slice on /full must still include both old cancelled rows
+    // (no time filter — total of 2 fits under the page size).
+    const fullRes = await request(app)
+      .get(`/api/admin/members/${member.id}/full`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(fullRes.status).toBe(200);
+    expect(fullRes.body.emailAttemptsTotal).toBe(2);
+    const fullAttempts: Array<{
+      id: number;
+      status: string;
+      cancelledAt: string | null;
+      cancelledByAdminName: string | null;
+    }> = fullRes.body.emailAttempts;
+    const staleOnFull = fullAttempts.find((a) => a.id === staleRow.id);
+    const veryStaleOnFull = fullAttempts.find((a) => a.id === veryStaleRow.id);
+    expect(staleOnFull?.status).toBe("cancelled_by_admin");
+    expect(staleOnFull?.cancelledByAdminName).toBe("Stale Admin");
+    expect(staleOnFull?.cancelledAt).toBe(staleCancelledAt.toISOString());
+    expect(veryStaleOnFull?.status).toBe("cancelled_by_admin");
+    expect(veryStaleOnFull?.cancelledByAdminName).toBe("Stale Admin");
+    expect(veryStaleOnFull?.cancelledAt).toBe(veryStaleCancelledAt.toISOString());
+
+    // Same rows must still come back via the dedicated pager — this is the
+    // endpoint the "Show older" button uses, and it shouldn't filter on the
+    // 90-day audit window either.
+    const pagerRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=0&limit=50`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(pagerRes.status).toBe(200);
+    expect(pagerRes.body.total).toBe(2);
+    const pagerAttempts: Array<{ id: number; status: string }> = pagerRes.body.attempts;
+    expect(pagerAttempts.find((a) => a.id === staleRow.id)?.status).toBe(
+      "cancelled_by_admin",
+    );
+    expect(pagerAttempts.find((a) => a.id === veryStaleRow.id)?.status).toBe(
+      "cancelled_by_admin",
+    );
+  });
+
+  it("returns admin-cancelled rows on a later page when many newer attempts exist", async () => {
+    // When the most recent 50 attempts are all unrelated noise, an older
+    // admin-cancelled row still has to be reachable via the /email-attempts
+    // pager — that's the whole point of the 1-year retention for support.
+    await resetAttempts();
+
+    const passwordHash = await bcrypt.hash("pw", 4);
+    const [adminRow] = await db
+      .insert(usersTable)
+      .values({
+        email: `${TAG}-paged-cancel-admin@example.test`,
+        name: "Paged Cancel Admin",
+        passwordHash,
+        role: "super_admin",
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(adminRow.id);
+
+    const HOUR = 60 * 60 * 1000;
+    const DAY = 24 * HOUR;
+    const baseTime = Date.now() - 200 * DAY;
+
+    // Seed 55 newer noise attempts so page 1 is saturated with them.
+    for (let i = 0; i < 55; i++) {
+      const [row] = await db
+        .insert(emailChangeAttemptsTable)
+        .values({
+          userId: member.id,
+          newEmail: `noise-cancel-${i}@example.test`,
+          expiresAt: new Date(baseTime + (i + 5) * HOUR + 30 * 60 * 1000),
+        })
+        .returning({ id: emailChangeAttemptsTable.id });
+      await backdateAttempt(row.id, new Date(baseTime + (i + 5) * HOUR));
+    }
+
+    // The admin-cancelled row is older than every noise row, so it lands on
+    // page 2.
+    const cancelledTarget = "paged-cancelled@example.test";
+    const cancelledCreatedAt = new Date(baseTime - 10 * HOUR);
+    const cancelledAt = new Date(baseTime - 9 * HOUR);
+    const [cancelledRow] = await db
+      .insert(emailChangeAttemptsTable)
+      .values({
+        userId: member.id,
+        newEmail: cancelledTarget,
+        expiresAt: new Date(baseTime - 8 * HOUR),
+        cancelledAt,
+        cancelledByAdminId: adminRow.id,
+      })
+      .returning({ id: emailChangeAttemptsTable.id });
+    await backdateAttempt(cancelledRow.id, cancelledCreatedAt);
+
+    // The cancelled row is too old to make page 1 — it's the very last row
+    // by createdAt DESC.
+    const pageRes = await request(app)
+      .get(`/api/admin/members/${member.id}/email-attempts?offset=50&limit=20`)
+      .set("Cookie", signCookie(admin.id, admin.email));
+    expect(pageRes.status).toBe(200);
+    expect(pageRes.body.total).toBe(56);
+    const found = pageRes.body.attempts.find(
+      (a: { id: number }) => a.id === cancelledRow.id,
+    );
+    expect(found).toBeTruthy();
+    expect(found.status).toBe("cancelled_by_admin");
+    expect(found.cancelledAt).toBe(cancelledAt.toISOString());
+    expect(found.cancelledByAdminId).toBe(adminRow.id);
+    expect(found.cancelledByAdminName).toBe("Paged Cancel Admin");
+  });
+
   it("requires members:view permission", async () => {
     const passwordHash = await bcrypt.hash("pw", 4);
     const [memberOnly] = await db

@@ -167,7 +167,20 @@ export const adminPanelApi = {
         requestedAt: string;
         expiresAt: string | null;
         confirmedAt: string | null;
-        status: "pending" | "confirmed" | "expired" | "abandoned";
+        // Populated when an admin cancelled this attempt via
+        // /admin/members/:id/cancel-email-change. Admin-cancelled rows have a
+        // longer (1-year) retention than the 90-day audit window, so older
+        // pages of attempts may still include them for support investigation.
+        cancelledAt: string | null;
+        cancelledByAdminId: number | null;
+        cancelledByAdminName: string | null;
+        cancelledByAdminEmail: string | null;
+        status:
+          | "pending"
+          | "confirmed"
+          | "expired"
+          | "abandoned"
+          | "cancelled_by_admin";
       }>;
       total: number;
       offset: number;

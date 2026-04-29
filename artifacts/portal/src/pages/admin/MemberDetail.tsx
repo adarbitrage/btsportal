@@ -77,8 +77,10 @@ export default function MemberDetail() {
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
-  // the most recent page (audit retention is 90 days). The first page comes in
-  // on `/full`; "Show older" calls the dedicated paginated endpoint.
+  // the most recent page. Ordinary audit rows live for ~90 days, but
+  // admin-cancelled rows live for ~1 year so older cancelled rows can still
+  // be paged in for stale-ticket investigations. The first page comes in on
+  // `/full`; "Show older" calls the dedicated paginated endpoint.
   type EmailAttemptRow = {
     id: number;
     newEmail: string | null;
