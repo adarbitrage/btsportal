@@ -473,7 +473,7 @@ function NavNodeRow({
 }
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: member } = useGetCurrentMember() as { data: MemberProfile | undefined };
   const { user, logout } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -583,7 +583,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           entitlements={entitlements}
           hasLifetime={hasLifetime}
           variant="sidebar"
-          onCtaClick={onNavClick}
+          onCtaClick={() => {
+            onNavClick?.();
+            setLocation("/plans");
+          }}
         />
 
         <div className="flex items-center gap-3 px-2 py-2">

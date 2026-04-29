@@ -76,6 +76,7 @@ interface UpgradeFeaturesCardProps {
   hasLifetime: boolean;
   variant?: "dashboard" | "sidebar";
   onCtaClick?: () => void;
+  onFeatureClick?: (featureKey: string) => void;
 }
 
 export function UpgradeFeaturesCard({
@@ -83,6 +84,7 @@ export function UpgradeFeaturesCard({
   hasLifetime,
   variant = "dashboard",
   onCtaClick,
+  onFeatureClick,
 }: UpgradeFeaturesCardProps) {
   if (hasLifetime) return null;
 
@@ -145,24 +147,49 @@ export function UpgradeFeaturesCard({
       </CardHeader>
       <CardContent className="pt-5">
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-          {locked.map((f) => (
-            <li
-              key={f.key}
-              className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-secondary/30"
-              data-testid={`upgrade-feature-dashboard-${f.key}`}
-            >
-              <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0 relative">
-                <f.icon className="w-4 h-4" />
-                <Lock className="w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-[1px] text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{f.label}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-                  {f.description}
-                </p>
-              </div>
-            </li>
-          ))}
+          {locked.map((f) => {
+            const clickable = !!onFeatureClick;
+            const className =
+              "flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-secondary/30 text-left w-full" +
+              (clickable
+                ? " hover:bg-secondary/60 hover:border-primary/40 transition-colors cursor-pointer"
+                : "");
+            const inner = (
+              <>
+                <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0 relative">
+                  <f.icon className="w-4 h-4" />
+                  <Lock className="w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-[1px] text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{f.label}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                    {f.description}
+                  </p>
+                </div>
+              </>
+            );
+            return (
+              <li key={f.key}>
+                {clickable ? (
+                  <button
+                    type="button"
+                    onClick={() => onFeatureClick?.(f.key)}
+                    className={className}
+                    data-testid={`upgrade-feature-dashboard-${f.key}`}
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <div
+                    className={className}
+                    data-testid={`upgrade-feature-dashboard-${f.key}`}
+                  >
+                    {inner}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
         <Button
           className="w-full sm:w-auto"

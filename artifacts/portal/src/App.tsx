@@ -125,6 +125,7 @@ import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
 import AccessDenied from "@/pages/AccessDenied";
 import Account from "@/pages/Account";
+import Plans from "@/pages/Plans";
 import { hasPermission, isAdminRole, type Permission } from "@/lib/permissions";
 
 const queryClient = new QueryClient({
@@ -403,6 +404,7 @@ function Router() {
       <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
+      <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>

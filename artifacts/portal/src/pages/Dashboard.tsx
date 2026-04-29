@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
+import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
   const { data: member } = useGetCurrentMember();
+  const [, navigate] = useLocation();
   const memberEntitlements = new Set(member?.entitlements ?? []);
   const hasCommissions = Array.from(memberEntitlements).some((e: string) => e.startsWith("commissions:"));
   const hasLifetime = (member?.sourceProduct ?? "free") === "lifetime";
@@ -160,6 +162,11 @@ export default function Dashboard() {
               entitlements={memberEntitlements}
               hasLifetime={hasLifetime}
               variant="dashboard"
+              onCtaClick={() => navigate("/plans")}
+              onFeatureClick={(featureKey) => {
+                const planSlug = FEATURE_TO_PLAN_SLUG[featureKey];
+                navigate(planSlug ? `/plans?highlight=${planSlug}` : "/plans");
+              }}
             />
 
             {dashboard.recentAnnouncements.length > 0 && (
