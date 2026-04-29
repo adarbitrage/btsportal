@@ -2386,7 +2386,7 @@ export const createTicket = async (
 };
 
 export const getCreateTicketMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2427,13 +2427,13 @@ export type CreateTicketMutationResult = NonNullable<
   Awaited<ReturnType<typeof createTicket>>
 >;
 export type CreateTicketMutationBody = BodyType<CreateTicket>;
-export type CreateTicketMutationError = ErrorType<unknown>;
+export type CreateTicketMutationError = ErrorType<ErrorResponse>;
 
 /**
  * @summary Create a new support ticket
  */
 export const useCreateTicket = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

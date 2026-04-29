@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useListTickets, useCreateTicket, getListTicketsQueryKey } from "@workspace/api-client-react";
+import { useListTickets, useCreateTicket, getListTicketsQueryKey, ApiError } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { PlusCircle, Search, MessageCircle, HelpCircle } from "lucide-react";
+import { PlusCircle, Search, MessageCircle, HelpCircle, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,8 +18,24 @@ const ticketSchema = z.object({
   description: z.string().min(10)
 });
 
+interface LimitReachedDetails {
+  limit: number;
+  usedThisMonth: number;
+}
+
+function parseLimitReachedError(err: unknown): LimitReachedDetails | null {
+  if (!(err instanceof ApiError) || err.status !== 429) return null;
+  const body = err.data as { error?: { code?: string; details?: unknown } } | null;
+  if (body?.error?.code !== "TICKET_LIMIT_REACHED") return null;
+  const details = body.error.details as Partial<LimitReachedDetails> | undefined;
+  const limit = typeof details?.limit === "number" ? details.limit : 0;
+  const usedThisMonth = typeof details?.usedThisMonth === "number" ? details.usedThisMonth : 0;
+  return { limit, usedThisMonth };
+}
+
 export default function Support() {
   const [isCreating, setIsCreating] = useState(false);
+  const [limitReached, setLimitReached] = useState<LimitReachedDetails | null>(null);
   const { data: tickets, isLoading } = useListTickets();
   const createTicket = useCreateTicket();
   const queryClient = useQueryClient();
@@ -30,12 +46,19 @@ export default function Support() {
   });
 
   const onSubmit = (data: z.infer<typeof ticketSchema>) => {
+    setLimitReached(null);
     createTicket.mutate({ data }, {
       onSuccess: () => {
         setIsCreating(false);
         form.reset();
         queryClient.invalidateQueries({ queryKey: getListTicketsQueryKey() });
-      }
+      },
+      onError: (err) => {
+        const parsed = parseLimitReachedError(err);
+        if (parsed) {
+          setLimitReached(parsed);
+        }
+      },
     });
   };
 
@@ -55,7 +78,13 @@ export default function Support() {
             <h1 className="text-3xl font-bold text-foreground mb-2">Support Center</h1>
             <p className="text-muted-foreground">We're here to help you succeed.</p>
           </div>
-          <Button onClick={() => setIsCreating(true)} className="shadow-md">
+          <Button
+            onClick={() => {
+              setLimitReached(null);
+              setIsCreating(true);
+            }}
+            className="shadow-md"
+          >
             <PlusCircle className="w-4 h-4 mr-2" /> New Ticket
           </Button>
         </div>
@@ -66,6 +95,29 @@ export default function Support() {
               Create New Support Ticket
             </div>
             <CardContent className="p-6">
+              {limitReached && (
+                <div
+                  data-testid="ticket-limit-reached"
+                  className="mb-4 flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+                >
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                  <div className="flex-1">
+                    <p className="font-semibold">
+                      You've reached your monthly limit of {limitReached.limit} ticket
+                      {limitReached.limit === 1 ? "" : "s"}.
+                    </p>
+                    <p className="mt-1">
+                      <Link
+                        href="/plans"
+                        className="font-semibold underline hover:no-underline"
+                      >
+                        Upgrade your plan
+                      </Link>{" "}
+                      to file more support tickets this month.
+                    </p>
+                  </div>
+                </div>
+              )}
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Category</label>

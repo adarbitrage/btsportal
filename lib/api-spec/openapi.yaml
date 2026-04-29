@@ -512,6 +512,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ticket"
+        "429":
+          description: Per-tier monthly support ticket limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /tickets/{id}:
     get:

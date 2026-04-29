@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import {
@@ -13,6 +13,43 @@ import {
 } from "@workspace/api-zod";
 import { createSlaForTicket, resumeSla } from "../lib/sla";
 import { autoRouteTicket } from "../lib/ticket-routing";
+import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
+import { sendError } from "../lib/api-errors";
+
+// Stable namespace for the per-user advisory lock used by POST /tickets so
+// concurrent ticket-create requests for the same user are serialized and
+// can't both slip past the monthly cap check. Any constant int32 works —
+// only collisions with another advisory_xact_lock(NS, userId) caller in this
+// codebase would matter, and there are none.
+const TICKET_CREATE_LOCK_NAMESPACE = 0x71_43_5e_71;
+
+function startOfCurrentMonthUtc(now: Date = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+// Counts how many tickets the given user has opened since the start of the
+// current calendar month (UTC). Used to enforce the per-tier monthly cap on
+// POST /tickets so the limit shown in the portal is real, not just a label.
+// Accepts either the top-level db or a transaction handle so the count and
+// the subsequent insert can run inside the same advisory-locked transaction.
+//
+// Typed against the minimal surface we use (`select(...).from(...).where(...)`)
+// because drizzle's PgTransaction<...> generic is not assignable to the
+// concrete NodePgDatabase type and we don't need anything else here.
+type DbOrTx = Pick<typeof db, "select">;
+
+async function countUserTicketsThisMonth(
+  tx: DbOrTx,
+  userId: number,
+  now: Date = new Date(),
+): Promise<number> {
+  const monthStart = startOfCurrentMonthUtc(now);
+  const [row] = await tx
+    .select({ value: sql<number>`count(*)::int` })
+    .from(ticketsTable)
+    .where(and(eq(ticketsTable.userId, userId), gte(ticketsTable.createdAt, monthStart)));
+  return row?.value ?? 0;
+}
 
 const router: IRouter = Router();
 
@@ -52,23 +89,76 @@ router.post("/tickets", async (req, res): Promise<void> => {
     return;
   }
 
-  const [ticket] = await db
-    .insert(ticketsTable)
-    .values({
-      ticketNumber: generateTicketNumber(),
-      userId,
-      category: parsed.data.category,
-      priority: "normal",
-      status: "open",
-      subject: parsed.data.subject,
-    })
-    .returning();
+  // Enforce the per-tier monthly ticket cap server-side. The portal already
+  // surfaces this number on the support page (3 / 5 / 10 / unlimited based
+  // on the support entitlement) but until now nothing stopped a member from
+  // calling POST /tickets directly to bypass it.
+  //
+  // The check + insert run inside one transaction guarded by a per-user
+  // advisory lock so two parallel requests at the cap can't both pass the
+  // count check and both insert (which would let a 3-ticket-tier member open
+  // a 4th ticket by submitting twice fast). The advisory lock is keyed by
+  // (namespace, userId) and released at COMMIT/ROLLBACK, so it serializes
+  // ticket-create requests for *the same user* without contending across
+  // different members.
+  const entitlements = await getUserEntitlements(userId);
+  const ticketLimit = getSupportTicketLimit(entitlements);
 
-  await db.insert(ticketMessagesTable).values({
-    ticketId: ticket.id,
-    senderType: "member",
-    body: parsed.data.description,
-  });
+  type CreateOutcome =
+    | { kind: "ok"; ticket: typeof ticketsTable.$inferSelect }
+    | { kind: "limit_reached"; limit: number; usedThisMonth: number };
+
+  let outcome: CreateOutcome;
+  try {
+    outcome = await db.transaction(async (tx): Promise<CreateOutcome> => {
+      if (ticketLimit > 0) {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(${TICKET_CREATE_LOCK_NAMESPACE}::int, ${userId}::int)`,
+        );
+        const usedThisMonth = await countUserTicketsThisMonth(tx, userId);
+        if (usedThisMonth >= ticketLimit) {
+          return { kind: "limit_reached", limit: ticketLimit, usedThisMonth };
+        }
+      }
+
+      const [created] = await tx
+        .insert(ticketsTable)
+        .values({
+          ticketNumber: generateTicketNumber(),
+          userId,
+          category: parsed.data.category,
+          priority: "normal",
+          status: "open",
+          subject: parsed.data.subject,
+        })
+        .returning();
+
+      await tx.insert(ticketMessagesTable).values({
+        ticketId: created.id,
+        senderType: "member",
+        body: parsed.data.description,
+      });
+
+      return { kind: "ok", ticket: created };
+    });
+  } catch (err) {
+    console.error("[Tickets] Failed to create ticket:", err);
+    sendError(res, 500, "INTERNAL_ERROR", "Failed to create ticket");
+    return;
+  }
+
+  if (outcome.kind === "limit_reached") {
+    sendError(
+      res,
+      429,
+      "TICKET_LIMIT_REACHED",
+      `You've reached your monthly limit of ${outcome.limit} support ticket${outcome.limit === 1 ? "" : "s"}. Upgrade your plan to file more.`,
+      { limit: outcome.limit, usedThisMonth: outcome.usedThisMonth },
+    );
+    return;
+  }
+
+  const ticket = outcome.ticket;
 
   await queueGHLSync({
     action: "add_tags",
