@@ -577,7 +577,8 @@ export const adminPanelApi = {
         | "confirmed"
         | "expired"
         | "abandoned"
-        | "cancelled_by_admin";
+        | "cancelled_by_admin"
+        | "cancelled_by_member";
     } = {},
   ) {
     const qs = new URLSearchParams();
@@ -602,12 +603,17 @@ export const adminPanelApi = {
         cancelledByAdminId: number | null;
         cancelledByAdminName: string | null;
         cancelledByAdminEmail: string | null;
+        // True when the member cancelled or replaced their own pending
+        // change. Set together with `cancelledAt` and lets the UI render
+        // "Cancelled by member" without conflating it with admin cancels.
+        cancelledByMember: boolean;
         status:
           | "pending"
           | "confirmed"
           | "expired"
           | "abandoned"
-          | "cancelled_by_admin";
+          | "cancelled_by_admin"
+          | "cancelled_by_member";
       }>;
       total: number;
       offset: number;
@@ -621,6 +627,7 @@ export const adminPanelApi = {
         | "expired"
         | "abandoned"
         | "cancelled_by_admin"
+        | "cancelled_by_member"
         | null;
     }>;
   },
@@ -641,12 +648,14 @@ export const adminPanelApi = {
         cancelledByAdminId: number | null;
         cancelledByAdminName: string | null;
         cancelledByAdminEmail: string | null;
+        cancelledByMember: boolean;
         status:
           | "pending"
           | "confirmed"
           | "expired"
           | "abandoned"
-          | "cancelled_by_admin";
+          | "cancelled_by_admin"
+          | "cancelled_by_member";
       };
       auditEntries: Array<{
         id: number;
@@ -674,7 +683,8 @@ export const adminPanelApi = {
           | "confirmed"
           | "expired"
           | "abandoned"
-          | "cancelled_by_admin";
+          | "cancelled_by_admin"
+          | "cancelled_by_member";
       } | null;
       subsequentConfirmation: {
         id: number;

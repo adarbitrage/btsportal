@@ -136,6 +136,12 @@ type RawEmailAttempt = {
   cancelledByAdminId?: number | null;
   cancelledByAdminName?: string | null;
   cancelledByAdminEmail?: string | null;
+  // Populated when the member cancelled their own pending change via
+  // POST /members/me/email/cancel, or replaced it with a new attempt via
+  // POST /members/me/email. Stamped together with `cancelledAt`. Lets the
+  // classifier distinguish member-initiated cancels from admin-initiated
+  // ones (which set `cancelledByAdminId` instead).
+  cancelledByMember?: boolean | null;
 };
 
 type RawEmailHistory = {
@@ -155,7 +161,18 @@ export type ClassifiedEmailAttempt = {
   cancelledByAdminId: number | null;
   cancelledByAdminName: string | null;
   cancelledByAdminEmail: string | null;
-  status: "pending" | "confirmed" | "expired" | "abandoned" | "cancelled_by_admin";
+  // True when the member cancelled or replaced their own pending change.
+  // Surfaced separately from `cancelledByAdminId` so the UI can render
+  // "Cancelled by member" without having to infer it from the absence of
+  // an admin id (which could also mean the admin user was deleted).
+  cancelledByMember: boolean;
+  status:
+    | "pending"
+    | "confirmed"
+    | "expired"
+    | "abandoned"
+    | "cancelled_by_admin"
+    | "cancelled_by_member";
 };
 
 // Classify each attempt as confirmed / pending / expired / abandoned by
@@ -221,16 +238,28 @@ export function classifyEmailAttempts(
       | "confirmed"
       | "expired"
       | "abandoned"
-      | "cancelled_by_admin";
+      | "cancelled_by_admin"
+      | "cancelled_by_member";
     if (confirmedAt) {
       // Confirmation always wins, even on rows we also marked cancelled —
       // in practice an attempt can't be both, but if a race ever produces
       // such a row the user-visible truth is "this email actually changed".
       status = "confirmed";
     } else if (a.cancelledAt) {
-      // Admin-cancelled rows take precedence over the expired/abandoned
-      // bucket so support staff can tell why the attempt died.
-      status = "cancelled_by_admin";
+      // Explicit cancellations take precedence over the expired/abandoned
+      // bucket so support staff can tell why the attempt died. Admin
+      // cancellations win over member cancellations when both flags are
+      // somehow set on the same row (shouldn't happen in practice — the
+      // member-cancel path skips already-cancelled rows — but the admin
+      // action is the more notable support-relevant signal). Rows with a
+      // `cancelledAt` but neither flag set fall back to admin-cancelled
+      // for backward compatibility with legacy rows pre-dating the
+      // member-cancel marker.
+      if (a.cancelledByMember && a.cancelledByAdminId == null) {
+        status = "cancelled_by_member";
+      } else {
+        status = "cancelled_by_admin";
+      }
     } else if (
       memberPendingEmail &&
       memberPendingEmail === a.newEmail?.toLowerCase() &&
@@ -257,6 +286,7 @@ export function classifyEmailAttempts(
       cancelledByAdminId: a.cancelledByAdminId ?? null,
       cancelledByAdminName: a.cancelledByAdminName ?? null,
       cancelledByAdminEmail: a.cancelledByAdminEmail ?? null,
+      cancelledByMember: a.cancelledByMember === true,
       status,
     };
   });
@@ -1237,6 +1267,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
           cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
+          cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(
@@ -1367,11 +1398,12 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
       "expired",
       "abandoned",
       "cancelled_by_admin",
+      "cancelled_by_member",
     ]);
     let statusFilter: string | null = null;
     if (typeof rawStatus === "string" && rawStatus.length > 0) {
       if (!ALLOWED_STATUSES.has(rawStatus)) {
-        res.status(400).json({ error: "status must be one of pending, confirmed, expired, abandoned, cancelled_by_admin" });
+        res.status(400).json({ error: "status must be one of pending, confirmed, expired, abandoned, cancelled_by_admin, cancelled_by_member" });
         return;
       }
       statusFilter = rawStatus;
@@ -1406,6 +1438,7 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
           cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
+          cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(
@@ -1523,6 +1556,7 @@ router.get("/admin/members/:id/email-attempts/:attemptId", requirePermission("me
           cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
           cancelledByAdminName: cancelledByAdmin.name,
           cancelledByAdminEmail: cancelledByAdmin.email,
+          cancelledByMember: emailChangeAttemptsTable.cancelledByMember,
         })
           .from(emailChangeAttemptsTable)
           .leftJoin(

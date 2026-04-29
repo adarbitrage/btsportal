@@ -91,7 +91,14 @@ export default function MemberDetail() {
     cancelledByAdminId: number | null;
     cancelledByAdminName: string | null;
     cancelledByAdminEmail: string | null;
-    status: "pending" | "confirmed" | "expired" | "abandoned" | "cancelled_by_admin";
+    cancelledByMember: boolean;
+    status:
+      | "pending"
+      | "confirmed"
+      | "expired"
+      | "abandoned"
+      | "cancelled_by_admin"
+      | "cancelled_by_member";
   };
   const [emailAttempts, setEmailAttempts] = useState<EmailAttemptRow[]>([]);
   const [emailAttemptsTotal, setEmailAttemptsTotal] = useState<number>(0);
@@ -107,7 +114,8 @@ export default function MemberDetail() {
     | "confirmed"
     | "expired"
     | "abandoned"
-    | "cancelled_by_admin";
+    | "cancelled_by_admin"
+    | "cancelled_by_member";
   const [emailAttemptsStatusFilter, setEmailAttemptsStatusFilter] =
     useState<AttemptStatusFilter>("all");
   const [emailAttemptsFilterLoading, setEmailAttemptsFilterLoading] =
@@ -477,6 +485,7 @@ export default function MemberDetail() {
     expired: "Expired",
     abandoned: "Abandoned",
     cancelled_by_admin: "Cancelled by admin",
+    cancelled_by_member: "Cancelled by member",
   };
   const statusFilterShortLabels: Record<AttemptStatusFilter, string> = {
     all: "attempts",
@@ -485,6 +494,7 @@ export default function MemberDetail() {
     expired: "expired attempts",
     abandoned: "abandoned attempts",
     cancelled_by_admin: "cancelled-by-admin attempts",
+    cancelled_by_member: "cancelled-by-member attempts",
   };
 
   const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
@@ -502,6 +512,8 @@ export default function MemberDetail() {
         return <Badge variant="outline" data-testid={`badge-attempt-status-${status}`}>Abandoned</Badge>;
       case "cancelled_by_admin":
         return <Badge variant="outline" className="bg-red-100 text-red-800 border-transparent" data-testid={`badge-attempt-status-${status}`}>Cancelled by admin</Badge>;
+      case "cancelled_by_member":
+        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-transparent" data-testid={`badge-attempt-status-${status}`}>Cancelled by member</Badge>;
       case "confirmed":
         return <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600" data-testid={`badge-attempt-status-${status}`}>Confirmed</Badge>;
       default:
@@ -870,6 +882,14 @@ export default function MemberDetail() {
                             data-testid={`text-attempt-cancelled-by-${entry.id}`}
                           >
                             Cancelled by {cancelledByLabel} on {format(new Date(entry.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
+                          </div>
+                        )}
+                        {entry.status === "cancelled_by_member" && entry.cancelledAt && (
+                          <div
+                            className="text-xs text-muted-foreground mt-0.5"
+                            data-testid={`text-attempt-cancelled-by-member-${entry.id}`}
+                          >
+                            Cancelled by member on {format(new Date(entry.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
                           </div>
                         )}
                         {entry.status === "confirmed" && entry.confirmedAt && (
@@ -1328,10 +1348,14 @@ export default function MemberDetail() {
                     >
                       Cancelled by{" "}
                       {attemptDetail.attempt.cancelledByAdminName ||
-                        attemptDetail.attempt.cancelledByAdminEmail ||
-                        (attemptDetail.attempt.cancelledByAdminId
-                          ? `admin #${attemptDetail.attempt.cancelledByAdminId}`
-                          : "an admin")}{" "}
+                      attemptDetail.attempt.cancelledByAdminEmail ||
+                      attemptDetail.attempt.cancelledByAdminId
+                        ? attemptDetail.attempt.cancelledByAdminName ||
+                          attemptDetail.attempt.cancelledByAdminEmail ||
+                          `admin #${attemptDetail.attempt.cancelledByAdminId}`
+                        : attemptDetail.attempt.cancelledByMember
+                        ? "the member"
+                        : "an admin"}{" "}
                       on {format(new Date(attemptDetail.attempt.cancelledAt), "MMM d, yyyy 'at' h:mm a")}
                     </p>
                   )}

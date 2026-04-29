@@ -12,14 +12,15 @@ export const RATE_LIMIT_RETENTION_DAYS = 7;
 // long enough to cover follow-up calls well beyond the 7-day window.
 export const AUDIT_RETENTION_DAYS = 90;
 
-// Rows that were explicitly cancelled by an admin (cancelled_at +
-// cancelled_by_admin_id populated by /admin/members/:id/cancel-email-change)
-// carry extra audit value beyond a normal abandoned/expired attempt: they
-// document a deliberate support action. Support staff routinely revisit
-// these rows months later when working through old tickets ("why did we
-// cancel this member's email change back in Q1?"), so they get a longer
-// retention window than ordinary attempt rows. Still bounded so the table
-// does not grow forever.
+// Rows that were explicitly cancelled (cancelled_at populated, by either
+// an admin via /admin/members/:id/cancel-email-change or by the member
+// via POST /members/me/email/cancel — or replaced by a follow-up
+// POST /members/me/email) carry extra audit value beyond a normal
+// abandoned/expired attempt: they document a deliberate action. Support
+// staff routinely revisit these rows months later when working through
+// old tickets ("why did we cancel this member's email change back in
+// Q1?"), so they get a longer retention window than ordinary attempt
+// rows. Still bounded so the table does not grow forever.
 export const ADMIN_CANCELLED_RETENTION_DAYS = 365;
 
 export interface EmailChangeAttemptsRetentionPolicy {
@@ -55,27 +56,32 @@ export async function runEmailChangeAttemptsCleanup(): Promise<number> {
     now - ADMIN_CANCELLED_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  // Classify admin-cancelled rows by `cancelledAt` rather than
-  // `cancelledByAdminId`: the schema populates both columns together, but the
-  // admin FK is `onDelete: set null`, so deleting an admin user would null
-  // out `cancelledByAdminId` and silently demote a historical admin-cancelled
-  // row back into the 90-day audit cohort. `cancelledAt` is the durable
-  // marker that the cancellation actually happened.
+  // Classify explicitly-cancelled rows by `cancelledAt` rather than
+  // `cancelledByAdminId`: the schema populates both columns together for
+  // admin cancellations, but the admin FK is `onDelete: set null`, so
+  // deleting an admin user would null out `cancelledByAdminId` and silently
+  // demote a historical admin-cancelled row back into the 90-day audit
+  // cohort. `cancelledAt` is the durable marker that the cancellation
+  // actually happened — it's also set together with `cancelledByMember`
+  // for member-initiated cancel/replace flows, so both buckets get the
+  // longer retention window without further branching.
   const result = await db.delete(emailChangeAttemptsTable).where(
     or(
       and(
         isNull(emailChangeAttemptsTable.newEmail),
         lt(emailChangeAttemptsTable.createdAt, rateLimitCutoff),
       ),
-      // Ordinary audit rows: have a new_email but were NOT cancelled by an
-      // admin. Deleted at the standard 90-day mark.
+      // Ordinary audit rows: have a new_email but were not explicitly
+      // cancelled (by either an admin or the member). Deleted at the
+      // standard 90-day mark.
       and(
         isNotNull(emailChangeAttemptsTable.newEmail),
         isNull(emailChangeAttemptsTable.cancelledAt),
         lt(emailChangeAttemptsTable.createdAt, auditCutoff),
       ),
-      // Admin-cancelled rows: kept for the longer 365-day window so support
-      // staff can investigate stale tickets months after the cancellation.
+      // Explicitly-cancelled rows (admin or member): kept for the longer
+      // 365-day window so support staff can investigate stale tickets
+      // months after the cancellation.
       and(
         isNotNull(emailChangeAttemptsTable.cancelledAt),
         lt(emailChangeAttemptsTable.createdAt, adminCancelledCutoff),

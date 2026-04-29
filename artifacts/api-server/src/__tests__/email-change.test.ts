@@ -4,8 +4,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq, inArray, and, isNull } from "drizzle-orm";
+import { db, usersTable, sessionsTable, emailChangeAttemptsTable } from "@workspace/db";
+import { eq, inArray, and, isNull, desc } from "drizzle-orm";
 
 const {
   sendEmailNowMock,
@@ -250,6 +250,65 @@ describe("POST /api/members/me/email (request email change)", () => {
     expect(res.status).toBe(401);
     expect(sendEmailNowMock).not.toHaveBeenCalled();
   });
+
+  it("replacing a still-pending email-change stamps the prior attempt as cancelled-by-member and inserts a fresh un-cancelled row", async () => {
+    const user = await insertUser("replace");
+    const firstEmail = `${TEST_TAG}-replace-first@example.test`;
+    const secondEmail = `${TEST_TAG}-replace-second@example.test`;
+
+    const firstRes = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail: firstEmail });
+    expect(firstRes.status).toBe(200);
+
+    const afterFirst = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, user.id))
+      .orderBy(desc(emailChangeAttemptsTable.createdAt));
+    expect(afterFirst).toHaveLength(1);
+    const firstAttemptId = afterFirst[0].id;
+    expect(afterFirst[0].newEmail).toBe(firstEmail);
+    expect(afterFirst[0].cancelledAt).toBeNull();
+    expect(afterFirst[0].cancelledByMember).toBe(false);
+
+    const secondRes = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail: secondEmail });
+    expect(secondRes.status).toBe(200);
+
+    const afterSecond = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, user.id))
+      .orderBy(desc(emailChangeAttemptsTable.createdAt));
+    expect(afterSecond).toHaveLength(2);
+
+    const firstRow = afterSecond.find((r) => r.id === firstAttemptId)!;
+    const secondRow = afterSecond.find((r) => r.id !== firstAttemptId)!;
+
+    // Prior pending attempt must be stamped as cancelled by the member,
+    // not the admin (the admin FK stays null so the classifier picks
+    // `cancelled_by_member`).
+    expect(firstRow.cancelledAt).toBeInstanceOf(Date);
+    expect(firstRow.cancelledByMember).toBe(true);
+    expect(firstRow.cancelledByAdminId).toBeNull();
+
+    // The newly-inserted attempt is fresh — un-cancelled, no member/admin
+    // markers — and points at the replacement email.
+    expect(secondRow.newEmail).toBe(secondEmail);
+    expect(secondRow.cancelledAt).toBeNull();
+    expect(secondRow.cancelledByMember).toBe(false);
+    expect(secondRow.cancelledByAdminId).toBeNull();
+
+    // User record now reflects the second pending change.
+    const updated = await getUser(user.id);
+    expect(updated.pendingEmail).toBe(secondEmail);
+    expect(updated.emailChangeToken).toBeTruthy();
+    expect(updated.emailChangeExpires).toBeInstanceOf(Date);
+  });
 });
 
 describe("POST /api/members/me/email/cancel (cancel pending change)", () => {
@@ -322,6 +381,67 @@ describe("POST /api/members/me/email/cancel (cancel pending change)", () => {
   it("returns 401 when there is no auth cookie", async () => {
     const res = await request(app).post("/api/members/me/email/cancel");
     expect(res.status).toBe(401);
+  });
+
+  it("stamps the matching pending attempt row with cancelledAt + cancelledByMember=true", async () => {
+    // Drive the seeding through the real POST /members/me/email so the attempt
+    // row is created the same way production does (matching newEmail +
+    // expiresAt on the user record).
+    const user = await insertUser("cancel-stamps-attempt");
+    const newEmail = `${TEST_TAG}-cancel-stamps-attempt-new@example.test`;
+
+    const requestRes = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail });
+    expect(requestRes.status).toBe(200);
+
+    const beforeAttempts = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, user.id));
+    expect(beforeAttempts).toHaveLength(1);
+    expect(beforeAttempts[0].newEmail).toBe(newEmail);
+    expect(beforeAttempts[0].cancelledAt).toBeNull();
+    expect(beforeAttempts[0].cancelledByMember).toBe(false);
+    expect(beforeAttempts[0].cancelledByAdminId).toBeNull();
+
+    const cancelRes = await request(app)
+      .post("/api/members/me/email/cancel")
+      .set("Cookie", signCookie(user.id, user.email));
+    expect(cancelRes.status).toBe(200);
+
+    const afterAttempts = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, user.id));
+    expect(afterAttempts).toHaveLength(1);
+    expect(afterAttempts[0].id).toBe(beforeAttempts[0].id);
+    expect(afterAttempts[0].cancelledAt).toBeInstanceOf(Date);
+    expect(afterAttempts[0].cancelledByMember).toBe(true);
+    // Member cancellation must NOT impersonate an admin cancellation.
+    expect(afterAttempts[0].cancelledByAdminId).toBeNull();
+
+    // User record cleared as before.
+    const updated = await getUser(user.id);
+    expect(updated.pendingEmail).toBeNull();
+    expect(updated.emailChangeToken).toBeNull();
+    expect(updated.emailChangeExpires).toBeNull();
+  });
+
+  it("idempotent re-cancel does not stamp anything when there is no pending change", async () => {
+    const user = await insertUser("cancel-noop-no-stamp");
+
+    const res = await request(app)
+      .post("/api/members/me/email/cancel")
+      .set("Cookie", signCookie(user.id, user.email));
+    expect(res.status).toBe(200);
+
+    const attempts = await db
+      .select()
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, user.id));
+    expect(attempts).toHaveLength(0);
   });
 });
 

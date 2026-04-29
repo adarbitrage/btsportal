@@ -340,6 +340,47 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     // Insert the attempt and update the user record in the same transaction
     // so that a follow-up request that also acquires the lock sees this row
     // in its count.
+    // If a previous email-change is still pending on the user record, this
+    // new request supersedes (replaces) it. Stamp the matching prior
+    // attempt row(s) as cancelled-by-member so the admin Member Detail
+    // attempts card can show "cancelled_by_member" instead of leaving the
+    // row in `pending` until it eventually rolls over to expired/abandoned.
+    // Match the same (newEmail, expiresAt) pair the user record carried —
+    // those values were copied straight from the attempt row when the
+    // earlier POST /members/me/email created it. Only touch rows that
+    // aren't already cancelled so any pre-existing admin-cancellation
+    // timestamp/marker is preserved.
+    //
+    // Re-read pending fields from inside the advisory-locked transaction
+    // rather than reusing the pre-lock `user` row: under concurrent
+    // double-submit, a competing request that landed first could have
+    // already written its own pending change while we were waiting on the
+    // lock, and we'd otherwise miss stamping that intermediate attempt.
+    const [latest] = await tx
+      .select({
+        pendingEmail: usersTable.pendingEmail,
+        emailChangeExpires: usersTable.emailChangeExpires,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    if (latest?.pendingEmail) {
+      const matchClauses = [
+        eq(emailChangeAttemptsTable.userId, userId),
+        isNull(emailChangeAttemptsTable.cancelledAt),
+        sql`lower(${emailChangeAttemptsTable.newEmail}) = lower(${latest.pendingEmail})`,
+      ];
+      if (latest.emailChangeExpires) {
+        matchClauses.push(
+          eq(emailChangeAttemptsTable.expiresAt, latest.emailChangeExpires),
+        );
+      }
+      await tx
+        .update(emailChangeAttemptsTable)
+        .set({ cancelledAt: now, cancelledByMember: true })
+        .where(and(...matchClauses));
+    }
+
     await tx.insert(emailChangeAttemptsTable).values({
       userId,
       newEmail,
@@ -446,14 +487,53 @@ router.get("/members/me/email/prefill", async (req, res): Promise<void> => {
 router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
   const userId = req.userId!;
 
-  await db
-    .update(usersTable)
-    .set({
-      pendingEmail: null,
-      emailChangeToken: null,
-      emailChangeExpires: null,
-    })
-    .where(eq(usersTable.id, userId));
+  // Cancel both halves of the pending change in a single transaction:
+  //   1. Clear the pending fields on the user record (the source of truth
+  //      for "is there an in-flight change?")
+  //   2. Stamp the matching attempt row(s) with `cancelledAt` +
+  //      `cancelledByMember = true` so the admin Member Detail attempts
+  //      card can show "cancelled_by_member" instead of leaving the row
+  //      in `pending` forever (or rolling it over to `expired`/`abandoned`).
+  // Match the same (newEmail, expiresAt) pair the user record currently
+  // carries — those values were copied straight from the attempt row when
+  // POST /members/me/email created it. Skip the stamping when there is no
+  // pending change so re-cancelling stays a cheap idempotent no-op.
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        pendingEmail: usersTable.pendingEmail,
+        emailChangeExpires: usersTable.emailChangeExpires,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    await tx
+      .update(usersTable)
+      .set({
+        pendingEmail: null,
+        emailChangeToken: null,
+        emailChangeExpires: null,
+      })
+      .where(eq(usersTable.id, userId));
+
+    if (current?.pendingEmail) {
+      const matchClauses = [
+        eq(emailChangeAttemptsTable.userId, userId),
+        isNull(emailChangeAttemptsTable.cancelledAt),
+        sql`lower(${emailChangeAttemptsTable.newEmail}) = lower(${current.pendingEmail})`,
+      ];
+      if (current.emailChangeExpires) {
+        matchClauses.push(
+          eq(emailChangeAttemptsTable.expiresAt, current.emailChangeExpires),
+        );
+      }
+      await tx
+        .update(emailChangeAttemptsTable)
+        .set({ cancelledAt: new Date(), cancelledByMember: true })
+        .where(and(...matchClauses));
+    }
+  });
 
   res.json(
     CancelEmailChangeResponse.parse({
