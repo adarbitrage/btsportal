@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, and, gt, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
@@ -182,11 +182,10 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
-    const { actionType, entityType, actorId, startDate, endDate, page = "1", limit = "50" } = req.query;
+    const { actionType, entityType, actorId, startDate, endDate, page = "1", limit = "50", expand } = req.query;
 
-    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+    let pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
-    const offset = (pageNum - 1) * limitNum;
 
     const conditions: any[] = [];
     if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
@@ -197,8 +196,52 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // If a deep-link supplied an `expand=<id>`, override the page so the row
+    // actually lands on the rendered slice (otherwise older rows silently
+    // fall onto page 1 and the user has to paginate by hand). We compute the
+    // 1-indexed position of that row within the same filter+sort, then derive
+    // the page from it. The main query uses (createdAt desc, id desc) so the
+    // ordering is deterministic even when several rows share a createdAt.
+    const expandIdRaw = typeof expand === "string" && /^\d+$/.test(expand) ? parseInt(expand, 10) : null;
+    if (expandIdRaw != null) {
+      const targetRows = await db
+        .select({ id: auditLogTable.id, createdAt: auditLogTable.createdAt })
+        .from(auditLogTable)
+        .where(eq(auditLogTable.id, expandIdRaw))
+        .limit(1);
+      const target = targetRows[0];
+      if (target && target.createdAt) {
+        // Confirm the row matches the supplied filters before relocating;
+        // otherwise it isn't on any page of this filtered view and we fall
+        // back to whatever `page` the client asked for.
+        const matchConditions = whereClause
+          ? and(eq(auditLogTable.id, expandIdRaw), whereClause)
+          : eq(auditLogTable.id, expandIdRaw);
+        const matchRows = await db
+          .select({ id: auditLogTable.id })
+          .from(auditLogTable)
+          .where(matchConditions)
+          .limit(1);
+        if (matchRows[0]) {
+          // Count rows that come BEFORE the target under (createdAt desc, id desc):
+          // either a strictly newer createdAt, or same createdAt with a larger id.
+          const tieBreaker = and(eq(auditLogTable.createdAt, target.createdAt), gt(auditLogTable.id, expandIdRaw));
+          const newerThanTarget = or(gt(auditLogTable.createdAt, target.createdAt), tieBreaker);
+          const positionWhere = whereClause ? and(whereClause, newerThanTarget) : newerThanTarget;
+          const [{ count: precedingCount } = { count: 0 }] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(auditLogTable)
+            .where(positionWhere);
+          const preceding = Number(precedingCount || 0);
+          pageNum = Math.floor(preceding / limitNum) + 1;
+        }
+      }
+    }
+
+    const offset = (pageNum - 1) * limitNum;
+
     const [logs, countResult] = await Promise.all([
-      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt)).limit(limitNum).offset(offset),
+      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id)).limit(limitNum).offset(offset),
       db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
     ]);
 
@@ -237,7 +280,7 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
 
     const [totalMatching, logs] = await Promise.all([
       safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
-      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt)).limit(AUDIT_LOG_EXPORT_CAP),
+      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id)).limit(AUDIT_LOG_EXPORT_CAP),
     ]);
 
     const truncated = totalMatching > logs.length;

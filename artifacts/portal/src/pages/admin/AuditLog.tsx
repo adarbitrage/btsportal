@@ -45,15 +45,27 @@ export default function AuditLog() {
   const [expandedId, setExpandedId] = useState<number | null>(initialParams.expand);
   const [loading, setLoading] = useState(true);
   const pendingExpandRef = useRef<number | null>(initialParams.expand);
+  // Held only for the very first fetch — once the API has computed which page
+  // contains the row we don't want to keep relocating on every filter change
+  // or pagination click.
+  const initialExpandRef = useRef<number | null>(initialParams.expand);
   const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
 
-  const load = async (page = 1) => {
+  const load = async (page?: number) => {
     try {
       setLoading(true);
-      const data = await adminPanelApi.getAuditLog({ page, ...filters });
+      const expand = initialExpandRef.current;
+      // When deep-linked via `?expand=<id>`, let the server compute which page
+      // contains that row instead of hard-coding page=1; that way deep-links to
+      // older audit rows don't silently land on page 1 of the filtered view.
+      const data = await adminPanelApi.getAuditLog({
+        ...filters,
+        ...(expand != null ? { expand } : { page: page ?? 1 }),
+      });
       setLogs(data.logs);
       setPagination(data.pagination);
+      if (expand != null) initialExpandRef.current = null;
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
