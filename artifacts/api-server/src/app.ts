@@ -19,6 +19,7 @@ import { startAuthTokenCleanupJob } from "./lib/auth-token-cleanup";
 import { startAbuseRateLimitCleanupJob } from "./lib/abuse-rate-limit-cleanup";
 import { startQueueFallbackAuditCleanupJob } from "./lib/queue-fallback-audit-cleanup";
 import { startAuthRateLimitAuditCleanupJob } from "./lib/auth-rate-limit-audit-cleanup";
+import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
@@ -136,6 +137,7 @@ startAuthTokenCleanupJob();
 startAbuseRateLimitCleanupJob();
 startQueueFallbackAuditCleanupJob();
 startAuthRateLimitAuditCleanupJob();
+startAuditLogRetentionJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }

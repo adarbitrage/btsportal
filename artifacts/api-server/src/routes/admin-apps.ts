@@ -221,7 +221,11 @@ router.get(
 // here) — we only surface metadata that was already written by the regenerate
 // and notify flows above.
 
-const FLEXY_RESET_ACTIONS = ["regenerate_password", "notify_password"] as const;
+// Exported so the audit-log retention registry
+// (`lib/audit-log-retention.ts`) can reuse the same string values and we
+// don't end up with the action_type names typed in two places that can
+// silently drift apart.
+export const FLEXY_RESET_ACTIONS = ["regenerate_password", "notify_password"] as const;
 
 interface FlexyResetEvent {
   id: number;
