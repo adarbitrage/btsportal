@@ -11,6 +11,13 @@ export interface AuditLogEntry {
   changeDiff?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   req?: Request;
+  /**
+   * Explicit override for the ipAddress column. Takes precedence over
+   * `req?.ip`, so callers that have the IP but no Request (e.g. a
+   * fire-and-forget worker that received the IP through its params)
+   * can populate the column without faking a Request shape.
+   */
+  ipAddress?: string | null;
 }
 
 export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
@@ -23,7 +30,10 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
       entityId: entry.entityId,
       description: entry.description,
       changeDiff: entry.changeDiff,
-      ipAddress: entry.req?.ip || entry.req?.headers["x-forwarded-for"] as string || null,
+      ipAddress:
+        entry.ipAddress !== undefined
+          ? entry.ipAddress
+          : entry.req?.ip || (entry.req?.headers["x-forwarded-for"] as string) || null,
       userAgent: entry.req?.headers["user-agent"] || null,
       metadata: entry.metadata,
     });

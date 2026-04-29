@@ -17,6 +17,17 @@ import { logAuditEvent } from "../lib/audit-log";
 export const AUTH_RATE_LIMIT_AUDIT_ACTION = "auth_rate_limit_blocked";
 export const AUTH_RATE_LIMIT_AUDIT_ENTITY = "auth_rate_limit";
 
+// Identifiers for audit rows recorded when the signup_attempted email
+// throttle (see `shouldSendSignupAttemptedNotice` below) suppresses a
+// notice. These rows let admins see that someone is repeatedly probing a
+// specific member's address from the existing Audit Log UI — the throttle
+// itself only logs to the console, which is invisible to the admin tools.
+// The Audit Log filter UI surfaces both values verbatim.
+export const SIGNUP_NOTICE_SUPPRESSED_AUDIT_ACTION =
+  "signup_notice_suppressed";
+export const SIGNUP_NOTICE_SUPPRESSED_AUDIT_ENTITY =
+  "auth_signup_notice_suppression";
+
 function extractAuthEmail(req: Request): string | undefined {
   const raw = req.body?.email;
   if (typeof raw !== "string") return undefined;
@@ -98,26 +109,57 @@ function resolveSignupAttemptedWindowSec(): number {
   return Math.max(parsed, SIGNUP_ATTEMPTED_NOTICE_WINDOW_MIN_SEC);
 }
 
-async function shouldSendSignupAttemptedNotice(email: string): Promise<boolean> {
-  const redis = getRedis();
-  if (!redis) return true;
-  const hash = crypto
+function hashEmailForSignupAudit(email: string): string {
+  return crypto
     .createHash("sha256")
     .update(email.toLowerCase())
     .digest("hex")
     .slice(0, 24);
-  const key = `auth:signup-attempted-notice:${hash}`;
+}
+
+function signupThrottleKey(hash: string): string {
+  return `auth:signup-attempted-notice:${hash}`;
+}
+
+function signupAuditGateKey(hash: string): string {
+  return `auth:signup-attempted-audit:${hash}`;
+}
+
+async function shouldSendSignupAttemptedNotice(email: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  const hash = hashEmailForSignupAudit(email);
+  const throttleKey = signupThrottleKey(hash);
   try {
     // SET key 1 EX <window> NX — atomic "claim the slot if not already
     // claimed". Returns "OK" the first time per window, null thereafter.
     const result = await redis.set(
-      key,
+      throttleKey,
       "1",
       "EX",
       resolveSignupAttemptedWindowSec(),
       "NX",
     );
-    return result === "OK";
+    if (result === "OK") {
+      // We just opened a new throttle window. Clear any leftover
+      // audit-written marker from the previous window so the very first
+      // suppression in THIS window produces a fresh audit row. Without
+      // this, the audit gate (set on the first suppressed attempt of an
+      // earlier window) could still be live across the window boundary
+      // and silently swallow the audit row for the new window's
+      // suppressions — see the cross-window regression test in
+      // `auth-register-signup-attempted-audit.test.ts`.
+      await redis
+        .del(signupAuditGateKey(hash))
+        .catch((err: unknown) =>
+          console.error(
+            "[AUTH] Redis error clearing signup audit gate on send:",
+            err,
+          ),
+        );
+      return true;
+    }
+    return false;
   } catch (err) {
     console.error(
       "[AUTH] Redis error checking signup_attempted throttle:",
@@ -125,6 +167,131 @@ async function shouldSendSignupAttemptedNotice(email: string): Promise<boolean> 
     );
     return true;
   }
+}
+
+/**
+ * Mask an email for human-readable audit-log display: keep the first
+ * character of the local part and the full domain, replace the rest of the
+ * local part with asterisks. Example: `jane.doe@example.com` →
+ * `j*******@example.com`. The masked form is what we surface in audit-log
+ * descriptions so a non-PII admin viewer can still tell which member is
+ * being probed without seeing the full address.
+ */
+export function maskEmailForSignupAudit(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at <= 0 || at === email.length - 1) return "***";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (local.length === 1) return `*@${domain}`;
+  return `${local[0]}${"*".repeat(local.length - 1)}@${domain}`;
+}
+
+/**
+ * Per-window dedup gate for the audit row written when the signup_attempted
+ * throttle suppresses a notice. The first suppression for a given email
+ * within the active throttle window writes one audit row; subsequent
+ * suppressions in the same window write nothing. This is what bounds the
+ * row count so an attacker can't flood the audit log itself by repeatedly
+ * hitting /auth/register against the same address.
+ *
+ * The dedup window is anchored to the *throttle key's remaining TTL* (not
+ * an independent TTL), so the audit gate expires no later than the
+ * throttle window itself. Combined with `shouldSendSignupAttemptedNotice`
+ * deleting this key whenever a fresh send opens a new throttle window,
+ * the audit cadence tracks the throttle cadence one-for-one — a new
+ * throttle window always produces at most one fresh audit row, even if
+ * the previous window had already written one.
+ *
+ * Failure mode (Redis unavailable, missing PTTL, race): we fall through
+ * and allow the audit write. The upstream per-IP / per-email register
+ * limiters (`registerIpLimiter`, `registerEmailLimiter`) cap how many
+ * times this code path can run per attacker per 15-minute window, so
+ * the worst case without Redis is still a few rows per attacker — bounded.
+ */
+async function shouldRecordSignupSuppressionAudit(
+  email: string,
+): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  const hash = hashEmailForSignupAudit(email);
+  const auditKey = signupAuditGateKey(hash);
+  const throttleKey = signupThrottleKey(hash);
+  try {
+    // Inherit the remaining TTL of the throttle key so the audit gate
+    // expires together with the throttle window. PTTL returns:
+    //   -2 = key does not exist (race: throttle expired between
+    //        the suppress decision and this PTTL — rare; default to a
+    //        full window so we still write at most one row over the
+    //        next window's worth of suppressions),
+    //   -1 = key exists but has no TTL (shouldn't happen for our keys;
+    //        same default as -2),
+    //   >0 = remaining ms.
+    let ttlMs: number;
+    try {
+      const pttl = await redis.pttl(throttleKey);
+      ttlMs =
+        typeof pttl === "number" && pttl > 0
+          ? pttl
+          : resolveSignupAttemptedWindowSec() * 1000;
+    } catch {
+      ttlMs = resolveSignupAttemptedWindowSec() * 1000;
+    }
+    const result = await redis.set(auditKey, "1", "PX", ttlMs, "NX");
+    return result === "OK";
+  } catch (err) {
+    console.error(
+      "[AUTH] Redis error checking signup_attempted audit throttle:",
+      err,
+    );
+    return true;
+  }
+}
+
+/**
+ * Write a single audit row recording that a signup_attempted notice was
+ * suppressed by the throttle for `email` (a real existing-account address).
+ * Subsequent suppressions for the same address within the same throttle
+ * window collapse into this one row — see
+ * `shouldRecordSignupSuppressionAudit`.
+ *
+ * The address is hashed AND masked into the row, never written in cleartext:
+ *  - `metadata.emailHash` is a stable correlator so an admin can confirm
+ *    multiple rows refer to the same target without exposing the address.
+ *  - `metadata.maskedEmail` and the description carry the masked form so a
+ *    human can tell at a glance which member is being probed.
+ *
+ * The source IP (when available) is recorded both in the audit row's
+ * top-level `ipAddress` column (for the existing UI) via the
+ * `logAuditEvent` ipAddress override, and surfaced in the description so
+ * it shows up in the row summary without needing to expand the row.
+ */
+async function recordSignupNoticeSuppressed(opts: {
+  email: string;
+  ip?: string;
+}): Promise<void> {
+  const allowed = await shouldRecordSignupSuppressionAudit(opts.email);
+  if (!allowed) return;
+  const windowSec = resolveSignupAttemptedWindowSec();
+  const hash = hashEmailForSignupAudit(opts.email);
+  const masked = maskEmailForSignupAudit(opts.email);
+  const ipLabel = opts.ip ?? "unknown";
+  const windowHours = Math.max(1, Math.round(windowSec / 3600));
+  await logAuditEvent({
+    actionType: SIGNUP_NOTICE_SUPPRESSED_AUDIT_ACTION,
+    entityType: SIGNUP_NOTICE_SUPPRESSED_AUDIT_ENTITY,
+    entityId: hash,
+    description: `Signup-attempted notice suppressed for ${masked} from ${ipLabel} — repeated probing of an existing account within the last ${windowHours}h`,
+    metadata: {
+      ip: opts.ip ?? null,
+      emailHash: hash,
+      maskedEmail: masked,
+      windowSec,
+    },
+    // Use the ipAddress override rather than synthesising a Request: the
+    // real Request carries the cleartext email in req.body.email and we
+    // don't want any of it leaking onto the audit row.
+    ipAddress: opts.ip ?? null,
+  });
 }
 
 async function wasEmailRecentlyChanged(email: string): Promise<boolean> {
@@ -439,8 +606,16 @@ export async function processRegisterRequest(params: {
   password: string;
   name: string;
   phone?: string | null;
+  // Source IP of the original /auth/register POST. Surfaced into the
+  // audit row written when the signup_attempted throttle suppresses a
+  // notice, so admins can see who's probing a member's address. Optional
+  // because (a) tests call this helper directly without a request, and
+  // (b) the underlying req.ip can be undefined in pathological proxy
+  // setups; either way, an absent IP just shows up as "unknown" on the
+  // audit row rather than blocking the audit write.
+  ip?: string;
 }): Promise<void> {
-  const { email, password, name, phone } = params;
+  const { email, password, name, phone, ip } = params;
   const normalizedEmail = email.toLowerCase();
 
   const [existing] = await db
@@ -476,6 +651,19 @@ export async function processRegisterRequest(params: {
     } else {
       console.log(
         `[AUTH] Signup attempted on existing email ${normalizedEmail}; notice suppressed by throttle`,
+      );
+      // Record one audit row per window so admins can see targeted probing
+      // from the existing Audit Log UI. Subsequent suppressions in the same
+      // window collapse into the row already written by the first call —
+      // see `shouldRecordSignupSuppressionAudit` for the dedup gate.
+      await recordSignupNoticeSuppressed({
+        email: existing.email,
+        ip,
+      }).catch((err) =>
+        console.error(
+          "[AUTH] Failed to record signup_notice_suppressed audit:",
+          err,
+        ),
       );
     }
     return;
@@ -519,6 +707,18 @@ export async function processRegisterRequest(params: {
           userId: raced.id,
         }).catch((e) =>
           console.error("[AUTH] Failed to send signup_attempted notice after race:", e),
+        );
+      } else {
+        // Same suppression-audit hook as the non-race path so racing the
+        // insert can't be used to evade the audit row either.
+        await recordSignupNoticeSuppressed({
+          email: raced.email,
+          ip,
+        }).catch((err) =>
+          console.error(
+            "[AUTH] Failed to record signup_notice_suppressed audit after race:",
+            err,
+          ),
         );
       }
       return;
@@ -572,7 +772,7 @@ router.post("/auth/register", registerIpLimiter, registerEmailLimiter, verifyCap
   // so the response timing can't be used as an enumeration oracle either.
   res.status(200).json({ message: REGISTER_GENERIC_MESSAGE });
 
-  void processRegisterRequest({ email, password, name, phone }).catch((err) =>
+  void processRegisterRequest({ email, password, name, phone, ip: req.ip }).catch((err) =>
     console.error("[AUTH] Unexpected error processing register:", err),
   );
 });

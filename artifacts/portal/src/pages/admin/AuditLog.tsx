@@ -378,6 +378,7 @@ export default function AuditLog() {
                   <SelectItem value="queue_fallback">Queue fallback</SelectItem>
                   <SelectItem value="queue_fallback_alert">Queue fallback alert</SelectItem>
                   <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
+                  <SelectItem value="signup_notice_suppressed">Signup notice suppressed</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.entityType} onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}>
@@ -393,6 +394,7 @@ export default function AuditLog() {
                   <SelectItem value="queue">Queue</SelectItem>
                   <SelectItem value="alert">Alert</SelectItem>
                   <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
+                  <SelectItem value="auth_signup_notice_suppression">Signup notice suppression</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
