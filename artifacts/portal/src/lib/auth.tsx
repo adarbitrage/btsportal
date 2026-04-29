@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<string>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -90,19 +90,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data);
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<string> => {
     const res = await authFetch("/auth/register", {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Registration failed");
+      const data = await res.json().catch(() => ({}));
+      const message =
+        (data && (data.error?.message || data.error)) || "Registration failed";
+      throw new Error(message);
     }
 
-    const data = await res.json();
-    setUser(data);
+    // Register no longer auto-logs-in: the server returns the same generic
+    // confirmation message whether the email is brand new or already in use,
+    // so we can't tell which path ran. The user finishes via email.
+    const data = await res.json().catch(() => ({}));
+    return (
+      (data && data.message) ||
+      "Check your inbox to confirm your account."
+    );
   };
 
   const logout = async () => {

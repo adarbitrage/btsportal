@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { useLocation, Link } from "wouter";
+import { Link } from "wouter";
 
 export default function Register() {
   const { register } = useAuth();
-  const [, navigate] = useLocation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Once the server accepts the signup we show a generic confirmation
+  // instead of navigating into the app. The endpoint is intentionally
+  // enumeration-resistant: it returns the same message whether the email
+  // is brand new or already in use, so we can't (and shouldn't) tell the
+  // user which case happened.
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +34,9 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register(name, email, password);
-      navigate("/");
+      const message = await register(name, email, password);
+      setConfirmation(message);
+      setSubmittedEmail(email);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -77,12 +84,37 @@ export default function Register() {
             fontWeight: 700,
             color: "#1a1a1a",
             margin: "0 0 8px",
-          }}>Create Account</h1>
+          }}>{submittedEmail ? "Check your inbox" : "Create Account"}</h1>
           <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>
-            Join the BTS member community
+            {submittedEmail
+              ? "We've sent the next step to your email."
+              : "Join the BTS member community"}
           </p>
         </div>
 
+        {submittedEmail ? (
+          <div>
+            <div style={{
+              padding: "16px 18px",
+              background: "#f0f9ff",
+              border: "1px solid #bae6fd",
+              borderRadius: 8,
+              color: "#075985",
+              fontSize: 14,
+              marginBottom: 20,
+              lineHeight: 1.5,
+            }}>
+              {confirmation}
+            </div>
+            <p style={{ fontSize: 14, color: "#374151", margin: "0 0 8px" }}>
+              We just sent a message to <strong>{submittedEmail}</strong>. Open it
+              and follow the link to finish.
+            </p>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+              Don't see it? Check your spam folder, then try again in a few minutes.
+            </p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit}>
           {error && (
             <div style={{
@@ -181,6 +213,7 @@ export default function Register() {
             {loading ? "Creating account..." : "Create Account"}
           </button>
         </form>
+        )}
 
         <p style={{
           textAlign: "center",

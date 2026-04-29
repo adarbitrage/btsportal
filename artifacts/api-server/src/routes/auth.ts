@@ -298,6 +298,112 @@ const registerEmailLimiter = abuseRateLimit({
   message: "Too many requests. Please try again later.",
 });
 
+// Generic message returned by /auth/register on every accepted attempt,
+// regardless of whether the email is new or already in use. This is the
+// anti-enumeration response: the only way to learn anything about a target
+// address is to actually receive mail at it.
+const REGISTER_GENERIC_MESSAGE =
+  "If that email isn't already registered, we sent a link to confirm your account. Otherwise, check your inbox for a sign-in reminder.";
+
+/**
+ * Background worker for /auth/register. Runs after the route handler has
+ * already returned the generic 200 response, so its outcome is invisible to
+ * the caller — preventing email-enumeration via response shape OR timing.
+ *
+ * - If the email is brand new: create the user, send the verification email.
+ * - If the email is already registered: send the existing owner a "someone
+ *   tried to sign up with your email" notice and otherwise do nothing. The
+ *   caller cannot tell which path ran.
+ *
+ * Exported for tests so they can deterministically await the work that the
+ * route handler dispatches asynchronously.
+ */
+export async function processRegisterRequest(params: {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string | null;
+}): Promise<void> {
+  const { email, password, name, phone } = params;
+  const normalizedEmail = email.toLowerCase();
+
+  const [existing] = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizedEmail));
+
+  if (existing) {
+    // Notify the existing owner so they can react if they didn't initiate
+    // the signup (e.g. someone is probing their address, or they forgot
+    // they already had an account and should sign in / reset instead).
+    console.log(
+      `[AUTH] Signup attempted on existing email ${normalizedEmail}; notifying owner`,
+    );
+    await CommunicationService.sendEmailNow({
+      templateSlug: "signup_attempted",
+      to: existing.email,
+      variables: { member_name: existing.name, member_email: existing.email },
+      userId: existing.id,
+    }).catch((err) =>
+      console.error("[AUTH] Failed to send signup_attempted notice:", err),
+    );
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const emailVerifyToken = crypto.randomBytes(32).toString("hex");
+  const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  let user;
+  try {
+    [user] = await db.insert(usersTable).values({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      phone: phone || null,
+      emailVerified: false,
+      emailVerifyToken,
+      emailVerifyExpires,
+    }).returning();
+  } catch (err) {
+    // Race: another concurrent request just inserted the same email.
+    // Fall back to the existing-user path (notify the owner) so the
+    // outcome is still indistinguishable from the outside.
+    const [raced] = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.email, normalizedEmail));
+    if (raced) {
+      await CommunicationService.sendEmailNow({
+        templateSlug: "signup_attempted",
+        to: raced.email,
+        variables: { member_name: raced.name, member_email: raced.email },
+        userId: raced.id,
+      }).catch((e) =>
+        console.error("[AUTH] Failed to send signup_attempted notice after race:", e),
+      );
+      return;
+    }
+    throw err;
+  }
+
+  console.log(`[AUTH] Email verification token for ${normalizedEmail}: ${emailVerifyToken}`);
+  await CommunicationService.sendEmailNow({
+    templateSlug: "email_verification",
+    to: normalizedEmail,
+    variables: { member_name: name, verify_token: emailVerifyToken },
+    userId: user.id,
+  }).catch((err) =>
+    console.error("[AUTH] Failed to send email_verification:", err),
+  );
+
+  emitWebhookEvent("member.created", {
+    user_id: user.id,
+    email: user.email,
+    name: user.name,
+  }).catch(() => {});
+}
+
 router.post("/auth/register", registerIpLimiter, registerEmailLimiter, async (req, res): Promise<void> => {
   const { email, password, name, phone } = req.body;
 
@@ -317,44 +423,14 @@ router.post("/auth/register", registerIpLimiter, registerEmailLimiter, async (re
     return;
   }
 
-  const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
-  if (existing) {
-    res.status(409).json({ error: "Email already registered" });
-    return;
-  }
+  // Always respond with the same generic message, regardless of whether the
+  // email is new or already registered. The actual work runs fire-and-forget
+  // so the response timing can't be used as an enumeration oracle either.
+  res.status(200).json({ message: REGISTER_GENERIC_MESSAGE });
 
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  const emailVerifyToken = crypto.randomBytes(32).toString("hex");
-  const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  const [user] = await db.insert(usersTable).values({
-    name,
-    email: email.toLowerCase(),
-    passwordHash,
-    phone: phone || null,
-    emailVerified: false,
-    emailVerifyToken,
-    emailVerifyExpires,
-  }).returning();
-
-  console.log(`[AUTH] Email verification token for ${email}: ${emailVerifyToken}`);
-  CommunicationService.sendEmailNow({
-    templateSlug: "email_verification",
-    to: email.toLowerCase(),
-    variables: { member_name: name, verify_token: emailVerifyToken },
-    userId: user.id,
-  });
-
-  const refreshToken = await createSession(user.id, req);
-  setAuthCookies(res, user.id, user.email, refreshToken);
-
-  emitWebhookEvent("member.created", {
-    user_id: user.id,
-    email: user.email,
-    name: user.name,
-  }).catch(() => {});
-
-  res.status(201).json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
+  void processRegisterRequest({ email, password, name, phone }).catch((err) =>
+    console.error("[AUTH] Unexpected error processing register:", err),
+  );
 });
 
 const LOGIN_LIMITS = {
