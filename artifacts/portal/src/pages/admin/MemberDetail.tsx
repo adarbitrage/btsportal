@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "wouter";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useParams, Link, useSearch } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,12 @@ function toDateInputValue(d: Date | null): string {
 export default function MemberDetail() {
   const params = useParams<{ id: string }>();
   const memberId = parseInt(params.id || "0", 10);
+  const searchString = useSearch();
+  const highlightOldEmail = useMemo(() => {
+    const value = new URLSearchParams(searchString).get("highlightOldEmail");
+    return value ? value.trim().toLowerCase() : null;
+  }, [searchString]);
+  const highlightedRowRef = useRef<HTMLDivElement | null>(null);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [noteContent, setNoteContent] = useState("");
@@ -107,6 +113,13 @@ export default function MemberDetail() {
   };
 
   useEffect(() => { if (memberId) load(); }, [memberId]);
+
+  useEffect(() => {
+    if (!highlightOldEmail || !data) return;
+    if (highlightedRowRef.current) {
+      highlightedRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightOldEmail, data]);
 
   const handleAddNote = async () => {
     if (!noteContent.trim()) return;
@@ -204,22 +217,42 @@ export default function MemberDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {emailHistory.map((entry: any) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm"
-                    data-testid={`row-email-history-${entry.id}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="font-mono break-all" data-testid={`text-old-email-${entry.id}`}>{entry.oldEmail}</span>
-                      <span className="mx-2 text-muted-foreground">→</span>
-                      <span className="font-mono break-all" data-testid={`text-new-email-${entry.id}`}>{entry.newEmail}</span>
+                {emailHistory.map((entry: any) => {
+                  const isHighlighted =
+                    !!highlightOldEmail &&
+                    typeof entry.oldEmail === "string" &&
+                    entry.oldEmail.trim().toLowerCase() === highlightOldEmail;
+                  return (
+                    <div
+                      key={entry.id}
+                      ref={isHighlighted ? highlightedRowRef : undefined}
+                      className={
+                        "flex items-center justify-between p-2 rounded-md text-sm " +
+                        (isHighlighted
+                          ? "bg-amber-100 ring-2 ring-amber-400"
+                          : "bg-muted/50")
+                      }
+                      data-testid={`row-email-history-${entry.id}`}
+                      data-highlighted={isHighlighted ? "true" : "false"}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono break-all" data-testid={`text-old-email-${entry.id}`}>{entry.oldEmail}</span>
+                          {isHighlighted && (
+                            <Badge variant="default" className="bg-amber-500 hover:bg-amber-500 text-[10px]" data-testid={`badge-matched-old-email-${entry.id}`}>
+                              Matched search
+                            </Badge>
+                          )}
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-mono break-all" data-testid={`text-new-email-${entry.id}`}>{entry.newEmail}</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0 ml-3">
+                        {entry.changedAt ? format(new Date(entry.changedAt), "MMM d, yyyy") : ""}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0 ml-3">
-                      {entry.changedAt ? format(new Date(entry.changedAt), "MMM d, yyyy") : ""}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
