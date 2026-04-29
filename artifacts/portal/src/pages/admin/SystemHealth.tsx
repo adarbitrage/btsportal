@@ -948,6 +948,149 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {Array.isArray(health.services?.auditLogRetention?.policies) && health.services.auditLogRetention.policies.length > 0 && (() => {
+                interface AuditRetentionPolicy {
+                  label: string;
+                  actionTypes: string[];
+                  retentionDays: number;
+                  lastRanAt: string | null;
+                  lastDeletedCount: number | null;
+                  lastError: { at: string; message: string } | null;
+                }
+                const policies = health.services.auditLogRetention.policies as AuditRetentionPolicy[];
+                const RECENT_FAILURE_WINDOW_MS = 24 * 60 * 60 * 1000;
+                const now = Date.now();
+                const isRecentFailure = (iso: string | null | undefined) => {
+                  if (!iso) return false;
+                  const at = new Date(iso).getTime();
+                  return Number.isFinite(at) && now - at < RECENT_FAILURE_WINDOW_MS;
+                };
+                const recentFailureCount = policies.filter(
+                  (p) => p.lastError && isRecentFailure(p.lastError.at),
+                ).length;
+                const fmtDays = (days: number) => `${days}d`;
+                const fmtRunLabel = (iso: string | null) => {
+                  if (!iso) return "Pending — sweep has not reported a run yet";
+                  const rel = formatRelativeTime(iso);
+                  const abs = new Date(iso).toLocaleString();
+                  return rel ? `${rel} (${abs})` : abs;
+                };
+                return (
+                  <Card data-testid="card-audit-log-retention">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Archive className="w-4 h-4" />
+                        Audit-log retention policies
+                        <Badge variant="outline" className="ml-2 font-normal">
+                          {policies.length} {policies.length === 1 ? "policy" : "policies"}
+                        </Badge>
+                        {recentFailureCount > 0 && (
+                          <Badge
+                            variant="warning"
+                            className="ml-1"
+                            data-testid="audit-retention-failure-badge"
+                          >
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            {recentFailureCount} failed in last 24h
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Background sweeps that cap how long each audit-log action type is kept.
+                        Last-run heartbeat advances on success and failure, so a sweep that quietly
+                        starts throwing still surfaces here.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {policies.map((policy) => {
+                          const recentFailure = policy.lastError && isRecentFailure(policy.lastError.at);
+                          return (
+                            <div
+                              key={policy.label}
+                              className={`rounded-md border p-3 ${
+                                recentFailure
+                                  ? "border-red-500/40 bg-red-50 dark:bg-red-950/30"
+                                  : "border-border"
+                              }`}
+                              data-testid={`audit-retention-policy-${policy.label}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium" data-testid={`audit-retention-label-${policy.label}`}>
+                                      {policy.label}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className="font-normal"
+                                      data-testid={`audit-retention-window-${policy.label}`}
+                                    >
+                                      {fmtDays(policy.retentionDays)} retention
+                                    </Badge>
+                                    {recentFailure && (
+                                      <Badge
+                                        variant="warning"
+                                        data-testid={`audit-retention-recent-failure-${policy.label}`}
+                                      >
+                                        <AlertTriangle className="w-3 h-3 mr-1" />
+                                        Failure in last 24h
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p
+                                    className="text-xs text-muted-foreground break-words"
+                                    data-testid={`audit-retention-action-types-${policy.label}`}
+                                  >
+                                    {policy.actionTypes.length > 0
+                                      ? policy.actionTypes.map((t) => `${t}`).join(", ")
+                                      : "(no action types)"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Last run</span>
+                                  <span
+                                    className={`font-medium text-right ${policy.lastRanAt ? "" : "text-muted-foreground italic"}`}
+                                    data-testid={`audit-retention-last-run-${policy.label}`}
+                                    title={policy.lastRanAt ? new Date(policy.lastRanAt).toLocaleString() : undefined}
+                                  >
+                                    {fmtRunLabel(policy.lastRanAt)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Last deleted</span>
+                                  <span
+                                    className="font-medium text-right"
+                                    data-testid={`audit-retention-last-deleted-${policy.label}`}
+                                  >
+                                    {policy.lastDeletedCount === null
+                                      ? "—"
+                                      : `${policy.lastDeletedCount} row${policy.lastDeletedCount === 1 ? "" : "s"}`}
+                                  </span>
+                                </div>
+                              </div>
+                              {policy.lastError && (
+                                <p
+                                  className={`mt-2 text-xs ${
+                                    recentFailure ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
+                                  }`}
+                                  data-testid={`audit-retention-last-error-${policy.label}`}
+                                  title={`Failed at ${new Date(policy.lastError.at).toLocaleString()}`}
+                                >
+                                  Last sweep error ({formatRelativeTime(policy.lastError.at) ?? new Date(policy.lastError.at).toLocaleString()}): {policy.lastError.message}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.rateLimitAuditFailures && (
                 <Card data-testid="card-rate-limit-audit-failures">
                   <CardHeader>

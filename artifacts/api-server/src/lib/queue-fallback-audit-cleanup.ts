@@ -15,23 +15,74 @@ const QUEUE_FALLBACK_ACTION_TYPES = [
   QUEUE_FALLBACK_ALERT_ACTION_TYPE,
 ] as const;
 
+// Heartbeat tracking surfaced on the admin System Health page so on-call
+// can confirm the queue-fallback sweep is firing and see which run last
+// failed. Updated in the `finally` of `runQueueFallbackAuditCleanup` so
+// `lastRanAt` advances on both success and failure (the heartbeat is the
+// only signal that catches a job that started silently throwing every run).
+let lastRanAt: Date | null = null;
+let lastDeletedCount: number | null = null;
+let lastError: { at: Date; message: string } | null = null;
+
 export async function runQueueFallbackAuditCleanup(): Promise<number> {
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const result = await db
-    .delete(auditLogTable)
-    .where(
-      and(
-        inArray(auditLogTable.actionType, [...QUEUE_FALLBACK_ACTION_TYPES]),
-        lt(auditLogTable.createdAt, cutoff),
-      ),
-    );
-  const deletedCount = result.rowCount ?? 0;
-  if (deletedCount > 0) {
-    console.log(
-      `[QueueFallbackAuditCleanup] Deleted ${deletedCount} ${QUEUE_FALLBACK_ACTION_TYPES.join("/")} audit row(s) older than ${RETENTION_DAYS}d`,
-    );
+  let deletedCount = 0;
+  let runError: { at: Date; message: string } | null = null;
+  try {
+    const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const result = await db
+      .delete(auditLogTable)
+      .where(
+        and(
+          inArray(auditLogTable.actionType, [...QUEUE_FALLBACK_ACTION_TYPES]),
+          lt(auditLogTable.createdAt, cutoff),
+        ),
+      );
+    deletedCount = result.rowCount ?? 0;
+    if (deletedCount > 0) {
+      console.log(
+        `[QueueFallbackAuditCleanup] Deleted ${deletedCount} ${QUEUE_FALLBACK_ACTION_TYPES.join("/")} audit row(s) older than ${RETENTION_DAYS}d`,
+      );
+    }
+    return deletedCount;
+  } catch (err) {
+    runError = {
+      at: new Date(),
+      message: (err as Error)?.message ?? String(err),
+    };
+    throw err;
+  } finally {
+    lastRanAt = new Date();
+    lastDeletedCount = deletedCount;
+    lastError = runError;
   }
-  return deletedCount;
+}
+
+export interface QueueFallbackAuditCleanupStatus {
+  label: string;
+  actionTypes: string[];
+  retentionDays: number;
+  lastRanAt: string | null;
+  lastDeletedCount: number | null;
+  lastError: { at: string; message: string } | null;
+}
+
+export function getQueueFallbackAuditCleanupStatus(): QueueFallbackAuditCleanupStatus {
+  return {
+    label: "queue_fallback",
+    actionTypes: [...QUEUE_FALLBACK_ACTION_TYPES],
+    retentionDays: RETENTION_DAYS,
+    lastRanAt: lastRanAt ? lastRanAt.toISOString() : null,
+    lastDeletedCount,
+    lastError: lastError
+      ? { at: lastError.at.toISOString(), message: lastError.message }
+      : null,
+  };
+}
+
+export function __resetQueueFallbackAuditCleanupStateForTests(): void {
+  lastRanAt = null;
+  lastDeletedCount = null;
+  lastError = null;
 }
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;

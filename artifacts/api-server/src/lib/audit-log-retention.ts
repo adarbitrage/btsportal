@@ -70,6 +70,24 @@ export interface PolicyRunResult {
   deleted: number;
 }
 
+/**
+ * Per-policy heartbeat tracking. Keyed by policy label so the System
+ * Health page can show, for each policy independently, when it last ran,
+ * how many rows it deleted, and whether the most recent attempt failed.
+ *
+ * Updated in the `finally` of `runPolicyTracked` so a thrown error still
+ * advances `lastRanAt` (the heartbeat) while also recording the error —
+ * exactly the signal an on-call needs to spot a sweep that started
+ * silently failing.
+ */
+interface PolicyRunState {
+  lastRanAt: Date;
+  lastDeletedCount: number;
+  lastError: { at: Date; message: string } | null;
+}
+
+const policyState = new Map<string, PolicyRunState>();
+
 async function runPolicy(policy: RetentionPolicy): Promise<number> {
   if (policy.retentionDays <= 0) {
     throw new Error(
@@ -99,6 +117,29 @@ async function runPolicy(policy: RetentionPolicy): Promise<number> {
   return deletedCount;
 }
 
+async function runPolicyTracked(policy: RetentionPolicy): Promise<number> {
+  let deleted = 0;
+  let runError: { at: Date; message: string } | null = null;
+  try {
+    deleted = await runPolicy(policy);
+    return deleted;
+  } catch (err) {
+    runError = {
+      at: new Date(),
+      message: (err as Error)?.message ?? String(err),
+    };
+    throw err;
+  } finally {
+    policyState.set(policy.label, {
+      lastRanAt: new Date(),
+      lastDeletedCount: deleted,
+      // A successful run clears any prior error so the System Health card
+      // automatically de-flags once the sweep recovers.
+      lastError: runError,
+    });
+  }
+}
+
 /**
  * Run every policy in `RETENTION_POLICIES`. Each policy is wrapped in
  * its own try/catch so one failing policy can never starve the others.
@@ -109,7 +150,7 @@ export async function runAuditLogRetention(): Promise<PolicyRunResult[]> {
   const results: PolicyRunResult[] = [];
   for (const policy of RETENTION_POLICIES) {
     try {
-      const deleted = await runPolicy(policy);
+      const deleted = await runPolicyTracked(policy);
       results.push({ label: policy.label, deleted });
     } catch (err) {
       console.error(
@@ -120,6 +161,44 @@ export async function runAuditLogRetention(): Promise<PolicyRunResult[]> {
     }
   }
   return results;
+}
+
+export interface AuditLogRetentionPolicyStatus {
+  label: string;
+  actionTypes: string[];
+  retentionDays: number;
+  lastRanAt: string | null;
+  lastDeletedCount: number | null;
+  lastError: { at: string; message: string } | null;
+}
+
+/**
+ * Snapshot of every registered retention policy plus its most recent run
+ * stats. Surfaced on the admin System Health page so on-call can confirm
+ * each sweep is firing and see which one (if any) failed last.
+ */
+export function getAuditLogRetentionStatus(): AuditLogRetentionPolicyStatus[] {
+  return RETENTION_POLICIES.map((policy) => {
+    const state = policyState.get(policy.label);
+    return {
+      label: policy.label,
+      actionTypes: [...policy.actionTypes],
+      retentionDays: policy.retentionDays,
+      lastRanAt: state ? state.lastRanAt.toISOString() : null,
+      lastDeletedCount: state ? state.lastDeletedCount : null,
+      lastError: state?.lastError
+        ? { at: state.lastError.at.toISOString(), message: state.lastError.message }
+        : null,
+    };
+  });
+}
+
+/**
+ * Test hook: reset all per-policy heartbeat state. Not intended for
+ * production use.
+ */
+export function __resetAuditLogRetentionStateForTests(): void {
+  policyState.clear();
 }
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;

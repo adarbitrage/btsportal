@@ -15,6 +15,9 @@ import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
 import { getEmailChangeAttemptsRetentionPolicy } from "../lib/email-change-attempts-cleanup";
 import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
+import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
+import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
+import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
 import { evaluateAuthRateLimitAlert } from "../lib/auth-rate-limit-alerter";
 import {
@@ -1971,6 +1974,21 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       ? "degraded"
       : "healthy";
 
+    // Aggregate every active audit-log retention sweep into a single
+    // policies array so the System Health page can render them in one
+    // card without having to know which background job owns which
+    // action_type. Each entry is the same uniform shape; ordering
+    // (queue-fallback first, then auth-rate-limit, then the registry
+    // entries in declaration order) is stable so the UI does not jitter
+    // between refreshes.
+    const auditLogRetention = {
+      policies: [
+        getQueueFallbackAuditCleanupStatus(),
+        getAuthRateLimitAuditCleanupStatus(),
+        ...getAuditLogRetentionStatus(),
+      ],
+    };
+
     res.json({
       status: overallStatus,
       services: {
@@ -1980,6 +1998,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         signupChallenge: { enforced: isSignupChallengeEnforced() },
         abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
+        auditLogRetention,
         rateLimitAuditFailures,
         missingCriticalSecrets,
       },

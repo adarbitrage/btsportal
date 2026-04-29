@@ -116,6 +116,104 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
     });
   });
 
+  it("includes an auditLogRetention.policies array covering every audit-log retention sweep", async () => {
+    const { runQueueFallbackAuditCleanup } = await import("../lib/queue-fallback-audit-cleanup");
+    const { runAuthRateLimitAuditCleanup } = await import("../lib/auth-rate-limit-audit-cleanup");
+    const { runAuditLogRetention, RETENTION_POLICIES } = await import("../lib/audit-log-retention");
+
+    // Force each sweep to record a successful run so the response carries
+    // realistic last-run timestamps and per-policy deletion counts.
+    await runQueueFallbackAuditCleanup();
+    await runAuthRateLimitAuditCleanup();
+    await runAuditLogRetention();
+
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const auditLogRetention = res.body?.services?.auditLogRetention;
+    expect(auditLogRetention).toBeTruthy();
+    expect(Array.isArray(auditLogRetention.policies)).toBe(true);
+
+    // queue_fallback + auth_rate_limit_blocked + every entry in
+    // RETENTION_POLICIES — one row per policy, no duplicates, stable order.
+    expect(auditLogRetention.policies.length).toBe(2 + RETENTION_POLICIES.length);
+
+    const labels = auditLogRetention.policies.map((p: { label: string }) => p.label);
+    expect(labels).toContain("queue_fallback");
+    expect(labels).toContain("auth_rate_limit_blocked");
+    for (const policy of RETENTION_POLICIES) {
+      expect(labels).toContain(policy.label);
+    }
+
+    for (const policy of auditLogRetention.policies) {
+      expect(typeof policy.label).toBe("string");
+      expect(Array.isArray(policy.actionTypes)).toBe(true);
+      expect(policy.actionTypes.length).toBeGreaterThan(0);
+      expect(typeof policy.retentionDays).toBe("number");
+      expect(policy.retentionDays).toBeGreaterThan(0);
+      expect(policy).toHaveProperty("lastRanAt");
+      expect(policy).toHaveProperty("lastDeletedCount");
+      expect(policy).toHaveProperty("lastError");
+      // After the explicit run() calls above every policy must have a
+      // non-null heartbeat. This catches a regression where the retention
+      // module forgets to update its tracking state.
+      expect(typeof policy.lastRanAt).toBe("string");
+      expect(typeof policy.lastDeletedCount).toBe("number");
+      expect(policy.lastError).toBeNull();
+    }
+  });
+
+  it("surfaces a per-policy lastError when an audit-log retention sweep fails", async () => {
+    const {
+      __resetAuditLogRetentionStateForTests,
+      getAuditLogRetentionStatus,
+      RETENTION_POLICIES,
+    } = await import("../lib/audit-log-retention");
+    __resetAuditLogRetentionStateForTests();
+
+    // Drive a synthetic failure through the same code path the sweep uses
+    // by spying on db.delete and forcing it to throw, then call the sweep
+    // and assert the per-policy lastError is set and surfaces in the
+    // System Health response.
+    const dbModule = await import("@workspace/db");
+    const failureMessage = "synthetic-retention-failure";
+    const spy = vi.spyOn(dbModule.db, "delete").mockImplementation(() => {
+      throw new Error(failureMessage);
+    });
+
+    try {
+      const { runAuditLogRetention } = await import("../lib/audit-log-retention");
+      await runAuditLogRetention();
+    } finally {
+      spy.mockRestore();
+    }
+
+    const status = getAuditLogRetentionStatus();
+    for (const policy of RETENTION_POLICIES) {
+      const entry = status.find((s) => s.label === policy.label);
+      expect(entry, `expected status entry for ${policy.label}`).toBeDefined();
+      expect(entry!.lastError).not.toBeNull();
+      expect(entry!.lastError!.message).toBe(failureMessage);
+    }
+
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const responsePolicies = res.body?.services?.auditLogRetention?.policies as Array<{ label: string; lastError: { at: string; message: string } | null }>;
+    for (const policy of RETENTION_POLICIES) {
+      const entry = responsePolicies.find((p) => p.label === policy.label);
+      expect(entry).toBeDefined();
+      expect(entry!.lastError).not.toBeNull();
+      expect(entry!.lastError!.message).toBe(failureMessage);
+    }
+
+    __resetAuditLogRetentionStateForTests();
+  });
+
   it("includes an abuseRateLimitCleanup status field", async () => {
     const res = await request(app)
       .get("/api/admin/system/health")
