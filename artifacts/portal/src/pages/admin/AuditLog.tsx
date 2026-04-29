@@ -47,6 +47,11 @@ export default function AuditLog() {
   const handleExport = async (fmt: string) => {
     try {
       const res = await adminPanelApi.exportAuditLog(fmt, filters);
+      const truncated = res.headers.get("X-Audit-Log-Truncated") === "true";
+      const totalCount = Number(res.headers.get("X-Audit-Log-Total-Count") || 0);
+      const returnedCount = Number(res.headers.get("X-Audit-Log-Returned-Count") || 0);
+      const cap = Number(res.headers.get("X-Audit-Log-Export-Cap") || 10000);
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -54,6 +59,20 @@ export default function AuditLog() {
       a.download = `audit-log.${fmt}`;
       a.click();
       URL.revokeObjectURL(url);
+
+      if (truncated) {
+        toast({
+          title: "Export truncated",
+          description: `Your filters matched ${totalCount.toLocaleString()} rows, but the export is capped at ${cap.toLocaleString()} (${returnedCount.toLocaleString()} included). Narrow the date range or add filters to capture all rows.`,
+          variant: "destructive",
+          duration: 10000,
+        });
+      } else if (totalCount > 0) {
+        toast({
+          title: "Export complete",
+          description: `Exported ${returnedCount.toLocaleString()} row${returnedCount === 1 ? "" : "s"}.`,
+        });
+      }
     } catch (err: any) {
       toast({ title: "Export failed", description: err.message, variant: "destructive" });
     }

@@ -223,6 +223,8 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
   }
 });
 
+const AUDIT_LOG_EXPORT_CAP = 10000;
+
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
     const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
@@ -233,7 +235,30 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
     if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const logs = await db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt)).limit(10000);
+    const [totalMatching, logs] = await Promise.all([
+      safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
+      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt)).limit(AUDIT_LOG_EXPORT_CAP),
+    ]);
+
+    const truncated = totalMatching > logs.length;
+    res.setHeader("X-Audit-Log-Total-Count", String(totalMatching));
+    res.setHeader("X-Audit-Log-Returned-Count", String(logs.length));
+    res.setHeader("X-Audit-Log-Export-Cap", String(AUDIT_LOG_EXPORT_CAP));
+    res.setHeader("X-Audit-Log-Truncated", truncated ? "true" : "false");
+
+    const auditExposed = [
+      "X-Audit-Log-Total-Count",
+      "X-Audit-Log-Returned-Count",
+      "X-Audit-Log-Export-Cap",
+      "X-Audit-Log-Truncated",
+      "Content-Disposition",
+    ];
+    const existingExposed = res.getHeader("Access-Control-Expose-Headers");
+    const existingList = typeof existingExposed === "string"
+      ? existingExposed.split(",").map(s => s.trim()).filter(Boolean)
+      : [];
+    const merged = Array.from(new Set([...existingList, ...auditExposed]));
+    res.setHeader("Access-Control-Expose-Headers", merged.join(", "));
 
     // Same scrubbing as the read endpoint — exports must not leak the
     // recipient to viewers without PII access (CSV embeds the description,
