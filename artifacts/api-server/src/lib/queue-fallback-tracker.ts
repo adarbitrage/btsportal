@@ -103,6 +103,26 @@ async function persistFallback(
 }
 
 /**
+ * Listener invoked after each fallback event is recorded. Used by the
+ * queue-fallback-alerter to dispatch external notifications (PagerDuty,
+ * email, Slack) without making the tracker itself depend on those
+ * subsystems. Listener errors are caught so they can never mask the core
+ * recording behavior.
+ */
+export type QueueFallbackListener = (
+  channel: QueueChannel,
+  opts: RecordFallbackOptions,
+) => void;
+
+let listener: QueueFallbackListener | null = null;
+
+export function setQueueFallbackListener(
+  fn: QueueFallbackListener | null,
+): void {
+  listener = fn;
+}
+
+/**
  * Record a fallback event for the given channel. Always emits a structured
  * log line (`[Comms][Fallback] channel=...`) so external log aggregators can
  * count occurrences. Persists the event to the database so the 24h history
@@ -139,6 +159,16 @@ export function recordQueueFallback(
         RECENT_WINDOW_MS / 60000,
       )}m. Check Redis health.`,
     );
+  }
+
+  if (listener) {
+    try {
+      listener(channel, opts);
+    } catch (err) {
+      // A misbehaving listener must never prevent us from recording the
+      // fallback or returning to the caller. Log and move on.
+      console.error("[QueueFallbackTracker] listener error:", err);
+    }
   }
 }
 
@@ -261,4 +291,5 @@ export function __resetQueueFallbackTrackerForTests(): void {
   state.email.lastAlertAt = 0;
   state.sms.events = [];
   state.sms.lastAlertAt = 0;
+  listener = null;
 }
