@@ -259,6 +259,19 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     return;
   }
 
+  // Snapshot any still-actionable pending change before we overwrite it so
+  // we can send the dropped pending address a heads-up after the new
+  // request succeeds. Only addresses whose verification link could still
+  // plausibly be opened (non-expired) are worth notifying — anything past
+  // its expiry would already be a dead link to the recipient.
+  const replacedPendingEmail =
+    user.pendingEmail &&
+    user.emailChangeExpires &&
+    user.emailChangeExpires > new Date() &&
+    user.pendingEmail.toLowerCase() !== newEmail
+      ? user.pendingEmail
+      : null;
+
   if (newEmail === user.email.toLowerCase()) {
     res.status(400).json({ error: "New email must be different from your current email." });
     return;
@@ -436,6 +449,27 @@ router.post("/members/me/email", async (req, res): Promise<void> => {
     console.error("[Email Change] Failed to send notice email:", err),
   );
 
+  // Heads-up to the previously-pending address (if any) that the change it
+  // was waiting on has been replaced by a fresh request to a different
+  // address — its verification link will no longer work. We do NOT attach a
+  // userId because that inbox may not belong to the verified account owner;
+  // the template is intentionally light on account-status language for the
+  // same reason.
+  if (replacedPendingEmail) {
+    CommunicationService.sendEmailNow({
+      templateSlug: "email_change_cancelled_by_member_pending",
+      to: replacedPendingEmail,
+      variables: {
+        cancelled_pending_email: replacedPendingEmail,
+      },
+    }).catch((err) =>
+      console.error(
+        "[Email Change] Failed to send dropped-pending notice (replace):",
+        err,
+      ),
+    );
+  }
+
   res.json(
     RequestEmailChangeResponse.parse({
       message:
@@ -498,6 +532,14 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
   // carries — those values were copied straight from the attempt row when
   // POST /members/me/email created it. Skip the stamping when there is no
   // pending change so re-cancelling stays a cheap idempotent no-op.
+  //
+  // While we're already reading the current pending state, capture it so we
+  // can fire a heads-up to the dropped pending address after the txn
+  // commits. The notification only fires when the link could still
+  // plausibly be opened (non-expired) — an expired pending link is already
+  // a dead end to its recipient — but the attempts-row stamping above runs
+  // for any matching pending so the audit trail is complete either way.
+  let droppedPendingEmail: string | null = null;
   await db.transaction(async (tx) => {
     const [current] = await tx
       .select({
@@ -507,6 +549,14 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1);
+
+    if (
+      current?.pendingEmail &&
+      current.emailChangeExpires &&
+      current.emailChangeExpires > new Date()
+    ) {
+      droppedPendingEmail = current.pendingEmail;
+    }
 
     await tx
       .update(usersTable)
@@ -534,6 +584,25 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
         .where(and(...matchClauses));
     }
   });
+
+  // Heads-up to the dropped pending address (fire-and-forget). No userId
+  // attached because that inbox may not belong to the verified account
+  // owner; the template intentionally avoids account-status language for
+  // the same reason.
+  if (droppedPendingEmail) {
+    CommunicationService.sendEmailNow({
+      templateSlug: "email_change_cancelled_by_member_pending",
+      to: droppedPendingEmail,
+      variables: {
+        cancelled_pending_email: droppedPendingEmail,
+      },
+    }).catch((err) =>
+      console.error(
+        "[Email Change] Failed to send dropped-pending notice (cancel):",
+        err,
+      ),
+    );
+  }
 
   res.json(
     CancelEmailChangeResponse.parse({
