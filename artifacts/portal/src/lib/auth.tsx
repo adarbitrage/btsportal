@@ -16,7 +16,11 @@ export interface LoginError extends Error {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ) => Promise<void>;
   register: (
     name: string,
     email: string,
@@ -76,15 +80,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshAuth().finally(() => setLoading(false));
   }, [refreshAuth]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ) => {
     const res = await authFetch("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, captchaToken }),
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      const err = new Error(data.error || "Login failed") as LoginError;
+      // Support both the legacy `{ error: "msg" }` shape and the structured
+      // `{ error: { code, message } }` shape returned by sendError() for
+      // captcha failures.
+      const code: string | undefined = data?.error?.code;
+      let message: string;
+      if (code === "CAPTCHA_REQUIRED" || code === "CAPTCHA_INVALID") {
+        message = "Please complete the challenge below and try again.";
+      } else if (typeof data?.error === "string") {
+        message = data.error;
+      } else if (typeof data?.error?.message === "string") {
+        message = data.error.message;
+      } else {
+        message = "Login failed";
+      }
+      const err = new Error(message) as LoginError;
       if (data && data.emailRecentlyChanged === true) {
         err.emailRecentlyChanged = true;
       }

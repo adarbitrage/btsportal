@@ -504,7 +504,7 @@ const loginIpLimiter = abuseRateLimit({
     recordAuthRateLimitHit("login", { req, email: extractAuthEmail(req) }),
 });
 
-router.post("/auth/login", loginIpLimiter, async (req, res): Promise<void> => {
+router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Promise<void> => {
   const { email, password } = req.body;
 
   if (!email || !password) {

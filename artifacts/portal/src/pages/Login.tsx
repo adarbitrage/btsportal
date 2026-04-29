@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useAuth, type LoginError } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
+import { Turnstile } from "@/components/Turnstile";
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
+  | string
+  | undefined;
 
 function getInitialEmail(): string {
   if (typeof window === "undefined") return "";
@@ -13,18 +18,29 @@ export default function Login() {
   const [, navigate] = useLocation();
   const [email, setEmail] = useState(getInitialEmail);
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const [emailRecentlyChanged, setEmailRecentlyChanged] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleCaptchaToken = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setEmailRecentlyChanged(false);
+
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("Please complete the challenge below before continuing.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, captchaToken || undefined);
       navigate("/");
     } catch (err) {
       const loginErr = err as LoginError;
@@ -32,10 +48,16 @@ export default function Login() {
       if (loginErr.emailRecentlyChanged) {
         setEmailRecentlyChanged(true);
       }
+      // Reset the captcha token after any failure so the user re-solves the
+      // widget before the next attempt — Turnstile tokens are single-use.
+      setCaptchaToken("");
     } finally {
       setLoading(false);
     }
   };
+
+  const submitDisabled =
+    loading || (TURNSTILE_SITE_KEY ? !captchaToken : false);
 
   return (
     <div style={{
@@ -171,19 +193,28 @@ export default function Login() {
             />
           </div>
 
+          {TURNSTILE_SITE_KEY && (
+            <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onToken={handleCaptchaToken}
+              />
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitDisabled}
             style={{
               width: "100%",
               padding: "12px",
-              background: loading ? "#93b4f4" : "#1a56db",
+              background: submitDisabled ? "#93b4f4" : "#1a56db",
               color: "white",
               border: "none",
               borderRadius: 8,
               fontSize: 15,
               fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: submitDisabled ? "not-allowed" : "pointer",
               transition: "background 0.15s",
             }}
           >
