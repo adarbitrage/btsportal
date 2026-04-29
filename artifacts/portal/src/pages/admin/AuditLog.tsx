@@ -323,11 +323,23 @@ export default function AuditLog() {
       // the body as a stream so we can surface a "downloading…" hint
       // during the multi-second pull on large queries; the helper only
       // resolves once every byte has arrived, so by the time we show the
-      // toast the download really is complete. The matched count for the
-      // toast comes from the read endpoint's `totalMatching` (already in
-      // state for the "N matching rows" display) so the toast still
-      // surfaces an authoritative row count.
-      const { blob } = await adminPanelApi.exportAuditLog(
+      // toast the download really is complete.
+      //
+      // The helper also returns:
+      //   - `rowsReceived` — exact count of rows actually written to the
+      //     download (RFC 4180 quote-aware for CSV, brace-depth-counted
+      //     for JSON). This is the authoritative count we surface in the
+      //     post-export toast.
+      //   - `hardCap` — the export's hard cap, read from the up-front
+      //     `X-Audit-Log-Hard-Cap` response header so it survives the
+      //     trailers-not-readable-in-fetch limitation.
+      //   - `truncated` — server's truncation flag from the trailer
+      //     (`null` in browsers, since fetch() drops trailers; usable in
+      //     test fakes and non-browser SDKs).
+      // We derive the truncation outcome from these so the toast can
+      // shout "your export was capped" instead of silently lying about
+      // an "Export complete" that's missing thousands of rows.
+      const { blob, rowsReceived, hardCap, truncated } = await adminPanelApi.exportAuditLog(
         fmt,
         filters,
         (progress) => {
@@ -337,8 +349,62 @@ export default function AuditLog() {
       );
       saveBlobAsFile(blob, `audit-log.${fmt}`);
 
-      if (totalMatching != null && totalMatching > 0) {
-        const cappedCount = Math.min(totalMatching, exportCap);
+      // Effective cap: prefer the export endpoint's own value (always the
+      // truth for this request) and fall back to the read endpoint's
+      // value (already in state) if the upfront header was unreadable.
+      const effectiveCap = hardCap ?? exportCap;
+      // Truncation detection, in priority order:
+      //   1. Server told us via the trailer (rare in browsers).
+      //   2. We streamed exactly `cap` rows AND the read endpoint's
+      //      total-matching count exceeds the cap. The "AND" guards the
+      //      edge case where the matching set is exactly `cap` rows
+      //      (no truncation, even though we hit the cap).
+      //   3. We streamed exactly `cap` rows but matching count is
+      //      unknown — soft warn ("may have been capped").
+      const hitCap = rowsReceived != null && rowsReceived === effectiveCap;
+      const definitelyTruncated =
+        truncated === true ||
+        (hitCap && totalMatching != null && totalMatching > effectiveCap);
+      const maybeTruncated = !definitelyTruncated && hitCap && totalMatching == null;
+
+      if (definitelyTruncated) {
+        // Authoritative truncation: tell the admin loudly that the
+        // download is short of what their filters matched, and how many
+        // rows actually made it into the file. We use the destructive
+        // toast variant so it's visually distinct from the normal
+        // "Export complete" success toast — admins should not miss this.
+        const writtenLabel = (rowsReceived ?? effectiveCap).toLocaleString();
+        const matchingClause =
+          totalMatching != null
+            ? ` Your filters match ${totalMatching.toLocaleString()} rows; narrow the date range or add filters to capture them all.`
+            : ` Narrow the date range or add filters to capture all rows.`;
+        toast({
+          title: "Export was capped",
+          description: `The download was cut short at ${writtenLabel} row${
+            (rowsReceived ?? effectiveCap) === 1 ? "" : "s"
+          } (the export limit).${matchingClause}`,
+          variant: "destructive",
+        });
+      } else if (maybeTruncated) {
+        // We hit the cap but don't know whether the filters actually
+        // matched more — surface a softer warning so the admin knows to
+        // double-check before treating the download as complete.
+        toast({
+          title: "Export may have been capped",
+          description: `The download contains ${effectiveCap.toLocaleString()} rows, which is the export limit. If your filters matched more, narrow the date range to capture every row.`,
+          variant: "destructive",
+        });
+      } else if (rowsReceived != null) {
+        toast({
+          title: "Export complete",
+          description: `Exported ${rowsReceived.toLocaleString()} row${rowsReceived === 1 ? "" : "s"}.`,
+        });
+      } else if (totalMatching != null && totalMatching > 0) {
+        // Stream-counting was unavailable (older platforms / test fakes
+        // without a body stream) — fall back to the read endpoint's
+        // matching count, capped by the effective cap, so the toast
+        // still shows a sensible figure.
+        const cappedCount = Math.min(totalMatching, effectiveCap);
         toast({
           title: "Export complete",
           description: `Exported ${cappedCount.toLocaleString()} row${cappedCount === 1 ? "" : "s"}.`,

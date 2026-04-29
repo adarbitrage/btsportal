@@ -133,9 +133,18 @@ describe("GET /admin/audit-log/export — streaming with trailers", () => {
     expect(res.trailers["x-audit-log-returned-count"]).toBe("25");
     expect(res.trailers["x-audit-log-truncated"]).toBeUndefined();
 
+    // Browsers' fetch() doesn't surface trailers, so the export
+    // endpoint also publishes the hard cap as a regular up-front header
+    // — the portal compares it to the streamed row count to detect a
+    // truncated download even when trailers are dropped.
+    expect(res.headers["x-audit-log-hard-cap"]).toBe(
+      String(process.env.AUDIT_LOG_EXPORT_HARD_CAP ?? "1000000"),
+    );
+
     const exposed = res.headers["access-control-expose-headers"] || "";
     expect(exposed).toContain("X-Audit-Log-Returned-Count");
     expect(exposed).toContain("X-Audit-Log-Truncated");
+    expect(exposed).toContain("X-Audit-Log-Hard-Cap");
 
     // Header line + 25 data rows, no trailing newline.
     const lines = res.body.toString("utf8").split("\n");
@@ -213,6 +222,12 @@ describe("GET /admin/audit-log/export — streaming with trailers", () => {
       expect(res.status).toBe(200);
       expect(res.trailers["x-audit-log-returned-count"]).toBe(String(CAP));
       expect(res.trailers["x-audit-log-truncated"]).toBe("true");
+
+      // The up-front hard-cap header reflects the effective cap for THIS
+      // request, so the portal can derive truncation by comparing the
+      // streamed row count against this value (browsers can't read the
+      // truncated trailer above).
+      expect(res.headers["x-audit-log-hard-cap"]).toBe(String(CAP));
 
       const body = JSON.parse(res.body.toString("utf8"));
       expect(Array.isArray(body)).toBe(true);

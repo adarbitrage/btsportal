@@ -108,6 +108,146 @@ export function saveBlobAsFile(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * RFC 4180-aware streaming CSV row counter. The audit-log export body has
+ * a free-text `description` column whose value the server quotes whenever
+ * it contains `\n`/`\r`/`,`/`"`, escaping inner `"` as `""`. A naive
+ * newline counter would inflate row counts on multi-line descriptions and
+ * cause false-positive (or missed) truncation warnings — this state
+ * machine counts only the row-terminating LFs that appear OUTSIDE quoted
+ * fields. State is held in the closure so it survives chunk boundaries:
+ *
+ *   - `inQuotes`: currently inside `"..."`.
+ *   - `pendingQuote`: the previous in-quotes byte was `"`, so the next
+ *     byte tells us whether this is an escaped `""` (stay in quotes) or
+ *     the closing quote of the field (back to unquoted mode). This split
+ *     lets the state survive a `"` byte that lands at the very end of
+ *     one chunk followed by another `"` at the start of the next.
+ *   - `headerLfSeen`: the header's terminating `\n` (which must be
+ *     outside quotes) has been observed.
+ *   - `sawDataAfterHeader`: at least one byte appeared past the header
+ *     LF — used to add the implicit final row that has no trailing LF.
+ *
+ * Returned counts:
+ *   - 0 rows: body is just `header\n` → `headerLfSeen=true`,
+ *     `sawDataAfterHeader=false` → 0.
+ *   - N rows: body is `header\nrow1\nrow2\n…rowN` → N−1 inter-row LFs
+ *     counted, plus +1 for the no-trailing-LF tail → N.
+ */
+type CsvRowCounter = {
+  feedByte(c: number): void;
+  feedBytes(bytes: Uint8Array): void;
+  getCount(): number;
+};
+
+function createCsvRowCounter(): CsvRowCounter {
+  let interRow = 0;
+  let inQuotes = false;
+  let pendingQuote = false;
+  let headerLfSeen = false;
+  let sawDataAfterHeader = false;
+
+  const feedByte = (c: number) => {
+    if (pendingQuote) {
+      pendingQuote = false;
+      if (c === 0x22 /* " */) {
+        // Escaped `""` inside a quoted field — stay in quotes.
+        if (headerLfSeen) sawDataAfterHeader = true;
+        return;
+      }
+      // The pending quote was the closing quote of a quoted field;
+      // fall through to process this byte in unquoted mode.
+      inQuotes = false;
+    }
+    if (inQuotes) {
+      if (c === 0x22 /* " */) {
+        pendingQuote = true;
+      }
+      // Any other byte (including `\n` or `\r`) is just data inside
+      // the quoted field and must NOT terminate a row.
+      if (headerLfSeen) sawDataAfterHeader = true;
+      return;
+    }
+    // Unquoted state.
+    if (c === 0x22 /* " */) {
+      // A quote in unquoted mode opens a quoted field. (Strictly RFC
+      // 4180 only allows this at the start of a field, but quoted
+      // fields are the only legal source of a `"` byte in our server's
+      // output, so accepting it anywhere is safe and forgiving.)
+      inQuotes = true;
+      if (headerLfSeen) sawDataAfterHeader = true;
+      return;
+    }
+    if (c === 0x0a /* \n */) {
+      if (!headerLfSeen) {
+        headerLfSeen = true;
+      } else {
+        interRow++;
+      }
+      return;
+    }
+    if (headerLfSeen) sawDataAfterHeader = true;
+  };
+
+  const feedBytes = (bytes: Uint8Array) => {
+    for (let i = 0; i < bytes.byteLength; i++) feedByte(bytes[i]);
+  };
+
+  const getCount = () =>
+    headerLfSeen && sawDataAfterHeader ? interRow + 1 : 0;
+
+  return { feedByte, feedBytes, getCount };
+}
+
+/**
+ * Count CSV data rows in a fully-assembled audit-log export body.
+ * Thin wrapper around the shared `CsvRowCounter` state machine so the
+ * `.blob()` fallback path returns the exact same count as the streaming
+ * path for the same body — including bodies whose `description` column
+ * has embedded newlines wrapped in RFC 4180 quotes.
+ */
+function countCsvRowsFromText(text: string): number {
+  if (text.length === 0) return 0;
+  const counter = createCsvRowCounter();
+  for (let i = 0; i < text.length; i++) counter.feedByte(text.charCodeAt(i));
+  return counter.getCount();
+}
+
+/**
+ * Count top-level objects in a JSON-array audit-log export body, using a
+ * tiny brace-depth state machine that correctly skips braces inside
+ * strings and escapes. Mirrors the streaming counter in `exportAuditLog`
+ * so both paths produce the same value. Used by the `.blob()` fallback.
+ */
+function countJsonRowsFromText(text: string): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (c === 0x5c) {
+        escape = true;
+      } else if (c === 0x22) {
+        inString = false;
+      }
+      continue;
+    }
+    if (c === 0x22) {
+      inString = true;
+    } else if (c === 0x7b) {
+      if (depth === 0) count++;
+      depth++;
+    } else if (c === 0x7d) {
+      depth--;
+    }
+  }
+  return count;
+}
+
 export type AuthRateLimitAlertConfig = {
   threshold: number;
   windowMinutes: number;
@@ -212,7 +352,27 @@ export const adminPanelApi = {
     // caller is expected to recognise as a user-initiated cancellation
     // rather than an unexpected failure.
     signal?: AbortSignal,
-  ): Promise<StreamDownloadResult> {
+  ): Promise<{
+    blob: Blob;
+    bytesReceived: number;
+    rowsReceived: number | null;
+    /**
+     * Hard cap the server enforced on this export, read from the up-front
+     * `X-Audit-Log-Hard-Cap` response header. Returned even when the body
+     * stream is short of the cap so callers can render the cap value in
+     * truncation warnings. `null` when the server did not advertise a cap
+     * (older builds, test fakes that omit the header).
+     */
+    hardCap: number | null;
+    /**
+     * Server-authoritative truncation flag, when readable. Set from the
+     * `X-Audit-Log-Truncated` HTTP trailer (well-behaved non-browser
+     * clients) — browsers' fetch() does not expose trailers, so this is
+     * almost always `null` in the portal and the caller must derive
+     * truncation from `rowsReceived` and `hardCap` instead.
+     */
+    truncated: boolean | null;
+  }> {
     const qs = new URLSearchParams();
     qs.set("format", format);
     if (filters.actionType) qs.set("actionType", filters.actionType);
@@ -222,7 +382,161 @@ export const adminPanelApi = {
     if (filters.outcome) qs.set("outcome", filters.outcome);
     const res = await authFetch(`/admin/audit-log/export?${qs.toString()}`, { signal });
     if (!res.ok) throw new Error("Failed to export audit log");
-    return streamDownload(res, format, onProgress);
+
+    const isCsv = format === "csv";
+    const contentType = res.headers.get("content-type") ?? (isCsv ? "text/csv" : "application/json");
+
+    // Up-front header advertising the export's hard cap. We read it now
+    // (before consuming the body) so the value is available regardless of
+    // whether the body comes through the streaming path or the .blob()
+    // fallback below. Parse defensively: a malformed value should fall
+    // back to "unknown" rather than poisoning the truncation derivation.
+    const hardCapRaw = res.headers.get("x-audit-log-hard-cap");
+    const hardCapParsed = hardCapRaw != null ? Number.parseInt(hardCapRaw, 10) : NaN;
+    const hardCap: number | null = Number.isInteger(hardCapParsed) && hardCapParsed > 0
+      ? hardCapParsed
+      : null;
+
+    // Trailers are the server's source of truth for truncation, but
+    // browsers' fetch() exposes neither `res.trailers` nor a way to read
+    // them. Test fakes and non-browser fetch implementations sometimes
+    // do, hence the defensive `(res as any).trailers` lookup. When
+    // present we treat the trailer as authoritative; otherwise the caller
+    // derives truncation from `rowsReceived` and `hardCap`.
+    const readTrailerTruncated = (): boolean | null => {
+      const trailersBag = (res as unknown as { trailers?: unknown }).trailers;
+      if (!trailersBag) return null;
+      const get =
+        typeof (trailersBag as Headers).get === "function"
+          ? (k: string) => (trailersBag as Headers).get(k)
+          : (k: string) => {
+              const obj = trailersBag as Record<string, string | undefined>;
+              return obj[k] ?? obj[k.toLowerCase()] ?? null;
+            };
+      const raw = get("X-Audit-Log-Truncated") ?? get("x-audit-log-truncated");
+      if (raw == null) return null;
+      return raw === "true";
+    };
+
+    // The server streams the entire result set in chunks. Reading the body
+    // through a ReadableStream lets us surface "still working, here's how much
+    // has arrived" feedback during a multi-second download instead of the user
+    // staring at a frozen button. Falls back to a plain `.blob()` read on
+    // platforms (or test fakes) that don't expose a body stream — we still
+    // return a final progress sample so callers can finalise their UI.
+    const reader = res.body?.getReader?.();
+    if (!reader) {
+      const blob = await res.blob();
+      // Best-effort row count from the assembled blob: CSV by counting
+      // newlines, JSON by counting top-level objects via the same state
+      // machine the streaming path uses. This keeps the truncation
+      // detection working on platforms (e.g. some test fakes) that skip
+      // the streaming path entirely.
+      const text = await blob.text();
+      const rowsReceived = isCsv
+        ? countCsvRowsFromText(text)
+        : countJsonRowsFromText(text);
+      const final = {
+        bytesReceived: blob.size,
+        rowsReceived,
+        hardCap,
+        truncated: readTrailerTruncated(),
+      };
+      onProgress?.({ bytesReceived: final.bytesReceived, rowsReceived: final.rowsReceived });
+      return { blob, ...final };
+    }
+
+    const chunks: BlobPart[] = [];
+    let bytesReceived = 0;
+    // RFC 4180-aware streaming CSV row counter. State is held in the
+    // counter closure so it survives chunk boundaries (including a `"`
+    // byte that lands at the very end of one chunk and is followed by
+    // another `"` at the start of the next — the `pendingQuote` flag
+    // resolves the escaped-quote / end-of-field ambiguity correctly).
+    // See `createCsvRowCounter` for the full state machine.
+    const csvCounter = isCsv ? createCsvRowCounter() : null;
+    let lastEmit = 0;
+    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+    // Streaming JSON object counter. The export body is a JSON array of
+    // row objects (`[{...},{...},...]`). We count top-level objects by
+    // tracking brace depth, ignoring braces that appear inside strings or
+    // are escaped. State carries across chunk boundaries via the closure
+    // variables below. The counter increments on each top-level `{` so
+    // the final value matches the array length.
+    const jsonState = { depth: 0, inString: false, escape: false, count: 0 };
+    const consumeJsonChunk = (bytes: Uint8Array) => {
+      for (let i = 0; i < bytes.byteLength; i++) {
+        const c = bytes[i];
+        if (jsonState.inString) {
+          if (jsonState.escape) {
+            jsonState.escape = false;
+          } else if (c === 0x5c /* \ */) {
+            jsonState.escape = true;
+          } else if (c === 0x22 /* " */) {
+            jsonState.inString = false;
+          }
+          continue;
+        }
+        if (c === 0x22 /* " */) {
+          jsonState.inString = true;
+        } else if (c === 0x7b /* { */) {
+          if (jsonState.depth === 0) jsonState.count++;
+          jsonState.depth++;
+        } else if (c === 0x7d /* } */) {
+          jsonState.depth--;
+        }
+      }
+    };
+
+    // Throttle progress callbacks so we don't thrash React with hundreds of
+    // setStates per second on a fast connection. Force-emit on completion so
+    // the final byte/row count is always surfaced.
+    const emit = (force: boolean) => {
+      if (!onProgress) return;
+      const t = now();
+      if (!force && t - lastEmit < 150) return;
+      lastEmit = t;
+      const rowsReceived = csvCounter ? csvCounter.getCount() : jsonState.count;
+      onProgress({ bytesReceived, rowsReceived });
+    };
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value && value.byteLength > 0) {
+          chunks.push(value);
+          bytesReceived += value.byteLength;
+          // For CSV we feed bytes through the RFC 4180-aware counter so
+          // newlines inside quoted fields (e.g. multi-line audit
+          // descriptions) don't inflate the row count — that count
+          // drives our truncation toast and a wrong value would either
+          // miss a real cap hit or fire a false "capped" warning.
+          // For JSON we run the streaming brace-depth counter so the
+          // row count is exact across chunk boundaries.
+          if (csvCounter) {
+            csvCounter.feedBytes(value);
+          } else {
+            consumeJsonChunk(value);
+          }
+          emit(false);
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch { /* no-op */ }
+    }
+
+    const blob = new Blob(chunks, { type: contentType });
+    const rowsReceived = csvCounter ? csvCounter.getCount() : jsonState.count;
+    emit(true);
+    return {
+      blob,
+      bytesReceived,
+      rowsReceived,
+      hardCap,
+      truncated: readTrailerTruncated(),
+    };
   },
 
   async getMemberFull(id: number) {

@@ -1020,9 +1020,20 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
     // complete (or correctly-truncated) download in the body.
     res.setHeader("Trailer", "X-Audit-Log-Returned-Count, X-Audit-Log-Truncated");
 
+    // Browsers' fetch() does not surface HTTP trailers reliably, so we
+    // also publish the export's hard cap as a *regular* up-front response
+    // header. The client can then derive truncation by comparing the
+    // number of rows it actually streamed to this cap (when the streamed
+    // count equals the cap and the read endpoint's matching count is
+    // higher, the export was cut short). This costs us no extra DB work
+    // — the cap is a config value — and lets the post-export toast warn
+    // admins about a truncated download even when trailers are dropped.
+    res.setHeader("X-Audit-Log-Hard-Cap", String(hardCap));
+
     const auditExposed = [
       "Content-Disposition",
       "Trailer",
+      "X-Audit-Log-Hard-Cap",
       "X-Audit-Log-Returned-Count",
       "X-Audit-Log-Truncated",
     ];
