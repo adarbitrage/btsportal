@@ -81,12 +81,12 @@ const transactionalEmailTemplates = [
 <h2 style="color:#1a1a2e;margin-top:0;">Signup Attempt on Your Account</h2>
 <p>Hi {{member_name}},</p>
 <p>Someone just tried to create a new Build Test Scale account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
-<p>If this was you, you can sign in or reset your password instead:</p>
+<p>If this was you, you can sign in or reset your password instead — there's no need to create a new account:</p>
 <p>
-<a href="{{portal_url}}/login" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-right:8px;">Sign In</a>
-<a href="{{portal_url}}/forgot-password" style="display:inline-block;background:#ffffff;color:#1a56db;border:1px solid #1a56db;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
+<a href="{{portal_url}}/login" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-right:8px;">Sign In</a>
+<a href="{{portal_url}}/forgot-password" style="display:inline-block;background:#ffffff;color:#4f46e5;border:1px solid #4f46e5;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
 </p>
-<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, you can safely ignore this email — your account is unchanged. If you're seeing repeated attempts, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, you can safely ignore this email — your account is unchanged. If you're seeing repeated attempts, contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
 <p>The BTS Team</p>`),
     textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login\nOr reset your password: {{portal_url}}/forgot-password\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
     category: "transactional",
