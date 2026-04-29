@@ -60,56 +60,64 @@ async function seed() {
   await db.insert(entitlementsTable).values(entitlementData);
 
   const productData = [
+    // entitlementKeys is a JSONB array column. Drizzle's jsonb mapper runs
+    // JSON.stringify on whatever we pass before sending it to Postgres, so we
+    // must hand it real JS arrays here. Passing JSON.stringify([...]) (a
+    // string) caused Drizzle to JSON.stringify the already-serialized string
+    // a second time, producing JSONB string scalars instead of arrays — that
+    // shape silently broke any raw SQL using jsonb_array_elements_text /
+    // @> / ? operators against products.entitlement_keys. See migration
+    // 0021_normalize_products_entitlement_keys for the one-time data fix.
     {
       slug: "reserve_income", name: "The Reserve Income System", type: "frontend",
       thrivecartProductId: "thrivecart_reserve_income",
-      entitlementKeys: JSON.stringify(["content:frontend", "support:basic", "chat:basic"]),
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
       priceDisplay: "$47–$97", sortOrder: 1,
     },
     {
       slug: "backroad", name: "The Backroad System", type: "frontend",
       thrivecartProductId: "thrivecart_backroad",
-      entitlementKeys: JSON.stringify(["content:frontend", "support:basic", "chat:basic"]),
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
       priceDisplay: "$47–$97", sortOrder: 2,
     },
     {
       slug: "offmarket", name: "The Off-Market Affiliate System", type: "frontend",
       thrivecartProductId: "thrivecart_offmarket",
-      entitlementKeys: JSON.stringify(["content:frontend", "support:basic", "chat:basic"]),
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
       priceDisplay: "$47–$97", sortOrder: 3,
     },
     {
       slug: "launchpad", name: "BTS LaunchPad", type: "backend",
       thrivecartProductId: "thrivecart_launchpad",
-      entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"]),
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"],
       priceDisplay: "TBD", sortOrder: 4,
       checkoutUrl: "https://bts.thrivecart.com/bts-launchpad/",
     },
     {
       slug: "3month", name: "BTS 3-Month Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_3month",
-      entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "coaching:group", "community:access", "commissions:entry", "support:enhanced", "chat:full"]),
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "coaching:group", "community:access", "commissions:entry", "support:enhanced", "chat:full"],
       durationDays: 90, priceDisplay: "TBD", sortOrder: 5,
       checkoutUrl: "https://bts.thrivecart.com/bts-3-month-mentorship/",
     },
     {
       slug: "6month", name: "BTS 6-Month Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_6month",
-      entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:mid", "support:unlimited", "chat:full"]),
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:mid", "support:unlimited", "chat:full"],
       durationDays: 180, priceDisplay: "TBD", sortOrder: 6,
       checkoutUrl: "https://bts.thrivecart.com/bts-6-month-mentorship/",
     },
     {
       slug: "1year", name: "BTS 1-Year Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_1year",
-      entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:monthly", "community:access", "commissions:premium", "support:unlimited", "chat:full"]),
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:monthly", "community:access", "commissions:premium", "support:unlimited", "chat:full"],
       durationDays: 365, priceDisplay: "TBD", sortOrder: 7,
       checkoutUrl: "https://bts.thrivecart.com/bts-1-year-mentorship/",
     },
     {
       slug: "lifetime", name: "BTS Lifetime Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_lifetime",
-      entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:weekly", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime"]),
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:weekly", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime"],
       priceDisplay: "TBD", sortOrder: 8,
       checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
     },
