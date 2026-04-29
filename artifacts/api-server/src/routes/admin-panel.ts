@@ -7,9 +7,21 @@ import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
+import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import jwt from "jsonwebtoken";
 
 const router = Router();
+
+// "Needs Attention" surfaces a burst of `auth_rate_limit_blocked` audit rows so
+// admins can react to a credential-stuffing wave without polling the audit log.
+// The threshold and window are intentionally modest defaults — tuning them is
+// a follow-up if false positives become noisy.
+const AUTH_RATE_LIMIT_ALERT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_ALERT_THRESHOLD = 10;
+// If a single source IP accounts for at least this fraction of the burst, we
+// call it out by name in the alert so the on-call admin can immediately tell
+// whether they're looking at a focused attack or a broader spray.
+const AUTH_RATE_LIMIT_DOMINANT_IP_RATIO = 0.6;
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.warn("[Admin] JWT_SECRET not set — impersonation will be unavailable");
@@ -111,6 +123,54 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
     );
     if (expiringProducts > 0) {
       alerts.push({ type: "expiring_products", severity: "low", title: "Expiring Subscriptions", description: `${expiringProducts} subscription(s) expiring in 30 days` });
+    }
+
+    // Detect a burst of auth rate-limit hits in the last 15 minutes. We group
+    // by ip_address in a single query so we can both count the total and
+    // identify a dominant source IP without a second round-trip. The query
+    // is wrapped in `safeQuery` so a transient DB error degrades to "no
+    // alert" instead of breaking the whole panel.
+    const rateLimitWindowStart = new Date(now.getTime() - AUTH_RATE_LIMIT_ALERT_WINDOW_MS);
+    const rateLimitWindowMinutes = Math.round(AUTH_RATE_LIMIT_ALERT_WINDOW_MS / 60000);
+    const rateLimitGroups = await safeQuery(
+      db
+        .select({
+          ip: auditLogTable.ipAddress,
+          count: sql<number>`count(*)`,
+        })
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.actionType, AUTH_RATE_LIMIT_AUDIT_ACTION),
+            gte(auditLogTable.createdAt, rateLimitWindowStart),
+          ),
+        )
+        .groupBy(auditLogTable.ipAddress),
+      [] as Array<{ ip: string | null; count: number }>,
+    );
+    const rateLimitTotal = rateLimitGroups.reduce((sum, row) => sum + Number(row.count || 0), 0);
+    if (rateLimitTotal >= AUTH_RATE_LIMIT_ALERT_THRESHOLD) {
+      let dominantIp: string | null = null;
+      let dominantCount = 0;
+      for (const row of rateLimitGroups) {
+        const c = Number(row.count || 0);
+        if (row.ip && c > dominantCount) {
+          dominantIp = row.ip;
+          dominantCount = c;
+        }
+      }
+      const dominantShare = rateLimitTotal > 0 ? dominantCount / rateLimitTotal : 0;
+      const ipSuffix =
+        dominantIp && dominantShare >= AUTH_RATE_LIMIT_DOMINANT_IP_RATIO
+          ? ` — ${dominantCount} from ${dominantIp}`
+          : "";
+      alerts.push({
+        type: "auth_rate_limit_burst",
+        severity: "high",
+        title: "Auth rate-limit burst",
+        description: `${rateLimitTotal} auth rate-limit hits in the last ${rateLimitWindowMinutes} minutes${ipSuffix}`,
+        link: `/admin/audit-log?actionType=${AUTH_RATE_LIMIT_AUDIT_ACTION}`,
+      });
     }
 
     res.json(alerts);
