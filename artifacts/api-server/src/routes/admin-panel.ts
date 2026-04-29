@@ -737,6 +737,55 @@ router.post("/admin/members/:id/revoke-product", requirePermission("members:edit
   }
 });
 
+router.post("/admin/members/:id/cancel-email-change", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        pendingEmail: usersTable.pendingEmail,
+        emailChangeExpires: usersTable.emailChangeExpires,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    if (!member.pendingEmail) {
+      res.status(404).json({ error: "No pending email change to cancel" });
+      return;
+    }
+
+    const previousPendingEmail = member.pendingEmail;
+    const previousExpiresAt = member.emailChangeExpires;
+
+    await db
+      .update(usersTable)
+      .set({ pendingEmail: null, emailChangeToken: null, emailChangeExpires: null })
+      .where(eq(usersTable.id, id));
+
+    await logAdminAction(
+      req,
+      "cancel_email_change",
+      "user",
+      String(id),
+      `Cancelled pending email change for member ${member.email} (was: ${previousPendingEmail})`,
+      {
+        before: { pendingEmail: previousPendingEmail, emailChangeExpires: previousExpiresAt },
+        after: { pendingEmail: null, emailChangeExpires: null },
+      },
+    );
+
+    res.json({ success: true, id, pendingEmail: null });
+  } catch (error) {
+    console.error("[Admin] Cancel email change error:", error);
+    res.status(500).json({ error: "Failed to cancel pending email change" });
+  }
+});
+
 router.post("/admin/members/:id/unlock", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);

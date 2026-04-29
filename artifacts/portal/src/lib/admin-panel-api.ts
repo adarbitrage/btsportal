@@ -99,6 +99,19 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async cancelMemberEmailChange(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/cancel-email-change`, { method: "POST" });
+    if (!res.ok) {
+      let message = "Failed to cancel pending email change";
+      try {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      } catch {}
+      throw new Error(message);
+    }
+    return res.json();
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");

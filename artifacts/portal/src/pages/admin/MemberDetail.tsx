@@ -133,6 +133,21 @@ export default function MemberDetail() {
     }
   };
 
+  const [cancellingEmailChange, setCancellingEmailChange] = useState(false);
+  const handleCancelEmailChange = async () => {
+    if (cancellingEmailChange) return;
+    setCancellingEmailChange(true);
+    try {
+      await adminPanelApi.cancelMemberEmailChange(memberId);
+      toast({ title: "Pending email change cancelled" });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setCancellingEmailChange(false);
+    }
+  };
+
   if (loading) {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Loading member details...</div></AdminLayout>;
   }
@@ -248,6 +263,19 @@ export default function MemberDetail() {
                           : ""}
                       </div>
                     </div>
+                    {entry.status === "pending" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={handleCancelEmailChange}
+                        disabled={cancellingEmailChange}
+                        data-testid={`button-cancel-email-attempt-${entry.id}`}
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        {cancellingEmailChange ? "Cancelling..." : "Cancel pending change"}
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
