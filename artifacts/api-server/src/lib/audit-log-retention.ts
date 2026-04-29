@@ -6,7 +6,7 @@
  * event and so already have bespoke cleanup jobs:
  *   - `queue_fallback` / `queue_fallback_alert` — cleaned by
  *     `queue-fallback-audit-cleanup.ts` (30d retention).
- *   - `auth_rate_limit_blocked` — cleaned by
+ *   - `auth_rate_limit_blocked` / `auth_rate_limit_alert` — cleaned by
  *     `auth-rate-limit-audit-cleanup.ts` (30d retention).
  *
  * This module covers the next tier of action types: ones that are

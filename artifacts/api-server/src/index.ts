@@ -6,6 +6,7 @@ import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-com
 import { startRevenuePipeline, shutdownRevenuePipeline } from "./lib/revenue-pipeline";
 import { startQueueFallbackAlerter, stopQueueFallbackAlerter } from "./lib/queue-fallback-alerter";
 import { startSignupChallengeAlerter, stopSignupChallengeAlerter } from "./lib/signup-challenge-alerter";
+import { startAuthRateLimitAlerter, stopAuthRateLimitAlerter } from "./lib/auth-rate-limit-alerter";
 import { startProductionEnvGuard, stopProductionEnvGuard } from "./lib/production-env-guard";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 
@@ -50,6 +51,7 @@ if (process.env.REDIS_URL) {
 
 startQueueFallbackAlerter();
 startSignupChallengeAlerter();
+startAuthRateLimitAlerter();
 startProductionEnvGuard();
 
 const server = app.listen(port, () => {
@@ -69,6 +71,7 @@ async function gracefulShutdown(signal: string) {
   await shutdownRevenuePipeline();
   stopQueueFallbackAlerter();
   stopSignupChallengeAlerter();
+  stopAuthRateLimitAlerter();
   stopProductionEnvGuard();
   process.exit(0);
 }

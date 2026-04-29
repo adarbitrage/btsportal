@@ -9,6 +9,10 @@ import { and, eq, gte, inArray, like } from "drizzle-orm";
 import { buildTestAppWithRouters } from "./test-app";
 import adminPanelRouter from "../routes/admin-panel";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION, AUTH_RATE_LIMIT_AUDIT_ENTITY } from "../routes/auth";
+import {
+  AUTH_RATE_LIMIT_ALERT_ACTION_TYPE,
+  __resetAuthRateLimitAlerterForTests,
+} from "../lib/auth-rate-limit-alerter";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
@@ -84,14 +88,26 @@ async function isolateRecentRows() {
         like(auditLogTable.description, "[needs-attention-rl-%"),
       ),
     );
+  // Each `/needs-attention` call now also runs the auth-rate-limit alerter,
+  // which writes one `auth_rate_limit_alert` row per delivery channel on a
+  // state transition. Wipe those between tests so they don't leak into the
+  // shared audit table or accumulate over re-runs of this suite.
+  await db
+    .delete(auditLogTable)
+    .where(eq(auditLogTable.actionType, AUTH_RATE_LIMIT_ALERT_ACTION_TYPE));
 }
 
 afterAll(async () => {
   await isolateRecentRows();
+  __resetAuthRateLimitAlerterForTests();
   await db.delete(usersTable).where(inArray(usersTable.id, [adminUserId]));
 });
 
 beforeEach(async () => {
+  // Reset the in-memory alerter state too — without this the singleton would
+  // remember "alerting" across tests and a later test could fire spurious
+  // clear/fire transitions (and audit rows) when it shouldn't.
+  __resetAuthRateLimitAlerterForTests();
   await isolateRecentRows();
 });
 

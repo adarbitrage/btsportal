@@ -16,6 +16,7 @@ import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup"
 import { getEmailChangeAttemptsRetentionPolicy } from "../lib/email-change-attempts-cleanup";
 import { getRateLimitAuditFailureStats } from "../lib/rate-limit-audit-failure-tracker";
 import { evaluateSignupChallengeAlert } from "../lib/signup-challenge-alerter";
+import { evaluateAuthRateLimitAlert } from "../lib/auth-rate-limit-alerter";
 import {
   evaluateProductionEnvGuards,
   getMisconfiguredCriticalSecrets,
@@ -28,7 +29,6 @@ import {
   type OnCallField,
 } from "../lib/oncall-settings";
 import {
-  getAuthRateLimitAlertConfig,
   getAuthRateLimitAlertConfigStatus,
   applyAuthRateLimitAlertConfigUpdate,
   validateUpdate as validateAuthRateLimitAlertUpdate,
@@ -51,11 +51,12 @@ import jwt from "jsonwebtoken";
 
 const router = Router();
 
-// "Needs Attention" surfaces a burst of `auth_rate_limit_blocked` audit rows so
-// admins can react to a credential-stuffing wave without polling the audit log.
-// The threshold (default 10), window (default 15 min), and dominant-IP ratio
-// (default 0.6) live in `system_settings` and are editable from the admin
-// Settings page — see `auth-rate-limit-alert-settings.ts`.
+// The burst-stats query, threshold logic, and on-call dispatch all live in
+// `auth-rate-limit-alerter` — the route just calls into it and renders the
+// returned `stats`. The alerter pulls its threshold (default 10), window
+// (default 15 min), and dominant-IP ratio (default 0.6) from
+// `auth-rate-limit-alert-settings`, which stores them in `system_settings`
+// so admins can tune them from the admin Settings page without restarting.
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.warn("[Admin] JWT_SECRET not set — impersonation will be unavailable");
@@ -317,54 +318,34 @@ router.get("/admin/dashboard/needs-attention", requirePermission("dashboard:view
       alerts.push({ type: "expiring_products", severity: "low", title: "Expiring Subscriptions", description: `${expiringProducts} subscription(s) expiring in 30 days` });
     }
 
-    // Detect a burst of auth rate-limit hits in the configured window. We
-    // group by ip_address in a single query so we can both count the total
-    // and identify a dominant source IP without a second round-trip. The
-    // query is wrapped in `safeQuery` so a transient DB error degrades to
-    // "no alert" instead of breaking the whole panel. Threshold/window/ratio
-    // come from `system_settings` (with defaults) and are cached for ~10s
-    // inside `getAuthRateLimitAlertConfig` to keep this read cheap.
-    const alertConfig = await getAuthRateLimitAlertConfig();
-    const alertWindowMs = alertConfig.windowMinutes * 60 * 1000;
-    const rateLimitWindowStart = new Date(now.getTime() - alertWindowMs);
-    const rateLimitWindowMinutes = alertConfig.windowMinutes;
-    const rateLimitGroups = await safeQuery(
-      db
-        .select({
-          ip: auditLogTable.ipAddress,
-          count: sql<number>`count(*)`,
-        })
-        .from(auditLogTable)
-        .where(
-          and(
-            eq(auditLogTable.actionType, AUTH_RATE_LIMIT_AUDIT_ACTION),
-            gte(auditLogTable.createdAt, rateLimitWindowStart),
-          ),
-        )
-        .groupBy(auditLogTable.ipAddress),
-      [] as Array<{ ip: string | null; count: number }>,
+    // Detect a burst of auth rate-limit hits in the configured window.
+    // The alerter owns the burst-stats query, the threshold check, AND
+    // the on-call dispatch on any not-alerting → alerting transition, so
+    // the dashboard surfaces the burst inline AND on-call gets paged
+    // out-of-hours from the same call. Threshold / window / dominant-IP
+    // ratio are read from `auth-rate-limit-alert-settings` inside the
+    // alerter (cached for ~10s) so admin edits in the Settings UI take
+    // effect immediately. Errors are swallowed inside the alerter and the
+    // outer `.catch` so a transient DB error degrades to "no alert"
+    // instead of breaking the whole panel.
+    const rateLimitEval = await evaluateAuthRateLimitAlert(now.getTime()).catch(
+      (err) => {
+        console.error("[Admin] Auth rate-limit alerter error:", err);
+        return null;
+      },
     );
-    const rateLimitTotal = rateLimitGroups.reduce((sum, row) => sum + Number(row.count || 0), 0);
-    if (rateLimitTotal >= alertConfig.threshold) {
-      let dominantIp: string | null = null;
-      let dominantCount = 0;
-      for (const row of rateLimitGroups) {
-        const c = Number(row.count || 0);
-        if (row.ip && c > dominantCount) {
-          dominantIp = row.ip;
-          dominantCount = c;
-        }
-      }
-      const dominantShare = rateLimitTotal > 0 ? dominantCount / rateLimitTotal : 0;
+    if (rateLimitEval && rateLimitEval.stats.alerting) {
+      const stats = rateLimitEval.stats;
+      const rateLimitWindowMinutes = Math.round(stats.windowMs / 60000);
       const ipSuffix =
-        dominantIp && dominantShare >= alertConfig.dominantIpRatio
-          ? ` — ${dominantCount} from ${dominantIp}`
+        stats.dominantIp && stats.dominantShare >= stats.dominantIpRatio
+          ? ` — ${stats.dominantCount} from ${stats.dominantIp}`
           : "";
       alerts.push({
         type: "auth_rate_limit_burst",
         severity: "high",
         title: "Auth rate-limit burst",
-        description: `${rateLimitTotal} auth rate-limit hits in the last ${rateLimitWindowMinutes} minutes${ipSuffix}`,
+        description: `${stats.total} auth rate-limit hits in the last ${rateLimitWindowMinutes} minutes${ipSuffix}`,
         link: `/admin/audit-log?actionType=${AUTH_RATE_LIMIT_AUDIT_ACTION}`,
       });
     }
