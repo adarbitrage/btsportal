@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ interface QueueFallbackEvent {
 }
 
 const FALLBACK_EVENTS_LIMIT = 50;
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
@@ -25,38 +26,117 @@ export default function SystemHealth() {
   const [fallbackEvents, setFallbackEvents] = useState<QueueFallbackEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
+  const [refreshInFlight, setRefreshInFlight] = useState(0);
+  const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
+  const inFlightRef = useRef(0);
   const { toast } = useToast();
 
-  const loadHealth = async () => {
+  const loadHealth = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await adminPanelApi.getSystemHealth();
       setHealth(data);
+      return true;
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      if (!silent) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const loadFallbackEvents = async () => {
+  const loadFallbackEvents = useCallback(async (silent = false) => {
     try {
-      setEventsLoading(true);
-      setEventsError(null);
+      if (!silent) setEventsLoading(true);
       const data = await adminPanelApi.getQueueFallbackEvents(FALLBACK_EVENTS_LIMIT);
       setFallbackEvents(Array.isArray(data?.events) ? data.events : []);
+      setEventsError(null);
+      return true;
     } catch (err: any) {
+      if (silent) {
+        return false;
+      }
       setEventsError(err?.message ?? "Failed to load fallback events");
+      return false;
     } finally {
-      setEventsLoading(false);
+      if (!silent) setEventsLoading(false);
     }
-  };
+  }, []);
 
-  const load = async () => {
-    await Promise.all([loadHealth(), loadFallbackEvents()]);
-  };
+  const load = useCallback(async (silent = false) => {
+    if (inFlightRef.current > 0) return;
+    inFlightRef.current += 1;
+    setRefreshInFlight(inFlightRef.current);
+    try {
+      const [healthOk, eventsOk] = await Promise.all([loadHealth(silent), loadFallbackEvents(silent)]);
+      const allOk = healthOk && eventsOk;
+      if (silent) {
+        setSilentRefreshError(allOk ? null : "Last auto-refresh failed — showing previous data");
+      } else {
+        setSilentRefreshError(null);
+      }
+      if (allOk) {
+        setLastRefreshedAt(Date.now());
+        setSecondsSinceRefresh(0);
+      }
+    } finally {
+      inFlightRef.current = Math.max(0, inFlightRef.current - 1);
+      setRefreshInFlight(inFlightRef.current);
+    }
+  }, [loadHealth, loadFallbackEvents]);
 
-  useEffect(() => { load(); }, []);
+  const isRefreshing = refreshInFlight > 0;
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const autoRefreshActive = !autoRefreshPaused;
+
+  useEffect(() => {
+    if (!autoRefreshActive) return;
+
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (inFlightRef.current > 0) return;
+      load(true);
+    };
+
+    const intervalId = window.setInterval(tick, AUTO_REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && inFlightRef.current === 0) {
+        load(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [autoRefreshActive, load]);
+
+  useEffect(() => {
+    if (lastRefreshedAt === null) return;
+    const tickerId = window.setInterval(() => {
+      setSecondsSinceRefresh(Math.max(0, Math.floor((Date.now() - lastRefreshedAt) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(tickerId);
+  }, [lastRefreshedAt]);
+
+  const formatRefreshLabel = () => {
+    if (lastRefreshedAt === null) return "Loading...";
+    if (secondsSinceRefresh < 5) return "Just now";
+    if (secondsSinceRefresh < 60) return `${secondsSinceRefresh}s ago`;
+    const m = Math.floor(secondsSinceRefresh / 60);
+    return `${m}m ago`;
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -80,9 +160,62 @@ export default function SystemHealth() {
             </h1>
             <p className="text-muted-foreground mt-1">Monitor system status and performance</p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              data-testid="auto-refresh-indicator"
+              aria-live="polite"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${
+                  isRefreshing ? "animate-spin text-primary" : autoRefreshActive ? "text-primary/70" : "text-muted-foreground"
+                }`}
+              />
+              <span>
+                {autoRefreshActive ? "Auto-refresh on" : "Auto-refresh paused"}
+                {" · "}
+                <span data-testid="last-refreshed-label">Last refreshed {formatRefreshLabel()}</span>
+              </span>
+              {silentRefreshError && (
+                <span
+                  className="ml-2 inline-flex items-center gap-1 text-amber-600"
+                  title={silentRefreshError}
+                  data-testid="silent-refresh-warning"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">retrying…</span>
+                </span>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAutoRefreshPaused((prev) => {
+                  const next = !prev;
+                  if (!next && inFlightRef.current === 0) {
+                    load(true);
+                  }
+                  return next;
+                });
+              }}
+              data-testid="button-toggle-auto-refresh"
+              title={autoRefreshActive ? "Pause auto-refresh" : "Resume auto-refresh"}
+            >
+              {autoRefreshActive ? (
+                <>
+                  <Pause className="w-4 h-4 mr-1" />Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-1" />Resume
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />Refresh
+            </Button>
+          </div>
         </div>
 
         {loading && !health ? (
