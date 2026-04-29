@@ -142,4 +142,106 @@ describe("runEmailChangeAttemptsCleanup", () => {
 
     expect(remaining).toHaveLength(2);
   });
+
+  it("keeps admin-cancelled rows past the 90-day audit window (longer retention)", async () => {
+    // Admin-cancelled row aged 120 days — well past the 90-day audit cutoff,
+    // but admin-cancelled rows get the longer 365-day retention so support
+    // can still see who cancelled what when working old tickets.
+    await db.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail: "admin-killed@example.test",
+      cancelledAt: new Date(),
+      cancelledByAdminId: userId,
+    });
+    await db.execute(
+      sql`UPDATE email_change_attempts SET created_at = NOW() - INTERVAL '120 days' WHERE user_id = ${userId} AND new_email = 'admin-killed@example.test'`,
+    );
+
+    // A non-cancelled audit row of the same age — should be deleted under
+    // the 90-day rule. Confirms the cancelled-vs-not split is real.
+    await db.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail: "abandoned@example.test",
+    });
+    await db.execute(
+      sql`UPDATE email_change_attempts SET created_at = NOW() - INTERVAL '120 days' WHERE user_id = ${userId} AND new_email = 'abandoned@example.test'`,
+    );
+
+    await runEmailChangeAttemptsCleanup();
+
+    const remaining = await db
+      .select({
+        id: emailChangeAttemptsTable.id,
+        newEmail: emailChangeAttemptsTable.newEmail,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, userId));
+
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].newEmail).toBe("admin-killed@example.test");
+  });
+
+  it("still treats a row as admin-cancelled even if the admin user was later deleted (cancelledByAdminId nulled out)", async () => {
+    // Simulate a row whose original cancelling admin has since been removed:
+    // the FK is `onDelete: set null`, so cancelledByAdminId is NULL but
+    // cancelledAt is still populated. This row must keep the longer 365-day
+    // retention, not silently fall back to the 90-day audit window.
+    await db.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail: "orphaned-cancel@example.test",
+      cancelledAt: new Date(),
+      cancelledByAdminId: null,
+    });
+    await db.execute(
+      sql`UPDATE email_change_attempts SET created_at = NOW() - INTERVAL '120 days' WHERE user_id = ${userId} AND new_email = 'orphaned-cancel@example.test'`,
+    );
+
+    await runEmailChangeAttemptsCleanup();
+
+    const remaining = await db
+      .select({
+        id: emailChangeAttemptsTable.id,
+        newEmail: emailChangeAttemptsTable.newEmail,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, userId));
+
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].newEmail).toBe("orphaned-cancel@example.test");
+  });
+
+  it("deletes admin-cancelled rows once they pass the 365-day retention window", async () => {
+    // Admin-cancelled row aged 366 days — past the longer admin-cancelled
+    // retention cap, so it should finally be deleted.
+    await db.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail: "ancient-admin-kill@example.test",
+      cancelledAt: new Date(),
+      cancelledByAdminId: userId,
+    });
+    await db.execute(
+      sql`UPDATE email_change_attempts SET created_at = NOW() - INTERVAL '366 days' WHERE user_id = ${userId} AND new_email = 'ancient-admin-kill@example.test'`,
+    );
+
+    // A recent admin-cancelled row that must stay.
+    await db.insert(emailChangeAttemptsTable).values({
+      userId,
+      newEmail: "fresh-admin-kill@example.test",
+      cancelledAt: new Date(),
+      cancelledByAdminId: userId,
+    });
+
+    await runEmailChangeAttemptsCleanup();
+
+    const remaining = await db
+      .select({
+        id: emailChangeAttemptsTable.id,
+        newEmail: emailChangeAttemptsTable.newEmail,
+      })
+      .from(emailChangeAttemptsTable)
+      .where(eq(emailChangeAttemptsTable.userId, userId));
+
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].newEmail).toBe("fresh-admin-kill@example.test");
+  });
 });

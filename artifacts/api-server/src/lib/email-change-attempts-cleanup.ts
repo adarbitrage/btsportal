@@ -12,6 +12,16 @@ const RATE_LIMIT_RETENTION_DAYS = 7;
 // long enough to cover follow-up calls well beyond the 7-day window.
 const AUDIT_RETENTION_DAYS = 90;
 
+// Rows that were explicitly cancelled by an admin (cancelled_at +
+// cancelled_by_admin_id populated by /admin/members/:id/cancel-email-change)
+// carry extra audit value beyond a normal abandoned/expired attempt: they
+// document a deliberate support action. Support staff routinely revisit
+// these rows months later when working through old tickets ("why did we
+// cancel this member's email change back in Q1?"), so they get a longer
+// retention window than ordinary attempt rows. Still bounded so the table
+// does not grow forever.
+const ADMIN_CANCELLED_RETENTION_DAYS = 365;
+
 export async function runEmailChangeAttemptsCleanup(): Promise<number> {
   const now = Date.now();
   const rateLimitCutoff = new Date(
@@ -20,23 +30,41 @@ export async function runEmailChangeAttemptsCleanup(): Promise<number> {
   const auditCutoff = new Date(
     now - AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   );
+  const adminCancelledCutoff = new Date(
+    now - ADMIN_CANCELLED_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
 
+  // Classify admin-cancelled rows by `cancelledAt` rather than
+  // `cancelledByAdminId`: the schema populates both columns together, but the
+  // admin FK is `onDelete: set null`, so deleting an admin user would null
+  // out `cancelledByAdminId` and silently demote a historical admin-cancelled
+  // row back into the 90-day audit cohort. `cancelledAt` is the durable
+  // marker that the cancellation actually happened.
   const result = await db.delete(emailChangeAttemptsTable).where(
     or(
       and(
         isNull(emailChangeAttemptsTable.newEmail),
         lt(emailChangeAttemptsTable.createdAt, rateLimitCutoff),
       ),
+      // Ordinary audit rows: have a new_email but were NOT cancelled by an
+      // admin. Deleted at the standard 90-day mark.
       and(
         isNotNull(emailChangeAttemptsTable.newEmail),
+        isNull(emailChangeAttemptsTable.cancelledAt),
         lt(emailChangeAttemptsTable.createdAt, auditCutoff),
+      ),
+      // Admin-cancelled rows: kept for the longer 365-day window so support
+      // staff can investigate stale tickets months after the cancellation.
+      and(
+        isNotNull(emailChangeAttemptsTable.cancelledAt),
+        lt(emailChangeAttemptsTable.createdAt, adminCancelledCutoff),
       ),
     ),
   );
   const deletedCount = result.rowCount ?? 0;
   if (deletedCount > 0) {
     console.log(
-      `[EmailChangeAttemptsCleanup] Deleted ${deletedCount} attempt row(s) (rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d)`,
+      `[EmailChangeAttemptsCleanup] Deleted ${deletedCount} attempt row(s) (rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d, admin-cancelled retention ${ADMIN_CANCELLED_RETENTION_DAYS}d)`,
     );
   }
   return deletedCount;
@@ -52,7 +80,7 @@ export function startEmailChangeAttemptsCleanupJob(): void {
     });
   }, RUN_INTERVAL_MS);
   console.log(
-    `[EmailChangeAttemptsCleanup] Started cleanup job (every ${RUN_INTERVAL_MS / 60000}m, rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d)`,
+    `[EmailChangeAttemptsCleanup] Started cleanup job (every ${RUN_INTERVAL_MS / 60000}m, rate-limit retention ${RATE_LIMIT_RETENTION_DAYS}d, audit retention ${AUDIT_RETENTION_DAYS}d, admin-cancelled retention ${ADMIN_CANCELLED_RETENTION_DAYS}d)`,
   );
   runEmailChangeAttemptsCleanup().catch((err) => {
     console.error("[EmailChangeAttemptsCleanup] Initial run failed:", err);
