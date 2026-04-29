@@ -41,6 +41,17 @@ interface QueueFallbackAlertEvent {
   description: string;
 }
 
+interface QueueFallbackAlertChannelStats {
+  sent: number;
+  failed: number;
+  throttled: number;
+  skipped: number;
+  unknown: number;
+  total: number;
+}
+
+type AlertStatsChannelKey = "pagerduty" | "email" | "slack" | "unknown";
+
 interface QueueFallbackAlertStats {
   windowMs: number;
   sent: number;
@@ -49,6 +60,34 @@ interface QueueFallbackAlertStats {
   skipped: number;
   unknown: number;
   total: number;
+  byChannel?: Record<AlertStatsChannelKey, QueueFallbackAlertChannelStats>;
+}
+
+const ALERT_CHANNEL_DISPLAY_LABELS: Record<AlertStatsChannelKey, string> = {
+  pagerduty: "PagerDuty",
+  email: "Email",
+  slack: "Slack",
+  unknown: "Unknown",
+};
+
+// Render the per-channel breakdown of failures next to the "N failed" line:
+//   • single channel  → "PagerDuty"           (count is implied by parent)
+//   • multiple        → "2 PagerDuty, 1 Slack"
+// Returns null when there's nothing to show so the caller can omit the
+// parenthetical entirely.
+function formatFailedByChannel(
+  byChannel: QueueFallbackAlertStats["byChannel"],
+): string | null {
+  if (!byChannel) return null;
+  const entries = (Object.keys(byChannel) as AlertStatsChannelKey[])
+    .map((key) => ({ key, count: byChannel[key]?.failed ?? 0 }))
+    .filter((e) => e.count > 0)
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  if (entries.length === 0) return null;
+  if (entries.length === 1) return ALERT_CHANNEL_DISPLAY_LABELS[entries[0].key];
+  return entries
+    .map((e) => `${e.count} ${ALERT_CHANNEL_DISPLAY_LABELS[e.key]}`)
+    .join(", ");
 }
 
 interface AlerterChannelHealth {
@@ -2066,6 +2105,18 @@ export default function SystemHealth() {
                     >
                       <span className="font-medium">{alertStats.failed}</span>
                       <span className={alertStats.failed > 0 ? "text-red-600/80" : "text-muted-foreground"}> failed</span>
+                      {alertStats.failed > 0 && (() => {
+                        const breakdown = formatFailedByChannel(alertStats.byChannel);
+                        if (!breakdown) return null;
+                        return (
+                          <span
+                            className="text-red-600/80"
+                            data-testid="alert-stats-failed-by-channel"
+                          >
+                            {" "}({breakdown})
+                          </span>
+                        );
+                      })()}
                     </span>
                     <span className="text-muted-foreground">·</span>
                     <span data-testid="alert-stats-throttled">

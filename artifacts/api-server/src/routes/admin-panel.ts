@@ -2274,6 +2274,10 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
 
     const statsSince = new Date(Date.now() - QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS);
     const outcomeExpr = sql<string>`COALESCE(${auditLogTable.metadata}->>'outcome', 'unknown')`;
+    // Also group by deliveryChannel so the summary can answer "which channel
+    // is broken?" — not just "did pages go out?". An unrecognized or missing
+    // deliveryChannel is bucketed as 'unknown' so it can't silently disappear.
+    const deliveryChannelExpr = sql<string>`COALESCE(${auditLogTable.metadata}->>'deliveryChannel', 'unknown')`;
     const [rows, statsRows] = await Promise.all([
       db
         .select({
@@ -2290,11 +2294,12 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       db
         .select({
           outcome: outcomeExpr,
+          deliveryChannel: deliveryChannelExpr,
           count: sql<number>`count(*)`,
         })
         .from(auditLogTable)
         .where(and(baseFilter, gte(auditLogTable.createdAt, statsSince)))
-        .groupBy(outcomeExpr),
+        .groupBy(outcomeExpr, deliveryChannelExpr),
     ]);
 
     const events = rows.map((row) => {
@@ -2324,26 +2329,41 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       };
     });
 
-    const stats = { sent: 0, failed: 0, throttled: 0, skipped: 0, unknown: 0, total: 0 };
+    type AlertStatsBucket = {
+      sent: number;
+      failed: number;
+      throttled: number;
+      skipped: number;
+      unknown: number;
+      total: number;
+    };
+    const emptyBucket = (): AlertStatsBucket => ({
+      sent: 0, failed: 0, throttled: 0, skipped: 0, unknown: 0, total: 0,
+    });
+    const stats = emptyBucket();
+    // Always emit all four channel buckets (with zeros) so the frontend can
+    // render a stable layout without conditional-key handling. 'unknown'
+    // captures rows whose deliveryChannel didn't match a known destination.
+    const byChannel: Record<"pagerduty" | "email" | "slack" | "unknown", AlertStatsBucket> = {
+      pagerduty: emptyBucket(),
+      email: emptyBucket(),
+      slack: emptyBucket(),
+      unknown: emptyBucket(),
+    };
     for (const row of statsRows) {
       const count = Number(row.count) || 0;
+      const outcomeKey: keyof AlertStatsBucket =
+        row.outcome === "sent" || row.outcome === "failed" || row.outcome === "throttled" || row.outcome === "skipped"
+          ? row.outcome
+          : "unknown";
+      const channelKey: keyof typeof byChannel =
+        row.deliveryChannel === "pagerduty" || row.deliveryChannel === "email" || row.deliveryChannel === "slack"
+          ? row.deliveryChannel
+          : "unknown";
+      stats[outcomeKey] += count;
       stats.total += count;
-      switch (row.outcome) {
-        case "sent":
-          stats.sent += count;
-          break;
-        case "failed":
-          stats.failed += count;
-          break;
-        case "throttled":
-          stats.throttled += count;
-          break;
-        case "skipped":
-          stats.skipped += count;
-          break;
-        default:
-          stats.unknown += count;
-      }
+      byChannel[channelKey][outcomeKey] += count;
+      byChannel[channelKey].total += count;
     }
 
     res.json({
@@ -2353,7 +2373,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
         outcome: outcomeFilter,
         deliveryChannel: deliveryChannelFilter,
       },
-      stats: { windowMs: QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS, ...stats },
+      stats: { windowMs: QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS, ...stats, byChannel },
     });
   } catch (error) {
     console.error("[Admin] Queue fallback alert events error:", error);

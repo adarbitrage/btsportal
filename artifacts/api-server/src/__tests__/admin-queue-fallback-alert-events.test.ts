@@ -331,6 +331,130 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
     expect(visibleIds).toContain(stale);
   });
 
+  it("breaks rolling stats down by delivery channel so the summary can show which channel is broken", async () => {
+    const now = Date.now();
+    // Two PagerDuty failures + one Slack failure in-window — the summary
+    // line on /admin/system relies on this shape to render
+    // "3 failed (2 PagerDuty, 1 Slack)" without filtering the audit log.
+    const pagerFail1 = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "failed",
+      reason: "webhook_5xx",
+      createdAt: new Date(now - 10 * 60 * 1000),
+    });
+    const pagerFail2 = await insertAlertRow({
+      queueChannel: "sms",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "failed",
+      reason: "webhook_5xx",
+      createdAt: new Date(now - 8 * 60 * 1000),
+    });
+    const slackFail = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "slack",
+      kind: "fire",
+      outcome: "failed",
+      reason: "webhook_4xx",
+      createdAt: new Date(now - 6 * 60 * 1000),
+    });
+    // A successful Email delivery so byChannel.email gets a non-zero `sent`
+    // bucket too — proves channels track all outcomes, not just failures.
+    const emailSent = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "email",
+      kind: "fire",
+      outcome: "sent",
+      createdAt: new Date(now - 4 * 60 * 1000),
+    });
+
+    const res = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=200")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const byChannel = res.body.stats.byChannel;
+    expect(byChannel).toBeDefined();
+    // All four buckets always present so the frontend can render a
+    // stable layout without optional-chaining every channel key.
+    expect(Object.keys(byChannel).sort()).toEqual(["email", "pagerduty", "slack", "unknown"]);
+    for (const key of ["pagerduty", "email", "slack", "unknown"]) {
+      const bucket = byChannel[key];
+      expect(bucket).toMatchObject({
+        sent: expect.any(Number),
+        failed: expect.any(Number),
+        throttled: expect.any(Number),
+        skipped: expect.any(Number),
+        unknown: expect.any(Number),
+        total: expect.any(Number),
+      });
+    }
+
+    // The seeded failures must show up in the right per-channel buckets.
+    // Use >= to tolerate other rows seeded by sibling tests.
+    expect(byChannel.pagerduty.failed).toBeGreaterThanOrEqual(2);
+    expect(byChannel.slack.failed).toBeGreaterThanOrEqual(1);
+    expect(byChannel.email.sent).toBeGreaterThanOrEqual(1);
+
+    // Per-channel totals should still equal the sum of their per-outcome
+    // counters — otherwise the summary breakdown would disagree with the
+    // top-level "N failed" badge it sits next to.
+    for (const key of ["pagerduty", "email", "slack", "unknown"]) {
+      const b = byChannel[key];
+      expect(b.total).toBe(b.sent + b.failed + b.throttled + b.skipped + b.unknown);
+    }
+
+    // And the sum of per-channel failures should equal the top-level
+    // `failed` bucket — the summary derives its breakdown from `byChannel`
+    // and its total from `stats.failed`, so they have to match.
+    const failedAcrossChannels =
+      byChannel.pagerduty.failed +
+      byChannel.email.failed +
+      byChannel.slack.failed +
+      byChannel.unknown.failed;
+    expect(failedAcrossChannels).toBe(res.body.stats.failed);
+
+    // Sanity: every seeded id is visible in the events page so the test
+    // is actually exercising the rows we think it is.
+    const ids = res.body.events.map((e: { id: number }) => e.id);
+    for (const id of [pagerFail1, pagerFail2, slackFail, emailSent]) {
+      expect(ids).toContain(id);
+    }
+  });
+
+  it("buckets rows with missing/unrecognized deliveryChannel into byChannel.unknown", async () => {
+    const before = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=1")
+      .set("Cookie", adminCookie);
+    expect(before.status).toBe(200);
+    const baselineUnknownFailed = before.body.stats.byChannel?.unknown?.failed ?? 0;
+
+    // Recent in-window row with no recognizable deliveryChannel — must land
+    // in the unknown bucket so the summary can still surface it instead of
+    // silently swallowing the failure.
+    await insertAlertRow({
+      queueChannel: "email",
+      kind: "fire",
+      outcome: "failed",
+      reason: "weird",
+      metaOverride: {
+        queueChannel: "email",
+        deliveryChannel: "morse-code",
+        kind: "fire",
+        outcome: "failed",
+      },
+      createdAt: new Date(Date.now() - 60 * 1000),
+    });
+
+    const after = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=1")
+      .set("Cookie", adminCookie);
+    expect(after.status).toBe(200);
+    expect(after.body.stats.byChannel.unknown.failed).toBe(baselineUnknownFailed + 1);
+  });
+
   it("rejects callers without system:view permission", async () => {
     const res = await request(app)
       .get("/api/admin/system/queue-fallback-alert-events")
