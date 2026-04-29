@@ -122,18 +122,45 @@ function getNotificationThrottleMs(): number {
 const POLL_MS = parseEnvInt("PRODUCTION_ENV_GUARD_POLL_MS", 5 * 60 * 1000);
 
 /**
+ * How a guarded secret is misconfigured:
+ *   - `"unset"`     — env var is not set, empty, or whitespace-only.
+ *   - `"defaulted"` — env var is set but matches one of the known
+ *                     placeholder defaults declared on the descriptor.
+ *
+ * The distinction matters for on-call: a defaulted JWT_SECRET means
+ * tokens may have been forged with the well-known default and must be
+ * rotated, while an unset one just needs the env var configured.
+ */
+export type SecretMisconfigurationState = "unset" | "defaulted";
+
+/**
+ * Returns the misconfiguration state for a guarded secret, or `null`
+ * when it is configured to a non-placeholder value. The offending value
+ * itself is intentionally never returned — callers (admin endpoints,
+ * notifications) get only the categorical state.
+ */
+export function getSecretMisconfigurationState(
+  secret: GuardedSecret,
+): SecretMisconfigurationState | null {
+  const raw = process.env[secret.envVar];
+  if (typeof raw !== "string") return "unset";
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return "unset";
+  if (secret.defaultedValues && secret.defaultedValues.includes(trimmed)) {
+    return "defaulted";
+  }
+  return null;
+}
+
+/**
  * Returns true when the secret should be considered misconfigured: unset,
  * empty/whitespace, or matching one of the known placeholder defaults.
+ *
+ * Thin wrapper around `getSecretMisconfigurationState` so the misconfig
+ * check and the unset-vs-defaulted classification stay in lockstep.
  */
 export function isSecretMisconfigured(secret: GuardedSecret): boolean {
-  const raw = process.env[secret.envVar];
-  if (typeof raw !== "string") return true;
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) return true;
-  if (secret.defaultedValues && secret.defaultedValues.includes(trimmed)) {
-    return true;
-  }
-  return false;
+  return getSecretMisconfigurationState(secret) !== null;
 }
 
 /**

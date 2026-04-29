@@ -278,8 +278,73 @@ describe("GET /api/admin/system/health — signup challenge field", () => {
         envVar: s.envVar,
         title: s.title,
         message: s.message,
+        state: "unset",
       }));
       expect(list).toEqual(expected);
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete (process.env as Record<string, string | undefined>).NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+      for (const s of GUARDED_SECRETS) {
+        const v = originalEnv[s.envVar];
+        if (v === undefined) {
+          delete (process.env as Record<string, string | undefined>)[s.envVar];
+        } else {
+          process.env[s.envVar] = v;
+        }
+      }
+    }
+  });
+
+  it("distinguishes 'unset' from 'defaulted' on each missing secret in production", async () => {
+    const { GUARDED_SECRETS } = await import("../lib/production-env-guard");
+    const jwt = GUARDED_SECRETS.find((s) => s.envVar === "JWT_SECRET")!;
+    const session = GUARDED_SECRETS.find((s) => s.envVar === "SESSION_SECRET")!;
+    const sendgrid = GUARDED_SECRETS.find((s) => s.envVar === "SENDGRID_API_KEY")!;
+    expect(jwt.defaultedValues?.length ?? 0).toBeGreaterThan(0);
+
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEnv: Record<string, string | undefined> = {};
+    for (const s of GUARDED_SECRETS) {
+      originalEnv[s.envVar] = process.env[s.envVar];
+    }
+
+    // JWT_SECRET pinned to a known placeholder ⇒ "defaulted".
+    process.env.JWT_SECRET = jwt.defaultedValues![0];
+    // SESSION_SECRET wiped ⇒ "unset".
+    delete (process.env as Record<string, string | undefined>).SESSION_SECRET;
+    // SENDGRID_API_KEY whitespace ⇒ also "unset" (treated like wiped).
+    process.env.SENDGRID_API_KEY = "   ";
+    process.env.NODE_ENV = "production";
+
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/health")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      const list = res.body?.services?.missingCriticalSecrets as Array<{
+        id: string;
+        envVar: string;
+        state: string;
+      }>;
+      const byVar = Object.fromEntries(list.map((s) => [s.envVar, s.state]));
+      expect(byVar[jwt.envVar]).toBe("defaulted");
+      expect(byVar[session.envVar]).toBe("unset");
+      expect(byVar[sendgrid.envVar]).toBe("unset");
+
+      // Defense in depth: the runtime env-var value itself is never
+      // serialized back. The descriptor `message` is allowed to mention
+      // the literal placeholder as static help text (it is in source
+      // control), but the response object must not carry the live value
+      // under any other field — so the per-secret payload exposes only
+      // the documented fields.
+      const documentedFields = ["id", "envVar", "title", "message", "state"].sort();
+      for (const entry of list) {
+        expect(Object.keys(entry).sort()).toEqual(documentedFields);
+      }
     } finally {
       if (originalNodeEnv === undefined) {
         delete (process.env as Record<string, string | undefined>).NODE_ENV;

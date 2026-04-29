@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   evaluateProductionEnvGuards,
   getMisconfiguredCriticalSecrets,
+  getSecretMisconfigurationState,
   GUARDED_SECRETS,
   isSecretMisconfigured,
   __resetProductionEnvGuardForTests,
@@ -120,6 +121,41 @@ describe("production-env-guard", () => {
     expect(isSecretMisconfigured(session)).toBe(true);
     process.env.SESSION_SECRET = "real-session";
     expect(isSecretMisconfigured(session)).toBe(false);
+  });
+
+  it("classifies misconfigurations as unset vs defaulted", () => {
+    const jwt = GUARDED_SECRETS.find((s) => s.envVar === "JWT_SECRET")!;
+    const session = GUARDED_SECRETS.find((s) => s.envVar === "SESSION_SECRET")!;
+    expect(jwt.defaultedValues?.length ?? 0).toBeGreaterThan(0);
+    // SESSION_SECRET has no defaulted-values list; the absence of one is
+    // load-bearing for "unset is the only failure mode" below.
+    expect(session.defaultedValues).toBeUndefined();
+
+    delete process.env.JWT_SECRET;
+    expect(getSecretMisconfigurationState(jwt)).toBe("unset");
+
+    process.env.JWT_SECRET = "";
+    expect(getSecretMisconfigurationState(jwt)).toBe("unset");
+
+    process.env.JWT_SECRET = "   ";
+    expect(getSecretMisconfigurationState(jwt)).toBe("unset");
+
+    process.env.JWT_SECRET = jwt.defaultedValues![0];
+    expect(getSecretMisconfigurationState(jwt)).toBe("defaulted");
+
+    // Trims whitespace before comparing against the placeholder list.
+    process.env.JWT_SECRET = `  ${jwt.defaultedValues![0]}  `;
+    expect(getSecretMisconfigurationState(jwt)).toBe("defaulted");
+
+    process.env.JWT_SECRET = "an-actually-real-secret";
+    expect(getSecretMisconfigurationState(jwt)).toBeNull();
+
+    // Secrets without a defaultedValues list can only be reported as unset,
+    // never defaulted — the descriptor is the single source of truth.
+    process.env.SESSION_SECRET = "dev-secret-change-me";
+    expect(getSecretMisconfigurationState(session)).toBeNull();
+    delete process.env.SESSION_SECRET;
+    expect(getSecretMisconfigurationState(session)).toBe("unset");
   });
 
   it("is a no-op outside production even if every secret is missing", async () => {

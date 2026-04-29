@@ -826,9 +826,28 @@ export default function SystemHealth() {
                   <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                   <div className="space-y-1">
                     <p className="font-medium text-red-900 dark:text-red-200">
-                      {health.services.missingCriticalSecrets.length === 1
-                        ? "1 production secret is unset or defaulted"
-                        : `${health.services.missingCriticalSecrets.length} production secrets are unset or defaulted`}
+                      {(() => {
+                        const list = health.services.missingCriticalSecrets as Array<{ state?: string }>;
+                        const defaultedCount = list.filter((s) => s.state === "defaulted").length;
+                        const unsetCount = list.length - defaultedCount;
+                        const parts: string[] = [];
+                        if (defaultedCount > 0) {
+                          parts.push(
+                            defaultedCount === 1
+                              ? "1 defaulted"
+                              : `${defaultedCount} defaulted`,
+                          );
+                        }
+                        if (unsetCount > 0) {
+                          parts.push(
+                            unsetCount === 1 ? "1 unset" : `${unsetCount} unset`,
+                          );
+                        }
+                        const breakdown = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+                        return list.length === 1
+                          ? `1 production secret is unset or defaulted${breakdown}`
+                          : `${list.length} production secrets are unset or defaulted${breakdown}`;
+                      })()}
                     </p>
                     <p className="text-sm text-red-800/80 dark:text-red-200/80">
                       On-call has been paged. See the "Production secrets" card below for the
@@ -927,7 +946,10 @@ export default function SystemHealth() {
                             envVar: string;
                             title: string;
                             message: string;
-                          }>).map((secret) => (
+                            state?: "unset" | "defaulted";
+                          }>).map((secret) => {
+                            const isDefaulted = secret.state === "defaulted";
+                            return (
                             <li
                               key={secret.id}
                               className="space-y-1 border-l-2 border-red-500/60 pl-3"
@@ -935,9 +957,23 @@ export default function SystemHealth() {
                             >
                               <div className="flex items-center gap-2">
                                 <code className="text-xs font-semibold">{secret.envVar}</code>
-                                <span className="inline-flex items-center rounded-full border border-transparent bg-red-100 text-red-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-                                  unset
-                                </span>
+                                {isDefaulted ? (
+                                  <span
+                                    className="inline-flex items-center rounded-full border border-transparent bg-amber-100 text-amber-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                                    title="Env var is set to a known placeholder default — rotate any tokens or sessions issued under it."
+                                    data-testid={`missing-critical-secret-state-${secret.id}`}
+                                  >
+                                    defaulted
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center rounded-full border border-transparent bg-red-100 text-red-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                                    title="Env var is not set on the server."
+                                    data-testid={`missing-critical-secret-state-${secret.id}`}
+                                  >
+                                    unset
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs font-medium" data-testid={`missing-critical-secret-title-${secret.id}`}>
                                 {secret.title}
@@ -949,7 +985,8 @@ export default function SystemHealth() {
                                 {secret.message}
                               </p>
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       ) : (
                         <p className="text-xs text-muted-foreground">

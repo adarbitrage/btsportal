@@ -30,6 +30,7 @@ import { evaluateAuthRateLimitAlert } from "../lib/auth-rate-limit-alerter";
 import {
   evaluateProductionEnvGuards,
   getMisconfiguredCriticalSecrets,
+  getSecretMisconfigurationState,
 } from "../lib/production-env-guard";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
@@ -2087,12 +2088,15 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // exactly which secret is the problem instead of having to cross-
     // reference the bell. Outside production this is always empty (the
     // guard is a no-op there), and we never echo the secret value itself —
-    // only its stable id, env var name, title, and remediation message.
+    // only its stable id, env var name, title, remediation message, and
+    // categorical `state` ("unset" vs. "defaulted") so on-call can tell at
+    // a glance whether tokens may have been forged with a known default.
     const missingCriticalSecrets = getMisconfiguredCriticalSecrets().map((s) => ({
       id: s.id,
       envVar: s.envVar,
       title: s.title,
       message: s.message,
+      state: getSecretMisconfigurationState(s) ?? "unset",
     }));
 
     // Treat any rate-limit audit-write failure as a degradation: it means
