@@ -43,6 +43,10 @@ import {
   QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
   type ProbeResult,
 } from "../lib/queue-fallback-alerter";
+import {
+  getActiveThrottleSlots,
+  getAlertingFlags,
+} from "../lib/queue-fallback-alerter-state";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -2205,6 +2209,100 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
   } catch (error) {
     console.error("[Admin] Queue fallback alert events error:", error);
     res.status(500).json({ error: "Failed to fetch queue fallback alert events" });
+  }
+});
+
+/**
+ * Live snapshot of the on-call alerter's runtime state for the admin
+ * System Health page.
+ *
+ * The other queue-fallback endpoints answer historical questions ("what
+ * fallbacks happened?", "what alert deliveries were attempted?"). This one
+ * answers operator-during-an-outage questions:
+ *
+ *   - Per-channel "is the alerter currently in the alerting state?" flag.
+ *   - Last fire/clear timestamp per channel (so it's obvious whether the
+ *     alerting flag was just flipped or has been stuck on for hours).
+ *   - Each currently held throttle slot with its remaining TTL, so the
+ *     operator can see *why* a follow-up page hasn't gone out yet.
+ *
+ * The alerting flags + throttle slots come straight from the cluster-shared
+ * Redis state (with the per-pod in-memory fallback the alerter itself uses).
+ * The last-transition timestamps come from the audit log rows that
+ * `recordDeliveryAttempt` writes for every fire/clear delivery — those rows
+ * survive restarts and are written cluster-wide, so the answer is the same
+ * regardless of which pod served this request.
+ *
+ * Read-only: no mutation surface. Tuning the throttle window or clearing a
+ * stuck flag is intentionally out of scope here.
+ */
+router.get("/admin/system/queue-fallback-alerter-health", requirePermission("system:view"), async (_req: Request, res: Response) => {
+  try {
+    const channels = ["email", "sms"] as const;
+    type Channel = (typeof channels)[number];
+    type Kind = "fire" | "clear";
+
+    const [alertingSnapshot, throttleSnapshot, lastTransitions] = await Promise.all([
+      getAlertingFlags(),
+      getActiveThrottleSlots(),
+      // One MAX(createdAt) per (queueChannel, kind). Filtering on
+      // metadata->>'queueChannel' avoids picking up rows whose entityId
+      // got a non-channel value, and also lets us keep the audit-row
+      // outcome (sent/throttled/skipped/failed) out of the picture: we
+      // only care *when* the alerter last attempted a transition, not
+      // whether the page actually went out.
+      db
+        .select({
+          queueChannel: sql<string>`COALESCE(${auditLogTable.metadata}->>'queueChannel', ${auditLogTable.entityId})`.as("queue_channel"),
+          kind: sql<string>`${auditLogTable.metadata}->>'kind'`.as("kind"),
+          lastAt: sql<Date>`MAX(${auditLogTable.createdAt})`.as("last_at"),
+        })
+        .from(auditLogTable)
+        .where(and(
+          eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+          eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
+        ))
+        .groupBy(
+          sql`COALESCE(${auditLogTable.metadata}->>'queueChannel', ${auditLogTable.entityId})`,
+          sql`${auditLogTable.metadata}->>'kind'`,
+        ),
+    ]);
+
+    const lastByChannelKind: Record<Channel, Record<Kind, string | null>> = {
+      email: { fire: null, clear: null },
+      sms: { fire: null, clear: null },
+    };
+    for (const row of lastTransitions) {
+      const ch = row.queueChannel as string | null;
+      const kind = row.kind as string | null;
+      if (ch !== "email" && ch !== "sms") continue;
+      if (kind !== "fire" && kind !== "clear") continue;
+      const lastAt = row.lastAt instanceof Date ? row.lastAt.toISOString() : (row.lastAt ? new Date(row.lastAt as unknown as string).toISOString() : null);
+      lastByChannelKind[ch][kind] = lastAt;
+    }
+
+    const flagByChannel: Record<Channel, boolean> = { email: false, sms: false };
+    for (const f of alertingSnapshot.flags) flagByChannel[f.channel] = f.alerting;
+
+    res.json({
+      // The two snapshots have independent fallback paths (Redis can fail
+      // for one read but succeed for the other). Reporting both lets the UI
+      // distinguish "throttle slots are empty cluster-wide" from "throttle
+      // slots are empty *on this pod's in-memory map*".
+      alertingSource: alertingSnapshot.source,
+      throttleSource: throttleSnapshot.source,
+      channels: channels.map((ch) => ({
+        channel: ch,
+        alerting: flagByChannel[ch],
+        lastFireAt: lastByChannelKind[ch].fire,
+        lastClearAt: lastByChannelKind[ch].clear,
+      })),
+      throttles: throttleSnapshot.slots,
+      serverTime: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[Admin] Queue fallback alerter health error:", error);
+    res.status(500).json({ error: "Failed to fetch on-call alerter health" });
   }
 });
 

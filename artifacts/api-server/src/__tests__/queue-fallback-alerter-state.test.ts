@@ -5,11 +5,19 @@ interface FakeRedis {
   evalCalls: Array<{ script: string; keys: string[]; args: string[] }>;
   setCalls: Array<{ key: string; value: string; opts: string[] }>;
   delCalls: string[];
+  scanCalls: Array<{ cursor: string; opts: string[] }>;
+  pttlCalls: string[];
+  getCalls: string[];
   failNextEval?: boolean;
   failNextSet?: boolean;
   failNextDel?: boolean;
+  failNextScan?: boolean;
+  failNextGet?: boolean;
   set: (key: string, value: string, ...opts: string[]) => Promise<string | null>;
   del: (key: string) => Promise<number>;
+  get: (key: string) => Promise<string | null>;
+  scan: (cursor: string, ...opts: string[]) => Promise<[string, string[]]>;
+  pttl: (key: string) => Promise<number>;
   eval: (
     script: string,
     numKeys: number,
@@ -31,6 +39,8 @@ import {
   compareAndSetAlertingState,
   releaseThrottleSlot,
   tryClaimThrottleSlot,
+  getAlertingFlags,
+  getActiveThrottleSlots,
   __resetQueueFallbackAlerterStateForTests,
 } from "../lib/queue-fallback-alerter-state";
 
@@ -39,6 +49,9 @@ function makeFakeRedis(): FakeRedis {
   const evalCalls: FakeRedis["evalCalls"] = [];
   const setCalls: FakeRedis["setCalls"] = [];
   const delCalls: string[] = [];
+  const scanCalls: FakeRedis["scanCalls"] = [];
+  const pttlCalls: string[] = [];
+  const getCalls: string[] = [];
 
   const expired = (entry: { expiresAt?: number } | undefined, now: number) =>
     entry?.expiresAt !== undefined && entry.expiresAt <= now;
@@ -48,6 +61,9 @@ function makeFakeRedis(): FakeRedis {
     evalCalls,
     setCalls,
     delCalls,
+    scanCalls,
+    pttlCalls,
+    getCalls,
     set: async (key, value, ...opts) => {
       const optsAsStrings = opts.map((o) => String(o));
       setCalls.push({ key, value, opts: optsAsStrings });
@@ -74,6 +90,53 @@ function makeFakeRedis(): FakeRedis {
         throw new Error("redis del boom");
       }
       return store.delete(key) ? 1 : 0;
+    },
+    get: async (key) => {
+      getCalls.push(key);
+      if (fake.failNextGet) {
+        fake.failNextGet = false;
+        throw new Error("redis get boom");
+      }
+      const now = Date.now();
+      const entry = store.get(key);
+      if (!entry) return null;
+      if (expired(entry, now)) {
+        store.delete(key);
+        return null;
+      }
+      return entry.value;
+    },
+    scan: async (cursor, ...opts) => {
+      scanCalls.push({ cursor, opts: opts.map((o) => String(o)) });
+      if (fake.failNextScan) {
+        fake.failNextScan = false;
+        throw new Error("redis scan boom");
+      }
+      // Naive: ignore COUNT and just return everything matching MATCH on the
+      // first sweep, with cursor "0" (== done). Plenty for these tests.
+      const upper = opts.map((o) => String(o).toUpperCase());
+      const matchIdx = upper.indexOf("MATCH");
+      const pattern = matchIdx >= 0 ? String(opts[matchIdx + 1]) : "*";
+      // Translate the simple `prefix*` style we use into a regex.
+      const regex = new RegExp(
+        "^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$",
+      );
+      const now = Date.now();
+      const matches: string[] = [];
+      for (const [key, entry] of store.entries()) {
+        if (expired(entry, now)) continue;
+        if (regex.test(key)) matches.push(key);
+      }
+      return ["0", matches];
+    },
+    pttl: async (key) => {
+      pttlCalls.push(key);
+      const now = Date.now();
+      const entry = store.get(key);
+      if (!entry) return -2;
+      if (entry.expiresAt === undefined) return -1;
+      const remaining = entry.expiresAt - now;
+      return remaining > 0 ? remaining : -2;
     },
     eval: async (script, _numKeys, ...rest) => {
       evalCalls.push({ script, keys: [rest[0]], args: rest.slice(1) });
@@ -224,5 +287,128 @@ describe("queue-fallback-alerter-state (Redis-backed)", () => {
     const opts = fake.setCalls[0].opts;
     const exIdx = opts.findIndex((o) => o.toUpperCase() === "EX");
     expect(Number(opts[exIdx + 1])).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("getAlertingFlags", () => {
+  let errSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    redisInstance = null;
+    __resetQueueFallbackAlerterStateForTests();
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("returns the in-memory flags with source=memory when Redis is not configured", async () => {
+    await compareAndSetAlertingState("email", true);
+    const snap = await getAlertingFlags();
+    expect(snap.source).toBe("memory");
+    const byChannel = Object.fromEntries(snap.flags.map((f) => [f.channel, f.alerting]));
+    expect(byChannel).toEqual({ email: true, sms: false });
+  });
+
+  it("reads cluster-shared flags from Redis with source=redis", async () => {
+    const fake = makeFakeRedis();
+    redisInstance = fake;
+    await compareAndSetAlertingState("sms", true);
+    const snap = await getAlertingFlags();
+    expect(snap.source).toBe("redis");
+    const byChannel = Object.fromEntries(snap.flags.map((f) => [f.channel, f.alerting]));
+    expect(byChannel).toEqual({ email: false, sms: true });
+  });
+
+  it("falls back to in-memory state when Redis GET throws", async () => {
+    const fake = makeFakeRedis();
+    redisInstance = fake;
+    // Set an in-memory value first by routing through compareAndSet on a
+    // disconnected redis (simulating a previous fallback).
+    redisInstance = null;
+    await compareAndSetAlertingState("email", true);
+    redisInstance = fake;
+    fake.failNextGet = true;
+    const snap = await getAlertingFlags();
+    expect(snap.source).toBe("memory");
+    const byChannel = Object.fromEntries(snap.flags.map((f) => [f.channel, f.alerting]));
+    expect(byChannel.email).toBe(true);
+    expect(errSpy).toHaveBeenCalled();
+  });
+});
+
+describe("getActiveThrottleSlots", () => {
+  let errSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    redisInstance = null;
+    __resetQueueFallbackAlerterStateForTests();
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("returns memory slots with remaining TTL when Redis is not configured", async () => {
+    const now = Date.now();
+    await tryClaimThrottleSlot("email", "pagerduty", "fire", 60_000, now);
+    await tryClaimThrottleSlot("sms", "slack", "clear", 30_000, now);
+    const snap = await getActiveThrottleSlots(now);
+    expect(snap.source).toBe("memory");
+    expect(snap.slots).toHaveLength(2);
+    // Sorted by remaining TTL ascending — sms/slack/clear (30s) first.
+    expect(snap.slots[0].queueChannel).toBe("sms");
+    expect(snap.slots[0].deliveryChannel).toBe("slack");
+    expect(snap.slots[0].kind).toBe("clear");
+    expect(snap.slots[0].ttlMs).toBeGreaterThan(0);
+    expect(snap.slots[0].ttlMs).toBeLessThanOrEqual(30_000);
+    expect(typeof snap.slots[0].expiresAt).toBe("string");
+  });
+
+  it("excludes already-expired in-memory slots", async () => {
+    const now = Date.now();
+    await tryClaimThrottleSlot("email", "pagerduty", "fire", 1_000, now);
+    const snap = await getActiveThrottleSlots(now + 5_000);
+    expect(snap.slots).toHaveLength(0);
+  });
+
+  it("returns Redis slots discovered via SCAN+PTTL", async () => {
+    const fake = makeFakeRedis();
+    redisInstance = fake;
+    await tryClaimThrottleSlot("email", "pagerduty", "fire", 60_000);
+    await tryClaimThrottleSlot("sms", "email", "clear", 120_000);
+    const snap = await getActiveThrottleSlots();
+    expect(snap.source).toBe("redis");
+    expect(snap.slots).toHaveLength(2);
+    expect(fake.scanCalls.length).toBeGreaterThan(0);
+    // Sorted ascending by ttlMs
+    expect(snap.slots[0].queueChannel).toBe("email");
+    expect(snap.slots[1].queueChannel).toBe("sms");
+    for (const slot of snap.slots) {
+      expect(slot.ttlMs).toBeGreaterThan(0);
+      expect(typeof slot.expiresAt).toBe("string");
+    }
+  });
+
+  it("falls back to in-memory snapshot when Redis SCAN throws", async () => {
+    const fake = makeFakeRedis();
+    redisInstance = fake;
+    redisInstance = null;
+    await tryClaimThrottleSlot("email", "pagerduty", "fire", 60_000);
+    redisInstance = fake;
+    fake.failNextScan = true;
+    const snap = await getActiveThrottleSlots();
+    expect(snap.source).toBe("memory");
+    expect(snap.slots.some((s) => s.queueChannel === "email")).toBe(true);
+    expect(errSpy).toHaveBeenCalled();
+  });
+
+  it("ignores unknown/garbage throttle keys present in Redis", async () => {
+    const fake = makeFakeRedis();
+    redisInstance = fake;
+    // Inject a bogus key directly into the fake store.
+    fake.store.set("queue-fallback:throttle:bogus:nope:wat", {
+      value: "1",
+      expiresAt: Date.now() + 60_000,
+    });
+    await tryClaimThrottleSlot("email", "pagerduty", "fire", 60_000);
+    const snap = await getActiveThrottleSlots();
+    expect(snap.source).toBe("redis");
+    expect(snap.slots).toHaveLength(1);
+    expect(snap.slots[0].queueChannel).toBe("email");
   });
 });

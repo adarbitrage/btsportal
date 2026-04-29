@@ -376,6 +376,29 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getQueueFallbackAlerterHealth() {
+    const res = await authFetch("/admin/system/queue-fallback-alerter-health");
+    if (!res.ok) throw new Error("Failed to fetch on-call alerter health");
+    return res.json() as Promise<{
+      alertingSource: "redis" | "memory";
+      throttleSource: "redis" | "memory";
+      channels: Array<{
+        channel: "email" | "sms";
+        alerting: boolean;
+        lastFireAt: string | null;
+        lastClearAt: string | null;
+      }>;
+      throttles: Array<{
+        queueChannel: "email" | "sms";
+        deliveryChannel: "pagerduty" | "email" | "slack";
+        kind: "fire" | "clear";
+        ttlMs: number;
+        expiresAt: string;
+      }>;
+      serverTime: string;
+    }>;
+  },
+
   async getNotifications() {
     const res = await authFetch("/admin/notifications");
     if (!res.ok) throw new Error("Failed to fetch notifications");

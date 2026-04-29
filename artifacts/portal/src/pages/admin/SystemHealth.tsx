@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,29 @@ interface QueueFallbackAlertStats {
   total: number;
 }
 
+interface AlerterChannelHealth {
+  channel: "email" | "sms";
+  alerting: boolean;
+  lastFireAt: string | null;
+  lastClearAt: string | null;
+}
+
+interface AlerterThrottleSlot {
+  queueChannel: "email" | "sms";
+  deliveryChannel: "pagerduty" | "email" | "slack";
+  kind: "fire" | "clear";
+  ttlMs: number;
+  expiresAt: string;
+}
+
+interface AlerterHealth {
+  alertingSource: "redis" | "memory";
+  throttleSource: "redis" | "memory";
+  channels: AlerterChannelHealth[];
+  throttles: AlerterThrottleSlot[];
+  serverTime: string;
+}
+
 const FALLBACK_EVENTS_LIMIT = 50;
 const ALERT_EVENTS_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
@@ -77,6 +100,13 @@ export default function SystemHealth() {
   const [alertStats, setAlertStats] = useState<QueueFallbackAlertStats | null>(null);
   const [alertEventsLoading, setAlertEventsLoading] = useState(true);
   const [alertEventsError, setAlertEventsError] = useState<string | null>(null);
+  const [alerterHealth, setAlerterHealth] = useState<AlerterHealth | null>(null);
+  const [alerterHealthLoading, setAlerterHealthLoading] = useState(true);
+  const [alerterHealthError, setAlerterHealthError] = useState<string | null>(null);
+  // Re-render driver so the throttle TTL countdowns visibly tick down between
+  // backend refreshes (which only happen every 30s). Cheap: just bumps a
+  // counter once per second while the alerter card is on screen.
+  const [, setNowTick] = useState(0);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
@@ -260,17 +290,36 @@ export default function SystemHealth() {
     }
   }, [alertOutcomeFilter, alertChannelFilter]);
 
+  const loadAlerterHealth = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setAlerterHealthLoading(true);
+      const data = await adminPanelApi.getQueueFallbackAlerterHealth();
+      setAlerterHealth(data);
+      setAlerterHealthError(null);
+      return true;
+    } catch (err: any) {
+      if (silent) {
+        return false;
+      }
+      setAlerterHealthError(err?.message ?? "Failed to load on-call alerter state");
+      return false;
+    } finally {
+      if (!silent) setAlerterHealthLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (silent = false) => {
     if (inFlightRef.current > 0) return;
     inFlightRef.current += 1;
     setRefreshInFlight(inFlightRef.current);
     try {
-      const [healthOk, eventsOk, alertEventsOk] = await Promise.all([
+      const [healthOk, eventsOk, alertEventsOk, alerterHealthOk] = await Promise.all([
         loadHealth(silent),
         loadFallbackEvents(silent),
         loadAlertEvents(silent),
+        loadAlerterHealth(silent),
       ]);
-      const allOk = healthOk && eventsOk && alertEventsOk;
+      const allOk = healthOk && eventsOk && alertEventsOk && alerterHealthOk;
       if (silent) {
         setSilentRefreshError(allOk ? null : "Last auto-refresh failed — showing previous data");
       } else {
@@ -284,7 +333,19 @@ export default function SystemHealth() {
       inFlightRef.current = Math.max(0, inFlightRef.current - 1);
       setRefreshInFlight(inFlightRef.current);
     }
-  }, [loadHealth, loadFallbackEvents, loadAlertEvents]);
+  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth]);
+
+  // Once we've loaded an alerter snapshot with at least one active throttle
+  // slot, tick a counter every second so the "remaining" labels update in
+  // place between the 30s backend refreshes. Idle (zero throttles) stays
+  // quiet so this doesn't burn CPU when the system is healthy.
+  useEffect(() => {
+    if (!alerterHealth || alerterHealth.throttles.length === 0) return;
+    const id = window.setInterval(() => {
+      setNowTick((n) => (n + 1) % 1_000_000);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [alerterHealth]);
 
   const isRefreshing = refreshInFlight > 0;
 
@@ -344,6 +405,32 @@ export default function SystemHealth() {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m}m`;
+  };
+
+  const formatRelativeTime = (iso: string | null) => {
+    if (!iso) return null;
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return null;
+    const diffMs = Date.now() - then;
+    if (diffMs < 0) return "just now";
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    return `${day}d ago`;
+  };
+
+  const formatThrottleRemaining = (expiresAt: string) => {
+    const ms = new Date(expiresAt).getTime() - Date.now();
+    if (!Number.isFinite(ms) || ms <= 0) return "expiring";
+    const sec = Math.ceil(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    const remSec = sec % 60;
+    return remSec === 0 ? `${min}m` : `${min}m ${remSec}s`;
   };
 
   const formatAlertStatsWindow = (windowMs: number) => {
@@ -1052,6 +1139,182 @@ export default function SystemHealth() {
                     </table>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-alerter-health">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Siren className="w-4 h-4" />
+                  On-call alerter state
+                  {alerterHealth && (
+                    <Badge
+                      variant={alerterHealth.alertingSource === "redis" ? "outline" : "warning"}
+                      className="ml-2 font-normal"
+                      data-testid="alerter-health-source"
+                      title={
+                        alerterHealth.alertingSource === "redis"
+                          ? "State sourced from cluster-shared Redis."
+                          : "Redis is unavailable on this pod — showing per-instance fallback state."
+                      }
+                    >
+                      {alerterHealth.alertingSource === "redis" ? "shared (Redis)" : "in-memory only"}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Live snapshot of whether the alerter believes each queue is currently in an outage,
+                  when it last fired or cleared, and which delivery channels are currently throttled.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {alerterHealthLoading && !alerterHealth ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm" data-testid="alerter-health-loading">
+                    Loading alerter state...
+                  </div>
+                ) : alerterHealthError ? (
+                  <div className="p-4 text-center text-sm text-red-600" data-testid="alerter-health-error">
+                    {alerterHealthError}
+                  </div>
+                ) : alerterHealth ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {alerterHealth.channels.map((ch) => {
+                        const lastFireRel = formatRelativeTime(ch.lastFireAt);
+                        const lastClearRel = formatRelativeTime(ch.lastClearAt);
+                        return (
+                          <div
+                            key={ch.channel}
+                            className={`rounded-md border p-3 ${
+                              ch.alerting
+                                ? "border-red-500/40 bg-red-50/60 dark:bg-red-950/30"
+                                : "bg-muted/20"
+                            }`}
+                            data-testid={`alerter-channel-${ch.channel}`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium uppercase">{ch.channel}</span>
+                              <Badge
+                                variant={ch.alerting ? "warning" : "success"}
+                                className={
+                                  ch.alerting
+                                    ? "bg-red-100 text-red-800"
+                                    : undefined
+                                }
+                                data-testid={`alerter-channel-${ch.channel}-flag`}
+                              >
+                                {ch.alerting ? "Alerting" : "Clear"}
+                              </Badge>
+                            </div>
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                              <div className="flex justify-between gap-2">
+                                <span>Last fire</span>
+                                <span
+                                  className="font-medium text-foreground"
+                                  data-testid={`alerter-channel-${ch.channel}-last-fire`}
+                                  title={ch.lastFireAt ?? undefined}
+                                >
+                                  {ch.lastFireAt
+                                    ? `${lastFireRel ?? new Date(ch.lastFireAt).toLocaleString()}`
+                                    : "never"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>Last clear</span>
+                                <span
+                                  className="font-medium text-foreground"
+                                  data-testid={`alerter-channel-${ch.channel}-last-clear`}
+                                  title={ch.lastClearAt ?? undefined}
+                                >
+                                  {ch.lastClearAt
+                                    ? `${lastClearRel ?? new Date(ch.lastClearAt).toLocaleString()}`
+                                    : "never"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium flex items-center gap-2">
+                          <Hourglass className="w-4 h-4" />
+                          Active throttle slots
+                        </h3>
+                        <Badge variant="outline" className="font-normal" data-testid="alerter-throttle-count">
+                          {alerterHealth.throttles.length}
+                        </Badge>
+                      </div>
+                      {alerterHealth.throttles.length === 0 ? (
+                        <p
+                          className="text-xs text-muted-foreground italic"
+                          data-testid="alerter-throttles-empty"
+                        >
+                          No delivery channels are currently throttled.
+                          {alerterHealth.throttleSource === "memory" && (
+                            <> Showing per-instance state; cluster-wide throttles may differ.</>
+                          )}
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto" data-testid="alerter-throttles-table">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                              <tr>
+                                <th className="text-left font-medium px-3 py-1.5">Queue</th>
+                                <th className="text-left font-medium px-3 py-1.5">Delivery</th>
+                                <th className="text-left font-medium px-3 py-1.5">Kind</th>
+                                <th className="text-right font-medium px-3 py-1.5">Remaining</th>
+                                <th className="text-right font-medium px-3 py-1.5">Expires</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {alerterHealth.throttles.map((slot) => {
+                                const expiresLabel = (() => {
+                                  const d = new Date(slot.expiresAt);
+                                  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleTimeString();
+                                })();
+                                const slotKey = `${slot.queueChannel}-${slot.deliveryChannel}-${slot.kind}`;
+                                return (
+                                  <tr
+                                    key={slotKey}
+                                    className="hover:bg-muted/20"
+                                    data-testid={`alerter-throttle-row-${slotKey}`}
+                                  >
+                                    <td className="px-3 py-1.5 text-xs">{slot.queueChannel}</td>
+                                    <td className="px-3 py-1.5">
+                                      <Badge variant="outline" className="text-[10px]">
+                                        {slot.deliveryChannel}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-3 py-1.5">
+                                      <Badge variant="secondary" className="text-[10px]">
+                                        {slot.kind}
+                                      </Badge>
+                                    </td>
+                                    <td
+                                      className="px-3 py-1.5 text-right text-xs font-medium"
+                                      data-testid={`alerter-throttle-remaining-${slotKey}`}
+                                    >
+                                      {formatThrottleRemaining(slot.expiresAt)}
+                                    </td>
+                                    <td
+                                      className="px-3 py-1.5 text-right text-xs text-muted-foreground"
+                                      title={slot.expiresAt}
+                                    >
+                                      {expiresLabel}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

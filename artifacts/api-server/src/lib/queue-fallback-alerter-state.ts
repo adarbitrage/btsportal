@@ -190,6 +190,197 @@ export async function releaseThrottleSlot(
   }
 }
 
+/**
+ * Where the snapshot returned by `getAlertingFlags` /
+ * `getActiveThrottleSlots` was sourced from. Surfaced to the admin UI so
+ * "no active throttle slots" can be distinguished from "Redis is down so
+ * we're showing the per-pod in-memory fallback view, which only reflects
+ * this one instance".
+ */
+export type AlerterStateSource = "redis" | "memory";
+
+export interface AlerterChannelFlag {
+  channel: QueueChannel;
+  alerting: boolean;
+}
+
+export interface AlertingFlagsSnapshot {
+  source: AlerterStateSource;
+  flags: AlerterChannelFlag[];
+}
+
+export interface ThrottleSlot {
+  queueChannel: QueueChannel;
+  deliveryChannel: DeliveryChannel;
+  kind: AlertKind;
+  /** Remaining TTL in milliseconds (>=0). */
+  ttlMs: number;
+  /** ISO timestamp at which the slot is expected to expire. */
+  expiresAt: string;
+}
+
+export interface ThrottleSlotsSnapshot {
+  source: AlerterStateSource;
+  slots: ThrottleSlot[];
+}
+
+const QUEUE_CHANNELS: readonly QueueChannel[] = ["email", "sms"];
+const DELIVERY_CHANNELS: ReadonlySet<DeliveryChannel> = new Set([
+  "pagerduty",
+  "email",
+  "slack",
+]);
+const ALERT_KINDS: ReadonlySet<AlertKind> = new Set(["fire", "clear"]);
+
+function parseThrottleKey(key: string): {
+  queueChannel: QueueChannel;
+  deliveryChannel: DeliveryChannel;
+  kind: AlertKind;
+} | null {
+  if (!key.startsWith(THROTTLE_KEY_PREFIX)) return null;
+  const parts = key.slice(THROTTLE_KEY_PREFIX.length).split(":");
+  if (parts.length !== 3) return null;
+  const [qc, dc, k] = parts;
+  if (qc !== "email" && qc !== "sms") return null;
+  if (!DELIVERY_CHANNELS.has(dc as DeliveryChannel)) return null;
+  if (!ALERT_KINDS.has(k as AlertKind)) return null;
+  return {
+    queueChannel: qc,
+    deliveryChannel: dc as DeliveryChannel,
+    kind: k as AlertKind,
+  };
+}
+
+/**
+ * Read the current per-channel "is the queue currently alerting?" flag.
+ * Used by the admin System Health page so operators can confirm at a
+ * glance whether the alerter believes there's an active outage right now,
+ * without waiting for the next state transition to flip a UI banner.
+ *
+ * Sourced from Redis when configured (so the answer matches the cluster-wide
+ * truth), falling back to per-pod in-memory state otherwise. Redis errors
+ * downgrade to the in-memory view rather than throwing — same defensive
+ * posture the rest of this module takes.
+ */
+export async function getAlertingFlags(): Promise<AlertingFlagsSnapshot> {
+  const redis = getRedis();
+  if (!redis) {
+    return {
+      source: "memory",
+      flags: QUEUE_CHANNELS.map((channel) => ({
+        channel,
+        alerting: memory.alerting[channel],
+      })),
+    };
+  }
+  try {
+    const values = await Promise.all(
+      QUEUE_CHANNELS.map((channel) => redis.get(alertingKey(channel))),
+    );
+    return {
+      source: "redis",
+      flags: QUEUE_CHANNELS.map((channel, idx) => ({
+        channel,
+        alerting: values[idx] === "1",
+      })),
+    };
+  } catch (err) {
+    console.error(
+      "[QueueFallbackAlerterState] Redis getAlertingFlags failed, falling back to in-memory:",
+      err,
+    );
+    return {
+      source: "memory",
+      flags: QUEUE_CHANNELS.map((channel) => ({
+        channel,
+        alerting: memory.alerting[channel],
+      })),
+    };
+  }
+}
+
+/**
+ * Enumerate the currently held throttle slots and how much longer each one
+ * is in force. Used by the admin System Health page so operators can see
+ * which (queue, delivery, kind) combinations are currently suppressing
+ * additional pages and roughly when those suppressions will lift.
+ *
+ * Sourced from Redis via SCAN+PTTL when configured, with the per-pod
+ * in-memory throttle map as the fallback. Slots whose TTL has already
+ * elapsed (Redis returns 0/-2, or the in-memory map's expiry has passed)
+ * are filtered out so the UI only shows live suppressions.
+ */
+export async function getActiveThrottleSlots(
+  now: number = Date.now(),
+): Promise<ThrottleSlotsSnapshot> {
+  const redis = getRedis();
+  if (!redis) {
+    return readMemoryThrottleSlots(now);
+  }
+  try {
+    const matchedKeys = new Set<string>();
+    let cursor = "0";
+    do {
+      // SCAN is non-blocking and the throttle keyspace is small (at most
+      // ~12 entries: 2 queue channels × 3 delivery channels × 2 kinds), so
+      // a single sweep is plenty without paginating beyond the first batch.
+      const reply = await redis.scan(
+        cursor,
+        "MATCH",
+        `${THROTTLE_KEY_PREFIX}*`,
+        "COUNT",
+        100,
+      );
+      cursor = reply[0];
+      for (const key of reply[1]) matchedKeys.add(key);
+    } while (cursor !== "0");
+
+    const keys = Array.from(matchedKeys);
+    if (keys.length === 0) return { source: "redis", slots: [] };
+    const ttls = await Promise.all(keys.map((k) => redis.pttl(k)));
+
+    const slots: ThrottleSlot[] = [];
+    for (let i = 0; i < keys.length; i++) {
+      const parsed = parseThrottleKey(keys[i]);
+      if (!parsed) continue;
+      const ttlMs = ttls[i];
+      // pttl returns -2 (no key), -1 (no expire), or a positive ms count.
+      // Skip already-expired or unbounded entries — neither is meaningful
+      // to surface in the "remaining TTL" UI.
+      if (typeof ttlMs !== "number" || ttlMs <= 0) continue;
+      slots.push({
+        ...parsed,
+        ttlMs,
+        expiresAt: new Date(now + ttlMs).toISOString(),
+      });
+    }
+    slots.sort((a, b) => a.ttlMs - b.ttlMs);
+    return { source: "redis", slots };
+  } catch (err) {
+    console.error(
+      "[QueueFallbackAlerterState] Redis getActiveThrottleSlots failed, falling back to in-memory:",
+      err,
+    );
+    return readMemoryThrottleSlots(now);
+  }
+}
+
+function readMemoryThrottleSlots(now: number): ThrottleSlotsSnapshot {
+  const slots: ThrottleSlot[] = [];
+  for (const [key, expiresAtMs] of memory.throttle.entries()) {
+    if (expiresAtMs <= now) continue;
+    const parsed = parseThrottleKey(key);
+    if (!parsed) continue;
+    slots.push({
+      ...parsed,
+      ttlMs: expiresAtMs - now,
+      expiresAt: new Date(expiresAtMs).toISOString(),
+    });
+  }
+  slots.sort((a, b) => a.ttlMs - b.ttlMs);
+  return { source: "memory", slots };
+}
+
 /** Test-only: reset all in-memory state. Does not touch Redis. */
 export function __resetQueueFallbackAlerterStateForTests(): void {
   memory.alerting.email = false;
