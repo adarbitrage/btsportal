@@ -64,4 +64,5 @@ export * from "./member-app-instances";
 export * from "./app-global-settings";
 export * from "./email-change-attempts";
 export * from "./email-change-history";
+export * from "./phone-change-history";
 export * from "./password-reset-attempts";

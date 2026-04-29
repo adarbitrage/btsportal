@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, signedDocumentsTable } from "@workspace/db";
+import { db, usersTable, signedDocumentsTable, phoneChangeHistoryTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   GetOnboardingStateResponse,
@@ -164,7 +164,26 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.update(usersTable).set(updateData).where(eq(usersTable.id, userId));
+  await db.transaction(async (tx) => {
+    // If the phone number is being changed (and there was a real prior value
+    // to remember), record the old number so the admin global search can
+    // still find this member by the phone they used to have on file.
+    if (phone !== undefined) {
+      const [current] = await tx
+        .select({ phone: usersTable.phone })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+      const oldPhone = current?.phone ?? null;
+      if (oldPhone && oldPhone !== phone) {
+        await tx.insert(phoneChangeHistoryTable).values({
+          userId,
+          oldPhone,
+          newPhone: phone,
+        });
+      }
+    }
+    await tx.update(usersTable).set(updateData).where(eq(usersTable.id, userId));
+  });
 
   const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
 

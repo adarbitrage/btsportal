@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
 import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
@@ -142,7 +142,7 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 
     const directMembers = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
       .from(usersTable)
-      .where(or(ilike(usersTable.name, searchPattern), ilike(usersTable.email, searchPattern)))
+      .where(or(ilike(usersTable.name, searchPattern), ilike(usersTable.email, searchPattern), ilike(usersTable.phone, searchPattern)))
       .limit(10);
 
     const previousEmailMatches = await safeQuery(
@@ -161,9 +161,25 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
         .limit(20)
     );
 
+    const previousPhoneMatches = await safeQuery(
+      db.select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: usersTable.role,
+        oldPhone: phoneChangeHistoryTable.oldPhone,
+        changedAt: phoneChangeHistoryTable.changedAt,
+      })
+        .from(phoneChangeHistoryTable)
+        .innerJoin(usersTable, eq(phoneChangeHistoryTable.userId, usersTable.id))
+        .where(ilike(phoneChangeHistoryTable.oldPhone, searchPattern))
+        .orderBy(desc(phoneChangeHistoryTable.changedAt))
+        .limit(20)
+    );
+
     const directIds = new Set(directMembers.map((m) => m.id));
     const seenPreviousIds = new Set<number>();
-    const previousOnlyMembers: Array<{ id: number; name: string; email: string; role: string; matchedPreviousEmail: string }> = [];
+    const previousOnlyMembers: Array<{ id: number; name: string; email: string; role: string; matchedPreviousEmail?: string; matchedPreviousPhone?: string }> = [];
     for (const row of previousEmailMatches) {
       if (directIds.has(row.id) || seenPreviousIds.has(row.id)) continue;
       seenPreviousIds.add(row.id);
@@ -173,6 +189,17 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
         email: row.email,
         role: row.role,
         matchedPreviousEmail: row.oldEmail,
+      });
+    }
+    for (const row of previousPhoneMatches) {
+      if (directIds.has(row.id) || seenPreviousIds.has(row.id)) continue;
+      seenPreviousIds.add(row.id);
+      previousOnlyMembers.push({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        matchedPreviousPhone: row.oldPhone,
       });
     }
 

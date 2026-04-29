@@ -84,6 +84,9 @@ export function GlobalSearch() {
                         {m.matchedPreviousEmail && (
                           <p className="text-xs text-muted-foreground truncate italic">Previously: {m.matchedPreviousEmail}</p>
                         )}
+                        {m.matchedPreviousPhone && (
+                          <p className="text-xs text-muted-foreground truncate italic">Previously: {m.matchedPreviousPhone}</p>
+                        )}
                       </div>
                       <Badge variant="outline" className="text-[10px] shrink-0">{m.role}</Badge>
                     </button>
