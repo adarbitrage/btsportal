@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, type SQL } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
@@ -432,7 +432,6 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 // server. `t` is the anchor's createdAt as ms-since-epoch and `i` is its
 // numeric id; together they form the (created_at, id) tuple that the
 // (audit_log_created_at_id_idx) composite index walks.
-const AUDIT_LOG_EXPORT_CAP = 10000;
 
 type AuditCursor = { t: number; i: number };
 
@@ -576,7 +575,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           res.json({
             logs: sanitize(logs),
             pagination: { page: null, limit: limitNum, total, totalPages: null },
-            exportCap: AUDIT_LOG_EXPORT_CAP,
+            exportCap: resolveAuditLogExportHardCap(),
             cursors: {
               next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
               prev: hasMoreNewer && first ? encodeAuditCursor(rowToCursor(first)!) : null,
@@ -609,7 +608,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
         res.json({
           logs: sanitize(window),
           pagination: { page: null, limit: limitNum, total: null, totalPages: null },
-          exportCap: AUDIT_LOG_EXPORT_CAP,
+          exportCap: resolveAuditLogExportHardCap(),
           cursors: {
             // We arrived from a newer cursor, so older rows definitely exist
             // past the bottom of this page — return their cursor so the UI
@@ -635,7 +634,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       res.json({
         logs: sanitize(window),
         pagination: { page: null, limit: limitNum, total: null, totalPages: null },
-        exportCap: AUDIT_LOG_EXPORT_CAP,
+        exportCap: resolveAuditLogExportHardCap(),
         cursors: {
           next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
           // We arrived from an older direction, so newer rows definitely
@@ -666,7 +665,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       res.json({
         logs: sanitize(rows),
         pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
-        exportCap: AUDIT_LOG_EXPORT_CAP,
+        exportCap: resolveAuditLogExportHardCap(),
         cursors: {
           next: rows.length === limitNum && pageNum * limitNum < total && last
             ? encodeAuditCursor(rowToCursor(last)!)
@@ -693,7 +692,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     res.json({
       logs: sanitize(window),
       pagination: { page: null, limit: limitNum, total: totalForFilters, totalPages: null },
-      exportCap: AUDIT_LOG_EXPORT_CAP,
+      exportCap: resolveAuditLogExportHardCap(),
       cursors: {
         next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
         prev: null,
@@ -714,6 +713,34 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
 // batch and longer pauses between writes; 1,000 keeps both modest.
 const AUDIT_LOG_EXPORT_BATCH_SIZE = 1000;
 
+// Hard ceiling on how many rows a single export call will write. Streaming
+// removes the memory ceiling that the old LIMIT 10000 implicitly enforced,
+// but a wide-open export against a multi-million-row table can still tie up
+// the server for a long time. The cap is generous (1M rows) by default so
+// real-world admin exports never hit it; it exists to bound runaway queries.
+// Tests override it via env to exercise the truncation path without seeding
+// a million rows.
+const DEFAULT_AUDIT_LOG_EXPORT_HARD_CAP = 1_000_000;
+function resolveAuditLogExportHardCap(): number {
+  const raw = process.env.AUDIT_LOG_EXPORT_HARD_CAP;
+  if (raw) {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isInteger(n) && n > 0) return n;
+  }
+  return DEFAULT_AUDIT_LOG_EXPORT_HARD_CAP;
+}
+
+// Microsecond-precision keyset cursor. We can't reuse the (created_at, id)
+// cursor type from the read endpoint because that one truncates createdAt
+// to JS millisecond precision — fine for human paging, but for a full
+// export it silently drops every row whose stored createdAt has any
+// sub-millisecond component (Postgres `now()` returns microsecond
+// precision). Instead we read createdAt as a microsecond ISO string from
+// the row itself (`to_char(... 'US')`) and feed that string straight back
+// into the next batch's WHERE clause as a `timestamptz` parameter. The
+// string is never round-tripped through a JS Date, so no precision is lost.
+type ExportCursor = { ts: string; id: number };
+
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
   const { actionType, entityType, startDate, endDate, format = "csv" } = req.query;
   const conditions: any[] = [];
@@ -722,25 +749,31 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
   if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
   if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
   const baseWhere = conditions.length > 0 ? and(...conditions) : undefined;
+  const hardCap = resolveAuditLogExportHardCap();
 
   try {
-    // Total count is computed up front so we can advertise it in a response
-    // header before we start streaming the body. That lets the UI show a
-    // "Exported N rows" toast without having to count rows itself. This is
-    // intentionally an *intent* count — the streaming body could still be
-    // truncated mid-flight by a client disconnect or a database error, in
-    // which case the partial download won't carry a separate "actually
-    // delivered" header. Clients that need a definitive count should treat
-    // a successful (full-body) download as authoritative.
-    const totalMatching = await safeCount(
-      db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(baseWhere),
-    );
+    // Same scrubbing as the read endpoint — exports must not leak the
+    // recipient to viewers without PII access (CSV embeds the description,
+    // JSON includes the full row).
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const sanitize = (row: any) => (canSeePii ? row : redactAuditRowPii(row));
 
-    res.setHeader("X-Audit-Log-Total-Count", String(totalMatching));
+    // We deliberately do NOT issue an upfront `count(*)` against the
+    // filtered set: on a multi-million-row audit_log that count is the
+    // dominant cost (often dwarfing the actual data fetch). Instead we
+    // walk the (created_at, id) keyset in chunks and report the total
+    // rows actually written via an HTTP trailer once the stream finishes.
+    // Truncation is signalled by a separate trailer when the hard cap is
+    // hit. Trailers are declared up front so well-behaved clients can
+    // surface the values; browsers that ignore trailers still get a
+    // complete (or correctly-truncated) download in the body.
+    res.setHeader("Trailer", "X-Audit-Log-Returned-Count, X-Audit-Log-Truncated");
 
     const auditExposed = [
-      "X-Audit-Log-Total-Count",
       "Content-Disposition",
+      "Trailer",
+      "X-Audit-Log-Returned-Count",
+      "X-Audit-Log-Truncated",
     ];
     const existingExposed = res.getHeader("Access-Control-Expose-Headers");
     const existingList = typeof existingExposed === "string"
@@ -748,12 +781,6 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
       : [];
     const merged = Array.from(new Set([...existingList, ...auditExposed]));
     res.setHeader("Access-Control-Expose-Headers", merged.join(", "));
-
-    // Same scrubbing as the read endpoint — exports must not leak the
-    // recipient to viewers without PII access (CSV embeds the description,
-    // JSON includes the full row).
-    const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const sanitize = (row: any) => (canSeePii ? row : redactAuditRowPii(row));
 
     const isJson = format === "json";
     if (isJson) {
@@ -766,36 +793,76 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
       res.write("id,actor_id,actor_email,action_type,entity_type,entity_id,description,ip_address,created_at\n");
     }
 
-    // Keyset pagination over the id (the audit log's serial PK). We don't
-    // include created_at in the cursor on purpose: Postgres stores
-    // `timestamptz` to microsecond precision, but the JS Date round-trip
-    // collapses that to millisecond precision, so a `created_at = $cursor`
-    // comparison silently drops every row whose stored createdAt has any
-    // sub-millisecond component. Audit rows are inserted strictly in time
-    // order, and `id` is a monotonic serial, so ordering by `id DESC`
-    // produces the same row sequence as the more elaborate
-    // `(createdAt, id) DESC` keyset would — but the cursor is exact.
-    let cursorId: number | null = null;
+    let cursor: ExportCursor | null = null;
     let firstRow = true;
     let aborted = false;
+    let written = 0;
+    let truncated = false;
     res.on("close", () => {
       if (!res.writableEnded) aborted = true;
     });
 
-    while (!aborted) {
-      const cursorClause = cursorId !== null ? lt(auditLogTable.id, cursorId) : undefined;
-      const whereClause = baseWhere && cursorClause
+    // Microsecond-precision ISO of the row's createdAt, used as the next
+    // batch's keyset anchor. Stored as a SELECT alias rather than computed
+    // in JS so we keep the stored microsecond component intact.
+    const cursorTsExpr = sql<string>`to_char(${auditLogTable.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
+    while (!aborted && written < hardCap) {
+      // Honour the hard cap by capping batch size at the remaining budget,
+      // and ask for one extra row when we're at the boundary so we can
+      // detect "more rows past the cap" without an extra count query.
+      const remaining = hardCap - written;
+      const batchSize = Math.min(AUDIT_LOG_EXPORT_BATCH_SIZE, remaining);
+      const isFinalBatch = remaining <= AUDIT_LOG_EXPORT_BATCH_SIZE;
+      const fetchSize = isFinalBatch ? batchSize + 1 : batchSize;
+
+      // Build the cursor predicate by hand (rather than a row-tuple SQL
+      // constructor) so the planner can split it into the equality and
+      // strict-less branches the (created_at, id) btree understands. We
+      // bind the cursor timestamp as a string and explicitly cast to
+      // timestamptz so Postgres compares with full microsecond precision.
+      const cursorClause: SQL | undefined = cursor
+        ? sql`(${auditLogTable.createdAt} < ${cursor.ts}::timestamptz OR (${auditLogTable.createdAt} = ${cursor.ts}::timestamptz AND ${auditLogTable.id} < ${cursor.id}))`
+        : undefined;
+      const whereClause: SQL | undefined = baseWhere && cursorClause
         ? and(baseWhere, cursorClause)
         : (cursorClause ?? baseWhere);
 
-      const batch = await db.select().from(auditLogTable)
+      // Explicit row type — Drizzle's inferred type for the select would
+      // cycle through `cursor`'s reassignment below and trigger TS7022.
+      type ExportRow = typeof auditLogTable.$inferSelect & { cursorTs: string };
+
+      const rows: ExportRow[] = await db
+        .select({
+          id: auditLogTable.id,
+          actorId: auditLogTable.actorId,
+          actorEmail: auditLogTable.actorEmail,
+          actionType: auditLogTable.actionType,
+          entityType: auditLogTable.entityType,
+          entityId: auditLogTable.entityId,
+          description: auditLogTable.description,
+          changeDiff: auditLogTable.changeDiff,
+          ipAddress: auditLogTable.ipAddress,
+          userAgent: auditLogTable.userAgent,
+          metadata: auditLogTable.metadata,
+          createdAt: auditLogTable.createdAt,
+          cursorTs: cursorTsExpr,
+        })
+        .from(auditLogTable)
         .where(whereClause)
-        .orderBy(desc(auditLogTable.id))
-        .limit(AUDIT_LOG_EXPORT_BATCH_SIZE);
+        .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+        .limit(fetchSize);
 
-      if (batch.length === 0) break;
+      if (rows.length === 0) break;
 
-      for (const raw of batch) {
+      // The peek-ahead row (when present on the final batch) is the
+      // signal that more rows would have followed past the cap. We
+      // never write it to the response.
+      const writeCount = Math.min(rows.length, batchSize);
+      if (isFinalBatch && rows.length > batchSize) truncated = true;
+
+      for (let i = 0; i < writeCount; i++) {
+        const { cursorTs: _omit, ...raw } = rows[i];
         const row = sanitize(raw);
         if (isJson) {
           res.write(firstRow ? JSON.stringify(row) : "," + JSON.stringify(row));
@@ -814,13 +881,26 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
           res.write(firstRow ? line : "\n" + line);
         }
         firstRow = false;
+        written++;
       }
 
-      cursorId = batch[batch.length - 1].id;
-      if (batch.length < AUDIT_LOG_EXPORT_BATCH_SIZE) break;
+      const lastWritten: ExportRow = rows[writeCount - 1];
+      cursor = { ts: lastWritten.cursorTs, id: lastWritten.id };
+
+      // Natural exhaustion (the DB had nothing past this batch) or we've
+      // hit the cap — stop walking.
+      if (rows.length < fetchSize) break;
+      if (truncated || written >= hardCap) break;
     }
 
     if (isJson) res.write("]");
+    if (!aborted) {
+      const trailers: Record<string, string> = {
+        "X-Audit-Log-Returned-Count": String(written),
+      };
+      if (truncated) trailers["X-Audit-Log-Truncated"] = "true";
+      res.addTrailers(trailers);
+    }
     res.end();
   } catch (error) {
     console.error("[Admin] Audit log export error:", error);

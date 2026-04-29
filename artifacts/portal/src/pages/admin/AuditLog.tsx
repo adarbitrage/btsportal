@@ -116,13 +116,16 @@ export default function AuditLog() {
   const handleExport = async (fmt: string) => {
     try {
       const res = await adminPanelApi.exportAuditLog(fmt, filters);
-      const totalCount = Number(res.headers.get("X-Audit-Log-Total-Count") || 0);
 
-      // The server now streams the full result set, so we no longer have to
-      // warn about a row cap. The await on res.blob() below only resolves
-      // once the entire stream has arrived, so by the time we show the
-      // toast the download really is complete and the matched count
-      // reflects what the file contains.
+      // The server streams the full result set in chunks and no longer
+      // computes an upfront `count(*)` for the export header — that count
+      // was the dominant cost on multi-million-row audit logs. The await
+      // on res.blob() below only resolves once the entire stream has
+      // arrived, so by the time we show the toast the download really
+      // is complete; we pull the matched count from the read endpoint's
+      // `totalMatching` (already in state for the "N matching rows"
+      // display) so the toast still surfaces a row count without the
+      // server having to recompute one per export.
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -131,11 +134,14 @@ export default function AuditLog() {
       a.click();
       URL.revokeObjectURL(url);
 
-      if (totalCount > 0) {
+      if (totalMatching != null && totalMatching > 0) {
+        const cappedCount = Math.min(totalMatching, exportCap);
         toast({
           title: "Export complete",
-          description: `Exported ${totalCount.toLocaleString()} row${totalCount === 1 ? "" : "s"}.`,
+          description: `Exported ${cappedCount.toLocaleString()} row${cappedCount === 1 ? "" : "s"}.`,
         });
+      } else {
+        toast({ title: "Export complete" });
       }
     } catch (err: any) {
       toast({ title: "Export failed", description: err.message, variant: "destructive" });
