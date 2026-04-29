@@ -119,6 +119,22 @@ const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const NEW_EVENT_HIGHLIGHT_MS = 6_000;
 const FALLBACK_SOUND_PREF_KEY = "systemHealth.fallbackSoundEnabled";
 const FALLBACK_CHIME_VOLUME = 0.4;
+// Per-beep peak gain for the synthesised two-tone "ding-ding" used when a
+// fresh failed/throttled on-call alert delivery row appears. Kept lower than
+// FALLBACK_CHIME_VOLUME because two stacked WebAudio beeps subjectively read
+// louder than a single short wav at the same nominal volume — and because the
+// pitched-higher tone is itself more attention-grabbing than the soft fallback
+// chime, so we don't need to crank the gain to make it noticeable.
+const ALERT_CHIME_VOLUME = 0.18;
+
+// Some older browsers (and a few mobile WebViews) only expose AudioContext
+// under the prefixed `webkitAudioContext` name. We declare a narrow typed view
+// of that so `playAlertChime` can pick whichever the browser exposes without
+// resorting to `any` casts.
+interface WindowWithWebkitAudio {
+  AudioContext?: typeof AudioContext;
+  webkitAudioContext?: typeof AudioContext;
+}
 
 function readSoundPreference(): boolean {
   if (typeof window === "undefined") return false;
@@ -165,10 +181,19 @@ export default function SystemHealth() {
   const inFlightRef = useRef(0);
   const previousMaxEventIdRef = useRef<number | null>(null);
   const hasLoadedFallbackEventsRef = useRef(false);
+  // Mirrors the fallback-event tracking refs but for the on-call alert
+  // deliveries table — only urgent rows (`failed` / `throttled`) feed into
+  // this so the sharper alert chime stays reserved for actually-bad outcomes.
+  const previousMaxUrgentAlertIdRef = useRef<number | null>(null);
+  const hasLoadedAlertEventsRef = useRef(false);
   const highlightTimersRef = useRef<Map<number, number>>(new Map());
   const recentNewCountTimerRef = useRef<number | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
   const chimeAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Lazy-created AudioContext used to synthesise the two-tone alert chime.
+  // Created on the first attempted play so we never spin one up for admins
+  // who keep sound off, and closed on unmount.
+  const alertAudioCtxRef = useRef<AudioContext | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -209,6 +234,62 @@ export default function SystemHealth() {
     } catch {
       // ignore — playback is purely a nice-to-have
     }
+  }, []);
+
+  // Sharper "ding-ding" used for fresh failed/throttled on-call alert
+  // deliveries. Synthesised via WebAudio so we don't ship a second wav asset
+  // and so the tone is obviously distinct from the soft fallback chime.
+  const playAlertChime = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      const win = window as unknown as WindowWithWebkitAudio;
+      const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!alertAudioCtxRef.current) {
+        alertAudioCtxRef.current = new AudioCtx();
+      }
+      const ctx = alertAudioCtxRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {
+          // Auto-play policy can keep the context suspended until a user
+          // gesture; the sound toggle itself counts, so subsequent plays work.
+        });
+      }
+      const playBeep = (startOffset: number, frequency: number, duration: number) => {
+        const start = ctx.currentTime + startOffset;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(ALERT_CHIME_VOLUME, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.02);
+      };
+      // Two short, climbing beeps — clearly distinct from the single soft
+      // fallback chime and noticeably more attention-grabbing.
+      playBeep(0, 880, 0.16);
+      playBeep(0.2, 1175, 0.2);
+    } catch {
+      // ignore — playback is purely a nice-to-have
+    }
+  }, []);
+
+  // Tear the alert AudioContext down on unmount so we don't leak audio
+  // resources if the admin navigates away after enabling sound.
+  useEffect(() => {
+    return () => {
+      const ctx = alertAudioCtxRef.current;
+      if (ctx && typeof ctx.close === "function") {
+        ctx.close().catch(() => {
+          // ignore
+        });
+      }
+      alertAudioCtxRef.current = null;
+    };
   }, []);
 
   // Alert deliveries filters live in the URL so an admin's narrowed view
@@ -336,9 +417,31 @@ export default function SystemHealth() {
         outcome: alertOutcomeFilter,
         deliveryChannel: alertChannelFilter,
       });
-      setAlertEvents(Array.isArray(data?.events) ? data.events : []);
+      const events: QueueFallbackAlertEvent[] = Array.isArray(data?.events) ? data.events : [];
+      setAlertEvents(events);
       setAlertStats(data?.stats && typeof data.stats === "object" ? (data.stats as QueueFallbackAlertStats) : null);
       setAlertEventsError(null);
+
+      // Watch only the urgent outcomes — `failed` (the page didn't reach the
+      // on-call human) and `throttled` (the page was suppressed). After the
+      // first successful load establishes the baseline, any subsequent load
+      // that introduces an urgent row with a higher id triggers the alert
+      // chime. The `hasLoaded…` guard prevents the chime on first page load
+      // and on re-loads triggered by filter changes (see resetting effect).
+      const urgentIds = events
+        .filter((e) => e.outcome === "failed" || e.outcome === "throttled")
+        .map((e) => e.id);
+      const newMaxUrgentId = urgentIds.reduce((max, id) => (id > max ? id : max), 0);
+      if (hasLoadedAlertEventsRef.current && previousMaxUrgentAlertIdRef.current !== null) {
+        const prevMax = previousMaxUrgentAlertIdRef.current;
+        const hasNewUrgent = urgentIds.some((id) => id > prevMax);
+        if (hasNewUrgent) {
+          playAlertChime();
+        }
+      }
+      previousMaxUrgentAlertIdRef.current = newMaxUrgentId;
+      hasLoadedAlertEventsRef.current = true;
+
       return true;
     } catch (err: any) {
       if (silent) {
@@ -349,6 +452,14 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setAlertEventsLoading(false);
     }
+  }, [alertOutcomeFilter, alertChannelFilter, playAlertChime]);
+
+  // Reset alert-event "what's new" tracking whenever the active filter
+  // changes. Without this, switching from e.g. `sent` to `failed` could be
+  // mistaken for "new failed rows arrived" and spuriously chime.
+  useEffect(() => {
+    hasLoadedAlertEventsRef.current = false;
+    previousMaxUrgentAlertIdRef.current = null;
   }, [alertOutcomeFilter, alertChannelFilter]);
 
   const loadAlerterHealth = useCallback(async (silent = false) => {
@@ -569,8 +680,8 @@ export default function SystemHealth() {
               aria-pressed={soundEnabled}
               title={
                 soundEnabled
-                  ? "Sound on — chime when new fallback events arrive"
-                  : "Sound off — no chime when new fallback events arrive"
+                  ? "Sound on — chime when new fallback events arrive, sharper alert tone for failed/throttled on-call deliveries"
+                  : "Sound off — no chime for fallback events or failed/throttled on-call deliveries"
               }
             >
               {soundEnabled ? (
