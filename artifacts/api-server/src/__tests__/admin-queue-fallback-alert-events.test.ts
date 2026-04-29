@@ -337,4 +337,101 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
       .set("Cookie", memberCookie);
     expect(res.status).toBe(403);
   });
+
+  describe("outcome / deliveryChannel filters", () => {
+    let sentPagerId: number;
+    let failedSlackId: number;
+    let throttledEmailId: number;
+    let skippedPagerId: number;
+
+    beforeAll(async () => {
+      const now = Date.now();
+      sentPagerId = await insertAlertRow({
+        queueChannel: "email",
+        deliveryChannel: "pagerduty",
+        kind: "fire",
+        outcome: "sent",
+        createdAt: new Date(now - 60 * 1000),
+      });
+      failedSlackId = await insertAlertRow({
+        queueChannel: "sms",
+        deliveryChannel: "slack",
+        kind: "fire",
+        outcome: "failed",
+        reason: "webhook_5xx",
+        createdAt: new Date(now - 50 * 1000),
+      });
+      throttledEmailId = await insertAlertRow({
+        queueChannel: "email",
+        deliveryChannel: "email",
+        kind: "fire",
+        outcome: "throttled",
+        reason: "throttled",
+        createdAt: new Date(now - 40 * 1000),
+      });
+      skippedPagerId = await insertAlertRow({
+        queueChannel: "email",
+        deliveryChannel: "pagerduty",
+        kind: "clear",
+        outcome: "skipped",
+        reason: "no_recipients",
+        createdAt: new Date(now - 30 * 1000),
+      });
+    });
+
+    it("filters by outcome=failed and echoes the applied filter", async () => {
+      const res = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200&outcome=failed")
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.filters).toEqual({ outcome: "failed", deliveryChannel: null });
+
+      const ours = res.body.events.filter((e: { id: number }) =>
+        [sentPagerId, failedSlackId, throttledEmailId, skippedPagerId].includes(e.id),
+      );
+      expect(ours.map((e: { id: number }) => e.id)).toEqual([failedSlackId]);
+      expect(ours.every((e: { outcome: string }) => e.outcome === "failed")).toBe(true);
+    });
+
+    it("filters by deliveryChannel=pagerduty", async () => {
+      const res = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200&deliveryChannel=pagerduty")
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.filters).toEqual({ outcome: null, deliveryChannel: "pagerduty" });
+
+      const ours = res.body.events.filter((e: { id: number }) =>
+        [sentPagerId, failedSlackId, throttledEmailId, skippedPagerId].includes(e.id),
+      );
+      expect(ours.map((e: { id: number }) => e.id).sort()).toEqual([sentPagerId, skippedPagerId].sort());
+      expect(ours.every((e: { deliveryChannel: string }) => e.deliveryChannel === "pagerduty")).toBe(true);
+    });
+
+    it("combines outcome and deliveryChannel filters with AND semantics", async () => {
+      const res = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200&outcome=skipped&deliveryChannel=pagerduty")
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.filters).toEqual({ outcome: "skipped", deliveryChannel: "pagerduty" });
+
+      const ours = res.body.events.filter((e: { id: number }) =>
+        [sentPagerId, failedSlackId, throttledEmailId, skippedPagerId].includes(e.id),
+      );
+      expect(ours.map((e: { id: number }) => e.id)).toEqual([skippedPagerId]);
+    });
+
+    it("ignores unknown outcome / deliveryChannel values (treats as no filter)", async () => {
+      const res = await request(app)
+        .get("/api/admin/system/queue-fallback-alert-events?limit=200&outcome=bogus&deliveryChannel=carrier-pigeon")
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.filters).toEqual({ outcome: null, deliveryChannel: null });
+
+      const ourIds = res.body.events
+        .map((e: { id: number }) => e.id)
+        .filter((id: number) => [sentPagerId, failedSlackId, throttledEmailId, skippedPagerId].includes(id));
+      // All four seeded rows should still be present when filters are invalid.
+      expect(ourIds.sort()).toEqual([sentPagerId, failedSlackId, throttledEmailId, skippedPagerId].sort());
+    });
+  });
 });

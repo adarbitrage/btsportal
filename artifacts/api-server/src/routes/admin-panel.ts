@@ -2001,10 +2001,40 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
     const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
 
+    // Optional outcome / deliveryChannel filters applied server-side so the
+    // row limit stays meaningful when an on-call admin narrows the view.
+    // Unknown / unsupported values are coerced to null so callers don't get
+    // surprise empty results — the response echoes back what was applied.
+    // The rolling stats query intentionally ignores these filters so the
+    // last-hour summary stays accurate as a situational overview regardless
+    // of how the table view is narrowed.
+    const outcomeParam = typeof req.query.outcome === "string" ? req.query.outcome : null;
+    const outcomeFilter: "sent" | "failed" | "throttled" | "skipped" | null =
+      outcomeParam === "sent" || outcomeParam === "failed" || outcomeParam === "throttled" || outcomeParam === "skipped"
+        ? outcomeParam
+        : null;
+
+    const deliveryChannelParam = typeof req.query.deliveryChannel === "string" ? req.query.deliveryChannel : null;
+    const deliveryChannelFilter: "pagerduty" | "email" | "slack" | null =
+      deliveryChannelParam === "pagerduty" || deliveryChannelParam === "email" || deliveryChannelParam === "slack"
+        ? deliveryChannelParam
+        : null;
+
     const baseFilter = and(
       eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
       eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
     );
+
+    const rowConditions = [
+      eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+      eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
+    ];
+    if (outcomeFilter) {
+      rowConditions.push(sql`${auditLogTable.metadata}->>'outcome' = ${outcomeFilter}`);
+    }
+    if (deliveryChannelFilter) {
+      rowConditions.push(sql`${auditLogTable.metadata}->>'deliveryChannel' = ${deliveryChannelFilter}`);
+    }
 
     const statsSince = new Date(Date.now() - QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS);
     const outcomeExpr = sql<string>`COALESCE(${auditLogTable.metadata}->>'outcome', 'unknown')`;
@@ -2018,7 +2048,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
           metadata: auditLogTable.metadata,
         })
         .from(auditLogTable)
-        .where(baseFilter)
+        .where(and(...rowConditions))
         .orderBy(desc(auditLogTable.createdAt))
         .limit(limit),
       db
@@ -2083,6 +2113,10 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
     res.json({
       events,
       limit,
+      filters: {
+        outcome: outcomeFilter,
+        deliveryChannel: deliveryChannelFilter,
+      },
       stats: { windowMs: QUEUE_FALLBACK_ALERT_STATS_WINDOW_MS, ...stats },
     });
   } catch (error) {

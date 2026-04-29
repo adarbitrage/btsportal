@@ -1,12 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Link } from "wouter";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, Archive, KeyRound, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
+
+type AlertOutcomeFilter = "sent" | "failed" | "throttled" | "skipped";
+type AlertChannelFilter = "pagerduty" | "email" | "slack";
+const ALERT_OUTCOME_VALUES: AlertOutcomeFilter[] = ["sent", "failed", "throttled", "skipped"];
+const ALERT_CHANNEL_VALUES: AlertChannelFilter[] = ["pagerduty", "email", "slack"];
+
+function parseOutcomeFilter(value: string | null): AlertOutcomeFilter | null {
+  return value && (ALERT_OUTCOME_VALUES as string[]).includes(value) ? (value as AlertOutcomeFilter) : null;
+}
+
+function parseChannelFilter(value: string | null): AlertChannelFilter | null {
+  return value && (ALERT_CHANNEL_VALUES as string[]).includes(value) ? (value as AlertChannelFilter) : null;
+}
 
 interface QueueFallbackEvent {
   id: number;
@@ -119,6 +132,33 @@ export default function SystemHealth() {
     }
   }, []);
 
+  // Alert deliveries filters live in the URL so an admin's narrowed view
+  // survives a refresh and is shareable in an incident channel. Wouter's
+  // useSearch returns the current query string; we re-derive the active
+  // filters from it via useMemo so URL is the single source of truth.
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+  const alertOutcomeFilter = useMemo(
+    () => parseOutcomeFilter(new URLSearchParams(searchString).get("alertOutcome")),
+    [searchString],
+  );
+  const alertChannelFilter = useMemo(
+    () => parseChannelFilter(new URLSearchParams(searchString).get("alertChannel")),
+    [searchString],
+  );
+
+  const updateAlertFilter = useCallback(
+    (key: "alertOutcome" | "alertChannel", value: string | null) => {
+      const params = new URLSearchParams(window.location.search);
+      if (value) params.set(key, value);
+      else params.delete(key);
+      const qs = params.toString();
+      const path = window.location.pathname;
+      navigate(qs ? `${path}?${qs}` : path, { replace: true });
+    },
+    [navigate],
+  );
+
   const markEventsAsNew = useCallback((ids: number[]) => {
     if (ids.length === 0) return;
     setHighlightedEventIds((prev) => {
@@ -201,7 +241,10 @@ export default function SystemHealth() {
   const loadAlertEvents = useCallback(async (silent = false) => {
     try {
       if (!silent) setAlertEventsLoading(true);
-      const data = await adminPanelApi.getQueueFallbackAlertEvents(ALERT_EVENTS_LIMIT);
+      const data = await adminPanelApi.getQueueFallbackAlertEvents(ALERT_EVENTS_LIMIT, {
+        outcome: alertOutcomeFilter,
+        deliveryChannel: alertChannelFilter,
+      });
       setAlertEvents(Array.isArray(data?.events) ? data.events : []);
       setAlertStats(data?.stats && typeof data.stats === "object" ? (data.stats as QueueFallbackAlertStats) : null);
       setAlertEventsError(null);
@@ -215,7 +258,7 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setAlertEventsLoading(false);
     }
-  }, []);
+  }, [alertOutcomeFilter, alertChannelFilter]);
 
   const load = useCallback(async (silent = false) => {
     if (inFlightRef.current > 0) return;
@@ -972,6 +1015,72 @@ export default function SystemHealth() {
                   Each row is a single PagerDuty / ops email / Slack delivery attempt the alerter made when the queue
                   started or stopped bypassing Redis. Click an event to open the matching audit log entry.
                 </p>
+                <div className="mt-3 space-y-2" data-testid="alert-events-filters">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] uppercase text-muted-foreground mr-1">Outcome</span>
+                    {ALERT_OUTCOME_VALUES.map((value) => {
+                      const active = alertOutcomeFilter === value;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          className="h-6 px-2 text-[11px]"
+                          aria-pressed={active}
+                          onClick={() => updateAlertFilter("alertOutcome", active ? null : value)}
+                          data-testid={`filter-alert-outcome-${value}`}
+                        >
+                          {value}
+                        </Button>
+                      );
+                    })}
+                    {alertOutcomeFilter && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => updateAlertFilter("alertOutcome", null)}
+                        data-testid="filter-alert-outcome-clear"
+                      >
+                        <X className="w-3 h-3 mr-1" />Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] uppercase text-muted-foreground mr-1">Channel</span>
+                    {ALERT_CHANNEL_VALUES.map((value) => {
+                      const active = alertChannelFilter === value;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          className="h-6 px-2 text-[11px]"
+                          aria-pressed={active}
+                          onClick={() => updateAlertFilter("alertChannel", active ? null : value)}
+                          data-testid={`filter-alert-channel-${value}`}
+                        >
+                          {value}
+                        </Button>
+                      );
+                    })}
+                    {alertChannelFilter && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => updateAlertFilter("alertChannel", null)}
+                        data-testid="filter-alert-channel-clear"
+                      >
+                        <X className="w-3 h-3 mr-1" />Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 {alertStats && (
@@ -1026,7 +1135,9 @@ export default function SystemHealth() {
                   <div className="p-6 text-center text-sm text-red-600" data-testid="alert-events-error">{alertEventsError}</div>
                 ) : alertEvents.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground text-sm" data-testid="alert-events-empty">
-                    No on-call alerts have been dispatched yet.
+                    {alertOutcomeFilter || alertChannelFilter
+                      ? "No alert deliveries match the current filter."
+                      : "No on-call alerts have been dispatched yet."}
                   </div>
                 ) : (
                   <div className="overflow-x-auto" data-testid="alert-events-table">
