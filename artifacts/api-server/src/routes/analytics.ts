@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, upgradePromptEventsTable } from "@workspace/db";
+import { and, gte, lte, sql } from "drizzle-orm";
+import { requirePermission } from "../middleware/rbac";
+import { sendError, ErrorCodes } from "../lib/api-errors";
 
 const router: IRouter = Router();
 
@@ -8,6 +11,10 @@ const VALID_VARIANTS = new Set(["dashboard", "sidebar"]);
 const MAX_FEATURE_KEYS = 32;
 const MAX_FEATURE_KEY_LENGTH = 64;
 const MAX_TIER_LENGTH = 64;
+
+const MAX_RANGE_DAYS = 366;
+const DEFAULT_RANGE_DAYS = 30;
+const TOP_FEATURE_COMBOS_LIMIT = 10;
 
 function sanitizeFeatureKeys(input: unknown): string[] | null {
   if (!Array.isArray(input)) return null;
@@ -57,5 +64,155 @@ router.post("/analytics/events", async (req, res): Promise<void> => {
 
   res.status(204).end();
 });
+
+interface AggregateRow {
+  variant: string;
+  sourceTier: string;
+  impressions: number;
+  clicks: number;
+}
+
+interface FeatureComboRow {
+  comboKey: string;
+  impressions: number;
+  clicks: number;
+}
+
+function ratePercent(clicks: number, impressions: number): number {
+  if (impressions <= 0) return 0;
+  return Math.round((clicks / impressions) * 1000) / 10;
+}
+
+function parseRange(query: Record<string, unknown>): { from: Date; to: Date } | null {
+  const rawFrom = typeof query.from === "string" ? query.from : null;
+  const rawTo = typeof query.to === "string" ? query.to : null;
+
+  const now = new Date();
+  let to = now;
+  if (rawTo) {
+    const parsed = new Date(rawTo);
+    if (Number.isNaN(parsed.getTime())) return null;
+    to = parsed;
+  }
+
+  let from: Date;
+  if (rawFrom) {
+    const parsed = new Date(rawFrom);
+    if (Number.isNaN(parsed.getTime())) return null;
+    from = parsed;
+  } else {
+    from = new Date(to.getTime() - DEFAULT_RANGE_DAYS * 24 * 60 * 60 * 1000);
+  }
+
+  if (from.getTime() > to.getTime()) return null;
+  const spanDays = (to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000);
+  if (spanDays > MAX_RANGE_DAYS) return null;
+
+  return { from, to };
+}
+
+router.get(
+  "/admin/analytics/upgrade-prompts",
+  requirePermission("revenue:view"),
+  async (req, res): Promise<void> => {
+    const range = parseRange(req.query as Record<string, unknown>);
+    if (!range) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid date range");
+      return;
+    }
+
+    const where = and(
+      gte(upgradePromptEventsTable.createdAt, range.from),
+      lte(upgradePromptEventsTable.createdAt, range.to),
+    );
+
+    const aggregateRows = (await db
+      .select({
+        variant: upgradePromptEventsTable.variant,
+        sourceTier: upgradePromptEventsTable.sourceTier,
+        impressions: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'impression' then 1 else 0 end)::int`,
+        clicks: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'cta_click' then 1 else 0 end)::int`,
+      })
+      .from(upgradePromptEventsTable)
+      .where(where)
+      .groupBy(upgradePromptEventsTable.variant, upgradePromptEventsTable.sourceTier)) as AggregateRow[];
+
+    const comboKeyExpr = sql<string>`coalesce((select string_agg(value, '|' order by value) from jsonb_array_elements_text(${upgradePromptEventsTable.lockedFeatureKeys}) as t(value)), '')`;
+    const comboRows = (await db
+      .select({
+        comboKey: comboKeyExpr.as("combo_key"),
+        impressions: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'impression' then 1 else 0 end)::int`,
+        clicks: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'cta_click' then 1 else 0 end)::int`,
+      })
+      .from(upgradePromptEventsTable)
+      .where(where)
+      .groupBy(comboKeyExpr)
+      .orderBy(sql`sum(case when ${upgradePromptEventsTable.eventType} = 'cta_click' then 1 else 0 end) desc`)
+      .limit(TOP_FEATURE_COMBOS_LIMIT)) as FeatureComboRow[];
+
+    const totals = { impressions: 0, clicks: 0 };
+    const variantMap = new Map<string, { impressions: number; clicks: number }>();
+    const tierMap = new Map<string, { impressions: number; clicks: number }>();
+
+    for (const row of aggregateRows) {
+      const impressions = Number(row.impressions) || 0;
+      const clicks = Number(row.clicks) || 0;
+      totals.impressions += impressions;
+      totals.clicks += clicks;
+
+      const v = variantMap.get(row.variant) ?? { impressions: 0, clicks: 0 };
+      v.impressions += impressions;
+      v.clicks += clicks;
+      variantMap.set(row.variant, v);
+
+      const t = tierMap.get(row.sourceTier) ?? { impressions: 0, clicks: 0 };
+      t.impressions += impressions;
+      t.clicks += clicks;
+      tierMap.set(row.sourceTier, t);
+    }
+
+    const byVariant = Array.from(variantMap.entries())
+      .map(([variant, agg]) => ({
+        variant,
+        impressions: agg.impressions,
+        clicks: agg.clicks,
+        ctr: ratePercent(agg.clicks, agg.impressions),
+      }))
+      .sort((a, b) => b.clicks - a.clicks);
+
+    const byTier = Array.from(tierMap.entries())
+      .map(([sourceTier, agg]) => ({
+        sourceTier,
+        impressions: agg.impressions,
+        clicks: agg.clicks,
+        ctr: ratePercent(agg.clicks, agg.impressions),
+      }))
+      .sort((a, b) => b.clicks - a.clicks);
+
+    const topFeatureCombos = comboRows.map((row) => {
+      const impressions = Number(row.impressions) || 0;
+      const clicks = Number(row.clicks) || 0;
+      const keys = row.comboKey === "" ? [] : row.comboKey.split("|");
+      return {
+        keys,
+        impressions,
+        clicks,
+        ctr: ratePercent(clicks, impressions),
+      };
+    });
+
+    res.json({
+      range: { from: range.from.toISOString(), to: range.to.toISOString() },
+      totals: {
+        impressions: totals.impressions,
+        clicks: totals.clicks,
+        ctr: ratePercent(totals.clicks, totals.impressions),
+      },
+      byVariant,
+      byTier,
+      topFeatureCombos,
+    });
+  },
+);
 
 export default router;

@@ -102,6 +102,7 @@ const subNavItems = [
   { href: "/admin/revenue/at-risk", label: "At-Risk" },
   { href: "/admin/revenue/upgrade-opportunities", label: "Upgrades" },
   { href: "/admin/revenue/funnels", label: "Funnels" },
+  { href: "/admin/revenue/upgrade-prompts", label: "Upgrade Prompts" },
   { href: "/admin/revenue/ltv", label: "LTV" },
   { href: "/admin/revenue/forecast", label: "Forecast" },
 ];

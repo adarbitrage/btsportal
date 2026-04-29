@@ -120,6 +120,7 @@ import CohortAnalysis from "@/pages/admin/CohortAnalysis";
 import AtRiskMembers from "@/pages/admin/AtRiskMembers";
 import UpgradeOpportunities from "@/pages/admin/UpgradeOpportunities";
 import FunnelPerformance from "@/pages/admin/FunnelPerformance";
+import UpgradePromptAnalytics from "@/pages/admin/UpgradePromptAnalytics";
 import LtvAnalysis from "@/pages/admin/LtvAnalysis";
 import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
@@ -474,6 +475,7 @@ function Router() {
       <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/funnels">{() => <AdminRoute component={FunnelPerformance} permission="revenue:view" />}</Route>
+      <Route path="/admin/revenue/upgrade-prompts">{() => <AdminRoute component={UpgradePromptAnalytics} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="revenue:view" />}</Route>
       <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>

@@ -131,6 +131,45 @@ export interface ForecastAssumptions {
   avgRevenuePerMember: number;
 }
 
+export interface UpgradePromptVariantStat {
+  variant: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface UpgradePromptTierStat {
+  sourceTier: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface UpgradePromptComboStat {
+  keys: string[];
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface UpgradePromptAnalyticsResponse {
+  range: { from: string; to: string };
+  totals: { impressions: number; clicks: number; ctr: number };
+  byVariant: UpgradePromptVariantStat[];
+  byTier: UpgradePromptTierStat[];
+  topFeatureCombos: UpgradePromptComboStat[];
+}
+
+export function useUpgradePromptAnalytics(from: string, to: string) {
+  return useQuery({
+    queryKey: ["/api/admin/analytics/upgrade-prompts", from, to],
+    queryFn: () =>
+      adminFetch<UpgradePromptAnalyticsResponse>(
+        `/admin/analytics/upgrade-prompts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      ),
+  });
+}
+
 export function useRevenueDashboard(period: string) {
   return useQuery({
     queryKey: ["/api/admin/revenue/dashboard", period],
