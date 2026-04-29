@@ -1439,6 +1439,26 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
       ),
     );
 
+    // Also notify the previously pending address that the change was
+    // cancelled, so anyone watching that inbox for the verification link
+    // isn't left wondering why it never arrived. This recipient is *not*
+    // the verified account owner, so we use a separate template with
+    // simpler copy that omits account-status language and any login-gated
+    // settings link. No userId is attached because this address is not
+    // tied to a user record. Fire-and-forget for the same reason as above.
+    CommunicationService.queueEmail({
+      templateSlug: "email_change_cancelled_by_admin_pending",
+      to: previousPendingEmail,
+      variables: {
+        cancelled_pending_email: previousPendingEmail,
+      },
+    }).catch((err) =>
+      console.error(
+        "[Admin] Failed to enqueue email_change_cancelled_by_admin_pending notice:",
+        err,
+      ),
+    );
+
     res.json({ success: true, id, pendingEmail: null });
   } catch (error) {
     console.error("[Admin] Cancel email change error:", error);

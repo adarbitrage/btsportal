@@ -141,6 +141,21 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "member_email", "cancelled_pending_email", "portal_url", "support_email", "current_year"],
   },
   {
+    slug: "email_change_cancelled_by_admin_pending",
+    name: "Email Change Cancelled by Admin (Pending Address)",
+    subject: "A pending email change to this address was cancelled by Build Test Scale support",
+    htmlBody: wrapHtml("Pending Email Change Cancelled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hello,</p>
+<p>Someone recently asked us to switch the email address on a Build Test Scale account to <strong>{{cancelled_pending_email}}</strong> — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
+<p><strong>No action is required from you.</strong> You don't need to click anything, sign in, or reply.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#f3f4f6;border-left:4px solid #6b7280;color:#374151;">If you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions or believe you're receiving these messages by mistake, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale account to {{cancelled_pending_email}} — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["cancelled_pending_email", "support_email", "current_year"],
+  },
+  {
     slug: "purchase_confirmation",
     name: "Purchase Confirmation",
     subject: "Your purchase of {{product_name}} is confirmed!",
@@ -620,7 +635,7 @@ export async function seedCommunicationTemplates(): Promise<void> {
   console.log("Communication templates seeding complete!");
 }
 
-const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice", "email_change_cancelled_by_admin", "signup_attempted"];
+const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice", "email_change_cancelled_by_admin", "email_change_cancelled_by_admin_pending", "signup_attempted"];
 
 export async function ensureRequiredEmailTemplates(): Promise<void> {
   try {

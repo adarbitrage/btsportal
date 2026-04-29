@@ -238,9 +238,10 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(diff?.after).toEqual({ pendingEmail: null, emailChangeExpires: null });
   });
 
-  it("notifies the member at their current address with the discarded pending email", async () => {
+  it("notifies both the current address and the dropped pending address exactly once", async () => {
+    const pendingEmail = `${TEST_TAG}-notify-new@example.test`;
     const targetId = await seedMemberWithPending("notify-happy", {
-      pendingEmail: `${TEST_TAG}-notify-new@example.test`,
+      pendingEmail,
       emailChangeToken: "feedface".repeat(8),
       emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
     });
@@ -251,26 +252,52 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
 
-    expect(queueEmailMock).toHaveBeenCalledTimes(1);
-    const args = queueEmailMock.mock.calls[0][0] as {
+    // Exactly two notifications: one to the verified address, one to the
+    // dropped pending address. Each is sent exactly once per cancellation.
+    expect(queueEmailMock).toHaveBeenCalledTimes(2);
+
+    type QueueArgs = {
       templateSlug: string;
       to: string;
-      userId: number;
+      userId?: number;
       variables: Record<string, string>;
     };
-    expect(args.templateSlug).toBe("email_change_cancelled_by_admin");
-    // The email goes to the now-restored CURRENT address, not the pending one.
-    expect(args.to).toBe(target.email);
-    expect(args.userId).toBe(targetId);
-    expect(args.variables.member_name).toBe(target.name);
-    expect(args.variables.member_email).toBe(target.email);
-    expect(args.variables.cancelled_pending_email).toBe(
-      `${TEST_TAG}-notify-new@example.test`,
+    const calls = queueEmailMock.mock.calls.map((c) => c[0] as QueueArgs);
+    const verifiedCall = calls.find(
+      (c) => c.templateSlug === "email_change_cancelled_by_admin",
     );
+    const pendingCall = calls.find(
+      (c) => c.templateSlug === "email_change_cancelled_by_admin_pending",
+    );
+
+    expect(verifiedCall, "notice to current verified address").toBeDefined();
+    // The email goes to the now-restored CURRENT address, not the pending one.
+    expect(verifiedCall!.to).toBe(target.email);
+    expect(verifiedCall!.userId).toBe(targetId);
+    expect(verifiedCall!.variables.member_name).toBe(target.name);
+    expect(verifiedCall!.variables.member_email).toBe(target.email);
+    expect(verifiedCall!.variables.cancelled_pending_email).toBe(pendingEmail);
+
+    expect(pendingCall, "notice to dropped pending address").toBeDefined();
+    // The pending-address notice goes to the address that was queued (and
+    // never confirmed), and is not tied to a userId — that inbox may not
+    // belong to the account owner at all.
+    expect(pendingCall!.to).toBe(pendingEmail);
+    expect(pendingCall!.userId).toBeUndefined();
+    expect(pendingCall!.variables.cancelled_pending_email).toBe(pendingEmail);
+    // The pending-address template intentionally omits account-status
+    // variables (member_name/member_email) and any login-gated settings
+    // link, since the recipient may not be the verified account owner.
+    expect(pendingCall!.variables.member_name).toBeUndefined();
+    expect(pendingCall!.variables.member_email).toBeUndefined();
   });
 
-  it("still returns 200 to the admin if the notification enqueue fails", async () => {
+  it("still returns 200 to the admin if either notification enqueue fails", async () => {
+    // Both fire-and-forget enqueues blow up: the cancellation itself must
+    // still succeed and the admin must never see a 500 because SendGrid/
+    // Redis is having a bad day.
     queueEmailMock.mockRejectedValueOnce(new Error("redis exploded"));
+    queueEmailMock.mockRejectedValueOnce(new Error("redis exploded again"));
 
     const targetId = await seedMemberWithPending("notify-failure", {
       pendingEmail: `${TEST_TAG}-notify-fail@example.test`,
@@ -281,9 +308,6 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     const res = await request(app)
       .post(`/api/admin/members/${targetId}/cancel-email-change`)
       .set("Cookie", adminCookie);
-    // The cancellation must succeed even when the courtesy notification can't
-    // be enqueued — admins should never see a 500 because SendGrid/Redis is
-    // having a bad day.
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
@@ -291,6 +315,10 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(after.pendingEmail).toBeNull();
     expect(after.emailChangeToken).toBeNull();
     expect(after.emailChangeExpires).toBeNull();
+
+    // Both notifications were attempted exactly once even though both
+    // rejected — neither should retry inline.
+    expect(queueEmailMock).toHaveBeenCalledTimes(2);
   });
 
   it("marks the matching email_change_attempts row as cancelled-by-admin", async () => {
