@@ -3,8 +3,18 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, auditLogTable, emailChangeAttemptsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  auditLogTable,
+  emailChangeAttemptsTable,
+  systemSettingsTable,
+} from "@workspace/db";
 import { eq, inArray, and, desc } from "drizzle-orm";
+import {
+  PORTAL_URL_SETTING_KEY,
+  __invalidatePortalUrlCacheForTests,
+} from "../lib/portal-url-settings";
 
 vi.mock("../lib/redis", () => ({
   getRedis: () => null,
@@ -447,5 +457,152 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
       .where(eq(emailChangeAttemptsTable.id, olderAttempt.id));
     expect(otherAfter.cancelledAt).toBeNull();
     expect(otherAfter.cancelledByAdminId).toBeNull();
+  });
+
+  // Per-tenant portal URL: the cancellation email's restart link is no
+  // longer hard-coded to portal.buildtestscale.com. It must use whichever
+  // URL THIS tenant has configured (DB row > PORTAL_URL env > dev default
+  // outside production). When nothing is configured in production, the
+  // verified-address email is skipped entirely (a deep-link with no host
+  // is worse than no email at all), but the dropped-pending notice still
+  // goes out so the unrelated inbox still hears about it.
+  describe("restart_url honors the per-tenant portal URL", () => {
+    const ORIGINAL_PORTAL_URL = process.env.PORTAL_URL;
+    const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+
+    async function clearPortalUrlRow() {
+      await db
+        .delete(systemSettingsTable)
+        .where(eq(systemSettingsTable.key, PORTAL_URL_SETTING_KEY));
+      __invalidatePortalUrlCacheForTests();
+    }
+
+    beforeEach(async () => {
+      await clearPortalUrlRow();
+      delete process.env.PORTAL_URL;
+      process.env.NODE_ENV = "test";
+    });
+
+    afterAll(async () => {
+      await clearPortalUrlRow();
+      if (ORIGINAL_PORTAL_URL === undefined) {
+        delete process.env.PORTAL_URL;
+      } else {
+        process.env.PORTAL_URL = ORIGINAL_PORTAL_URL;
+      }
+      if (ORIGINAL_NODE_ENV === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+      }
+    });
+
+    it("uses the DB-configured portal URL as the restart link's host", async () => {
+      await db
+        .insert(systemSettingsTable)
+        .values({
+          key: PORTAL_URL_SETTING_KEY,
+          value: "https://portal.acme.example",
+          category: "branding",
+        })
+        .onConflictDoUpdate({
+          target: systemSettingsTable.key,
+          set: { value: "https://portal.acme.example" },
+        });
+      __invalidatePortalUrlCacheForTests();
+
+      const targetId = await seedMemberWithPending("portal-from-db", {
+        pendingEmail: `${TEST_TAG}-portal-db@example.test`,
+        emailChangeToken: "cafef00d".repeat(8),
+        emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/members/${targetId}/cancel-email-change`)
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+
+      type QueueArgs = {
+        templateSlug: string;
+        variables: Record<string, string>;
+      };
+      const verifiedCall = queueEmailMock.mock.calls
+        .map((c) => c[0] as QueueArgs)
+        .find((c) => c.templateSlug === "email_change_cancelled_by_admin");
+      expect(verifiedCall).toBeDefined();
+      const restartUrl = verifiedCall!.variables.restart_url;
+      expect(restartUrl).toMatch(
+        /^https:\/\/portal\.acme\.example\/account\?email_change_prefill=/,
+      );
+      expect(restartUrl).not.toMatch(/portal\.buildtestscale\.com/);
+    });
+
+    it("falls back to the PORTAL_URL env var when no DB row exists", async () => {
+      process.env.PORTAL_URL = "https://from-env.example";
+
+      const targetId = await seedMemberWithPending("portal-from-env", {
+        pendingEmail: `${TEST_TAG}-portal-env@example.test`,
+        emailChangeToken: "deadbeef".repeat(8),
+        emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/members/${targetId}/cancel-email-change`)
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+
+      type QueueArgs = {
+        templateSlug: string;
+        variables: Record<string, string>;
+      };
+      const verifiedCall = queueEmailMock.mock.calls
+        .map((c) => c[0] as QueueArgs)
+        .find((c) => c.templateSlug === "email_change_cancelled_by_admin");
+      expect(verifiedCall).toBeDefined();
+      expect(verifiedCall!.variables.restart_url).toMatch(
+        /^https:\/\/from-env\.example\/account\?email_change_prefill=/,
+      );
+    });
+
+    it("skips the verified-address email but still sends the pending-address notice when no portal URL is configured in production", async () => {
+      process.env.NODE_ENV = "production";
+      // No DB row, no env var. The handler can't build a usable deep link
+      // — sending a button with no href would be a worse UX than just not
+      // sending the verified-address email at all.
+
+      const pendingEmail = `${TEST_TAG}-portal-missing@example.test`;
+      const targetId = await seedMemberWithPending("portal-missing", {
+        pendingEmail,
+        emailChangeToken: "babeface".repeat(8),
+        emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/members/${targetId}/cancel-email-change`)
+        .set("Cookie", adminCookie);
+      expect(res.status).toBe(200);
+
+      type QueueArgs = {
+        templateSlug: string;
+        to: string;
+      };
+      const calls = queueEmailMock.mock.calls.map((c) => c[0] as QueueArgs);
+
+      // No verified-address email — the deep link would be missing its
+      // host, so we deliberately drop it rather than ship a broken CTA.
+      expect(
+        calls.find(
+          (c) => c.templateSlug === "email_change_cancelled_by_admin",
+        ),
+      ).toBeUndefined();
+
+      // The pending-address notice still goes out — that template doesn't
+      // include a restart link, so it works fine without a portal URL.
+      const pendingCall = calls.find(
+        (c) => c.templateSlug === "email_change_cancelled_by_admin_pending",
+      );
+      expect(pendingCall).toBeDefined();
+      expect(pendingCall!.to).toBe(pendingEmail);
+    });
   });
 });

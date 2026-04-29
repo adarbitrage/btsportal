@@ -56,6 +56,13 @@ import {
   isChangeHistoryRetentionSettingKey,
 } from "../lib/change-history-retention-settings";
 import {
+  getPortalUrl,
+  getPortalUrlStatus,
+  setPortalUrl,
+  isPortalUrlSettingKey,
+  PORTAL_URL_SETTING_KEY,
+} from "../lib/portal-url-settings";
+import {
   sendOnCallTestAlert,
   probePagerDutyDestination,
   probeEmailDestination,
@@ -1841,31 +1848,45 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
     // address pre-filled. The token is verified server-side against the
     // authenticated session before any pre-fill occurs, so the URL can't be
     // used to seed a phishing form on someone else's account.
-    const prefillToken = signEmailChangePrefillToken({
-      userId: id,
-      prefillEmail: previousPendingEmail,
-    });
-    const restartUrl = buildEmailChangeRestartUrl(
-      process.env.PORTAL_URL || "https://portal.buildtestscale.com",
-      prefillToken,
-    );
-
-    CommunicationService.queueEmail({
-      templateSlug: "email_change_cancelled_by_admin",
-      to: member.email,
-      variables: {
-        member_name: member.name,
-        member_email: member.email,
-        cancelled_pending_email: previousPendingEmail,
-        restart_url: restartUrl,
-      },
-      userId: id,
-    }).catch((err) =>
+    // The verified-address notice's only CTA is the "Start a new email
+    // change" button, which deep-links into this tenant's portal with a
+    // signed prefill token. The portal base URL is sourced from per-tenant
+    // configuration (system_settings → PORTAL_URL env → dev default) so
+    // tenants on a custom domain don't ship members a link to someone
+    // else's portal. If nothing is configured (production deployment with
+    // no DB row and no env var) we deliberately skip this email rather
+    // than send a useless / wrong-domain link — the dropped-pending-
+    // address notice (further below) doesn't depend on the portal URL and
+    // still goes out so somebody is informed.
+    const portalUrl = await getPortalUrl();
+    if (!portalUrl) {
       console.error(
-        "[Admin] Failed to enqueue email_change_cancelled_by_admin notice:",
-        err,
-      ),
-    );
+        `[Admin] Skipping email_change_cancelled_by_admin notice for member ${id}: no portal URL configured (set ${PORTAL_URL_SETTING_KEY} in admin settings or PORTAL_URL env var)`,
+      );
+    } else {
+      const prefillToken = signEmailChangePrefillToken({
+        userId: id,
+        prefillEmail: previousPendingEmail,
+      });
+      const restartUrl = buildEmailChangeRestartUrl(portalUrl, prefillToken);
+
+      CommunicationService.queueEmail({
+        templateSlug: "email_change_cancelled_by_admin",
+        to: member.email,
+        variables: {
+          member_name: member.name,
+          member_email: member.email,
+          cancelled_pending_email: previousPendingEmail,
+          restart_url: restartUrl,
+        },
+        userId: id,
+      }).catch((err) =>
+        console.error(
+          "[Admin] Failed to enqueue email_change_cancelled_by_admin notice:",
+          err,
+        ),
+      );
+    }
 
     // Also notify the previously pending address that the change was
     // cancelled, so anyone watching that inbox for the verification link
@@ -2772,7 +2793,8 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
       (s) =>
         !isOnCallSettingKey(s.key) &&
         !isAuthRateLimitAlertSettingKey(s.key) &&
-        !isChangeHistoryRetentionSettingKey(s.key),
+        !isChangeHistoryRetentionSettingKey(s.key) &&
+        !isPortalUrlSettingKey(s.key),
     );
     res.json(filtered);
   } catch (error) {
@@ -2803,6 +2825,13 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     }
     if (isChangeHistoryRetentionSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/change-history-retention-config to manage change-history retention windows" });
+      return;
+    }
+    if (isPortalUrlSettingKey(key)) {
+      // The dedicated endpoint validates the URL (must be http/https,
+      // must include a host, no `javascript:`/`data:` payloads). Routing
+      // updates through it keeps that validation in one place.
+      res.status(400).json({ error: "Use /admin/portal-url to manage the per-tenant portal URL" });
       return;
     }
 
@@ -3149,6 +3178,93 @@ router.put("/admin/change-history-retention-config", requirePermission("settings
   } catch (error) {
     console.error("[Admin] Update change-history retention config error:", error);
     res.status(500).json({ error: "Failed to update change-history retention config" });
+  }
+});
+
+/**
+ * Read the per-tenant portal base URL plus its provenance ("db" / "env" /
+ * "dev_default" / null when nothing is configured). The branded-link emails
+ * (e.g. the admin-cancellation "Start a new email change" CTA) use this
+ * value to build absolute URLs that point at THIS tenant's portal — not a
+ * shared `buildtestscale.com` fallback.
+ */
+router.get("/admin/portal-url", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getPortalUrlStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get portal URL error:", error);
+    res.status(500).json({ error: "Failed to fetch portal URL" });
+  }
+});
+
+/**
+ * Save (or clear) the per-tenant portal base URL. Body shape:
+ *   - `{ "portalUrl": "https://portal.acme.example" }` to save a value
+ *   - `{ "portalUrl": null }` (or `""`) to delete the row so the read path
+ *     falls back to the env var / dev default
+ *
+ * The URL is validated server-side: it must be an absolute http/https URL
+ * with a host. Invalid input returns 400 with a per-field error so the UI
+ * can show it next to the input.
+ *
+ * Saves are recorded in the audit log with the previous and new value plus
+ * provenance, so an admin can see which tenant override was changed and
+ * when. The portal URL is not a secret, so the value itself appears in the
+ * audit row (matching the generic settings endpoint's behavior).
+ */
+router.put("/admin/portal-url", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(body, "portalUrl")) {
+      res.status(400).json({ error: "portalUrl is required" });
+      return;
+    }
+    const raw = body.portalUrl;
+    let next: string | null;
+    if (raw === null) {
+      next = null;
+    } else if (typeof raw === "string") {
+      next = raw.trim() === "" ? null : raw;
+    } else {
+      res.status(400).json({ error: "portalUrl must be a string or null" });
+      return;
+    }
+
+    const before = await getPortalUrlStatus();
+    const result = await setPortalUrl(
+      next,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    const after = await getPortalUrlStatus();
+
+    // Only audit when the resolved value actually changed — clearing an
+    // already-empty row, or saving the same URL twice, is a no-op for the
+    // read path and shouldn't churn the audit log.
+    if (before.portalUrl !== after.portalUrl || before.source !== after.source) {
+      await logAdminAction(
+        req,
+        "update_setting",
+        "portal_url",
+        PORTAL_URL_SETTING_KEY,
+        next === null
+          ? "Cleared per-tenant portal URL override"
+          : `Updated per-tenant portal URL to ${after.portalUrl}`,
+        {
+          before: { portalUrl: before.portalUrl, source: before.source },
+          after: { portalUrl: after.portalUrl, source: after.source },
+        },
+      );
+    }
+
+    res.json(after);
+  } catch (error) {
+    console.error("[Admin] Update portal URL error:", error);
+    res.status(500).json({ error: "Failed to update portal URL" });
   }
 });
 
