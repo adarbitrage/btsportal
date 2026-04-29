@@ -633,9 +633,10 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
 });
 
 // IP-based, Redis-backed limiter for the /auth/reset-password endpoint
-// (brought in alongside Task #91). Forgot-password uses the DB-backed
-// `processForgotPasswordRequest` helper below instead, because that endpoint
-// must continue to rate-limit even when Redis is offline (Task #91 spec).
+// (brought in alongside Task #91). The matching forgot-password limiters
+// live below; that endpoint additionally enforces a DB-backed cap inside
+// `processForgotPasswordRequest` so the floor still holds when Redis is
+// offline (Task #91 spec).
 const RESET_PASSWORD_LIMITS = {
   perIp: { max: 10, windowSeconds: 15 * 60 },
 } as const;
@@ -652,19 +653,62 @@ const resetPasswordIpLimiter = abuseRateLimit({
   onLimitExceeded: (req) => recordAuthRateLimitHit("reset-password", { req }),
 });
 
-router.post("/auth/forgot-password", verifyCaptcha(), async (req, res): Promise<void> => {
-  // Always return the same friendly response, regardless of whether the email
-  // exists or whether the request was throttled by the rate limit. This avoids
-  // leaking which addresses have an account and which are being rate-limited.
-  res.json({ message: "If that email exists, we sent a reset link." });
+// Redis-backed limiters for the /auth/forgot-password endpoint. We need a
+// synchronous 429 (within the same request) when an attacker bursts past the
+// per-IP or per-email cap — the previous design called the DB-backed limiter
+// fire-and-forget, so the response went out as 200 even on rate-limited
+// hits. The DB-backed `processForgotPasswordRequest` still runs after a 200
+// to keep its enforcement floor in place when Redis is offline.
+const FORGOT_PASSWORD_LIMITS = {
+  perIp: { max: 10, windowSeconds: 60 * 60 },
+  perEmail: { max: 5, windowSeconds: 60 * 60 },
+} as const;
 
-  // Fire-and-forget the actual work so the response timing is the same on
-  // every call. The rate-limit check is enforced inside the helper, backed by
-  // the `password_reset_attempts` table so it survives Redis being offline.
-  void processForgotPasswordRequest(req.body?.email, req.ip).catch((err) =>
-    console.error("[AUTH] Unexpected error processing forgot-password:", err),
-  );
+const forgotPasswordIpLimiter = abuseRateLimit({
+  name: "forgot-password",
+  maxRequests: FORGOT_PASSWORD_LIMITS.perIp.max,
+  windowSeconds: FORGOT_PASSWORD_LIMITS.perIp.windowSeconds,
+  keyResolver: ipKey("forgot-password"),
+  message: "Too many password reset attempts. Please try again later.",
+  onLimitExceeded: (req) =>
+    recordAuthRateLimitHit("forgot-password", {
+      req,
+      email: extractAuthEmail(req),
+    }),
 });
+
+const forgotPasswordEmailLimiter = abuseRateLimit({
+  name: "forgot-password",
+  maxRequests: FORGOT_PASSWORD_LIMITS.perEmail.max,
+  windowSeconds: FORGOT_PASSWORD_LIMITS.perEmail.windowSeconds,
+  keyResolver: emailKey("forgot-password", "email"),
+  message: "Too many password reset attempts. Please try again later.",
+  onLimitExceeded: (req) =>
+    recordAuthRateLimitHit("forgot-password", {
+      req,
+      email: extractAuthEmail(req),
+    }),
+});
+
+router.post(
+  "/auth/forgot-password",
+  forgotPasswordIpLimiter,
+  forgotPasswordEmailLimiter,
+  verifyCaptcha(),
+  async (req, res): Promise<void> => {
+    // Always return the same friendly response when we don't 429, regardless
+    // of whether the email exists. This avoids leaking which addresses have
+    // an account.
+    res.json({ message: "If that email exists, we sent a reset link." });
+
+    // Fire-and-forget the actual work so the 200 response timing is the same
+    // on every accepted call. The DB-backed cap inside the helper still runs
+    // here to keep enforcement when Redis is offline.
+    void processForgotPasswordRequest(req.body?.email, req.ip).catch((err) =>
+      console.error("[AUTH] Unexpected error processing forgot-password:", err),
+    );
+  },
+);
 
 router.post("/auth/reset-password", resetPasswordIpLimiter, async (req, res): Promise<void> => {
   const { token, password } = req.body;

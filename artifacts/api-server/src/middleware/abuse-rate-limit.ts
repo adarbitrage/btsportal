@@ -79,7 +79,7 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
       .zremrangebyrank(key, 0, -(entryCap + 1))
       .expire(key, windowSeconds)
       .exec()
-      .then((results) => {
+      .then(async (results) => {
         if (!results) {
           next();
           return;
@@ -95,17 +95,21 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
           const retryAfter = windowSeconds;
           res.setHeader("Retry-After", retryAfter);
           if (onLimitExceeded) {
-            // Fire-and-forget — never let the audit hook delay or break the
-            // 429 response, and never let it surface errors to the caller.
+            // Await the audit hook so the 429 response is only sent once the
+            // record of the blocked attempt has been written. Without this,
+            // each 429 fires off an unawaited insert and bursts of blocked
+            // requests can finish responding before the audit rows commit —
+            // downstream alerting and the tests both rely on "one 429 means
+            // one audit row, observable as soon as the response returns".
+            // Errors are swallowed so a flaky audit log can never turn a
+            // legitimate 429 into a 500.
             try {
-              const maybePromise = onLimitExceeded(req);
-              if (maybePromise && typeof (maybePromise as Promise<void>).catch === "function") {
-                (maybePromise as Promise<void>).catch((err) =>
-                  console.error(`[AbuseRateLimit:${name}] onLimitExceeded error:`, err?.message || err),
-                );
-              }
+              await onLimitExceeded(req);
             } catch (err: any) {
-              console.error(`[AbuseRateLimit:${name}] onLimitExceeded threw:`, err?.message || err);
+              console.error(
+                `[AbuseRateLimit:${name}] onLimitExceeded error:`,
+                err?.message || err,
+              );
             }
           }
           sendError(
