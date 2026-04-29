@@ -17,7 +17,12 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<string>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ) => Promise<string>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -94,16 +99,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     email: string,
     password: string,
+    captchaToken?: string,
   ): Promise<string> => {
     const res = await authFetch("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, captchaToken }),
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      // Support both the legacy `{ error: "msg" }` shape and the structured
+      // `{ error: { code, message } }` shape returned by sendError().
       const message =
-        (data && (data.error?.message || data.error)) || "Registration failed";
+        (typeof data?.error === "string" && data.error) ||
+        data?.error?.message ||
+        "Registration failed";
       throw new Error(message);
     }
 

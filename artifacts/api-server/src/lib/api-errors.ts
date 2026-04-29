@@ -34,6 +34,8 @@ export const ErrorCodes = {
   INTERNAL_ERROR: "INTERNAL_ERROR",
   BAD_REQUEST: "BAD_REQUEST",
   FORBIDDEN: "FORBIDDEN",
+  CAPTCHA_REQUIRED: "CAPTCHA_REQUIRED",
+  CAPTCHA_INVALID: "CAPTCHA_INVALID",
 } as const;
 
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction): void {

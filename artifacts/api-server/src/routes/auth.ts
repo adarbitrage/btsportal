@@ -5,6 +5,7 @@ import { db, usersTable, sessionsTable, emailChangeHistoryTable, passwordResetAt
 import { eq, and, gt, gte, isNull, desc, sql } from "drizzle-orm";
 import { generateAccessToken } from "../middleware/auth";
 import { abuseRateLimit, ipKey, emailKey } from "../middleware/abuse-rate-limit";
+import { verifyCaptcha } from "../middleware/captcha";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
@@ -442,7 +443,7 @@ export async function processRegisterRequest(params: {
   }).catch(() => {});
 }
 
-router.post("/auth/register", registerIpLimiter, registerEmailLimiter, async (req, res): Promise<void> => {
+router.post("/auth/register", registerIpLimiter, registerEmailLimiter, verifyCaptcha(), async (req, res): Promise<void> => {
   const { email, password, name, phone } = req.body;
 
   if (!email || !password || !name) {

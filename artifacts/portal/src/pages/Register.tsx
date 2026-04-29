@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
+import { Turnstile } from "@/components/Turnstile";
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
+  | string
+  | undefined;
 
 export default function Register() {
   const { register } = useAuth();
@@ -8,6 +13,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // Once the server accepts the signup we show a generic confirmation
@@ -17,6 +23,10 @@ export default function Register() {
   // user which case happened.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState("");
+
+  const handleCaptchaToken = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +42,31 @@ export default function Register() {
       return;
     }
 
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("Please complete the challenge below before continuing.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const message = await register(name, email, password);
+      const message = await register(
+        name,
+        email,
+        password,
+        captchaToken || undefined,
+      );
       setConfirmation(message);
       setSubmittedEmail(email);
     } catch (err: any) {
       setError(err.message);
+      setCaptchaToken("");
     } finally {
       setLoading(false);
     }
   };
+
+  const submitDisabled =
+    loading || (TURNSTILE_SITE_KEY ? !captchaToken : false);
 
   const inputStyle = {
     width: "100%",
@@ -194,19 +218,28 @@ export default function Register() {
             />
           </div>
 
+          {TURNSTILE_SITE_KEY && (
+            <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onToken={handleCaptchaToken}
+              />
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitDisabled}
             style={{
               width: "100%",
               padding: "12px",
-              background: loading ? "#93b4f4" : "#1a56db",
+              background: submitDisabled ? "#93b4f4" : "#1a56db",
               color: "white",
               border: "none",
               borderRadius: 8,
               fontSize: 15,
               fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: submitDisabled ? "not-allowed" : "pointer",
               transition: "background 0.15s",
             }}
           >
