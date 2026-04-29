@@ -2415,85 +2415,162 @@ export default function SystemHealth() {
               <CardContent className="p-0">
                 {alertStats && (
                   <div
-                    className="px-4 py-2 border-b bg-muted/20 text-xs flex flex-wrap items-center gap-x-3 gap-y-1"
+                    className="px-4 py-2 border-b bg-muted/20 text-xs space-y-1"
                     data-testid="alert-events-summary"
                   >
-                    <div
-                      className="inline-flex items-center rounded-md border bg-background p-0.5 mr-1"
-                      role="group"
-                      aria-label="Alert summary window"
-                      data-testid="alert-stats-window-toggle"
-                    >
-                      {ALERT_STATS_WINDOW_OPTIONS.map((opt) => {
-                        const active = alertStatsWindowMs === opt.ms;
+                    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                      <div
+                        className="inline-flex items-center rounded-md border bg-background p-0.5 mr-1"
+                        role="group"
+                        aria-label="Alert summary window"
+                        data-testid="alert-stats-window-toggle"
+                      >
+                        {ALERT_STATS_WINDOW_OPTIONS.map((opt) => {
+                          const active = alertStatsWindowMs === opt.ms;
+                          return (
+                            <button
+                              key={opt.ms}
+                              type="button"
+                              onClick={() => setAlertStatsWindowMs(opt.ms)}
+                              aria-pressed={active}
+                              className={`px-2 py-0.5 text-[11px] rounded-sm transition-colors ${
+                                active
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                              data-testid={`alert-stats-window-${opt.label}`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <span className="text-muted-foreground mr-1">
+                        {formatAlertStatsWindow(alertStats.windowMs)}:
+                      </span>
+                      {ALERT_OUTCOME_VALUES.map((value, idx) => {
+                        const count = alertStats[value];
+                        const active = alertOutcomeFilter === value;
+                        const isFailedHot = value === "failed" && count > 0;
                         return (
-                          <button
-                            key={opt.ms}
-                            type="button"
-                            onClick={() => setAlertStatsWindowMs(opt.ms)}
-                            aria-pressed={active}
-                            className={`px-2 py-0.5 text-[11px] rounded-sm transition-colors ${
-                              active
-                                ? "bg-primary text-primary-foreground"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                            data-testid={`alert-stats-window-${opt.label}`}
-                          >
-                            {opt.label}
-                          </button>
+                          <Fragment key={value}>
+                            {idx > 0 && <span className="text-muted-foreground">·</span>}
+                            <button
+                              type="button"
+                              onClick={() => updateAlertFilter("alertOutcome", active ? null : value)}
+                              aria-pressed={active}
+                              aria-label={`${count} ${value}${active ? " (filter active — click to clear)" : " — click to filter"}`}
+                              title={active ? `Showing only ${value} — click to clear` : `Filter to ${value}`}
+                              className={`inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+                                active ? "bg-primary/10 ring-1 ring-primary" : ""
+                              } ${isFailedHot && !active ? "text-red-600" : ""}`}
+                              data-testid={`alert-stats-${value}`}
+                            >
+                              <span className="font-medium">{count}</span>
+                              <span className={isFailedHot && !active ? "text-red-600/80" : "text-muted-foreground"}>{value}</span>
+                              {value === "failed" && count > 0 && (() => {
+                                const breakdown = formatFailedByChannel(alertStats.byChannel);
+                                if (!breakdown) return null;
+                                return (
+                                  <span
+                                    className={active ? "text-muted-foreground" : "text-red-600/80"}
+                                    data-testid="alert-stats-failed-by-channel"
+                                  >
+                                    ({breakdown})
+                                  </span>
+                                );
+                              })()}
+                            </button>
+                          </Fragment>
                         );
                       })}
-                    </div>
-                    <span className="text-muted-foreground">
-                      {formatAlertStatsWindow(alertStats.windowMs)}:
-                    </span>
-                    <span data-testid="alert-stats-sent">
-                      <span className="font-medium">{alertStats.sent}</span>
-                      <span className="text-muted-foreground"> sent</span>
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span
-                      className={alertStats.failed > 0 ? "text-red-600" : ""}
-                      data-testid="alert-stats-failed"
-                    >
-                      <span className="font-medium">{alertStats.failed}</span>
-                      <span className={alertStats.failed > 0 ? "text-red-600/80" : "text-muted-foreground"}> failed</span>
-                      {alertStats.failed > 0 && (() => {
-                        const breakdown = formatFailedByChannel(alertStats.byChannel);
-                        if (!breakdown) return null;
-                        return (
+                      {alertStats.unknown > 0 && (
+                        <>
+                          <span className="text-muted-foreground">·</span>
                           <span
-                            className="text-red-600/80"
-                            data-testid="alert-stats-failed-by-channel"
+                            className="inline-flex items-baseline gap-1 px-1.5 py-0.5"
+                            data-testid="alert-stats-unknown"
+                            title="Rows with an unrecognized outcome value"
                           >
-                            {" "}({breakdown})
+                            <span className="font-medium">{alertStats.unknown}</span>
+                            <span className="text-muted-foreground">unknown</span>
                           </span>
-                        );
-                      })()}
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span data-testid="alert-stats-throttled">
-                      <span className="font-medium">{alertStats.throttled}</span>
-                      <span className="text-muted-foreground"> throttled</span>
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span data-testid="alert-stats-skipped">
-                      <span className="font-medium">{alertStats.skipped}</span>
-                      <span className="text-muted-foreground"> skipped</span>
-                    </span>
-                    {alertStats.unknown > 0 && (
-                      <>
-                        <span className="text-muted-foreground">·</span>
-                        <span data-testid="alert-stats-unknown">
-                          <span className="font-medium">{alertStats.unknown}</span>
-                          <span className="text-muted-foreground"> unknown</span>
+                        </>
+                      )}
+                      {alertStats.total === 0 && (
+                        <span className="text-muted-foreground italic ml-1" data-testid="alert-stats-quiet">
+                          — no alerts dispatched
                         </span>
-                      </>
-                    )}
-                    {alertStats.total === 0 && (
-                      <span className="text-muted-foreground italic" data-testid="alert-stats-quiet">
-                        — no alerts dispatched
-                      </span>
+                      )}
+                    </div>
+                    {alertStats.byChannel && alertStats.total > 0 && (
+                      <div
+                        className="flex flex-wrap items-center gap-x-1 gap-y-1"
+                        data-testid="alert-stats-channels"
+                      >
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
+                          By channel
+                        </span>
+                        {(() => {
+                          const channelKeys = ALERT_CHANNEL_VALUES.filter((c) => {
+                            const total = alertStats.byChannel?.[c]?.total ?? 0;
+                            return total > 0 || alertChannelFilter === c;
+                          });
+                          if (channelKeys.length === 0) {
+                            return (
+                              <span className="text-muted-foreground italic" data-testid="alert-stats-channels-empty">
+                                no channel-tagged deliveries
+                              </span>
+                            );
+                          }
+                          return channelKeys.map((channel, idx) => {
+                            const bucket = alertStats.byChannel?.[channel];
+                            const total = bucket?.total ?? 0;
+                            const failed = bucket?.failed ?? 0;
+                            const active = alertChannelFilter === channel;
+                            return (
+                              <Fragment key={channel}>
+                                {idx > 0 && <span className="text-muted-foreground">·</span>}
+                                <button
+                                  type="button"
+                                  onClick={() => updateAlertFilter("alertChannel", active ? null : channel)}
+                                  aria-pressed={active}
+                                  aria-label={`${total} ${ALERT_CHANNEL_DISPLAY_LABELS[channel]}${failed > 0 ? `, ${failed} failed` : ""}${active ? " (filter active — click to clear)" : " — click to filter"}`}
+                                  title={active ? `Showing only ${ALERT_CHANNEL_DISPLAY_LABELS[channel]} — click to clear` : `Filter to ${ALERT_CHANNEL_DISPLAY_LABELS[channel]}`}
+                                  className={`inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+                                    active ? "bg-primary/10 ring-1 ring-primary" : ""
+                                  }`}
+                                  data-testid={`alert-stats-channel-${channel}`}
+                                >
+                                  <span className="font-medium">{total}</span>
+                                  <span className="text-muted-foreground">{ALERT_CHANNEL_DISPLAY_LABELS[channel]}</span>
+                                  {failed > 0 && (
+                                    <span
+                                      className={active ? "text-muted-foreground" : "text-red-600/80"}
+                                      data-testid={`alert-stats-channel-${channel}-failed`}
+                                    >
+                                      ({failed} failed)
+                                    </span>
+                                  )}
+                                </button>
+                              </Fragment>
+                            );
+                          });
+                        })()}
+                        {(alertStats.byChannel?.unknown?.total ?? 0) > 0 && (
+                          <>
+                            <span className="text-muted-foreground">·</span>
+                            <span
+                              className="inline-flex items-baseline gap-1 px-1.5 py-0.5"
+                              data-testid="alert-stats-channel-unknown"
+                              title="Rows with an unrecognized deliveryChannel value"
+                            >
+                              <span className="font-medium">{alertStats.byChannel?.unknown.total ?? 0}</span>
+                              <span className="text-muted-foreground">Unknown</span>
+                            </span>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
