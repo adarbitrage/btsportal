@@ -97,6 +97,18 @@ export default function MemberDetail() {
   const [emailAttemptsTotal, setEmailAttemptsTotal] = useState<number>(0);
   const [emailAttemptsPageSize, setEmailAttemptsPageSize] = useState<number>(50);
   const [emailAttemptsLoadingMore, setEmailAttemptsLoadingMore] = useState(false);
+  // Status filter is applied client-side over the rows the admin has loaded
+  // so far (including pages fetched via "Show older"). It persists across
+  // pagination so support can keep narrowing as they page in older rows.
+  type AttemptStatusFilter =
+    | "all"
+    | "pending"
+    | "confirmed"
+    | "expired"
+    | "abandoned"
+    | "cancelled_by_admin";
+  const [emailAttemptsStatusFilter, setEmailAttemptsStatusFilter] =
+    useState<AttemptStatusFilter>("all");
 
   // Click-through detail panel for a single attempt. The list view only
   // shows status + dates; the detail panel adds the matching audit log
@@ -359,8 +371,20 @@ export default function MemberDetail() {
   }
 
   const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [] } = data;
-  const visibleAttempts = emailAttempts;
+  const visibleAttempts =
+    emailAttemptsStatusFilter === "all"
+      ? emailAttempts
+      : emailAttempts.filter((a) => a.status === emailAttemptsStatusFilter);
   const hasMoreAttempts = emailAttempts.length < emailAttemptsTotal;
+  const isStatusFilterActive = emailAttemptsStatusFilter !== "all";
+  const statusFilterLabels: Record<AttemptStatusFilter, string> = {
+    all: "All statuses",
+    pending: "Pending",
+    confirmed: "Confirmed",
+    expired: "Expired",
+    abandoned: "Abandoned",
+    cancelled_by_admin: "Cancelled by admin",
+  };
 
   const lockedUntilDate: Date | null = member.lockedUntil ? new Date(member.lockedUntil) : null;
   const isLocked = !!(lockedUntilDate && lockedUntilDate.getTime() > Date.now());
@@ -617,7 +641,7 @@ export default function MemberDetail() {
           </Card>
         )}
 
-        {(visibleAttempts.length > 0 || hasMoreAttempts) && (
+        {(emailAttempts.length > 0 || hasMoreAttempts) && (
           <Card data-testid="card-email-attempts">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -628,14 +652,69 @@ export default function MemberDetail() {
               </p>
             </CardHeader>
             <CardContent>
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                <Label
+                  htmlFor="select-email-attempts-status"
+                  className="text-xs text-muted-foreground"
+                >
+                  Filter by status
+                </Label>
+                <Select
+                  value={emailAttemptsStatusFilter}
+                  onValueChange={(value) =>
+                    setEmailAttemptsStatusFilter(value as AttemptStatusFilter)
+                  }
+                >
+                  <SelectTrigger
+                    id="select-email-attempts-status"
+                    className="h-8 w-[200px]"
+                    data-testid="select-email-attempts-status"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(statusFilterLabels) as AttemptStatusFilter[]).map((value) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        data-testid={`option-email-attempts-status-${value}`}
+                      >
+                        {statusFilterLabels[value]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isStatusFilterActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setEmailAttemptsStatusFilter("all")}
+                    data-testid="button-clear-email-attempts-status"
+                  >
+                    <X className="w-3 h-3 mr-1" /> Clear
+                  </Button>
+                )}
+              </div>
               <div className="space-y-2">
                 {visibleAttempts.length === 0 && (
                   <p
                     className="text-xs text-muted-foreground"
                     data-testid="text-email-attempts-empty"
                   >
-                    No email change attempts in the most recent {emailAttempts.length}.
-                    {hasMoreAttempts ? " There may be older ones below." : ""}
+                    {isStatusFilterActive ? (
+                      <>
+                        No {statusFilterLabels[emailAttemptsStatusFilter].toLowerCase()} attempts in the {emailAttempts.length} loaded so far.
+                        {hasMoreAttempts
+                          ? " Older attempts haven't been loaded — use “Show older attempts” below to keep searching."
+                          : ""}
+                      </>
+                    ) : (
+                      <>
+                        No email change attempts in the most recent {emailAttempts.length}.
+                        {hasMoreAttempts ? " There may be older ones below." : ""}
+                      </>
+                    )}
                   </p>
                 )}
                 {visibleAttempts.map((entry: any) => {
@@ -724,8 +803,17 @@ export default function MemberDetail() {
                     className="text-xs text-muted-foreground"
                     data-testid="text-email-attempts-pagination"
                   >
-                    Showing {emailAttempts.length} of {emailAttemptsTotal}
-                    {emailAttemptsTotal === 1 ? " attempt" : " attempts"}
+                    {isStatusFilterActive ? (
+                      <>
+                        Showing {visibleAttempts.length} {statusFilterLabels[emailAttemptsStatusFilter].toLowerCase()} of {emailAttempts.length} loaded ({emailAttemptsTotal} total)
+                        {hasMoreAttempts ? " — older attempts may match too." : ""}
+                      </>
+                    ) : (
+                      <>
+                        Showing {emailAttempts.length} of {emailAttemptsTotal}
+                        {emailAttemptsTotal === 1 ? " attempt" : " attempts"}
+                      </>
+                    )}
                   </p>
                   {hasMoreAttempts && (
                     <Button
