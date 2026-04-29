@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import request from "supertest";
+import { db, auditLogTable, passwordResetAttemptsTable } from "@workspace/db";
+import { and, eq, gte, desc } from "drizzle-orm";
 
 const { redisGetMock, sortedSets } = vi.hoisted(() => {
   const sortedSets = new Map<string, Array<{ score: number; member: string }>>();
@@ -114,7 +116,11 @@ vi.mock("../lib/webhook-events", () => ({
 }));
 
 import { buildTestApp } from "./test-app";
-import authRouter from "../routes/auth";
+import authRouter, {
+  AUTH_RATE_LIMIT_AUDIT_ACTION,
+  AUTH_RATE_LIMIT_AUDIT_ENTITY,
+  processForgotPasswordRequest,
+} from "../routes/auth";
 
 // Test app trusts X-Forwarded-For so we can simulate distinct client IPs in
 // tests. Production app does NOT trust forwarded headers unless an operator
@@ -123,11 +129,49 @@ let app: ReturnType<typeof buildTestApp>;
 // Separate app instance with no trust-proxy so we can verify the spoofing
 // guard: forged X-Forwarded-For must NOT change the rate-limit identity.
 let untrustedApp: ReturnType<typeof buildTestApp>;
+// Captured before any test runs so we can scope the audit-log cleanup to
+// rows this file inserted, and so per-test queries can ignore older rows
+// from other test files sharing the database.
+let testRunStartedAt: Date;
 
 beforeAll(() => {
   app = buildTestApp({ routers: [authRouter], trustProxy: true });
   untrustedApp = buildTestApp({ routers: [authRouter] });
+  testRunStartedAt = new Date(Date.now() - 1000);
 });
+
+afterAll(async () => {
+  // Every 429 in this file writes an audit-log row; remove them so we don't
+  // pollute the shared test database.
+  await db
+    .delete(auditLogTable)
+    .where(
+      and(
+        eq(auditLogTable.actionType, AUTH_RATE_LIMIT_AUDIT_ACTION),
+        gte(auditLogTable.createdAt, testRunStartedAt),
+      ),
+    );
+  // The forgot-password audit-log test exercises the DB-backed rate limiter,
+  // which inserts rows into password_reset_attempts. Clean those up too.
+  await db
+    .delete(passwordResetAttemptsTable)
+    .where(gte(passwordResetAttemptsTable.createdAt, testRunStartedAt));
+});
+
+async function fetchAuditRows(endpoint: string) {
+  return db
+    .select()
+    .from(auditLogTable)
+    .where(
+      and(
+        eq(auditLogTable.actionType, AUTH_RATE_LIMIT_AUDIT_ACTION),
+        eq(auditLogTable.entityType, AUTH_RATE_LIMIT_AUDIT_ENTITY),
+        eq(auditLogTable.entityId, endpoint),
+        gte(auditLogTable.createdAt, testRunStartedAt),
+      ),
+    )
+    .orderBy(desc(auditLogTable.createdAt));
+}
 
 beforeEach(() => {
   sortedSets.clear();
@@ -536,5 +580,114 @@ describe("POST /api/auth/login rate limiting", () => {
       .send({ email: "mix-fp@example.test" });
 
     expect(res.status).toBe(200);
+  });
+});
+
+describe("Auth rate-limit hits write to the audit log", () => {
+  it("a burst of failed logins past the per-IP cap writes one audit row per blocked attempt", async () => {
+    const ip = "203.0.113.200";
+
+    // Burn the per-IP budget across distinct emails — none of these should
+    // produce an audit row because they're under the cap.
+    for (let i = 0; i < 20; i++) {
+      const ok = await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", ip)
+        .send({ email: `audit-cs-${i}@example.test`, password: "WrongPass1!" });
+      expect(ok.status).toBe(401);
+    }
+
+    const beforeBlocks = await fetchAuditRows("login");
+    const blockedFromThisIp = beforeBlocks.filter(
+      (r) => (r.metadata as any)?.ip === ip,
+    );
+    expect(blockedFromThisIp).toHaveLength(0);
+
+    // Two more attempts that get 429-d — each should produce its own row.
+    const blocked1 = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", ip)
+      .send({ email: "AuditTarget@Example.Test", password: "WrongPass1!" });
+    expect(blocked1.status).toBe(429);
+
+    const blocked2 = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", ip)
+      .send({ email: "another-target@example.test", password: "WrongPass1!" });
+    expect(blocked2.status).toBe(429);
+
+    const rows = await fetchAuditRows("login");
+    const fromThisIp = rows.filter((r) => (r.metadata as any)?.ip === ip);
+    expect(fromThisIp).toHaveLength(2);
+
+    const emails = fromThisIp.map((r) => (r.metadata as any)?.email).sort();
+    expect(emails).toEqual([
+      "another-target@example.test",
+      "audittarget@example.test", // normalized to lowercase
+    ]);
+
+    for (const row of fromThisIp) {
+      expect(row.ipAddress).toBe(ip);
+      expect(row.description).toContain(ip);
+      expect(row.description).toContain("/api/auth/login");
+      expect((row.metadata as any)?.endpoint).toBe("login");
+    }
+  });
+
+  it("writes an audit row when /auth/reset-password is rate-limited (no email available)", async () => {
+    const ip = "203.0.113.210";
+
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post("/api/auth/reset-password")
+        .set("X-Forwarded-For", ip)
+        .send({ token: "k".repeat(64), password: "Brandnew1!" });
+      expect(res.status).toBe(400);
+    }
+
+    const blocked = await request(app)
+      .post("/api/auth/reset-password")
+      .set("X-Forwarded-For", ip)
+      .send({ token: "l".repeat(64), password: "Brandnew1!" });
+    expect(blocked.status).toBe(429);
+
+    const rows = await fetchAuditRows("reset-password");
+    const fromThisIp = rows.filter((r) => (r.metadata as any)?.ip === ip);
+    expect(fromThisIp).toHaveLength(1);
+    const [row] = fromThisIp;
+    expect(row.ipAddress).toBe(ip);
+    expect(row.description).toContain("/api/auth/reset-password");
+    // No request-body email on this endpoint, so no target email captured.
+    expect((row.metadata as any)?.email).toBeNull();
+    expect(row.actorEmail).toBeNull();
+  });
+
+  it("writes an audit row when /auth/forgot-password is suppressed by its DB-backed rate limit", async () => {
+    // /auth/forgot-password doesn't use abuseRateLimit; its cap is enforced
+    // inside processForgotPasswordRequest against the password_reset_attempts
+    // table. Drive the helper directly so we don't have to spin up Redis or
+    // worry about response shaping, and trip the per-email hourly limit (3)
+    // by calling it 4 times with the same email + IP.
+    const sentinelIp = "203.0.113.220";
+    const sentinelEmail = `audit-suppressed-${Date.now()}@example.test`;
+
+    for (let i = 0; i < 3; i++) {
+      await processForgotPasswordRequest(sentinelEmail, sentinelIp);
+    }
+    // The 4th call exceeds the per-email hourly limit and should write an
+    // audit-log row from the suppression branch.
+    await processForgotPasswordRequest(sentinelEmail, sentinelIp);
+
+    const rows = await fetchAuditRows("forgot-password");
+    const fromThisRequest = rows.filter(
+      (r) => (r.metadata as any)?.email === sentinelEmail,
+    );
+    expect(fromThisRequest.length).toBeGreaterThanOrEqual(1);
+    const [row] = fromThisRequest;
+    expect((row.metadata as any)?.ip).toBe(sentinelIp);
+    expect((row.metadata as any)?.endpoint).toBe("forgot-password");
+    expect(row.actorEmail).toBe(sentinelEmail);
+    expect(row.description).toContain("/api/auth/forgot-password");
+    expect(row.description).toContain(sentinelEmail);
   });
 });

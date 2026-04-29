@@ -81,6 +81,7 @@ export default function AuditLog() {
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>
                   <SelectItem value="queue_fallback">Queue fallback</SelectItem>
+                  <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.entityType} onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}>
@@ -93,6 +94,7 @@ export default function AuditLog() {
                   <SelectItem value="system_setting">System Setting</SelectItem>
                   <SelectItem value="flexy_credentials">Flexy credentials</SelectItem>
                   <SelectItem value="communication">Communication</SelectItem>
+                  <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />

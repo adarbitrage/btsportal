@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db, usersTable, sessionsTable, emailChangeHistoryTable, passwordResetAttemptsTable } from "@workspace/db";
@@ -9,6 +9,38 @@ import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import { getRedis } from "../lib/redis";
+import { logAuditEvent } from "../lib/audit-log";
+
+// Shared identifiers for the new "rate limit hit" audit-log entries written
+// by the auth endpoints. The Audit Log UI filters on these values.
+export const AUTH_RATE_LIMIT_AUDIT_ACTION = "auth_rate_limit_blocked";
+export const AUTH_RATE_LIMIT_AUDIT_ENTITY = "auth_rate_limit";
+
+function extractAuthEmail(req: Request): string | undefined {
+  const raw = req.body?.email;
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim().toLowerCase();
+  return trimmed || undefined;
+}
+
+async function recordAuthRateLimitHit(
+  endpoint: "login" | "forgot-password" | "reset-password",
+  opts: { req?: Request; ip?: string; email?: string },
+): Promise<void> {
+  const ip = opts.ip ?? opts.req?.ip ?? undefined;
+  const email = opts.email;
+  const target = email ? ` (target: ${email})` : "";
+  const ipLabel = ip ?? "unknown";
+  await logAuditEvent({
+    actionType: AUTH_RATE_LIMIT_AUDIT_ACTION,
+    entityType: AUTH_RATE_LIMIT_AUDIT_ENTITY,
+    entityId: endpoint,
+    description: `Rate limit exceeded on POST /api/auth/${endpoint} from ${ipLabel}${target}`,
+    actorEmail: email,
+    metadata: { endpoint, ip: ip ?? null, email: email ?? null },
+    req: opts.req,
+  });
+}
 
 // How long after an email change we'll still hint the user about it.
 const EMAIL_CHANGE_HINT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -192,6 +224,12 @@ export async function processForgotPasswordRequest(
   if (!allowed) {
     console.log(
       `[AUTH] Password reset request for ${normalizedEmail} suppressed by rate limit`,
+    );
+    await recordAuthRateLimitHit("forgot-password", {
+      ip: rawIp,
+      email: normalizedEmail,
+    }).catch((err) =>
+      console.error("[AUTH] Failed to record forgot-password rate-limit audit:", err),
     );
     return;
   }
@@ -443,6 +481,8 @@ const loginIpLimiter = abuseRateLimit({
   windowSeconds: LOGIN_LIMITS.perIp.windowSeconds,
   keyResolver: ipKey("login"),
   message: "Too many login attempts. Please try again later.",
+  onLimitExceeded: (req) =>
+    recordAuthRateLimitHit("login", { req, email: extractAuthEmail(req) }),
 });
 
 router.post("/auth/login", loginIpLimiter, async (req, res): Promise<void> => {
@@ -587,6 +627,10 @@ const resetPasswordIpLimiter = abuseRateLimit({
   windowSeconds: RESET_PASSWORD_LIMITS.perIp.windowSeconds,
   keyResolver: ipKey("reset-password"),
   message: "Too many password reset attempts. Please try again later.",
+  // /auth/reset-password posts a token, not an email, so we only have the IP
+  // to identify the source. The audit row still includes endpoint + IP so an
+  // admin can correlate it with simultaneous /forgot-password or /login hits.
+  onLimitExceeded: (req) => recordAuthRateLimitHit("reset-password", { req }),
 });
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {

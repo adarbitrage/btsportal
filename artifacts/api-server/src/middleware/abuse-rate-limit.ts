@@ -9,6 +9,11 @@ export interface AbuseRateLimitOptions {
   windowSeconds: number;
   keyResolver: (req: Request) => string | null;
   message?: string;
+  // Optional fire-and-forget hook invoked when a request is blocked with a 429.
+  // Lets callers record the event (e.g. write an audit log entry) without
+  // coupling the middleware to any specific logger. Errors are swallowed so
+  // the response timing is unaffected.
+  onLimitExceeded?: (req: Request) => void | Promise<void>;
 }
 
 function clientIp(req: Request): string {
@@ -46,7 +51,7 @@ function entryCapFor(maxRequests: number): number {
 }
 
 export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
-  const { name, maxRequests, windowSeconds, keyResolver, message } = opts;
+  const { name, maxRequests, windowSeconds, keyResolver, message, onLimitExceeded } = opts;
   const entryCap = entryCapFor(maxRequests);
   return function abuseRateLimitMiddleware(req: Request, res: Response, next: NextFunction): void {
     const redis = getRedis();
@@ -89,6 +94,20 @@ export function abuseRateLimit(opts: AbuseRateLimitOptions): RequestHandler {
           redis.zrem(key, member).catch(() => {});
           const retryAfter = windowSeconds;
           res.setHeader("Retry-After", retryAfter);
+          if (onLimitExceeded) {
+            // Fire-and-forget — never let the audit hook delay or break the
+            // 429 response, and never let it surface errors to the caller.
+            try {
+              const maybePromise = onLimitExceeded(req);
+              if (maybePromise && typeof (maybePromise as Promise<void>).catch === "function") {
+                (maybePromise as Promise<void>).catch((err) =>
+                  console.error(`[AbuseRateLimit:${name}] onLimitExceeded error:`, err?.message || err),
+                );
+              }
+            } catch (err: any) {
+              console.error(`[AbuseRateLimit:${name}] onLimitExceeded threw:`, err?.message || err);
+            }
+          }
           sendError(
             res,
             429,
