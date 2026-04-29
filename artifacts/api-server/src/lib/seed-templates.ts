@@ -124,6 +124,23 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "new_email", "support_email", "portal_url", "current_year"],
   },
   {
+    slug: "email_change_cancelled_by_admin",
+    name: "Email Change Cancelled by Admin",
+    subject: "Your pending email change was cancelled by Build Test Scale support",
+    htmlBody: wrapHtml("Pending Email Change Cancelled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
+<p>If you still want to switch your account to a different email address, you can start a new request anytime from your account settings:</p>
+<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Go to Account Settings</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting support to cancel this change, or you have any questions, please reply to this email or reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still want to switch your account to a different email address, you can start a new request anytime from your account settings: {{portal_url}}/settings\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "member_email", "cancelled_pending_email", "portal_url", "support_email", "current_year"],
+  },
+  {
     slug: "purchase_confirmation",
     name: "Purchase Confirmation",
     subject: "Your purchase of {{product_name}} is confirmed!",
@@ -603,7 +620,7 @@ export async function seedCommunicationTemplates(): Promise<void> {
   console.log("Communication templates seeding complete!");
 }
 
-const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice", "signup_attempted"];
+const REQUIRED_TEMPLATE_SLUGS = ["email_change_verify", "email_change_notice", "email_change_cancelled_by_admin", "signup_attempted"];
 
 export async function ensureRequiredEmailTemplates(): Promise<void> {
   try {

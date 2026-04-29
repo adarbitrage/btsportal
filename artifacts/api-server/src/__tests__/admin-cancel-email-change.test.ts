@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -8,7 +8,21 @@ import { eq, inArray, and, desc } from "drizzle-orm";
 
 vi.mock("../lib/redis", () => ({
   getRedis: () => null,
+  getRedisConnection: vi.fn(),
+  createRedisConnection: vi.fn(),
   isRedisConnected: async () => false,
+}));
+
+const { queueEmailMock } = vi.hoisted(() => ({
+  queueEmailMock: vi.fn<
+    (params: unknown) => Promise<{ result: "queued" }>
+  >(async () => ({ result: "queued" })),
+}));
+
+vi.mock("../lib/communication-service", () => ({
+  CommunicationService: {
+    queueEmail: queueEmailMock,
+  },
 }));
 
 import { buildTestAppWithRouters } from "./test-app";
@@ -102,6 +116,10 @@ async function getUser(userId: number) {
 }
 
 describe("POST /api/admin/members/:id/cancel-email-change", () => {
+  beforeEach(() => {
+    queueEmailMock.mockClear();
+  });
+
   it("requires authentication (no cookie -> 401)", async () => {
     const res = await request(app).post(`/api/admin/members/${adminId}/cancel-email-change`);
     expect(res.status).toBe(401);
@@ -122,6 +140,8 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(after.pendingEmail).toBe(`${TEST_TAG}-rbac-new@example.test`);
     expect(after.emailChangeToken).toBe("deadbeef".repeat(8));
     expect(after.emailChangeExpires).toBeInstanceOf(Date);
+    // Authorization failure must never leak a notification to the member.
+    expect(queueEmailMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 for a non-numeric member id", async () => {
@@ -162,6 +182,8 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
         ),
       );
     expect(auditEntries).toHaveLength(0);
+    // And no notification to the member either: there was nothing to cancel.
+    expect(queueEmailMock).not.toHaveBeenCalled();
   });
 
   it("clears pendingEmail/token/expires and writes an audit-log entry with before/after diff", async () => {
@@ -211,5 +233,60 @@ describe("POST /api/admin/members/:id/cancel-email-change", () => {
     expect(diff?.before?.pendingEmail).toBe(`${TEST_TAG}-happy-new@example.test`);
     expect(diff?.before?.emailChangeExpires).toBeTruthy();
     expect(diff?.after).toEqual({ pendingEmail: null, emailChangeExpires: null });
+  });
+
+  it("notifies the member at their current address with the discarded pending email", async () => {
+    const targetId = await seedMemberWithPending("notify-happy", {
+      pendingEmail: `${TEST_TAG}-notify-new@example.test`,
+      emailChangeToken: "feedface".repeat(8),
+      emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
+    });
+    const target = await getUser(targetId);
+
+    const res = await request(app)
+      .post(`/api/admin/members/${targetId}/cancel-email-change`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    const args = queueEmailMock.mock.calls[0][0] as {
+      templateSlug: string;
+      to: string;
+      userId: number;
+      variables: Record<string, string>;
+    };
+    expect(args.templateSlug).toBe("email_change_cancelled_by_admin");
+    // The email goes to the now-restored CURRENT address, not the pending one.
+    expect(args.to).toBe(target.email);
+    expect(args.userId).toBe(targetId);
+    expect(args.variables.member_name).toBe(target.name);
+    expect(args.variables.member_email).toBe(target.email);
+    expect(args.variables.cancelled_pending_email).toBe(
+      `${TEST_TAG}-notify-new@example.test`,
+    );
+  });
+
+  it("still returns 200 to the admin if the notification enqueue fails", async () => {
+    queueEmailMock.mockRejectedValueOnce(new Error("redis exploded"));
+
+    const targetId = await seedMemberWithPending("notify-failure", {
+      pendingEmail: `${TEST_TAG}-notify-fail@example.test`,
+      emailChangeToken: "abad1dea".repeat(8),
+      emailChangeExpires: new Date(Date.now() + 6 * 60 * 60 * 1000),
+    });
+
+    const res = await request(app)
+      .post(`/api/admin/members/${targetId}/cancel-email-change`)
+      .set("Cookie", adminCookie);
+    // The cancellation must succeed even when the courtesy notification can't
+    // be enqueued — admins should never see a 500 because SendGrid/Redis is
+    // having a bad day.
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const after = await getUser(targetId);
+    expect(after.pendingEmail).toBeNull();
+    expect(after.emailChangeToken).toBeNull();
+    expect(after.emailChangeExpires).toBeNull();
   });
 });

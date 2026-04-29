@@ -4,6 +4,7 @@ import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull } from 
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
+import { CommunicationService } from "../lib/communication-service";
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
@@ -1087,6 +1088,7 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
       .select({
         id: usersTable.id,
         email: usersTable.email,
+        name: usersTable.name,
         pendingEmail: usersTable.pendingEmail,
         emailChangeExpires: usersTable.emailChangeExpires,
       })
@@ -1123,6 +1125,28 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
         memberEmail: member.email,
         previousPendingEmail,
       },
+    );
+
+    // Notify the member at their CURRENT (now-restored) address that the
+    // pending change has been discarded by support, naming the dropped
+    // address so they understand why a login attempt with it would fail.
+    // Fire-and-forget — the cancellation itself has already succeeded and
+    // we never want a transient SendGrid/Redis hiccup to surface as an
+    // admin-facing 500.
+    CommunicationService.queueEmail({
+      templateSlug: "email_change_cancelled_by_admin",
+      to: member.email,
+      variables: {
+        member_name: member.name,
+        member_email: member.email,
+        cancelled_pending_email: previousPendingEmail,
+      },
+      userId: id,
+    }).catch((err) =>
+      console.error(
+        "[Admin] Failed to enqueue email_change_cancelled_by_admin notice:",
+        err,
+      ),
     );
 
     res.json({ success: true, id, pendingEmail: null });
