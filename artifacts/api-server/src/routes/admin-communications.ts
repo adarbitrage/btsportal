@@ -19,6 +19,18 @@ import {
 import { eq, sql, desc, asc, and, or, ilike, count, gte, lte, inArray } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
+import {
+  TEMPLATE_AUDIT_ACTION_TYPES,
+  EMAIL_TEMPLATE_ENTITY_TYPE,
+  SMS_TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_CREATE_ACTION_TYPE,
+  TEMPLATE_UPDATE_ACTION_TYPE,
+  TEMPLATE_DELETE_ACTION_TYPE,
+  EMAIL_TEMPLATE_DIFF_FIELDS,
+  SMS_TEMPLATE_DIFF_FIELDS,
+  diffTemplateFields,
+  snapshotTemplateForDiff,
+} from "../lib/template-audit";
 import { csvEscape } from "../lib/csv";
 import { CommunicationService } from "../lib/communication-service";
 import {
@@ -41,6 +53,24 @@ import {
  * the same recipient doesn't bleed into the wrong comms-log entry.
  */
 const RELATED_AUDIT_WINDOW_MS = 2 * 60 * 1000;
+/**
+ * How far BEFORE the comms-log row we look for template-edit audit rows. We
+ * want to catch "admin tweaked the template a few minutes / hours ago and
+ * the next batch went out wrong", which is a meaningfully wider window than
+ * the queue-fallback ±2 minutes — fallback rows are written milliseconds
+ * before the send by the same call stack, while template edits happen
+ * arbitrarily earlier on a different request. 24h is the sweet spot: long
+ * enough to catch same-day investigations without flooding the dialog with
+ * unrelated edits from prior days.
+ */
+const RELATED_TEMPLATE_AUDIT_WINDOW_BEFORE_MS = 24 * 60 * 60 * 1000;
+/**
+ * Symmetric small grace window AFTER the send for template edits, so a
+ * concurrent edit that lands a couple of seconds after the comms-log row
+ * isn't dropped. Kept tiny — anything bigger and we'd start linking edits
+ * that obviously couldn't have affected the send.
+ */
+const RELATED_TEMPLATE_AUDIT_WINDOW_AFTER_MS = 2 * 60 * 1000;
 /**
  * Hard cap on related-audit rows surfaced in the comms-log detail dialog.
  * The dialog shows them inline (not paginated); the audit log page itself is
@@ -105,6 +135,15 @@ router.post("/admin/communications/email-templates", requirePermission("communic
       // Admin-created template: by definition not tracking starter copy.
       starterHash: null,
     }).returning();
+    await logAdminAction(
+      req,
+      TEMPLATE_CREATE_ACTION_TYPE,
+      EMAIL_TEMPLATE_ENTITY_TYPE,
+      String(template.id),
+      `Created email template "${template.name}" (${template.slug})`,
+      { after: snapshotTemplateForDiff(template, EMAIL_TEMPLATE_DIFF_FIELDS) },
+      { templateSlug: template.slug, templateName: template.name, channel: "email" },
+    );
     res.status(201).json(enrichEmailTemplate(template));
   } catch (error: any) {
     if (error?.code === "23505") {
@@ -171,6 +210,18 @@ router.put("/admin/communications/email-templates/:id", requirePermission("commu
     }
 
     const [updated] = await db.update(emailTemplatesTable).set(updates).where(eq(emailTemplatesTable.id, id)).returning();
+    const diff = diffTemplateFields(existing as Record<string, unknown>, updates, EMAIL_TEMPLATE_DIFF_FIELDS);
+    if (diff.changedFields.length > 0) {
+      await logAdminAction(
+        req,
+        TEMPLATE_UPDATE_ACTION_TYPE,
+        EMAIL_TEMPLATE_ENTITY_TYPE,
+        String(updated.id),
+        `Updated email template "${updated.name}" (${updated.slug}): ${diff.changedFields.join(", ")}`,
+        { before: diff.before, after: diff.after, changedFields: diff.changedFields },
+        { templateSlug: updated.slug, templateName: updated.name, channel: "email" },
+      );
+    }
     res.json(enrichEmailTemplate(updated));
   } catch (error) {
     console.error("[Admin] Error updating email template:", error);
@@ -184,6 +235,15 @@ router.delete("/admin/communications/email-templates/:id", requirePermission("co
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(emailTemplatesTable).where(eq(emailTemplatesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Template not found" }); return; }
+    await logAdminAction(
+      req,
+      TEMPLATE_DELETE_ACTION_TYPE,
+      EMAIL_TEMPLATE_ENTITY_TYPE,
+      String(deleted.id),
+      `Deleted email template "${deleted.name}" (${deleted.slug})`,
+      { before: snapshotTemplateForDiff(deleted, EMAIL_TEMPLATE_DIFF_FIELDS) },
+      { templateSlug: deleted.slug, templateName: deleted.name, channel: "email" },
+    );
     res.json({ success: true });
   } catch (error) {
     console.error("[Admin] Error deleting email template:", error);
@@ -215,6 +275,11 @@ router.post("/admin/communications/email-templates/:id/restore/:versionId", requ
       .where(and(eq(emailTemplateVersionsTable.id, versionId), eq(emailTemplateVersionsTable.templateId, id)));
     if (!version) { res.status(404).json({ error: "Version not found" }); return; }
 
+    // Snapshot the live row BEFORE we overwrite it so the diff captures
+    // what the restore actually changed. Without this we'd be diffing the
+    // restored values against themselves and producing an empty audit row.
+    const [beforeRestore] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
+
     const [updated] = await db.update(emailTemplatesTable).set({
       name: version.name,
       subject: version.subject,
@@ -228,6 +293,31 @@ router.post("/admin/communications/email-templates/:id/restore/:versionId", requ
       // overwrite it with the latest starter copy.
       starterHash: null,
     }).where(eq(emailTemplatesTable.id, id)).returning();
+
+    if (beforeRestore) {
+      const diff = diffTemplateFields(
+        beforeRestore as Record<string, unknown>,
+        updated as Record<string, unknown>,
+        EMAIL_TEMPLATE_DIFF_FIELDS,
+      );
+      if (diff.changedFields.length > 0) {
+        await logAdminAction(
+          req,
+          TEMPLATE_UPDATE_ACTION_TYPE,
+          EMAIL_TEMPLATE_ENTITY_TYPE,
+          String(updated.id),
+          `Restored email template "${updated.name}" (${updated.slug}) from version ${version.version}: ${diff.changedFields.join(", ")}`,
+          {
+            before: diff.before,
+            after: diff.after,
+            changedFields: diff.changedFields,
+            source: "restore_version",
+            restoredVersion: version.version,
+          },
+          { templateSlug: updated.slug, templateName: updated.name, channel: "email" },
+        );
+      }
+    }
 
     res.json(enrichEmailTemplate(updated));
   } catch (error) {
@@ -293,6 +383,28 @@ router.post("/admin/communications/email-templates/:id/restore-default", require
       variables: starter.variables,
       starterHash: templateContentHash(starter),
     }).where(eq(emailTemplatesTable.id, id)).returning();
+
+    const diff = diffTemplateFields(
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>,
+      EMAIL_TEMPLATE_DIFF_FIELDS,
+    );
+    if (diff.changedFields.length > 0) {
+      await logAdminAction(
+        req,
+        TEMPLATE_UPDATE_ACTION_TYPE,
+        EMAIL_TEMPLATE_ENTITY_TYPE,
+        String(updated.id),
+        `Restored email template "${updated.name}" (${updated.slug}) to starter default: ${diff.changedFields.join(", ")}`,
+        {
+          before: diff.before,
+          after: diff.after,
+          changedFields: diff.changedFields,
+          source: "restore_default",
+        },
+        { templateSlug: updated.slug, templateName: updated.name, channel: "email" },
+      );
+    }
 
     res.json(enrichEmailTemplate(updated));
   } catch (error) {
@@ -363,6 +475,15 @@ router.post("/admin/communications/sms-templates", requirePermission("communicat
     const [template] = await db.insert(smsTemplatesTable).values({
       slug, name, body, variables: variables || [],
     }).returning();
+    await logAdminAction(
+      req,
+      TEMPLATE_CREATE_ACTION_TYPE,
+      SMS_TEMPLATE_ENTITY_TYPE,
+      String(template.id),
+      `Created SMS template "${template.name}" (${template.slug})`,
+      { after: snapshotTemplateForDiff(template, SMS_TEMPLATE_DIFF_FIELDS) },
+      { templateSlug: template.slug, templateName: template.name, channel: "sms" },
+    );
     res.status(201).json(template);
   } catch (error: any) {
     if (error?.code === "23505") {
@@ -379,6 +500,12 @@ router.put("/admin/communications/sms-templates/:id", requirePermission("communi
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+    // Snapshot current row so we can diff against the post-update copy. The
+    // 404 here also stays well-defined: if the row doesn't exist before the
+    // update, we don't even attempt the update / audit write.
+    const [existing] = await db.select().from(smsTemplatesTable).where(eq(smsTemplatesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Template not found" }); return; }
+
     const { name, body, variables, active } = req.body;
     const updates: Record<string, any> = {};
     if (name !== undefined) updates.name = name;
@@ -388,6 +515,20 @@ router.put("/admin/communications/sms-templates/:id", requirePermission("communi
 
     const [updated] = await db.update(smsTemplatesTable).set(updates).where(eq(smsTemplatesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Template not found" }); return; }
+
+    const diff = diffTemplateFields(existing as Record<string, unknown>, updates, SMS_TEMPLATE_DIFF_FIELDS);
+    if (diff.changedFields.length > 0) {
+      await logAdminAction(
+        req,
+        TEMPLATE_UPDATE_ACTION_TYPE,
+        SMS_TEMPLATE_ENTITY_TYPE,
+        String(updated.id),
+        `Updated SMS template "${updated.name}" (${updated.slug}): ${diff.changedFields.join(", ")}`,
+        { before: diff.before, after: diff.after, changedFields: diff.changedFields },
+        { templateSlug: updated.slug, templateName: updated.name, channel: "sms" },
+      );
+    }
+
     res.json(updated);
   } catch (error) {
     console.error("[Admin] Error updating SMS template:", error);
@@ -401,6 +542,15 @@ router.delete("/admin/communications/sms-templates/:id", requirePermission("comm
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(smsTemplatesTable).where(eq(smsTemplatesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Template not found" }); return; }
+    await logAdminAction(
+      req,
+      TEMPLATE_DELETE_ACTION_TYPE,
+      SMS_TEMPLATE_ENTITY_TYPE,
+      String(deleted.id),
+      `Deleted SMS template "${deleted.name}" (${deleted.slug})`,
+      { before: snapshotTemplateForDiff(deleted, SMS_TEMPLATE_DIFF_FIELDS) },
+      { templateSlug: deleted.slug, templateName: deleted.name, channel: "sms" },
+    );
     res.json({ success: true });
   } catch (error) {
     console.error("[Admin] Error deleting SMS template:", error);
@@ -1299,26 +1449,26 @@ router.get("/admin/communications/log/:id", requirePermission("communications:vi
 
 /**
  * Find audit rows that plausibly affected a single comms-log entry so the
- * detail dialog can deep-link them. Today this surfaces the queue_fallback
- * row that fires when the email/SMS queue is unavailable and the comms
- * service falls back to a direct send — that's the most common reason a
- * support agent ends up wondering "why did this message take this path?".
+ * detail dialog can deep-link them. Two sources are surfaced today:
  *
- * Match heuristic for queue_fallback:
- *   - actionType = "queue_fallback" AND entityType = "queue"
- *   - entityId equals the comms-log channel ("email" / "sms")
- *   - createdAt is within ±RELATED_AUDIT_WINDOW_MS of the comms-log row's
- *     createdAt (covers fallback-then-send and the rare reverse where the
- *     direct-send finishes faster than the fallback row commits)
- *   - if the comms-log row has a recipient_email or recipient_phone, the
- *     fallback row's metadata.recipient must match — otherwise multiple
- *     simultaneous sends to different recipients on the same channel would
- *     all link to the same fallback row
+ * 1. queue_fallback rows fired when the email/SMS queue was unavailable and
+ *    the comms service fell back to a direct send. Matched by channel +
+ *    recipient + a tight ±2 minute window — that's the case the dialog was
+ *    originally built for ("why did this message take this path?").
  *
- * The queue_fallback action type is PII-bearing (recipient is in metadata
- * and embedded in description), so we hand each row through the same
- * redactor the audit log endpoint uses for callers without the
- * `members:pii` permission.
+ * 2. template_create / template_update / template_delete rows that touched
+ *    the same template_slug as the comms-log row, written within a window
+ *    BEFORE the send (with a small grace window after to absorb concurrent
+ *    edits). This answers the natural follow-up support sees after a queue
+ *    fallback row links: "did someone edit this template right before the
+ *    send?". Channel matching keeps email-template edits from polluting an
+ *    SMS send's related list and vice versa.
+ *
+ * PII redaction: queue_fallback embeds the recipient in description and
+ * metadata, so it's PII-bearing and gets routed through redactAuditRowPii
+ * for viewers without the `members:pii` permission. Template-edit rows
+ * don't carry member PII (slug + diff of admin-controlled copy), so they
+ * pass through unchanged regardless of permission level.
  */
 async function fetchRelatedAuditRows(
   req: Request,
@@ -1326,7 +1476,7 @@ async function fetchRelatedAuditRows(
 ): Promise<unknown[]> {
   if (!log.createdAt) return [];
 
-  const conditions: any[] = [
+  const queueFallbackConditions: any[] = [
     eq(auditLogTable.actionType, QUEUE_FALLBACK_ACTION_TYPE),
     eq(auditLogTable.entityType, QUEUE_FALLBACK_ENTITY_TYPE),
     eq(auditLogTable.entityId, log.channel),
@@ -1339,10 +1489,10 @@ async function fetchRelatedAuditRows(
   // so legacy rows without metadata.recipient just don't match.
   const recipient = log.recipientEmail ?? log.recipientPhone ?? null;
   if (recipient) {
-    conditions.push(sql`${auditLogTable.metadata}->>'recipient' = ${recipient}`);
+    queueFallbackConditions.push(sql`${auditLogTable.metadata}->>'recipient' = ${recipient}`);
   }
 
-  const rows = await db.select({
+  const selection = {
     id: auditLogTable.id,
     createdAt: auditLogTable.createdAt,
     actionType: auditLogTable.actionType,
@@ -1350,14 +1500,73 @@ async function fetchRelatedAuditRows(
     entityId: auditLogTable.entityId,
     description: auditLogTable.description,
     metadata: auditLogTable.metadata,
-  })
+    changeDiff: auditLogTable.changeDiff,
+    actorId: auditLogTable.actorId,
+    actorEmail: auditLogTable.actorEmail,
+  } as const;
+
+  const fallbackRows = await db
+    .select(selection)
     .from(auditLogTable)
-    .where(and(...conditions))
+    .where(and(...queueFallbackConditions))
     .orderBy(desc(auditLogTable.createdAt))
     .limit(RELATED_AUDIT_LIMIT);
 
+  // Only run the template-edit lookup when the comms-log row actually
+  // identifies its template. Sends without a templateSlug (e.g. ad-hoc
+  // direct sends) wouldn't have a stable join key, so we'd just be
+  // surfacing every recent edit on every channel — too noisy to be useful.
+  let templateRows: typeof fallbackRows = [];
+  if (log.templateSlug) {
+    const templateEntityType =
+      log.channel === "email"
+        ? EMAIL_TEMPLATE_ENTITY_TYPE
+        : log.channel === "sms"
+          ? SMS_TEMPLATE_ENTITY_TYPE
+          : null;
+    if (templateEntityType) {
+      templateRows = await db
+        .select(selection)
+        .from(auditLogTable)
+        .where(
+          and(
+            inArray(auditLogTable.actionType, TEMPLATE_AUDIT_ACTION_TYPES as unknown as string[]),
+            eq(auditLogTable.entityType, templateEntityType),
+            sql`${auditLogTable.metadata}->>'templateSlug' = ${log.templateSlug}`,
+            gte(
+              auditLogTable.createdAt,
+              new Date(log.createdAt.getTime() - RELATED_TEMPLATE_AUDIT_WINDOW_BEFORE_MS),
+            ),
+            lte(
+              auditLogTable.createdAt,
+              new Date(log.createdAt.getTime() + RELATED_TEMPLATE_AUDIT_WINDOW_AFTER_MS),
+            ),
+          ),
+        )
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(RELATED_AUDIT_LIMIT);
+    }
+  }
+
+  // Merge, dedupe (defensive — the two queries don't overlap by action
+  // type, but being explicit keeps the contract clear), sort newest-first,
+  // and cap at the dialog's limit so the UI stays scannable.
+  const seen = new Set<number>();
+  const merged: typeof fallbackRows = [];
+  for (const row of [...fallbackRows, ...templateRows]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(row);
+  }
+  merged.sort((a, b) => {
+    const aMs = a.createdAt ? a.createdAt.getTime() : 0;
+    const bMs = b.createdAt ? b.createdAt.getTime() : 0;
+    return bMs - aMs;
+  });
+  const capped = merged.slice(0, RELATED_AUDIT_LIMIT);
+
   const canSeePii = hasPermission(req.adminRole, "members:pii");
-  return canSeePii ? rows : rows.map(redactAuditRowPii);
+  return canSeePii ? capped : capped.map(redactAuditRowPii);
 }
 
 router.get("/admin/communications/member/:userId/history", requirePermission("communications:view"), async (req: Request, res: Response) => {

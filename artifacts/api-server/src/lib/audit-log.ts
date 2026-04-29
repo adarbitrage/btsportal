@@ -42,7 +42,15 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
   }
 }
 
-export function logAdminAction(req: Request, actionType: string, entityType: string, entityId: string | undefined, description: string, changeDiff?: Record<string, unknown>) {
+export function logAdminAction(
+  req: Request,
+  actionType: string,
+  entityType: string,
+  entityId: string | undefined,
+  description: string,
+  changeDiff?: Record<string, unknown>,
+  metadata?: Record<string, unknown>,
+) {
   return logAuditEvent({
     actorId: req.userId,
     actorEmail: req.userEmail,
@@ -51,6 +59,7 @@ export function logAdminAction(req: Request, actionType: string, entityType: str
     entityId,
     description,
     changeDiff,
+    metadata,
     req,
   });
 }

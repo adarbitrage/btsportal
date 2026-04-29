@@ -22,10 +22,15 @@ interface RelatedAuditRow {
   entityType: string;
   description: string;
   metadata?: Record<string, unknown> | null;
+  changeDiff?: Record<string, unknown> | null;
+  actorEmail?: string | null;
 }
 
 const RELATED_AUDIT_LABELS: Record<string, string> = {
   queue_fallback: "Queue fallback",
+  template_create: "Template created",
+  template_update: "Template edited",
+  template_delete: "Template deleted",
 };
 
 function RelatedAuditList({ rows }: { rows?: RelatedAuditRow[] | null }) {
@@ -43,9 +48,29 @@ function RelatedAuditList({ rows }: { rows?: RelatedAuditRow[] | null }) {
             ? format(ts, "MMM d, yyyy h:mm:ss a")
             : "Unknown";
           const label = RELATED_AUDIT_LABELS[row.actionType] ?? row.actionType;
-          const reason = row.metadata && typeof (row.metadata as Record<string, unknown>).reason === "string"
-            ? ((row.metadata as Record<string, unknown>).reason as string)
-            : null;
+          const meta = (row.metadata ?? {}) as Record<string, unknown>;
+          // Inline subtitle prefers the queue_fallback `reason` (existing
+          // behavior) and otherwise summarises template edits with their
+          // changedFields so admins can see *what* an edit touched
+          // without expanding the audit row. Both are truncated by the
+          // surrounding flex layout to keep the list scannable.
+          let subtitle: string | null = null;
+          if (typeof meta.reason === "string") {
+            subtitle = meta.reason;
+          } else if (
+            row.actionType === "template_update" ||
+            row.actionType === "template_create" ||
+            row.actionType === "template_delete"
+          ) {
+            const slug = typeof meta.templateSlug === "string" ? meta.templateSlug : null;
+            const diff = (row.changeDiff ?? {}) as Record<string, unknown>;
+            const fields = Array.isArray(diff.changedFields)
+              ? (diff.changedFields as unknown[]).filter((f): f is string => typeof f === "string").join(", ")
+              : null;
+            const actor = row.actorEmail || null;
+            const parts = [slug, fields, actor].filter(Boolean) as string[];
+            subtitle = parts.length > 0 ? parts.join(" · ") : null;
+          }
           const href = `/admin/audit-log?actionType=${encodeURIComponent(row.actionType)}&entityType=${encodeURIComponent(row.entityType)}&expand=${row.id}`;
           return (
             <Link
@@ -57,8 +82,8 @@ function RelatedAuditList({ rows }: { rows?: RelatedAuditRow[] | null }) {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <Badge variant="outline" className="text-[10px]">{label}</Badge>
-                  {reason && (
-                    <span className="text-[11px] text-muted-foreground truncate" title={reason}>{reason}</span>
+                  {subtitle && (
+                    <span className="text-[11px] text-muted-foreground truncate" title={subtitle}>{subtitle}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground whitespace-nowrap">

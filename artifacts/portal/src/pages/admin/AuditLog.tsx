@@ -638,6 +638,9 @@ export default function AuditLog() {
                   <SelectItem value="queue_fallback_alert">Queue fallback alert</SelectItem>
                   <SelectItem value="auth_rate_limit_blocked">Auth rate limit blocked</SelectItem>
                   <SelectItem value="signup_notice_suppressed">Signup notice suppressed</SelectItem>
+                  <SelectItem value="template_create">Template created</SelectItem>
+                  <SelectItem value="template_update">Template edited</SelectItem>
+                  <SelectItem value="template_delete">Template deleted</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -679,6 +682,8 @@ export default function AuditLog() {
                   <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
                   <SelectItem value="auth_signup_notice_suppression">Signup notice suppression</SelectItem>
                   <SelectItem value="oncall_destinations">On-call destinations</SelectItem>
+                  <SelectItem value="email_template">Email template</SelectItem>
+                  <SelectItem value="sms_template">SMS template</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
