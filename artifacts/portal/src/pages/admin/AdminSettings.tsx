@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink } from "lucide-react";
 import {
   adminPanelApi,
   type AuthRateLimitAlertConfigStatus,
@@ -507,6 +507,18 @@ function OnCallHistorySection({ events, loading }: { events: OnCallHistoryEvent[
           {events.map((event) => (
             <OnCallHistoryRow key={event.id} event={event} />
           ))}
+        </div>
+      )}
+      {!loading && (
+        <div className="flex justify-end pt-1">
+          <a
+            href="/admin/audit-log?entityType=oncall_destinations"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            data-testid="link-oncall-view-all-audit"
+          >
+            View all in Audit Log
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       )}
     </div>

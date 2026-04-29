@@ -437,6 +437,7 @@ export default function AuditLog() {
                   <SelectItem value="alert">Alert</SelectItem>
                   <SelectItem value="auth_rate_limit">Auth rate limit</SelectItem>
                   <SelectItem value="auth_signup_notice_suppression">Signup notice suppression</SelectItem>
+                  <SelectItem value="oncall_destinations">On-call destinations</SelectItem>
                 </SelectContent>
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
