@@ -31,6 +31,7 @@ interface QueueFallbackAlertEvent {
 const FALLBACK_EVENTS_LIMIT = 50;
 const ALERT_EVENTS_LIMIT = 20;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
+const NEW_EVENT_HIGHLIGHT_MS = 6_000;
 
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
@@ -46,8 +47,43 @@ export default function SystemHealth() {
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
   const [refreshInFlight, setRefreshInFlight] = useState(0);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
+  const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
   const inFlightRef = useRef(0);
+  const previousMaxEventIdRef = useRef<number | null>(null);
+  const hasLoadedFallbackEventsRef = useRef(false);
+  const highlightTimersRef = useRef<Map<number, number>>(new Map());
   const { toast } = useToast();
+
+  const markEventsAsNew = useCallback((ids: number[]) => {
+    if (ids.length === 0) return;
+    setHighlightedEventIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+    ids.forEach((id) => {
+      const existing = highlightTimersRef.current.get(id);
+      if (existing) window.clearTimeout(existing);
+      const timerId = window.setTimeout(() => {
+        setHighlightedEventIds((prev) => {
+          if (!prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        highlightTimersRef.current.delete(id);
+      }, NEW_EVENT_HIGHLIGHT_MS);
+      highlightTimersRef.current.set(id, timerId);
+    });
+  }, []);
+
+  useEffect(() => {
+    const timers = highlightTimersRef.current;
+    return () => {
+      timers.forEach((tid) => window.clearTimeout(tid));
+      timers.clear();
+    };
+  }, []);
 
   const loadHealth = useCallback(async (silent = false) => {
     try {
@@ -69,8 +105,21 @@ export default function SystemHealth() {
     try {
       if (!silent) setEventsLoading(true);
       const data = await adminPanelApi.getQueueFallbackEvents(FALLBACK_EVENTS_LIMIT);
-      setFallbackEvents(Array.isArray(data?.events) ? data.events : []);
+      const events: QueueFallbackEvent[] = Array.isArray(data?.events) ? data.events : [];
+      setFallbackEvents(events);
       setEventsError(null);
+
+      const newMaxId = events.reduce((max, e) => (e.id > max ? e.id : max), 0);
+      if (hasLoadedFallbackEventsRef.current && previousMaxEventIdRef.current !== null) {
+        const prevMax = previousMaxEventIdRef.current;
+        const newIds = events.filter((e) => e.id > prevMax).map((e) => e.id);
+        if (newIds.length > 0) {
+          markEventsAsNew(newIds);
+        }
+      }
+      previousMaxEventIdRef.current = newMaxId;
+      hasLoadedFallbackEventsRef.current = true;
+
       return true;
     } catch (err: any) {
       if (silent) {
@@ -81,7 +130,7 @@ export default function SystemHealth() {
     } finally {
       if (!silent) setEventsLoading(false);
     }
-  }, []);
+  }, [markEventsAsNew]);
 
   const loadAlertEvents = useCallback(async (silent = false) => {
     try {
@@ -603,9 +652,30 @@ export default function SystemHealth() {
                         {fallbackEvents.map((event) => {
                           const ts = event.createdAt ? new Date(event.createdAt) : null;
                           const tsLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString() : "Unknown";
+                          const isNew = highlightedEventIds.has(event.id);
                           return (
-                            <tr key={event.id} className="hover:bg-muted/20">
-                              <td className="px-4 py-2 whitespace-nowrap text-xs">{tsLabel}</td>
+                            <tr
+                              key={event.id}
+                              className={`hover:bg-muted/20 transition-colors duration-1000 ${
+                                isNew ? "bg-yellow-100 dark:bg-yellow-900/40" : ""
+                              }`}
+                              data-testid={`fallback-event-row-${event.id}`}
+                              data-new-event={isNew ? "true" : "false"}
+                            >
+                              <td className="px-4 py-2 whitespace-nowrap text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span>{tsLabel}</span>
+                                  {isNew && (
+                                    <Badge
+                                      variant="default"
+                                      className="text-[9px] px-1.5 py-0 bg-yellow-500 hover:bg-yellow-500 text-white border-transparent"
+                                      data-testid={`new-event-badge-${event.id}`}
+                                    >
+                                      new
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-4 py-2">
                                 {event.channel ? (
                                   <Badge variant={event.channel === "email" ? "secondary" : "outline"} className="text-[10px]">
