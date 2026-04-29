@@ -260,6 +260,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /members/me/checkout:
+    post:
+      operationId: startMemberCheckout
+      tags: [members]
+      summary: Start a hosted-checkout flow for an upgrade tier
+      description: |
+        Resolves the configured checkout URL for the requested plan, prefills
+        it with the member's email and name, and returns it for the portal to
+        redirect to. Refuses to start checkout for the member's current plan
+        or any lower tier (HTTP 409). The cart provider's existing webhook
+        (`/webhooks/thrivecart`) updates entitlements once the order
+        completes — the portal does not grant access from this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartMemberCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartMemberCheckoutResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not an upgrade for this member, or has no checkout configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /documents:
     get:
       operationId: getLegalDocuments
@@ -6764,6 +6808,30 @@ components:
           type: string
           description: The email address that the member had previously requested before an admin cancellation, suitable for pre-filling the email-change form.
       required: [prefillEmail]
+
+    StartMemberCheckoutBody:
+      type: object
+      properties:
+        planSlug:
+          type: string
+          minLength: 1
+          description: Slug of the product the member wants to upgrade to (e.g. `launchpad`, `3month`, `lifetime`).
+        returnPath:
+          type: string
+          description: Optional relative path the cart should bounce the member back to after a successful purchase. Must start with `/` and contain no scheme or authority — anything else is replaced with the default `/plans?upgraded=1`.
+      required: [planSlug]
+
+    StartMemberCheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          description: Hosted checkout URL the portal should redirect to. Already includes the member's prefilled email/name and the `return_url`.
+        planSlug:
+          type: string
+        planName:
+          type: string
+      required: [checkoutUrl, planSlug, planName]
 
     VerifyEmailChangeBody:
       type: object

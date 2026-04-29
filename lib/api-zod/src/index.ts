@@ -309,6 +309,8 @@ export type {
   SlaDashboard,
   SlaDashboardByTier,
   SlotsResponse,
+  StartMemberCheckoutBody,
+  StartMemberCheckoutResponse,
   SuccessResponse,
   SystemPromptVersion,
   TaxFormSubmission,

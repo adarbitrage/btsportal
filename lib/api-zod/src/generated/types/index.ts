@@ -308,6 +308,8 @@ export * from "./signedDocumentSummary";
 export * from "./slaDashboard";
 export * from "./slaDashboardByTier";
 export * from "./slotsResponse";
+export * from "./startMemberCheckoutBody";
+export * from "./startMemberCheckoutResponse";
 export * from "./successResponse";
 export * from "./systemPromptVersion";
 export * from "./taxFormSubmission";

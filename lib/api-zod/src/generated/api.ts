@@ -230,6 +230,42 @@ export const GetMemberEmailChangePrefillResponse = zod.object({
 });
 
 /**
+ * Resolves the configured checkout URL for the requested plan, prefills
+it with the member's email and name, and returns it for the portal to
+redirect to. Refuses to start checkout for the member's current plan
+or any lower tier (HTTP 409). The cart provider's existing webhook
+(`/webhooks/thrivecart`) updates entitlements once the order
+completes — the portal does not grant access from this endpoint.
+
+ * @summary Start a hosted-checkout flow for an upgrade tier
+ */
+
+export const StartMemberCheckoutBody = zod.object({
+  planSlug: zod
+    .string()
+    .min(1)
+    .describe(
+      "Slug of the product the member wants to upgrade to (e.g. `launchpad`, `3month`, `lifetime`).",
+    ),
+  returnPath: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional relative path the cart should bounce the member back to after a successful purchase. Must start with `\/` and contain no scheme or authority — anything else is replaced with the default `\/plans?upgraded=1`.",
+    ),
+});
+
+export const StartMemberCheckoutResponse = zod.object({
+  checkoutUrl: zod
+    .string()
+    .describe(
+      "Hosted checkout URL the portal should redirect to. Already includes the member's prefilled email\/name and the `return_url`.",
+    ),
+  planSlug: zod.string(),
+  planName: zod.string(),
+});
+
+/**
  * @summary Fetch legal documents
  */
 export const GetLegalDocumentsQueryParams = zod.object({

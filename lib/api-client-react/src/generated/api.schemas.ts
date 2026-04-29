@@ -811,6 +811,23 @@ export interface EmailChangePrefillResponse {
   prefillEmail: string;
 }
 
+export interface StartMemberCheckoutBody {
+  /**
+   * Slug of the product the member wants to upgrade to (e.g. `launchpad`, `3month`, `lifetime`).
+   * @minLength 1
+   */
+  planSlug: string;
+  /** Optional relative path the cart should bounce the member back to after a successful purchase. Must start with `/` and contain no scheme or authority — anything else is replaced with the default `/plans?upgraded=1`. */
+  returnPath?: string;
+}
+
+export interface StartMemberCheckoutResponse {
+  /** Hosted checkout URL the portal should redirect to. Already includes the member's prefilled email/name and the `return_url`. */
+  checkoutUrl: string;
+  planSlug: string;
+  planName: string;
+}
+
 export interface VerifyEmailChangeBody {
   /** @minLength 1 */
   token: string;

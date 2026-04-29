@@ -236,6 +236,8 @@ import type {
   SignDocumentResponse,
   SlaDashboard,
   SlotsResponse,
+  StartMemberCheckoutBody,
+  StartMemberCheckoutResponse,
   SuccessResponse,
   SystemPromptVersion,
   TaxFormSubmission,
@@ -1290,6 +1292,99 @@ export function useGetMemberEmailChangePrefill<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Resolves the configured checkout URL for the requested plan, prefills
+it with the member's email and name, and returns it for the portal to
+redirect to. Refuses to start checkout for the member's current plan
+or any lower tier (HTTP 409). The cart provider's existing webhook
+(`/webhooks/thrivecart`) updates entitlements once the order
+completes — the portal does not grant access from this endpoint.
+
+ * @summary Start a hosted-checkout flow for an upgrade tier
+ */
+export const getStartMemberCheckoutUrl = () => {
+  return `/api/members/me/checkout`;
+};
+
+export const startMemberCheckout = async (
+  startMemberCheckoutBody: StartMemberCheckoutBody,
+  options?: RequestInit,
+): Promise<StartMemberCheckoutResponse> => {
+  return customFetch<StartMemberCheckoutResponse>(getStartMemberCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(startMemberCheckoutBody),
+  });
+};
+
+export const getStartMemberCheckoutMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startMemberCheckout>>,
+    TError,
+    { data: BodyType<StartMemberCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startMemberCheckout>>,
+  TError,
+  { data: BodyType<StartMemberCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["startMemberCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startMemberCheckout>>,
+    { data: BodyType<StartMemberCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startMemberCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartMemberCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startMemberCheckout>>
+>;
+export type StartMemberCheckoutMutationBody = BodyType<StartMemberCheckoutBody>;
+export type StartMemberCheckoutMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Start a hosted-checkout flow for an upgrade tier
+ */
+export const useStartMemberCheckout = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startMemberCheckout>>,
+    TError,
+    { data: BodyType<StartMemberCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startMemberCheckout>>,
+  TError,
+  { data: BodyType<StartMemberCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getStartMemberCheckoutMutationOptions(options));
+};
 
 /**
  * @summary Fetch legal documents

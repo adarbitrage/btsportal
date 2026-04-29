@@ -83,30 +83,35 @@ async function seed() {
       thrivecartProductId: "thrivecart_launchpad",
       entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"]),
       priceDisplay: "TBD", sortOrder: 4,
+      checkoutUrl: "https://bts.thrivecart.com/bts-launchpad/",
     },
     {
       slug: "3month", name: "BTS 3-Month Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_3month",
       entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "coaching:group", "community:access", "commissions:entry", "support:enhanced", "chat:full"]),
       durationDays: 90, priceDisplay: "TBD", sortOrder: 5,
+      checkoutUrl: "https://bts.thrivecart.com/bts-3-month-mentorship/",
     },
     {
       slug: "6month", name: "BTS 6-Month Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_6month",
       entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:mid", "support:unlimited", "chat:full"]),
       durationDays: 180, priceDisplay: "TBD", sortOrder: 6,
+      checkoutUrl: "https://bts.thrivecart.com/bts-6-month-mentorship/",
     },
     {
       slug: "1year", name: "BTS 1-Year Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_1year",
       entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:monthly", "community:access", "commissions:premium", "support:unlimited", "chat:full"]),
       durationDays: 365, priceDisplay: "TBD", sortOrder: 7,
+      checkoutUrl: "https://bts.thrivecart.com/bts-1-year-mentorship/",
     },
     {
       slug: "lifetime", name: "BTS Lifetime Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_lifetime",
       entitlementKeys: JSON.stringify(["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:weekly", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime"]),
       priceDisplay: "TBD", sortOrder: 8,
+      checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
     },
   ];
   const insertedProducts = await db.insert(productsTable).values(productData).returning();

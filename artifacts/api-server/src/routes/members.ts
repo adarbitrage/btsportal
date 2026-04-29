@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable, sessionsTable, emailChangeAttemptsTable } from "@workspace/db";
+import { db, usersTable, sessionsTable, emailChangeAttemptsTable, productsTable } from "@workspace/db";
 import { eq, and, isNull, ne, gte, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import {
@@ -15,10 +15,13 @@ import {
   CancelMemberEmailChangeResponse as CancelEmailChangeResponse,
   DismissAdminCancelledEmailChangeResponse,
   GetMemberEmailChangePrefillResponse as EmailChangePrefillResponse,
+  StartMemberCheckoutBody,
+  StartMemberCheckoutResponse,
 } from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import { verifyEmailChangePrefillToken } from "../lib/email-change-prefill-token";
+import { PRODUCT_RANK } from "../lib/product-rank";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -458,6 +461,150 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
     }),
   );
 });
+
+// Starts a hosted-checkout flow for an upgrade tier, returning the URL the
+// portal should redirect the member to. We resolve the URL on the server (not
+// the client) so:
+//   1. The upgrade-rank check is authoritative — a tampered client can't ask
+//      us to "upgrade" them to a lower or equal tier.
+//   2. The product->checkout-url mapping lives in the database, so swapping
+//      cart providers doesn't need a portal release.
+//   3. We can prefill the cart with the member's email/name from a trusted
+//      source instead of trusting client-supplied identity.
+//
+// On success the cart provider's webhook (already wired up at
+// /api/webhooks/thrivecart) updates entitlements when the order completes.
+router.post("/members/me/checkout", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const parsed = StartMemberCheckoutBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      details: parsed.error.issues,
+    });
+    return;
+  }
+
+  const planSlug = parsed.data.planSlug.trim();
+  // Free-form returnUrl on the request would let an attacker turn this
+  // endpoint into an open redirect (we'd echo their URL back into the
+  // checkout link as `return_url`, and ThriveCart bounces buyers there
+  // post-purchase). We only accept a relative path that starts with `/`
+  // and contains no scheme/authority — the API server prefixes its own
+  // public origin before it goes into the cart link.
+  const returnPath = normalizeReturnPath(parsed.data.returnPath);
+
+  const [user] = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      email: usersTable.email,
+      sourceProduct: usersTable.sourceProduct,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const [product] = await db
+    .select({
+      slug: productsTable.slug,
+      name: productsTable.name,
+      checkoutUrl: productsTable.checkoutUrl,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.slug, planSlug))
+    .limit(1);
+  if (!product) {
+    res.status(404).json({ error: "Plan not found." });
+    return;
+  }
+
+  if (!product.checkoutUrl) {
+    res.status(409).json({
+      error:
+        "This plan can't be purchased online yet. Please contact support to upgrade.",
+    });
+    return;
+  }
+
+  // Authoritative upgrade-rank check — must be a strictly higher tier than
+  // what the member currently sits on. This intentionally treats unknown
+  // source products as rank 0 (same as `free`) so a brand-new user with no
+  // sourceProduct can still upgrade to anything.
+  const targetRank = PRODUCT_RANK[product.slug] ?? 0;
+  const currentSlug = user.sourceProduct ?? "free";
+  const currentRank = PRODUCT_RANK[currentSlug] ?? 0;
+  if (targetRank <= currentRank) {
+    res.status(409).json({
+      error:
+        "You're already on this plan or a higher one — pick a higher tier to upgrade.",
+    });
+    return;
+  }
+
+  const checkoutUrl = buildCheckoutUrl(product.checkoutUrl, {
+    email: user.email,
+    name: user.name,
+    returnPath,
+    publicOrigin: getPublicOrigin(req),
+  });
+
+  res.json(
+    StartMemberCheckoutResponse.parse({
+      checkoutUrl,
+      planSlug: product.slug,
+      planName: product.name,
+    }),
+  );
+});
+
+function normalizeReturnPath(input: string | undefined): string {
+  const fallback = "/plans?upgraded=1";
+  if (!input) return fallback;
+  // Reject anything that could escape our origin: schemes, protocol-relative
+  // URLs, or backslashes (Windows-style paths some browsers normalise to /).
+  if (
+    !input.startsWith("/") ||
+    input.startsWith("//") ||
+    input.startsWith("/\\") ||
+    /[\r\n]/.test(input)
+  ) {
+    return fallback;
+  }
+  return input;
+}
+
+function getPublicOrigin(req: { protocol: string; get: (h: string) => string | undefined }): string {
+  // PUBLIC_PORTAL_ORIGIN wins when set (e.g. https://portal.bts.example) so
+  // we don't accidentally hand the cart a localhost URL in production. Fall
+  // back to the request's own origin for dev/preview environments.
+  const fromEnv = process.env.PUBLIC_PORTAL_ORIGIN;
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  const host = req.get("host") || "localhost";
+  return `${req.protocol}://${host}`;
+}
+
+function buildCheckoutUrl(
+  base: string,
+  opts: { email: string; name: string; returnPath: string; publicOrigin: string },
+): string {
+  const url = new URL(base);
+  // ThriveCart's prefill parameter names — the portal's cart links are wired
+  // to ThriveCart in seed/admin, so this matches what the cart expects. Other
+  // providers will safely ignore unknown query params.
+  url.searchParams.set("prefilled_email", opts.email);
+  const [first, ...rest] = opts.name.trim().split(/\s+/);
+  if (first) url.searchParams.set("customer_first_name", first);
+  if (rest.length > 0) {
+    url.searchParams.set("customer_last_name", rest.join(" "));
+  }
+  url.searchParams.set("return_url", `${opts.publicOrigin}${opts.returnPath}`);
+  return url.toString();
+}
 
 // Marks the member's most recent admin-cancelled email-change attempt as
 // dismissed so the in-app banner on the account page stops re-rendering on

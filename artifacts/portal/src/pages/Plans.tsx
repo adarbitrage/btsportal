@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Crown,
   Check,
   X as XIcon,
   Sparkles,
   ArrowLeft,
-  Mail,
-  Star,
   Loader2,
+  PartyPopper,
+  Star,
+  ArrowUpRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -17,7 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   useGetCurrentMember,
   useListPlans,
+  useStartMemberCheckout,
+  getGetCurrentMemberQueryKey,
+  getGetMemberEntitlementsQueryKey,
+  getGetMemberProductsQueryKey,
   type Plan,
+  type StartMemberCheckoutResponse,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { getProductDisplayName } from "@/components/layout/sidebar-nav";
@@ -36,6 +43,21 @@ const COMPARISON_FEATURES: Array<{ key: string; label: string }> = [
   { key: "support:vip", label: "VIP support" },
   { key: "access:lifetime", label: "Lifetime access" },
 ];
+
+function extractErrorMessage(error: unknown): string {
+  // The generated client throws ApiError on non-2xx responses with the parsed
+  // JSON body on `.data` (see lib/api-client-react/src/custom-fetch.ts). We
+  // surface the server-provided `error` string when present and fall back to
+  // a generic message rather than letting the user see "[object Object]".
+  if (typeof error === "object" && error !== null) {
+    const maybeData = (error as { data?: unknown }).data;
+    if (typeof maybeData === "object" && maybeData !== null) {
+      const msg = (maybeData as { error?: unknown }).error;
+      if (typeof msg === "string" && msg.trim()) return msg;
+    }
+  }
+  return "We couldn't start checkout. Please try again or contact support.";
+}
 
 function useQueryParam(name: string): string | null {
   const [location] = useLocation();
@@ -59,13 +81,57 @@ export default function Plans() {
   const currentSlug = member?.sourceProduct ?? "free";
   const currentRank = PRODUCT_RANK[currentSlug] ?? 0;
   const highlightSlug = useQueryParam("highlight");
+  const upgradedFlag = useQueryParam("upgraded");
   const highlightedRef = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
+
+  // Per-card pending state so we can disable just the button being clicked
+  // (the cart redirect is async and the user could otherwise mash other cards
+  // while waiting for the redirect to fire).
+  const [pendingSlug, setPendingSlug] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const checkoutMutation = useStartMemberCheckout({
+    mutation: {
+      onError: (error: unknown) => {
+        setPendingSlug(null);
+        setErrorMessage(extractErrorMessage(error));
+      },
+    },
+  });
 
   useEffect(() => {
     if (highlightSlug && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [highlightSlug, plans.length]);
+
+  // When the cart bounces a successful buyer back here with `?upgraded=1`,
+  // refetch member-scoped data so the dashboard / sidebar / current-tier
+  // badge reflect the new entitlements as soon as the webhook lands. The
+  // webhook is what actually grants access — this just re-pulls it.
+  useEffect(() => {
+    if (!upgradedFlag) return;
+    queryClient.invalidateQueries({ queryKey: getGetCurrentMemberQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetMemberEntitlementsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetMemberProductsQueryKey() });
+  }, [upgradedFlag, queryClient]);
+
+  const handleUpgrade = (planSlug: string) => {
+    setErrorMessage(null);
+    setPendingSlug(planSlug);
+    checkoutMutation.mutate(
+      { data: { planSlug, returnPath: "/plans?upgraded=1" } },
+      {
+        onSuccess: (resp: StartMemberCheckoutResponse) => {
+          // Full-page navigation (not in-app routing) — we're leaving the SPA
+          // for the cart provider's hosted checkout and need the browser to
+          // actually load that origin.
+          window.location.href = resp.checkoutUrl;
+        },
+      },
+    );
+  };
 
   return (
     <AppLayout>
@@ -105,6 +171,34 @@ export default function Plans() {
             </div>
           </div>
         </div>
+
+        {upgradedFlag && (
+          <div
+            className="rounded-xl border border-primary/40 bg-primary/5 p-4 flex items-start gap-3"
+            data-testid="plans-upgrade-success-banner"
+            role="status"
+          >
+            <PartyPopper className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div className="text-sm text-foreground">
+              <p className="font-semibold">Thanks for upgrading!</p>
+              <p className="text-muted-foreground">
+                We're confirming your purchase with our payment provider. Your new
+                tier and features will appear here within a minute or two — feel
+                free to refresh if you don't see them yet.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div
+            className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-foreground"
+            data-testid="plans-checkout-error-banner"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        )}
 
         {plansLoading ? (
           <div
@@ -192,20 +286,26 @@ export default function Plans() {
                       <Button
                         variant={plan.recommended ? "default" : "outline"}
                         className="w-full"
-                        disabled={isCurrent || isLowerTier}
+                        disabled={
+                          isCurrent || isLowerTier || pendingSlug !== null
+                        }
                         data-testid={`plan-cta-${plan.slug}`}
-                        onClick={() => {
-                          window.location.href = `mailto:support@bts.example?subject=${encodeURIComponent(
-                            `Upgrade to ${plan.name}`,
-                          )}`;
-                        }}
+                        onClick={() => handleUpgrade(plan.slug)}
                       >
-                        <Mail className="w-4 h-4 mr-2" />
+                        {pendingSlug === plan.slug ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : isCurrent || isLowerTier ? (
+                          <Check className="w-4 h-4 mr-2" />
+                        ) : (
+                          <ArrowUpRight className="w-4 h-4 mr-2" />
+                        )}
                         {isCurrent
                           ? "You're on this plan"
                           : isLowerTier
                             ? "Lower than current"
-                            : "Talk to us about upgrading"}
+                            : pendingSlug === plan.slug
+                              ? "Opening checkout…"
+                              : `Upgrade to ${plan.name.replace("BTS ", "")}`}
                       </Button>
                     </CardContent>
                   </Card>
