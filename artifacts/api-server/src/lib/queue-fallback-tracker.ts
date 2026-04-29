@@ -88,7 +88,7 @@ async function persistFallback(
       actionType: QUEUE_FALLBACK_ACTION_TYPE,
       entityType: QUEUE_FALLBACK_ENTITY_TYPE,
       entityId: channel,
-      description: `Queue fallback fired for ${channel} channel${opts.reason ? ` (${opts.reason})` : ""}`,
+      description: `Queue fallback fired for ${channel} channel${opts.recipient ? ` to ${opts.recipient}` : ""}${opts.reason ? ` (${opts.reason})` : ""}`,
       metadata: {
         channel,
         recipient: opts.recipient ?? null,

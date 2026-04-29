@@ -70,7 +70,7 @@ beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
-async function findRecentFallbackEntry(channel: "email" | "sms", recipient: string) {
+async function findRecentFallbackEntries(channel: "email" | "sms", recipient: string) {
   // Give the fire-and-forget audit insert a moment to land.
   for (let i = 0; i < 20; i++) {
     const rows = await db
@@ -80,21 +80,20 @@ async function findRecentFallbackEntry(channel: "email" | "sms", recipient: stri
         and(
           gt(auditLogTable.id, baselineAuditId),
           eq(auditLogTable.actionType, "queue_fallback"),
-          eq(auditLogTable.entityType, "communication"),
         ),
       );
-    const match = rows.find((r) => {
+    const matches = rows.filter((r) => {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       return meta.channel === channel && meta.recipient === recipient;
     });
-    if (match) return match;
+    if (matches.length > 0) return matches;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  return null;
+  return [];
 }
 
-describe("queueEmail / queueSms write a queue_fallback row to the audit log", () => {
-  it("writes an audit_log row with channel/recipient/reason metadata when the email queue is unavailable", async () => {
+describe("queueEmail / queueSms write a single queue_fallback row to the audit log", () => {
+  it("writes exactly one audit_log row with channel/recipient/reason metadata when the email queue is unavailable", async () => {
     const recipient = `${TEST_TAG}-email-recipient@example.test`;
 
     const outcome = await CommunicationService.queueEmail({
@@ -106,18 +105,23 @@ describe("queueEmail / queueSms write a queue_fallback row to the audit log", ()
     // the fallback-into-direct path was still taken — that's what we audit.
     expect(["sent_direct", "skipped", "failed"]).toContain(outcome.result);
 
-    const entry = await findRecentFallbackEntry("email", recipient);
-    expect(entry).not.toBeNull();
-    expect(entry!.entityType).toBe("communication");
-    expect(entry!.description).toMatch(/Email queue unavailable/);
-    expect(entry!.description).toContain(recipient);
-    const meta = entry!.metadata as Record<string, unknown>;
+    const entries = await findRecentFallbackEntries("email", recipient);
+    // A single fallback used to write two rows (entityType "queue" *and*
+    // "communication"). It should now write exactly one.
+    expect(entries).toHaveLength(1);
+    const entry = entries[0]!;
+    expect(entry.entityType).toBe("queue");
+    expect(entry.entityId).toBe("email");
+    expect(entry.description).toContain("email");
+    expect(entry.description).toContain(recipient);
+    expect(entry.description).toContain("queue_unavailable");
+    const meta = entry.metadata as Record<string, unknown>;
     expect(meta.channel).toBe("email");
     expect(meta.recipient).toBe(recipient);
     expect(meta.reason).toBe("queue_unavailable");
   });
 
-  it("writes an audit_log row when the sms queue is unavailable", async () => {
+  it("writes exactly one audit_log row when the sms queue is unavailable", async () => {
     const recipient = `+1555${Math.floor(1_000_000 + Math.random() * 8_999_999)}`;
 
     const outcome = await CommunicationService.queueSms({
@@ -126,12 +130,15 @@ describe("queueEmail / queueSms write a queue_fallback row to the audit log", ()
     });
     expect(["sent_direct", "skipped", "failed"]).toContain(outcome.result);
 
-    const entry = await findRecentFallbackEntry("sms", recipient);
-    expect(entry).not.toBeNull();
-    expect(entry!.entityType).toBe("communication");
-    expect(entry!.description).toMatch(/SMS queue unavailable/);
-    expect(entry!.description).toContain(recipient);
-    const meta = entry!.metadata as Record<string, unknown>;
+    const entries = await findRecentFallbackEntries("sms", recipient);
+    expect(entries).toHaveLength(1);
+    const entry = entries[0]!;
+    expect(entry.entityType).toBe("queue");
+    expect(entry.entityId).toBe("sms");
+    expect(entry.description).toContain("sms");
+    expect(entry.description).toContain(recipient);
+    expect(entry.description).toContain("queue_unavailable");
+    const meta = entry.metadata as Record<string, unknown>;
     expect(meta.channel).toBe("sms");
     expect(meta.recipient).toBe(recipient);
     expect(meta.reason).toBe("queue_unavailable");

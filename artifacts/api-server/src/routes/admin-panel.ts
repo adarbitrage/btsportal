@@ -735,9 +735,10 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
  *
  * Filters by `actionType = "queue_fallback"` and `entityType = "queue"` so
  * the list lines up 1:1 with the counts in `getQueueFallbackStatsFromDb`
- * (which uses the same filter). The communication-service writes a second
- * audit row with `entityType = "communication"` for each fallback; we skip
- * those here to avoid showing the same event twice.
+ * (which uses the same filter). Each fallback writes exactly one row with
+ * this entityType; the filter is also belt-and-braces protection against
+ * any older `entityType = "communication"` rows still sitting in the table
+ * from before that duplicate write was removed.
  */
 router.get("/admin/system/queue-fallback-events", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {

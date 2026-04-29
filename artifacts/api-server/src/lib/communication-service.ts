@@ -13,28 +13,15 @@ import {
 } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
-import { recordQueueFallback, type QueueChannel } from "./queue-fallback-tracker";
-import { logAuditEvent } from "./audit-log";
+import { recordQueueFallback } from "./queue-fallback-tracker";
 
-/**
- * Persist a queue-fallback event to the audit log so admins can investigate
- * after the fact (e.g. correlate a member's missing email with a Redis
- * outage at the same time). Fire-and-forget — `logAuditEvent` already
- * swallows DB errors so a failed audit write never breaks the send path.
- */
-function recordQueueFallbackAudit(
-  channel: QueueChannel,
-  recipient: string,
-  reason: string,
-): void {
-  const channelLabel = channel === "email" ? "Email" : "SMS";
-  void logAuditEvent({
-    actionType: "queue_fallback",
-    entityType: "communication",
-    description: `${channelLabel} queue unavailable — direct-send fallback to ${recipient}`,
-    metadata: { channel, recipient, reason },
-  });
-}
+// Queue-fallback events are persisted to the audit log inside
+// `recordQueueFallback` (entityType="queue"). We used to also write a
+// duplicate `entityType="communication"` row from this file, which doubled
+// disk usage and confused anyone reading the raw audit_log table. The single
+// "queue" row already carries channel, recipient, and reason in both its
+// description and metadata, and is the row the System Health UI and
+// `getQueueFallbackStatsFromDb` filter on.
 
 const QUEUE_ADD_TIMEOUT_MS = Number.parseInt(
   process.env.QUEUE_ADD_TIMEOUT_MS || "2000",
@@ -570,7 +557,6 @@ export const CommunicationService = {
     }
 
     recordQueueFallback("email", { recipient: to, reason: "queue_unavailable" });
-    recordQueueFallbackAudit("email", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending email directly to ${to}`);
     const direct = await sendEmailDirect(jobData);
     switch (direct.status) {
@@ -619,7 +605,6 @@ export const CommunicationService = {
     }
 
     recordQueueFallback("sms", { recipient: to, reason: "queue_unavailable" });
-    recordQueueFallbackAudit("sms", to, "queue_unavailable");
     console.warn(`[Comms] Queue unavailable, sending SMS directly to ${to}`);
     const direct = await sendSmsDirect(jobData);
     switch (direct.status) {
