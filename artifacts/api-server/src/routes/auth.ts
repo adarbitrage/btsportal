@@ -462,7 +462,13 @@ export async function processRegisterRequest(params: {
       await CommunicationService.sendEmailNow({
         templateSlug: "signup_attempted",
         to: existing.email,
-        variables: { member_name: existing.name, member_email: existing.email },
+        variables: {
+          member_name: existing.name,
+          member_email: existing.email,
+          // URL-encoded so the address survives ?email= round-trip in the
+          // email's "Sign In" / "Reset Password" CTAs (preserves +, etc.)
+          member_email_encoded: encodeURIComponent(existing.email),
+        },
         userId: existing.id,
       }).catch((err) =>
         console.error("[AUTH] Failed to send signup_attempted notice:", err),
@@ -505,7 +511,11 @@ export async function processRegisterRequest(params: {
         await CommunicationService.sendEmailNow({
           templateSlug: "signup_attempted",
           to: raced.email,
-          variables: { member_name: raced.name, member_email: raced.email },
+          variables: {
+            member_name: raced.name,
+            member_email: raced.email,
+            member_email_encoded: encodeURIComponent(raced.email),
+          },
           userId: raced.id,
         }).catch((e) =>
           console.error("[AUTH] Failed to send signup_attempted notice after race:", e),

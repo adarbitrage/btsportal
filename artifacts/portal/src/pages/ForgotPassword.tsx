@@ -7,8 +7,14 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | string
   | undefined;
 
+function getInitialEmail(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("email") ?? "";
+}
+
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(getInitialEmail);
   const [captchaToken, setCaptchaToken] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
