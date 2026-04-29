@@ -8,7 +8,7 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | undefined;
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, resendVerificationEmail } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +23,9 @@ export default function Register() {
   // user which case happened.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState("");
+  const [resendError, setResendError] = useState("");
   const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
@@ -77,6 +80,25 @@ export default function Register() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!submittedEmail || resending) return;
+    setResending(true);
+    setResendNotice("");
+    setResendError("");
+    try {
+      const message = await resendVerificationEmail(submittedEmail);
+      setResendNotice(message);
+    } catch (err) {
+      const e = err as Error;
+      setResendError(
+        e.message ||
+          "Could not resend the verification email. Please try again in a few minutes.",
+      );
+    } finally {
+      setResending(false);
     }
   };
 
@@ -149,9 +171,63 @@ export default function Register() {
               We just sent a message to <strong>{submittedEmail}</strong>. Open it
               and follow the link to finish.
             </p>
-            <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
               Don't see it? Check your spam folder, then try again in a few minutes.
             </p>
+            {resendNotice ? (
+              <div
+                data-testid="register-resend-verification-notice"
+                style={{
+                  padding: "10px 14px",
+                  background: "#ecfdf5",
+                  border: "1px solid #a7f3d0",
+                  borderRadius: 8,
+                  color: "#065f46",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}
+              >
+                {resendNotice}
+              </div>
+            ) : (
+              <div>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resending}
+                  data-testid="register-resend-verification-button"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: resending ? "#93b4f4" : "#1a56db",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: resending ? "not-allowed" : "pointer",
+                    textDecoration: "underline",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {resending ? "Sending..." : "Didn't get the email? Resend it"}
+                </button>
+                {resendError && (
+                  <div
+                    data-testid="register-resend-verification-error"
+                    style={{
+                      marginTop: 10,
+                      padding: "8px 12px",
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      borderRadius: 6,
+                      color: "#dc2626",
+                      fontSize: 13,
+                    }}
+                  >
+                    {resendError}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
         <form onSubmit={handleSubmit}>
