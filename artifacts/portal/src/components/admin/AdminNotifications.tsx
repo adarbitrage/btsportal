@@ -44,23 +44,41 @@ export function AdminNotifications() {
   };
 
   return (
-    <div ref={ref} className="relative">
-      <Button variant="ghost" size="sm" className="relative p-2" onClick={() => setOpen(!open)}>
+    <div ref={ref} className="relative" data-testid="admin-notifications">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="relative p-2"
+        onClick={() => setOpen(!open)}
+        data-testid="button-admin-notifications"
+        aria-label="Notifications"
+      >
         <Bell className="w-4 h-4" />
         {notifications.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+          <span
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center"
+            data-testid="badge-admin-notifications-count"
+          >
             {notifications.length}
           </span>
         )}
       </Button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-1 w-80 bg-white border rounded-lg shadow-lg z-50">
+        <div
+          className="absolute top-full right-0 mt-1 w-80 bg-white border rounded-lg shadow-lg z-50"
+          data-testid="dropdown-admin-notifications"
+        >
           <div className="p-3 border-b">
             <p className="text-sm font-semibold">Notifications</p>
           </div>
           {notifications.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground text-center">No notifications</div>
+            <div
+              className="p-4 text-sm text-muted-foreground text-center"
+              data-testid="text-admin-notifications-empty"
+            >
+              No notifications
+            </div>
           ) : (
             <div className="max-h-80 overflow-y-auto divide-y">
               {notifications.map((n) => {
@@ -70,13 +88,25 @@ export function AdminNotifications() {
                     key={n.id}
                     onClick={() => { if (n.link) navigate(n.link); setOpen(false); }}
                     className="w-full flex items-start gap-3 p-3 hover:bg-muted/50 text-left transition-colors"
+                    data-testid={`notification-item-${n.id}`}
                   >
                     <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${severityColors[n.severity] || ""}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{n.title}</p>
+                      <p
+                        className="text-sm font-medium"
+                        data-testid={`notification-title-${n.id}`}
+                      >
+                        {n.title}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                     </div>
-                    <Badge variant={n.severity === "high" ? "destructive" : "secondary"} className="text-[10px] shrink-0">{n.severity}</Badge>
+                    <Badge
+                      variant={n.severity === "high" ? "destructive" : "secondary"}
+                      className="text-[10px] shrink-0"
+                      data-testid={`notification-severity-${n.id}`}
+                    >
+                      {n.severity}
+                    </Badge>
                   </button>
                 );
               })}
