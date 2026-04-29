@@ -20,7 +20,11 @@ import {
 } from "@workspace/api-zod";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
-import { verifyEmailChangePrefillToken } from "../lib/email-change-prefill-token";
+import {
+  verifyEmailChangePrefillToken,
+  signEmailChangePrefillToken,
+  buildEmailChangeRestartUrl,
+} from "../lib/email-change-prefill-token";
 import { PRODUCT_RANK } from "../lib/product-rank";
 
 const router: IRouter = Router();
@@ -532,17 +536,26 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
   // carries — those values were copied straight from the attempt row when
   // POST /members/me/email created it. Skip the stamping when there is no
   // pending change so re-cancelling stays a cheap idempotent no-op.
-  //
   // While we're already reading the current pending state, capture it so we
-  // can fire a heads-up to the dropped pending address after the txn
-  // commits. The notification only fires when the link could still
-  // plausibly be opened (non-expired) — an expired pending link is already
-  // a dead end to its recipient — but the attempts-row stamping above runs
-  // for any matching pending so the audit trail is complete either way.
+  // can fire two post-cancel notifications after the txn commits without
+  // an extra DB round-trip:
+  //   * Verified-address notice (with a one-click restart link) — fires
+  //     whenever there was a pending change at all, mirroring the admin-
+  //     cancel path so every cancellation route gives the member the same
+  //     retry-in-one-click experience. Returned as `cancelled` so we can
+  //     also read the verified email + name outside the txn.
+  //   * Dropped-pending heads-up — only fires when the link could still
+  //     plausibly be opened (non-expired); an expired pending link is
+  //     already a dead end to its recipient, so notifying that inbox would
+  //     be more confusing than helpful. The attempts-row stamping above
+  //     still runs for any matching pending so the audit trail is complete
+  //     either way.
   let droppedPendingEmail: string | null = null;
-  await db.transaction(async (tx) => {
+  const cancelled = await db.transaction(async (tx) => {
     const [current] = await tx
       .select({
+        email: usersTable.email,
+        name: usersTable.name,
         pendingEmail: usersTable.pendingEmail,
         emailChangeExpires: usersTable.emailChangeExpires,
       })
@@ -583,9 +596,58 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
         .set({ cancelledAt: new Date(), cancelledByMember: true })
         .where(and(...matchClauses));
     }
+
+    return current ?? null;
   });
 
-  // Heads-up to the dropped pending address (fire-and-forget). No userId
+  // Fire post-cancel notifications only when there was actually a pending
+  // change to cancel — re-cancel of an already-clean account is a silent
+  // no-op so we don't spam either inbox with a misleading "your change
+  // was cancelled" note. Both sends are fire-and-forget: the cancellation
+  // itself has already succeeded and we never want a transient SendGrid/
+  // Redis hiccup to surface as a member-facing 500.
+  //
+  // Mirrors the admin-cancel path in admin-panel.ts so every cancellation
+  // route — admin or self-service — gives the member the same one-click
+  // restart link in the notification to their verified address.
+  if (cancelled?.pendingEmail) {
+    const previousPendingEmail = cancelled.pendingEmail;
+    // Sign a short-lived prefill token tied to this member so the
+    // cancellation email can deep-link straight to the email-change form
+    // with the discarded address pre-filled. The token is verified
+    // server-side against the authenticated session before any pre-fill
+    // occurs (see GET /members/me/email/prefill above), so the URL can't
+    // be used to seed a phishing form on someone else's account.
+    const prefillToken = signEmailChangePrefillToken({
+      userId,
+      prefillEmail: previousPendingEmail,
+    });
+    const restartUrl = buildEmailChangeRestartUrl(
+      process.env.PORTAL_URL || "https://portal.buildtestscale.com",
+      prefillToken,
+    );
+
+    CommunicationService.queueEmail({
+      templateSlug: "email_change_cancelled_by_member",
+      to: cancelled.email,
+      variables: {
+        member_name: cancelled.name,
+        member_email: cancelled.email,
+        cancelled_pending_email: previousPendingEmail,
+        restart_url: restartUrl,
+      },
+      userId,
+    }).catch((err) =>
+      console.error(
+        "[Members] Failed to enqueue email_change_cancelled_by_member notice:",
+        err,
+      ),
+    );
+  }
+
+  // Separate heads-up to the dropped pending address (fire-and-forget),
+  // gated on the pending link being non-expired so we don't notify an
+  // inbox whose verification link is already a dead end. No userId is
   // attached because that inbox may not belong to the verified account
   // owner; the template intentionally avoids account-status language for
   // the same reason.

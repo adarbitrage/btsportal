@@ -6,15 +6,23 @@ import { randomUUID } from "crypto";
 import { db, usersTable, emailChangeAttemptsTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 
-const { sendEmailNowMock } = vi.hoisted(() => ({
+const { sendEmailNowMock, queueEmailMock } = vi.hoisted(() => ({
   sendEmailNowMock: vi.fn<
     (params: unknown) => Promise<{ success: boolean }>
   >(async () => ({ success: true })),
+  // The cancel route also enqueues a verified-address restart-link notice
+  // via queueEmail (Task #282). This file's assertions don't care about
+  // that call — they're scoped to the dropped-pending heads-up — but the
+  // mock still needs to exist or the route 500s.
+  queueEmailMock: vi.fn<
+    (params: unknown) => Promise<{ result: "queued" }>
+  >(async () => ({ result: "queued" as const })),
 }));
 
 vi.mock("../lib/communication-service", () => ({
   CommunicationService: {
     sendEmailNow: sendEmailNowMock,
+    queueEmail: queueEmailMock,
   },
 }));
 
@@ -120,6 +128,8 @@ afterAll(async () => {
 beforeEach(() => {
   sendEmailNowMock.mockClear();
   sendEmailNowMock.mockImplementation(async () => ({ success: true }));
+  queueEmailMock.mockClear();
+  queueEmailMock.mockImplementation(async () => ({ result: "queued" as const }));
 });
 
 describe("POST /api/members/me/email/cancel — heads-up to dropped pending address", () => {

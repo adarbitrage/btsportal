@@ -9,10 +9,12 @@ import { eq, inArray, and, isNull, desc } from "drizzle-orm";
 
 const {
   sendEmailNowMock,
+  queueEmailMock,
   queueGHLSyncMock,
   emitWebhookEventMock,
 } = vi.hoisted(() => ({
   sendEmailNowMock: vi.fn(async () => ({ success: true })),
+  queueEmailMock: vi.fn(async () => ({ result: "queued" as const })),
   queueGHLSyncMock: vi.fn(async () => "job_test_id"),
   emitWebhookEventMock: vi.fn(async () => undefined),
 }));
@@ -20,6 +22,7 @@ const {
 vi.mock("../lib/communication-service", () => ({
   CommunicationService: {
     sendEmailNow: sendEmailNowMock,
+    queueEmail: queueEmailMock,
   },
 }));
 
@@ -118,6 +121,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   sendEmailNowMock.mockClear();
+  queueEmailMock.mockClear();
   queueGHLSyncMock.mockClear();
   emitWebhookEventMock.mockClear();
 });
@@ -442,6 +446,113 @@ describe("POST /api/members/me/email/cancel (cancel pending change)", () => {
       .from(emailChangeAttemptsTable)
       .where(eq(emailChangeAttemptsTable.userId, user.id));
     expect(attempts).toHaveLength(0);
+  });
+
+  it("notifies the verified address with a pre-filled restart link mirroring the admin-cancel flow", async () => {
+    // Every cancellation route — admin or self-service — should give the
+    // member the same retry-in-one-click experience in the notice to their
+    // verified address. The companion notice to the dropped pending
+    // address is intentionally NOT sent here; that's tracked separately.
+    const user = await insertUser("cancel-notify");
+    const newEmail = `${TEST_TAG}-cancel-notify-new@example.test`;
+
+    const requestRes = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail });
+    expect(requestRes.status).toBe(200);
+    // The request handler uses sendEmailNow (verify + notice) — different
+    // mock from the cancellation path which uses queueEmail.
+    expect(queueEmailMock).not.toHaveBeenCalled();
+
+    const cancelRes = await request(app)
+      .post("/api/members/me/email/cancel")
+      .set("Cookie", signCookie(user.id, user.email));
+    expect(cancelRes.status).toBe(200);
+
+    // Exactly one notification: to the verified address. Sending to the
+    // dropped pending address is tracked as a separate piece of work.
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+
+    type QueueArgs = {
+      templateSlug: string;
+      to: string;
+      userId?: number;
+      variables: Record<string, string>;
+    };
+    const verifiedCall = queueEmailMock.mock.calls[0]?.[0] as QueueArgs;
+
+    expect(verifiedCall.templateSlug).toBe("email_change_cancelled_by_member");
+    // The email goes to the (still-current) verified address, not the
+    // dropped pending one.
+    expect(verifiedCall.to).toBe(user.email);
+    expect(verifiedCall.userId).toBe(user.id);
+    expect(verifiedCall.variables.member_name).toBe(user.name);
+    expect(verifiedCall.variables.member_email).toBe(user.email);
+    expect(verifiedCall.variables.cancelled_pending_email).toBe(newEmail);
+
+    // Deep-link variable: the restart URL must point at /account?
+    // email_change_prefill=<jwt> on the configured portal so the member
+    // can retry the change in one click. The token must verify back to
+    // the same userId + prefill email so the portal can pre-fill the
+    // form without trusting client-supplied values.
+    const restartUrl = verifiedCall.variables.restart_url as string;
+    expect(restartUrl).toBeTruthy();
+    expect(restartUrl).toMatch(/\/account\?email_change_prefill=/);
+    const tokenFromUrl = decodeURIComponent(
+      restartUrl.split("email_change_prefill=")[1] ?? "",
+    );
+    const verified = (
+      await import("../lib/email-change-prefill-token")
+    ).verifyEmailChangePrefillToken(tokenFromUrl);
+    expect(verified).toEqual({
+      userId: user.id,
+      prefillEmail: newEmail.toLowerCase(),
+    });
+  });
+
+  it("does not enqueue a cancellation notice when there is no pending change", async () => {
+    // Re-cancelling an already-clean account is a silent no-op so we don't
+    // spam the member with a misleading "your change was cancelled" note.
+    const user = await insertUser("cancel-notify-noop");
+
+    const res = await request(app)
+      .post("/api/members/me/email/cancel")
+      .set("Cookie", signCookie(user.id, user.email));
+    expect(res.status).toBe(200);
+
+    expect(queueEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("still returns 200 to the member if the notification enqueue fails", async () => {
+    // The fire-and-forget enqueue blows up: the cancellation itself must
+    // still succeed and the member must never see a 500 because SendGrid/
+    // Redis is having a bad day.
+    const user = await insertUser("cancel-notify-failure");
+    const newEmail = `${TEST_TAG}-cancel-notify-failure-new@example.test`;
+
+    const requestRes = await request(app)
+      .post("/api/members/me/email")
+      .set("Cookie", signCookie(user.id, user.email))
+      .send({ currentPassword: TEST_PASSWORD, newEmail });
+    expect(requestRes.status).toBe(200);
+
+    queueEmailMock.mockRejectedValueOnce(new Error("redis exploded"));
+
+    const cancelRes = await request(app)
+      .post("/api/members/me/email/cancel")
+      .set("Cookie", signCookie(user.id, user.email));
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.message).toMatch(/cancelled/i);
+
+    const updated = await getUser(user.id);
+    expect(updated.pendingEmail).toBeNull();
+    expect(updated.emailChangeToken).toBeNull();
+    expect(updated.emailChangeExpires).toBeNull();
+
+    // Notification was attempted exactly once even though it rejected —
+    // it must not retry inline.
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
   });
 });
 
