@@ -41,6 +41,7 @@ export const adminPanelApi = {
     expand?: number;
     cursor?: string;
     direction?: "forward" | "backward";
+    jumpTo?: string;
   }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));
@@ -52,6 +53,7 @@ export const adminPanelApi = {
     if (params.expand != null) qs.set("expand", String(params.expand));
     if (params.cursor) qs.set("cursor", params.cursor);
     if (params.direction) qs.set("direction", params.direction);
+    if (params.jumpTo) qs.set("jumpTo", params.jumpTo);
     const res = await authFetch(`/admin/audit-log?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch audit log");
     return res.json();

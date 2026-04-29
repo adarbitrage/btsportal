@@ -491,7 +491,7 @@ function rowToCursor(row: { createdAt: Date | null; id: number }): AuditCursor |
 
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
-    const { actionType, entityType, actorId, startDate, endDate, page, limit = "50", expand, cursor, direction } = req.query;
+    const { actionType, entityType, actorId, startDate, endDate, page, limit = "50", expand, cursor, direction, jumpTo } = req.query;
 
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
 
@@ -509,6 +509,16 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     const expandIdRaw = typeof expand === "string" && /^\d+$/.test(expand) ? parseInt(expand, 10) : null;
     const decodedCursor = decodeAuditCursor(cursor);
     const cursorDirection: "forward" | "backward" = direction === "backward" ? "backward" : "forward";
+
+    // "Jump to date/time": parse a client-supplied timestamp into a synthetic
+    // anchor that can ride the (created_at, id) keyset path. Invalid values
+    // are dropped silently so the request still renders the default newest
+    // page instead of failing.
+    const jumpToDate = (() => {
+      if (typeof jumpTo !== "string" || jumpTo.length === 0) return null;
+      const d = new Date(jumpTo);
+      return Number.isNaN(d.getTime()) ? null : d;
+    })();
 
     // ---- expand=<id> deep-link (O(log n + page_size)) --------------------
     // Look up the target row's (createdAt, id), confirm filters, then walk
@@ -587,6 +597,72 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       }
       // Target row missing or filtered out — fall through to the normal
       // listing so the page still renders something coherent.
+    }
+
+    // ---- jumpTo=<iso> deep-jump (O(log n + page_size)) -------------------
+    // "Jump to a specific date/time": find matching rows at-or-before the
+    // chosen timestamp using the (created_at, id) index and render a page
+    // anchored there (newest at the top of the page = first row at-or-before
+    // jumpTo). This is the cursor-era replacement for "page 1000": no offset
+    // math, no count of skipped rows. A synthetic anchor with i =
+    // MAX_SAFE_INTEGER lets olderOrEqualToCursor return rows at any id on
+    // the boundary timestamp. Cursor takes precedence so the regular
+    // Newer/Older buttons keep working after the initial jump.
+    if (jumpToDate && !decodedCursor && expandIdRaw == null) {
+      // Audit row ids are int4 in Postgres, so the synthetic anchor uses
+      // the int4 max (2^31 - 1) instead of MAX_SAFE_INTEGER. Anything
+      // larger trips "value out of range for type integer" on the bind.
+      const anchor: AuditCursor = { t: jumpToDate.getTime(), i: 2_147_483_647 };
+      const olderWhere = whereClause
+        ? and(whereClause, olderOrEqualToCursor(anchor))
+        : olderOrEqualToCursor(anchor);
+      const olderLookup = await db.select().from(auditLogTable).where(olderWhere)
+        .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+        .limit(limitNum + 1);
+      const hasMoreOlder = olderLookup.length > limitNum;
+      const window = hasMoreOlder ? olderLookup.slice(0, limitNum) : olderLookup;
+      const first = window[0];
+      const last = window[window.length - 1];
+
+      // Probe whether any row exists strictly newer than the anchor (or the
+      // top of the window if it's non-empty) so the UI can offer "Newer".
+      // Cheap (LIMIT 1) lookup against the same composite index.
+      const probeAnchor = first ? rowToCursor(first) : anchor;
+      let hasNewer = false;
+      if (probeAnchor) {
+        const probeWhere = whereClause
+          ? and(whereClause, newerThanCursor(probeAnchor))
+          : newerThanCursor(probeAnchor);
+        const probe = await db
+          .select({ id: auditLogTable.id })
+          .from(auditLogTable)
+          .where(probeWhere)
+          .limit(1);
+        hasNewer = probe.length > 0;
+      }
+
+      // Single COUNT(*) so the UI can show "N matching" alongside exports —
+      // matches the behaviour of the first-page and expand= branches.
+      const total = await safeCount(
+        db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
+      );
+
+      res.json({
+        logs: sanitize(window),
+        pagination: { page: null, limit: limitNum, total, totalPages: null },
+        exportCap: AUDIT_LOG_EXPORT_CAP,
+        cursors: {
+          next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
+          // If the window is empty (jumped before any matching rows exist)
+          // fall back to the synthetic anchor so the user can still walk
+          // toward newer rows from the chosen instant.
+          prev: hasNewer
+            ? encodeAuditCursor(first ? rowToCursor(first)! : anchor)
+            : null,
+        },
+        jumpTo: { requested: jumpToDate.toISOString(), found: window.length > 0 },
+      });
+      return;
     }
 
     // ---- cursor-based pagination (preferred, O(log n + page_size)) --------

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, CalendarSearch } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -60,6 +60,13 @@ export default function AuditLog() {
   // window centered on the deep-linked row we don't want to keep relocating
   // on every filter change or paginate click.
   const initialExpandRef = useRef<number | null>(initialParams.expand);
+  // "Jump to date/time" control. The input is a `datetime-local` value
+  // (browser-local "YYYY-MM-DDTHH:mm"); on submit we convert to an ISO
+  // string and stash it in pendingJumpRef so the very next load() seeks
+  // that timestamp on the server. The ref is cleared after dispatch so
+  // subsequent Newer/Older clicks paginate normally via cursors.
+  const [jumpToValue, setJumpToValue] = useState("");
+  const pendingJumpRef = useRef<string | null>(null);
   const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
 
@@ -67,34 +74,65 @@ export default function AuditLog() {
     try {
       setLoading(true);
       const expand = initialExpandRef.current;
-      // When deep-linked via `?expand=<id>`, ask the API for the window that
-      // contains the row (O(log n) lookup) instead of paging through the
-      // filtered view by hand. After the first load we drop the expand id
-      // so subsequent paginate clicks navigate normally.
+      const jumpTo = pendingJumpRef.current;
+      // Three pinned modes for the request, in order of priority:
+      // 1) `expand=<id>` deep-link — server returns a window centered on
+      //    the row (O(log n) lookup).
+      // 2) `jumpTo=<iso>` — server seeks the first matching row at-or-before
+      //    the chosen instant via the (created_at, id) index.
+      // 3) `cursor=…` — normal Newer/Older paging. With nothing set we get
+      //    the default newest-first page.
+      // expand and jumpTo are one-shot: cleared after dispatch so follow-up
+      // paginate clicks navigate by cursor and don't keep re-jumping.
       const data = await adminPanelApi.getAuditLog({
         ...filters,
         limit: PAGE_LIMIT,
         ...(expand != null
           ? { expand }
-          : opts?.cursor
-            ? { cursor: opts.cursor, direction: opts.direction ?? "forward" }
-            : {}),
+          : jumpTo != null
+            ? { jumpTo }
+            : opts?.cursor
+              ? { cursor: opts.cursor, direction: opts.direction ?? "forward" }
+              : {}),
       });
       setLogs(data.logs);
       setCursors(data.cursors ?? { next: null, prev: null });
       // The API only returns `total` on filter-changing fetches (initial
-      // load and the deep-link `expand=` path) — cursor pagination skips it
-      // to stay O(log n + page_size). Keep the prior count when it's null
-      // so the UI doesn't flicker as the user clicks Newer/Older.
+      // load, deep-link `expand=`, and `jumpTo=`) — cursor pagination skips
+      // it to stay O(log n + page_size). Keep the prior count when it's
+      // null so the UI doesn't flicker as the user clicks Newer/Older.
       const apiTotal = data.pagination?.total;
       if (typeof apiTotal === "number") setTotalMatching(apiTotal);
       if (typeof data.exportCap === "number") setExportCap(data.exportCap);
       if (expand != null) initialExpandRef.current = null;
+      if (jumpTo != null) {
+        pendingJumpRef.current = null;
+        if (data.jumpTo && data.jumpTo.found === false) {
+          toast({
+            title: "No entries at-or-before that time",
+            description: "Use Newer to step forward from the chosen instant, or pick an earlier date.",
+          });
+        }
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  // Triggered by the "Jump to date/time" control. Converts the browser-local
+  // datetime-local value into an ISO string (the server side uses `new Date`
+  // and seeks the (created_at, id) index from there) and re-runs load().
+  const handleJump = async () => {
+    if (!jumpToValue) return;
+    const parsed = new Date(jumpToValue);
+    if (Number.isNaN(parsed.getTime())) {
+      toast({ title: "Invalid date/time", description: "Pick a valid moment to jump to.", variant: "destructive" });
+      return;
+    }
+    pendingJumpRef.current = parsed.toISOString();
+    await load();
   };
 
   // Filter changes always restart at the newest page (cursors are filter-
@@ -295,6 +333,42 @@ export default function AuditLog() {
               </Select>
               <Input type="date" className="w-40" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} placeholder="Start Date" />
               <Input type="date" className="w-40" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} placeholder="End Date" />
+              <div
+                className="flex items-center gap-2 ml-auto"
+                data-testid="audit-jump-to-control"
+              >
+                <label
+                  htmlFor="audit-jump-to-input"
+                  className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1"
+                  title="Seek the first audit entry at-or-before the chosen date/time"
+                >
+                  <CalendarSearch className="w-3.5 h-3.5" />
+                  Jump to:
+                </label>
+                <Input
+                  id="audit-jump-to-input"
+                  type="datetime-local"
+                  className="w-56"
+                  value={jumpToValue}
+                  onChange={(e) => setJumpToValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleJump();
+                    }
+                  }}
+                  data-testid="audit-jump-to-input"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!jumpToValue || loading}
+                  onClick={handleJump}
+                  data-testid="audit-jump-to-button"
+                >
+                  Jump
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
