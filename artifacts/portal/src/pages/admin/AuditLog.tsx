@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,14 @@ function readUrlParams() {
   };
 }
 
+const PAGE_LIMIT = 50;
+
 export default function AuditLog() {
   const initialParams = readUrlParams();
   const [logs, setLogs] = useState<any[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
+  // Keyset cursors returned by the API. `next` walks toward older rows,
+  // `prev` walks toward newer rows. Either can be null at the boundaries.
+  const [cursors, setCursors] = useState<{ next: string | null; prev: string | null }>({ next: null, prev: null });
   const [filters, setFilters] = useState({
     actionType: initialParams.actionType,
     entityType: initialParams.entityType,
@@ -45,26 +49,32 @@ export default function AuditLog() {
   const [expandedId, setExpandedId] = useState<number | null>(initialParams.expand);
   const [loading, setLoading] = useState(true);
   const pendingExpandRef = useRef<number | null>(initialParams.expand);
-  // Held only for the very first fetch — once the API has computed which page
-  // contains the row we don't want to keep relocating on every filter change
-  // or pagination click.
+  // Held only for the very first fetch — once the API has returned the
+  // window centered on the deep-linked row we don't want to keep relocating
+  // on every filter change or paginate click.
   const initialExpandRef = useRef<number | null>(initialParams.expand);
   const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
 
-  const load = async (page?: number) => {
+  const load = async (opts?: { cursor?: string; direction?: "forward" | "backward" }) => {
     try {
       setLoading(true);
       const expand = initialExpandRef.current;
-      // When deep-linked via `?expand=<id>`, let the server compute which page
-      // contains that row instead of hard-coding page=1; that way deep-links to
-      // older audit rows don't silently land on page 1 of the filtered view.
+      // When deep-linked via `?expand=<id>`, ask the API for the window that
+      // contains the row (O(log n) lookup) instead of paging through the
+      // filtered view by hand. After the first load we drop the expand id
+      // so subsequent paginate clicks navigate normally.
       const data = await adminPanelApi.getAuditLog({
         ...filters,
-        ...(expand != null ? { expand } : { page: page ?? 1 }),
+        limit: PAGE_LIMIT,
+        ...(expand != null
+          ? { expand }
+          : opts?.cursor
+            ? { cursor: opts.cursor, direction: opts.direction ?? "forward" }
+            : {}),
       });
       setLogs(data.logs);
-      setPagination(data.pagination);
+      setCursors(data.cursors ?? { next: null, prev: null });
       if (expand != null) initialExpandRef.current = null;
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -73,6 +83,8 @@ export default function AuditLog() {
     }
   };
 
+  // Filter changes always restart at the newest page (cursors are filter-
+  // specific, so a stale cursor would be meaningless under new filters).
   useEffect(() => { load(); }, [filters]);
 
   // After the logs render, scroll the deep-linked row into view (one-shot —
@@ -120,6 +132,9 @@ export default function AuditLog() {
       toast({ title: "Export failed", description: err.message, variant: "destructive" });
     }
   };
+
+  const hasNewer = cursors.prev !== null;
+  const hasOlder = cursors.next !== null;
 
   return (
     <AdminLayout>
@@ -244,14 +259,30 @@ export default function AuditLog() {
           </CardContent>
         </Card>
 
-        {pagination.totalPages > 1 && (
+        {(hasNewer || hasOlder) && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+              {logs.length > 0 ? `Showing ${logs.length} entr${logs.length === 1 ? "y" : "ies"}` : ""}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => load(pagination.page - 1)}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages} onClick={() => load(pagination.page + 1)}><ChevronRight className="w-4 h-4" /></Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!hasNewer || loading}
+                onClick={() => cursors.prev && load({ cursor: cursors.prev, direction: "backward" })}
+                data-testid="audit-page-newer"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />Newer
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!hasOlder || loading}
+                onClick={() => cursors.next && load({ cursor: cursors.next, direction: "forward" })}
+                data-testid="audit-page-older"
+              >
+                Older<ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
             </div>
           </div>
         )}

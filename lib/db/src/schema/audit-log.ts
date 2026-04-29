@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const auditLogTable = pgTable("audit_log", {
@@ -14,7 +14,15 @@ export const auditLogTable = pgTable("audit_log", {
   userAgent: text("user_agent"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  // Composite index that backs keyset pagination on the admin Audit Log
+  // endpoint. Postgres can scan a btree in either direction, so the same
+  // index serves both `ORDER BY created_at DESC, id DESC` (forward / older
+  // page) and `ORDER BY created_at ASC, id ASC` (backward / newer page),
+  // and it lets `expand=<id>` deep-links resolve the surrounding window in
+  // O(log n + page_size) instead of counting every preceding row.
+  index("audit_log_created_at_id_idx").on(table.createdAt, table.id),
+]);
 
 export type AuditLog = typeof auditLogTable.$inferSelect;
 export type InsertAuditLog = typeof auditLogTable.$inferInsert;

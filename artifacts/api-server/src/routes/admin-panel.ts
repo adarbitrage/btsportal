@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable } from "@workspace/db";
-import { eq, and, gt, gte, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
+import { eq, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull } from "drizzle-orm";
 import { hasPermission, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactQueueFallbackPii } from "../lib/audit-log";
@@ -192,11 +192,72 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
   }
 });
 
+// Cursor format used by /admin/audit-log keyset pagination. We encode the
+// (createdAt, id) tuple of an anchor row as base64url JSON. The cursor is
+// opaque to clients — they only ever round-trip values produced by the
+// server. `t` is the anchor's createdAt as ms-since-epoch and `i` is its
+// numeric id; together they form the (created_at, id) tuple that the
+// (audit_log_created_at_id_idx) composite index walks.
+type AuditCursor = { t: number; i: number };
+
+function encodeAuditCursor(c: AuditCursor): string {
+  return Buffer.from(JSON.stringify(c), "utf8").toString("base64url");
+}
+
+function decodeAuditCursor(raw: unknown): AuditCursor | null {
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  try {
+    const json = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    if (!json || typeof json !== "object") return null;
+    const t = Number((json as Record<string, unknown>).t);
+    const i = Number((json as Record<string, unknown>).i);
+    if (!Number.isFinite(t) || !Number.isInteger(i) || i <= 0) return null;
+    return { t, i };
+  } catch {
+    return null;
+  }
+}
+
+// Build a row-tuple comparison predicate. We can't rely on the SQL row
+// constructor (`(created_at, id) < (?, ?)`) compiling cleanly through every
+// driver path, so we expand the lexicographic compare by hand:
+//   strict_left  OR  (equal AND strict_inner)
+// where `equal` is (created_at = anchor.t) and `strict_inner` is the id
+// compare. This still uses the (created_at, id) btree because the planner
+// recognizes the equality + inequality split.
+function olderThanCursor(c: AuditCursor) {
+  const anchor = new Date(c.t);
+  return or(
+    lt(auditLogTable.createdAt, anchor),
+    and(eq(auditLogTable.createdAt, anchor), lt(auditLogTable.id, c.i)),
+  )!;
+}
+
+function newerThanCursor(c: AuditCursor) {
+  const anchor = new Date(c.t);
+  return or(
+    gt(auditLogTable.createdAt, anchor),
+    and(eq(auditLogTable.createdAt, anchor), gt(auditLogTable.id, c.i)),
+  )!;
+}
+
+function olderOrEqualToCursor(c: AuditCursor) {
+  const anchor = new Date(c.t);
+  return or(
+    lt(auditLogTable.createdAt, anchor),
+    and(eq(auditLogTable.createdAt, anchor), lte(auditLogTable.id, c.i)),
+  )!;
+}
+
+function rowToCursor(row: { createdAt: Date | null; id: number }): AuditCursor | null {
+  if (!row.createdAt) return null;
+  return { t: row.createdAt.getTime(), i: row.id };
+}
+
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
-    const { actionType, entityType, actorId, startDate, endDate, page = "1", limit = "50", expand } = req.query;
+    const { actionType, entityType, actorId, startDate, endDate, page, limit = "50", expand, cursor, direction } = req.query;
 
-    let pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
 
     const conditions: any[] = [];
@@ -207,69 +268,180 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const canSeePii = hasPermission(req.adminRole, "members:pii");
+    const sanitize = (rows: any[]) => (canSeePii ? rows : rows.map(redactQueueFallbackPii));
 
-    // If a deep-link supplied an `expand=<id>`, override the page so the row
-    // actually lands on the rendered slice (otherwise older rows silently
-    // fall onto page 1 and the user has to paginate by hand). We compute the
-    // 1-indexed position of that row within the same filter+sort, then derive
-    // the page from it. The main query uses (createdAt desc, id desc) so the
-    // ordering is deterministic even when several rows share a createdAt.
     const expandIdRaw = typeof expand === "string" && /^\d+$/.test(expand) ? parseInt(expand, 10) : null;
+    const decodedCursor = decodeAuditCursor(cursor);
+    const cursorDirection: "forward" | "backward" = direction === "backward" ? "backward" : "forward";
+
+    // ---- expand=<id> deep-link (O(log n + page_size)) --------------------
+    // Look up the target row's (createdAt, id), confirm filters, then walk
+    // the (created_at, id) index in both directions to assemble a window
+    // centered on the target. No count(*) over the prefix is performed.
     if (expandIdRaw != null) {
-      const targetRows = await db
+      const [target] = await db
         .select({ id: auditLogTable.id, createdAt: auditLogTable.createdAt })
         .from(auditLogTable)
         .where(eq(auditLogTable.id, expandIdRaw))
         .limit(1);
-      const target = targetRows[0];
+
       if (target && target.createdAt) {
-        // Confirm the row matches the supplied filters before relocating;
-        // otherwise it isn't on any page of this filtered view and we fall
-        // back to whatever `page` the client asked for.
-        const matchConditions = whereClause
+        const matchWhere = whereClause
           ? and(eq(auditLogTable.id, expandIdRaw), whereClause)
           : eq(auditLogTable.id, expandIdRaw);
-        const matchRows = await db
+        const [matched] = await db
           .select({ id: auditLogTable.id })
           .from(auditLogTable)
-          .where(matchConditions)
+          .where(matchWhere)
           .limit(1);
-        if (matchRows[0]) {
-          // Count rows that come BEFORE the target under (createdAt desc, id desc):
-          // either a strictly newer createdAt, or same createdAt with a larger id.
-          const tieBreaker = and(eq(auditLogTable.createdAt, target.createdAt), gt(auditLogTable.id, expandIdRaw));
-          const newerThanTarget = or(gt(auditLogTable.createdAt, target.createdAt), tieBreaker);
-          const positionWhere = whereClause ? and(whereClause, newerThanTarget) : newerThanTarget;
-          const [{ count: precedingCount } = { count: 0 }] = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(auditLogTable)
-            .where(positionWhere);
-          const preceding = Number(precedingCount || 0);
-          pageNum = Math.floor(preceding / limitNum) + 1;
+
+        if (matched) {
+          const targetCursor: AuditCursor = { t: target.createdAt.getTime(), i: target.id };
+          const half = Math.floor(limitNum / 2);
+
+          // Newer half: rows strictly newer than the target. Fetch one extra
+          // to detect whether more newer rows exist (drives the prevCursor).
+          const newerWhere = whereClause
+            ? and(whereClause, newerThanCursor(targetCursor))
+            : newerThanCursor(targetCursor);
+          const newerLookup = half > 0
+            ? await db.select().from(auditLogTable).where(newerWhere)
+                .orderBy(asc(auditLogTable.createdAt), asc(auditLogTable.id))
+                .limit(half + 1)
+            : [];
+          const hasMoreNewer = newerLookup.length > half;
+          const newerRows = (hasMoreNewer ? newerLookup.slice(0, half) : newerLookup).reverse();
+
+          // Older half: target row + rows strictly older. Fetch one extra
+          // to detect whether more older rows exist (drives the nextCursor).
+          const remaining = limitNum - newerRows.length;
+          const olderWhere = whereClause
+            ? and(whereClause, olderOrEqualToCursor(targetCursor))
+            : olderOrEqualToCursor(targetCursor);
+          const olderLookup = await db.select().from(auditLogTable).where(olderWhere)
+            .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+            .limit(remaining + 1);
+          const hasMoreOlder = olderLookup.length > remaining;
+          const olderRows = hasMoreOlder ? olderLookup.slice(0, remaining) : olderLookup;
+
+          const logs = [...newerRows, ...olderRows];
+          const first = logs[0];
+          const last = logs[logs.length - 1];
+
+          res.json({
+            logs: sanitize(logs),
+            pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+            cursors: {
+              next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
+              prev: hasMoreNewer && first ? encodeAuditCursor(rowToCursor(first)!) : null,
+            },
+            expand: { targetId: expandIdRaw, found: true },
+          });
+          return;
         }
       }
+      // Target row missing or filtered out — fall through to the normal
+      // listing so the page still renders something coherent.
     }
 
-    const offset = (pageNum - 1) * limitNum;
+    // ---- cursor-based pagination (preferred, O(log n + page_size)) --------
+    if (decodedCursor) {
+      if (cursorDirection === "backward") {
+        // "Newer" page: walk ascending from the cursor, then reverse for the
+        // newest-first display order. Look one row past the limit to detect
+        // whether further newer rows exist.
+        const where = whereClause
+          ? and(whereClause, newerThanCursor(decodedCursor))
+          : newerThanCursor(decodedCursor);
+        const rows = await db.select().from(auditLogTable).where(where)
+          .orderBy(asc(auditLogTable.createdAt), asc(auditLogTable.id))
+          .limit(limitNum + 1);
+        const hasMoreNewer = rows.length > limitNum;
+        const window = (hasMoreNewer ? rows.slice(0, limitNum) : rows).reverse();
+        const first = window[0];
+        const last = window[window.length - 1];
+        res.json({
+          logs: sanitize(window),
+          pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+          cursors: {
+            // We arrived from a newer cursor, so older rows definitely exist
+            // past the bottom of this page — return their cursor so the UI
+            // can offer "Older". For "Newer" we rely on the look-ahead.
+            next: last ? encodeAuditCursor(rowToCursor(last)!) : null,
+            prev: hasMoreNewer && first ? encodeAuditCursor(rowToCursor(first)!) : null,
+          },
+        });
+        return;
+      }
 
-    const [logs, countResult] = await Promise.all([
-      db.select().from(auditLogTable).where(whereClause).orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id)).limit(limitNum).offset(offset),
-      db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
-    ]);
+      // Forward (older) page: descending walk from the cursor.
+      const where = whereClause
+        ? and(whereClause, olderThanCursor(decodedCursor))
+        : olderThanCursor(decodedCursor);
+      const rows = await db.select().from(auditLogTable).where(where)
+        .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+        .limit(limitNum + 1);
+      const hasMoreOlder = rows.length > limitNum;
+      const window = hasMoreOlder ? rows.slice(0, limitNum) : rows;
+      const first = window[0];
+      const last = window[window.length - 1];
+      res.json({
+        logs: sanitize(window),
+        pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+        cursors: {
+          next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
+          // We arrived from an older direction, so newer rows definitely
+          // exist above the top of this page.
+          prev: first ? encodeAuditCursor(rowToCursor(first)!) : null,
+        },
+      });
+      return;
+    }
 
-    // Hide member emails/phones in queue_fallback rows for viewers without
-    // PII access. Other action types are returned unchanged. The DB row is
-    // never modified — only the response payload is scrubbed.
-    const canSeePii = hasPermission(req.adminRole, "members:pii");
-    const visibleLogs = canSeePii ? logs : logs.map(redactQueueFallbackPii);
+    // ---- No cursor: either the very first page (default behaviour) or
+    // legacy `?page=N` offset pagination for old clients. Cursor mode is
+    // preferred and is what the portal UI uses now; the offset path keeps
+    // working for any external caller that still passes `page`.
 
+    if (page !== undefined) {
+      const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+      const offset = (pageNum - 1) * limitNum;
+      const [rows, countResult] = await Promise.all([
+        db.select().from(auditLogTable).where(whereClause)
+          .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+          .limit(limitNum).offset(offset),
+        db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
+      ]);
+      const total = Number(countResult[0]?.count || 0);
+      const first = rows[0];
+      const last = rows[rows.length - 1];
+      res.json({
+        logs: sanitize(rows),
+        pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+        cursors: {
+          next: rows.length === limitNum && pageNum * limitNum < total && last
+            ? encodeAuditCursor(rowToCursor(last)!)
+            : null,
+          prev: pageNum > 1 && first ? encodeAuditCursor(rowToCursor(first)!) : null,
+        },
+      });
+      return;
+    }
+
+    // First page in cursor mode — no anchor yet, so just take the newest N.
+    const rows = await db.select().from(auditLogTable).where(whereClause)
+      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+      .limit(limitNum + 1);
+    const hasMoreOlder = rows.length > limitNum;
+    const window = hasMoreOlder ? rows.slice(0, limitNum) : rows;
+    const last = window[window.length - 1];
     res.json({
-      logs: visibleLogs,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: Number(countResult[0]?.count || 0),
-        totalPages: Math.ceil(Number(countResult[0]?.count || 0) / limitNum),
+      logs: sanitize(window),
+      pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+      cursors: {
+        next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
+        prev: null,
       },
     });
   } catch (error) {

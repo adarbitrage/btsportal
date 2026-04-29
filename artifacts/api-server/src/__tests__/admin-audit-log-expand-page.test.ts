@@ -22,8 +22,8 @@ let adminCookie = "";
 const seededUserIds: number[] = [];
 const seededAuditIds: number[] = [];
 // Newest-first list of seeded ids, matching what the API should return when
-// ordering by (createdAt desc, id desc). The seed loop walks oldest→newest, so
-// reversing gives the same order the endpoint produces.
+// ordering by (createdAt desc, id desc). The seed loop walks oldest→newest,
+// so reversing gives the same order the endpoint produces.
 let newestFirstIds: number[] = [];
 
 beforeAll(async () => {
@@ -82,52 +82,94 @@ async function fetchWith(query: Record<string, string | number>) {
   expect(res.status).toBe(200);
   return res.body as {
     logs: Array<{ id: number }>;
-    pagination: { page: number; limit: number; total: number; totalPages: number };
+    pagination: { page: number | null; limit: number; total: number | null; totalPages: number | null };
+    cursors: { next: string | null; prev: string | null };
+    expand?: { targetId: number; found: boolean };
   };
 }
 
 describe("/admin/audit-log expand=<id>", () => {
-  it("defaults to page 1 with a deterministic newest-first order", async () => {
+  it("defaults to the newest page in cursor mode (no page count required)", async () => {
     const body = await fetchWith({ limit: PAGE_SIZE });
-    expect(body.pagination.page).toBe(1);
-    expect(body.pagination.total).toBe(TOTAL_ROWS);
+    // Cursor-mode default: no page/totalPages, just the newest slice and a
+    // forward cursor pointing at the next (older) page.
+    expect(body.pagination.page).toBeNull();
+    expect(body.pagination.total).toBeNull();
+    expect(body.pagination.totalPages).toBeNull();
     expect(body.logs.map((l) => l.id)).toEqual(newestFirstIds.slice(0, PAGE_SIZE));
+    expect(body.cursors.next).toBeTruthy();
+    expect(body.cursors.prev).toBeNull();
   });
 
-  it("relocates to the page that actually contains the requested row", async () => {
-    // Pick a row that lives on page 3 (positions 101..130 of the newest-first
-    // list, 0-indexed positions 100..129). Position 110 ⇒ page 3.
-    const targetIndex = 110;
+  it("returns a window centered on the requested expand row", async () => {
+    // Pick a row well into the middle of the seeded set so there are plenty
+    // of rows on both sides for the "centered window" math to exercise.
+    const targetIndex = 70;
     const targetId = newestFirstIds[targetIndex];
 
     const body = await fetchWith({ limit: PAGE_SIZE, expand: targetId });
-    const expectedPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
-    expect(body.pagination.page).toBe(expectedPage);
     const ids = body.logs.map((l) => l.id);
     expect(ids).toContain(targetId);
-    // And the slice matches the deterministic newest-first ordering.
-    const start = (expectedPage - 1) * PAGE_SIZE;
-    expect(ids).toEqual(newestFirstIds.slice(start, start + PAGE_SIZE));
+    expect(body.logs).toHaveLength(PAGE_SIZE);
+
+    // Target sits at the boundary between the newer half and older half.
+    // With limit=50 → 25 newer rows precede the target, then target +
+    // 24 older rows.
+    const targetPos = ids.indexOf(targetId);
+    expect(targetPos).toBe(Math.floor(PAGE_SIZE / 2));
+
+    // The slice should be a contiguous newest-first window of the seeded
+    // ids that contains the target id.
+    const startIndex = targetIndex - targetPos;
+    expect(ids).toEqual(newestFirstIds.slice(startIndex, startIndex + PAGE_SIZE));
+
+    // Both directions should still have rows available (next + prev set).
+    expect(body.cursors.next).toBeTruthy();
+    expect(body.cursors.prev).toBeTruthy();
+    expect(body.expand).toEqual({ targetId, found: true });
+  });
+
+  it("clamps the window when expand lands close to the newest row", async () => {
+    // Row at index 5 has only 5 newer rows ahead of it, so the window
+    // shifts: the newer half is shorter, but the page should still be full.
+    const targetIndex = 5;
+    const targetId = newestFirstIds[targetIndex];
+
+    const body = await fetchWith({ limit: PAGE_SIZE, expand: targetId });
+    const ids = body.logs.map((l) => l.id);
+    expect(ids).toContain(targetId);
+    expect(body.logs).toHaveLength(PAGE_SIZE);
+
+    // Target should be at position 5 (only 5 newer rows fit before it).
+    expect(ids.indexOf(targetId)).toBe(targetIndex);
+    expect(ids).toEqual(newestFirstIds.slice(0, PAGE_SIZE));
+    // No newer rows past the top → prev cursor is null.
+    expect(body.cursors.prev).toBeNull();
+    expect(body.cursors.next).toBeTruthy();
   });
 
   it("ignores expand when the row does not match the supplied filters", async () => {
-    // Same target id, but ask for a filter the seeded rows don't satisfy. The
-    // API should leave the page param alone (default page 1) instead of
-    // jumping to a phantom page.
+    // Same target id, but ask for a filter the seeded rows don't satisfy.
+    // The API should fall back to the default newest-first slice instead of
+    // jumping to a phantom window.
     const targetId = newestFirstIds[110];
     const res = await request(app)
       .get("/api/admin/audit-log")
       .query({ actionType: "definitely_not_a_real_action_type", expand: targetId, limit: PAGE_SIZE })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
-    expect(res.body.pagination.page).toBe(1);
+    // No rows match the bogus actionType → empty page, no cursors.
+    expect(res.body.logs).toEqual([]);
+    expect(res.body.cursors).toEqual({ next: null, prev: null });
+    expect(res.body.expand).toBeUndefined();
   });
 
   it("ignores expand when the row id does not exist", async () => {
-    // A wildly out-of-range id parses cleanly but never matches a row, so we
-    // end up on the default page 1.
+    // A wildly out-of-range id parses cleanly but never matches a row, so
+    // we end up on the default newest-first slice.
     const body = await fetchWith({ limit: PAGE_SIZE, expand: 2_147_483_640 });
-    expect(body.pagination.page).toBe(1);
+    expect(body.logs.map((l) => l.id)).toEqual(newestFirstIds.slice(0, PAGE_SIZE));
+    expect(body.expand).toBeUndefined();
 
     // A non-numeric expand value is rejected outright by the regex guard.
     const res = await request(app)
@@ -135,6 +177,6 @@ describe("/admin/audit-log expand=<id>", () => {
       .query({ actionType: ACTION_TYPE, expand: "not-an-id", limit: PAGE_SIZE })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
-    expect(res.body.pagination.page).toBe(1);
+    expect(res.body.logs.map((l: any) => l.id)).toEqual(newestFirstIds.slice(0, PAGE_SIZE));
   });
 });

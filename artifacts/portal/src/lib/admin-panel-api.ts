@@ -31,7 +31,17 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async getAuditLog(params: { page?: number; limit?: number; actionType?: string; entityType?: string; startDate?: string; endDate?: string; expand?: number }) {
+  async getAuditLog(params: {
+    page?: number;
+    limit?: number;
+    actionType?: string;
+    entityType?: string;
+    startDate?: string;
+    endDate?: string;
+    expand?: number;
+    cursor?: string;
+    direction?: "forward" | "backward";
+  }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));
     if (params.limit) qs.set("limit", String(params.limit));
@@ -40,6 +50,8 @@ export const adminPanelApi = {
     if (params.startDate) qs.set("startDate", params.startDate);
     if (params.endDate) qs.set("endDate", params.endDate);
     if (params.expand != null) qs.set("expand", String(params.expand));
+    if (params.cursor) qs.set("cursor", params.cursor);
+    if (params.direction) qs.set("direction", params.direction);
     const res = await authFetch(`/admin/audit-log?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch audit log");
     return res.json();
