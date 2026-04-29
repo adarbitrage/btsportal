@@ -998,7 +998,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-    const [products, tickets, progress, notes, auditHistory, emailHistoryFull, emailAttemptRowsFull] = await Promise.all([
+    const [products, tickets, progress, notes, auditHistory, emailHistoryFull, emailAttemptRowsFull, phoneHistory] = await Promise.all([
       safeQuery(
         db.select({ id: userProductsTable.id, productId: userProductsTable.productId, status: userProductsTable.status, expiresAt: userProductsTable.expiresAt, createdAt: userProductsTable.createdAt, productName: productsTable.name, productSlug: productsTable.slug })
           .from(userProductsTable).innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id)).where(eq(userProductsTable.userId, id))
@@ -1036,6 +1036,13 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
           .orderBy(desc(emailChangeAttemptsTable.createdAt))
           .limit(EMAIL_ATTEMPT_CLASSIFICATION_CAP)
       ),
+      safeQuery(
+        db.select({ id: phoneChangeHistoryTable.id, oldPhone: phoneChangeHistoryTable.oldPhone, newPhone: phoneChangeHistoryTable.newPhone, changedAt: phoneChangeHistoryTable.changedAt })
+          .from(phoneChangeHistoryTable)
+          .where(eq(phoneChangeHistoryTable.userId, id))
+          .orderBy(desc(phoneChangeHistoryTable.changedAt))
+          .limit(50)
+      ),
     ]);
 
     const classified = classifyEmailAttempts(
@@ -1060,6 +1067,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       emailAttempts,
       emailAttemptsTotal: classified.length,
       emailAttemptsPageSize: EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE,
+      phoneHistory,
     });
   } catch (error) {
     console.error("[Admin] Member detail error:", error);

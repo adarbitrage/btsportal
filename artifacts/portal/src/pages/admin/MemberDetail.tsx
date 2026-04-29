@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -53,6 +53,10 @@ export default function MemberDetail() {
   const highlightOldEmail = useMemo(() => {
     const value = new URLSearchParams(searchString).get("highlightOldEmail");
     return value ? value.trim().toLowerCase() : null;
+  }, [searchString]);
+  const highlightOldPhone = useMemo(() => {
+    const value = new URLSearchParams(searchString).get("highlightOldPhone");
+    return value ? value.trim() : null;
   }, [searchString]);
   const highlightedRowRef = useRef<HTMLDivElement | null>(null);
   const [data, setData] = useState<any>(null);
@@ -202,11 +206,12 @@ export default function MemberDetail() {
   }, [memberId]);
 
   useEffect(() => {
-    if (!highlightOldEmail || !data) return;
+    if (!data) return;
+    if (!highlightOldEmail && !highlightOldPhone) return;
     if (highlightedRowRef.current) {
       highlightedRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [highlightOldEmail, data]);
+  }, [highlightOldEmail, highlightOldPhone, data]);
 
   const handleAddNote = async () => {
     if (!noteContent.trim()) return;
@@ -269,7 +274,7 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [] } = data;
+  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [] } = data;
   const unconfirmedAttempts = emailAttempts.filter((a) => a.status !== "confirmed");
   const hasMoreAttempts = emailAttempts.length < emailAttemptsTotal;
 
@@ -399,6 +404,58 @@ export default function MemberDetail() {
                           )}
                           <span className="text-muted-foreground">→</span>
                           <span className="font-mono break-all" data-testid={`text-new-email-${entry.id}`}>{entry.newEmail}</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0 ml-3">
+                        {entry.changedAt ? format(new Date(entry.changedAt), "MMM d, yyyy") : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {phoneHistory.length > 0 && (
+          <Card data-testid="card-phone-history">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Phone className="w-4 h-4" /> Phone history
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {phoneHistory.map((entry: any) => {
+                  const isHighlighted =
+                    !!highlightOldPhone &&
+                    typeof entry.oldPhone === "string" &&
+                    entry.oldPhone.trim() === highlightOldPhone;
+                  return (
+                    <div
+                      key={entry.id}
+                      ref={isHighlighted ? highlightedRowRef : undefined}
+                      className={
+                        "flex items-center justify-between p-2 rounded-md text-sm " +
+                        (isHighlighted
+                          ? "bg-amber-100 ring-2 ring-amber-400"
+                          : "bg-muted/50")
+                      }
+                      data-testid={`row-phone-history-${entry.id}`}
+                      data-highlighted={isHighlighted ? "true" : "false"}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono break-all" data-testid={`text-old-phone-${entry.id}`}>{entry.oldPhone}</span>
+                          {isHighlighted && (
+                            <Badge variant="default" className="bg-amber-500 hover:bg-amber-500 text-[10px]" data-testid={`badge-matched-old-phone-${entry.id}`}>
+                              Matched search
+                            </Badge>
+                          )}
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-mono break-all" data-testid={`text-new-phone-${entry.id}`}>
+                            {entry.newPhone || <span className="text-muted-foreground italic">(removed)</span>}
+                          </span>
                         </div>
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0 ml-3">
