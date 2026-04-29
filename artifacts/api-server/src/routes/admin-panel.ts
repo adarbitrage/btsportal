@@ -292,6 +292,8 @@ router.get("/admin/search", requirePermission("dashboard:view"), async (req: Req
 // server. `t` is the anchor's createdAt as ms-since-epoch and `i` is its
 // numeric id; together they form the (created_at, id) tuple that the
 // (audit_log_created_at_id_idx) composite index walks.
+const AUDIT_LOG_EXPORT_CAP = 10000;
+
 type AuditCursor = { t: number; i: number };
 
 function encodeAuditCursor(c: AuditCursor): string {
@@ -423,9 +425,18 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           const first = logs[0];
           const last = logs[logs.length - 1];
 
+          // Single COUNT(*) over the active filters so the UI can show
+          // "N matching" alongside the export buttons. This runs once per
+          // filter change (the deep-link path is a first fetch); follow-up
+          // cursor pagination skips it.
+          const total = await safeCount(
+            db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause),
+          );
+
           res.json({
             logs: sanitize(logs),
-            pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+            pagination: { page: null, limit: limitNum, total, totalPages: null },
+            exportCap: AUDIT_LOG_EXPORT_CAP,
             cursors: {
               next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
               prev: hasMoreNewer && first ? encodeAuditCursor(rowToCursor(first)!) : null,
@@ -458,6 +469,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
         res.json({
           logs: sanitize(window),
           pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+          exportCap: AUDIT_LOG_EXPORT_CAP,
           cursors: {
             // We arrived from a newer cursor, so older rows definitely exist
             // past the bottom of this page — return their cursor so the UI
@@ -483,6 +495,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       res.json({
         logs: sanitize(window),
         pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+        exportCap: AUDIT_LOG_EXPORT_CAP,
         cursors: {
           next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
           // We arrived from an older direction, so newer rows definitely
@@ -513,6 +526,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       res.json({
         logs: sanitize(rows),
         pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+        exportCap: AUDIT_LOG_EXPORT_CAP,
         cursors: {
           next: rows.length === limitNum && pageNum * limitNum < total && last
             ? encodeAuditCursor(rowToCursor(last)!)
@@ -524,15 +538,22 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     }
 
     // First page in cursor mode — no anchor yet, so just take the newest N.
-    const rows = await db.select().from(auditLogTable).where(whereClause)
-      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
-      .limit(limitNum + 1);
+    // We also run a single COUNT(*) for the active filters so the UI can
+    // surface "N matching" alongside the export buttons. This only fires on
+    // filter changes (the cursor branches above stay count-free).
+    const [rows, totalForFilters] = await Promise.all([
+      db.select().from(auditLogTable).where(whereClause)
+        .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+        .limit(limitNum + 1),
+      safeCount(db.select({ count: sql<number>`count(*)` }).from(auditLogTable).where(whereClause)),
+    ]);
     const hasMoreOlder = rows.length > limitNum;
     const window = hasMoreOlder ? rows.slice(0, limitNum) : rows;
     const last = window[window.length - 1];
     res.json({
       logs: sanitize(window),
-      pagination: { page: null, limit: limitNum, total: null, totalPages: null },
+      pagination: { page: null, limit: limitNum, total: totalForFilters, totalPages: null },
+      exportCap: AUDIT_LOG_EXPORT_CAP,
       cursors: {
         next: hasMoreOlder && last ? encodeAuditCursor(rowToCursor(last)!) : null,
         prev: null,
@@ -543,8 +564,6 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     res.status(500).json({ error: "Failed to fetch audit log" });
   }
 });
-
-const AUDIT_LOG_EXPORT_CAP = 10000;
 
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {

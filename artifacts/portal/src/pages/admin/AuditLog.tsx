@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { ScrollText, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 /**
@@ -40,6 +41,12 @@ export default function AuditLog() {
   // Keyset cursors returned by the API. `next` walks toward older rows,
   // `prev` walks toward newer rows. Either can be null at the boundaries.
   const [cursors, setCursors] = useState<{ next: string | null; prev: string | null }>({ next: null, prev: null });
+  // Total rows matching the active filters and the server-enforced export
+  // cap. Both come from the API on filter changes (the cursor-paginated
+  // calls intentionally skip the COUNT(*) so paging stays cheap), so we
+  // hold the most recent values across pagination here.
+  const [totalMatching, setTotalMatching] = useState<number | null>(null);
+  const [exportCap, setExportCap] = useState<number>(10000);
   const [filters, setFilters] = useState({
     actionType: initialParams.actionType,
     entityType: initialParams.entityType,
@@ -75,6 +82,13 @@ export default function AuditLog() {
       });
       setLogs(data.logs);
       setCursors(data.cursors ?? { next: null, prev: null });
+      // The API only returns `total` on filter-changing fetches (initial
+      // load and the deep-link `expand=` path) — cursor pagination skips it
+      // to stay O(log n + page_size). Keep the prior count when it's null
+      // so the UI doesn't flicker as the user clicks Newer/Older.
+      const apiTotal = data.pagination?.total;
+      if (typeof apiTotal === "number") setTotalMatching(apiTotal);
+      if (typeof data.exportCap === "number") setExportCap(data.exportCap);
       if (expand != null) initialExpandRef.current = null;
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -135,6 +149,15 @@ export default function AuditLog() {
 
   const hasNewer = cursors.prev !== null;
   const hasOlder = cursors.next !== null;
+  const willTruncate = totalMatching != null && totalMatching > exportCap;
+  const exportRowCount = totalMatching == null
+    ? null
+    : Math.min(totalMatching, exportCap);
+  const exportTooltip = totalMatching == null
+    ? "Loading row count…"
+    : willTruncate
+      ? `Your filters match ${totalMatching.toLocaleString()} rows, but exports are capped at ${exportCap.toLocaleString()}. Narrow the date range or add filters to capture all rows.`
+      : `Exports all ${totalMatching.toLocaleString()} matching row${totalMatching === 1 ? "" : "s"}.`;
 
   return (
     <AdminLayout>
@@ -146,9 +169,58 @@ export default function AuditLog() {
             </h1>
             <p className="text-muted-foreground mt-1">Track all admin actions</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleExport("csv")}><Download className="w-4 h-4 mr-1" />CSV</Button>
-            <Button variant="outline" size="sm" onClick={() => handleExport("json")}><Download className="w-4 h-4 mr-1" />JSON</Button>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end text-right">
+              <span
+                className="text-sm font-medium text-foreground"
+                data-testid="audit-total-matching"
+              >
+                {totalMatching == null
+                  ? "Counting…"
+                  : `${totalMatching.toLocaleString()} matching row${totalMatching === 1 ? "" : "s"}`}
+              </span>
+              {willTruncate && (
+                <span
+                  className="text-xs text-destructive flex items-center gap-1"
+                  data-testid="audit-export-truncated-warning"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  Export will be capped at {exportCap.toLocaleString()}
+                </span>
+              )}
+            </div>
+            <TooltipProvider>
+              <div className="flex gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport("csv")}
+                      data-testid="audit-export-csv"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      CSV{exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{exportTooltip}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport("json")}
+                      data-testid="audit-export-json"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      JSON{exportRowCount != null ? ` (${exportRowCount.toLocaleString()})` : ""}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{exportTooltip}</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
           </div>
         </div>
 
@@ -265,7 +337,11 @@ export default function AuditLog() {
         {(hasNewer || hasOlder) && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {logs.length > 0 ? `Showing ${logs.length} entr${logs.length === 1 ? "y" : "ies"}` : ""}
+              {logs.length > 0
+                ? totalMatching != null
+                  ? `Showing ${logs.length.toLocaleString()} of ${totalMatching.toLocaleString()} entr${totalMatching === 1 ? "y" : "ies"}`
+                  : `Showing ${logs.length.toLocaleString()} entr${logs.length === 1 ? "y" : "ies"}`
+                : ""}
             </p>
             <div className="flex gap-2">
               <Button
