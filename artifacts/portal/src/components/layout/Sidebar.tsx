@@ -6,7 +6,6 @@ import {
   Video,
   LifeBuoy,
   MessageCircle,
-  Crown,
   LogOut,
   Settings,
   Activity,
@@ -57,8 +56,6 @@ import {
   UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
@@ -70,6 +67,7 @@ import {
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
+import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 
 const MEMBER_NAV: NavNode[] = [
   {
@@ -605,22 +603,12 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 mt-auto">
-        {!hasLifetime && (
-          <Card className="bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] border-blue-100/50 mb-4 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Crown className="w-4 h-4 text-primary" />
-                <h4 className="font-semibold text-sm text-foreground">Upgrade Your Access</h4>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-                Unlock more content, coaching, and priority support.
-              </p>
-              <Button className="w-full text-xs h-8" variant="default">
-                View Plans
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        <UpgradeFeaturesCard
+          entitlements={entitlements}
+          hasLifetime={hasLifetime}
+          variant="sidebar"
+          onCtaClick={onNavClick}
+        />
 
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">

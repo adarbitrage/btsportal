@@ -11,12 +11,14 @@ import { Link } from "wouter";
 import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
+import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
   const { data: member } = useGetCurrentMember();
   const memberEntitlements = new Set(member?.entitlements ?? []);
   const hasCommissions = Array.from(memberEntitlements).some((e: string) => e.startsWith("commissions:"));
+  const hasLifetime = (member?.sourceProduct ?? "free") === "lifetime";
   const { data: vaultStats } = useVaultStats();
 
   if (isLoading) {
@@ -153,6 +155,12 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
+
+            <UpgradeFeaturesCard
+              entitlements={memberEntitlements}
+              hasLifetime={hasLifetime}
+              variant="dashboard"
+            />
 
             {dashboard.recentAnnouncements.length > 0 && (
               <div>
