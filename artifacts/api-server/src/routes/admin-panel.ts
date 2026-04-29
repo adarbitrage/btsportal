@@ -2513,8 +2513,35 @@ router.get("/admin/system/queue-fallback-alerter-health", requirePermission("sys
   }
 });
 
-router.get("/admin/notifications", requirePermission("notifications:view"), async (_req: Request, res: Response) => {
+router.get("/admin/notifications", requirePermission("notifications:view"), async (req: Request, res: Response) => {
   try {
+    // Optional `?limit=N` lets the bell dropdown cap how many items it pulls
+    // each minute. During a sync storm or runaway alerter the unbounded
+    // payload can grow into the hundreds, which is wasteful on the wire and
+    // slow to render in a 320px popover. We clamp to a small absolute max so
+    // a malicious or buggy caller can't ask the server to materialize an
+    // arbitrarily large list. When the param is absent we keep returning the
+    // raw array for backwards compatibility with anything still calling the
+    // unparameterized endpoint.
+    const HARD_MAX_LIMIT = 200;
+    let limit: number | null = null;
+    if (typeof req.query.limit === "string" && req.query.limit.length > 0) {
+      // Strict integer parse: `parseInt` would silently accept "1.5" (→1) or
+      // "10abc" (→10), so validate the raw string first. Anything that isn't
+      // pure digits is rejected so a stale/buggy caller doesn't get a
+      // surprise truncation that doesn't match what they asked for.
+      if (!/^\d+$/.test(req.query.limit)) {
+        res.status(400).json({ error: "limit must be a positive integer" });
+        return;
+      }
+      const parsed = Number.parseInt(req.query.limit, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        res.status(400).json({ error: "limit must be a positive integer" });
+        return;
+      }
+      limit = Math.min(parsed, HARD_MAX_LIMIT);
+    }
+
     const notifications: { id: string; type: string; severity: string; title: string; message: string; link?: string; createdAt: string }[] = [];
 
     const openTicketCount = await safeCount(db.select({ count: sql<number>`count(*)` }).from(ticketsTable).where(eq(ticketsTable.status, "open")));
@@ -2619,6 +2646,24 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
       evaluateProductionEnvGuards().catch((err) => {
         console.error("[Admin] production env guard dispatch failed:", err);
       });
+    }
+
+    if (limit !== null) {
+      // Most-recent-first so when the bell truncates to N items, admins see
+      // the freshest signal during an incident — not whichever happens to be
+      // appended first by the evaluation pipeline above. The sort is stable
+      // for identical timestamps, which matters because most of these
+      // notifications are stamped at request time and would otherwise scramble
+      // run-to-run, breaking snapshot/e2e expectations.
+      const sorted = [...notifications].sort((a, b) => {
+        if (a.createdAt === b.createdAt) return 0;
+        return a.createdAt < b.createdAt ? 1 : -1;
+      });
+      res.json({
+        notifications: sorted.slice(0, limit),
+        total: notifications.length,
+      });
+      return;
     }
 
     res.json(notifications);

@@ -87,11 +87,21 @@ test.describe("Admin notification bell — badge cap", () => {
       createdAt: new Date().toISOString(),
     }));
 
-    await page.route("**/api/admin/notifications", async (route) => {
+    // The bell now requests `/admin/notifications?limit=50` so it doesn't
+    // download hundreds of records every 60s during a sync storm. The route
+    // glob therefore needs the trailing `*` to also match the limited URL.
+    // We respond with the wrapped `{ notifications, total }` shape the API
+    // returns when a limit is requested — the UI uses `total` for the badge,
+    // which is what lets the cap test still see "99+" even though the
+    // truncated `notifications` array would otherwise look like a quiet day.
+    await page.route("**/api/admin/notifications*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(simulatedNotifications),
+        body: JSON.stringify({
+          notifications: simulatedNotifications.slice(0, 50),
+          total: simulatedNotifications.length,
+        }),
       });
     });
 
@@ -132,5 +142,25 @@ test.describe("Admin notification bell — badge cap", () => {
     const bellBox = await bellButton.boundingBox();
     expect(bellBox, "bell button must have a bounding box").not.toBeNull();
     expect(bellBox!.width).toBeLessThanOrEqual(48);
+
+    // Open the dropdown and verify the truncation footer hint is rendered
+    // when fewer items are shown than the server's reported `total`. This
+    // locks in the contract that admins can always tell *at a glance* that
+    // they're looking at a truncated view, not the full incident.
+    await bellButton.click();
+    const dropdown = page.getByTestId("dropdown-admin-notifications");
+    await expect(dropdown).toBeVisible();
+
+    const truncationHint = page.getByTestId("text-admin-notifications-truncation");
+    await expect(truncationHint).toBeVisible();
+    await expect(truncationHint).toHaveText(
+      `Showing the 50 most recent of ${RUNAWAY_COUNT}.`,
+    );
+
+    // The audit-log footer link must always be present so admins have an
+    // escape hatch to the full history when the dropdown is truncated.
+    await expect(
+      page.getByTestId("link-admin-notifications-view-all"),
+    ).toBeVisible();
   });
 });

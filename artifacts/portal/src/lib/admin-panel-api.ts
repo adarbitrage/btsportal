@@ -810,10 +810,23 @@ export const adminPanelApi = {
     }>;
   },
 
-  async getNotifications() {
-    const res = await authFetch("/admin/notifications");
+  async getNotifications(limit?: number): Promise<{ notifications: any[]; total: number }> {
+    // Pass `?limit=N` so the bell dropdown can cap how many items the API
+    // materializes per 60s poll. The backend returns either:
+    //   - `{ notifications, total }` when a limit was requested, or
+    //   - a bare array (the legacy shape) when no limit is requested.
+    // We normalize both into the wrapped shape so callers always get a
+    // `total` they can use for the badge count even when items are truncated.
+    const path = typeof limit === "number"
+      ? `/admin/notifications?limit=${encodeURIComponent(String(limit))}`
+      : "/admin/notifications";
+    const res = await authFetch(path);
     if (!res.ok) throw new Error("Failed to fetch notifications");
-    return res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return { notifications: data, total: data.length };
+    }
+    return data as { notifications: any[]; total: number };
   },
 
   async getSettings() {

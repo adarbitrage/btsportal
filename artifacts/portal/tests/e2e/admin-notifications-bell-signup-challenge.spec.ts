@@ -89,11 +89,19 @@ test.describe("Admin notification bell — signup-challenge warning", () => {
       createdAt: new Date().toISOString(),
     };
 
-    await page.route("**/api/admin/notifications", async (route) => {
+    // The bell now requests `/admin/notifications?limit=50` so it doesn't
+    // download hundreds of records every 60s during a sync storm. The route
+    // glob therefore needs the trailing `*` to also match the limited URL.
+    // We respond with the wrapped `{ notifications, total }` shape the API
+    // returns when a limit is requested.
+    await page.route("**/api/admin/notifications*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([simulatedNotification]),
+        body: JSON.stringify({
+          notifications: [simulatedNotification],
+          total: 1,
+        }),
       });
     });
 
