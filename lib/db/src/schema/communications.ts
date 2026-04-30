@@ -1,6 +1,13 @@
-import { pgTable, text, serial, integer, boolean, timestamp, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, index, jsonb, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 import { sequencesTable } from "./sequences";
+
+// Shared `variables` column shape guard. Mirrors the guard added in 0022 for
+// `products.entitlement_keys`: a JSONB string scalar (the bug shape from #329
+// where `JSON.stringify([...])` double-encodes through Drizzle's jsonb mapper)
+// would silently break the template-render pipeline's array iteration. The
+// columns are nullable, so the constraint accepts NULL too.
 
 export const emailTemplatesTable = pgTable("email_templates", {
   id: serial("id").primaryKey(),
@@ -20,7 +27,12 @@ export const emailTemplatesTable = pgTable("email_templates", {
   starterHash: text("starter_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  check(
+    "email_templates_variables_is_array",
+    sql`${table.variables} IS NULL OR jsonb_typeof(${table.variables}) = 'array'`,
+  ),
+]);
 
 export const emailTemplateVersionsTable = pgTable("email_template_versions", {
   id: serial("id").primaryKey(),
@@ -38,6 +50,10 @@ export const emailTemplateVersionsTable = pgTable("email_template_versions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("email_template_versions_template_id_idx").on(table.templateId),
+  check(
+    "email_template_versions_variables_is_array",
+    sql`${table.variables} IS NULL OR jsonb_typeof(${table.variables}) = 'array'`,
+  ),
 ]);
 
 export const smsTemplatesTable = pgTable("sms_templates", {
@@ -49,7 +65,12 @@ export const smsTemplatesTable = pgTable("sms_templates", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  check(
+    "sms_templates_variables_is_array",
+    sql`${table.variables} IS NULL OR jsonb_typeof(${table.variables}) = 'array'`,
+  ),
+]);
 
 export const broadcastsTable = pgTable("broadcasts", {
   id: serial("id").primaryKey(),

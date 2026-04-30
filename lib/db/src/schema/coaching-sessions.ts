@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, index, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { coachesTable } from "./coaches";
 import { usersTable } from "./users";
 
@@ -29,6 +30,17 @@ export const coachingSessionsTable = pgTable("coaching_sessions", {
   index("idx_coaching_session_member").on(table.memberId),
   index("idx_coaching_session_scheduled").on(table.scheduledAt),
   index("idx_coaching_session_status").on(table.status),
+  // Pin the storage shape of `action_items` to a JSONB array (or NULL — a
+  // session is allowed to have no items at all). A JSONB string scalar (the
+  // bug shape from #329) would silently break any raw JSONB array operator
+  // (`@>`, `?`, `jsonb_array_elements`) and any future migration off
+  // Drizzle's silent string-to-array reader. Reject the bad shape at the
+  // database layer. Mirrors the guard added in 0022 for
+  // `products.entitlement_keys`.
+  check(
+    "coaching_sessions_action_items_is_array",
+    sql`${table.actionItems} IS NULL OR jsonb_typeof(${table.actionItems}) = 'array'`,
+  ),
 ]);
 
 export interface ActionItem {
