@@ -66,19 +66,64 @@ which seeds a parent `email_templates` row to satisfy the
 writes against each of the three tables; happy-path real-array and
 explicit-NULL writes are accepted. All 13 tests pass against the dev DB.
 
-## Production
+## Production — 2026-05-04
 
-Pending. Recommended sequence:
+### Pre-existing state
 
-1. **Run a sanity query first** — historically the same `JSON.stringify`
-   pattern that broke `vault_resources.tags` was used in template
-   admin tooling, so before applying anything, run the diagnostic query
-   above against production. If any `string` rows exist, the migration's
-   UPDATEs will repair them; capture the counts for the verification
-   block below.
-2. Apply `0029_communications_variables_array_check.sql` against the
-   production DB via the SQL console. The script is idempotent.
-3. Deploy the schema change so `pnpm --filter db push` sees the
-   constraints already in place.
-4. Append a verification block here with the date, any repair counts,
-   and the catalog evidence.
+The pre-application sanity query against the three template tables
+showed every row already held a real JSONB array — none of the
+`JSON.stringify` regression shape that broke `vault_resources.tags`
+had reached the communications schema:
+
+```sql
+SELECT jsonb_typeof(variables) AS shape, count(*)
+FROM email_templates GROUP BY jsonb_typeof(variables);
+-- shape | count
+-- array |    36
+
+SELECT jsonb_typeof(variables) AS shape, count(*)
+FROM email_template_versions GROUP BY jsonb_typeof(variables);
+-- shape | count
+-- array |     2
+
+SELECT jsonb_typeof(variables) AS shape, count(*)
+FROM sms_templates GROUP BY jsonb_typeof(variables);
+-- shape | count
+-- array |     7
+```
+
+The catalog query confirmed none of the three
+`*_variables_is_array` constraints were yet attached.
+
+### Repair + constraints attached
+
+`0029_communications_variables_array_check.sql` was pasted into the
+production SQL console. The three repair UPDATEs each reported
+`UPDATE 0` (consistent with the pre-state above) and all three
+`ADD CONSTRAINT` blocks ran cleanly. Catalog verification:
+
+```sql
+SELECT conrelid::regclass AS tbl, conname, pg_get_constraintdef(oid) AS def
+FROM pg_constraint
+WHERE conname IN (
+  'email_templates_variables_is_array',
+  'email_template_versions_variables_is_array',
+  'sms_templates_variables_is_array'
+)
+ORDER BY conname;
+-- email_template_versions | email_template_versions_variables_is_array | CHECK (((variables IS NULL) OR (jsonb_typeof(variables) = 'array'::text)))
+-- email_templates         | email_templates_variables_is_array         | CHECK (((variables IS NULL) OR (jsonb_typeof(variables) = 'array'::text)))
+-- sms_templates           | sms_templates_variables_is_array           | CHECK (((variables IS NULL) OR (jsonb_typeof(variables) = 'array'::text)))
+```
+
+All three constraints accept NULL because `variables` is nullable on
+each table.
+
+### Redeploy / schema-push no-op verification — pending
+
+The schema declarations in `lib/db/src/schema/communications.ts`
+already match the attached constraint shapes, so the next production
+redeploy is expected to make `pnpm --filter db push` a clean no-op.
+This step must be performed by an operator (task agents cannot publish)
+— once the next production deploy completes, append the actual `db
+push` output here as the final piece of evidence.

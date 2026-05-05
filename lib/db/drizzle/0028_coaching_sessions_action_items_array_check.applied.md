@@ -52,12 +52,45 @@ existing array into a string scalar; happy-path real-array, empty-array,
 and explicit-NULL INSERTs are accepted. All 8 tests pass against the
 dev DB.
 
-## Production
+## Production — 2026-05-04
 
-Pending. Recommended sequence:
+### Pre-existing state
 
-1. Apply `0028_coaching_sessions_action_items_array_check.sql` against
-   the production DB via the SQL console. The script is idempotent.
-2. Deploy the schema change so `pnpm --filter db push` sees the constraint
-   already in place.
-3. Append a verification block here with the date and the catalog evidence.
+```sql
+SELECT jsonb_typeof(action_items) AS shape, count(*)
+FROM coaching_sessions
+GROUP BY jsonb_typeof(action_items);
+-- shape | count
+-- array |     7
+```
+
+All 7 production rows already held a real JSONB array, so there was no
+data to repair. The catalog query confirmed
+`coaching_sessions_action_items_is_array` was not yet attached.
+
+### Repair + constraint attached
+
+`0028_coaching_sessions_action_items_array_check.sql` was pasted into
+the production SQL console. The repair UPDATE reported `UPDATE 0` and
+the `ADD CONSTRAINT` block ran cleanly. Catalog verification:
+
+```sql
+SELECT conname, pg_get_constraintdef(oid) AS def
+FROM pg_constraint
+WHERE conrelid = '"coaching_sessions"'::regclass
+  AND conname = 'coaching_sessions_action_items_is_array';
+-- conname                                 | def
+-- coaching_sessions_action_items_is_array | CHECK (((action_items IS NULL) OR (jsonb_typeof(action_items) = 'array'::text)))
+```
+
+The constraint accepts NULL because `action_items` is a nullable
+column.
+
+### Redeploy / schema-push no-op verification — pending
+
+The schema declaration in `lib/db/src/schema/coaching-sessions.ts`
+already matches the attached constraint shape, so the next production
+redeploy is expected to make `pnpm --filter db push` a clean no-op.
+This step must be performed by an operator (task agents cannot publish)
+— once the next production deploy completes, append the actual `db
+push` output here as the final piece of evidence.

@@ -84,24 +84,54 @@ existing array into a string scalar; happy-path real-array, empty-array,
 and explicit-NULL INSERTs are accepted. All 8 tests pass against the
 dev DB.
 
-## Production
+## Production — 2026-05-04
 
-Pending. Recommended sequence:
+### Pre-existing state
 
-1. **Run a sanity query first** — production may also have been seeded
-   with the buggy `seed-vault.ts`, so before applying anything, run:
+The pre-application sanity query confirmed production had been seeded
+with the same buggy `seed-vault.ts` as dev:
 
-   ```sql
-   SELECT jsonb_typeof(tags) AS shape, count(*)
-   FROM vault_resources
-   GROUP BY jsonb_typeof(tags);
-   ```
+```sql
+SELECT jsonb_typeof(tags) AS shape, count(*)
+FROM vault_resources
+GROUP BY jsonb_typeof(tags);
+-- shape  | count
+-- string |    25
+```
 
-   If the `string` row count is non-zero, the migration's UPDATE will
-   repair them; capture the count for the verification block below.
-2. Apply `0027_vault_resources_tags_array_check.sql` against the
-   production DB via the SQL console. The script is idempotent.
-3. Deploy the schema change so `pnpm --filter db push` sees the constraint
-   already in place.
-4. Append a verification block here with the date, the repair count,
-   and the catalog evidence.
+All 25 production `vault_resources` rows held a JSONB *string scalar*
+whose value happened to be the JSON encoding of an array, exactly the
+same shape that broke dev. A spot-check of the first five rows showed
+values like `"[\"facebook\",\"ads\",\"copy\",\"template\"]"` (a string
+that looks like a JSON array) rather than a real JSONB array. The
+catalog query confirmed `vault_resources_tags_is_array` was not yet
+attached.
+
+### Repair + constraint attached
+
+`0027_vault_resources_tags_array_check.sql` was pasted into the
+production SQL console. The repair UPDATE reported `UPDATE 25` —
+matching the dev DB outcome exactly — and the `ADD CONSTRAINT` block
+then ran cleanly because no string-scalar rows remained. Catalog
+verification:
+
+```sql
+SELECT conname, pg_get_constraintdef(oid) AS def
+FROM pg_constraint
+WHERE conrelid = '"vault_resources"'::regclass
+  AND conname = 'vault_resources_tags_is_array';
+-- conname                       | def
+-- vault_resources_tags_is_array | CHECK (((tags IS NULL) OR (jsonb_typeof(tags) = 'array'::text)))
+```
+
+The 25 previously-broken rows now serve real arrays to the admin
+tag-listing endpoint and vault search UI.
+
+### Redeploy / schema-push no-op verification — pending
+
+The schema declaration in `lib/db/src/schema/vault-resources.ts`
+already matches the attached constraint shape, so the next production
+redeploy is expected to make `pnpm --filter db push` a clean no-op.
+This step must be performed by an operator (task agents cannot publish)
+— once the next production deploy completes, append the actual `db
+push` output here as the final piece of evidence.

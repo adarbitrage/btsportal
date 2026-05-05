@@ -58,12 +58,36 @@ which asserts SQLSTATE 23514 + the expected `conname` for:
 …and accepts a real array INSERT and an empty-array INSERT as the happy
 path. All 7 tests pass against the dev DB.
 
-## Production
+## Production — 2026-05-04
 
-Pending. Recommended sequence:
+### Pre-existing state
 
-1. Apply `0024_api_keys_permissions_array_check.sql` against the production
-   DB via the SQL console. The script is idempotent and safe to re-run.
-2. Deploy the schema change so `pnpm --filter db push` sees the constraint
-   already in place and treats it as a no-op.
-3. Append a verification block here with the date and the catalog evidence.
+`SELECT jsonb_typeof(permissions) AS shape, count(*) FROM api_keys GROUP BY jsonb_typeof(permissions)`
+returned zero rows on production (no API keys exist in prod yet), so
+there was no data to repair. The catalog query against `pg_constraint`
+also confirmed `api_keys_permissions_is_array` was not yet attached.
+
+### Repair + constraint attached
+
+`0024_api_keys_permissions_array_check.sql` was pasted into the
+production SQL console. The repair UPDATE reported `UPDATE 0`
+(consistent with the empty table) and the `ADD CONSTRAINT` block ran
+cleanly. Catalog verification:
+
+```sql
+SELECT conname, pg_get_constraintdef(oid) AS def
+FROM pg_constraint
+WHERE conrelid = '"api_keys"'::regclass
+  AND conname = 'api_keys_permissions_is_array';
+-- conname                       | def
+-- api_keys_permissions_is_array | CHECK ((jsonb_typeof(permissions) = 'array'::text))
+```
+
+### Redeploy / schema-push no-op verification — pending
+
+The schema declaration in `lib/db/src/schema/api-keys.ts` already
+matches the attached constraint shape, so the next production redeploy
+is expected to make `pnpm --filter db push` a clean no-op. This step
+must be performed by an operator (task agents cannot publish) — once
+the next production deploy completes, append the actual `db push`
+output here as the final piece of evidence.
