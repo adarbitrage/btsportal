@@ -236,6 +236,7 @@ export * from "./knowledgebaseDocAdmin";
 export * from "./leaderboardEntry";
 export * from "./legalDocument";
 export * from "./lesson";
+export * from "./lessonActionItem";
 export * from "./lessonResource";
 export * from "./lessonVersion";
 export * from "./limitParamParameter";

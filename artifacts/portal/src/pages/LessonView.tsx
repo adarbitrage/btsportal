@@ -10,6 +10,7 @@ import { ArrowLeft, Clock, Download, Lock, CheckCircle2, ChevronLeft, ChevronRig
 import { VideoEmbed } from "@/components/admin/VideoEmbed";
 // @ts-ignore - hooks exist in generated API but may have type resolution issues across workspace
 import { useGetLesson, useGetModule, useMarkLessonComplete, getGetLessonQueryKey, getGetModuleQueryKey, getListTracksQueryKey } from "@workspace/api-client-react";
+import type { LessonActionItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TipTapContentRenderer } from "@/components/admin/TipTapRenderer";
 import { formatDuration } from "@/lib/utils";
@@ -77,7 +78,7 @@ export default function LessonView() {
   const showVideo = (lessonData.contentType === "video_text" || lessonData.contentType === "video_only") && lessonData.videoUrl;
   const showText = (lessonData.contentType === "video_text" || lessonData.contentType === "text_only") && lessonData.content;
   const resources = lessonData.resources || [];
-  const actionItems = lessonData.actionItems || [];
+  const actionItems: LessonActionItem[] = lessonData.actionItems || [];
 
   const moduleLessons = (moduleData as any)?.lessons || [];
   const currentIndex = moduleLessons.findIndex((l: any) => l.id === lessonId);
@@ -184,7 +185,7 @@ export default function LessonView() {
             <h3 className="font-semibold text-foreground mb-4">Action Items</h3>
             <p className="text-xs text-muted-foreground mb-3">Complete these items to get the most out of this lesson.</p>
             <div className="space-y-2">
-              {actionItems.map((item: any) => (
+              {actionItems.map((item) => (
                 <label
                   key={item.id}
                   className="flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/30 cursor-pointer transition-colors"

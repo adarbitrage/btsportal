@@ -6460,6 +6460,9 @@ components:
           description: TipTap JSON content for the lesson
         actionItems:
           description: Action items for the lesson
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/LessonActionItem"
         durationMinutes:
           type: integer
         requiredEntitlement:
@@ -6471,6 +6474,18 @@ components:
         isLocked:
           type: boolean
       required: [id, moduleId, title, description, contentType, durationMinutes, requiredEntitlement, sortOrder, isCompleted, isLocked]
+
+    LessonActionItem:
+      type: object
+      description: A single checklist item rendered on a lesson's action-items list.
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        sortOrder:
+          type: integer
+      required: [id, text, sortOrder]
 
     Progress:
       type: object
@@ -7938,7 +7953,10 @@ components:
         contentType:
           type: string
         textContent: {}
-        actionItems: {}
+        actionItems:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/LessonActionItem"
         durationMinutes:
           type: integer
         requiredEntitlement:
@@ -7964,7 +7982,10 @@ components:
         contentType:
           type: string
         textContent: {}
-        actionItems: {}
+        actionItems:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/LessonActionItem"
         durationMinutes:
           type: integer
         requiredEntitlement:
@@ -7986,7 +8007,10 @@ components:
         contentType:
           type: string
         textContent: {}
-        actionItems: {}
+        actionItems:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/LessonActionItem"
         durationMinutes:
           type: integer
         requiredEntitlement:
@@ -8013,7 +8037,10 @@ components:
         videoUrl:
           type: ["string", "null"]
         textContent: {}
-        actionItems: {}
+        actionItems:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/LessonActionItem"
         publishedBy:
           type: ["integer", "null"]
         publishedAt:

@@ -5,6 +5,7 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { LessonActionItem } from "./lessonActionItem";
 
 export interface LessonVersion {
   id: number;
@@ -15,7 +16,8 @@ export interface LessonVersion {
   /** @nullable */
   videoUrl?: string | null;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   /** @nullable */
   publishedBy?: number | null;
   publishedAt: Date;

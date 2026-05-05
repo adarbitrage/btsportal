@@ -5,6 +5,7 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { LessonActionItem } from "./lessonActionItem";
 
 export interface Lesson {
   id: number;
@@ -16,8 +17,11 @@ export interface Lesson {
   contentType: string;
   /** TipTap JSON content for the lesson */
   content?: unknown;
-  /** Action items for the lesson */
-  actionItems?: unknown;
+  /**
+   * Action items for the lesson
+   * @nullable
+   */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;

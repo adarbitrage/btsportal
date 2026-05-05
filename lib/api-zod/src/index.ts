@@ -237,6 +237,7 @@ export type {
   LeaderboardEntry,
   LegalDocument,
   Lesson,
+  LessonActionItem,
   LessonResource,
   LessonVersion,
   LimitParamParameter,

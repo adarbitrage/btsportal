@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { AdminUpdateLessonStatus } from "./adminUpdateLessonStatus";
+import type { LessonActionItem } from "./lessonActionItem";
 
 export interface AdminUpdateLesson {
   title?: string;
@@ -13,7 +14,8 @@ export interface AdminUpdateLesson {
   videoUrl?: string;
   contentType?: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes?: number;
   requiredEntitlement?: string;
   sortOrder?: number;

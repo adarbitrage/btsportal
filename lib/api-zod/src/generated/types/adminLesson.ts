@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { AdminLessonStatus } from "./adminLessonStatus";
+import type { LessonActionItem } from "./lessonActionItem";
 
 export interface AdminLesson {
   id: number;
@@ -16,7 +17,8 @@ export interface AdminLesson {
   videoUrl?: string | null;
   contentType: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;

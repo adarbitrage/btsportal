@@ -573,6 +573,15 @@ export interface TrackWithModules {
   modules: ModuleSummary[];
 }
 
+/**
+ * A single checklist item rendered on a lesson's action-items list.
+ */
+export interface LessonActionItem {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
 export interface Lesson {
   id: number;
   moduleId: number;
@@ -583,8 +592,11 @@ export interface Lesson {
   contentType: string;
   /** TipTap JSON content for the lesson */
   content?: unknown;
-  /** Action items for the lesson */
-  actionItems?: unknown;
+  /**
+   * Action items for the lesson
+   * @nullable
+   */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;
@@ -1502,7 +1514,8 @@ export interface AdminLesson {
   videoUrl?: string | null;
   contentType: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes: number;
   requiredEntitlement: string;
   sortOrder: number;
@@ -1524,7 +1537,8 @@ export interface AdminCreateLesson {
   videoUrl?: string;
   contentType?: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes?: number;
   requiredEntitlement?: string;
   status?: AdminCreateLessonStatus;
@@ -1544,7 +1558,8 @@ export interface AdminUpdateLesson {
   videoUrl?: string;
   contentType?: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes?: number;
   requiredEntitlement?: string;
   sortOrder?: number;
@@ -1560,7 +1575,8 @@ export interface LessonVersion {
   /** @nullable */
   videoUrl?: string | null;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   /** @nullable */
   publishedBy?: number | null;
   publishedAt: string;

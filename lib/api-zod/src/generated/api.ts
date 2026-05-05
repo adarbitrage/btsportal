@@ -454,8 +454,18 @@ export const GetModuleResponse = zod.object({
         .optional()
         .describe("TipTap JSON content for the lesson"),
       actionItems: zod
-        .unknown()
-        .optional()
+        .array(
+          zod
+            .object({
+              id: zod.string(),
+              text: zod.string(),
+              sortOrder: zod.number(),
+            })
+            .describe(
+              "A single checklist item rendered on a lesson's action-items list.",
+            ),
+        )
+        .nullish()
         .describe("Action items for the lesson"),
       durationMinutes: zod.number(),
       requiredEntitlement: zod.string(),
@@ -484,7 +494,20 @@ export const GetLessonResponse = zod.object({
     .unknown()
     .optional()
     .describe("TipTap JSON content for the lesson"),
-  actionItems: zod.unknown().optional().describe("Action items for the lesson"),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish()
+    .describe("Action items for the lesson"),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
@@ -2044,7 +2067,19 @@ export const AdminListLessonsResponseItem = zod.object({
   videoUrl: zod.string().nullish(),
   contentType: zod.string(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
@@ -2062,7 +2097,19 @@ export const AdminCreateLessonBody = zod.object({
   videoUrl: zod.string().optional(),
   contentType: zod.string().optional(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   durationMinutes: zod.number().optional(),
   requiredEntitlement: zod.string().optional(),
   status: zod.enum(["draft", "published"]).optional(),
@@ -2081,7 +2128,19 @@ export const AdminUpdateLessonBody = zod.object({
   videoUrl: zod.string().optional(),
   contentType: zod.string().optional(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   durationMinutes: zod.number().optional(),
   requiredEntitlement: zod.string().optional(),
   sortOrder: zod.number().optional(),
@@ -2096,7 +2155,19 @@ export const AdminUpdateLessonResponse = zod.object({
   videoUrl: zod.string().nullish(),
   contentType: zod.string(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
@@ -2118,7 +2189,19 @@ export const AdminDeleteLessonResponse = zod.object({
   videoUrl: zod.string().nullish(),
   contentType: zod.string(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   durationMinutes: zod.number(),
   requiredEntitlement: zod.string(),
   sortOrder: zod.number(),
@@ -2174,7 +2257,19 @@ export const AdminListLessonVersionsResponseItem = zod.object({
   contentType: zod.string(),
   videoUrl: zod.string().nullish(),
   textContent: zod.unknown().optional(),
-  actionItems: zod.unknown().optional(),
+  actionItems: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          text: zod.string(),
+          sortOrder: zod.number(),
+        })
+        .describe(
+          "A single checklist item rendered on a lesson's action-items list.",
+        ),
+    )
+    .nullish(),
   publishedBy: zod.number().nullish(),
   publishedAt: zod.date(),
   changeSummary: zod.string().nullish(),
@@ -2325,7 +2420,19 @@ export const AdminBulkMoveLessonsResponse = zod.object({
         videoUrl: zod.string().nullish(),
         contentType: zod.string(),
         textContent: zod.unknown().optional(),
-        actionItems: zod.unknown().optional(),
+        actionItems: zod
+          .array(
+            zod
+              .object({
+                id: zod.string(),
+                text: zod.string(),
+                sortOrder: zod.number(),
+              })
+              .describe(
+                "A single checklist item rendered on a lesson's action-items list.",
+              ),
+          )
+          .nullish(),
         durationMinutes: zod.number(),
         requiredEntitlement: zod.string(),
         sortOrder: zod.number(),

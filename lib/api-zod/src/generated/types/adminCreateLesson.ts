@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { AdminCreateLessonStatus } from "./adminCreateLessonStatus";
+import type { LessonActionItem } from "./lessonActionItem";
 
 export interface AdminCreateLesson {
   moduleId: number;
@@ -14,7 +15,8 @@ export interface AdminCreateLesson {
   videoUrl?: string;
   contentType?: string;
   textContent?: unknown;
-  actionItems?: unknown;
+  /** @nullable */
+  actionItems?: LessonActionItem[] | null;
   durationMinutes?: number;
   requiredEntitlement?: string;
   status?: AdminCreateLessonStatus;

@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, lessonsTable, lessonVersionsTable, progressTable } from "@workspace/db";
 import { eq, sql, asc, desc, count } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
+import { AdminCreateLessonBody, AdminUpdateLessonBody } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -26,12 +27,12 @@ router.get("/admin/modules/:moduleId/lessons", requirePermission("content:view")
 
 router.post("/admin/lessons", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
-    const { moduleId, title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, status } = req.body;
-
-    if (!moduleId || !title || !description) {
-      res.status(400).json({ error: "moduleId, title, and description are required" });
+    const parsed = AdminCreateLessonBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
       return;
     }
+    const { moduleId, title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, status } = parsed.data;
 
     const [maxOrder] = await db
       .select({ max: sql<number>`COALESCE(MAX(${lessonsTable.sortOrder}), -1)` })
@@ -67,7 +68,12 @@ router.put("/admin/lessons/:id", requirePermission("content:manage"), async (req
       return;
     }
 
-    const { title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, sortOrder, status } = req.body;
+    const parsed = AdminUpdateLessonBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, sortOrder, status } = parsed.data;
     const updates: Record<string, any> = {};
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
