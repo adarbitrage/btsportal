@@ -22,6 +22,7 @@ import CoachingRecruitment from "@/pages/CoachingRecruitment";
 import SelfPromoting from "@/pages/SelfPromoting";
 import AiAssistant from "@/pages/AiAssistant";
 import Blitz from "@/pages/Blitz";
+import BlitzHub from "@/pages/BlitzHub";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -331,7 +332,8 @@ function Router() {
       <Route path="/coaching/recruitment">{() => <ProtectedRoute component={CoachingRecruitment} />}</Route>
       <Route path="/self-promoting">{() => <ProtectedRoute component={SelfPromoting} />}</Route>
       <Route path="/ai-assistant">{() => <ProtectedRoute component={AiAssistant} />}</Route>
-      <Route path="/blitz">{() => <ProtectedRoute component={Blitz} />}</Route>
+      <Route path="/blitz">{() => <ProtectedRoute component={BlitzHub} />}</Route>
+      <Route path="/blitz/guide">{() => <ProtectedRoute component={Blitz} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>

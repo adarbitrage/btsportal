@@ -4,14 +4,26 @@ import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-const VALID_COURSE_IDS = [
+const STATIC_VALID_COURSE_IDS = new Set([
   "quick-start",
   "finding-your-edge",
   "21-day-blitz",
   "live-coaching",
   "7-pillars",
   "direct-edge",
-];
+]);
+
+function isValidCourseId(id: unknown): id is string {
+  if (typeof id !== "string") return false;
+  if (STATIC_VALID_COURSE_IDS.has(id)) return true;
+  // Blitz Caterpillar Edition hub steps 1-18
+  const m = id.match(/^blitz-hub-step-(\d+)$/);
+  if (m) {
+    const n = Number(m[1]);
+    return n >= 1 && n <= 18;
+  }
+  return false;
+}
 
 router.get("/course-progress", async (req, res): Promise<void> => {
   const userId = req.userId!;
@@ -26,7 +38,7 @@ router.post("/course-progress", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const { courseId } = req.body;
 
-  if (!courseId || !VALID_COURSE_IDS.includes(courseId)) {
+  if (!isValidCourseId(courseId)) {
     res.status(400).json({ error: "Invalid courseId" });
     return;
   }
@@ -90,7 +102,7 @@ router.delete("/course-progress/:courseId", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const { courseId } = req.params;
 
-  if (!VALID_COURSE_IDS.includes(courseId)) {
+  if (!isValidCourseId(courseId)) {
     res.status(400).json({ error: "Invalid courseId" });
     return;
   }
