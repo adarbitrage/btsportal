@@ -676,7 +676,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border min-h-screen sticky top-0">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0 overflow-y-auto">
         <SidebarContent />
       </aside>
     </>
