@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Blitz™ — Caterpillar Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #f5f4f0;
+    --card:    #ffffff;
+    --navy:    #0f1e33;
+    --navy2:   #1a2e4a;
+    --text:    #1a2030;
+    --muted:   #64748b;
+    --border:  #e2e0da;
+    --blue:    #2563eb;
+    --blue2:   #3b82f6;
+    --green:   #15803d;
+    --green2:  #16a34a;
+    --green-bg:#f0fdf4;
+    --orange:  #c2410c;
+    --orange2: #ea580c;
+    --orange-bg:#fff7ed;
+    --purple:  #7c3aed;
+    --purple2: #8b5cf6;
+    --purple-bg:#faf5ff;
+    --complete:#15803d;
+    --complete-bg:#dcfce7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8c5bc' fill-opacity='0.18'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* ── HERO HEADER ── */
+  .hero {
+    background: var(--navy);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 15% 50%, rgba(37,99,235,.25) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 50%, rgba(124,58,237,.2) 0%, transparent 55%);
+  }
+  .hero-inner {
+    position: relative;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 28px 24px 24px;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 12px;
+  }
+  .hero-eyebrow span {
+    display: inline-block;
+    width: 20px;
+    height: 1px;
+    background: rgba(255,255,255,.3);
+  }
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.8rem, 8vw, 5rem);
+    letter-spacing: 6px;
+    line-height: .95;
+    color: white;
+    margin-bottom: 4px;
+  }
+  .hero-sub {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    letter-spacing: 4px;
+    color: rgba(255,255,255,.45);
+    margin-bottom: 14px;
+  }
+  .hero-desc {
+    font-size: .95rem;
+    color: rgba(255,255,255,.65);
+    font-weight: 300;
+    line-height: 1.6;
+    max-width: 580px;
+    margin: 0 auto 20px;
+  }
+  .hero-desc strong { color: rgba(255,255,255,.9); font-weight: 600; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 16px;
+    padding: 12px 20px;
+    max-width: 580px;
+    margin: 0 auto;
+  }
+  .progress-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .progress-label {
+    font-size: .8rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.5);
+  }
+  .progress-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,.8);
+  }
+  .progress-bar {
+    background: rgba(255,255,255,.12);
+    border-radius: 999px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue2), #a78bfa);
+    border-radius: 999px;
+    transition: width .4s ease;
+    width: 0%;
+  }
+  .progress-pct {
+    font-size: .75rem;
+    color: rgba(255,255,255,.4);
+    margin-top: 8px;
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── PHASE DIVIDER ── */
+  .phase-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 44px 0 20px;
+  }
+  .phase-divider:first-child { margin-top: 0; }
+  .phase-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .phase-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 18px;
+    border-radius: 30px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: .9rem;
+    letter-spacing: 2px;
+    border: 1.5px solid;
+    white-space: nowrap;
+  }
+  .intro-pill { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
+  .intro-num  { background: #e2e8f0; color: #475569; }
+  .lesson.intro::before { background: #94a3b8; }
+  .lesson.intro .lesson-num { background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; }
+  .lesson.intro .btn-go { background: #475569; color: white; }
+
+  .phase-pill.build  { background: var(--green-bg);  color: var(--green);  border-color: #bbf7d0; }
+  .phase-pill.test   { background: var(--orange-bg); color: var(--orange); border-color: #fed7aa; }
+  .phase-pill.scale  { background: var(--purple-bg); color: var(--purple); border-color: #ddd6fe; }
+  .phase-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .build .phase-num  { background: #bbf7d0; color: var(--green); }
+  .test .phase-num   { background: #fed7aa; color: var(--orange); }
+  .scale .phase-num  { background: #ddd6fe; color: var(--purple); }
+
+  /* ── LESSON CARD ── */
+  .lesson {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 0;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: box-shadow .2s, border-color .2s, transform .15s;
+    display: flex;
+    position: relative;
+  }
+  .lesson:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,.08);
+    border-color: #c8c5bc;
+    transform: translateY(-1px);
+  }
+  .lesson.completed {
+    background: #fafff9;
+    border-color: #bbf7d0;
+  }
+  .lesson.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 24px; height: 24px;
+    background: var(--complete-bg);
+    color: var(--complete);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    font-weight: 700;
+  }
+
+  /* Left accent bar */
+  .lesson::before {
+    content: '';
+    display: block;
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 16px 0 0 16px;
+  }
+  .lesson.build::before  { background: var(--green2); }
+  .lesson.test::before   { background: var(--orange2); }
+  .lesson.scale::before  { background: var(--purple2); }
+
+  .lesson-inner {
+    padding: 22px 24px 22px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Number badge */
+  .lesson-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .lesson.build .lesson-num  { background: var(--green-bg);  color: var(--green2);  border: 1.5px solid #bbf7d0; }
+  .lesson.test .lesson-num   { background: var(--orange-bg); color: var(--orange2); border: 1.5px solid #fed7aa; }
+  .lesson.scale .lesson-num  { background: var(--purple-bg); color: var(--purple2); border: 1.5px solid #ddd6fe; }
+  .lesson.completed .lesson-num { background: var(--complete-bg); color: var(--complete); border-color: #86efac; }
+
+  .lesson-content { flex: 1; min-width: 0; }
+  .lesson-step {
+    font-family: 'DM Mono', monospace;
+    font-size: .68rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .lesson-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .lesson.completed .lesson-title { color: #166534; }
+  .lesson-desc {
+    font-size: .875rem;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .lesson-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* CTA Button */
+  .btn-go {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: .875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all .15s;
+    cursor: pointer;
+    border: none;
+  }
+  .lesson.build  .btn-go { background: var(--green2);  color: white; }
+  .lesson.test   .btn-go { background: var(--orange2); color: white; }
+  .lesson.scale  .btn-go { background: var(--purple2); color: white; }
+  .btn-go:hover { opacity: .88; transform: translateX(2px); }
+  .btn-go svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* Mark Complete */
+  .btn-complete {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: .8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-complete:hover { border-color: var(--complete); color: var(--complete); background: var(--complete-bg); }
+  .lesson.completed .btn-complete {
+    background: var(--complete-bg);
+    border-color: #86efac;
+    color: var(--complete);
+  }
+  .btn-complete .check-icon { width: 14px; height: 14px; }
+
+  /* Tags */
+  .lesson-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tag {
+    font-size: .68rem;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 9px;
+    border-radius: 8px;
+    border: 1px solid;
+    letter-spacing: .5px;
+  }
+  .tag.mm     { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+  .tag.cb     { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .tag.all    { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .tag.warn   { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+  /* ── RESET BUTTON ── */
+  .reset-wrap {
+    text-align: center;
+    margin-top: 48px;
+  }
+  .btn-reset {
+    font-size: .75rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .btn-reset:hover { color: var(--text); border-color: #c8c5bc; }
+
+  /* ── FOOTER ── */
+  .hub-footer {
+    background: var(--navy);
+    padding: 28px 24px;
+    text-align: center;
+    font-size: .82rem;
+    color: rgba(255,255,255,.35);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .5px;
+  }
+
+  @media (max-width: 560px) {
+    .lesson-inner { flex-direction: column; gap: 12px; }
+    .lesson-num { width: 34px; height: 34px; }
+    .hero-title { font-size: 3.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow"><span></span>Caterpillar Edition<span></span></div>
+    <div class="hero-title">The Blitz™</div>
+    <div class="hero-sub">Build · Test · Scale</div>
+    <p class="hero-desc">
+      A <strong>proven, step-by-step system</strong> for launching profitable affiliate marketing campaigns. Work through each module in order, make decisions based on data, and the results will follow.
+    </p>
+
+    <div class="progress-wrap">
+      <div class="progress-top">
+        <span class="progress-label">Your Progress</span>
+        <span class="progress-count" id="progressCount">0 / 18 Complete</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-pct" id="progressPct">0% complete</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="container">
+
+  <!-- ═══ INTRODUCTION ═══ -->
+  <div class="phase-divider">
+    <div class="phase-pill intro-pill"><div class="phase-num intro-num">✦</div>Introduction</div>
+  </div>
+
+  <!-- 1 -->
+  <div class="lesson intro" data-id="1">
+    <div class="lesson-inner">
+      <div class="lesson-num">1</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Introduction</div>
+        <div class="lesson-title">What Is Affiliate Arbitrage?</div>
+        <div class="lesson-desc">Start here before anything else. This short video explains the business model behind The Blitz™ — how affiliate arbitrage works, and why the Build → Test → Scale framework makes it predictable and scalable. The Key Terms reference guide is also available for any unfamiliar affiliate marketing terms you encounter throughout the guide — bookmark it and use it as needed.</div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s1"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Watch Video
+          </a>
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s1"  class="btn-go" style="background:#475569;">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Key Terms Reference
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(1)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="lesson intro" data-id="2">
+    <div class="lesson-inner">
+      <div class="lesson-num">2</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Before You Start</div>
+        <div class="lesson-title">Understand the System — The Three Phases, Your Budget, and the Phase Gates</div>
+        <div class="lesson-desc">Read this entire section before touching any technical setup. It covers how the three phases work, what your money is actually buying in the early rounds, realistic budget expectations including net cost after commissions, and the gates you must pass before advancing to the next phase.</div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s2"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Read Section
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(2)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══ PHASE 1: BUILD ═══ -->
+  <div class="phase-divider">
+    <div class="phase-pill build"><div class="phase-num">1</div>Phase 1 — Build</div>
+  </div>
+
+  <!-- 3 — Phase 1 Overview -->
+  <div class="lesson build" data-id="3">
+    <div class="lesson-inner">
+      <div class="lesson-num">3</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Overview</div>
+        <div class="lesson-title">How Phase 1 Works — Campaign Architecture and Your Path</div>
+        <div class="lesson-desc">Before jumping into the steps, start here to understand how all the tools and pieces fit together. This section covers the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and a full overview of what you'll build across Steps 1–5.</div>
+        <div class="lesson-tags">
+          <span class="tag mm">Path A: Pre-built advertorial → MetricMover™</span>
+          <span class="tag cb">Path B: Jump page template → MetricMover™</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s_intro"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Phase 1 Overview
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(3)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 — Choose Your Network -->
+  <div class="lesson build" data-id="4">
+    <div class="lesson-inner">
+      <div class="lesson-num">4</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Network Selection</div>
+        <div class="lesson-title">Choose Your Affiliate Network</div>
+        <div class="lesson-desc">Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions. Affiliati and MaxWeb require proof of prior affiliate revenue — check with your coach before applying to either.</div>
+        <div class="lesson-tags">
+          <span class="tag mm">Media Mavens ⭐ Recommended</span>
+          <span class="tag cb">ClickBank · MaxWeb · Affiliati</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s3"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Section
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(4)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="lesson build" data-id="5">
+    <div class="lesson-inner">
+      <div class="lesson-num">5</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Step 1: Product Selection</div>
+        <div class="lesson-title">Select Your Offer and Get Your Affiliate Link</div>
+        <div class="lesson-desc">Choose the specific product you'll promote within your network. Save your unique affiliate tracking link. For ClickBank and MaxWeb, confirm the product's sales page URL — you'll refer to it when writing your jump page body copy.</div>
+        <div class="lesson-tags">
+          <span class="tag mm">MM: Look for products with pre-built advertorial</span>
+          <span class="tag cb">CB/MW: Confirm jump page path applies</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s4"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Step 1
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(5)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="lesson build" data-id="6">
+    <div class="lesson-inner">
+      <div class="lesson-num">6</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Step 2: Creative Assets</div>
+        <div class="lesson-title">Build Your Creative Assets</div>
+        <div class="lesson-desc">Create all four asset types your campaign needs: ad headlines and ad image (to earn the click), and landing page headlines and hero shots (to engage and convert). This step begins with a crucial section on <strong>angles</strong> — understanding why you're testing multiple headlines and images at both the ad and landing page level is the foundation of everything that follows. Also covers jump page body copy for ClickBank/MaxWeb.</div>
+        <div class="lesson-tags">
+          <span class="tag all">10 Ad Headlines + 1 Ad Image</span>
+          <span class="tag mm">MM: 5 LP Headlines + 5 Hero Shots</span>
+          <span class="tag cb">CB/MW: Jump page body copy + 5 LP Headlines + 5 Hero Shots</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s5"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Step 2
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(6)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="lesson build" data-id="7">
+    <div class="lesson-inner">
+      <div class="lesson-num">7</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Compliance</div>
+        <div class="lesson-title">Submit Your Assets for Compliance Review</div>
+        <div class="lesson-desc">Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 3 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.</div>
+        <div class="lesson-tags">
+          <span class="tag warn">Do not go live until compliance is confirmed</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s6"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Compliance Section
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(7)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="lesson build" data-id="8">
+    <div class="lesson-inner">
+      <div class="lesson-num">8</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Step 3: Landing Pages</div>
+        <div class="lesson-title">Build Your Landing Pages in Flexy™ Using MetricMover™</div>
+        <div class="lesson-desc">Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM13. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM13 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.</div>
+        <div class="lesson-tags">
+          <span class="tag all">MM1–MM13 Video Series</span>
+          <span class="tag mm">MM: Advertorial imported into MetricMover™</span>
+          <span class="tag cb">CB/MW: Jump page template imported into MetricMover™</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s7"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Step 3
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(8)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="lesson build" data-id="9">
+    <div class="lesson-inner">
+      <div class="lesson-num">9</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Step 4: DIYTrax Setup</div>
+        <div class="lesson-title">Set Up DIYTrax</div>
+        <div class="lesson-desc">Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.</div>
+        <div class="lesson-tags">
+          <span class="tag cb">ClickBank: IPN integration required</span>
+          <span class="tag all">Complete 5-step setup sequence in order</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s8"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Step 4
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(9)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 -->
+  <div class="lesson build" data-id="10">
+    <div class="lesson-inner">
+      <div class="lesson-num">10</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Phase 1 — Step 5: Go Live</div>
+        <div class="lesson-title">Configure Caterpillar and Go Live</div>
+        <div class="lesson-desc">Create your campaign in Caterpillar, upload all 10 ad headlines across 2 sub-campaigns of 5 each, upload your ad image, fund your account with at least $500, and complete the pre-launch checklist before activating. Watch T1–T9 in order.</div>
+        <div class="lesson-tags">
+          <span class="tag all">T1–T9 Video Series</span>
+          <span class="tag all">2 Sub-Campaigns × 5 headlines</span>
+          <span class="tag warn">Complete pre-launch checklist before going live</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s9"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Step 5
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(10)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PHASE 2: TEST ═══ -->
+  <div class="phase-divider">
+    <div class="phase-pill test"><div class="phase-num">2</div>Phase 2 — Test</div>
+  </div>
+
+  <!-- 10 -->
+  <div class="lesson test" data-id="11">
+    <div class="lesson-inner">
+      <div class="lesson-num">11</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Round 1 · Min. $500</div>
+        <div class="lesson-title">Find Your Top Performing Headline</div>
+        <div class="lesson-desc">Run all 10 ads and monitor performance daily. At $25/ad: cut any ad with 33+ clicks but zero landing page clicks. At $500 total: identify the headline with the strongest metrics. Expect ~20% ROAS — you are buying data, not revenue. Set up your P&L Tracker immediately after launch.</div>
+        <div class="lesson-tags">
+          <span class="tag all">Target: ~$100 returned (20% ROAS)</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s10"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Round 1
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(11)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11 -->
+  <div class="lesson test" data-id="12">
+    <div class="lesson-inner">
+      <div class="lesson-num">12</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Between Rounds 1 and 2</div>
+        <div class="lesson-title">Prepare Additional Static Images While Round 1 Runs</div>
+        <div class="lesson-desc">While Round 1 is running, prepare your Round 2 assets. Create 9 new static images in 16:9 format using AI tools. These will compete against your original Round 1 image in Round 2. MM/CB path: also prepare 5 new landing page headlines, 5 new hero shots, and set up a new MetricMover™ project.</div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s11"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Between Rounds
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(12)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12 -->
+  <div class="lesson test" data-id="13">
+    <div class="lesson-inner">
+      <div class="lesson-num">13</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Round 2 · Min. $500</div>
+        <div class="lesson-title">Find Your Top Performing Visual Creative</div>
+        <div class="lesson-desc">Run 10 static images in 16:9 format — your original plus 9 new ones — all using your Round 1 top performing headline. Identify which visual generates the best return. Target approximately 75% ROAS before advancing to Round 3.</div>
+        <div class="lesson-tags">
+          <span class="tag all">Target: ~$375 returned (75% ROAS)</span>
+          <span class="tag all">All creatives 16:9 static format</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s12"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Round 2
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(13)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 13 -->
+  <div class="lesson test" data-id="14">
+    <div class="lesson-inner">
+      <div class="lesson-num">14</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Between Rounds 2 and 3</div>
+        <div class="lesson-title">Prepare Your Round 3 Placement Format Assets</div>
+        <div class="lesson-desc">Take your Round 2 top performing creative and convert it into all 6 placement formats: 16:9 static image, 9:16 static image, 16:9 GIF, 9:16 GIF, 16:9 video, and 9:16 video. Use Cropbot, Adobe Express, and GIFSTER as needed.</div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s13"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Between Rounds
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(14)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 14 -->
+  <div class="lesson test" data-id="15">
+    <div class="lesson-inner">
+      <div class="lesson-num">15</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Round 3 · Min. $1,000</div>
+        <div class="lesson-title">Find Your Top Performing Placement Format</div>
+        <div class="lesson-desc">Run all 6 placement formats as 6 separate sub-campaigns — one format per sub-campaign, as required by the publisher. Identify which placement format generates the best return. Earning ~$600 on $1,000 means you're closing in on profitability — continue refining until the campaign generates a positive return.</div>
+        <div class="lesson-tags">
+          <span class="tag all">Target: ~$600 returned (60% ROAS)</span>
+          <span class="tag warn">1 placement format per sub-campaign — publisher requirement</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s14"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Round 3
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(15)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PHASE 3: SCALE ═══ -->
+  <div class="phase-divider">
+    <div class="phase-pill scale"><div class="phase-num">3</div>Phase 3 — Scale</div>
+  </div>
+
+  <!-- 15 -->
+  <div class="lesson scale" data-id="16">
+    <div class="lesson-inner">
+      <div class="lesson-num">16</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Method 1</div>
+        <div class="lesson-title">Increase Budget on Your Top Performing Placement</div>
+        <div class="lesson-desc">Remove non-profitable ads and increase your daily budget 2× on your top performing placement. If ROAS stays stable after 3–5 days, increase to 5×, then 10×. Monitor daily — stop scaling a placement if ROAS declines for 5+ consecutive days.</div>
+        <div class="lesson-tags">
+          <span class="tag warn">Only enter Phase 3 once Phase 2 is profitable</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s15"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Scale Module
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(16)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 16 -->
+  <div class="lesson scale" data-id="17">
+    <div class="lesson-inner">
+      <div class="lesson-num">17</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Method 2</div>
+        <div class="lesson-title">Test New Placements and Publishers</div>
+        <div class="lesson-desc">Use your proven ads and landing pages on Grasshopper or Crane publishers — no new creative required. Minimum $1,500 per new placement. See the Grasshopper and Crane Supplemental Guides for setup instructions.</div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s16"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Scale Module
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(17)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 17 -->
+  <div class="lesson scale" data-id="18">
+    <div class="lesson-inner">
+      <div class="lesson-num">18</div>
+      <div class="lesson-content">
+        <div class="lesson-step">Method 3</div>
+        <div class="lesson-title">Master Publisher</div>
+        <div class="lesson-desc">A dedicated email blast to a large subscriber list — dramatically higher reach than native or banner ads. Only available after 14+ consecutive profitable days. Requires a single best headline, image, and landing page. Discuss with your coach before pursuing.</div>
+        <div class="lesson-tags">
+          <span class="tag warn">14+ consecutive profitable days required</span>
+          <span class="tag warn">Coach approval required</span>
+        </div>
+        <div class="lesson-actions">
+          <a href="https://toptrending.thecuttingedge.today/the-blitz#section=s17"  class="btn-go">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 3.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V4.707L5.354 10.354a.5.5 0 0 1-.708-.708L10.293 4H6.5a.5.5 0 0 1-.5-.5z"/></svg>
+            Go to Scale Module
+          </a>
+          <button class="btn-complete" onclick="toggleComplete(18)">
+            <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="reset-wrap">
+    <button class="btn-reset" onclick="resetProgress()">Reset Progress</button>
+  </div>
+
+</div><!-- end .container -->
+
+<div class="hub-footer">
+  The Blitz™ — Caterpillar Edition &nbsp;·&nbsp; Cherrington Media &nbsp;·&nbsp; v4.0
+</div>
+
+<script>
+const TOTAL = 18;
+const KEY = 'blitz_caterpillar_progress';
+
+function getProgress() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+  catch(e) { return {}; }
+}
+
+function saveProgress(p) {
+  try { localStorage.setItem(KEY, JSON.stringify(p)); }
+  catch(e) {}
+}
+
+function updateUI() {
+  const p = getProgress();
+  const done = Object.values(p).filter(Boolean).length;
+  const pct = Math.round((done / TOTAL) * 100);
+
+  document.getElementById('progressCount').textContent = done + ' / ' + TOTAL + ' Complete';
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '% complete';
+
+  document.querySelectorAll('.lesson').forEach(function(card) {
+    const id = parseInt(card.getAttribute('data-id'));
+    const completed = !!p[id];
+    card.classList.toggle('completed', completed);
+    const btn = card.querySelector('.btn-complete');
+    if (btn) btn.textContent = completed ? '✓ Completed' : '';
+    if (btn && !completed) {
+      btn.innerHTML = '<svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg> Mark as Complete';
+    } else if (btn) {
+      btn.innerHTML = '<svg class="check-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg> ✓ Completed';
+    }
+  });
+}
+
+function toggleComplete(id) {
+  const p = getProgress();
+  p[id] = !p[id];
+  saveProgress(p);
+  updateUI();
+}
+
+function resetProgress() {
+  if (confirm('Reset all progress? This cannot be undone.')) {
+    try { localStorage.removeItem(KEY); } catch(e) {}
+    updateUI();
+  }
+}
+
+updateUI();
+
+</script>
+</body>
+</html>
