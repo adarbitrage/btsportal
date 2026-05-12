@@ -92,7 +92,7 @@ const NETWORKS: AffiliateNetwork[] = [
     highlights: [
       "Requires account approval and proof of revenue from previous affiliate campaigns",
       "Check with a coach before applying",
-      "Pre-made advertorials available for select products — ready to use immediately",
+      "Pre-made advertorials available for select products",
       "Works with Caterpillar and Grasshopper publishers",
     ],
     publishers: "Caterpillar, Grasshopper",
