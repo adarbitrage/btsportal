@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, LogIn, Network, Star, CheckCircle2 } from "lucide-react";
+import { Network, Star, CheckCircle2 } from "lucide-react";
 import mediaMavensLogo from "@assets/mediamavens-logo_1778609315487.png";
 import clickbankLogo from "@assets/clickbank-logo_1778609315487.jpg";
 import maxwebLogo from "@assets/maxweb-logo_1778609315486.jpeg";
@@ -199,7 +199,7 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
                     data-testid={`button-register-${network.slug}`}
                   >
                     <a href={network.registerUrl} target="_blank" rel="noreferrer">
-                      Register <ExternalLink className="w-4 h-4 ml-1.5" />
+                      Register
                     </a>
                   </Button>
                 ) : (
@@ -215,12 +215,12 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
                     data-testid={`button-login-${network.slug}`}
                   >
                     <a href={network.loginUrl} target="_blank" rel="noreferrer">
-                      <LogIn className="w-4 h-4 mr-1.5" /> Log in
+                      Log in
                     </a>
                   </Button>
                 ) : (
                   <Button size="sm" variant="outline" disabled>
-                    <LogIn className="w-4 h-4 mr-1.5" /> Log in
+                    Log in
                   </Button>
                 )}
               </div>
