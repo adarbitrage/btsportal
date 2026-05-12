@@ -701,7 +701,7 @@ function LessonCard({
             {lesson.ctas.map((cta, i) => (
               <a
                 key={i}
-                href={`${GUIDE_BASE}#${cta.section}`}
+                href={`${GUIDE_BASE}/${lesson.id}${i > 0 ? `#${cta.section}` : ""}`}
                 className="btn-go"
                 style={cta.secondary ? { background: "#475569" } : undefined}
               >

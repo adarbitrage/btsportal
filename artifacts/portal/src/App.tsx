@@ -335,6 +335,7 @@ function Router() {
       <Route path="/ai-assistant">{() => <ProtectedRoute component={AiAssistant} />}</Route>
       <Route path="/blitz">{() => <ProtectedRoute component={BlitzHub} />}</Route>
       <Route path="/blitz/guide">{() => <ProtectedRoute component={Blitz} />}</Route>
+      <Route path="/blitz/guide/:lessonId">{() => <ProtectedRoute component={Blitz} />}</Route>
       <Route path="/agreement-preview">{() => <ProtectedRoute component={AgreementPreview} />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
