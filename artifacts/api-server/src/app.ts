@@ -94,7 +94,7 @@ ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensu
         .from(users).where(eq(users.email, owner.email));
       if (existing) {
         if (existing.role !== "admin" || existing.sourceProduct !== "lifetime") {
-          await database.update(users).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true }).where(eq(users.id, existing.id));
+          await database.update(users).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true, emailVerified: true }).where(eq(users.id, existing.id));
           const existingProducts = await database.select({ productId: userProducts.productId }).from(userProducts).where(eq(userProducts.userId, existing.id));
           const existingIds = new Set(existingProducts.map(p => p.productId));
           const allProducts = await database.select({ id: products.id }).from(products);
