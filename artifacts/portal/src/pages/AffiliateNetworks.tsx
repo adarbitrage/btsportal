@@ -78,8 +78,8 @@ const NETWORKS: AffiliateNetwork[] = [
       badgeText: "text-amber-800",
       badgeBorder: "border-amber-200",
     },
-    registerUrl: null,
-    loginUrl: null,
+    registerUrl: "https://www.clickbank.com/affiliates/",
+    loginUrl: "https://accounts.clickbank.com/login.htm",
   },
   {
     slug: "affiliati",
@@ -103,8 +103,8 @@ const NETWORKS: AffiliateNetwork[] = [
       badgeText: "text-violet-800",
       badgeBorder: "border-violet-200",
     },
-    registerUrl: null,
-    loginUrl: null,
+    registerUrl: "https://affiliatinetwork.com/",
+    loginUrl: "https://login.affiliatinetwork.com/?ReturnUrl=%2faffiliates%2f",
   },
   {
     slug: "maxweb",
@@ -128,8 +128,8 @@ const NETWORKS: AffiliateNetwork[] = [
       badgeText: "text-orange-800",
       badgeBorder: "border-orange-200",
     },
-    registerUrl: null,
-    loginUrl: null,
+    registerUrl: "https://affiliates-backoffice.maxweb.com/auth#signup",
+    loginUrl: "https://affiliates-backoffice.maxweb.com/auth",
   },
 ];
 
