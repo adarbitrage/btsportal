@@ -108,3 +108,9 @@ id = "A5X1RSb5JWqFIhX9fm9Hv"
 uri = "file://exports/heygen-app-training-scripts/scripts/concierge-training.txt"
 type = "text"
 title = "BTS Concierge overview script"
+
+[[outputs]]
+id = "GYSLE8Y_mIkApJTon78Uj"
+uri = "file://BTS_Master_Agreement_DRAFT.md"
+type = "text"
+title = "BTS Mentorship Program Agreement — Rough Draft"
