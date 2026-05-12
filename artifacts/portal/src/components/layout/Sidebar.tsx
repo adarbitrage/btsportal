@@ -146,6 +146,7 @@ const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/resources", label: "Resource Vault", icon: FolderOpen },
+      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
     ],
   },

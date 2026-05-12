@@ -39,6 +39,7 @@ import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
 import Apps from "@/pages/Apps";
 import Resources from "@/pages/Resources";
+import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import CollectionDetail from "@/pages/CollectionDetail";
 import ResourceDetail from "@/pages/ResourceDetail";
 import Login from "@/pages/Login";
@@ -370,6 +371,7 @@ function Router() {
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
+      <Route path="/affiliate-networks">{() => <ProtectedRoute component={AffiliateNetworks} />}</Route>
       <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>
       <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} permission="tickets:view" />}</Route>
       <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} permission="tickets:manage" />}</Route>
