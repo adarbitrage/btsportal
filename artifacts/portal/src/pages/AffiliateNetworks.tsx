@@ -17,7 +17,7 @@ type AffiliateNetwork = {
   description: string;
   highlights: string[];
   publishers: string;
-  approval: "Instant signup" | "Application required";
+  approval: "Instant signup" | "Approval + proof of revenue";
   recommendedForBeginners?: boolean;
   accent: {
     border: string;
@@ -37,15 +37,15 @@ const NETWORKS: AffiliateNetwork[] = [
     logoBg: "bg-white",
     tagline: "Our own in-house curated network — designed specifically for this system.",
     description:
-      "If you're brand new, start here. Media Mavens is our in-house network, built specifically for the Build Test Scale system, which gives you several real advantages over public marketplaces right from the start.",
+      "If you're brand new, start here. Media Mavens is our in-house network, built specifically for the Build Test Scale system, which gives you several real advantages over public marketplaces right from the start. Simple to sign up — no approval required.",
     highlights: [
-      "Higher commissions than most comparable products on other networks",
+      "Higher commissions than comparable products on other networks",
       "No chargebacks — if a customer returns a product, you keep your commission",
-      "Pre-made advertorials (landing pages) you can use immediately, so you can start testing faster",
+      "Pre-made advertorials (landing pages) for many products — meaning less work to get started",
       "Works with all three ad publishers (Caterpillar, Grasshopper, Crane)",
     ],
     publishers: "Caterpillar, Grasshopper, Crane",
-    approval: "Application required",
+    approval: "Instant signup",
     recommendedForBeginners: true,
     accent: {
       border: "border-emerald-300",
@@ -88,15 +88,15 @@ const NETWORKS: AffiliateNetwork[] = [
     logoBg: "bg-white",
     tagline: "A curated network with many strong offers.",
     description:
-      "Affiliati is a curated network with many strong offers. It requires a short account application and approval before you can get started — typically 1–2 business days.",
+      "Affiliati is a curated network with many strong offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for an Affiliati account.",
     highlights: [
+      "Requires account approval and proof of revenue from previous affiliate campaigns",
+      "Check with a coach before applying",
       "Pre-made advertorials available for select products — ready to use immediately",
-      "Other products will require building your own landing page",
       "Works with Caterpillar and Grasshopper publishers",
-      "Application typically approved within 1–2 business days",
     ],
     publishers: "Caterpillar, Grasshopper",
-    approval: "Application required",
+    approval: "Approval + proof of revenue",
     accent: {
       border: "border-violet-300",
       badgeBg: "bg-violet-50",
@@ -111,17 +111,17 @@ const NETWORKS: AffiliateNetwork[] = [
     name: "MaxWeb",
     logo: maxwebLogo,
     logoBg: "bg-black",
-    tagline: "Another curated network with quality offers.",
+    tagline: "A curated network with quality offers.",
     description:
-      "MaxWeb is a curated network with quality offers. It requires an account application and approval (usually 1 business day) and connects directly to DIYtrax for tracking.",
+      "MaxWeb is a curated network with quality offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for a MaxWeb account.",
     highlights: [
-      "Application typically approved within 1 business day",
-      "Connects directly to DIYtrax for tracking",
-      "Dedicated Account Representative listed on your MaxWeb Dashboard",
+      "Requires account approval and proof of revenue from previous affiliate campaigns",
+      "Check with a coach before applying",
+      "Dedicated Account Representative listed on your MaxWeb Dashboard once approved",
       "Works with Caterpillar and Grasshopper publishers",
     ],
     publishers: "Caterpillar, Grasshopper",
-    approval: "Application required",
+    approval: "Approval + proof of revenue",
     accent: {
       border: "border-orange-300",
       badgeBg: "bg-orange-50",
@@ -262,7 +262,9 @@ export default function AffiliateNetworks() {
             gate. If you want to explore other options, <strong>ClickBank</strong> is the
             next easiest entry point. <strong>Affiliati</strong> and{" "}
             <strong>MaxWeb</strong> both require an application and approval, so factor
-            in a short wait time if you go that route.
+            in a short wait time and note that both also require proof of revenue from
+            previous affiliate campaigns — please check with a coach before applying to
+            either.
           </p>
         </div>
 
