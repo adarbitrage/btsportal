@@ -1763,6 +1763,33 @@ router.get("/admin/products", requirePermission("members:view"), async (_req: Re
   }
 });
 
+// Slug-tier ordering, lowest to highest. Used to derive a user's `source_product`
+// label (shown in the sidebar) from their currently-active product rows.
+const PRODUCT_TIER_RANK: Record<string, number> = {
+  free: 0,
+  frontend: 1,
+  launchpad: 2,
+  "3month": 3,
+  "6month": 4,
+  "1year": 5,
+  lifetime: 6,
+};
+
+async function recomputeSourceProduct(userId: number): Promise<void> {
+  const rows = await db
+    .select({ slug: productsTable.slug })
+    .from(userProductsTable)
+    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+    .where(and(eq(userProductsTable.userId, userId), eq(userProductsTable.status, "active")));
+  let bestSlug: string | null = null;
+  let bestRank = -1;
+  for (const r of rows) {
+    const rank = PRODUCT_TIER_RANK[r.slug] ?? 0;
+    if (rank > bestRank) { bestRank = rank; bestSlug = r.slug; }
+  }
+  await db.update(usersTable).set({ sourceProduct: bestSlug }).where(eq(usersTable.id, userId));
+}
+
 router.post("/admin/members/:id/grant-product", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -1776,6 +1803,7 @@ router.post("/admin/members/:id/grant-product", requirePermission("members:edit"
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     }).returning();
 
+    await recomputeSourceProduct(id);
     await logAdminAction(req, "grant_product", "user", String(id), `Granted product ${productId} to member ${id}`);
     res.json(userProduct);
   } catch (error) {
@@ -1796,6 +1824,7 @@ router.post("/admin/members/:id/revoke-product", requirePermission("members:edit
       .returning();
 
     if (!updated) { res.status(404).json({ error: "User product not found" }); return; }
+    await recomputeSourceProduct(id);
     await logAdminAction(req, "revoke_product", "user", String(id), `Revoked product (user_product ${userProductId}) from member ${id}`);
     res.json(updated);
   } catch (error) {
