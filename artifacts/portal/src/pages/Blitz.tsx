@@ -1457,7 +1457,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 3: SCALE -->
 <span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s17">
-  <div class="module-header"><span class="mod-badge scale">Phase 3: Scale</span><h2>Scale — Multiply Your Profits</h2></div>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
   <div class="module-intro">Scaling is about spending more on what's already proven to work. You are not introducing new ideas at this stage. Save experimentation for new campaigns — scaling is for proven winners only.</div>
 
   <div class="alert danger"><strong>Prerequisites — All Must Be Met Before Scaling (Phase 3)</strong>Phase 2 Rounds 1, 2, and 3 complete. Top performing visual creative identified (Round 2). Top performing placement format identified (Round 3). Campaign is profitable.</div>
@@ -1470,7 +1470,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end module3-overview -->
 <span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s18">
-  <h3>Scaling to New Placements</h3>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
   <div class="card">
     <table>
       <thead><tr><th>Publisher</th><th>Ad Type</th><th>Networks</th><th>Min. per New Placement</th><th>Guide</th></tr></thead>
@@ -1485,7 +1485,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-scale-m2 -->
 <span id="s19" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s19">
-  <h3>Master Publisher Requirements</h3>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
   <ul class="checklist">
     <li>14+ consecutive days of profitable campaigns on Caterpillar, Grasshopper, or Crane</li>
     <li>Top performing headline + image combination clearly identified</li>
