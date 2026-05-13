@@ -734,7 +734,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end module1-overview -->
   <div id="module1-steps">
   <div id="blitz-step1">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Step 1: Product Selection</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Product Selection</span></div>
   <h3 id="step1">Step 1 — Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h3>
   <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
 
@@ -775,7 +775,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Step 2: Creative Assets</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets</span></div>
   <h3 id="step2">Step 2 — Build Your Creative Assets <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
