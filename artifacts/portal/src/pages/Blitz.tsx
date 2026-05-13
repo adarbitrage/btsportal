@@ -546,7 +546,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- CHOOSE YOUR PATH -->
 <span id="s3" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s3">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build</span><h2>Choose Your Affiliate Network</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
   <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
 
   <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
@@ -608,7 +608,7 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- MODULE 1: BUILD -->
 <span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s4 s5 s6 s7 s8 s9">
   <div id="module1-overview">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Foundation</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in Step 2 — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
@@ -734,6 +734,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end module1-overview -->
   <div id="module1-steps">
   <div id="blitz-step1">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Step 1: Product Selection</span></div>
   <h3 id="step1">Step 1 — Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h3>
   <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
 
@@ -774,6 +775,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Step 2: Creative Assets</span></div>
   <h3 id="step2">Step 2 — Build Your Creative Assets <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
@@ -1097,7 +1099,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- COMPLIANCE EXPLAINED -->
 <div class="module" id="compliance" data-section="s6">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build</span><h2>Understanding Compliance</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Compliance</span><h2>Understanding Compliance</h2></div>
   <div class="module-intro">Compliance is a required step before your campaign can go live. It is not optional and it cannot be skipped. This section explains what it is, how it works, and what to do if something is rejected — so you're not caught off guard when you reach that step.</div>
 
   <h3>What Is Compliance?</h3>
@@ -1134,7 +1136,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div>
 
 <div class="module" id="blitz-step3" data-section="s7">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Pages</span></div>
   <h3 id="step4">Step 4 — Using The Flexy™ Landing Page Editor <span class="path-tag tag-all">Everyone</span></h3>
 
   <div class="callout-box">
@@ -1202,7 +1204,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step3 -->
 <div class="module" id="blitz-step4" data-section="s8">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — DIYTrax Setup</span></div>
   <h3 id="step5">Step 5 — Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
@@ -1230,7 +1232,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s9">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Go Live</span></div>
   <h3 id="step6">Step 6 — Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
 
