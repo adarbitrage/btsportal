@@ -1591,7 +1591,8 @@ const SECTION_BAR_CSS = `
   .blitz-section-bar .bsb-actions { justify-content: center; }
 }
 .blitz-content.section-filtered .page-header,
-.blitz-content.section-filtered nav.toc { display: none !important; }
+.blitz-content.section-filtered nav.toc,
+.blitz-content.section-filtered #lesson-library { display: none !important; }
 `;
 
 function ArrowLeftIcon() {
