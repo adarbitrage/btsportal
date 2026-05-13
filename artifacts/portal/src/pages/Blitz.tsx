@@ -1743,13 +1743,13 @@ export default function Blitz() {
       if (e.key === "Escape" && overlay.classList.contains("active")) close();
     };
 
-    contentEl.addEventListener("click", onContentClick);
+    document.addEventListener("click", onContentClick);
     overlay.addEventListener("click", onOverlayClick);
     closeBtn?.addEventListener("click", close);
     document.addEventListener("keydown", onKey);
 
     return () => {
-      contentEl.removeEventListener("click", onContentClick);
+      document.removeEventListener("click", onContentClick);
       overlay.removeEventListener("click", onOverlayClick);
       closeBtn?.removeEventListener("click", close);
       document.removeEventListener("keydown", onKey);
