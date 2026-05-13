@@ -7,24 +7,23 @@ import LessonLibrary from "@/components/blitz/LessonLibrary";
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
 const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   1: { section: "s1", label: "Introduction" },
-  2: { section: "s2", label: "Before You Start" },
-  3: { section: "s2", label: "Before You Start — What You Need to Know" },
+  2: { section: "s2", label: "Before You Start — What You Need to Know" },
+  3: { section: "s_foundation", label: "Phase 1 — Overview" },
   4: { section: "s3", label: "Network Selection" },
-  5: { section: "s_foundation", label: "Phase 1 — Overview: Build Your Campaign Foundation" },
-  6: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
-  7: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
-  8: { section: "s6", label: "Phase 1 · Step 3 — Compliance Review" },
-  9: { section: "s7", label: "Phase 1 · Step 4 — Landing Pages" },
-  10: { section: "s8", label: "Phase 1 · Step 5 — DIYTrax Setup" },
-  11: { section: "s9", label: "Phase 1 · Step 6 — Go Live" },
-  12: { section: "s10", label: "Phase 2 · Round 1" },
-  13: { section: "s11", label: "Between Rounds 1 & 2" },
-  14: { section: "s12", label: "Phase 2 · Round 2" },
-  15: { section: "s13", label: "Between Rounds 2 & 3" },
-  16: { section: "s14", label: "Phase 2 · Round 3" },
-  17: { section: "s15", label: "Phase 3 · Method 1 — Scale Budget" },
-  18: { section: "s16", label: "Phase 3 · Method 2 — New Placements" },
-  19: { section: "s17", label: "Phase 3 · Method 3 — Master Publisher" },
+  5: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
+  6: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
+  7: { section: "s6", label: "Phase 1 · Step 3 — Compliance Review" },
+  8: { section: "s7", label: "Phase 1 · Step 4 — Landing Pages" },
+  9: { section: "s8", label: "Phase 1 · Step 5 — DIYTrax Setup" },
+  10: { section: "s9", label: "Phase 1 · Step 6 — Go Live" },
+  11: { section: "s10", label: "Phase 2 · Round 1" },
+  12: { section: "s11", label: "Between Rounds 1 & 2" },
+  13: { section: "s12", label: "Phase 2 · Round 2" },
+  14: { section: "s13", label: "Between Rounds 2 & 3" },
+  15: { section: "s14", label: "Phase 2 · Round 3" },
+  16: { section: "s15", label: "Phase 3 · Method 1 — Scale Budget" },
+  17: { section: "s16", label: "Phase 3 · Method 2 — New Placements" },
+  18: { section: "s17", label: "Phase 3 · Method 3 — Master Publisher" },
 };
 
 // Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
@@ -608,7 +607,7 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- MODULE 1: BUILD -->
 <span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s4 s5 s6 s7 s8 s9">
   <div id="module1-overview">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Foundation</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in Step 2 — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
