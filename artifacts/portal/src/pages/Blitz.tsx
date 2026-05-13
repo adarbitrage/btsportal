@@ -1574,9 +1574,9 @@ const blitzBodyHTML = `<div class="version-banner">
 
 
 <!-- VIDALYTICS LIGHTBOX -->
-<div class="vd-lightbox-overlay" id="vdLightbox" onclick="if(event.target===this)blitzCloseVideo()">
+<div class="vd-lightbox-overlay" id="vdLightbox">
   <div class="vd-lightbox-inner">
-    <button class="vd-lightbox-close" id="vdClose" onclick="blitzCloseVideo()" aria-label="Close video">&times;</button>
+    <button class="vd-lightbox-close" id="vdClose" aria-label="Close video">&times;</button>
     <div class="vd-lightbox-video" id="vdVideoContainer"></div>
   </div>
 </div>
@@ -1687,6 +1687,75 @@ export default function Blitz() {
     // Scroll to top on section switch.
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [contentEl, isSectionView, lesson]);
+
+  // Wire up the Vidalytics video lightbox. The source HTML uses inline
+  // onclick="blitzOpenVideo(id)" handlers, but the build script strips the
+  // <script> blocks (and the onclick attrs) since they don't execute via
+  // dangerouslySetInnerHTML. We re-implement the behavior here with React-
+  // friendly delegated event listeners on the content root.
+  useEffect(() => {
+    if (!contentEl) return;
+    const VD_ACCOUNT = "trR5xdVa";
+    const overlay = contentEl.querySelector<HTMLElement>("#vdLightbox");
+    const container = contentEl.querySelector<HTMLElement>("#vdVideoContainer");
+    const closeBtn = contentEl.querySelector<HTMLElement>("#vdClose");
+    if (!overlay || !container) return;
+
+    const open = (videoId: string) => {
+      container.innerHTML = "";
+      if (!videoId || videoId.startsWith("VIDEO_ID_")) {
+        container.innerHTML =
+          '<div class="vd-no-video" style="padding:40px;text-align:center;color:#94a3b8;">&#9888; Video not yet connected.<br><small>This video has not been uploaded to Vidalytics yet.</small></div>';
+      } else {
+        const wrapper = document.createElement("div");
+        wrapper.style.cssText = "position:relative;padding-top:56.25%;width:100%;background:#000;";
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://fast.vidalytics.com/embeds/${VD_ACCOUNT}/${videoId}/`;
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute("allow", "autoplay; fullscreen; picture-in-picture");
+        iframe.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;border:none;";
+        wrapper.appendChild(iframe);
+        container.appendChild(wrapper);
+      }
+      overlay.classList.add("active");
+      document.body.style.overflow = "hidden";
+    };
+
+    const close = () => {
+      overlay.classList.remove("active");
+      container.innerHTML = "";
+      document.body.style.overflow = "";
+    };
+
+    const onContentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const slot = target?.closest<HTMLElement>(".video-slot[data-vidalytics-id]");
+      if (!slot) return;
+      e.preventDefault();
+      open(slot.dataset.vidalyticsId || "");
+    };
+
+    const onOverlayClick = (e: MouseEvent) => {
+      if (e.target === overlay) close();
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && overlay.classList.contains("active")) close();
+    };
+
+    contentEl.addEventListener("click", onContentClick);
+    overlay.addEventListener("click", onOverlayClick);
+    closeBtn?.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      contentEl.removeEventListener("click", onContentClick);
+      overlay.removeEventListener("click", onOverlayClick);
+      closeBtn?.removeEventListener("click", close);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [contentEl]);
 
   // Trigger anchor scroll after filtering when a hash is present (e.g. /blitz/guide/3#s4 from secondary CTAs).
   useEffect(() => {

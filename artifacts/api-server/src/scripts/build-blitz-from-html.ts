@@ -58,9 +58,12 @@ body = body.replace(
   '<span style="color:var(--muted);font-style:italic;">Coming soon</span>',
 );
 
-// 1c) Neutralize stale onclick="blitzOpenVideo(...)" handlers — those JS
-//     functions are stripped above, so the attributes would error if clicked.
+// 1c) Neutralize stale onclick="blitzOpenVideo(...)" / blitzCloseVideo()
+//     handlers — those JS functions are stripped above, so the attributes
+//     would error if clicked. The video lightbox is re-wired in Blitz.tsx
+//     via a React useEffect that delegates clicks on .video-slot elements.
 body = body.replace(/\s+onclick="blitzOpenVideo\([^)]*\)"/g, "");
+body = body.replace(/\s+onclick="[^"]*blitzCloseVideo\(\)[^"]*"/g, "");
 
 // 2) Add Lesson Library to the TOC, before "Key Terms" link
 body = body.replace(
