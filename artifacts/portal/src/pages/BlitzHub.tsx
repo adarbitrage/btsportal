@@ -41,7 +41,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Phase 1 Overview", section: "s3" }],
   },
   {
-    id: 4, phase: "build", step: "Network Selection",
+    id: 4, phase: "build", step: "Phase 1 — Network Selection",
     title: "Choose Your Affiliate Network",
     desc: "Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions. Affiliati and MaxWeb require proof of prior affiliate revenue — check with your coach before applying to either.",
     tags: [
@@ -51,7 +51,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s3" }],
   },
   {
-    id: 5, phase: "build", step: "Phase 1 — Overview",
+    id: 5, phase: "build", step: "Phase 1 — Foundation",
     title: "Build Your Campaign Foundation",
     desc: "Read this before starting Step 1. A short orientation to the six Phase 1 build steps: how the pieces work together, what order to do them in, and why understanding angles and creative direction in Step 2 directly shapes everything you build afterward. Skim it now, refer back to it as you go.",
     ctas: [{ label: "Go to Phase 1 Overview", section: "s_foundation" }],
