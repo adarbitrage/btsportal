@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
-  BookOpen,
   Video,
   LifeBuoy,
   MessageCircle,
@@ -51,7 +50,6 @@ import {
   Briefcase,
   Mail,
   Radio,
-  BookMarked,
   Layers,
   UserCircle,
 } from "lucide-react";
@@ -88,9 +86,7 @@ const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap },
-      { kind: "leaf", href: "/core-training", label: "Core Training", icon: BookOpen },
       { kind: "leaf", href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb },
-      { kind: "leaf", href: "/training", label: "Training Library", icon: BookMarked },
     ],
   },
   {
