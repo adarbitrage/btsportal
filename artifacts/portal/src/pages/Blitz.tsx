@@ -1288,7 +1288,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 2: TEST -->
 <span id="s11" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module2-overview" data-section="s11">
-  <div class="module-header"><span class="mod-badge test">Phase 2: Test</span><h2>Test — Find Your Winners Through Data</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Getting Started</span><h2>Test — Find Your Winners Through Data</h2></div>
   <div class="module-intro">The Test phase is where your campaign gets smarter. Almost all mentees go through <strong>multiple rounds of testing</strong> before reaching profitability — that's not failure, it's the process. Each round produces data that makes the next round better. Stay patient, follow the milestones, and trust the system.</div>
 
   <h3>Daily Monitoring Routine <span class="path-tag tag-all">Everyone</span></h3>
@@ -1303,7 +1303,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end module2-overview -->
 <span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
-  <h3 id="round1">Phase 2 — Round 1: Find Your Winning Headline</h3>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
   <p>Round 1 has one primary goal: identify the headline that your audience responds to most. Everything else — images, formats, placements — is tested in later rounds using your top performing headline as the foundation.</p>
 
   <div class="card">
@@ -1354,7 +1354,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-round1 -->
 <span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
-  <h3 id="between-r1-r2">Phase 2 — Between Rounds: Prepare Additional Static Images While Round 1 Runs</h3>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
   <p>Start preparing Round 2 assets as soon as Round 1 is live — you don't need to wait for Round 1 to finish. Round 2 tests static images only, all in 16:9 format.</p>
 
   <div class="card">
@@ -1382,7 +1382,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-between-r1-r2 -->
 <span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
-  <h3 id="round2">Phase 2 — Round 2: Find Your Winning Visual Creative</h3>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
   <p><strong>The question:</strong> Which specific image, GIF, or video converts best with your proven headline?</p>
   <p><strong>What's running:</strong> 10 ads — your original Round 1 image plus 9 new visual creatives — all in 16:9 format, all using your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $500</strong></p>
@@ -1410,7 +1410,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-round2 -->
 <span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
-  <h3 id="between-r2-r3">Phase 2 — Between Rounds: Prep Your Round 3 Placement Format Assets</h3>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
   <p>Once your Round 2 winning visual creative is identified, prepare the 5 additional placement format versions before launching Round 3.</p>
 
   <div class="card">
@@ -1430,7 +1430,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-between-r2-r3 -->
 <span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
-  <h3 id="round3">Phase 2 — Round 3: Find Your Winning Placement Format</h3>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
   <p><strong>The question:</strong> Which of the 6 placement formats (shape and medium) performs best with your top performing headline and visual creative?</p>
   <p><strong>What's running:</strong> 6 ads — your Round 2 winning creative converted into all 6 formats — split into two sub-campaigns (16:9 formats in one, 9:16 formats in the other). All use your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $1,000</strong></p>
