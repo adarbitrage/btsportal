@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Network, Star, CheckCircle2 } from "lucide-react";
 import mediaMavensLogo from "@assets/mediamavens-logo_1778609315487.png";
 import clickbankLogo from "@assets/clickbank-logo_1778609315487.jpg";
-import maxwebLogo from "@assets/maxweb-logo_1778609315486.jpeg";
+import maxwebLogo from "@assets/maxweb-logo_1778609315486_nobg.png";
 import affiliatiLogo from "@assets/affiliati-logo_1778609315486.png";
 
 type AffiliateNetwork = {

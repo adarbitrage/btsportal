@@ -30,7 +30,7 @@ import {
   Check,
 } from "lucide-react";
 import flexyLogo from "@assets/flexy-logo_1778710958688.jpg";
-import diytraxLogo from "@assets/diytrax-logo_1778710958688.jpg";
+import diytraxLogo from "@assets/diytrax-logo_1778710958688_nobg.png";
 import metricmoverLogo from "@assets/metricmover-logo_1778710958687.jpg";
 import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
