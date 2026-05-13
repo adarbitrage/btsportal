@@ -26,6 +26,10 @@ The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). If the 
 
 The 90-day period begins on the date the Customer is granted access to the Program, **not** the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above.
 
+> **Customer Initials:** _____________ &nbsp;&nbsp;&nbsp; **Date:** _____________
+>
+> *I have read and understand the 90-Day Action-Based Refund Guarantee, including all four required criteria.*
+
 ## 3. Payment
 
 The Customer shall pay the Company the agreed-upon fee for the Services. The fee may be paid in full upfront or in installments, as specified in the invoice provided by the Company. Failure to pay any installment may result in suspension or termination of access to the Program. The Company reserves the right to change Program rates at any time, but such changes shall not apply to the Customer's existing Program.
@@ -53,6 +57,10 @@ The Company makes no warranty, express or implied, regarding the accuracy, relia
 ## 8. No Profit Guarantee
 
 The Company does not guarantee that the Customer will make a profit or achieve any specific financial outcome as a result of the Services. The Company provides education and training on online affiliate marketing, but the success of the Customer's business is dependent on many factors, including market conditions, competition, and the Customer's own efforts and abilities. By acknowledging this clause, the Customer understands that their success is dependent on many factors and that the Company does not guarantee any specific financial outcome.
+
+> **Customer Initials:** _____________ &nbsp;&nbsp;&nbsp; **Date:** _____________
+>
+> *I have read and understand that there is no guarantee of profit or any specific financial outcome.*
 
 ## 9. Limitation of Liability
 
@@ -109,3 +117,27 @@ This Agreement constitutes the entire agreement between the Company and the Cust
 For questions regarding this Agreement, contact us at `support@buildtestscale.com`.
 
 By proceeding, you acknowledge that you have read, understand, and agree to the terms of this BTS Mentorship Program Agreement.
+
+---
+
+## Signatures
+
+By signing below, the parties acknowledge that they have read, understood, and agree to be bound by all the terms and conditions of this BTS Mentorship Program Agreement.
+
+### Customer
+
+|   |   |
+| :--- | :--- |
+| **Signature** | __________________________________________ |
+| **Printed Name** | __________________________________________ |
+| **Email** | __________________________________________ |
+| **Date** | __________________________________________ |
+
+### Build Test Scale, LLC
+
+|   |   |
+| :--- | :--- |
+| **Signature** | __________________________________________ |
+| **Printed Name** | __________________________________________ |
+| **Title** | __________________________________________ |
+| **Date** | __________________________________________ |
