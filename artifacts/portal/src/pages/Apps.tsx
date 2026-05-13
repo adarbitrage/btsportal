@@ -30,7 +30,7 @@ import {
   Check,
 } from "lucide-react";
 import flexyLogo from "@assets/flexy-logo_1778710958688.jpg";
-import diytraxLogo from "@assets/diytrax-logo_1778710958688_nobg.png";
+import diytraxLogo from "@assets/diytrax-logo_1778710958688.jpg";
 import metricmoverLogo from "@assets/metricmover-logo_1778710958687.jpg";
 import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
@@ -91,7 +91,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
       "Add or edit pages and offers on the fly — no coding required",
     ],
     logo: diytraxLogo,
-    logoBg: "bg-neutral-900",
+    logoBg: "bg-white",
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",

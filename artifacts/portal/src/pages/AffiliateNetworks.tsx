@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Network, Star, CheckCircle2 } from "lucide-react";
 import mediaMavensLogo from "@assets/mediamavens-logo_1778609315487.png";
 import clickbankLogo from "@assets/clickbank-logo_1778609315487.jpg";
-import maxwebLogo from "@assets/maxweb-logo_1778609315486_nobg.png";
+import maxwebLogo from "@assets/maxweb-logo_1778609315486.jpeg";
 import affiliatiLogo from "@assets/affiliati-logo_1778609315486.png";
 
 type AffiliateNetwork = {
@@ -110,7 +110,7 @@ const NETWORKS: AffiliateNetwork[] = [
     slug: "maxweb",
     name: "MaxWeb",
     logo: maxwebLogo,
-    logoBg: "bg-black",
+    logoBg: "bg-white",
     tagline: "A curated network with quality offers.",
     description:
       "MaxWeb is a curated network with quality offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for a MaxWeb account.",
