@@ -8,7 +8,7 @@ import LessonLibrary from "@/components/blitz/LessonLibrary";
 const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   1: { section: "s1", label: "Introduction" },
   2: { section: "s2", label: "Before You Start" },
-  3: { section: "s3", label: "Phase 1 Overview" },
+  3: { section: "s2", label: "Before You Start — What You Need to Know" },
   4: { section: "s3", label: "Network Selection" },
   5: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
   6: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
