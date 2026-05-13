@@ -152,10 +152,10 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
             />
           </div>
 
-          <div className="flex-1 p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex-1 p-5 flex flex-col">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <h2 className="text-xl font-bold text-foreground">{network.name}</h2>
                   {network.recommendedForBeginners && (
                     <Badge className="bg-emerald-700 hover:bg-emerald-700 text-white text-[10px] font-bold tracking-wide uppercase">
@@ -167,17 +167,17 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
               </div>
               <Badge
                 variant="outline"
-                className={`${network.accent.badgeBg} ${network.accent.badgeText} ${network.accent.badgeBorder}`}
+                className={`${network.accent.badgeBg} ${network.accent.badgeText} ${network.accent.badgeBorder} shrink-0`}
               >
                 {network.approval}
               </Badge>
             </div>
 
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">
+            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
               {network.description}
             </p>
 
-            <ul className="space-y-1.5 mb-4">
+            <ul className="space-y-1 mb-3">
               {network.highlights.map((h, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
@@ -186,12 +186,19 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
               ))}
             </ul>
 
-            <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Publishers:</span>{" "}
-                {network.publishers}
-              </p>
-              <div className="flex gap-2">
+            <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">Publishers:</span>{" "}
+                  {network.publishers}
+                </p>
+                {!hasLinks && (
+                  <p className="text-[11px] text-muted-foreground/70 italic mt-0.5">
+                    Register and log-in links coming soon.
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 shrink-0">
                 {network.registerUrl ? (
                   <Button
                     size="sm"
@@ -225,11 +232,6 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
                 )}
               </div>
             </div>
-            {!hasLinks && (
-              <p className="text-[11px] text-muted-foreground/70 mt-2 italic">
-                Register and log-in links coming soon.
-              </p>
-            )}
           </div>
         </div>
       </CardContent>
