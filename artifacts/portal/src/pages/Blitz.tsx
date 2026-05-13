@@ -13,10 +13,10 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   5: { section: "s_foundation", label: "Phase 1 — Overview: Build Your Campaign Foundation" },
   6: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
   7: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
-  8: { section: "s6", label: "Compliance Review" },
-  9: { section: "s7", label: "Phase 1 · Step 3 — Landing Pages" },
-  10: { section: "s8", label: "Phase 1 · Step 4 — DIYTrax Setup" },
-  11: { section: "s9", label: "Phase 1 · Step 5 — Go Live" },
+  8: { section: "s6", label: "Phase 1 · Step 3 — Compliance Review" },
+  9: { section: "s7", label: "Phase 1 · Step 4 — Landing Pages" },
+  10: { section: "s8", label: "Phase 1 · Step 5 — DIYTrax Setup" },
+  11: { section: "s9", label: "Phase 1 · Step 6 — Go Live" },
   12: { section: "s10", label: "Phase 2 · Round 1" },
   13: { section: "s11", label: "Between Rounds 1 & 2" },
   14: { section: "s12", label: "Phase 2 · Round 2" },
@@ -432,7 +432,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
     <div class="gloss-item"><div class="gloss-term">IPN (Instant Payment Notification)</div><div class="gloss-def">A ClickBank-specific technical integration that sends sale notifications from ClickBank to DIYTrax automatically. Without IPN set up, DIYTrax cannot record ClickBank sales accurately. Only required for ClickBank users.</div></div>
     <div class="gloss-item"><div class="gloss-term">CPC (Cost Per Click)</div><div class="gloss-def">The amount you pay each time someone clicks your ad. On Caterpillar, you set a CPC bid — the maximum you're willing to pay per click. When scaling, increasing your CPC bid can help you reach more of the available audience.</div></div>
-    <div class="gloss-item"><div class="gloss-term">Custom Value Method</div><div class="gloss-def">The preferred way to embed your DIYTrax tracking link into a Flexy™ landing page. A backup method is also available if needed. Both are covered in the Step 5 video series.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Custom Value Method</div><div class="gloss-def">The preferred way to embed your DIYTrax tracking link into a Flexy™ landing page. A backup method is also available if needed. Both are covered in the Step 6 video series.</div></div>
     <div class="gloss-item"><div class="gloss-term">Master Publisher</div><div class="gloss-def">A scaling method that uses a dedicated email blast to a large subscriber list — much higher reach than native or banner ads. Only available after 14+ consecutive profitable days on your current publishers. Discuss with your coach before pursuing this.</div></div>
     <div class="gloss-item"><div class="gloss-term">QA (Quality Assurance)</div><div class="gloss-def">A final check of your entire campaign setup before going live — confirming that every link works, every page displays correctly, and every tracking connection is functioning. Step 6 includes a dedicated QA video (T8) for this purpose.</div></div>
     <div class="gloss-item"><div class="gloss-term">Platform Names (Caterpillar, Grasshopper, Crane)</div><div class="gloss-def">These are the names used in this program to refer to specific paid advertising platforms. Caterpillar is a native advertising platform (ads that look like article recommendations). Grasshopper and Crane are banner advertising platforms covered in separate Supplemental Guides.</div></div>
@@ -525,7 +525,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="alert warning" style="margin-top:16px;margin-bottom:0;"><strong>Phase 2 Testing Continues Until Profitability Is Achieved</strong>The rounds outlined above represent the minimum testing sequence, but Phase 2 does not end after Round 3. If your campaign is not yet profitable, you continue split testing your ads and landing pages — refining headlines, visuals, and placements — until you find a combination that generates a positive return. You do not move to Phase 3 until Phase 2 testing has produced a profitable campaign. There is no fixed number of rounds — there is only the data, and what it tells you to do next.</div>
   </div>
 
-  <div class="alert warning"><strong>The Test Phase Almost Always Takes Multiple Rounds</strong>Almost all mentees go through multiple rounds of testing during Phase 2 before reaching profitability. This is normal and expected — it is how the system works. Think of each round as an experiment that teaches you something. How quickly you progress depends mainly on how quickly you develop two skills: <strong>writing effective headlines</strong> and <strong>selecting the right images</strong>The training in Steps 2 and 3 help mentees learn and develop those skills. Mentees who master these crucial skills will move through training faster.</div>
+  <div class="alert warning"><strong>The Test Phase Almost Always Takes Multiple Rounds</strong>Almost all mentees go through multiple rounds of testing during Phase 2 before reaching profitability. This is normal and expected — it is how the system works. Think of each round as an experiment that teaches you something. How quickly you progress depends mainly on how quickly you develop two skills: <strong>writing effective headlines</strong> and <strong>selecting the right images</strong>The training in Steps 2 and 4 help mentees learn and develop those skills. Mentees who master these crucial skills will move through training faster.</div>
 
   <h3>Phase Gates — How You Know When to Advance</h3>
   <p>At the end of each phase there's a gate — a set of criteria you must meet before moving forward. These protect your money by preventing you from scaling something that hasn't yet proven it can work.</p>
@@ -608,7 +608,7 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- MODULE 1: BUILD -->
 <span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s4 s5 s6 s7 s8 s9">
   <div id="module1-overview">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build</span><h2>Build Your Campaign Foundation — Steps 1 Through 5</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in Step 2 — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
@@ -948,7 +948,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
-  <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Step 3 (Flexy setup) while awaiting approval, but do not go live in Step 5 until compliance is confirmed.</div>
+  <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Step 4 (Flexy setup) while awaiting approval, but do not go live in Step 6 until compliance is confirmed.</div>
 
   <hr class="divider">
 
@@ -1022,7 +1022,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </ul>
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
-    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Step 3.</div>
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Step 4.</div>
     <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
@@ -1069,7 +1069,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </ul>
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
-    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Step 3. Wait for approval before building pages in Flexy™.</div>
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Step 4. Wait for approval before building pages in Flexy™.</div>
     <div class="video-slot" data-vidalytics-id="qRq5oQk59skK_zBL"><div class="play-icon"></div><div><div class="vt">Submit Landing Page Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
@@ -1118,7 +1118,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <h3>How Long Does It Take?</h3>
-  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in Step 3 after approval.</p>
+  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in Step 4 after approval.</p>
 
   <h3>What Happens If Something Is Rejected?</h3>
   <div class="callout-box">
@@ -1135,7 +1135,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <div class="module" id="blitz-step3" data-section="s7">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
-  <h3 id="step3">Step 3 — Using The Flexy™ Landing Page Editor <span class="path-tag tag-all">Everyone</span></h3>
+  <h3 id="step3">Step 4 — Using The Flexy™ Landing Page Editor <span class="path-tag tag-all">Everyone</span></h3>
 
   <div class="callout-box">
     <div class="pe-label">💡 What is Flexy™?</div>
@@ -1203,7 +1203,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div><!-- end blitz-step3 -->
 <div class="module" id="blitz-step4" data-section="s8">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
-  <h3 id="step4">Step 4 — Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
+  <h3 id="step4">Step 5 — Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
   <div class="card">
@@ -1218,7 +1218,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">3</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
         <div class="video-slot" data-vidalytics-id="8dx0ftVuvNUxxiLI" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
       </div></li>
-      <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in Step 3. All paths now use MetricMover™.</em>
+      <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in Step 4. All paths now use MetricMover™.</em>
       </div></li>
       <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
         <div class="video-slot" data-vidalytics-id="Toc8vrneJVGdKzUY" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Optimize Landing Page Base Copy</div><div class="vd">Final landing page review before going live</div></div></div>
@@ -1231,7 +1231,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s9">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build</span></div>
-  <h3 id="step5">Step 5 — Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
+  <h3 id="step5">Step 6 — Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
 
   <div class="video-slot" data-vidalytics-id="FW_zSFg85RDWHUOf"><div class="play-icon"></div><div><div class="vt">T1 — Caterpillar Campaign Basic Info</div><div class="vd">Setting up the basic campaign details in DIYTrax</div></div></div>

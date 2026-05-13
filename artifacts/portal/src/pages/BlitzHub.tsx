@@ -33,7 +33,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 3, phase: "build", step: "Phase 1 — Overview",
     title: "How Phase 1 Works — Campaign Architecture and Your Path",
-    desc: "Before jumping into the steps, start here to understand how all the tools and pieces fit together. This section covers the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and a full overview of what you'll build across Steps 1–5.",
+    desc: "Before jumping into the steps, start here to understand how all the tools and pieces fit together. This section covers the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and a full overview of what you'll build across Steps 1–6.",
     tags: [
       { kind: "mm", label: "Path A: Pre-built advertorial → MetricMover™" },
       { kind: "cb", label: "Path B: Jump page template → MetricMover™" },
@@ -53,7 +53,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 5, phase: "build", step: "Phase 1 — Overview",
     title: "Build Your Campaign Foundation",
-    desc: "Read this before starting Step 1. A short orientation to the five Phase 1 build steps: how the pieces work together, what order to do them in, and why understanding angles and creative direction in Step 2 directly shapes everything you build afterward. Skim it now, refer back to it as you go.",
+    desc: "Read this before starting Step 1. A short orientation to the six Phase 1 build steps: how the pieces work together, what order to do them in, and why understanding angles and creative direction in Step 2 directly shapes everything you build afterward. Skim it now, refer back to it as you go.",
     ctas: [{ label: "Go to Phase 1 Overview", section: "s_foundation" }],
   },
   {
@@ -82,14 +82,14 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 2", section: "s5" }],
   },
   {
-    id: 8, phase: "build", step: "Compliance",
+    id: 8, phase: "build", step: "Phase 1 — Step 3: Compliance",
     title: "Submit Your Assets for Compliance Review",
-    desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 3 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.",
+    desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 4 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
-    ctas: [{ label: "Compliance Section", section: "s6" }],
+    ctas: [{ label: "Go to Step 3", section: "s6" }],
   },
   {
-    id: 9, phase: "build", step: "Phase 1 — Step 3: Landing Pages",
+    id: 9, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
     title: "Build Your Landing Pages in Flexy™ Using MetricMover™",
     desc: "Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM13. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM13 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.",
     tags: [
@@ -97,20 +97,20 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "MM: Advertorial imported into MetricMover™" },
       { kind: "cb", label: "CB/MW: Jump page template imported into MetricMover™" },
     ],
-    ctas: [{ label: "Go to Step 3", section: "s7" }],
+    ctas: [{ label: "Go to Step 4", section: "s7" }],
   },
   {
-    id: 10, phase: "build", step: "Phase 1 — Step 4: DIYTrax Setup",
+    id: 10, phase: "build", step: "Phase 1 — Step 5: DIYTrax Setup",
     title: "Set Up DIYTrax",
     desc: "Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.",
     tags: [
       { kind: "cb", label: "ClickBank: IPN integration required" },
       { kind: "all", label: "Complete 5-step setup sequence in order" },
     ],
-    ctas: [{ label: "Go to Step 4", section: "s8" }],
+    ctas: [{ label: "Go to Step 5", section: "s8" }],
   },
   {
-    id: 11, phase: "build", step: "Phase 1 — Step 5: Go Live",
+    id: 11, phase: "build", step: "Phase 1 — Step 6: Go Live",
     title: "Configure Caterpillar and Go Live",
     desc: "Create your campaign in Caterpillar, upload all 10 ad headlines across 2 sub-campaigns of 5 each, upload your ad image, fund your account with at least $500, and complete the pre-launch checklist before activating. Watch T1–T9 in order.",
     tags: [
@@ -118,7 +118,7 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "2 Sub-Campaigns × 5 headlines" },
       { kind: "warn", label: "Complete pre-launch checklist before going live" },
     ],
-    ctas: [{ label: "Go to Step 5", section: "s9" }],
+    ctas: [{ label: "Go to Step 6", section: "s9" }],
   },
   {
     id: 12, phase: "test", step: "Round 1 · Min. $500",
