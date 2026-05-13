@@ -16,14 +16,15 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   8: { section: "s8", label: "Phase 1 · Step 4 — Landing Pages" },
   9: { section: "s9", label: "Phase 1 · Step 5 — DIYTrax Setup" },
   10: { section: "s10", label: "Phase 1 · Step 6 — Go Live" },
-  11: { section: "s11", label: "Phase 2 · Round 1" },
-  12: { section: "s12", label: "Between Rounds 1 & 2" },
-  13: { section: "s13", label: "Phase 2 · Round 2" },
-  14: { section: "s14", label: "Between Rounds 2 & 3" },
-  15: { section: "s15", label: "Phase 2 · Round 3" },
-  16: { section: "s16", label: "Phase 3 · Method 1 — Scale Budget" },
-  17: { section: "s17", label: "Phase 3 · Method 2 — New Placements" },
-  18: { section: "s18", label: "Phase 3 · Method 3 — Master Publisher" },
+  11: { section: "s11", label: "Phase 2 — Overview" },
+  12: { section: "s12", label: "Phase 2 · Round 1" },
+  13: { section: "s13", label: "Between Rounds 1 & 2" },
+  14: { section: "s14", label: "Phase 2 · Round 2" },
+  15: { section: "s15", label: "Between Rounds 2 & 3" },
+  16: { section: "s16", label: "Phase 2 · Round 3" },
+  17: { section: "s17", label: "Phase 3 · Method 1 — Scale Budget" },
+  18: { section: "s18", label: "Phase 3 · Method 2 — New Placements" },
+  19: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
 };
 
 // Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
@@ -1301,7 +1302,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <hr class="divider">
 
 </div><!-- end module2-overview -->
-<div class="module" id="blitz-round1" data-section="s11">
+<span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
   <h3 id="round1">Phase 2 — Round 1: Find Your Winning Headline</h3>
   <p>Round 1 has one primary goal: identify the headline that your audience responds to most. Everything else — images, formats, placements — is tested in later rounds using your top performing headline as the foundation.</p>
 
@@ -1352,7 +1353,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <hr class="divider">
 
 </div><!-- end blitz-round1 -->
-<span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s12">
+<span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
   <h3 id="between-r1-r2">Phase 2 — Between Rounds: Prepare Additional Static Images While Round 1 Runs</h3>
   <p>Start preparing Round 2 assets as soon as Round 1 is live — you don't need to wait for Round 1 to finish. Round 2 tests static images only, all in 16:9 format.</p>
 
@@ -1380,7 +1381,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <hr class="divider">
 
 </div><!-- end blitz-between-r1-r2 -->
-<span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s13">
+<span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
   <h3 id="round2">Phase 2 — Round 2: Find Your Winning Visual Creative</h3>
   <p><strong>The question:</strong> Which specific image, GIF, or video converts best with your proven headline?</p>
   <p><strong>What's running:</strong> 10 ads — your original Round 1 image plus 9 new visual creatives — all in 16:9 format, all using your Round 1 winning headline + description.</p>
@@ -1408,7 +1409,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <hr class="divider">
 
 </div><!-- end blitz-round2 -->
-<span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s14">
+<span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
   <h3 id="between-r2-r3">Phase 2 — Between Rounds: Prep Your Round 3 Placement Format Assets</h3>
   <p>Once your Round 2 winning visual creative is identified, prepare the 5 additional placement format versions before launching Round 3.</p>
 
@@ -1428,7 +1429,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <hr class="divider">
 
 </div><!-- end blitz-between-r2-r3 -->
-<span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s15">
+<span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
   <h3 id="round3">Phase 2 — Round 3: Find Your Winning Placement Format</h3>
   <p><strong>The question:</strong> Which of the 6 placement formats (shape and medium) performs best with your top performing headline and visual creative?</p>
   <p><strong>What's running:</strong> 6 ads — your Round 2 winning creative converted into all 6 formats — split into two sub-campaigns (16:9 formats in one, 9:16 formats in the other). All use your Round 1 winning headline + description.</p>
@@ -1455,7 +1456,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div><!-- end blitz-round3 -->
 
 <!-- MODULE 3: SCALE -->
-<span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s16">
+<span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s17">
   <div class="module-header"><span class="mod-badge scale">Phase 3: Scale</span><h2>Scale — Multiply Your Profits</h2></div>
   <div class="module-intro">Scaling is about spending more on what's already proven to work. You are not introducing new ideas at this stage. Save experimentation for new campaigns — scaling is for proven winners only.</div>
 
@@ -1468,7 +1469,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
 </div><!-- end module3-overview -->
-<span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s17">
+<span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s18">
   <h3>Scaling to New Placements</h3>
   <div class="card">
     <table>
@@ -1483,7 +1484,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
 </div><!-- end blitz-scale-m2 -->
-<span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s18">
+<span id="s19" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s19">
   <h3>Master Publisher Requirements</h3>
   <ul class="checklist">
     <li>14+ consecutive days of profitable campaigns on Caterpillar, Grasshopper, or Crane</li>
