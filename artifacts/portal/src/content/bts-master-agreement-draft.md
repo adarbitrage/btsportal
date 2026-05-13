@@ -124,20 +124,9 @@ By proceeding, you acknowledge that you have read, understand, and agree to the 
 
 By signing below, the parties acknowledge that they have read, understood, and agree to be bound by all the terms and conditions of this BTS Mentorship Program Agreement.
 
-### Customer
-
-|   |   |
+| Customer | Build Test Scale, LLC |
 | :--- | :--- |
-| **Signature** | __________________________________________ |
-| **Printed Name** | __________________________________________ |
-| **Email** | __________________________________________ |
-| **Date** | __________________________________________ |
-
-### Build Test Scale, LLC
-
-|   |   |
-| :--- | :--- |
-| **Signature** | __________________________________________ |
-| **Printed Name** | __________________________________________ |
-| **Title** | __________________________________________ |
-| **Date** | __________________________________________ |
+| **Signature:** ______________________ | **Signature:** ______________________ |
+| **Printed Name:** ______________________ | **Printed Name:** ______________________ |
+| **Email:** ______________________ | **Title:** ______________________ |
+| **Date:** ______________________ | **Date:** ______________________ |
