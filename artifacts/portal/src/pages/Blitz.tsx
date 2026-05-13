@@ -10,20 +10,40 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   2: { section: "s2", label: "Before You Start" },
   3: { section: "s2", label: "Before You Start — What You Need to Know" },
   4: { section: "s3", label: "Network Selection" },
-  5: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
-  6: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
-  7: { section: "s6", label: "Compliance Review" },
-  8: { section: "s7", label: "Phase 1 · Step 3 — Landing Pages" },
-  9: { section: "s8", label: "Phase 1 · Step 4 — DIYTrax Setup" },
-  10: { section: "s9", label: "Phase 1 · Step 5 — Go Live" },
-  11: { section: "s10", label: "Phase 2 · Round 1" },
-  12: { section: "s11", label: "Between Rounds 1 & 2" },
-  13: { section: "s12", label: "Phase 2 · Round 2" },
-  14: { section: "s13", label: "Between Rounds 2 & 3" },
-  15: { section: "s14", label: "Phase 2 · Round 3" },
-  16: { section: "s15", label: "Phase 3 · Method 1 — Scale Budget" },
-  17: { section: "s16", label: "Phase 3 · Method 2 — New Placements" },
-  18: { section: "s17", label: "Phase 3 · Method 3 — Master Publisher" },
+  5: { section: "s_foundation", label: "Phase 1 — Overview: Build Your Campaign Foundation" },
+  6: { section: "s4", label: "Phase 1 · Step 1 — Product Selection" },
+  7: { section: "s5", label: "Phase 1 · Step 2 — Creative Assets" },
+  8: { section: "s6", label: "Compliance Review" },
+  9: { section: "s7", label: "Phase 1 · Step 3 — Landing Pages" },
+  10: { section: "s8", label: "Phase 1 · Step 4 — DIYTrax Setup" },
+  11: { section: "s9", label: "Phase 1 · Step 5 — Go Live" },
+  12: { section: "s10", label: "Phase 2 · Round 1" },
+  13: { section: "s11", label: "Between Rounds 1 & 2" },
+  14: { section: "s12", label: "Phase 2 · Round 2" },
+  15: { section: "s13", label: "Between Rounds 2 & 3" },
+  16: { section: "s14", label: "Phase 2 · Round 3" },
+  17: { section: "s15", label: "Phase 3 · Method 1 — Scale Budget" },
+  18: { section: "s16", label: "Phase 3 · Method 2 — New Placements" },
+  19: { section: "s17", label: "Phase 3 · Method 3 — Master Publisher" },
+};
+
+// Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
+// + steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section attribute.
+// To deep-link cleanly we override visibility of those inner divs at runtime
+// per lesson-section. Keys are LESSON_LOOKUP section values that should render
+// part (or all) of module1; sections not listed here let module1 fall through
+// to the default data-section filter (which will hide it).
+const MODULE1_OVERRIDES: Record<
+  string,
+  { showModule1: boolean; showOverview: boolean; showStep1: boolean; showStep2: boolean }
+> = {
+  s_foundation: { showModule1: true, showOverview: true, showStep1: false, showStep2: false },
+  s4: { showModule1: true, showOverview: false, showStep1: true, showStep2: false },
+  s5: { showModule1: true, showOverview: false, showStep1: false, showStep2: true },
+  s6: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
+  s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
+  s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
+  s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
 };
 
 // Source: attached_assets/blitz_main_caterpillar_110_1778523623764.html (v4.0, 2026-04-21)
@@ -1635,6 +1655,33 @@ export default function Blitz() {
       const sections = (m.getAttribute("data-section") || "").split(/\s+/).filter(Boolean);
       m.style.display = sections.includes(wanted) ? "" : "none";
     });
+
+    // Module1 wraps three logical sub-sections (overview + step 1 + step 2)
+    // under a single data-section, so apply explicit per-section overrides
+    // to control its outer + inner visibility.
+    const m1 = contentEl.querySelector<HTMLElement>("#module1");
+    const m1Overview = contentEl.querySelector<HTMLElement>("#module1-overview");
+    const m1Steps = contentEl.querySelector<HTMLElement>("#module1-steps");
+    const m1Step1 = contentEl.querySelector<HTMLElement>("#blitz-step1");
+    const m1Step2 = contentEl.querySelector<HTMLElement>("#blitz-step2");
+    const ovr = MODULE1_OVERRIDES[wanted];
+    if (ovr) {
+      if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
+      if (m1Overview) m1Overview.style.display = ovr.showOverview ? "" : "none";
+      if (m1Steps) {
+        m1Steps.style.display = ovr.showStep1 || ovr.showStep2 ? "" : "none";
+      }
+      if (m1Step1) m1Step1.style.display = ovr.showStep1 ? "" : "none";
+      if (m1Step2) m1Step2.style.display = ovr.showStep2 ? "" : "none";
+    } else {
+      // Lesson section unrelated to module1 — restore inner defaults so a
+      // later switch back into module1 starts from a clean slate.
+      if (m1Overview) m1Overview.style.display = "";
+      if (m1Steps) m1Steps.style.display = "";
+      if (m1Step1) m1Step1.style.display = "";
+      if (m1Step2) m1Step2.style.display = "";
+    }
+
     // Scroll to top on section switch.
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [contentEl, isSectionView, lesson]);
