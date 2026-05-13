@@ -204,14 +204,14 @@ function StatusBadge({ status }: { status: AppInstance["status"] }) {
   );
 }
 
-function FlexyCredentialsBlock() {
+function FlexyCredentialsInline() {
   const { toast } = useToast();
   const { data, isLoading, error } = useGetFlexyCredentials();
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
     return (
-      <div className="mt-4 text-xs text-muted-foreground flex items-center gap-2">
+      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
         <Loader2 className="w-3 h-3 animate-spin" /> Loading login email…
       </div>
     );
@@ -239,33 +239,30 @@ function FlexyCredentialsBlock() {
   };
 
   return (
-    <div className="mt-4 rounded-md border border-border bg-muted/40 p-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">Flexy login email</p>
-          <p
-            className="text-sm font-mono break-all"
-            data-testid="text-flexy-email"
-          >
-            {email}
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-xs text-muted-foreground">Login email:</span>
+        <span
+          className="text-xs font-mono break-all text-foreground"
+          data-testid="text-flexy-email"
+        >
+          {email}
+        </span>
+        <button
+          type="button"
           onClick={handleCopy}
+          className="inline-flex items-center text-xs text-primary hover:underline gap-1"
           data-testid="button-copy-flexy-email"
         >
           {copied ? (
-            <><Check className="w-4 h-4 mr-1" /> Copied</>
+            <><Check className="w-3 h-3" /> Copied</>
           ) : (
-            <><Copy className="w-4 h-4 mr-1" /> Copy</>
+            <><Copy className="w-3 h-3" /> Copy</>
           )}
-        </Button>
+        </button>
       </div>
-      <p className="text-xs text-muted-foreground mt-2">
-        First time opening Flexy? Click <span className="font-medium">Forgot
-        password</span> on the Flexy login screen to set a password.
+      <p className="text-[11px] text-muted-foreground/80 italic">
+        First time? Use <span className="font-medium not-italic">Forgot password</span> on the Flexy login screen.
       </p>
     </div>
   );
@@ -323,19 +320,21 @@ function AppCard({
             />
           </div>
 
-          <div className="flex-1 p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">{app.title}</h2>
+          <div className="flex-1 p-5 flex flex-col">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h2 className="text-xl font-bold text-foreground">{app.title}</h2>
+                  <Badge
+                    variant="outline"
+                    className={`${app.accent.badgeBg} ${app.accent.badgeText} ${app.accent.badgeBorder} text-[10px] font-bold tracking-wide uppercase`}
+                  >
+                    {app.category}
+                  </Badge>
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">{app.tagline}</p>
               </div>
-              <div className="flex flex-col items-end gap-1.5">
-                <Badge
-                  variant="outline"
-                  className={`${app.accent.badgeBg} ${app.accent.badgeText} ${app.accent.badgeBorder} text-[10px] font-bold tracking-wide uppercase`}
-                >
-                  {app.category}
-                </Badge>
+              <div className="shrink-0">
                 {isDisabled ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -356,11 +355,11 @@ function AppCard({
               </div>
             </div>
 
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">
+            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
               {app.description}
             </p>
 
-            <ul className="space-y-1.5 mb-4">
+            <ul className="space-y-1 mb-3">
               {app.highlights.map((h, i) => (
                 <li
                   key={i}
@@ -372,20 +371,14 @@ function AppCard({
               ))}
             </ul>
 
-            {inst?.domain && (
-              <p className="text-xs text-muted-foreground mb-3 font-mono break-all">
-                {inst.domain}
-              </p>
-            )}
-
             {isDisabled && (
-              <p className="text-xs text-muted-foreground mb-3">
+              <p className="text-xs text-muted-foreground">
                 This app is temporarily unavailable. Please check back later.
               </p>
             )}
 
             {!isDisabled && status === "install_failed" && (
-              <p className="text-xs text-red-700 mb-3">
+              <p className="text-xs text-red-700 mb-2">
                 {inst?.squidyError?.includes("agency token rejected")
                   ? "Setup couldn't complete due to a configuration issue. Please try again or contact support."
                   : "The app couldn't be created. You can try again."}
@@ -393,80 +386,88 @@ function AppCard({
             )}
 
             {!isDisabled && (
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border flex-wrap">
-                {status === "not_installed" && (
-                  <Button
-                    size="sm"
-                    disabled={installIsPending || !hasActiveMembership}
-                    onClick={() => onInstall(app.name)}
-                    data-testid={`button-install-${app.name}`}
-                  >
-                    {isInstallingNow ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
-                    ) : (
-                      "Install"
-                    )}
-                  </Button>
-                )}
-                {status === "installing" && (
-                  <Button size="sm" disabled>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
-                  </Button>
-                )}
-                {status === "uninstalling" && (
-                  <Button size="sm" disabled variant="outline">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…
-                  </Button>
-                )}
-                {status === "installed" && inst?.domain && (
-                  <>
+              <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  {inst?.domain && (
+                    <p className="text-xs text-muted-foreground font-mono break-all">
+                      {inst.domain}
+                    </p>
+                  )}
+                  {app.name === "flexy" && status === "installed" && (
+                    <FlexyCredentialsInline />
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {status === "not_installed" && (
+                    <Button
+                      size="sm"
+                      disabled={installIsPending || !hasActiveMembership}
+                      onClick={() => onInstall(app.name)}
+                      data-testid={`button-install-${app.name}`}
+                    >
+                      {isInstallingNow ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+                      ) : (
+                        "Install"
+                      )}
+                    </Button>
+                  )}
+                  {status === "installing" && (
+                    <Button size="sm" disabled>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
+                    </Button>
+                  )}
+                  {status === "uninstalling" && (
+                    <Button size="sm" disabled variant="outline">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…
+                    </Button>
+                  )}
+                  {status === "installed" && inst?.domain && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isUninstalling}
+                        onClick={() => onUninstall(app.name, app.title)}
+                        data-testid={`button-uninstall-${app.name}`}
+                      >
+                        {isUninstalling ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…</>
+                        ) : (
+                          <><Trash2 className="w-4 h-4 mr-2" /> Uninstall</>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={openingApp === app.name || !hasActiveMembership}
+                        onClick={() => onOpen(app.name)}
+                        data-testid={`button-open-${app.name}`}
+                      >
+                        {openingApp === app.name ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
+                        ) : (
+                          <>Open <ExternalLink className="w-4 h-4 ml-2" /></>
+                        )}
+                      </Button>
+                    </>
+                  )}
+                  {status === "install_failed" && (
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={isUninstalling}
-                      onClick={() => onUninstall(app.name, app.title)}
-                      data-testid={`button-uninstall-${app.name}`}
+                      disabled={isRetrying || !hasActiveMembership}
+                      onClick={() => onRetry(app.name)}
+                      data-testid={`button-retry-${app.name}`}
                     >
-                      {isUninstalling ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…</>
+                      {isRetrying ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
                       ) : (
-                        <><Trash2 className="w-4 h-4 mr-2" /> Uninstall</>
+                        <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
                       )}
                     </Button>
-                    <Button
-                      size="sm"
-                      disabled={openingApp === app.name || !hasActiveMembership}
-                      onClick={() => onOpen(app.name)}
-                      data-testid={`button-open-${app.name}`}
-                    >
-                      {openingApp === app.name ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
-                      ) : (
-                        <>Open <ExternalLink className="w-4 h-4 ml-2" /></>
-                      )}
-                    </Button>
-                  </>
-                )}
-                {status === "install_failed" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isRetrying || !hasActiveMembership}
-                    onClick={() => onRetry(app.name)}
-                    data-testid={`button-retry-${app.name}`}
-                  >
-                    {isRetrying ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
-                    ) : (
-                      <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
-                    )}
-                  </Button>
-                )}
+                  )}
+                </div>
               </div>
-            )}
-
-            {!isDisabled && app.name === "flexy" && status === "installed" && (
-              <FlexyCredentialsBlock />
             )}
           </div>
         </div>
