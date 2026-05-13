@@ -38,7 +38,7 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "Path A: Pre-built advertorial → MetricMover™" },
       { kind: "cb", label: "Path B: Jump page template → MetricMover™" },
     ],
-    ctas: [{ label: "Go to Phase 1 Overview", section: "s_foundation" }],
+    ctas: [{ label: "Go to Phase 1 Overview", section: "s3" }],
   },
   {
     id: 4, phase: "build", step: "Phase 1 — Network Selection",
@@ -48,7 +48,7 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "Media Mavens ⭐ Recommended" },
       { kind: "cb", label: "ClickBank · MaxWeb · Affiliati" },
     ],
-    ctas: [{ label: "Go to Section", section: "s3" }],
+    ctas: [{ label: "Go to Section", section: "s4" }],
   },
   {
     id: 5, phase: "build", step: "Phase 1 — Step 1: Product Selection",
@@ -58,7 +58,7 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "MM: Look for products with pre-built advertorial" },
       { kind: "cb", label: "CB/MW: Confirm jump page path applies" },
     ],
-    ctas: [{ label: "Go to Step 1", section: "s4" }],
+    ctas: [{ label: "Go to Step 1", section: "s5" }],
   },
   {
     id: 6, phase: "build", step: "Phase 1 — Step 2: Creative Assets",
@@ -73,14 +73,14 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "MM: 5 LP Headlines + 5 Hero Shots" },
       { kind: "cb", label: "CB/MW: Jump page body copy + 5 LP Headlines + 5 Hero Shots" },
     ],
-    ctas: [{ label: "Go to Step 2", section: "s5" }],
+    ctas: [{ label: "Go to Step 2", section: "s6" }],
   },
   {
     id: 7, phase: "build", step: "Phase 1 — Step 3: Compliance",
     title: "Submit Your Assets for Compliance Review",
     desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 4 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
-    ctas: [{ label: "Go to Step 3", section: "s6" }],
+    ctas: [{ label: "Go to Step 3", section: "s7" }],
   },
   {
     id: 8, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
@@ -91,7 +91,7 @@ const LESSONS: HubLesson[] = [
       { kind: "mm", label: "MM: Advertorial imported into MetricMover™" },
       { kind: "cb", label: "CB/MW: Jump page template imported into MetricMover™" },
     ],
-    ctas: [{ label: "Go to Step 4", section: "s7" }],
+    ctas: [{ label: "Go to Step 4", section: "s8" }],
   },
   {
     id: 9, phase: "build", step: "Phase 1 — Step 5: DIYTrax Setup",
@@ -101,7 +101,7 @@ const LESSONS: HubLesson[] = [
       { kind: "cb", label: "ClickBank: IPN integration required" },
       { kind: "all", label: "Complete 5-step setup sequence in order" },
     ],
-    ctas: [{ label: "Go to Step 5", section: "s8" }],
+    ctas: [{ label: "Go to Step 5", section: "s9" }],
   },
   {
     id: 10, phase: "build", step: "Phase 1 — Step 6: Go Live",
@@ -112,20 +112,20 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "2 Sub-Campaigns × 5 headlines" },
       { kind: "warn", label: "Complete pre-launch checklist before going live" },
     ],
-    ctas: [{ label: "Go to Step 6", section: "s9" }],
+    ctas: [{ label: "Go to Step 6", section: "s10" }],
   },
   {
     id: 11, phase: "test", step: "Round 1 · Min. $500",
     title: "Find Your Top Performing Headline",
     desc: "Run all 10 ads and monitor performance daily. At $25/ad: cut any ad with 33+ clicks but zero landing page clicks. At $500 total: identify the headline with the strongest metrics. Expect ~20% ROAS — you are buying data, not revenue. Set up your P&L Tracker immediately after launch.",
     tags: [{ kind: "all", label: "Target: ~$100 returned (20% ROAS)" }],
-    ctas: [{ label: "Go to Round 1", section: "s10" }],
+    ctas: [{ label: "Go to Round 1", section: "s11" }],
   },
   {
     id: 12, phase: "test", step: "Between Rounds 1 and 2",
     title: "Prepare Additional Static Images While Round 1 Runs",
     desc: "While Round 1 is running, prepare your Round 2 assets. Create 9 new static images in 16:9 format using AI tools. These will compete against your original Round 1 image in Round 2. MM/CB path: also prepare 5 new landing page headlines, 5 new hero shots, and set up a new MetricMover™ project.",
-    ctas: [{ label: "Go to Between Rounds", section: "s11" }],
+    ctas: [{ label: "Go to Between Rounds", section: "s12" }],
   },
   {
     id: 13, phase: "test", step: "Round 2 · Min. $500",
@@ -135,13 +135,13 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "Target: ~$375 returned (75% ROAS)" },
       { kind: "all", label: "All creatives 16:9 static format" },
     ],
-    ctas: [{ label: "Go to Round 2", section: "s12" }],
+    ctas: [{ label: "Go to Round 2", section: "s13" }],
   },
   {
     id: 14, phase: "test", step: "Between Rounds 2 and 3",
     title: "Prepare Your Round 3 Placement Format Assets",
     desc: "Take your Round 2 top performing creative and convert it into all 6 placement formats: 16:9 static image, 9:16 static image, 16:9 GIF, 9:16 GIF, 16:9 video, and 9:16 video. Use Cropbot, Adobe Express, and GIFSTER as needed.",
-    ctas: [{ label: "Go to Between Rounds", section: "s13" }],
+    ctas: [{ label: "Go to Between Rounds", section: "s14" }],
   },
   {
     id: 15, phase: "test", step: "Round 3 · Min. $1,000",
@@ -151,20 +151,20 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "Target: ~$600 returned (60% ROAS)" },
       { kind: "warn", label: "1 placement format per sub-campaign — publisher requirement" },
     ],
-    ctas: [{ label: "Go to Round 3", section: "s14" }],
+    ctas: [{ label: "Go to Round 3", section: "s15" }],
   },
   {
     id: 16, phase: "scale", step: "Method 1",
     title: "Increase Budget on Your Top Performing Placement",
     desc: "Remove non-profitable ads and increase your daily budget 2× on your top performing placement. If ROAS stays stable after 3–5 days, increase to 5×, then 10×. Monitor daily — stop scaling a placement if ROAS declines for 5+ consecutive days.",
     tags: [{ kind: "warn", label: "Only enter Phase 3 once Phase 2 is profitable" }],
-    ctas: [{ label: "Go to Scale Module", section: "s15" }],
+    ctas: [{ label: "Go to Scale Module", section: "s16" }],
   },
   {
     id: 17, phase: "scale", step: "Method 2",
     title: "Test New Placements and Publishers",
     desc: "Use your proven ads and landing pages on Grasshopper or Crane publishers — no new creative required. Minimum $1,500 per new placement. See the Grasshopper and Crane Supplemental Guides for setup instructions.",
-    ctas: [{ label: "Go to Scale Module", section: "s16" }],
+    ctas: [{ label: "Go to Scale Module", section: "s17" }],
   },
   {
     id: 18, phase: "scale", step: "Method 3",
@@ -174,7 +174,7 @@ const LESSONS: HubLesson[] = [
       { kind: "warn", label: "14+ consecutive profitable days required" },
       { kind: "warn", label: "Coach approval required" },
     ],
-    ctas: [{ label: "Go to Scale Module", section: "s17" }],
+    ctas: [{ label: "Go to Scale Module", section: "s18" }],
   },
 ];
 
