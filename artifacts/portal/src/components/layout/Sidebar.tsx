@@ -103,6 +103,18 @@ const MEMBER_NAV: NavNode[] = [
   },
   {
     kind: "folder",
+    storageKey: "resources",
+    label: "Resources",
+    icon: FolderOpen,
+    defaultOpen: false,
+    children: [
+      { kind: "leaf", href: "/resources", label: "Resource Vault", icon: FolderOpen },
+      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
+      { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
+    ],
+  },
+  {
+    kind: "folder",
     storageKey: "coaching",
     label: "Coaching",
     icon: Video,
@@ -132,18 +144,6 @@ const MEMBER_NAV: NavNode[] = [
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
       { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus },
-    ],
-  },
-  {
-    kind: "folder",
-    storageKey: "resources",
-    label: "Resources",
-    icon: FolderOpen,
-    defaultOpen: false,
-    children: [
-      { kind: "leaf", href: "/resources", label: "Resource Vault", icon: FolderOpen },
-      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
-      { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
     ],
   },
   { kind: "leaf", href: "/wins", label: "Wins", icon: Trophy },
