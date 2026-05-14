@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
+import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
 
 type SectionId = "apps" | "networks" | "traffic" | "ai-advertorial" | "ai-adcopy" | "creative-drive" | "pnl" | "email-template" | "spy";
 
@@ -116,10 +117,10 @@ const paidMediaTools: ToolInfo[] = [
   {
     name: "CropBot™",
     tagline: "Image Cropper & Resizer",
-    description: "A Chrome Extension to crop and resize images gathered with ScrapeBot™. In most cases, images downloaded from Google won't have ideal dimensions and need resizing. ScrapeBot™, CropBot™, and PixelPress™ make banner creation a breeze.",
-    vidalyticsId: "zIbcTMBKHnyz_UOo",
+    description: "A Chrome Extension built to crop and resize the images you gather with ScrapeBot™. In most cases, images downloaded from Google won't have ideal dimensions and need resizing. ScrapeBot™, CropBot™, and PixelPress™ make banner creation a breeze.",
     chromeUrl: "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
     trainingLabel: "Watch CropBot™ Training",
+    logoSrc: cropbotLogo,
   },
   {
     name: "Gifster™",
