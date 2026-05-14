@@ -2,12 +2,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Sparkles, Wrench, Globe, Radar, Bot, PenTool, FolderOpen,
+  Sparkles, Wrench, Globe, Radar, FolderOpen,
   Calculator, Mail, Search, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
 
-type SectionId = "apps" | "networks" | "traffic" | "ai-advertorial" | "ai-adcopy" | "creative-drive" | "pnl" | "email-template" | "spy";
+type SectionId = "apps" | "networks" | "traffic" | "creative-drive" | "pnl" | "email-template" | "spy";
 
 type Tint = { bg: string; border: string; text: string };
 
@@ -23,8 +23,6 @@ const navItems: NavItem[] = [
   { id: "apps", label: "Paid Media Suite™", icon: Wrench, tint: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" }, note: "Not sold anywhere — exclusive to BTS members" },
   { id: "networks", label: "Affiliate Networks", icon: Globe, tint: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" } },
   { id: "traffic", label: "Traffic Sources", icon: Radar, tint: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" } },
-  { id: "ai-advertorial", label: "AI Advertorial Builder", icon: Bot, tint: { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" }, note: "100% Free for BTS Members" },
-  { id: "ai-adcopy", label: "AI Ad Copy Generator", icon: PenTool, tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" }, note: "100% Free for BTS Members" },
   { id: "creative-drive", label: "Creative Drive", icon: FolderOpen, tint: { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" } },
   { id: "pnl", label: "P&L Tracker™", icon: Calculator, tint: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" } },
   { id: "email-template", label: "Email Template", icon: Mail, tint: { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" } },
@@ -308,63 +306,6 @@ export default function Advantage() {
                 With step-by-step setup instructions and the ability to launch campaigns quickly, the Responsive Rolodex eliminates guesswork and reduces risk. Whether you're new to Direct Buys or scaling your efforts, this tool leverages years of expertise to connect you with winning placements from day one.
               </p>
               <Button size="sm">Access the Rolodex</Button>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section id="ai-advertorial" className="space-y-4 scroll-mt-6">
-          <SectionHeader id="ai-advertorial" title="AI Advertorial Builder" note="100% Free for BTS Members" />
-
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-foreground text-lg">Affiliate CMO</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                AI-Powered Advertorials That Actually Make Sales. Get high-converting copy that connects with your ideal customer's deepest emotions — without spending weeks on research or testing hundreds of failed variations.
-              </p>
-              <div className="bg-muted/40 border border-border/60 rounded-xl p-5">
-                <h4 className="font-semibold text-foreground text-sm mb-2">6 Ways Affiliate CMO Transforms Your Marketing:</h4>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Deep Avatar Research</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Advertorial Generator</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Headline Laboratory</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Banner Ad Factory</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Psychology Brief Builder</li>
-                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Custom Copy Control</li>
-                </ul>
-              </div>
-              <p className="text-sm text-muted-foreground font-medium">
-                Use coupon code: <span className="font-mono bg-muted px-2 py-0.5 rounded text-foreground">LIFETIME100</span> to get FREE access for life!
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm">
-                  <a href="https://app.affiliatecmo.com/login" target="_blank" rel="noopener noreferrer">Register / Log In</a>
-                </Button>
-                <Button size="sm" variant="outline">Watch Training</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section id="ai-adcopy" className="space-y-4 scroll-mt-6">
-          <SectionHeader id="ai-adcopy" title="AI Ad Copy Generator" note="100% Free for BTS Members" />
-
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-foreground text-lg">Free Ad Copy™</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                The only 100% FREE AI copy-generator that will outperform even your best ads. Powered by GPT-4 combined with 25+ years of copywriting experience and over $1.2 billion in sales — the world's most powerful AI copy-generator.
-              </p>
-              <p className="text-sm text-muted-foreground font-medium">
-                Register below to get 1,000 credits instantly applied — completely FREE for all BTS members!
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm">
-                  <a href="https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X" target="_blank" rel="noopener noreferrer">Register</a>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="https://www.freeadcopy.com/?loginpopup=true#" target="_blank" rel="noopener noreferrer">Log In</a>
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </section>

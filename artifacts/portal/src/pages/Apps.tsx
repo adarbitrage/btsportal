@@ -36,6 +36,63 @@ import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
 import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
 import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
+import affiliateCmoLogo from "@assets/affiliatecmo-logo-250x222_1778796180683.png";
+import freeAdCopyLogo from "@assets/freeadcopy-logo-250x222_1778796182562.png";
+
+type PartnerTool = {
+  name: string;
+  category: string;
+  tagline: string;
+  description: string;
+  highlights: string[];
+  logo: string;
+  logoBg?: string;
+  perk?: string;
+  couponCode?: string;
+  registerUrl: string;
+  loginUrl?: string;
+};
+
+const PARTNER_TOOLS: PartnerTool[] = [
+  {
+    name: "Affiliate CMO",
+    category: "AI Advertorial Builder",
+    tagline: "AI-powered advertorials that connect with your customer's deepest emotions.",
+    description:
+      "Get high-converting copy that connects with your ideal customer's deepest emotions — without spending weeks on research or testing hundreds of failed variations.",
+    highlights: [
+      "Deep avatar research",
+      "Advertorial generator",
+      "Headline laboratory",
+      "Banner ad factory",
+      "Psychology brief builder",
+      "Custom copy control",
+    ],
+    logo: affiliateCmoLogo,
+    logoBg: "bg-black",
+    perk: "FREE for life with the coupon code below.",
+    couponCode: "LIFETIME100",
+    registerUrl: "https://app.affiliatecmo.com/login",
+    loginUrl: "https://app.affiliatecmo.com/login",
+  },
+  {
+    name: "FreeAdCopy™",
+    category: "AI Ad Copy Generator",
+    tagline: "100% free AI copy-generator built to outperform your best ads.",
+    description:
+      "Powered by GPT-4 combined with 25+ years of copywriting experience and over $1.2 billion in sales — one of the most powerful AI copy-generators on the market.",
+    highlights: [
+      "1,000 credits applied instantly when you register through the BTS link",
+      "Generate ad copy variations in seconds across angles and offers",
+      "Built-in copywriting frameworks proven across billions in spend",
+    ],
+    logo: freeAdCopyLogo,
+    logoBg: "bg-white",
+    perk: "1,000 credits applied instantly — completely FREE for BTS members.",
+    registerUrl: "https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X",
+    loginUrl: "https://www.freeadcopy.com/?loginpopup=true#",
+  },
+];
 
 type ChromeExtension = {
   name: string;
@@ -521,6 +578,114 @@ function AppCard({
   );
 }
 
+function PartnerToolCard({ tool }: { tool: PartnerTool }) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCoupon = async () => {
+    if (!tool.couponCode) return;
+    try {
+      await navigator.clipboard.writeText(tool.couponCode);
+      setCopied(true);
+      toast({ title: "Copied", description: "Coupon code copied to clipboard." });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Couldn't copy to your clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card className="border-border/60 shadow-sm overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          <div
+            className={`${tool.logoBg ?? "bg-white"} flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border`}
+          >
+            <img
+              src={tool.logo}
+              alt={`${tool.name} logo`}
+              className="max-h-28 max-w-full object-contain"
+            />
+          </div>
+
+          <div className="flex-1 p-5 flex flex-col">
+            <div className="mb-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h2 className="text-xl font-bold text-foreground">{tool.name}</h2>
+                <Badge
+                  variant="outline"
+                  className="bg-muted text-muted-foreground border-border text-[10px] font-bold tracking-wide uppercase"
+                >
+                  {tool.category}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold tracking-wide uppercase"
+                >
+                  Free for BTS Members
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">{tool.tagline}</p>
+            </div>
+
+            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+              {tool.description}
+            </p>
+
+            <ul className="space-y-1 mb-4">
+              {tool.highlights.map((h, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                  <span>{h}</span>
+                </li>
+              ))}
+            </ul>
+
+            {tool.perk && (
+              <div className="mb-4 rounded-lg bg-muted/40 border border-border/60 p-3 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-foreground">{tool.perk}</span>
+                {tool.couponCode && (
+                  <button
+                    type="button"
+                    onClick={handleCopyCoupon}
+                    className="inline-flex items-center gap-1 font-mono text-xs bg-background border border-border rounded px-2 py-0.5 text-foreground hover:border-foreground/40"
+                  >
+                    {tool.couponCode}
+                    {copied ? (
+                      <><Check className="w-3 h-3" /> Copied</>
+                    ) : (
+                      <><Copy className="w-3 h-3" /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="mt-auto flex items-center gap-2 flex-wrap justify-end">
+              <Button asChild size="sm">
+                <a href={tool.registerUrl} target="_blank" rel="noopener noreferrer">
+                  Register
+                </a>
+              </Button>
+              {tool.loginUrl && (
+                <Button asChild size="sm" variant="outline">
+                  <a href={tool.loginUrl} target="_blank" rel="noopener noreferrer">
+                    Log In
+                  </a>
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ExtensionCard({ ext }: { ext: ChromeExtension }) {
   return (
     <Card className="border-border/60 shadow-sm overflow-hidden">
@@ -739,6 +904,21 @@ export default function Apps() {
               installIsPending={installMutation.isPending}
             />
           ))}
+        </div>
+
+        <div className="pt-4 space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Partner Tools</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Third-party AI tools that BTS members get free access to. Register through
+              the BTS link to claim your free account or credits.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-5">
+            {PARTNER_TOOLS.map((tool) => (
+              <PartnerToolCard key={tool.name} tool={tool} />
+            ))}
+          </div>
         </div>
 
         <div className="pt-4 space-y-4">
