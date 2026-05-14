@@ -23,7 +23,7 @@ type Category = "Health" | "Beauty" | "Pets" | "Home";
 const CATEGORY_ORDER: Category[] = ["Health", "Beauty", "Pets", "Home"];
 
 const SECTION_STYLES = {
-  panel: "bg-slate-50 dark:bg-slate-800/40",
+  panel: "bg-sky-50/50 dark:bg-slate-800/30",
   badge:
     "bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-200",
   chevron: "text-foreground",
@@ -474,7 +474,7 @@ function CategorySection({
   category: Category;
   products: Product[];
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const styles = SECTION_STYLES;
   return (
     <div className="rounded-xl border-2 border-border overflow-hidden">
