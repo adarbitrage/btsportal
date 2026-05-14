@@ -400,13 +400,10 @@ async function seed() {
     { title: "Platform Update: New Video Player", body: "Upgraded video player with faster loading and adjustable playback speed.", type: "general" },
   ]);
 
+  // Membership/Mentee Agreement is intentionally NOT seeded — that document is
+  // executed and stored outside the portal. Only the Terms of Service is
+  // signed in-app during onboarding.
   await db.insert(legalDocumentsTable).values([
-    {
-      type: "membership_agreement",
-      version: 1,
-      title: "Membership Agreement",
-      content: `# Build Test Scale Membership Agreement\n\n**Effective Date:** Upon execution by Member\n\nThis Membership Agreement ("Agreement") is entered into between Build Test Scale, LLC ("Company," "we," "us," or "our") and the individual or entity identified during registration ("Member," "you," or "your").\n\n## 1. Membership & Access\n\nBy purchasing a Build Test Scale product or service, you are granted access to the specific digital training content, tools, community features, and coaching services associated with your purchased tier. Access is non-transferable and limited to the registered Member.\n\n## 2. Payment & Billing\n\n- All purchases are processed through ThriveCart or an authorized payment processor.\n- Recurring memberships (3-Month, 6-Month, 1-Year Mentorship) will auto-renew unless canceled before the renewal date.\n- Lifetime Memberships are one-time purchases and do not renew.\n\n## 3. Refund Policy\n\n- Front-end products carry a 30-day money-back guarantee from the date of purchase.\n- Mentorship programs are non-refundable after the 72-hour cooling-off period.\n- Lifetime Memberships are non-refundable.\n\n## 4. Code of Conduct\n\nMembers agree to treat all community members, coaches, and staff with respect, not share login credentials or distribute proprietary content, not engage in spam, harassment, or illegal activities, and provide truthful information during registration.\n\n## 5. Intellectual Property\n\nAll training materials, videos, documents, templates, and tools provided through Build Test Scale are the intellectual property of Build Test Scale, LLC. Unauthorized reproduction, distribution, or resale is strictly prohibited.\n\n## 6. Limitation of Liability\n\nBuild Test Scale provides educational content and tools for informational purposes only. We do not guarantee specific income results.\n\n## 7. Termination\n\nWe reserve the right to terminate or suspend your membership for violation of this Agreement.\n\n## 8. Modifications\n\nWe reserve the right to modify this Agreement at any time.\n\n## 9. Governing Law\n\nThis Agreement is governed by the laws of the State of Delaware.\n\n## 10. Contact\n\nFor questions regarding this Agreement, contact us at support@buildtestscale.com.\n\nBy proceeding, you acknowledge that you have read, understand, and agree to the terms of this Membership Agreement.`,
-    },
     {
       type: "terms_of_service",
       version: 1,

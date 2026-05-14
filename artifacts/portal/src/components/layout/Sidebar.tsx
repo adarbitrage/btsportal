@@ -150,7 +150,6 @@ const MEMBER_NAV: NavNode[] = [
   { kind: "leaf", href: "/advantage", label: "BTS Advantage", icon: Wrench },
   { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
-  { kind: "leaf", href: "/agreement-preview", label: "Agreement Draft", icon: ScrollText },
 ];
 
 const ADMIN_CHILDREN: NavNode[] = [

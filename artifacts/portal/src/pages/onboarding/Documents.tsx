@@ -19,15 +19,12 @@ export default function OnboardingDocuments() {
   const patchOnboarding = usePatchOnboardingStep();
   const [, navigate] = useLocation();
 
-  const [scrolledAgreement, setScrolledAgreement] = useState(false);
   const [scrolledTerms, setScrolledTerms] = useState(false);
-  const [agreedAgreement, setAgreedAgreement] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [signature, setSignature] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const agreementContainerRef = useRef<HTMLDivElement>(null);
   const termsContainerRef = useRef<HTMLDivElement>(null);
 
   const isAtBottom = (el: HTMLDivElement) => {
@@ -51,9 +48,6 @@ export default function OnboardingDocuments() {
   // so a "short" doc that grows tall correctly relocks the checkbox.
   useEffect(() => {
     const check = () => {
-      if (agreementContainerRef.current) {
-        setScrolledAgreement(isAtBottom(agreementContainerRef.current));
-      }
       if (termsContainerRef.current) {
         setScrolledTerms(isAtBottom(termsContainerRef.current));
       }
@@ -63,8 +57,8 @@ export default function OnboardingDocuments() {
 
     const observers: ResizeObserver[] = [];
     if (typeof ResizeObserver !== "undefined") {
-      for (const el of [agreementContainerRef.current, termsContainerRef.current]) {
-        if (!el) continue;
+      const el = termsContainerRef.current;
+      if (el) {
         const ro = new ResizeObserver(check);
         ro.observe(el);
         if (el.firstElementChild) ro.observe(el.firstElementChild);
@@ -79,8 +73,11 @@ export default function OnboardingDocuments() {
     };
   }, [documents]);
 
+  // Mentee/Membership Agreement is no longer signed in-portal — it is
+  // executed and stored elsewhere. Onboarding only requires Terms of Service.
   const alreadySigned =
-    onboardingState?.signedDocuments && onboardingState.signedDocuments.length >= 2;
+    onboardingState?.signedDocuments &&
+    onboardingState.signedDocuments.some((d) => d.documentType === "terms_of_service");
 
   if (docsLoading || stateLoading) {
     return (
@@ -131,7 +128,6 @@ export default function OnboardingDocuments() {
     );
   }
 
-  const agreement = documents?.find((d) => d.type === "membership_agreement");
   const terms = documents?.find((d) => d.type === "terms_of_service");
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -140,22 +136,12 @@ export default function OnboardingDocuments() {
     day: "numeric",
   });
 
-  const canSubmit =
-    agreedAgreement && agreedTerms && signature.trim().length >= 2 && !submitting;
+  const canSubmit = agreedTerms && signature.trim().length >= 2 && !submitting;
 
   const handleSubmit = async () => {
     setError("");
     setSubmitting(true);
     try {
-      if (agreement) {
-        await signDocument.mutateAsync({
-          data: {
-            documentType: agreement.type,
-            documentVersion: agreement.version,
-            signature: signature.trim(),
-          },
-        });
-      }
       if (terms) {
         await signDocument.mutateAsync({
           data: {
@@ -180,41 +166,11 @@ export default function OnboardingDocuments() {
     <OnboardingLayout currentStep={2} onBack={() => navigate("/onboarding/welcome")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Review & Sign Documents</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Review &amp; Sign Terms of Service</h2>
           <p className="text-muted-foreground">
-            Please read each document carefully. You must scroll to the bottom before you can agree.
+            Please read the Terms of Service carefully. You must scroll to the bottom before you can agree.
           </p>
         </div>
-
-        {agreement && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">{agreement.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                ref={agreementContainerRef}
-                onScroll={handleScroll(setScrolledAgreement)}
-                className="max-h-64 overflow-y-auto border border-border rounded-lg p-4 bg-secondary/30 text-sm leading-relaxed prose prose-sm max-w-none"
-              >
-                <div dangerouslySetInnerHTML={{ __html: markdownToHtml(agreement.content) }} />
-              </div>
-              <label className="flex items-center gap-3 mt-4">
-                <input
-                  type="checkbox"
-                  checked={agreedAgreement}
-                  onChange={(e) => setAgreedAgreement(e.target.checked)}
-                  disabled={!scrolledAgreement}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
-                />
-                <span className={`text-sm ${!scrolledAgreement ? "text-muted-foreground/50" : "text-foreground"}`}>
-                  I have read and agree to the Membership Agreement
-                  {!scrolledAgreement && " (scroll to bottom to enable)"}
-                </span>
-              </label>
-            </CardContent>
-          </Card>
-        )}
 
         {terms && (
           <Card>

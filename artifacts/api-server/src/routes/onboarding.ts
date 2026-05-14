@@ -20,8 +20,8 @@ async function validateStepPrerequisites(step: number, userId: number): Promise<
       .from(signedDocumentsTable)
       .where(eq(signedDocumentsTable.userId, userId));
     const signedTypes = new Set(signedDocs.map((d) => d.documentType));
-    if (!signedTypes.has("membership_agreement") || !signedTypes.has("terms_of_service")) {
-      return "Both the Membership Agreement and Terms of Service must be signed before proceeding";
+    if (!signedTypes.has("terms_of_service")) {
+      return "The Terms of Service must be signed before proceeding";
     }
   }
 
