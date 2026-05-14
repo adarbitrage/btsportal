@@ -54,7 +54,7 @@ function VidalyticsEmbed({ id }: { id: string }) {
 
 function TipCard({ tip }: { tip: Tip }) {
   return (
-    <Card className="border-border/60 shadow-sm overflow-hidden">
+    <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
         <VidalyticsEmbed id={tip.vidalyticsId} />
         <div className="p-5">
@@ -69,51 +69,45 @@ function TipCard({ tip }: { tip: Tip }) {
 export default function TipsAndTricks() {
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
-
-        <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <Lightbulb className="w-6 h-6 text-yellow-300" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight">
-                Tips & Tricks
-              </h1>
-              <p className="text-lg opacity-90">
-                Quick wins to level up your campaigns
-              </p>
-            </div>
+      <div className="space-y-6 max-w-6xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">Tips & Tricks</h1>
           </div>
+          <p className="text-muted-foreground">
+            Quick wins to level up your campaigns. Browse short, focused walkthroughs on
+            creating images, writing headlines, and other day-to-day workflows.
+          </p>
         </div>
 
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6">
-            <h2 className="font-bold text-foreground mb-3">Tip Categories:</h2>
-            <div className="flex flex-wrap gap-3">
+        <Card className="border-border/60">
+          <CardContent className="p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Jump to:</h2>
+            <div className="flex flex-wrap gap-2">
               <a
                 href="#image-tips"
-                className="flex items-center gap-2 px-4 py-2 bg-[#faf9f7] border border-[#e8e4dc] rounded-lg text-sm font-medium text-foreground hover:border-[#1a56db]/40 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
+                data-testid="link-jump-images"
               >
-                <Image className="w-4 h-4 text-[#1a56db]" />
+                <Image className="w-4 h-4 text-muted-foreground" />
                 Images
               </a>
               <a
                 href="#copywriting-tips"
-                className="flex items-center gap-2 px-4 py-2 bg-[#faf9f7] border border-[#e8e4dc] rounded-lg text-sm font-medium text-foreground hover:border-[#1a56db]/40 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
+                data-testid="link-jump-copywriting"
               >
-                <PenTool className="w-4 h-4 text-[#1a56db]" />
+                <PenTool className="w-4 h-4 text-muted-foreground" />
                 Copywriting
               </a>
             </div>
           </CardContent>
         </Card>
 
-        <section id="image-tips" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#1a56db]/10 flex items-center justify-center">
-              <Image className="w-4 h-4 text-[#1a56db]" />
-            </div>
+        <section id="image-tips" className="space-y-4 scroll-mt-6">
+          <div className="flex items-center gap-2">
+            <Image className="w-5 h-5 text-foreground" />
             <h2 className="text-xl font-bold text-foreground">Image Tips</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,11 +117,9 @@ export default function TipsAndTricks() {
           </div>
         </section>
 
-        <section id="copywriting-tips" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#1a56db]/10 flex items-center justify-center">
-              <PenTool className="w-4 h-4 text-[#1a56db]" />
-            </div>
+        <section id="copywriting-tips" className="space-y-4 scroll-mt-6">
+          <div className="flex items-center gap-2">
+            <PenTool className="w-5 h-5 text-foreground" />
             <h2 className="text-xl font-bold text-foreground">Copywriting Tips</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
