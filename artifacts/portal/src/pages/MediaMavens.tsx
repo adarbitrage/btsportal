@@ -13,6 +13,10 @@ import palmPamperImg from "@assets/palm-pamper-385x400_1778785683234.png";
 import grippitImg from "@assets/grippit-387x400_1778785685104.png";
 import furbulousImg from "@assets/furbulous-373x400_1778785687103.png";
 import reliveImg from "@assets/relive-383x400_1778785689621.png";
+import lyraLightImg from "@assets/lyra-light-381x400_1778785890881.png";
+import slumberSealImg from "@assets/slumber-seal-378x400_1778785893866.png";
+import sootheStepsImg from "@assets/soothe-steps-383x400_1778785896167.png";
+import eyeEaseImg from "@assets/eye-ease-382x400_1778785899775.png";
 
 type Product = {
   slug: string;
@@ -176,6 +180,66 @@ const PRODUCTS: Product[] = [
       "https://drive.google.com/drive/folders/1MyvtMPwVRGswFxP_KTr05cq6N7lywAzq",
     affiliateLink:
       "https://relivemassager.com/products/relive/?ref=youraffiliateid",
+  },
+  {
+    slug: "lyra-light",
+    name: "Lyra Light™",
+    tagline: "The Permanent Smooth Solution",
+    image: lyraLightImg,
+    description:
+      "Achieve salon-quality permanent hair removal at home with Lyra Light™, the advanced IPL device that delivers up to 94% hair reduction in just 8 weeks using professional-grade Intense Pulsed Light technology. This smart device features Sapphire Ice-Cooling for painless treatments, an intelligent skin sensor that automatically adjusts to your skin tone, and 9 precision intensity levels for safe use on face, body, and sensitive areas. With 600,000+ flashes (enough for 15+ years of treatments), it replaces expensive salon visits while delivering silky-smooth results that last for months. Backed by a 30-day money-back guarantee and including a premium travel case, Lyra Light™ is the one-time investment that frees you from daily shaving and monthly waxing forever.",
+    costToConsumer: "$89",
+    affiliateCommission: "$100 CPA",
+    salesPageUrl: "https://lyralight.com/products/lyra-light/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1md6p4DA4lS4DyHtq49gkV3DJ4EOfESm_",
+    affiliateLink:
+      "https://lyralight.com/products/lyra-light/?ref=youraffiliateid",
+  },
+  {
+    slug: "slumber-seal",
+    name: "Slumber Seal™",
+    tagline: "The Wireless Sleep Symphony",
+    image: slumberSealImg,
+    description:
+      "Transform restless nights into peaceful slumber with Slumber Seal™, the revolutionary 4-in-1 wireless headband that combines premium Bluetooth 5.0 audio, complete light blocking, ultra-soft comfort, and 10+ hours of battery life for the ultimate sleep and relaxation experience. This versatile companion streams music, podcasts, or white noise through ultra-thin speakers while the elastic headband doubles as an eye mask, helping users fall asleep 30% faster and reduce stress by 35%. Perfect for bedtime, travel, workouts, or any hands-free activity, the machine-washable design fits all head sizes comfortably. Backed by a 30-day sleep guarantee, Slumber Seal™ is the wireless solution that transforms stressful evenings into blissful rest without tangled cords or uncomfortable earbuds.",
+    costToConsumer: "$39",
+    affiliateCommission: "$50 CPA",
+    salesPageUrl: "https://slumberseal.com/products/slumber-seal/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1s4kp_KR072MLi-5kBxoD2APMEkc-_iN_",
+    affiliateLink:
+      "https://slumberseal.com/products/slumber-seal/?ref=youraffiliateid",
+  },
+  {
+    slug: "soothe-steps",
+    name: "Soothe Steps™",
+    tagline: "The 10-Minute Foot Revival Mat",
+    image: sootheStepsImg,
+    description:
+      "Experience instant foot relief with Soothe Steps™, the precision acupressure mat featuring 6,210 strategic spikes that boost circulation by 30% and reduce foot pain by 35% in just 10 minutes daily. This professional-grade mat targets key pressure points to eliminate plantar discomfort, reduce swelling, and energize tired feet — perfect for nurses, teachers, remote workers, or anyone on their feet all day. The ergonomic design includes a matching neck pillow for full-body relief, plus a convenient carrying bag for portability. Backed by a 30-day money-back guarantee, Soothe Steps™ transforms aching, swollen feet into energized, pain-free ones without expensive spa treatments or constant podiatrist visits.",
+    costToConsumer: "$49",
+    affiliateCommission: "$75 CPA",
+    salesPageUrl: "https://trysoothesteps.com/products/soothe-steps/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1lyLVKgaAQXffvCs9r-eipeLYi4MDx76s",
+    affiliateLink:
+      "https://trysoothesteps.com/products/soothe-steps/?ref=youraffiliateid",
+  },
+  {
+    slug: "eye-ease",
+    name: "Eye Ease™",
+    tagline: "The AI-Powered Digital Detox",
+    image: eyeEaseImg,
+    description:
+      "Conquer digital eye strain in just 15 minutes with Eye Ease™, the revolutionary AI-powered smart device that combines voice control, 16D airbag pressure technology, 360° rotation massage, and intelligent graphene heating to reduce eye fatigue by 85% and headaches by 67%. This cutting-edge massager features 8 customizable modes, ultra-quiet operation below 25 decibels, and hands-free voice commands perfect for remote workers, gamers, and anyone suffering from screen exhaustion. With 3-second fast heating, premium velvet cotton materials, and a lightweight 300g design, it delivers professional eye therapy results without expensive treatments. Backed by a 30-day money-back guarantee, Eye Ease™ is the smart solution that transforms tired, strained eyes into refreshed, revitalized ones while you work, relax, or prepare for sleep.",
+    costToConsumer: "$119",
+    affiliateCommission: "$150 CPA",
+    salesPageUrl: "https://relaxwitheyeease.com/products/eye-ease/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1-NL-M6OeFzxnQSIaEq_iKiN2kCiDEz3h",
+    affiliateLink:
+      "https://relaxwitheyeease.com/products/eye-ease/?ref=youraffiliateid",
   },
 ];
 
