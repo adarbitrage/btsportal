@@ -9,6 +9,10 @@ import barkchesterImg from "@assets/barkchester-370x400_1778784846297.png";
 import robomouseImg from "@assets/robomouse-371x400_1778784848971.png";
 import skeeterStrikeImg from "@assets/skeeter-strike-409x400_1778784850895.png";
 import heatHavenImg from "@assets/heathaven-387x400_1778784855700.png";
+import palmPamperImg from "@assets/palm-pamper-385x400_1778785683234.png";
+import grippitImg from "@assets/grippit-387x400_1778785685104.png";
+import furbulousImg from "@assets/furbulous-373x400_1778785687103.png";
+import reliveImg from "@assets/relive-383x400_1778785689621.png";
 
 type Product = {
   slug: string;
@@ -111,6 +115,67 @@ const PRODUCTS: Product[] = [
       "https://drive.google.com/drive/folders/1GWessS6TOOG-lDFb5UvtNt2P_3F3nY07",
     affiliateLink:
       "https://heathavensauna.com/products/heat-haven?ref=youraffiliateid",
+  },
+  {
+    slug: "palm-pamper",
+    name: "Palm Pamper™",
+    tagline: "The Hand Recovery Station",
+    image: palmPamperImg,
+    description:
+      "Experience instant hand relief in just 15 minutes with Palm Pamper™, the revolutionary 4-in-1 device that combines 3D AirFlex compression, therapeutic heat, pressure point therapy, and circulation boost technology to eliminate pain and restore mobility. This clinically proven massager delivers impressive results within 21 days: 73% improved grip strength and 85% reduction in hand stiffness. Perfect for arthritis, carpal tunnel, or daily hand strain, it fits all hand sizes with customizable programs. Backed by a 60-day money-back guarantee, Palm Pamper™ transforms painful, stiff hands into strong, flexible ones without expensive therapy sessions.",
+    costToConsumer: "$79",
+    affiliateCommission: "$100 CPA",
+    salesPageUrl: "https://palmpamper.com/products/palm-pamper/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1qBfFu2xmUxK3Hy3hbX3_AY4GQ3xweHyj",
+    affiliateLink:
+      "https://palmpamper.com/products/palm-pamper/?ref=youraffiliateid",
+  },
+  {
+    slug: "grippit",
+    name: "GrippIt™",
+    tagline: "The 5-Minute Power Trainer",
+    image: grippitImg,
+    description:
+      "Transform weak hands into powerful tools with GrippIt™, the revolutionary adjustable grip trainer that delivers professional-grade strength building in just 5 minutes daily. This premium ABS device uses customizable resistance levels and ergonomic design to target finger, hand, and forearm muscles, delivering clinically proven results: 72% increased grip endurance and 35% improved overall grip strength within 21 days. Perfect for athletes, musicians, climbers, or anyone wanting stronger hands, GrippIt™ fits comfortably in your pocket for training anywhere. Backed by a 60-day money-back guarantee, it's the simple solution that turns frustrating grip weakness into confidence-boosting strength without expensive gym equipment.",
+    costToConsumer: "$25",
+    affiliateCommission: "$50 CPA",
+    salesPageUrl: "https://trygrippit.com/products/grippit/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1gNijnFcqAPfUOauJ5pRtoI6BTIVfugbP",
+    affiliateLink:
+      "https://trygrippit.com/products/grippit/?ref=youraffiliateid",
+  },
+  {
+    slug: "furbulous-spa-brush",
+    name: "Furbulous™ Spa-Brush",
+    tagline: "The Pet Pampering Revolution",
+    image: furbulousImg,
+    description:
+      "Transform grooming battles into bonding bliss with the Furbulous Spa-Brush™, the ingenious 3-in-1 device that uses gentle steam, soothing massage, and smart brushing technology to make your pet actually beg for grooming time. This rechargeable wonder delivers spa-quality warmth that melts away resistance while the therapeutic massage feature triggers natural relaxation responses, turning even the most brush-resistant pets into grooming enthusiasts. With 45–60 minutes of battery life, whisper-quiet operation, and the ability to reduce shedding by up to 95%, it works on all coat types from short-haired cats to fluffy huskies. Backed by a 30-day money-back guarantee and including bonus brush heads, the Furbulous Spa-Brush™ is the grooming game-changer that has pet parents everywhere saying goodbye to wrestling matches and hello to peaceful pampering sessions.",
+    costToConsumer: "$29",
+    affiliateCommission: "$50 CPA",
+    salesPageUrl:
+      "https://furbulouspetbrush.com/products/the-spa-brush-that-ends-grooming-battles-forever",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1NKCX35FTl52eHSoS28qPkd0wt4klWSQ3",
+    affiliateLink:
+      "https://furbulouspetbrush.com/products/the-spa-brush-that-ends-grooming-battles-forever?ref=youraffiliateid",
+  },
+  {
+    slug: "relive",
+    name: "Relivé™",
+    tagline: "The Hands-Free Relief Station",
+    image: reliveImg,
+    description:
+      "Experience professional-grade massage therapy anytime with Relivé™, the revolutionary hands-free massager that uses 3D massage technology to eliminate neck and shoulder tension in just 15 minutes. This wearable device features ergonomic massage heads that mimic human hand movements, targeting key trigger points while you work, read, or relax — no appointment needed. The USB-rechargeable design delivers multi-zone relief for shoulders, neck, waist, and arms, providing instant tension release and improved circulation. CE and FCC certified for safety and backed by a 30-day money-back guarantee, Relivé™ is the portable solution that transforms painful, tense muscles into relaxed, flexible ones without expensive spa visits.",
+    costToConsumer: "$79",
+    affiliateCommission: "$100 CPA",
+    salesPageUrl: "https://relivemassager.com/products/relive/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1MyvtMPwVRGswFxP_KTr05cq6N7lywAzq",
+    affiliateLink:
+      "https://relivemassager.com/products/relive/?ref=youraffiliateid",
   },
 ];
 
