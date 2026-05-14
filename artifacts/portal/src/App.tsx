@@ -38,6 +38,7 @@ import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
 import Apps from "@/pages/Apps";
 import Resources from "@/pages/Resources";
+import ResourceLibrary from "@/pages/ResourceLibrary";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import MediaMavens from "@/pages/MediaMavens";
 import CollectionDetail from "@/pages/CollectionDetail";
@@ -370,6 +371,7 @@ function Router() {
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
+      <Route path="/resource-library">{() => <ProtectedRoute component={ResourceLibrary} />}</Route>
       <Route path="/affiliate-networks">{() => <ProtectedRoute component={AffiliateNetworks} />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
       <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>

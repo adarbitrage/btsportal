@@ -10,6 +10,7 @@ import {
   Activity,
   Shield,
   FolderOpen,
+  Library,
   Eye,
   BarChart3,
   Ticket,
@@ -109,7 +110,7 @@ const MEMBER_NAV: NavNode[] = [
     icon: FolderOpen,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/resources", label: "Resource Vault", icon: FolderOpen },
+      { kind: "leaf", href: "/resource-library", label: "Resource Library", icon: Library },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
       { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
