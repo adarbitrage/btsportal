@@ -132,10 +132,25 @@ const blitzCSS = `.blitz-content{
   .blitz-content .checklist li:last-child{border-bottom:none;}
   .blitz-content .checklist li::before{content:"☐";font-size:1.1rem;color:var(--accent);margin-top:1px;flex-shrink:0;}
 
-  .blitz-content .video-slot{background:#1e2533;border-radius:10px;padding:20px 22px;display:flex;align-items:center;gap:16px;margin:12px 0;color:#e2e8f0;font-size:1rem;cursor:pointer;}
+  .blitz-content .video-slot{background:#1e2533;border-radius:10px;padding:20px 22px;display:flex;align-items:center;gap:16px;margin:12px 0;color:#e2e8f0;font-size:1rem;cursor:pointer;position:relative;}
   .blitz-content .play-icon{width:42px;height:42px;min-width:42px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;}
   .blitz-content .play-icon::after{content:"▶";font-size:.8rem;margin-left:3px;}
   .blitz-content .vt{font-weight:600;margin-bottom:3px;font-size:1rem;} .blitz-content .vd{color:#94a3b8;font-size:.88rem;}
+
+  /* Video review-status badge. Add data-status="ready" or data-status="needs-rerecord"
+     to a .video-slot to mark it; absence of the attribute = unreviewed. */
+  .blitz-content .video-slot::after{
+    position:absolute; top:8px; right:10px;
+    font-size:.68rem; font-weight:700; letter-spacing:.04em;
+    padding:2px 7px; border-radius:999px; line-height:1.4;
+    content:"? UNREVIEWED"; color:#cbd5e1; background:#334155; border:1px solid #475569;
+  }
+  .blitz-content .video-slot[data-status="ready"]::after{
+    content:"✓ READY"; color:#052e1a; background:#6ee7b7; border-color:#34d399;
+  }
+  .blitz-content .video-slot[data-status="needs-rerecord"]::after{
+    content:"⚠ RE-RECORD"; color:#3b1d05; background:#fbbf24; border-color:#f59e0b;
+  }
 
   .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
