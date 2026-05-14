@@ -154,6 +154,9 @@ const blitzCSS = `.blitz-content{
   .blitz-content .video-slot[data-status="incorrect-link"]::after{
     content:"✗ WRONG LINK"; color:#fff; background:#ef4444; border-color:#dc2626;
   }
+  .blitz-content .video-slot[data-status="awaiting-link"]::after{
+    content:"⏳ AWAITING LINK"; color:#fff; background:#3b82f6; border-color:#2563eb;
+  }
 
   .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
@@ -1174,7 +1177,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <h4>Universal Setup — Everyone Does This First</h4>
 
-  <div class="video-slot" data-vidalytics-id="PJRg0qHIMaEWE5WO"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
+  <div class="video-slot" data-vidalytics-id="PJRg0qHIMaEWE5WO" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
   <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
   <div class="video-slot" data-vidalytics-id="6VjLDPAvCxY5VR_J"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
   <div class="video-slot" data-vidalytics-id="TDiRcvuD5gbC0VWy"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
@@ -1882,19 +1885,21 @@ export default function Blitz() {
     document.body.appendChild(badge);
     const update = () => {
       const slots = contentEl.querySelectorAll<HTMLElement>(".video-slot");
-      let ready = 0, redo = 0, wrong = 0, unrev = 0;
+      let ready = 0, redo = 0, wrong = 0, awaiting = 0, unrev = 0;
       slots.forEach((s) => {
         const st = s.getAttribute("data-status");
         if (st === "ready") ready++;
         else if (st === "needs-rerecord") redo++;
         else if (st === "incorrect-link") wrong++;
+        else if (st === "awaiting-link") awaiting++;
         else unrev++;
       });
       badge.innerHTML =
         `<span style="color:#cbd5e1">${unrev} unreviewed</span> · ` +
         `<span style="color:#6ee7b7">${ready} ready</span> · ` +
         `<span style="color:#fbbf24">${redo} re-record</span> · ` +
-        `<span style="color:#fca5a5">${wrong} wrong link</span>`;
+        `<span style="color:#fca5a5">${wrong} wrong link</span> · ` +
+        `<span style="color:#93c5fd">${awaiting} awaiting link</span>`;
     };
     update();
     const obs = new MutationObserver(update);
