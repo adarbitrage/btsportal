@@ -6,6 +6,7 @@ import {
   Calculator, Mail, Search, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
+import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
 
 type SectionId = "apps" | "networks" | "traffic" | "ai-advertorial" | "ai-adcopy" | "creative-drive" | "pnl" | "email-template" | "spy";
 
@@ -58,6 +59,7 @@ interface ToolInfo {
   launchLabel?: string;
   trainingLabel?: string;
   chromeUrl?: string;
+  logoSrc?: string;
 }
 
 const paidMediaTools: ToolInfo[] = [
@@ -106,10 +108,10 @@ const paidMediaTools: ToolInfo[] = [
   {
     name: "ScrapeBot™",
     tagline: "Google/Bing Image Scraper",
-    description: "A Chrome Extension to help scrape Google, Bing & Duck Duck Go Images. Used daily to locate and download all images used in banner ads and advertorial pages. No Photoshop required when you use ScrapeBot™, CropBot™, and PixelPress™ together.",
-    vidalyticsId: "wnf8YlB9rxQ3XCUm",
+    description: "A Chrome Extension built to scrape Google, Bing, and DuckDuckGo Images. Use it daily to locate and download all the images you need for banner ads and advertorial pages. No Photoshop required when you pair ScrapeBot™ with CropBot™ and PixelPress™.",
     chromeUrl: "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
     trainingLabel: "Watch ScrapeBot™ Training",
+    logoSrc: scrapebotLogo,
   },
   {
     name: "CropBot™",
@@ -160,9 +162,15 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-4 p-5 text-left hover:bg-muted/40 transition-colors"
       >
-        <div className={`w-10 h-10 rounded-lg ${tint.bg} border ${tint.border} flex items-center justify-center shrink-0`}>
-          <Wrench className={`w-5 h-5 ${tint.text}`} />
-        </div>
+        {tool.logoSrc ? (
+          <div className="w-10 h-10 rounded-lg border border-border/60 bg-background overflow-hidden flex items-center justify-center shrink-0">
+            <img src={tool.logoSrc} alt={`${tool.name} logo`} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className={`w-10 h-10 rounded-lg ${tint.bg} border ${tint.border} flex items-center justify-center shrink-0`}>
+            <Wrench className={`w-5 h-5 ${tint.text}`} />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-foreground">{tool.name}</h3>
           <p className="text-sm text-muted-foreground">{tool.tagline}</p>
