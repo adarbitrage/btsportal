@@ -644,39 +644,42 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
               ))}
             </ul>
 
-            {tool.perk && (
-              <div className="mb-4 rounded-lg bg-muted/40 border border-border/60 p-3 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-foreground">{tool.perk}</span>
-                {tool.couponCode && (
-                  <button
-                    type="button"
-                    onClick={handleCopyCoupon}
-                    className="inline-flex items-center gap-1 font-mono text-xs bg-background border border-border rounded px-2 py-0.5 text-foreground hover:border-foreground/40"
-                  >
-                    {tool.couponCode}
-                    {copied ? (
-                      <><Check className="w-3 h-3" /> Copied</>
-                    ) : (
-                      <><Copy className="w-3 h-3" /></>
+            <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
+              <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {tool.perk && (
+                  <p className="flex flex-wrap items-center gap-1.5">
+                    <span>{tool.perk}</span>
+                    {tool.couponCode && (
+                      <button
+                        type="button"
+                        onClick={handleCopyCoupon}
+                        className="inline-flex items-center gap-1 font-mono bg-muted border border-border rounded px-1.5 py-0.5 text-foreground hover:border-foreground/40"
+                      >
+                        {tool.couponCode}
+                        {copied ? (
+                          <><Check className="w-3 h-3" /> Copied</>
+                        ) : (
+                          <><Copy className="w-3 h-3" /></>
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </p>
                 )}
               </div>
-            )}
-
-            <div className="mt-auto flex items-center gap-2 flex-wrap justify-end">
-              <Button asChild size="sm">
-                <a href={tool.registerUrl} target="_blank" rel="noopener noreferrer">
-                  Register
-                </a>
-              </Button>
-              {tool.loginUrl && (
-                <Button asChild size="sm" variant="outline">
-                  <a href={tool.loginUrl} target="_blank" rel="noopener noreferrer">
-                    Log In
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Button asChild size="sm">
+                  <a href={tool.registerUrl} target="_blank" rel="noopener noreferrer">
+                    Register
                   </a>
                 </Button>
-              )}
+                {tool.loginUrl && (
+                  <Button asChild size="sm" variant="outline">
+                    <a href={tool.loginUrl} target="_blank" rel="noopener noreferrer">
+                      Log In
+                    </a>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
