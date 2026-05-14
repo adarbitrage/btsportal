@@ -23,10 +23,11 @@ type Category = "Health" | "Beauty" | "Pets" | "Home";
 const CATEGORY_ORDER: Category[] = ["Health", "Beauty", "Pets", "Home"];
 
 const SECTION_STYLES = {
-  panel: "bg-sky-100 dark:bg-sky-950/40",
+  bar: "bg-emerald-600 dark:bg-emerald-700 text-white",
+  body: "bg-white dark:bg-background",
   badge:
-    "bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-200",
-  chevron: "text-foreground",
+    "bg-white/90 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-100",
+  chevron: "text-white",
 };
 
 type Product = {
@@ -477,15 +478,15 @@ function CategorySection({
   const [open, setOpen] = useState(false);
   const styles = SECTION_STYLES;
   return (
-    <div className="rounded-xl border-2 border-border overflow-hidden">
+    <div className="rounded-xl border-2 border-emerald-600 dark:border-emerald-700 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between gap-3 px-5 py-4 hover-elevate active-elevate-2 ${styles.panel}`}
+        className={`w-full flex items-center justify-between gap-3 px-5 py-4 hover-elevate active-elevate-2 ${styles.bar}`}
         data-testid={`button-category-${category.toLowerCase()}`}
         aria-expanded={open}
       >
-        <h2 className="text-xl font-bold text-foreground">{category}</h2>
+        <h2 className="text-xl font-bold">{category}</h2>
         <div className="flex items-center gap-3">
           <span
             className={`text-xs font-semibold px-2 py-0.5 rounded-full ${styles.badge}`}
@@ -501,7 +502,7 @@ function CategorySection({
       </button>
       {open && (
         <div
-          className={`border-t border-border p-4 grid grid-cols-1 gap-5 ${styles.panel}`}
+          className={`border-t border-emerald-600 dark:border-emerald-700 p-4 grid grid-cols-1 gap-5 ${styles.body}`}
         >
           {products.map((p) => (
             <ProductCard key={p.slug} product={p} />
