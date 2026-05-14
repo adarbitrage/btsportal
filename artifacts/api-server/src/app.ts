@@ -90,10 +90,13 @@ ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensu
       { email: "abdulrahman@cherringtonmedia.com", name: "Abdou", password: "Test&$#123" },
     ];
     for (const owner of ownerEmails) {
-      const [existing] = await database.select({ id: users.id, sourceProduct: users.sourceProduct, role: users.role })
+      const [existing] = await database.select({ id: users.id, sourceProduct: users.sourceProduct, role: users.role, emailVerified: users.emailVerified })
         .from(users).where(eq(users.email, owner.email));
       if (existing) {
-        if (existing.role !== "admin" || existing.sourceProduct !== "lifetime") {
+        // Re-run the upgrade if any owner-account invariant has drifted —
+        // including emailVerified, which can be flipped back to false by the
+        // email-change verification flow and would otherwise lock owners out.
+        if (existing.role !== "admin" || existing.sourceProduct !== "lifetime" || !existing.emailVerified) {
           await database.update(users).set({ role: "admin", sourceProduct: "lifetime", onboardingComplete: true, emailVerified: true }).where(eq(users.id, existing.id));
           const existingProducts = await database.select({ productId: userProducts.productId }).from(userProducts).where(eq(userProducts.userId, existing.id));
           const existingIds = new Set(existingProducts.map(p => p.productId));
