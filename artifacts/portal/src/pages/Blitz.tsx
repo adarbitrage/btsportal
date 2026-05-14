@@ -1701,6 +1701,20 @@ export default function Blitz() {
     const closeBtn = contentEl.querySelector<HTMLElement>("#vdClose");
     if (!overlay || !container) return;
 
+    // Re-parent the overlay to <body> so its `position: fixed` is always
+    // viewport-relative. When it lives inside .blitz-content, an ancestor with
+    // `transform`/`filter`/`will-change` (set by the AppLayout shell on the
+    // long full-guide page) creates a containing block, which causes the
+    // modal to render offscreen while the body-scroll lock still applies.
+    // Wrap in a `.blitz-content` div so the existing scoped CSS still applies.
+    const originalParent = overlay.parentNode;
+    const originalNextSibling = overlay.nextSibling;
+    const portalWrapper = document.createElement("div");
+    portalWrapper.className = "blitz-content";
+    portalWrapper.setAttribute("data-blitz-lightbox-portal", "");
+    portalWrapper.appendChild(overlay);
+    document.body.appendChild(portalWrapper);
+
     // Track scripts owned by THIS lightbox instance — both the inline bootstrap
     // we insert next to the embed div, and the loader/player scripts the
     // bootstrap IIFE appends to <head>. We tag the latter with a data-owner
@@ -1816,6 +1830,12 @@ export default function Blitz() {
       // Full teardown: if the lightbox unmounts while open (e.g. route change),
       // tear down the player + remove owned scripts + reset globals.
       close();
+      // Restore the overlay to its original location in the React-rendered DOM
+      // so the next mount finds it via contentEl.querySelector again.
+      if (originalParent) {
+        originalParent.insertBefore(overlay, originalNextSibling);
+      }
+      portalWrapper.remove();
     };
   }, [contentEl]);
 
