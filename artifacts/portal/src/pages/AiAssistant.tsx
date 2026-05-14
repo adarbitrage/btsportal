@@ -289,8 +289,8 @@ export default function AiAssistant() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-slate-50 dark:bg-slate-900/40 overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-2xl shadow-slate-900/15 ring-1 ring-foreground/[0.04]">
-          <div className="hidden md:flex w-64 border-r border-border bg-slate-100 dark:bg-slate-900/60 flex-col shrink-0">
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-[0_20px_50px_-20px_rgba(15,23,42,0.18),0_8px_20px_-8px_rgba(15,23,42,0.08)]">
+          <div className="hidden md:flex w-64 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 flex-col shrink-0">
             {sidebarContent}
           </div>
 
@@ -309,8 +309,8 @@ export default function AiAssistant() {
             </div>
           )}
 
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-50 dark:bg-slate-900/30">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-zinc-950">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
               <button
                 onClick={() => setMobileSidebar(true)}
                 className="md:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -318,13 +318,13 @@ export default function AiAssistant() {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-foreground" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-zinc-700 dark:text-zinc-200" />
                 </div>
                 <div className="min-w-0">
                   <h2 className="font-semibold text-foreground text-sm truncate">{activeTitle}</h2>
-                  <p className="text-[10px] text-muted-foreground">Powered by your BTS knowledge base</p>
+                  <p className="text-[11px] text-muted-foreground">Powered by your BTS knowledge base</p>
                 </div>
               </div>
             </div>
@@ -332,14 +332,14 @@ export default function AiAssistant() {
             <div className="flex-1 min-h-0 overflow-y-auto">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                    <Bot className="w-8 h-8 text-foreground" />
+                  <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 flex items-center justify-center mb-5">
+                    <Bot className="w-7 h-7 text-zinc-700 dark:text-zinc-200" />
                   </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">BTS AI Assistant</h3>
-                  <p className="text-sm text-muted-foreground max-w-md mb-6">
-                    Ask me anything about your mentorship, tools, campaigns, or strategies. I'm trained on BTS coaching sessions, Q&A articles, and your complete tool documentation.
+                  <h3 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">How can I help you today?</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
+                    Ask anything about your mentorship, tools, campaigns, or strategies. I'm trained on BTS coaching sessions, Q&A articles, and your complete tool documentation.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-2xl w-full">
                     {[
                       "How do I set up my first DIYTrax campaign?",
                       "What are the live coaching call times?",
@@ -352,7 +352,7 @@ export default function AiAssistant() {
                           setInput(suggestion);
                           setTimeout(() => inputRef.current?.focus(), 100);
                         }}
-                        className="text-left p-3 rounded-xl border border-border hover:border-foreground/40 hover:bg-secondary/50 text-sm text-muted-foreground transition-colors"
+                        className="text-left px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:shadow-sm text-sm text-foreground transition-all"
                         data-testid={`button-suggestion-${suggestion.slice(0, 20)}`}
                       >
                         {suggestion}
@@ -365,38 +365,29 @@ export default function AiAssistant() {
                   {messages.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                       {msg.role === "assistant" && (
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 mt-1">
-                          <Bot className="w-4 h-4 text-foreground" />
+                        <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 flex items-center justify-center shrink-0 mt-0.5">
+                          <Bot className="w-4 h-4 text-zinc-700 dark:text-zinc-200" />
                         </div>
                       )}
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary/50 text-foreground"
-                        }`}
-                      >
-                        {msg.role === "assistant" ? (
-                          <div className="prose prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-primary [&_a]:underline [&_strong]:text-foreground [&_code]:bg-secondary [&_code]:px-1 [&_code]:rounded">
+                      {msg.role === "assistant" ? (
+                        <div className="flex-1 min-w-0 pt-1 text-foreground">
+                          <div className="prose prose-sm max-w-none leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-primary [&_a]:underline [&_strong]:text-foreground [&_code]:bg-zinc-100 dark:[&_code]:bg-zinc-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em]">
                             <ReactMarkdown>{msg.content || (isStreaming && i === messages.length - 1 ? "..." : "")}</ReactMarkdown>
                           </div>
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        )}
-                      </div>
-                      {msg.role === "user" && (
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 mt-1">
-                          <User className="w-4 h-4 text-foreground" />
+                        </div>
+                      ) : (
+                        <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-foreground">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                         </div>
                       )}
                     </div>
                   ))}
                   {isStreaming && messages[messages.length - 1]?.content === "" && (
                     <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <Bot className="w-4 h-4 text-foreground" />
+                      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 flex items-center justify-center shrink-0">
+                        <Bot className="w-4 h-4 text-zinc-700 dark:text-zinc-200" />
                       </div>
-                      <div className="bg-secondary/50 rounded-2xl px-4 py-3">
+                      <div className="pt-2">
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                       </div>
                     </div>
@@ -416,7 +407,7 @@ export default function AiAssistant() {
               </div>
             )}
 
-            <div className="p-4 border-t border-border bg-card/80 backdrop-blur shrink-0">
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
               <div className="max-w-3xl mx-auto flex gap-2">
                 <textarea
                   ref={inputRef}
@@ -425,7 +416,7 @@ export default function AiAssistant() {
                   onKeyDown={handleKeyDown}
                   placeholder="Ask the BTS Assistant anything..."
                   rows={1}
-                  className="flex-1 px-4 py-3 border border-border rounded-xl text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring/40 min-h-[44px] max-h-[120px]"
+                  className="flex-1 px-4 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm bg-zinc-50 dark:bg-zinc-900 resize-none focus:outline-none focus:bg-white dark:focus:bg-zinc-950 focus:border-zinc-300 dark:focus:border-zinc-700 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-800 min-h-[44px] max-h-[120px] transition-colors"
                   style={{ height: "auto", overflow: "hidden" }}
                   onInput={(e) => {
                     const t = e.currentTarget;
@@ -437,7 +428,7 @@ export default function AiAssistant() {
                 <Button
                   onClick={sendMessage}
                   disabled={!input.trim() || isStreaming}
-                  className="shrink-0 h-[44px] w-[44px] p-0 rounded-xl"
+                  className="shrink-0 h-[44px] w-[44px] p-0 rounded-2xl"
                   data-testid="button-send"
                 >
                   {isStreaming ? (
