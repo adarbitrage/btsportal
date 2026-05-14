@@ -32,7 +32,10 @@ export default function CommunityFeed() {
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-1">Community</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">Community</h1>
+            </div>
             <p className="text-muted-foreground">
               Connect, share, and grow with fellow members.
             </p>

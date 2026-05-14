@@ -149,7 +149,6 @@ const MEMBER_NAV: NavNode[] = [
       { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus },
     ],
   },
-  { kind: "leaf", href: "/wins", label: "Wins", icon: Trophy },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
 ];
 

@@ -49,6 +49,7 @@ export default function CommissionsDashboard() {
         <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
+              <DollarSign className="w-6 h-6 text-primary" />
               <h1 className="text-3xl font-bold text-foreground">Commissions</h1>
               <Badge variant="outline" className="capitalize text-sm">
                 {summary.tierLabel}
