@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Network, Star, CheckCircle2 } from "lucide-react";
+import { Link } from "wouter";
 import mediaMavensLogo from "@assets/mediamavens-logo_1778609315487.png";
 import clickbankLogo from "@assets/clickbank-logo_1778609315487.jpg";
 import maxwebLogo from "@assets/maxweb-logo_1778609315486.jpeg";
@@ -199,6 +200,16 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
                 )}
               </div>
               <div className="flex gap-2 shrink-0">
+                {network.slug === "media-mavens" && (
+                  <Button
+                    asChild
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    data-testid={`button-view-products-${network.slug}`}
+                  >
+                    <Link href="/media-mavens">View Products</Link>
+                  </Button>
+                )}
                 {network.registerUrl ? (
                   <Button
                     size="sm"
