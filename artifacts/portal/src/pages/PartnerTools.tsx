@@ -385,7 +385,7 @@ export default function PartnerTools() {
           <div>
             <h2 className="text-2xl font-bold text-foreground">Partner Tools</h2>
             <p className="text-muted-foreground text-sm mt-1">
-              Third-party AI tools that BTS members get free access to. Register through
+              Third-party tools that BTS members get free access to. Register through
               the BTS link to claim your free account or credits.
             </p>
           </div>
