@@ -1178,9 +1178,9 @@ const blitzBodyHTML = `<div class="version-banner">
   <h4>Universal Setup — Everyone Does This First</h4>
 
   <div class="video-slot" data-vidalytics-id="PJRg0qHIMaEWE5WO" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
-  <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
-  <div class="video-slot" data-vidalytics-id="6VjLDPAvCxY5VR_J"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
-  <div class="video-slot" data-vidalytics-id="TDiRcvuD5gbC0VWy"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
+  <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
+  <div class="video-slot" data-vidalytics-id="6VjLDPAvCxY5VR_J" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
+  <div class="video-slot" data-vidalytics-id="TDiRcvuD5gbC0VWy" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
 
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens / Affiliati (pre-built advertorial) — MetricMover™ Setup</div>
@@ -1211,10 +1211,10 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p>Follow the <strong>MM1–MM13 video series</strong> in the Media Mavens path above — the process is identical. Your starting point is a cloned jump page template in Flexy™ with your custom body copy already in place.</p>
 
-    <div class="video-slot" data-vidalytics-id="vtLjvuAxcDs1Xajk"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
-    <div class="video-slot" data-vidalytics-id="9wFEuXcLVEA8ZRjv"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
-    <div class="video-slot" data-vidalytics-id="hsneAr96RHna7XrH"><div class="play-icon"></div><div><div class="vt">CF3 — How to Customize Your Jump Page Body Copy</div><div class="vd">Edit the template with your offer-specific body copy</div></div></div>
-    <div class="video-slot" data-vidalytics-id="WvneY6btFomfy1i4"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
+    <div class="video-slot" data-vidalytics-id="vtLjvuAxcDs1Xajk" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
+    <div class="video-slot" data-vidalytics-id="9wFEuXcLVEA8ZRjv" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
+    <div class="video-slot" data-vidalytics-id="hsneAr96RHna7XrH" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF3 — How to Customize Your Jump Page Body Copy</div><div class="vd">Edit the template with your offer-specific body copy</div></div></div>
+    <div class="video-slot" data-vidalytics-id="WvneY6btFomfy1i4" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
 
     <p>Once your jump page template is customized, follow MM1–MM13 above to import it into MetricMover™ and generate your 25 combinations.</p>
   </div>
@@ -1236,7 +1236,7 @@ const blitzBodyHTML = `<div class="version-banner">
         <div class="video-slot" data-vidalytics-id="jLy2BysHyTrFFpIP" data-status="needs-rerecord" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create DIYTrax Campaign Placeholder</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
       </div></li>
       <li><div class="step-num">2</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
-        <div class="video-slot" data-vidalytics-id="2FPdP3k_ADZB_kPR" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
+        <div class="video-slot" data-vidalytics-id="2FPdP3k_ADZB_kPR" data-status="awaiting-link" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
       </div></li>
       <li><div class="step-num">3</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
         <div class="video-slot" data-vidalytics-id="8dx0ftVuvNUxxiLI" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
@@ -1244,7 +1244,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in Step 4. All paths now use MetricMover™.</em>
       </div></li>
       <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
-        <div class="video-slot" data-vidalytics-id="Toc8vrneJVGdKzUY" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Optimize Landing Page Base Copy</div><div class="vd">Final landing page review before going live</div></div></div>
+        <div class="video-slot" data-vidalytics-id="Toc8vrneJVGdKzUY" data-status="awaiting-link" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Optimize Landing Page Base Copy</div><div class="vd">Final landing page review before going live</div></div></div>
       </div></li>
     </ol>
   </div>
@@ -1441,10 +1441,10 @@ const blitzBodyHTML = `<div class="version-banner">
     <p><strong>Tip:</strong> Use Grok Imagine to animate your static image into GIFs and videos automatically.</p>
     <div class="video-slot" data-vidalytics-id="FTjdhZ3twc8E8AWY" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">V1 — How to Use Cropbot to Crop Your Image to 9:16</div><div class="vd">Convert your 16:9 Round 2 winner into portrait format</div></div></div>
     <div class="video-slot" data-vidalytics-id="O8uPK1cWPPsvvhF7" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">V2 — How to Create Videos From Your Base Image</div><div class="vd">Animate your static image into video format</div></div></div>
-    <div class="video-slot" data-vidalytics-id="4MW15NDvkIFuSZ3P"><div class="play-icon"></div><div><div class="vt">V3 — How to Trim Video Length Using Adobe Express</div><div class="vd">Cut videos to the right length before converting to GIF</div></div></div>
-    <div class="video-slot" data-vidalytics-id="b377d5GfR9zBawPr"><div class="play-icon"></div><div><div class="vt">V4 — How to Convert Videos to GIFs Using Adobe Express</div><div class="vd">Create animated GIFs from your video files</div></div></div>
-    <div class="video-slot" data-vidalytics-id="mQzZ7M9qOS6CNRmn"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
-    <div class="video-slot" data-vidalytics-id="ezIlzQmdshnlKwkE"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using GIFSTER</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
+    <div class="video-slot" data-vidalytics-id="4MW15NDvkIFuSZ3P" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">V3 — How to Trim Video Length Using Adobe Express</div><div class="vd">Cut videos to the right length before converting to GIF</div></div></div>
+    <div class="video-slot" data-vidalytics-id="b377d5GfR9zBawPr" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">V4 — How to Convert Videos to GIFs Using Adobe Express</div><div class="vd">Create animated GIFs from your video files</div></div></div>
+    <div class="video-slot" data-vidalytics-id="mQzZ7M9qOS6CNRmn" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
+    <div class="video-slot" data-vidalytics-id="ezIlzQmdshnlKwkE" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using GIFSTER</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
   </div>
 
   <hr class="divider">
