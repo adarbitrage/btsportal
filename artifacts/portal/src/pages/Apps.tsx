@@ -36,7 +36,7 @@ import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
 import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
 import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
-import affiliateCmoLogo from "@assets/affiliatecmo-logo-250x222_1778796180683.png";
+import affiliateCmoLogo from "@assets/affiliatecmo-logo-transparent.png";
 import freeAdCopyLogo from "@assets/freeadcopy-logo-250x222_1778796182562.png";
 
 type PartnerTool = {
@@ -69,7 +69,6 @@ const PARTNER_TOOLS: PartnerTool[] = [
       "Custom copy control",
     ],
     logo: affiliateCmoLogo,
-    logoBg: "bg-black",
     perk: "FREE for life with the coupon code below.",
     couponCode: "LIFETIME100",
     registerUrl: "https://app.affiliatecmo.com/login",
