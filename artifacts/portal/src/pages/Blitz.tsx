@@ -758,7 +758,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Many Media Mavens products come with <strong>pre-made advertorials</strong> — ready-to-use landing pages. When browsing products, look for the pre-made advertorial indicator in the product listing. Starting with one of these products means you can skip writing your page from scratch and jump straight to customizing headlines and images.</p>
     <div class="video-slot" data-vidalytics-id="6I7mIlw4eJSiKV0g"><div class="play-icon"></div><div><div class="vt">Logging Into Media Mavens For The First Time</div><div class="vd">How to navigate the platform after creating your account</div></div></div>
     <div class="video-slot" data-vidalytics-id="Vo7HAtxS4VKOb71j"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_004"><div class="play-icon"></div><div><div class="vt">How To Get Your Media Mavens Affiliate Link</div><div class="vd">Where to find and copy your unique tracking link</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_004" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How To Get Your Media Mavens Affiliate Link</div><div class="vd">Where to find and copy your unique tracking link</div></div></div>
   </div>
 
   <div class="path-block cb">
@@ -781,8 +781,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="path-block mw">
     <div class="path-block-label">✦ MaxWeb</div>
     <p>MaxWeb requires account approval and <strong>proof of revenue generated from previous affiliate campaigns</strong> before you can get started. Please check with a coach before attempting to apply for a MaxWeb account. Once approved, follow the steps below.</p>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_006"><div class="play-icon"></div><div><div class="vt">Applying For A MaxWeb Affiliate Account</div><div class="vd">How to complete your application — approval is typically within 1 business day</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_007"><div class="play-icon"></div><div><div class="vt">Connecting MaxWeb Account to DIYtrax</div><div class="vd">Complete this step after your account is approved</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_006" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Applying For A MaxWeb Affiliate Account</div><div class="vd">How to complete your application — approval is typically within 1 business day</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_007" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Connecting MaxWeb Account to DIYtrax</div><div class="vd">Complete this step after your account is approved</div></div></div>
     <p>To browse products: click "Campaigns" in the left-hand menu → click any product image for details → click "Promote" to apply. Your Account Representative's contact info is on your MaxWeb Dashboard.</p>
   </div>
 
@@ -1019,7 +1019,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>A strong hero shot does two things simultaneously: it reinforces the specific headline it's paired with, and it creates an emotional connection that makes the reader want to keep scrolling. A mismatch between headline and image — even a subtle one — can kill engagement before the reader gets to the first sentence of the advertorial. Think of each headline and hero shot as a pair, not two independent elements.</p>
     <p>Below are two unique methods for generating hero shots. Adam's method for generating GIFs can be very effective, since image motion can enhance or further develop a message, but it is slightly more advanced and complicated, and is not necessary for your first campaign. The choice is yours.</p>
 
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" style="border:2px dashed #6ee7b7;background:#1a2e3a;">
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" data-status="needs-rerecord" style="border:2px dashed #6ee7b7;background:#1a2e3a;">
       <div class="play-icon" style="background:#059669;"></div>
       <div>
         <div class="vt">Using AI to Generate Hero Shots</div>
@@ -1075,7 +1075,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Step C — Source 5 Hero Shot Images</h4>
     <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
 
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
     <div class="video-slot" data-vidalytics-id="bVZQh22uMsWXS5AR"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
 
     <p><strong>Other ways to generate or source hero shot images:</strong></p>
@@ -1259,7 +1259,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="RLAZ22kFspRtI1A3"><div class="play-icon"></div><div><div class="vt">T6 — Add Your Landing Pages in DIYTrax</div><div class="vd">Tell DIYTrax which landing pages to rotate traffic between</div></div></div>
   <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r"><div class="play-icon"></div><div><div class="vt">T7 — Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
   <div class="video-slot" data-vidalytics-id="DYnYK_Drhg1FKu7A"><div class="play-icon"></div><div><div class="vt">T8 — Final QA Campaign Check and Set To Go Live</div><div class="vd">A final review of every element before flipping the switch</div></div></div>
-  <div class="video-slot" data-vidalytics-id="VIDEO_ID_062"><div class="play-icon"></div><div><div class="vt">T9 — How Caterpillar Traffic Source Works and What to Expect</div><div class="vd">Understanding the platform and what happens after you go live</div></div></div>
+  <div class="video-slot" data-vidalytics-id="VIDEO_ID_062" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T9 — How Caterpillar Traffic Source Works and What to Expect</div><div class="vd">Understanding the platform and what happens after you go live</div></div></div>
 
   <div class="alert warning"><strong>Sub-Campaign Split Required</strong>Caterpillar recommends a maximum of 3–5 ads per Sub-Campaign. Split your 10 headlines into 2 Sub-Campaigns of 5 each. The videos walk you through this.</div>
 
@@ -1312,7 +1312,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <ol><li><strong>Conversions</strong> — how many sales today?</li><li><strong>Ad CTR</strong> — which ads are getting clicks?</li><li><strong>Landing Page CTR</strong> — which pages are converting clicks into product visits?</li></ol>
     <p style="margin-bottom:0;">Update your P&amp;L Tracker™ daily. Don't panic over a single bad day — focus on trends over multiple days.</p>
   </div>
-  <div class="video-slot" data-vidalytics-id="VIDEO_ID_063"><div class="play-icon"></div><div><div class="vt">How to Set Up Your P&amp;L Tracker</div><div class="vd">Set this up right after Round 1 launches so you have a clean record from the start</div></div></div>
+  <div class="video-slot" data-vidalytics-id="VIDEO_ID_063" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How to Set Up Your P&amp;L Tracker</div><div class="vd">Set this up right after Round 1 launches so you have a clean record from the start</div></div></div>
 
   <hr class="divider">
 
