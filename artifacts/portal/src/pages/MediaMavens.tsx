@@ -5,6 +5,10 @@ import { Sparkles, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import vistaVeilImg from "@assets/vista-veil-404x400_1778783637190.png";
 import skinSpectraImg from "@assets/skin-spectra-404x400_1778783632451.png";
+import barkchesterImg from "@assets/barkchester-370x400_1778784846297.png";
+import robomouseImg from "@assets/robomouse-371x400_1778784848971.png";
+import skeeterStrikeImg from "@assets/skeeter-strike-409x400_1778784850895.png";
+import heatHavenImg from "@assets/heathaven-387x400_1778784855700.png";
 
 type Product = {
   slug: string;
@@ -45,6 +49,68 @@ const PRODUCTS: Product[] = [
     salesPageUrl: "https://skinspectra.store/products/skinspectra",
     logoDriveUrl: "https://drive.google.com/drive/folders/1VmsFlYIwIG6Tfg0TrCAjbdNnCDBKOHNu",
     affiliateLink: "https://skinspectra.store/products/skinspectra?ref=youraffiliateid",
+  },
+  {
+    slug: "barkchester-united",
+    name: "Barkchester United™",
+    tagline: "The Smart Soccer Ball for Champion Dogs",
+    image: barkchesterImg,
+    description:
+      "Unleash your dog's inner athlete with Barkchester United™, the revolutionary smart soccer ball that transforms lazy pups into playful champions using breakthrough motion sensors and intelligent play modes. This military-grade, water-resistant ball automatically responds to your dog's movements, creating an interactive play experience that keeps them engaged for hours without any human involvement. With four customizable modes (Champion, Rookie, Training, and Rest), it adapts to any dog's energy level and confidence, from anxious pups to athletic powerhouses up to 100 lbs. Featuring 4-hour battery life, whisper-quiet operation for indoor use, and dental-grade safe materials, Barkchester United™ works on any surface to deliver the mental stimulation and physical exercise dogs crave. Backed by a 30-day money-back guarantee, it's the guilt-free solution that turns couch potatoes into soccer stars.",
+    costToConsumer: "$29",
+    affiliateCommission: "$50 CPA",
+    salesPageUrl:
+      "https://barkchester.com/products/watch-barkchester-united-bring-out-your-dogs-inner-champion",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/100Kn5OW4tSMBEfNGC0AHrglzEhwzWtd2?usp=sharing",
+    affiliateLink:
+      "https://barkchester.com/products/watch-barkchester-united-bring-out-your-dogs-inner-champion?ref=youraffiliateid",
+  },
+  {
+    slug: "robo-mouse",
+    name: "RoboMouse™",
+    tagline: "The Smart Prey Simulator",
+    image: robomouseImg,
+    description:
+      "Watch your cat transform from couch potato to mighty hunter with RoboMouse™, the intelligent toy that uses IMS (Intelligent Movement System) technology to perfectly mimic real mouse movements and trigger your cat's natural hunting instincts. This USB-rechargeable marvel delivers up to 4 hours of continuous play with smart movement patterns, LED lights, and adjustable speed settings that keep cats of all ages engaged and exercising. Built with impact-resistant materials to withstand enthusiastic attacks, it works on any floor surface from carpet to hardwood. Complete with bonus attachments and backed by a 30-day money-back guarantee, RoboMouse™ is the boredom-busting solution that saves your furniture while providing endless entertainment for your feline friend.",
+    costToConsumer: "$29",
+    affiliateCommission: "$50 CPA",
+    salesPageUrl:
+      "https://robomousetoy.com/products/warning-this-smart-toy-may-cause-extreme-cat-happiness/",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1eAapTVoWlXKRYRCSzhNOAG5haPULkVhs",
+    affiliateLink:
+      "https://robomousetoy.com/products/warning-this-smart-toy-may-cause-extreme-cat-happiness/?ref=youraffiliateid",
+  },
+  {
+    slug: "skeeter-strike",
+    name: "Skeeter Strike™",
+    tagline: "Mosquito Zapper Lantern",
+    image: skeeterStrikeImg,
+    description:
+      "Say goodbye to mosquito-invaded evenings with Skeeter Strike™, the powerful 2-in-1 mosquito zapper and lantern that creates an 80-square-meter protective shield around your indoor and outdoor spaces. This portable guardian uses advanced UV light technology to silently eliminate mosquitoes and flying insects while providing ambient lighting for up to 20 hours on a single USB charge. Perfect for patios, camping trips, bedrooms, or any space where you want uninterrupted peace, Skeeter Strike™ features a durable design with an easy-hang carabiner handle and simple twist activation. Backed by a 30-day money-back guarantee, it's the chemical-free solution that lets you reclaim your evenings from buzzing invaders.",
+    costToConsumer: "$59",
+    affiliateCommission: "$75 CPA",
+    salesPageUrl: "https://skeeterstrike.store/products/skeeter-strike",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1S3pjdrTWhh9aEdoD1Yka0xv_QH3pWhFF",
+    affiliateLink:
+      "https://skeeterstrike.store/products/skeeter-strike?ref=youraffiliateid",
+  },
+  {
+    slug: "heat-haven",
+    name: "Heat Haven™",
+    tagline: "Infrared Detox & Recovery Blanket",
+    image: heatHavenImg,
+    description:
+      "Transform your home into a revitalizing sanctuary with the Heat Haven™ UltraLux Far-Infrared Total-Body Detox & Recovery Blanket. Engineered with advanced far-infrared panels that reach up to 176°F and wrapped in ten layers of heat-retaining insulation, this portable spa solution delivers professional-grade detoxification, stress relief, and muscle recovery — all in a 30-minute session. Just drape yourself in the lightweight, foldable design, set your customizable 20–60-minute timer, and let the deep-penetrating warmth boost your metabolism, elevate circulation, and rejuvenate your skin from the inside out. Enjoy the bliss of a spa-quality treatment without ever leaving your living room.",
+    costToConsumer: "$199",
+    affiliateCommission: "$250 CPA",
+    salesPageUrl: "https://heathavensauna.com/products/heat-haven",
+    logoDriveUrl:
+      "https://drive.google.com/drive/folders/1GWessS6TOOG-lDFb5UvtNt2P_3F3nY07",
+    affiliateLink:
+      "https://heathavensauna.com/products/heat-haven?ref=youraffiliateid",
   },
 ];
 
