@@ -26,7 +26,7 @@ const SECTION_STYLES = {
   panel: "bg-slate-50 dark:bg-slate-800/40",
   badge:
     "bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-200",
-  chevron: "text-slate-600 dark:text-slate-300",
+  chevron: "text-foreground",
 };
 
 type Product = {
@@ -485,19 +485,19 @@ function CategorySection({
         data-testid={`button-category-${category.toLowerCase()}`}
         aria-expanded={open}
       >
+        <h2 className="text-xl font-bold text-foreground">{category}</h2>
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-foreground">{category}</h2>
           <span
             className={`text-xs font-semibold px-2 py-0.5 rounded-full ${styles.badge}`}
           >
             {products.length}
           </span>
+          <ChevronDown
+            className={`w-5 h-5 transition-transform ${styles.chevron} ${
+              open ? "rotate-180" : ""
+            }`}
+          />
         </div>
-        <ChevronDown
-          className={`w-5 h-5 transition-transform ${styles.chevron} ${
-            open ? "rotate-180" : ""
-          }`}
-        />
       </button>
       {open && (
         <div
