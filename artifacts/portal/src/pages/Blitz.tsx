@@ -1922,9 +1922,9 @@ export default function Blitz() {
               <ArrowLeftIcon />
               Back to Hub
             </Link>
-            <Link href="/blitz/guide" className="bsb-btn primary">
+            <a href="/blitz/guide" target="_blank" rel="noopener noreferrer" className="bsb-btn primary">
               View Full Guide
-            </Link>
+            </a>
           </div>
         </div>
       )}
