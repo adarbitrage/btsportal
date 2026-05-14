@@ -1855,9 +1855,21 @@ export default function Blitz() {
       // tear down the player + remove owned scripts + reset globals.
       close();
       // Restore the overlay to its original location in the React-rendered DOM
-      // so the next mount finds it via contentEl.querySelector again.
-      if (originalParent) {
-        originalParent.insertBefore(overlay, originalNextSibling);
+      // so the next mount finds it via contentEl.querySelector again. Guard
+      // against the case where React has already torn down or replaced the
+      // original parent / next-sibling (e.g. on route change or HMR) — in
+      // that situation just drop the overlay along with portalWrapper; the
+      // next mount renders a fresh one via dangerouslySetInnerHTML.
+      try {
+        if (originalParent && (originalParent as Node).isConnected) {
+          if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+            originalParent.insertBefore(overlay, originalNextSibling);
+          } else {
+            originalParent.appendChild(overlay);
+          }
+        }
+      } catch {
+        /* DOM gone — let portalWrapper.remove() handle the rest */
       }
       portalWrapper.remove();
     };
