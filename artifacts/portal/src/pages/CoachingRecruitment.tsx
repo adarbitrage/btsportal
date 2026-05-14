@@ -2,8 +2,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Users, TrendingUp, DollarSign, Wrench, Infinity,
-  Handshake, CheckCircle2, Send, UserPlus
+  TrendingUp, DollarSign, Wrench, Infinity,
+  Handshake, CheckCircle2, UserPlus
 } from "lucide-react";
 import { useState } from "react";
 
@@ -59,6 +59,9 @@ const preQualQuestions = [
   "What is your biggest goal in becoming part of this coaching program?",
 ];
 
+const inputClass =
+  "w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/40";
+
 export default function CoachingRecruitment() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -77,10 +80,10 @@ export default function CoachingRecruitment() {
     return (
       <AppLayout>
         <div className="max-w-2xl mx-auto">
-          <Card className="border-[#2d8a4e]/30 shadow-sm bg-gradient-to-br from-[#2d8a4e]/5 to-transparent">
+          <Card className="border-border/60 shadow-sm">
             <CardContent className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#2d8a4e]/10 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-[#2d8a4e]" />
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8 text-emerald-700" />
               </div>
               <h3 className="text-xl font-bold text-foreground">Application Submitted!</h3>
               <p className="text-muted-foreground">
@@ -98,26 +101,19 @@ export default function CoachingRecruitment() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
-
-        <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <UserPlus className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-['Roboto'] tracking-tight">
-                Coaching Recruitment
-              </h1>
-              <p className="text-sm opacity-90 mt-1">
-                Build Your Business, Grow Your Skills, and Help Others Win
-              </p>
-            </div>
+      <div className="space-y-6 max-w-6xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <UserPlus className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">Become a Coach</h1>
           </div>
+          <p className="text-muted-foreground">
+            Build your business, grow your skills, and help others win.
+          </p>
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6 md:p-8 space-y-3">
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-3">
             <p className="text-muted-foreground leading-relaxed">
               This is your opportunity to step into a leadership role, share your expertise, and get paid — all while sharpening your own skills as an affiliate marketer.
             </p>
@@ -128,13 +124,13 @@ export default function CoachingRecruitment() {
         </Card>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6 md:p-8">
-            <h2 className="text-lg font-bold text-foreground mb-5">Why Become a BTS Coach?</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10">
+            <h2 className="text-xl font-bold text-foreground mb-5">Why Become a BTS Coach?</h2>
             <div className="space-y-4">
               {benefits.map((b, i) => (
                 <div key={i} className="flex items-start gap-4">
-                  <div className="w-9 h-9 rounded-lg bg-[#1a56db]/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <b.icon className="w-4 h-4 text-[#1a56db]" />
+                  <div className="w-9 h-9 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 mt-0.5">
+                    <b.icon className="w-4 h-4 text-foreground" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">{b.title}</p>
@@ -153,7 +149,7 @@ export default function CoachingRecruitment() {
               <div className="space-y-2">
                 {duties.map((d) => (
                   <div key={d} className="flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
                     <p className="text-sm text-muted-foreground">{d}</p>
                   </div>
                 ))}
@@ -166,7 +162,7 @@ export default function CoachingRecruitment() {
               <div className="space-y-2">
                 {requirements.map((r) => (
                   <div key={r} className="flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#1a56db] mt-0.5 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
                     <p className="text-sm text-muted-foreground">{r}</p>
                   </div>
                 ))}
@@ -176,8 +172,8 @@ export default function CoachingRecruitment() {
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6 md:p-8">
-            <h2 className="text-lg font-bold text-foreground mb-1">Ready to Apply?</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10">
+            <h2 className="text-xl font-bold text-foreground mb-1">Ready to Apply?</h2>
             <p className="text-sm text-muted-foreground mb-6">
               Tell us about your experience, your results, and why you're ready to help lead our mentees to success.
             </p>
@@ -193,7 +189,7 @@ export default function CoachingRecruitment() {
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                      className={inputClass}
                     />
                   </div>
                   <div>
@@ -203,7 +199,7 @@ export default function CoachingRecruitment() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                      className={inputClass}
                     />
                   </div>
                   <div>
@@ -212,7 +208,7 @@ export default function CoachingRecruitment() {
                       required
                       value={tier}
                       onChange={(e) => setTier(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                      className={inputClass}
                     >
                       <option value="">Select your tier...</option>
                       {tierOptions.map((t) => (
@@ -226,7 +222,7 @@ export default function CoachingRecruitment() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                      className={inputClass}
                     />
                   </div>
                 </div>
@@ -236,12 +232,12 @@ export default function CoachingRecruitment() {
                     type="text"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
-              <div className="border-t border-border pt-5">
+              <div className="border-t border-border/60 pt-5">
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Pre-Qualifying Questions</h3>
                 <div className="space-y-4">
                   {preQualQuestions.map((q, i) => (
@@ -251,7 +247,7 @@ export default function CoachingRecruitment() {
                         rows={3}
                         value={answers[i] || ""}
                         onChange={(e) => setAnswers({ ...answers, [i]: e.target.value })}
-                        className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 resize-none"
+                        className={`${inputClass} resize-none`}
                       />
                     </div>
                   ))}
@@ -262,14 +258,12 @@ export default function CoachingRecruitment() {
                 Once submitted, our team will review your application and Mark Blyn, CEO of Build Test Scale, will reach out directly with next steps.
               </p>
 
-              <Button type="submit" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-2">
-                <Send className="w-4 h-4" />
+              <Button type="submit">
                 Submit Application
               </Button>
             </form>
           </CardContent>
         </Card>
-
       </div>
     </AppLayout>
   );
