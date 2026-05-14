@@ -338,7 +338,7 @@ export default function Concierge() {
           <Button asChild>
             <a href="#task">Submit a Task for the Concierge™</a>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild>
             <a href="#call">1-on-1 Call with a VA</a>
           </Button>
         </div>
