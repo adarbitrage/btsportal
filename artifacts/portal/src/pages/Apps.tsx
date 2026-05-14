@@ -61,12 +61,10 @@ const PARTNER_TOOLS: PartnerTool[] = [
     description:
       "Get high-converting copy that connects with your ideal customer's deepest emotions — without spending weeks on research or testing hundreds of failed variations.",
     highlights: [
-      "Deep avatar research",
-      "Advertorial generator",
-      "Headline laboratory",
-      "Banner ad factory",
-      "Psychology brief builder",
-      "Custom copy control",
+      "Deep avatar research and psychology brief builder",
+      "Advertorial generator with custom copy control",
+      "Headline laboratory for split-test winners",
+      "Banner ad factory for paid traffic creative",
     ],
     logo: affiliateCmoLogo,
     perk: "FREE for life with the coupon code below.",
