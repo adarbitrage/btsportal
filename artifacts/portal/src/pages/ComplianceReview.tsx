@@ -44,7 +44,7 @@ export default function ComplianceReview() {
   if (submitted) {
     return (
       <AppLayout>
-        <div className="space-y-6 max-w-3xl">
+        <div className="space-y-6 max-w-6xl">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="w-6 h-6 text-primary" />
@@ -76,7 +76,7 @@ export default function ComplianceReview() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-6 max-w-6xl">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="w-6 h-6 text-primary" />
