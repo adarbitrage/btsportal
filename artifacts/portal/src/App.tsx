@@ -37,6 +37,7 @@ import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
 import Apps from "@/pages/Apps";
+import PartnerTools from "@/pages/PartnerTools";
 import Resources from "@/pages/Resources";
 import ResourceLibrary from "@/pages/ResourceLibrary";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
@@ -393,6 +394,7 @@ function Router() {
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
       <Route path="/apps">{() => <ProtectedRoute component={Apps} />}</Route>
+      <Route path="/partner-tools">{() => <ProtectedRoute component={PartnerTools} />}</Route>
       <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} permission="commissions:view" />}</Route>
       <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} permission="commissions:view" />}</Route>
       <Route path="/admin/commissions/payouts">{() => <AdminRoute component={CommissionPayouts} permission="commissions:manage" />}</Route>

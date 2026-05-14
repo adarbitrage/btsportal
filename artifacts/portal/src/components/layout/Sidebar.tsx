@@ -99,6 +99,7 @@ const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/apps", label: "Apps", icon: AppWindow, requiredEntitlement: "software:base" },
+      { kind: "leaf", href: "/partner-tools", label: "Partner Tools", icon: Wrench },
       { kind: "leaf", href: "/ai-assistant", label: "AI Assistant", icon: MessageCircle },
       { kind: "leaf", href: "/compliance", label: "Compliance Review", icon: ShieldCheck, requiredEntitlement: "software:base" },
     ],
