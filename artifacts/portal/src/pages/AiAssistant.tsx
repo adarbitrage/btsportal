@@ -289,8 +289,8 @@ export default function AiAssistant() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-lg shadow-foreground/5 ring-1 ring-foreground/[0.03]">
-          <div className="hidden md:flex w-64 border-r border-border bg-muted/40 flex-col shrink-0">
+        <div className="rounded-2xl border border-border bg-slate-50 dark:bg-slate-900/40 overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-2xl shadow-slate-900/15 ring-1 ring-foreground/[0.04]">
+          <div className="hidden md:flex w-64 border-r border-border bg-slate-100 dark:bg-slate-900/60 flex-col shrink-0">
             {sidebarContent}
           </div>
 
@@ -309,7 +309,7 @@ export default function AiAssistant() {
             </div>
           )}
 
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background/40">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-50 dark:bg-slate-900/30">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
               <button
                 onClick={() => setMobileSidebar(true)}
