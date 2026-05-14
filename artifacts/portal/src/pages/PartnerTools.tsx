@@ -372,11 +372,11 @@ export default function PartnerTools() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Wrench className="w-6 h-6 text-primary" />
-            <h1 className="text-3xl font-bold">Partner Tools</h1>
+            <h1 className="text-3xl font-bold">Tools</h1>
           </div>
           <p className="text-muted-foreground">
-            Third-party partner tools and Chrome extensions BTS members get free or
-            discounted access to. Register through the BTS links below to claim your
+            Third-party partner tools and Chrome extensions BTS members get free
+            access to. Register through the BTS links below to claim your
             perks.
           </p>
         </div>
