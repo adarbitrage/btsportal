@@ -6,8 +6,6 @@ import {
   Calculator, Mail, Search, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
-import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
-import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
 
 type SectionId = "apps" | "networks" | "traffic" | "ai-advertorial" | "ai-adcopy" | "creative-drive" | "pnl" | "email-template" | "spy";
 
@@ -105,22 +103,6 @@ const paidMediaTools: ToolInfo[] = [
     vidalyticsId: "9FQkRbOSSrI3JMML",
     launchLabel: "Launch MetricMover™",
     trainingLabel: "Watch MetricMover™ Training",
-  },
-  {
-    name: "ScrapeBot™",
-    tagline: "Google/Bing Image Scraper",
-    description: "A Chrome Extension built to scrape Google, Bing, and DuckDuckGo Images. Use it daily to locate and download all the images you need for banner ads and advertorial pages. No Photoshop required when you pair ScrapeBot™ with CropBot™ and PixelPress™.",
-    chromeUrl: "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
-    trainingLabel: "Watch ScrapeBot™ Training",
-    logoSrc: scrapebotLogo,
-  },
-  {
-    name: "CropBot™",
-    tagline: "Image Cropper & Resizer",
-    description: "A Chrome Extension built to crop and resize the images you gather with ScrapeBot™. In most cases, images downloaded from Google won't have ideal dimensions and need resizing. ScrapeBot™, CropBot™, and PixelPress™ make banner creation a breeze.",
-    chromeUrl: "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
-    trainingLabel: "Watch CropBot™ Training",
-    logoSrc: cropbotLogo,
   },
   {
     name: "Gifster™",

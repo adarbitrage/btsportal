@@ -34,6 +34,51 @@ import diytraxLogo from "@assets/diytrax-logo_1778710958688.jpg";
 import metricmoverLogo from "@assets/metricmover-logo_1778710958687.jpg";
 import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
+import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
+import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
+
+type ChromeExtension = {
+  name: string;
+  category: string;
+  tagline: string;
+  description: string;
+  highlights: string[];
+  logo: string;
+  downloadUrl: string;
+};
+
+const CHROME_EXTENSIONS: ChromeExtension[] = [
+  {
+    name: "ScrapeBot™",
+    category: "Google/Bing Image Scraper",
+    tagline: "Scrape Google, Bing, and DuckDuckGo Images straight from your browser.",
+    description:
+      "A Chrome Extension built to scrape Google, Bing, and DuckDuckGo Images. Use it daily to locate and download all the images you need for banner ads and advertorial pages. No Photoshop required when you pair ScrapeBot™ with CropBot™ and PixelPress™.",
+    highlights: [
+      "One-click image scraping across Google, Bing, and DuckDuckGo",
+      "Bulk-download images for banner ads and advertorial pages",
+      "Built to feed directly into the CropBot™ and PixelPress™ workflow",
+    ],
+    logo: scrapebotLogo,
+    downloadUrl:
+      "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
+  },
+  {
+    name: "CropBot™",
+    category: "Image Cropper & Resizer",
+    tagline: "Crop and resize the images you gather with ScrapeBot™ in seconds.",
+    description:
+      "A Chrome Extension built to crop and resize the images you gather with ScrapeBot™. In most cases, images downloaded from Google won't have ideal dimensions and need resizing. ScrapeBot™, CropBot™, and PixelPress™ make banner creation a breeze.",
+    highlights: [
+      "Resize images downloaded from Google to ad-ready dimensions",
+      "Crop and adjust without leaving the browser",
+      "Pairs with ScrapeBot™ and PixelPress™ for end-to-end banner creation",
+    ],
+    logo: cropbotLogo,
+    downloadUrl:
+      "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
+  },
+];
 
 type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
 
@@ -476,6 +521,63 @@ function AppCard({
   );
 }
 
+function ExtensionCard({ ext }: { ext: ChromeExtension }) {
+  return (
+    <Card className="border-border/60 shadow-sm overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          <div className="bg-white flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border">
+            <img
+              src={ext.logo}
+              alt={`${ext.name} logo`}
+              className="max-h-28 max-w-full object-contain"
+            />
+          </div>
+
+          <div className="flex-1 p-5 flex flex-col">
+            <div className="mb-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h2 className="text-xl font-bold text-foreground">{ext.name}</h2>
+                <Badge
+                  variant="outline"
+                  className="bg-muted text-muted-foreground border-border text-[10px] font-bold tracking-wide uppercase"
+                >
+                  {ext.category}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">{ext.tagline}</p>
+            </div>
+
+            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+              {ext.description}
+            </p>
+
+            <ul className="space-y-1 mb-4">
+              {ext.highlights.map((h, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                  <span>{h}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-auto flex items-center gap-2 flex-wrap justify-end">
+              <Button asChild size="sm">
+                <a href={ext.downloadUrl} target="_blank" rel="noopener noreferrer">
+                  Download Extension
+                </a>
+              </Button>
+              <Button size="sm" variant="outline" disabled>
+                Watch Training (coming soon)
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Apps() {
   const { toast } = useToast();
   const { data: member } = useGetCurrentMember();
@@ -637,6 +739,22 @@ export default function Apps() {
               installIsPending={installMutation.isPending}
             />
           ))}
+        </div>
+
+        <div className="pt-4 space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Chrome Extensions</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Browser extensions built to speed up the day-to-day workflow of finding,
+              cropping, and shipping ad creative. Install once and use them across every
+              campaign.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-5">
+            {CHROME_EXTENSIONS.map((ext) => (
+              <ExtensionCard key={ext.name} ext={ext} />
+            ))}
+          </div>
         </div>
       </div>
     </AppLayout>
