@@ -2,17 +2,31 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Headphones, CheckCircle2, ExternalLink, Send,
+  Headphones, CheckCircle2, Send,
   ClipboardList, Phone
 } from "lucide-react";
 import { useState } from "react";
 
 const FLEXY_BOOKING_BASE = "https://apiv2.getflexy.app/widget/bookings";
 
-const conciergeMembers = [
-  { name: "John Dela Cruz", booking: "johndc" },
-  { name: "Neil Warren", booking: "neil-warren-concierge-call" },
-  { name: "Mikha Bechayda", booking: "1-on-1-call-with-mikha-ella" },
+type AvatarTint = { bg: string; border: string; text: string };
+
+const conciergeMembers: { name: string; booking: string; tint: AvatarTint }[] = [
+  {
+    name: "John Dela Cruz",
+    booking: "johndc",
+    tint: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700" },
+  },
+  {
+    name: "Neil Warren",
+    booking: "neil-warren-concierge-call",
+    tint: { bg: "bg-teal-50", border: "border-teal-200", text: "text-teal-700" },
+  },
+  {
+    name: "Mikha Bechayda",
+    booking: "1-on-1-call-with-mikha-ella",
+    tint: { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" },
+  },
 ];
 
 const networkOptions = ["Clickbank", "MediaMavens"];
@@ -45,6 +59,16 @@ const scaleTasks = [
 ];
 
 const bannerSizes = ["300x250", "970x250", "970x550", "900x750", "1536x864"];
+
+const inputClass =
+  "w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/40";
+
+const pillClass = (selected: boolean, mono = false) =>
+  `px-3 py-1.5 rounded-lg text-sm border transition-colors ${mono ? "font-mono" : ""} ${
+    selected
+      ? "bg-primary text-primary-foreground border-primary"
+      : "bg-background border-border text-muted-foreground hover:border-foreground/30"
+  }`;
 
 function ConciergeForm() {
   const [firstName, setFirstName] = useState("");
@@ -79,10 +103,10 @@ function ConciergeForm() {
 
   if (submitted) {
     return (
-      <Card className="border-[#2d8a4e]/30 shadow-sm bg-gradient-to-br from-[#2d8a4e]/5 to-transparent">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#2d8a4e]/10 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-[#2d8a4e]" />
+          <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-8 h-8 text-emerald-700" />
           </div>
           <h3 className="text-xl font-bold text-foreground">Task Submitted!</h3>
           <p className="text-muted-foreground">
@@ -106,7 +130,7 @@ function ConciergeForm() {
             required
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+            className={inputClass}
           />
         </div>
         <div>
@@ -116,7 +140,7 @@ function ConciergeForm() {
             required
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+            className={inputClass}
           />
         </div>
       </div>
@@ -128,7 +152,7 @@ function ConciergeForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+          className={inputClass}
         />
       </div>
 
@@ -140,11 +164,7 @@ function ConciergeForm() {
               key={n}
               type="button"
               onClick={() => toggleItem(networks, setNetworks, n)}
-              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                networks.includes(n)
-                  ? "bg-[#1a56db] text-white border-[#1a56db]"
-                  : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-              }`}
+              className={pillClass(networks.includes(n))}
             >
               {n}
             </button>
@@ -159,7 +179,7 @@ function ConciergeForm() {
           required
           value={offerName}
           onChange={(e) => setOfferName(e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+          className={inputClass}
         />
       </div>
 
@@ -171,7 +191,7 @@ function ConciergeForm() {
           value={offerUrl}
           onChange={(e) => setOfferUrl(e.target.value)}
           placeholder="https://"
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+          className={inputClass}
         />
       </div>
 
@@ -183,11 +203,7 @@ function ConciergeForm() {
               key={t}
               type="button"
               onClick={() => toggleItem(traffic, setTraffic, t)}
-              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                traffic.includes(t)
-                  ? "bg-[#1a56db] text-white border-[#1a56db]"
-                  : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-              }`}
+              className={pillClass(traffic.includes(t))}
             >
               {t}
             </button>
@@ -203,11 +219,7 @@ function ConciergeForm() {
               key={p}
               type="button"
               onClick={() => { setPhase(p); setSelectedTasks([]); }}
-              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                phase === p
-                  ? "bg-[#1a56db] text-white border-[#1a56db]"
-                  : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-              }`}
+              className={pillClass(phase === p)}
             >
               {p}
             </button>
@@ -236,7 +248,7 @@ function ConciergeForm() {
                       setSelectedTasks([...selectedTasks, task]);
                     }
                   }}
-                  className="mt-1 accent-[#1a56db]"
+                  className="mt-1 accent-primary"
                 />
                 <span className="text-sm text-muted-foreground">{task}</span>
               </label>
@@ -254,11 +266,7 @@ function ConciergeForm() {
                 key={s}
                 type="button"
                 onClick={() => toggleItem(selectedSizes, setSelectedSizes, s)}
-                className={`px-3 py-1.5 rounded-lg text-sm border font-mono transition-colors ${
-                  selectedSizes.includes(s)
-                    ? "bg-[#1a56db] text-white border-[#1a56db]"
-                    : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-                }`}
+                className={pillClass(selectedSizes.includes(s), true)}
               >
                 {s}
               </button>
@@ -274,7 +282,7 @@ function ConciergeForm() {
           value={otherInfo}
           onChange={(e) => setOtherInfo(e.target.value)}
           placeholder="Please be as specific and detailed as possible..."
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 resize-none"
+          className={`${inputClass} resize-none`}
         />
       </div>
 
@@ -283,7 +291,7 @@ function ConciergeForm() {
           type="checkbox"
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
-          className="mt-1 accent-[#1a56db]"
+          className="mt-1 accent-primary"
           required
         />
         <span className="text-sm text-muted-foreground">
@@ -291,7 +299,7 @@ function ConciergeForm() {
         </span>
       </label>
 
-      <Button type="submit" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-2 w-full sm:w-auto">
+      <Button type="submit" className="gap-2 w-full sm:w-auto">
         <Send className="w-4 h-4" />
         Submit Your Task
       </Button>
@@ -302,27 +310,20 @@ function ConciergeForm() {
 export default function Concierge() {
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
-
-        <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <Headphones className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight">
-                The BTS Concierge™
-              </h1>
-              <p className="text-lg opacity-90">
-                Your Personal Digital Marketing Assistants
-              </p>
-            </div>
+      <div className="space-y-6 max-w-6xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Headphones className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">The BTS Concierge™</h1>
           </div>
+          <p className="text-muted-foreground">
+            Your personal digital marketing assistants — a team of skilled specialists ready to take work off your plate.
+          </p>
         </div>
 
         <Card className="border-border/60 shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <div className="aspect-video bg-black rounded-t-lg overflow-hidden">
+            <div className="aspect-video bg-black overflow-hidden">
               <iframe
                 src="https://fast.vidalytics.com/embeds/trR5xdVa/W2EWjAXnSz8UjQvB/"
                 className="w-full h-full border-0"
@@ -334,33 +335,37 @@ export default function Concierge() {
         </Card>
 
         <div className="flex flex-wrap gap-3">
-          <a href="#task" className="flex items-center gap-2 px-4 py-2.5 bg-[#2d8a4e] text-white rounded-lg text-sm font-medium hover:bg-[#246e3e] transition-colors">
-            <ClipboardList className="w-4 h-4" />
-            Submit a Task for the Concierge™
-          </a>
-          <a href="#call" className="flex items-center gap-2 px-4 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1548b8] transition-colors">
-            <Phone className="w-4 h-4" />
-            1-on-1 Call with a VA
-          </a>
+          <Button asChild>
+            <a href="#task">
+              <ClipboardList className="w-4 h-4" />
+              Submit a Task for the Concierge™
+            </a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="#call">
+              <Phone className="w-4 h-4" />
+              1-on-1 Call with a VA
+            </a>
+          </Button>
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10 space-y-5">
-            <h2 className="text-2xl font-bold text-foreground">Welcome To The BTS Concierge™</h2>
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-5">
+            <h2 className="text-xl font-bold text-foreground">Welcome To The BTS Concierge™</h2>
             <p className="text-muted-foreground leading-relaxed">
               The BTS Concierge™ is one of the most valuable resources available to you as a Build Test Scale member. This service was designed to eliminate bottlenecks, save you time, and give you the professional edge you need to thrive in affiliate marketing.
             </p>
             <p className="text-muted-foreground leading-relaxed">
               This isn't your typical virtual assistant team. These are industry professionals — skilled specialists who are paid premium rates to support our members. Whether you're looking to:
             </p>
-            <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6">
+            <div className="bg-muted/40 border border-border/60 rounded-xl p-6">
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Build complete landing pages from scratch</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Create animated GIFs for banner ads and landing page hero shots</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Design and deliver high-quality banners</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Connect landing pages to proprietary tools within the portal</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Optimize your campaigns after they've launched</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-[#2d8a4e] mt-0.5 shrink-0" /> Get overviews of each proprietary software application in the portal</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Build complete landing pages from scratch</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Create animated GIFs for banner ads and landing page hero shots</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Design and deliver high-quality banners</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Connect landing pages to proprietary tools within the portal</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Optimize your campaigns after they've launched</li>
+                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Get overviews of each proprietary software application in the portal</li>
               </ul>
             </div>
             <p className="text-muted-foreground leading-relaxed">
@@ -371,13 +376,13 @@ export default function Concierge() {
 
         <section id="task">
           <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-8 md:p-10 space-y-6">
+            <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#2d8a4e]/10 flex items-center justify-center">
-                  <ClipboardList className="w-5 h-5 text-[#2d8a4e]" />
+                <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
+                  <ClipboardList className="w-5 h-5 text-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">Submit A Task For The Concierge™</h2>
+                  <h2 className="text-xl font-bold text-foreground">Submit A Task For The Concierge™</h2>
                   <p className="text-sm text-muted-foreground">
                     Fill out the form below and let us know how we can assist. Turnaround time: 24 hours.
                   </p>
@@ -390,46 +395,47 @@ export default function Concierge() {
 
         <section id="call">
           <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-8 md:p-10 space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">1-On-1 Calls</h2>
-                <p className="text-lg text-muted-foreground mt-1">
-                  Book a private call with a member of the BTS Concierge™
-                </p>
+            <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
+                  <Phone className="w-5 h-5 text-foreground" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">1-on-1 Calls</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Book a private call with a member of the BTS Concierge™.
+                  </p>
+                </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Elevate your productivity with personalized 1-on-1 consultations focused on practical, hands-on assistance. Our team can support you with banner creation, landing page setup, Flexy configuration, MetricMover variations, DIYTrax campaign setup, and much more. Available Monday through Saturday.
+                Elevate your productivity with personalized 1-on-1 consultations focused on practical, hands-on assistance. Our team can support you with banner creation, landing page setup, Flexy configuration, MetricMover variations, DIYTrax campaign setup, and much more. Available <strong className="text-foreground">Monday through Saturday</strong>.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 {conciergeMembers.map((member) => (
-                  <a
-                    key={member.booking}
-                    href={`${FLEXY_BOOKING_BASE}/${member.booking}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <Card className="border-border/60 hover:border-[#1a56db]/40 hover:shadow-md transition-all cursor-pointer h-full">
-                      <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                        <div className="w-16 h-16 rounded-full bg-[#1a56db]/10 flex items-center justify-center">
-                          <span className="text-xl font-bold text-[#1a56db]">
-                            {member.name.split(" ").map((n) => n[0]).join("")}
-                          </span>
-                        </div>
-                        <p className="font-bold text-foreground">{member.name}</p>
-                        <span className="flex items-center gap-1 text-xs text-[#1a56db] font-medium">
-                          <ExternalLink className="w-3 h-3" />
+                  <Card key={member.booking} className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-6 text-center">
+                      <div
+                        className={`w-16 h-16 rounded-full ${member.tint.bg} ${member.tint.text} border ${member.tint.border} mx-auto mb-3 flex items-center justify-center text-xl font-bold`}
+                      >
+                        {member.name.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground mb-3">{member.name}</h3>
+                      <Button asChild size="sm" className="w-full">
+                        <a
+                          href={`${FLEXY_BOOKING_BASE}/${member.booking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           Book a Call
-                        </span>
-                      </CardContent>
-                    </Card>
-                  </a>
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </CardContent>
           </Card>
         </section>
-
       </div>
     </AppLayout>
   );
