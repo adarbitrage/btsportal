@@ -1177,10 +1177,10 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <h4>Universal Setup — Everyone Does This First</h4>
 
-  <div class="video-slot" data-vidalytics-id="PJRg0qHIMaEWE5WO" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
+  <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
   <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
   <div class="video-slot" data-vidalytics-id="6VjLDPAvCxY5VR_J" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
-  <div class="video-slot" data-vidalytics-id="TDiRcvuD5gbC0VWy" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
+  <div class="video-slot" data-vidalytics-id="aXOaPoKhmckiyMXL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
 
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens / Affiliati (pre-built advertorial) — MetricMover™ Setup</div>
@@ -1211,10 +1211,10 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p>Follow the <strong>MM1–MM13 video series</strong> in the Media Mavens path above — the process is identical. Your starting point is a cloned jump page template in Flexy™ with your custom body copy already in place.</p>
 
-    <div class="video-slot" data-vidalytics-id="vtLjvuAxcDs1Xajk" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
-    <div class="video-slot" data-vidalytics-id="9wFEuXcLVEA8ZRjv" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
+    <div class="video-slot" data-vidalytics-id="8DOS192WmesN98rW" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
+    <div class="video-slot" data-vidalytics-id="zO4NB3FSTGul5lsT" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
     <div class="video-slot" data-vidalytics-id="hsneAr96RHna7XrH" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF3 — How to Customize Your Jump Page Body Copy</div><div class="vd">Edit the template with your offer-specific body copy</div></div></div>
-    <div class="video-slot" data-vidalytics-id="WvneY6btFomfy1i4" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
+    <div class="video-slot" data-vidalytics-id="9FRDaxeaAwSY1zhF" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
 
     <p>Once your jump page template is customized, follow MM1–MM13 above to import it into MetricMover™ and generate your 25 combinations.</p>
   </div>
