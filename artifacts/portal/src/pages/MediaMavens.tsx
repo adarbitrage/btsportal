@@ -473,7 +473,7 @@ function CategorySection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-slate-100 dark:bg-slate-800 hover-elevate active-elevate-2"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-slate-50/70 dark:bg-slate-900/30 hover-elevate active-elevate-2"
         data-testid={`button-category-${category.toLowerCase()}`}
         aria-expanded={open}
       >
