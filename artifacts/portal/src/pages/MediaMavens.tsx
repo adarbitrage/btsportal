@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import vistaVeilImg from "@assets/vista-veil-404x400_1778783637190.png";
 import skinSpectraImg from "@assets/skin-spectra-404x400_1778783632451.png";
 import barkchesterImg from "@assets/barkchester-370x400_1778784846297.png";
@@ -117,6 +117,31 @@ const PRODUCTS: Product[] = [
 function ProductCard({ product }: { product: Product }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    const measure = () => {
+      if (expanded) return;
+      setIsTruncated(el.scrollHeight - el.clientHeight > 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [expanded, product.description]);
+
+  useEffect(() => {
+    const onResize = () => {
+      const el = descRef.current;
+      if (!el || expanded) return;
+      setIsTruncated(el.scrollHeight - el.clientHeight > 1);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [expanded]);
 
   const copyLink = async () => {
     try {
@@ -170,20 +195,23 @@ function ProductCard({ product }: { product: Product }) {
 
             <div className="mb-3">
               <p
+                ref={descRef}
                 className={`text-sm text-foreground/90 leading-relaxed ${
                   expanded ? "" : "line-clamp-[7]"
                 }`}
               >
                 {product.description}
               </p>
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                className="mt-1 text-xs font-semibold text-primary hover:underline"
-                data-testid={`button-expand-${product.slug}`}
-              >
-                {expanded ? "Show less" : "Read more"}
-              </button>
+              {(isTruncated || expanded) && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="mt-1 text-xs font-semibold text-primary hover:underline"
+                  data-testid={`button-expand-${product.slug}`}
+                >
+                  {expanded ? "Show less" : "Read more"}
+                </button>
+              )}
             </div>
 
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 mt-auto">
