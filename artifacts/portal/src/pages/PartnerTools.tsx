@@ -174,15 +174,9 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
                 <h2 className="text-xl font-bold text-foreground">{tool.name}</h2>
                 <Badge
                   variant="outline"
-                  className="bg-muted text-muted-foreground border-border text-[10px] font-bold tracking-wide uppercase"
-                >
-                  {tool.category}
-                </Badge>
-                <Badge
-                  variant="outline"
                   className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold tracking-wide uppercase"
                 >
-                  Free for BTS Members
+                  {tool.category}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{tool.tagline}</p>
@@ -311,7 +305,7 @@ function ExtensionCard({ ext }: { ext: ChromeExtension }) {
                 <h2 className="text-xl font-bold text-foreground">{ext.name}</h2>
                 <Badge
                   variant="outline"
-                  className="bg-muted text-muted-foreground border-border text-[10px] font-bold tracking-wide uppercase"
+                  className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold tracking-wide uppercase"
                 >
                   {ext.category}
                 </Badge>
@@ -375,8 +369,9 @@ export default function PartnerTools() {
             <h1 className="text-3xl font-bold">Tools</h1>
           </div>
           <p className="text-muted-foreground">
-            A handpicked set of tools the BTS team actually uses, free with
-            your membership. Register through the links below to claim them.
+            A handpicked set of tools the BTS team actually uses,{" "}
+            <strong className="font-semibold text-foreground">free with your membership</strong>.
+            Register through the links below to claim them.
           </p>
         </div>
 
