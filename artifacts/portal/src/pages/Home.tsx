@@ -1,9 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { BookOpen, Users, Headphones, Trophy, MessageSquare, Rocket, ArrowRight, Mail, Target, DollarSign, Lightbulb, GraduationCap, Shield } from "lucide-react";
+import {
+  Layers, Trophy, MessageSquare, Rocket, ArrowRight, Mail, Target,
+  DollarSign, Lightbulb, Users, GraduationCap, Shield, Sparkles, Video, Zap
+} from "lucide-react";
 
 const pillars = [
   { icon: Target, title: "Pillar 1: Foundation", desc: "Set up your digital business infrastructure the right way from day one." },
@@ -15,26 +17,35 @@ const pillars = [
   { icon: Shield, title: "Pillar 7: Sustainability", desc: "Create a business that generates long-term, passive income." },
 ];
 
+const getStartedLinks = [
+  { href: "/core-training/7-pillars", icon: Layers, title: "7 Pillars", desc: "The BTS framework" },
+  { href: "/blitz", icon: Zap, title: "The Blitz™", desc: "30-day launch sprint" },
+  { href: "/coaching", icon: Video, title: "Coaching Calls", desc: "Live group sessions" },
+  { href: "/wins", icon: Trophy, title: "Wall of Wins", desc: "Celebrate success" },
+  { href: "/ai-assistant", icon: MessageSquare, title: "AI Assistant", desc: "Get instant help" },
+  { href: "/support", icon: Rocket, title: "Support", desc: "We're here for you" },
+];
+
 export default function Home() {
   const { data: member } = useGetCurrentMember();
   const firstName = member?.name?.split(" ")[0] ?? "Member";
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-10">
-
-        <div className="bg-[#1a56db] rounded-2xl p-6 sm:p-10 text-white text-center shadow-lg">
-          <h1 className="text-4xl md:text-5xl font-bold font-['Roboto'] tracking-tight mb-3">
-            Thank You! And Welcome!
-          </h1>
-          <p className="text-lg md:text-xl opacity-90">
-            You are now officially enrolled in <strong>Build Test Scale™</strong> Mentorship
+      <div className="space-y-6 max-w-6xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">Thank You! And Welcome!</h1>
+          </div>
+          <p className="text-muted-foreground">
+            You are now officially enrolled in <strong className="text-foreground">Build Test Scale™</strong> Mentorship.
           </p>
         </div>
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">
+            <h2 className="text-xl font-bold text-foreground">
               Welcome to the Best Money-Making Opportunity, {firstName}!
             </h2>
 
@@ -43,13 +54,13 @@ export default function Home() {
                 Welcome to the <strong className="text-foreground">Build Test Scale™ (BTS)</strong> Affiliate Marketing Mentorship.
               </p>
               <p>
-                You're about to learn how to make big money using <strong className="text-foreground">paid email media buys</strong>. 
-                Not sure what that means? No worries. We'll break it down for you. Once you get it, you won't want 
+                You're about to learn how to make big money using <strong className="text-foreground">paid email media buys</strong>.
+                Not sure what that means? No worries. We'll break it down for you. Once you get it, you won't want
                 to use any other type of online advertising. Trust us.
               </p>
             </div>
 
-            <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6 space-y-3">
+            <div className="bg-muted/40 border border-border/60 rounded-xl p-6 space-y-3">
               <h3 className="font-semibold text-foreground text-lg">Why BTS?</h3>
               <p className="text-muted-foreground leading-relaxed">
                 After talking to lots of our past students, we found out two things everyone wants:
@@ -59,7 +70,7 @@ export default function Home() {
                 <li>To <strong className="text-foreground">make money</strong> from that traffic.</li>
               </ol>
               <p className="text-muted-foreground leading-relaxed">
-                That's why you're here, right? Because email traffic is powerful and fast. Imagine a flood of 
+                That's why you're here, right? Because email traffic is powerful and fast. Imagine a flood of
                 visitors to your site, filling up your bank account. It's addictive!
               </p>
             </div>
@@ -68,17 +79,19 @@ export default function Home() {
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">What's in Store for You</h2>
-            <p className="text-muted-foreground text-center leading-relaxed max-w-2xl mx-auto">
-              Over the coming months, we will work through the 10,000 foot view of the BTS program — 
-              <strong className="text-foreground"> The 7 Pillars™ Of A Profitable Digital Business</strong>, 
-              using our proven email traffic sources and our full suite of tools.
-            </p>
-            <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">What's in Store for You</h2>
+              <p className="text-muted-foreground leading-relaxed mt-2">
+                Over the coming months, we will work through the 10,000 foot view of the BTS program —
+                <strong className="text-foreground"> The 7 Pillars™ Of A Profitable Digital Business</strong>,
+                using our proven email traffic sources and our full suite of tools.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
               {pillars.map((p, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-[#faf9f7] border border-[#e8e4dc]">
-                  <div className="w-10 h-10 rounded-lg bg-[#1a56db]/10 flex items-center justify-center shrink-0">
-                    <p.icon className="w-5 h-5 text-[#1a56db]" />
+                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-muted/40 border border-border/60">
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+                    <p.icon className="w-5 h-5 text-blue-700" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground text-sm">{p.title}</h4>
@@ -92,26 +105,26 @@ export default function Home() {
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center">What You Are About To Learn</h2>
+            <h2 className="text-xl font-bold text-foreground">What You Are About To Learn</h2>
             <div className="text-muted-foreground space-y-4 leading-relaxed">
               <p>
-                In this mentorship, we teach you <strong className="text-foreground">everything</strong> we know about generating 
+                In this mentorship, we teach you <strong className="text-foreground">everything</strong> we know about generating
                 mass traffic via paid email media buys, with nothing held back.
               </p>
               <p>
-                You'll get the exact info you need to start running your own email campaigns profitably, 
-                no matter what you promote, and you'll learn how to create a valuable, lasting relationship 
+                You'll get the exact info you need to start running your own email campaigns profitably,
+                no matter what you promote, and you'll learn how to create a valuable, lasting relationship
                 with the traffic sources you work with along the way.
               </p>
               <p>
-                Although you have immediate access to all content now, <em>it is intended to be consumed over 
-                several months</em>. Of course, you can go through the training faster than that, or skip around if 
-                you like. But a lot of students prefer the way we chunk it up. It's sometimes easier to consume 
+                Although you have immediate access to all content now, <em>it is intended to be consumed over
+                several months</em>. Of course, you can go through the training faster than that, or skip around if
+                you like. But a lot of students prefer the way we chunk it up. It's sometimes easier to consume
                 and digest when taken a little slower.
               </p>
               <p>
-                We recommend you complete each lesson in the Core Training section in the order it's delivered. 
-                Go through the material as it is laid out, top to bottom, and when you need help, our support 
+                We recommend you complete each lesson in the Core Training section in the order it's delivered.
+                Go through the material as it is laid out, top to bottom, and when you need help, our support
                 team and amazing mentors will be available to answer your questions.
               </p>
             </div>
@@ -120,91 +133,43 @@ export default function Home() {
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-6">Get Started Now</h2>
+            <h2 className="text-xl font-bold text-foreground mb-6">Get Started Now</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link href="/core-training">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <BookOpen className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">Core Training</h4>
-                    <p className="text-xs text-muted-foreground">Start your journey</p>
+              {getStartedLinks.map((l) => (
+                <Link key={l.href} href={l.href}>
+                  <div className="flex items-center gap-3 p-4 rounded-xl border border-border/60 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group h-full">
+                    <l.icon className="w-7 h-7 text-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-sm text-foreground">{l.title}</h4>
+                      <p className="text-xs text-muted-foreground">{l.desc}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-              <Link href="/community">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <Users className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">Community</h4>
-                    <p className="text-xs text-muted-foreground">Connect with peers</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-              <Link href="/coaching">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <Headphones className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">Coaching Calls</h4>
-                    <p className="text-xs text-muted-foreground">Get live guidance</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-              <Link href="/wins">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <Trophy className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">Wall of Wins</h4>
-                    <p className="text-xs text-muted-foreground">Celebrate success</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-              <Link href="/ai-assistant">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <MessageSquare className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">AI Assistant</h4>
-                    <p className="text-xs text-muted-foreground">Get instant help</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-              <Link href="/support">
-                <div className="flex items-center gap-3 p-4 rounded-xl border border-[#e8e4dc] hover:border-[#1a56db]/30 hover:bg-[#1a56db]/5 transition-all cursor-pointer group">
-                  <Rocket className="w-8 h-8 text-[#1a56db] shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-[#1a56db]">Support</h4>
-                    <p className="text-xs text-muted-foreground">We're here for you</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
+                </Link>
+              ))}
             </div>
 
-            <div className="mt-8 text-center">
+            <div className="mt-8">
               <p className="text-muted-foreground leading-relaxed italic">
-                "Roll up your sleeves and let's get to work! Remember, you can learn at your own pace, and if 
-                there's anything you don't understand, or need clarification on, please ask away. Having access 
-                to our amazing team to answer all of your questions is the most valuable part of this mentorship, 
+                "Roll up your sleeves and let's get to work! Remember, you can learn at your own pace, and if
+                there's anything you don't understand, or need clarification on, please ask away. Having access
+                to our amazing team to answer all of your questions is the most valuable part of this mentorship,
                 so don't be shy! Reach out whenever you need to!"
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <div className="text-center text-xs text-muted-foreground/60 pb-8 space-y-2">
+        <div className="text-xs text-muted-foreground/70 pb-8 space-y-2">
           <p className="font-semibold">
-            "Helping You Make The Most Money Possible, So You Can Do The Things You Love To Do, 
+            "Helping You Make The Most Money Possible, So You Can Do The Things You Love To Do,
             With The People You Love To Do Them With!"
           </p>
-          <p className="mt-4 leading-relaxed max-w-3xl mx-auto">
-            <strong>*DISCLAIMER:</strong> There is NO GUARANTEE and NO WARRANTY that employing the same techniques, 
-            ideas, strategies, products or services detailed here will produce the same results. Your earning 
-            potential is entirely dependent upon you, your skills, financial resources, marketing knowledge 
-            and the time you devote. THE LEVEL OF SUCCESS YOU REACH IS ENTIRELY DEPENDENT UPON YOUR OWN EFFORT 
+          <p className="mt-4 leading-relaxed">
+            <strong>*DISCLAIMER:</strong> There is NO GUARANTEE and NO WARRANTY that employing the same techniques,
+            ideas, strategies, products or services detailed here will produce the same results. Your earning
+            potential is entirely dependent upon you, your skills, financial resources, marketing knowledge
+            and the time you devote. THE LEVEL OF SUCCESS YOU REACH IS ENTIRELY DEPENDENT UPON YOUR OWN EFFORT
             AND DEDICATION.
           </p>
         </div>
