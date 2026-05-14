@@ -114,3 +114,9 @@ id = "GYSLE8Y_mIkApJTon78Uj"
 uri = "file://BTS_Master_Agreement_DRAFT.md"
 type = "text"
 title = "BTS Mentorship Program Agreement — Rough Draft"
+
+[[outputs]]
+id = "eILVoX7c1a2vkRY8z_1Os"
+uri = "file://.local/exports/bts-master-agreement-draft.md"
+type = "text"
+title = "BTS Master Agreement Draft (Markdown)"
