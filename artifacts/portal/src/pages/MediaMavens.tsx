@@ -142,7 +142,7 @@ function ProductCard({ product }: { product: Product }) {
             />
           </div>
 
-          <div className="flex-1 p-5 flex flex-col">
+          <div className="flex-1 min-w-0 p-5 flex flex-col">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h2 className="text-xl font-bold text-foreground">{product.name}</h2>
