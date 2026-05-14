@@ -289,8 +289,8 @@ export default function AiAssistant() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px]">
-          <div className="hidden md:flex w-64 border-r border-border bg-background flex-col shrink-0">
+        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-lg shadow-foreground/5 ring-1 ring-foreground/[0.03]">
+          <div className="hidden md:flex w-64 border-r border-border bg-muted/40 flex-col shrink-0">
             {sidebarContent}
           </div>
 
@@ -309,8 +309,8 @@ export default function AiAssistant() {
             </div>
           )}
 
-          <div className="flex-1 flex flex-col min-w-0 min-h-0">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background/40">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
               <button
                 onClick={() => setMobileSidebar(true)}
                 className="md:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -416,7 +416,7 @@ export default function AiAssistant() {
               </div>
             )}
 
-            <div className="p-4 border-t border-border bg-card shrink-0">
+            <div className="p-4 border-t border-border bg-card/80 backdrop-blur shrink-0">
               <div className="max-w-3xl mx-auto flex gap-2">
                 <textarea
                   ref={inputRef}
