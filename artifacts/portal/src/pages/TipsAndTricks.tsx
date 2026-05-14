@@ -12,17 +12,17 @@ const imageTips: Tip[] = [
   {
     title: 'Creating Images With Google\'s "Nano Banana"',
     date: "11/18/2025",
-    vidalyticsId: "8a5iTjH5kCC_OgIs",
+    vidalyticsId: "qgpAV6gDFy_EujDM",
   },
   {
     title: "Making Slight Adjustments To Images With Qwen",
     date: "9/26/2025",
-    vidalyticsId: "sugpfpVtoqSG95t6",
+    vidalyticsId: "uZA1qpHWKIw6O4ao",
   },
   {
     title: "Creating Animated GIF's With Grok Imagine",
     date: "9/12/2025",
-    vidalyticsId: "ERMmmPggEuGl1j0K",
+    vidalyticsId: "urBv1xbiAL6LST5x",
   },
 ];
 
@@ -30,12 +30,12 @@ const copywritingTips: Tip[] = [
   {
     title: "Creating Headlines In Specific Styles",
     date: "9/19/2025",
-    vidalyticsId: "wmIGaYXDGcAysvL0",
+    vidalyticsId: "smS9hAL9_0kXcPsf",
   },
   {
     title: "Creating Native Ad Headlines With Anstrex",
     date: "9/12/2025",
-    vidalyticsId: "4HUgSPTVgS7C2_XZ",
+    vidalyticsId: "ER6QheTSaVmuoMvN",
   },
 ];
 
