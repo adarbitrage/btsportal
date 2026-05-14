@@ -1,8 +1,9 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Copy, Check, ChevronDown } from "lucide-react";
+import { Copy, Check, ChevronDown } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import mediaMavensLogo from "@assets/mediamavens-logo-cropped.png";
 import vistaVeilImg from "@assets/vista-veil-404x400_1778783637190.png";
 import skinSpectraImg from "@assets/skin-spectra-404x400_1778783632451.png";
 import barkchesterImg from "@assets/barkchester-370x400_1778784846297.png";
@@ -424,8 +425,12 @@ export default function MediaMavens() {
     <AppLayout>
       <div className="space-y-6 max-w-6xl">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-6 h-6 text-primary" />
+          <div className="flex items-center gap-3 mb-2">
+            <img
+              src={mediaMavensLogo}
+              alt="Media Mavens"
+              className="h-10 w-auto rounded"
+            />
             <h1 className="text-3xl font-bold">Media Mavens Products</h1>
           </div>
           <p className="text-muted-foreground">
