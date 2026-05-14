@@ -166,6 +166,7 @@ type AppCatalogEntry = {
   highlights: string[];
   logo: string;
   logoBg: string;
+  collapsible?: boolean;
   accent: {
     border: string;
     badgeBg: string;
@@ -190,6 +191,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     ],
     logo: flexyLogo,
     logoBg: "bg-white",
+    collapsible: true,
     accent: {
       border: "border-red-300",
       badgeBg: "bg-red-50",
@@ -422,6 +424,8 @@ function AppCard({
   const isRetrying = retryPendingFor === app.name;
   const isUninstalling = uninstallPendingFor === app.name;
   const isInstallingNow = installIsPending && installPendingFor === app.name;
+  const [expanded, setExpanded] = useState(!app.collapsible);
+  const showHighlights = !app.collapsible || expanded;
 
   return (
     <Card
@@ -479,17 +483,19 @@ function AppCard({
               {app.description}
             </p>
 
-            <ul className="space-y-1 mb-3">
-              {app.highlights.map((h, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 text-sm text-foreground/85"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <span>{h}</span>
-                </li>
-              ))}
-            </ul>
+            {showHighlights && (
+              <ul className="space-y-1 mb-3">
+                {app.highlights.map((h, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-foreground/85"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {isDisabled && (
               <p className="text-xs text-muted-foreground">
@@ -507,7 +513,17 @@ function AppCard({
 
             {!isDisabled && (
               <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-1">
+                  {app.collapsible && (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((v) => !v)}
+                      className="text-xs font-medium text-primary hover:underline"
+                      data-testid={`button-toggle-details-${app.name}`}
+                    >
+                      {expanded ? "Show less" : "Read more"}
+                    </button>
+                  )}
                   {inst?.domain && (
                     <p className="text-xs text-muted-foreground font-mono break-all">
                       {inst.domain}
