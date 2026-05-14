@@ -23,7 +23,7 @@ type Category = "Health" | "Beauty" | "Pets" | "Home";
 const CATEGORY_ORDER: Category[] = ["Health", "Beauty", "Pets", "Home"];
 
 const SECTION_STYLES = {
-  panel: "bg-slate-100 dark:bg-slate-800/60",
+  panel: "bg-slate-50 dark:bg-slate-800/40",
   badge:
     "bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-200",
   chevron: "text-slate-600 dark:text-slate-300",
