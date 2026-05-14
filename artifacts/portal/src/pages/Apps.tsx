@@ -610,20 +610,11 @@ export default function Apps() {
             <h1 className="text-3xl font-bold">Apps</h1>
           </div>
           <p className="text-muted-foreground">
-            A suite of proprietary tools — built specifically for the Build Test Scale
-            system. These were developed in-house for our team and aren't available
-            anywhere else in the marketplace. Used together, they give members a serious
-            edge over the competition.
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-          <p className="text-sm text-emerald-900">
-            <strong>Welcome to over $3,000,000 in proprietary tools.</strong> Each app
-            below was built to remove a specific bottleneck in the Build Test Scale
-            workflow — from launching landing pages, to bulk-creating banner ads, to
-            split testing at scale. Install the ones needed for the current workflow,
-            and open them with one click.
+            Over $3,000,000 in proprietary tools, built in-house for the Build
+            Test Scale system and not available anywhere else. Each app removes a
+            specific bottleneck in the workflow — from launching landing pages, to
+            bulk-creating banner ads, to split testing at scale. Install the ones
+            needed for the current workflow and open them with one click.
           </p>
         </div>
 
