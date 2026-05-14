@@ -53,6 +53,7 @@ import {
   Radio,
   Layers,
   UserCircle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -95,11 +96,11 @@ const MEMBER_NAV: NavNode[] = [
     kind: "folder",
     storageKey: "tools-apps",
     label: "Tools & Apps",
-    icon: Wrench,
+    icon: Settings,
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/apps", label: "Apps", icon: AppWindow, requiredEntitlement: "software:base" },
-      { kind: "leaf", href: "/partner-tools", label: "Partner Tools", icon: Wrench },
+      { kind: "leaf", href: "/partner-tools", label: "Tools", icon: Wrench },
       { kind: "leaf", href: "/ai-assistant", label: "AI Assistant", icon: MessageCircle },
       { kind: "leaf", href: "/compliance", label: "Compliance Review", icon: ShieldCheck, requiredEntitlement: "software:base" },
     ],
