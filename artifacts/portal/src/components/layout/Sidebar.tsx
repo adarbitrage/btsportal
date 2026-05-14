@@ -112,6 +112,7 @@ const MEMBER_NAV: NavNode[] = [
       { kind: "leaf", href: "/resources", label: "Resource Vault", icon: FolderOpen },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
+      { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
     ],
   },
   {
@@ -149,7 +150,6 @@ const MEMBER_NAV: NavNode[] = [
   },
   { kind: "leaf", href: "/wins", label: "Wins", icon: Trophy },
   { kind: "leaf", href: "/advantage", label: "BTS Advantage", icon: Wrench },
-  { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
 ];
 
