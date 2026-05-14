@@ -23,7 +23,7 @@ const PRODUCTS: Product[] = [
   {
     slug: "vista-veil",
     name: "Vista Veil™",
-    tagline: "Trending — The Eye Awakening Mask",
+    tagline: "The Eye Awakening Mask",
     image: vistaVeilImg,
     description:
       "Banish tired eyes in just 15 minutes with Vista Veil™, the revolutionary 4-in-1 eye rejuvenation mask that delivers instant spa-quality results at home. This clinically proven device combines red light therapy, EMS micro-current, therapeutic warmth, and vibration massage to target every sign of eye fatigue in one powerful treatment. Clinical studies show remarkable results within 21 days: 68% increase in hydration, 24% reduction in dark circles, and 21% fewer fine lines around the delicate eye area. Perfect for all skin types and backed by a 30-day money-back guarantee, Vista Veil™ comes with FREE wireless headphones for the ultimate relaxation experience — it's the 15-minute miracle that makes you look like you got a full night's sleep, even when you don't.",
@@ -91,7 +91,7 @@ function ProductCard({ product }: { product: Product }) {
                 <Button
                   asChild
                   size="sm"
-                  variant="outline"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   data-testid={`button-logo-${product.slug}`}
                 >
                   <a href={product.logoDriveUrl} target="_blank" rel="noreferrer">
