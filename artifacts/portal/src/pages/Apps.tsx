@@ -437,39 +437,19 @@ function AppCard({
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
                     </Button>
                   )}
-                  {status === "uninstalling" && (
-                    <Button size="sm" disabled variant="outline">
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…
-                    </Button>
-                  )}
                   {status === "installed" && inst?.domain && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isUninstalling}
-                        onClick={() => onUninstall(app.name, app.title)}
-                        data-testid={`button-uninstall-${app.name}`}
-                      >
-                        {isUninstalling ? (
-                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uninstalling…</>
-                        ) : (
-                          <><Trash2 className="w-4 h-4 mr-2" /> Uninstall</>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={openingApp === app.name || !hasActiveMembership}
-                        onClick={() => onOpen(app.name)}
-                        data-testid={`button-open-${app.name}`}
-                      >
-                        {openingApp === app.name ? (
-                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
-                        ) : (
-                          <>Open <ExternalLink className="w-4 h-4 ml-2" /></>
-                        )}
-                      </Button>
-                    </>
+                    <Button
+                      size="sm"
+                      disabled={openingApp === app.name || !hasActiveMembership}
+                      onClick={() => onOpen(app.name)}
+                      data-testid={`button-open-${app.name}`}
+                    >
+                      {openingApp === app.name ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
+                      ) : (
+                        <>Open</>
+                      )}
+                    </Button>
                   )}
                   {status === "install_failed" && (
                     <Button
