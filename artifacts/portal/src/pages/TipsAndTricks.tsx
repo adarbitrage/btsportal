@@ -1,6 +1,9 @@
+import { useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Lightbulb, Image, PenTool } from "lucide-react";
+
+const VIDALYTICS_PLAYER = "trR5xdVa";
 
 interface Tip {
   title: string;
@@ -40,16 +43,36 @@ const copywritingTips: Tip[] = [
 ];
 
 function VidalyticsEmbed({ id }: { id: string }) {
-  return (
-    <div className="rounded-lg overflow-hidden bg-black aspect-video">
-      <iframe
-        src={`https://fast.vidalytics.com/embeds/trR5xdVa/${id}/`}
-        className="w-full h-full border-0"
-        allow="autoplay; fullscreen"
-        allowFullScreen
-      />
-    </div>
-  );
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const embedDivId = `vidalytics_embed_${id}`;
+    container.innerHTML = `<div id="${embedDivId}" style="width:100%;position:relative;padding-top:56.25%;"></div>`;
+
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.text = `
+      (function (v, i, d, a, l, y, t, c, s) {
+        y='_'+d.toLowerCase();c=d+'L';if(!v[d]){v[d]={};}if(!v[c]){v[c]={};}if(!v[y]){v[y]={};}var vl='Loader',vli=v[y][vl],vsl=v[c][vl + 'Script'],vlf=v[c][vl + 'Loaded'],ve='Embed';
+        if (!vsl){vsl=function(u,cb){
+          if(t){cb();return;}s=i.createElement("script");s.type="text/javascript";s.async=1;s.src=u;
+          if(s.readyState){s.onreadystatechange=function(){if(s.readyState==="loaded"||s.readyState=="complete"){s.onreadystatechange=null;vlf=1;cb();}};}else{s.onload=function(){vlf=1;cb();};}
+          i.getElementsByTagName("head")[0].appendChild(s);
+        };}
+        vsl(l+'loader.min.js',function(){if(!vli){var vlc=v[c][vl];vli=new vlc();}vli.loadScript(l+'player.min.js',function(){var vec=v[d][ve];t=new vec();t.run(a);});});
+      })(window, document, 'Vidalytics', '${embedDivId}', 'https://fast.vidalytics.com/embeds/${VIDALYTICS_PLAYER}/${id}/');
+    `;
+    container.appendChild(script);
+
+    return () => {
+      container.innerHTML = "";
+    };
+  }, [id]);
+
+  return <div ref={containerRef} className="rounded-lg overflow-hidden bg-black" />;
 }
 
 function TipCard({ tip }: { tip: Tip }) {
