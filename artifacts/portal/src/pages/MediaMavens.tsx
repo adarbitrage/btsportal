@@ -116,6 +116,7 @@ const PRODUCTS: Product[] = [
 
 function ProductCard({ product }: { product: Product }) {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const copyLink = async () => {
     try {
@@ -134,11 +135,11 @@ function ProductCard({ product }: { product: Product }) {
     >
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row">
-          <div className="bg-white flex items-center justify-center md:w-80 shrink-0 border-b md:border-b-0 md:border-r border-border overflow-hidden">
+          <div className="bg-white flex items-center justify-center md:w-80 md:h-80 shrink-0 border-b md:border-b-0 md:border-r border-border overflow-hidden">
             <img
               src={product.image}
               alt={`${product.name} product`}
-              className="w-full h-auto object-contain block"
+              className="w-full h-full object-contain block"
             />
           </div>
 
@@ -167,9 +168,23 @@ function ProductCard({ product }: { product: Product }) {
               </div>
             </div>
 
-            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
-              {product.description}
-            </p>
+            <div className="mb-3">
+              <p
+                className={`text-sm text-foreground/90 leading-relaxed ${
+                  expanded ? "" : "line-clamp-[7]"
+                }`}
+              >
+                {product.description}
+              </p>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1 text-xs font-semibold text-primary hover:underline"
+                data-testid={`button-expand-${product.slug}`}
+              >
+                {expanded ? "Show less" : "Read more"}
+              </button>
+            </div>
 
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 mt-auto">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-2">
