@@ -375,9 +375,9 @@ export default function PartnerTools() {
             <h1 className="text-3xl font-bold">Tools</h1>
           </div>
           <p className="text-muted-foreground">
-            Third-party partner tools and Chrome extensions BTS members get free
-            access to. Register through the BTS links below to claim your
-            perks.
+            The tools and Chrome extensions that round out your campaign
+            workflow — free to BTS members. Use the links below to register and
+            claim your perks.
           </p>
         </div>
 
