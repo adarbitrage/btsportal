@@ -104,7 +104,10 @@ export default function OneOnOneCoaching() {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">1-on-1 Coaching</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <UserCheck className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
+            </div>
             <p className="text-muted-foreground">
               Private coaching sessions tailored to your goals.
             </p>
