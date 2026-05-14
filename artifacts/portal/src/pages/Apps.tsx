@@ -48,6 +48,7 @@ type PartnerTool = {
   highlights: string[];
   logo: string;
   logoBg?: string;
+  collapsible?: boolean;
   perk?: string;
   couponCode?: string;
   credentials?: { user: string; password: string };
@@ -69,6 +70,7 @@ const PARTNER_TOOLS: PartnerTool[] = [
       "Banner ad factory for paid traffic creative",
     ],
     logo: affiliateCmoLogo,
+    collapsible: true,
     perk: "FREE for life with the coupon code below.",
     couponCode: "LIFETIME100",
     registerUrl: "https://app.affiliatecmo.com/login",
@@ -87,6 +89,7 @@ const PARTNER_TOOLS: PartnerTool[] = [
     ],
     logo: freeAdCopyLogo,
     logoBg: "bg-white",
+    collapsible: true,
     perk: "1,000 credits applied instantly — completely FREE for BTS members.",
     registerUrl: "https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X",
     loginUrl: "https://www.freeadcopy.com/?loginpopup=true#",
@@ -103,6 +106,7 @@ const PARTNER_TOOLS: PartnerTool[] = [
       "Download competitor landing pages and Shopify dropship product research",
     ],
     logo: anstrexLogo,
+    collapsible: true,
     perk: "BTS members get FREE access — copy the shared login below:",
     credentials: {
       user: "support@buildtestscale.com",
@@ -120,6 +124,7 @@ type ChromeExtension = {
   highlights: string[];
   logo: string;
   downloadUrl: string;
+  collapsible?: boolean;
 };
 
 const CHROME_EXTENSIONS: ChromeExtension[] = [
@@ -137,6 +142,7 @@ const CHROME_EXTENSIONS: ChromeExtension[] = [
     logo: scrapebotLogo,
     downloadUrl:
       "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
+    collapsible: true,
   },
   {
     name: "CropBot™",
@@ -152,6 +158,7 @@ const CHROME_EXTENSIONS: ChromeExtension[] = [
     logo: cropbotLogo,
     downloadUrl:
       "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
+    collapsible: true,
   },
 ];
 
@@ -214,6 +221,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     ],
     logo: diytraxLogo,
     logoBg: "bg-white",
+    collapsible: true,
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",
@@ -236,6 +244,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     ],
     logo: metricmoverLogo,
     logoBg: "bg-white",
+    collapsible: true,
     accent: {
       border: "border-emerald-300",
       badgeBg: "bg-emerald-50",
@@ -259,6 +268,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     ],
     logo: pixelpressLogo,
     logoBg: "bg-white",
+    collapsible: true,
     accent: {
       border: "border-yellow-300",
       badgeBg: "bg-yellow-50",
@@ -281,6 +291,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     ],
     logo: gifsterLogo,
     logoBg: "bg-white",
+    collapsible: true,
     accent: {
       border: "border-fuchsia-300",
       badgeBg: "bg-fuchsia-50",
@@ -615,6 +626,8 @@ function AppCard({
 function PartnerToolCard({ tool }: { tool: PartnerTool }) {
   const { toast } = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(!tool.collapsible);
+  const showHighlights = !tool.collapsible || expanded;
 
   const copy = async (key: string, value: string, label: string) => {
     try {
@@ -669,17 +682,29 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
               {tool.description}
             </p>
 
-            <ul className="space-y-1 mb-4">
-              {tool.highlights.map((h, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                  <span>{h}</span>
-                </li>
-              ))}
-            </ul>
+            {showHighlights && (
+              <ul className="space-y-1 mb-4">
+                {tool.highlights.map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
-              <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1 text-xs text-muted-foreground space-y-1">
+                {tool.collapsible && (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="text-xs font-medium text-primary hover:underline"
+                    data-testid={`button-toggle-details-${tool.name}`}
+                  >
+                    {expanded ? "Show less" : "Read more"}
+                  </button>
+                )}
                 {tool.perk && (
                   <p className="flex flex-wrap items-center gap-1.5">
                     <span>{tool.perk}</span>
@@ -755,6 +780,9 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
 }
 
 function ExtensionCard({ ext }: { ext: ChromeExtension }) {
+  const [expanded, setExpanded] = useState(!ext.collapsible);
+  const showHighlights = !ext.collapsible || expanded;
+
   return (
     <Card className="border-border/60 shadow-sm overflow-hidden">
       <CardContent className="p-0">
@@ -785,24 +813,40 @@ function ExtensionCard({ ext }: { ext: ChromeExtension }) {
               {ext.description}
             </p>
 
-            <ul className="space-y-1 mb-4">
-              {ext.highlights.map((h, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                  <span>{h}</span>
-                </li>
-              ))}
-            </ul>
+            {showHighlights && (
+              <ul className="space-y-1 mb-4">
+                {ext.highlights.map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-            <div className="mt-auto flex items-center gap-2 flex-wrap justify-end">
-              <Button asChild size="sm">
-                <a href={ext.downloadUrl} target="_blank" rel="noopener noreferrer">
-                  Download Extension
-                </a>
-              </Button>
-              <Button size="sm" variant="outline" disabled>
-                Watch Training (coming soon)
-              </Button>
+            <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
+              <div className="min-w-0 flex-1">
+                {ext.collapsible && (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="text-xs font-medium text-primary hover:underline"
+                    data-testid={`button-toggle-details-${ext.name}`}
+                  >
+                    {expanded ? "Show less" : "Read more"}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Button asChild size="sm">
+                  <a href={ext.downloadUrl} target="_blank" rel="noopener noreferrer">
+                    Download Extension
+                  </a>
+                </Button>
+                <Button size="sm" variant="outline" disabled>
+                  Watch Training (coming soon)
+                </Button>
+              </div>
             </div>
           </div>
         </div>
