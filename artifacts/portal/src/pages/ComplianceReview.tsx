@@ -31,16 +31,36 @@ export default function ComplianceReview() {
     setSubmitted(true);
   };
 
+  const inputClass =
+    "w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/40";
+
+  const chipClass = (active: boolean) =>
+    `px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+      active
+        ? "bg-foreground text-background border-foreground"
+        : "bg-background border-border text-muted-foreground hover:border-foreground/40"
+    }`;
+
   if (submitted) {
     return (
       <AppLayout>
-        <div className="max-w-2xl mx-auto">
-          <Card className="border-[#2d8a4e]/30 shadow-sm bg-gradient-to-br from-[#2d8a4e]/5 to-transparent">
+        <div className="space-y-6 max-w-3xl">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold">Compliance Review</h1>
+            </div>
+            <p className="text-muted-foreground">
+              Submit your creative for review before running it on any traffic source.
+            </p>
+          </div>
+
+          <Card className="border-border/60">
             <CardContent className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#2d8a4e]/10 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-[#2d8a4e]" />
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8 text-foreground" />
               </div>
-              <h3 className="text-xl font-bold text-foreground">Submission Received!</h3>
+              <h2 className="text-xl font-bold text-foreground">Submission Received</h2>
               <p className="text-muted-foreground">
                 Your creative has been submitted for compliance review. We'll review it within 24 hours.
               </p>
@@ -56,25 +76,20 @@ export default function ComplianceReview() {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-
-        <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-['Roboto'] tracking-tight">
-                Submit For Compliance Review
-              </h1>
-              <p className="text-sm opacity-90 mt-1">
-                Submit your creative below and we will review within 24 hours
-              </p>
-            </div>
+      <div className="space-y-6 max-w-3xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">Compliance Review</h1>
           </div>
+          <p className="text-muted-foreground">
+            Submit your creative below and we'll review it within 24 hours. Please include
+            everything we'll need to evaluate the offer, the creative, and the traffic
+            source you plan to run it on.
+          </p>
         </div>
 
-        <Card className="border-border/60 shadow-sm">
+        <Card className="border-border/60">
           <CardContent className="p-6 md:p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -86,7 +101,8 @@ export default function ComplianceReview() {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                    className={inputClass}
+                    data-testid="input-first-name"
                   />
                 </div>
                 <div>
@@ -96,7 +112,8 @@ export default function ComplianceReview() {
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                    className={inputClass}
+                    data-testid="input-last-name"
                   />
                 </div>
               </div>
@@ -108,7 +125,8 @@ export default function ComplianceReview() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                  className={inputClass}
+                  data-testid="input-email"
                 />
               </div>
 
@@ -119,7 +137,8 @@ export default function ComplianceReview() {
                   required
                   value={offerName}
                   onChange={(e) => setOfferName(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                  className={inputClass}
+                  data-testid="input-offer-name"
                 />
               </div>
 
@@ -131,11 +150,8 @@ export default function ComplianceReview() {
                       key={t}
                       type="button"
                       onClick={() => toggleItem(selectedCreatives, setSelectedCreatives, t)}
-                      className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                        selectedCreatives.includes(t)
-                          ? "bg-[#1a56db] text-white border-[#1a56db]"
-                          : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-                      }`}
+                      className={chipClass(selectedCreatives.includes(t))}
+                      data-testid={`chip-creative-${t}`}
                     >
                       {t}
                     </button>
@@ -151,11 +167,8 @@ export default function ComplianceReview() {
                       key={t}
                       type="button"
                       onClick={() => toggleItem(selectedTraffic, setSelectedTraffic, t)}
-                      className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                        selectedTraffic.includes(t)
-                          ? "bg-[#1a56db] text-white border-[#1a56db]"
-                          : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-                      }`}
+                      className={chipClass(selectedTraffic.includes(t))}
+                      data-testid={`chip-traffic-${t}`}
                     >
                       {t}
                     </button>
@@ -175,7 +188,8 @@ export default function ComplianceReview() {
                   value={driveLink}
                   onChange={(e) => setDriveLink(e.target.value)}
                   placeholder="https://drive.google.com/..."
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30"
+                  className={inputClass}
+                  data-testid="input-drive-link"
                 />
               </div>
 
@@ -193,11 +207,8 @@ export default function ComplianceReview() {
                         key={opt}
                         type="button"
                         onClick={() => setShareStatus(opt)}
-                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                          shareStatus === opt
-                            ? "bg-[#1a56db] text-white border-[#1a56db]"
-                            : "bg-background border-border text-muted-foreground hover:border-[#1a56db]/40"
-                        }`}
+                        className={chipClass(shareStatus === opt)}
+                        data-testid={`chip-share-${opt}`}
                       >
                         {opt}
                       </button>
@@ -210,7 +221,8 @@ export default function ComplianceReview() {
                 <label className="block text-sm font-medium text-foreground mb-1.5">Upload Your Creative Zip File</label>
                 <div
                   onClick={() => fileRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#1a56db]/40 transition-colors"
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-foreground/40 transition-colors"
+                  data-testid="dropzone-files"
                 >
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -236,11 +248,12 @@ export default function ComplianceReview() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Please be as specific and detailed as possible..."
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 resize-none"
+                  className={`${inputClass} resize-none`}
+                  data-testid="input-notes"
                 />
               </div>
 
-              <Button type="submit" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-2 w-full sm:w-auto">
+              <Button type="submit" className="gap-2 w-full sm:w-auto" data-testid="button-submit">
                 <Send className="w-4 h-4" />
                 Submit For Review
               </Button>
