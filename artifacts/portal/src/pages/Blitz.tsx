@@ -1866,6 +1866,38 @@ export default function Blitz() {
     return () => window.clearTimeout(t);
   }, [isSectionView, lessonId]);
 
+  // ─── TEMP: video review-status counter ─────────────────────────────────────
+  // REMOVE BEFORE GO-LIVE. Renders a small floating tally of video tiles by
+  // data-status. Self-contained: delete this entire block and the
+  // `data-status="..."` attributes on .video-slot elements to fully revert.
+  useEffect(() => {
+    if (!contentEl) return;
+    const badge = document.createElement("div");
+    badge.id = "vd-review-counter";
+    badge.style.cssText =
+      "position:fixed;bottom:14px;right:14px;z-index:9998;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:10px;padding:8px 12px;font:600 12px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);pointer-events:none;letter-spacing:.02em;";
+    document.body.appendChild(badge);
+    const update = () => {
+      const slots = contentEl.querySelectorAll<HTMLElement>(".video-slot");
+      let ready = 0, redo = 0, unrev = 0;
+      slots.forEach((s) => {
+        const st = s.getAttribute("data-status");
+        if (st === "ready") ready++;
+        else if (st === "needs-rerecord") redo++;
+        else unrev++;
+      });
+      badge.innerHTML =
+        `<span style="color:#cbd5e1">${unrev} unreviewed</span> · ` +
+        `<span style="color:#6ee7b7">${ready} ready</span> · ` +
+        `<span style="color:#fbbf24">${redo} re-record</span>`;
+    };
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(contentEl, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-status"] });
+    return () => { obs.disconnect(); badge.remove(); };
+  }, [contentEl]);
+  // ─── END TEMP ──────────────────────────────────────────────────────────────
+
   return (
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
