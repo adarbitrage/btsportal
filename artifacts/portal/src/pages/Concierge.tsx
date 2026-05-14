@@ -336,16 +336,10 @@ export default function Concierge() {
 
         <div className="flex flex-wrap gap-3">
           <Button asChild>
-            <a href="#task">
-              <ClipboardList className="w-4 h-4" />
-              Submit a Task for the Concierge™
-            </a>
+            <a href="#task">Submit a Task for the Concierge™</a>
           </Button>
           <Button asChild variant="outline">
-            <a href="#call">
-              <Phone className="w-4 h-4" />
-              1-on-1 Call with a VA
-            </a>
+            <a href="#call">1-on-1 Call with a VA</a>
           </Button>
         </div>
 
