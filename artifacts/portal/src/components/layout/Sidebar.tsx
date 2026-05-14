@@ -85,8 +85,8 @@ const MEMBER_NAV: NavNode[] = [
     icon: GraduationCap,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap },
       { kind: "leaf", href: "/core-training/7-pillars", label: "7 Pillars", icon: Layers },
+      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap },
       { kind: "leaf", href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb },
     ],
   },
