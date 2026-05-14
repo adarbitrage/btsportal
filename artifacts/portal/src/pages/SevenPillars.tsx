@@ -4,15 +4,83 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Layers, Briefcase, ShoppingBag, Users2, Mail,
-  Target, Zap, Heart, ChevronUp, ArrowRight
+  Target, Zap, Heart, ChevronUp, ArrowRight, CheckCircle2,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, type ComponentType, type SVGProps, type RefObject } from "react";
 
-function BackToTop({ topRef }: { topRef: React.RefObject<HTMLDivElement | null> }) {
+type IconType = ComponentType<SVGProps<SVGSVGElement>>;
+
+type PillarTint = {
+  iconBg: string;
+  iconBorder: string;
+  iconText: string;
+};
+
+type Pillar = {
+  id: string;
+  num: number;
+  title: string;
+  icon: IconType;
+  tint: PillarTint;
+};
+
+const pillars: Pillar[] = [
+  {
+    id: "pillar1",
+    num: 1,
+    title: "The Business Model",
+    icon: Briefcase,
+    tint: { iconBg: "bg-blue-50", iconBorder: "border-blue-200", iconText: "text-blue-700" },
+  },
+  {
+    id: "pillar2",
+    num: 2,
+    title: "The Market",
+    icon: ShoppingBag,
+    tint: { iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconText: "text-emerald-700" },
+  },
+  {
+    id: "pillar3",
+    num: 3,
+    title: "The Demographic",
+    icon: Users2,
+    tint: { iconBg: "bg-violet-50", iconBorder: "border-violet-200", iconText: "text-violet-700" },
+  },
+  {
+    id: "pillar4",
+    num: 4,
+    title: "The Traffic Channel",
+    icon: Mail,
+    tint: { iconBg: "bg-amber-50", iconBorder: "border-amber-200", iconText: "text-amber-700" },
+  },
+  {
+    id: "pillar5",
+    num: 5,
+    title: "The Strategy",
+    icon: Target,
+    tint: { iconBg: "bg-rose-50", iconBorder: "border-rose-200", iconText: "text-rose-700" },
+  },
+  {
+    id: "pillar6",
+    num: 6,
+    title: "The Edge",
+    icon: Zap,
+    tint: { iconBg: "bg-cyan-50", iconBorder: "border-cyan-200", iconText: "text-cyan-700" },
+  },
+  {
+    id: "pillar7",
+    num: 7,
+    title: "The Commitment",
+    icon: Heart,
+    tint: { iconBg: "bg-orange-50", iconBorder: "border-orange-200", iconText: "text-orange-700" },
+  },
+];
+
+function BackToTop({ topRef }: { topRef: RefObject<HTMLDivElement | null> }) {
   return (
     <button
       onClick={() => topRef.current?.scrollIntoView({ behavior: "smooth" })}
-      className="flex items-center gap-1 text-sm text-[#1a56db] hover:underline font-medium mt-6"
+      className="flex items-center gap-1 text-sm text-primary hover:underline font-medium mt-6"
     >
       <ChevronUp className="w-4 h-4" />
       Back to Top
@@ -20,53 +88,90 @@ function BackToTop({ topRef }: { topRef: React.RefObject<HTMLDivElement | null> 
   );
 }
 
-const pillars = [
-  { id: "pillar1", num: 1, title: "The Business Model", icon: Briefcase, color: "bg-blue-600" },
-  { id: "pillar2", num: 2, title: "The Market", icon: ShoppingBag, color: "bg-emerald-600" },
-  { id: "pillar3", num: 3, title: "The Demographic", icon: Users2, color: "bg-violet-600" },
-  { id: "pillar4", num: 4, title: "The Traffic Channel", icon: Mail, color: "bg-amber-600" },
-  { id: "pillar5", num: 5, title: "The Strategy", icon: Target, color: "bg-rose-600" },
-  { id: "pillar6", num: 6, title: "The Edge", icon: Zap, color: "bg-cyan-600" },
-  { id: "pillar7", num: 7, title: "The Commitment", icon: Heart, color: "bg-orange-600" },
-];
+function PillarHeader({ pillar }: { pillar: Pillar }) {
+  const Icon = pillar.icon;
+  return (
+    <div className="flex items-start gap-4 p-6 border-b border-border/60 bg-muted/30">
+      <div
+        className={`w-12 h-12 rounded-xl border ${pillar.tint.iconBg} ${pillar.tint.iconBorder} flex items-center justify-center shrink-0`}
+      >
+        <Icon className={`w-6 h-6 ${pillar.tint.iconText}`} />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Pillar #{pillar.num}
+        </p>
+        <h2 className="text-2xl font-bold text-foreground">{pillar.title}</h2>
+      </div>
+    </div>
+  );
+}
+
+function HighlightBox({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/40 p-6 space-y-3">
+      <h3 className="font-bold text-foreground">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function CheckList({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ul className="space-y-2 text-sm text-foreground/85">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function SevenPillars() {
   const topRef = useRef<HTMLDivElement>(null);
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-8" ref={topRef}>
-
-        <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight mb-2">
-            The 7 Pillars™ Of A Profitable Digital Business
-          </h1>
-          <p className="text-lg md:text-xl opacity-90">
-            The foundational framework behind every successful affiliate marketing business.
+      <div className="space-y-6 max-w-6xl" ref={topRef}>
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Layers className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">The 7 Pillars™</h1>
+          </div>
+          <p className="text-muted-foreground">
+            The foundational framework behind every successful affiliate marketing
+            business — the seven elements that turn paid traffic into a profitable
+            digital business.
           </p>
         </div>
 
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-8 md:p-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-[#1a56db]/10 flex items-center justify-center">
-                <Layers className="w-5 h-5 text-[#1a56db]" />
+          <CardContent className="p-6 md:p-8">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+                <Layers className="w-4 h-4 text-foreground" />
               </div>
-              <h2 className="text-xl font-bold text-foreground">Table of Contents</h2>
+              <h2 className="text-lg font-bold text-foreground">Table of Contents</h2>
             </div>
             <div className="space-y-2">
-              <a href="#welcome" className="block text-[#1a56db] font-semibold hover:underline">
+              <a href="#welcome" className="block text-primary font-semibold hover:underline">
                 Welcome: Overview of the 7 Pillar™ System
               </a>
               {pillars.map((p) => (
-                <a key={p.id} href={`#${p.id}`} className="flex items-center gap-2 text-[#1a56db] hover:underline">
-                  <span className="w-6 h-6 rounded-full bg-[#1a56db]/10 text-[#1a56db] text-xs font-bold flex items-center justify-center shrink-0">
+                <a
+                  key={p.id}
+                  href={`#${p.id}`}
+                  className="flex items-center gap-2 text-primary hover:underline"
+                >
+                  <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs font-bold flex items-center justify-center shrink-0">
                     {p.num}
                   </span>
                   <span className="font-semibold">{p.title}</span>
                 </a>
               ))}
-              <a href="#conclusion" className="block text-[#1a56db] font-semibold hover:underline">
+              <a href="#conclusion" className="block text-primary font-semibold hover:underline">
                 Conclusion and Next Steps
               </a>
             </div>
@@ -98,15 +203,7 @@ export default function SevenPillars() {
 
         <section id="pillar1">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-blue-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #1</p>
-                <h2 className="text-2xl font-bold text-white">The Business Model</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[0]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 The first pillar of a successful digital business is <strong className="text-foreground">the business model</strong>. This is the framework that your business operates within, the strategy that guides your actions, and the mechanism that generates your profits.
@@ -117,16 +214,17 @@ export default function SevenPillars() {
               <p className="text-muted-foreground leading-relaxed">
                 Affiliate Arbitrage involves using paid advertising to promote affiliate offers, with the goal of earning more in affiliate commissions than you spend on advertising. If you spend $40 on ads to sell a product and earn a $60 commission, you've made a $20 profit. Scale that to 10 sales a day and you're looking at <strong className="text-foreground">$200 daily profit</strong>.
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6 space-y-3">
-                <h3 className="font-bold text-foreground">Key Benefits of Affiliate Arbitrage:</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> No need to build a complete website — we're in the business of making profits</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> No need to create your own product — leverage existing products with market demand</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> No merchant processing or customer support hassles</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> No existing audience required — start from scratch and turn a profit in your first week</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Track ROI in real time — you're paid on the front-end sale</li>
-                </ul>
-              </div>
+              <HighlightBox title="Key Benefits of Affiliate Arbitrage:">
+                <CheckList
+                  items={[
+                    "No need to build a complete website — we're in the business of making profits",
+                    "No need to create your own product — leverage existing products with market demand",
+                    "No merchant processing or customer support hassles",
+                    "No existing audience required — start from scratch and turn a profit in your first week",
+                    "Track ROI in real time — you're paid on the front-end sale",
+                  ]}
+                />
+              </HighlightBox>
               <BackToTop topRef={topRef} />
             </CardContent>
           </Card>
@@ -134,27 +232,19 @@ export default function SevenPillars() {
 
         <section id="pillar2">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-emerald-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #2</p>
-                <h2 className="text-2xl font-bold text-white">The Market</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[1]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 Once you've committed to the path of affiliate arbitrage, the next crucial step is selecting the market you wish to operate in. Based on 20+ years of experience, two primary markets consistently deliver exceptional results: <strong className="text-foreground">Trendy Gadgets</strong> and <strong className="text-foreground">Health & Wellness Products</strong>.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6">
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-6">
                   <h3 className="font-bold text-foreground mb-2">Trendy Gadgets</h3>
                   <p className="text-sm text-muted-foreground">
                     These products have universal appeal. In an era of rapid technological advancements, there's always a new gadget catching the world's attention. The global gadget market is valued at hundreds of billions of dollars and is only projected to grow.
                   </p>
                 </div>
-                <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6">
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-6">
                   <h3 className="font-bold text-foreground mb-2">Health & Wellness</h3>
                   <p className="text-sm text-muted-foreground">
                     This market is valued at over $300 billion globally. Post-pandemic, consumers are more focused than ever on improving their health. Supplements offer affordable, scalable solutions making them ideal for scaling campaigns.
@@ -171,15 +261,7 @@ export default function SevenPillars() {
 
         <section id="pillar3">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-violet-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Users2 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #3</p>
-                <h2 className="text-2xl font-bold text-white">The Demographic</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[2]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 Once we've established what we'll be promoting, it's time to identify our target audience. A significant portion of online spending comes from a demographic that many marketers overlook: <strong className="text-foreground">Baby Boomers</strong> — individuals in their late 50s to early 70s who are financially established with disposable income.
@@ -187,15 +269,16 @@ export default function SevenPillars() {
               <p className="text-muted-foreground leading-relaxed">
                 Contrary to popular belief, Baby Boomers are far from being technologically inept. They use smartphones, are active on social media, and regularly shop online. Studies show that <strong className="text-foreground">Boomers spend more money online than younger generations</strong>.
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6 space-y-3">
-                <h3 className="font-bold text-foreground">Why Boomers Are the Perfect Demographic:</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> They're drawn to products that make their lives easier and more enjoyable</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> They're highly motivated to invest in health & wellness products</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> They value convenience and immediate results</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> They make up one of the largest, most financially capable demographic groups</li>
-                </ul>
-              </div>
+              <HighlightBox title="Why Boomers Are the Perfect Demographic:">
+                <CheckList
+                  items={[
+                    "They're drawn to products that make their lives easier and more enjoyable",
+                    "They're highly motivated to invest in health & wellness products",
+                    "They value convenience and immediate results",
+                    "They make up one of the largest, most financially capable demographic groups",
+                  ]}
+                />
+              </HighlightBox>
               <BackToTop topRef={topRef} />
             </CardContent>
           </Card>
@@ -203,15 +286,7 @@ export default function SevenPillars() {
 
         <section id="pillar4">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-amber-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Mail className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #4</p>
-                <h2 className="text-2xl font-bold text-white">The Traffic Channel</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[3]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 We've identified our business model (Affiliate Marketing), our markets (Trendy Gadgets & Health), and our target demographic (Boomers). Now it's time to address WHERE we'll promote our products. The answer is <strong className="text-foreground">through the powerful medium of email</strong>.
@@ -219,17 +294,18 @@ export default function SevenPillars() {
               <p className="text-muted-foreground leading-relaxed">
                 Our strategy revolves around leveraging the power of existing email lists. Instead of building our own list, we seek out those who already have extensive email lists and place our ads within the emails they send to their subscribers.
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6 space-y-3">
-                <h3 className="font-bold text-foreground">Why Email Traffic Reigns Supreme:</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Enormous scale — vast number of email lists available</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Many newsletters are sent daily — plenty of inventory to purchase</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Some lists have over a million subscribers for instant reach</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> No complicated, ever-changing algorithms like Google or Facebook</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Warmer traffic — subscribers are already opted in and receptive</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e] mt-0.5">&#10003;</span> Less competition — most marketers are unaware of this channel</li>
-                </ul>
-              </div>
+              <HighlightBox title="Why Email Traffic Reigns Supreme:">
+                <CheckList
+                  items={[
+                    "Enormous scale — vast number of email lists available",
+                    "Many newsletters are sent daily — plenty of inventory to purchase",
+                    "Some lists have over a million subscribers for instant reach",
+                    "No complicated, ever-changing algorithms like Google or Facebook",
+                    "Warmer traffic — subscribers are already opted in and receptive",
+                    "Less competition — most marketers are unaware of this channel",
+                  ]}
+                />
+              </HighlightBox>
               <p className="text-muted-foreground leading-relaxed">
                 As part of your enrollment, you'll gain access to hundreds of underground list management companies, brokers, publishers, and networks. <strong className="text-foreground">You'll never be left wondering where to buy advertising!</strong>
               </p>
@@ -240,34 +316,26 @@ export default function SevenPillars() {
 
         <section id="pillar5">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-rose-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Target className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #5</p>
-                <h2 className="text-2xl font-bold text-white">The Strategy</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[4]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 The strategy is our operational blueprint. In affiliate marketing, success isn't a game of chance — it's a calculated effort. <strong className="text-foreground">Our two-phase approach is built for simplicity and effectiveness.</strong>
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6">
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-6">
                   <h3 className="font-bold text-foreground mb-2">Phase 1: Email Sponsorships</h3>
                   <p className="text-sm text-muted-foreground">
                     This is where the journey begins. Email Sponsorships put your offers directly in front of highly engaged audiences, giving you the perfect testing ground. Many students spend $5k+ per day, achieving ROI of 50% or higher during this phase.
                   </p>
                 </div>
-                <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6">
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-6">
                   <h3 className="font-bold text-foreground mb-2">Phase 2: Dedicated Emails</h3>
                   <p className="text-sm text-muted-foreground">
                     Once you've identified the highest-performing ads and landing pages, you move to Dedicated Emails. This is where the big results happen — massive, highly targeted audiences with precision. This phase is all about execution with excellence.
                   </p>
                 </div>
               </div>
-              <p className="text-muted-foreground leading-relaxed font-medium text-foreground">
+              <p className="font-medium text-foreground leading-relaxed">
                 Start strong with Sponsorships. Scale big with Dedicateds. This is the formula for success.
               </p>
               <BackToTop topRef={topRef} />
@@ -277,15 +345,7 @@ export default function SevenPillars() {
 
         <section id="pillar6">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-cyan-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #6</p>
-                <h2 className="text-2xl font-bold text-white">The Edge</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[5]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 In the fiercely competitive landscape of affiliate marketing, having an edge is not just a luxury — it's a necessity. That's where Build Test Scale comes into play, providing you with the tools and resources you need to not just compete, but to <strong className="text-foreground">thrive and succeed</strong>.
@@ -296,29 +356,23 @@ export default function SevenPillars() {
               <p className="text-muted-foreground leading-relaxed">
                 As part of Build Test Scale, you'll have access to the BTS Concierge™ — a dedicated group of top-tier experts who handle the creation of all your marketing materials, saving you countless hours and significant financial resources.
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-6 space-y-3">
-                <h3 className="font-bold text-foreground">Proprietary Software Suite:</h3>
+              <HighlightBox title="Proprietary Software Suite:">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">Flexy™</span> — Drag-and-drop landing page app
-                  </div>
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">MetricMover™</span> — Create & test hundreds of pages
-                  </div>
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">DIYTrax™</span> — URL rotator and tracker
-                  </div>
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">PixelPress™</span> — Bulk create & split test banner ads
-                  </div>
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">Blaze™</span> — Personal ad server for scaling
-                  </div>
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-[#1a56db] font-bold shrink-0">NoEscape™</span> — Exit pops & tab-overs to boost revenue
-                  </div>
+                  {[
+                    { name: "Flexy™", desc: "Drag-and-drop landing page app" },
+                    { name: "MetricMover™", desc: "Create & test hundreds of pages" },
+                    { name: "DIYTrax™", desc: "URL rotator and tracker" },
+                    { name: "PixelPress™", desc: "Bulk create & split test banner ads" },
+                    { name: "Blaze™", desc: "Personal ad server for scaling" },
+                    { name: "NoEscape™", desc: "Exit pops & tab-overs to boost revenue" },
+                  ].map((tool) => (
+                    <div key={tool.name} className="flex items-start gap-2 text-muted-foreground">
+                      <span className="font-bold shrink-0 text-foreground">{tool.name}</span>
+                      <span>— {tool.desc}</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              </HighlightBox>
               <BackToTop topRef={topRef} />
             </CardContent>
           </Card>
@@ -326,15 +380,7 @@ export default function SevenPillars() {
 
         <section id="pillar7">
           <Card className="border-border/60 shadow-sm overflow-hidden">
-            <div className="bg-orange-600 p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Heart className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-white/70 text-sm font-semibold uppercase tracking-widest">Pillar #7</p>
-                <h2 className="text-2xl font-bold text-white">The Commitment</h2>
-              </div>
-            </div>
+            <PillarHeader pillar={pillars[6]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 The final pillar, and perhaps the most critical, is <strong className="text-foreground">the commitment</strong>. Success in affiliate marketing, as in any business, requires a steadfast commitment to your goals and the willingness to put in the necessary work. Build Test Scale provides you with the tools, the team, and the strategy, but the commitment must come from you.
@@ -351,7 +397,7 @@ export default function SevenPillars() {
         </section>
 
         <section id="conclusion">
-          <Card className="border-[#1a56db]/30 shadow-sm bg-gradient-to-br from-[#1a56db]/5 to-transparent">
+          <Card className="border-border/60 shadow-sm">
             <CardContent className="p-8 md:p-10 space-y-5">
               <h2 className="text-2xl font-bold text-foreground">Conclusion & Next Steps</h2>
               <p className="text-muted-foreground leading-relaxed">
@@ -364,22 +410,19 @@ export default function SevenPillars() {
                 You are made for BIG things. This is YOUR time, so PLAY BIG!
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <Link href="/core-training/quick-start">
-                  <Button className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-2">
+                <Button asChild className="gap-2">
+                  <Link href="/core-training/quick-start">
                     <ArrowRight className="w-4 h-4" />
                     Head to the Quick-Start Guide
-                  </Button>
-                </Link>
-                <Link href="/core-training">
-                  <Button variant="outline" className="gap-2">
-                    Back to Core Training
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2">
+                  <Link href="/core-training">Back to Core Training</Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
-
       </div>
     </AppLayout>
   );
