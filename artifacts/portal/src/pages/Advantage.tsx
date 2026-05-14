@@ -2,32 +2,52 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Wrench, Globe, Radar, Bot, PenTool, FolderOpen,
-  Calculator, Mail, Search, ExternalLink, Download,
-  PlayCircle, ChevronDown, ChevronRight
+  Sparkles, Wrench, Globe, Radar, Bot, PenTool, FolderOpen,
+  Calculator, Mail, Search, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
 
 type SectionId = "apps" | "networks" | "traffic" | "ai-advertorial" | "ai-adcopy" | "creative-drive" | "pnl" | "email-template" | "spy";
 
+type Tint = { bg: string; border: string; text: string };
+
 interface NavItem {
   id: SectionId;
   label: string;
   icon: typeof Wrench;
-  color: string;
+  tint: Tint;
+  note?: string;
 }
 
 const navItems: NavItem[] = [
-  { id: "apps", label: "Paid Media Suite™", icon: Wrench, color: "bg-blue-600" },
-  { id: "networks", label: "Affiliate Networks", icon: Globe, color: "bg-emerald-600" },
-  { id: "traffic", label: "Traffic Sources", icon: Radar, color: "bg-violet-600" },
-  { id: "ai-advertorial", label: "AI Advertorial Builder", icon: Bot, color: "bg-rose-600" },
-  { id: "ai-adcopy", label: "AI Ad Copy Generator", icon: PenTool, color: "bg-amber-600" },
-  { id: "creative-drive", label: "Creative Drive", icon: FolderOpen, color: "bg-cyan-600" },
-  { id: "pnl", label: "P&L Tracker™", icon: Calculator, color: "bg-orange-600" },
-  { id: "email-template", label: "Email Template", icon: Mail, color: "bg-pink-600" },
-  { id: "spy", label: "Spy Tool (Anstrex)", icon: Search, color: "bg-indigo-600" },
+  { id: "apps", label: "Paid Media Suite™", icon: Wrench, tint: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" }, note: "Not sold anywhere — exclusive to BTS members" },
+  { id: "networks", label: "Affiliate Networks", icon: Globe, tint: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" } },
+  { id: "traffic", label: "Traffic Sources", icon: Radar, tint: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" } },
+  { id: "ai-advertorial", label: "AI Advertorial Builder", icon: Bot, tint: { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" }, note: "100% Free for BTS Members" },
+  { id: "ai-adcopy", label: "AI Ad Copy Generator", icon: PenTool, tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" }, note: "100% Free for BTS Members" },
+  { id: "creative-drive", label: "Creative Drive", icon: FolderOpen, tint: { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" } },
+  { id: "pnl", label: "P&L Tracker™", icon: Calculator, tint: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" } },
+  { id: "email-template", label: "Email Template", icon: Mail, tint: { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" } },
+  { id: "spy", label: "Spy Tool (Anstrex)", icon: Search, tint: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" } },
 ];
+
+const tintFor = (id: SectionId) => navItems.find((n) => n.id === id)!.tint;
+
+function SectionHeader({ id, title, note }: { id: SectionId; title: string; note?: string }) {
+  const item = navItems.find((n) => n.id === id)!;
+  const Icon = item.icon;
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`w-10 h-10 rounded-lg ${item.tint.bg} border ${item.tint.border} flex items-center justify-center`}>
+        <Icon className={`w-5 h-5 ${item.tint.text}`} />
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-foreground">{title}</h2>
+        {note && <p className="text-xs text-muted-foreground italic">{note}</p>}
+      </div>
+    </div>
+  );
+}
 
 interface ToolInfo {
   name: string;
@@ -36,10 +56,7 @@ interface ToolInfo {
   features?: string[];
   vidalyticsId?: string;
   launchLabel?: string;
-  launchNote?: string;
   trainingLabel?: string;
-  trainingNote?: string;
-  downloadUrl?: string;
   chromeUrl?: string;
 }
 
@@ -135,15 +152,16 @@ const paidMediaTools: ToolInfo[] = [
 
 function ToolCard({ tool }: { tool: ToolInfo }) {
   const [expanded, setExpanded] = useState(false);
+  const tint = tintFor("apps");
 
   return (
     <Card className="border-border/60 shadow-sm overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-4 p-5 text-left hover:bg-muted/30 transition-colors"
+        className="w-full flex items-center gap-4 p-5 text-left hover:bg-muted/40 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-[#1a56db]/10 flex items-center justify-center shrink-0">
-          <Wrench className="w-5 h-5 text-[#1a56db]" />
+        <div className={`w-10 h-10 rounded-lg ${tint.bg} border ${tint.border} flex items-center justify-center shrink-0`}>
+          <Wrench className={`w-5 h-5 ${tint.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-foreground">{tool.name}</h3>
@@ -156,7 +174,7 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
         )}
       </button>
       {expanded && (
-        <div className="border-t border-border/60 p-5 space-y-4 bg-[#faf9f7]">
+        <div className="border-t border-border/60 p-5 space-y-4 bg-muted/40">
           {tool.vidalyticsId && (
             <div className="rounded-lg overflow-hidden bg-black aspect-video">
               <iframe
@@ -172,7 +190,7 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
             <ul className="space-y-1.5">
               {tool.features.map((f, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span className="text-[#2d8a4e] mt-0.5 shrink-0">&#10003;</span>
+                  <span className="text-emerald-700 mt-0.5 shrink-0">&#10003;</span>
                   {f}
                 </li>
               ))}
@@ -180,24 +198,17 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
           )}
           <div className="flex flex-wrap gap-2 pt-2">
             {tool.launchLabel && (
-              <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5" />
-                {tool.launchLabel}
-              </Button>
+              <Button size="sm">{tool.launchLabel}</Button>
             )}
             {tool.chromeUrl && (
-              <a href={tool.chromeUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <Download className="w-3.5 h-3.5" />
+              <Button asChild size="sm">
+                <a href={tool.chromeUrl} target="_blank" rel="noopener noreferrer">
                   Download Extension
-                </Button>
-              </a>
+                </a>
+              </Button>
             )}
             {tool.trainingLabel && (
-              <Button size="sm" variant="outline" className="gap-1.5 text-[#1a56db]">
-                <PlayCircle className="w-3.5 h-3.5" />
-                {tool.trainingLabel}
-              </Button>
+              <Button size="sm" variant="outline">{tool.trainingLabel}</Button>
             )}
           </div>
         </div>
@@ -209,31 +220,28 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
 export default function Advantage() {
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
-
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-8 md:p-10 text-white shadow-lg">
-          <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight mb-2">
-            The BTS Advantage
-          </h1>
-          <p className="text-lg text-white/80 mb-4">
-            Proprietary Apps, Resources & Templates For Managing Your Affiliate Campaigns
-          </p>
-          <p className="text-sm text-white/60 leading-relaxed">
-            Welcome to over $3,000,000 in proprietary tools developed exclusively for high-performance affiliate campaigns. You won't find them anywhere in the marketplace. They were built for our team, and now for you. If you utilize each of these resources, no one will be able to compete with you.
+      <div className="space-y-6 max-w-6xl">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">The BTS Advantage</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Proprietary apps, resources, and templates for managing your affiliate campaigns. Over $3,000,000 in tools developed exclusively for high-performance affiliate work — built for our team, and now for you.
           </p>
         </div>
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
-            <h2 className="font-bold text-foreground mb-3 text-sm uppercase tracking-wider text-muted-foreground">Jump To:</h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Jump To</h2>
             <div className="flex flex-wrap gap-2">
               {navItems.map((item) => (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#faf9f7] border border-[#e8e4dc] rounded-lg text-xs font-medium text-foreground hover:border-[#1a56db]/40 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium text-foreground hover:border-foreground/30 hover:bg-muted/40 transition-colors"
                 >
-                  <item.icon className="w-3.5 h-3.5 text-[#1a56db]" />
+                  <item.icon className={`w-3.5 h-3.5 ${item.tint.text}`} />
                   {item.label}
                 </a>
               ))}
@@ -241,28 +249,15 @@ export default function Advantage() {
           </CardContent>
         </Card>
 
-        <section id="apps" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <Wrench className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Paid Media Suite™</h2>
-              <p className="text-xs text-muted-foreground italic">Not sold anywhere — exclusive to BTS members</p>
-            </div>
-          </div>
+        <section id="apps" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="apps" title="Paid Media Suite™" note="Not sold anywhere — exclusive to BTS members" />
           {paidMediaTools.map((tool) => (
             <ToolCard key={tool.name} tool={tool} />
           ))}
         </section>
 
-        <section id="networks" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <Globe className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Affiliate Networks</h2>
-          </div>
+        <section id="networks" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="networks" title="Affiliate Networks" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -270,10 +265,7 @@ export default function Advantage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Media Mavens is our in-house affiliate network where BTS members earn 100%+ commissions on a pure CPA model — meaning you get at least the full retail price (and often more) on every sale — so you never have to worry about refunds or chargebacks. Payouts happen five days a week via Tipalti for fast, reliable cash flow. You'll gain exclusive access to high-margin e-commerce offers you won't find anywhere else.
               </p>
-              <Button size="sm" variant="outline" className="gap-1.5 text-[#1a56db]">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Learn About Media Mavens
-              </Button>
+              <Button size="sm">Learn About Media Mavens</Button>
             </CardContent>
           </Card>
 
@@ -284,12 +276,12 @@ export default function Advantage() {
                 The world's leading affiliate marketplace! Over 100,000 affiliates worldwide choose ClickBank. Over $6.6 billion in commissions paid on time for more than 25 years. Sign up for a free account to access quality products, reliable tracking, and high commissions.
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://www.clickbank.com/affiliates/" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Register</Button>
-                </a>
-                <a href="https://accounts.clickbank.com/login.htm" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">Log In</Button>
-                </a>
+                <Button asChild size="sm">
+                  <a href="https://www.clickbank.com/affiliates/" target="_blank" rel="noopener noreferrer">Register</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="https://accounts.clickbank.com/login.htm" target="_blank" rel="noopener noreferrer">Log In</a>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -301,24 +293,19 @@ export default function Advantage() {
                 A performance-based CPA affiliate network that provides access to professionally built offers used across major paid traffic platforms. Sign up for reliable tracking, structured reporting, consistent payouts, and access to affiliate support.
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://affiliates-backoffice.maxweb.com/auth#signup" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Sign Up</Button>
-                </a>
-                <a href="https://affiliates-backoffice.maxweb.com/auth" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">Log In</Button>
-                </a>
+                <Button asChild size="sm">
+                  <a href="https://affiliates-backoffice.maxweb.com/auth#signup" target="_blank" rel="noopener noreferrer">Sign Up</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="https://affiliates-backoffice.maxweb.com/auth" target="_blank" rel="noopener noreferrer">Log In</a>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="traffic" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
-              <Radar className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Traffic Sources</h2>
-          </div>
+        <section id="traffic" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="traffic" title="Traffic Sources" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -329,24 +316,13 @@ export default function Advantage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 With step-by-step setup instructions and the ability to launch campaigns quickly, the Responsive Rolodex eliminates guesswork and reduces risk. Whether you're new to Direct Buys or scaling your efforts, this tool leverages years of expertise to connect you with winning placements from day one.
               </p>
-              <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Access the Rolodex
-              </Button>
+              <Button size="sm">Access the Rolodex</Button>
             </CardContent>
           </Card>
         </section>
 
-        <section id="ai-advertorial" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-rose-600 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">AI Advertorial Builder</h2>
-              <p className="text-xs text-muted-foreground italic">100% Free for BTS Members</p>
-            </div>
-          </div>
+        <section id="ai-advertorial" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="ai-advertorial" title="AI Advertorial Builder" note="100% Free for BTS Members" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -354,43 +330,32 @@ export default function Advantage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 AI-Powered Advertorials That Actually Make Sales. Get high-converting copy that connects with your ideal customer's deepest emotions — without spending weeks on research or testing hundreds of failed variations.
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-5">
+              <div className="bg-muted/40 border border-border/60 rounded-xl p-5">
                 <h4 className="font-semibold text-foreground text-sm mb-2">6 Ways Affiliate CMO Transforms Your Marketing:</h4>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Deep Avatar Research</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Advertorial Generator</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Headline Laboratory</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Banner Ad Factory</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Psychology Brief Builder</li>
-                  <li className="flex items-start gap-2"><span className="text-[#2d8a4e]">&#10003;</span> Custom Copy Control</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Deep Avatar Research</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Advertorial Generator</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Headline Laboratory</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Banner Ad Factory</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Psychology Brief Builder</li>
+                  <li className="flex items-start gap-2"><span className="text-emerald-700">&#10003;</span> Custom Copy Control</li>
                 </ul>
               </div>
               <p className="text-sm text-muted-foreground font-medium">
                 Use coupon code: <span className="font-mono bg-muted px-2 py-0.5 rounded text-foreground">LIFETIME100</span> to get FREE access for life!
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://app.affiliatecmo.com/login" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Register / Log In</Button>
-                </a>
-                <Button size="sm" variant="outline" className="gap-1.5 text-[#1a56db]">
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  Watch Training
+                <Button asChild size="sm">
+                  <a href="https://app.affiliatecmo.com/login" target="_blank" rel="noopener noreferrer">Register / Log In</a>
                 </Button>
+                <Button size="sm" variant="outline">Watch Training</Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="ai-adcopy" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center">
-              <PenTool className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">AI Ad Copy Generator</h2>
-              <p className="text-xs text-muted-foreground italic">100% Free for BTS Members</p>
-            </div>
-          </div>
+        <section id="ai-adcopy" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="ai-adcopy" title="AI Ad Copy Generator" note="100% Free for BTS Members" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -402,24 +367,19 @@ export default function Advantage() {
                 Register below to get 1,000 credits instantly applied — completely FREE for all BTS members!
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Register</Button>
-                </a>
-                <a href="https://www.freeadcopy.com/?loginpopup=true#" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">Log In</Button>
-                </a>
+                <Button asChild size="sm">
+                  <a href="https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X" target="_blank" rel="noopener noreferrer">Register</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="https://www.freeadcopy.com/?loginpopup=true#" target="_blank" rel="noopener noreferrer">Log In</a>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="creative-drive" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center">
-              <FolderOpen className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Creative Drive</h2>
-          </div>
+        <section id="creative-drive" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="creative-drive" title="Creative Drive" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -428,24 +388,19 @@ export default function Advantage() {
                 Packed with high-converting ad templates, expert-crafted guides, brand logos, copywriting blueprints, and more — your shortcut to affiliate arbitrage mastery. Whether you're refining your ad creatives, dialing in your messaging, or scaling your campaigns, everything you need is just a click away. Don't reinvent the wheel — tap into a treasure trove of proven assets and accelerate your success!
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://creative.buildtestscale.com/register" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">Register</Button>
-                </a>
-                <a href="https://creative.buildtestscale.com/login" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">Log In</Button>
-                </a>
+                <Button asChild size="sm">
+                  <a href="https://creative.buildtestscale.com/register" target="_blank" rel="noopener noreferrer">Register</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="https://creative.buildtestscale.com/login" target="_blank" rel="noopener noreferrer">Log In</a>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="pnl" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
-              <Calculator className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">P&L Tracker™</h2>
-          </div>
+        <section id="pnl" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="pnl" title="P&L Tracker™" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -457,28 +412,19 @@ export default function Advantage() {
                 Tracking is the absolute bane of the media buyer. You simply cannot grow your business if you're not able to make calculated decisions based on your numbers. This spreadsheet will help tremendously.
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://docs.google.com/spreadsheets/d/1zQ47ozphtdmTqbHaiqy3rA9-pZbaA7mUifptdLCRh20/copy" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
-                    <Download className="w-3.5 h-3.5" />
+                <Button asChild size="sm">
+                  <a href="https://docs.google.com/spreadsheets/d/1zQ47ozphtdmTqbHaiqy3rA9-pZbaA7mUifptdLCRh20/copy" target="_blank" rel="noopener noreferrer">
                     Download Spreadsheet
-                  </Button>
-                </a>
-                <Button size="sm" variant="outline" className="gap-1.5 text-[#1a56db]">
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  Watch Training
+                  </a>
                 </Button>
+                <Button size="sm" variant="outline">Watch Training</Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="email-template" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-pink-600 flex items-center justify-center">
-              <Mail className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Dedicated Email Template</h2>
-          </div>
+        <section id="email-template" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="email-template" title="Dedicated Email Template" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -487,28 +433,19 @@ export default function Advantage() {
                 Over 15+ years of buying media, dozens of dedicated email templates have been tested — none compare to this one. Simple, elegant, and proven to convert. Over $60 Million has been sent to this exact template. Use it.
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href="https://experience.buildtestscale.com/wp-content/uploads/2025/04/1-DEDICATED-EMAIL-TEMPLATE.zip" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
-                    <Download className="w-3.5 h-3.5" />
+                <Button asChild size="sm">
+                  <a href="https://experience.buildtestscale.com/wp-content/uploads/2025/04/1-DEDICATED-EMAIL-TEMPLATE.zip" target="_blank" rel="noopener noreferrer">
                     Download Template
-                  </Button>
-                </a>
-                <Button size="sm" variant="outline" className="gap-1.5 text-[#1a56db]">
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  Watch Training
+                  </a>
                 </Button>
+                <Button size="sm" variant="outline">Watch Training</Button>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        <section id="spy" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Search className="w-4 h-4 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground">Spy Tool</h2>
-          </div>
+        <section id="spy" className="space-y-4 scroll-mt-6">
+          <SectionHeader id="spy" title="Spy Tool" />
 
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-6 space-y-4">
@@ -519,20 +456,16 @@ export default function Advantage() {
               <p className="text-sm text-muted-foreground font-medium">
                 BTS members get FREE access — log in with the shared credentials below:
               </p>
-              <div className="bg-[#faf9f7] border border-[#e8e4dc] rounded-xl p-4 space-y-1 font-mono text-sm">
+              <div className="bg-muted/40 border border-border/60 rounded-xl p-4 space-y-1 font-mono text-sm">
                 <p><span className="text-muted-foreground">USER:</span> <span className="text-foreground">support@buildtestscale.com</span></p>
                 <p><span className="text-muted-foreground">PASSWORD:</span> <span className="text-foreground">JesusLives3838!</span></p>
               </div>
-              <a href="https://app.anstrex.com/login" target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="bg-[#2d8a4e] hover:bg-[#246e3e] text-white gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Log In to Anstrex
-                </Button>
-              </a>
+              <Button asChild size="sm">
+                <a href="https://app.anstrex.com/login" target="_blank" rel="noopener noreferrer">Log In to Anstrex</a>
+              </Button>
             </CardContent>
           </Card>
         </section>
-
       </div>
     </AppLayout>
   );
