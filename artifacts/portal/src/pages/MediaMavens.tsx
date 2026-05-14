@@ -1,7 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sparkles, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import vistaVeilImg from "@assets/vista-veil-404x400_1778783637190.png";
@@ -78,60 +77,53 @@ function ProductCard({ product }: { product: Product }) {
           </div>
 
           <div className="flex-1 p-5 flex flex-col">
-            <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-xl font-bold text-foreground">{product.name}</h2>
-              <p className="text-sm text-muted-foreground">{product.tagline}</p>
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="text-xl font-bold text-foreground">{product.name}</h2>
+                <p className="text-sm text-muted-foreground">{product.tagline}</p>
+              </div>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <Button asChild size="sm" data-testid={`button-sales-${product.slug}`}>
+                  <a href={product.salesPageUrl} target="_blank" rel="noreferrer">
+                    View Sales Page
+                  </a>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  data-testid={`button-logo-${product.slug}`}
+                >
+                  <a href={product.logoDriveUrl} target="_blank" rel="noreferrer">
+                    Download Official Logo
+                  </a>
+                </Button>
+              </div>
             </div>
 
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">
+            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
               {product.description}
             </p>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              <Button asChild size="sm" data-testid={`button-sales-${product.slug}`}>
-                <a href={product.salesPageUrl} target="_blank" rel="noreferrer">
-                  View Sales Page
-                </a>
-              </Button>
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                data-testid={`button-logo-${product.slug}`}
-              >
-                <a href={product.logoDriveUrl} target="_blank" rel="noreferrer">
-                  Download Official Logo
-                </a>
-              </Button>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/40 p-4 mt-auto">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-primary text-primary-foreground hover:bg-primary text-[10px] font-bold tracking-wide uppercase">
-                  Offer Card
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <div>
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 mt-auto">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-2">
+                <div className="flex items-baseline gap-2">
                   <p className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
                     Cost to Consumer
                   </p>
-                  <p className="text-base font-bold text-foreground">
+                  <p className="text-sm font-bold text-foreground">
                     {product.costToConsumer}
                   </p>
                 </div>
-                <div>
+                <div className="flex items-baseline gap-2">
                   <p className="text-[11px] uppercase tracking-wide font-semibold text-emerald-700">
                     Affiliate Commission
                   </p>
-                  <p className="text-base font-bold text-emerald-700">
+                  <p className="text-sm font-bold text-emerald-700">
                     {product.affiliateCommission}
                   </p>
                 </div>
               </div>
-              <p className="text-xs font-semibold text-foreground mb-1.5">
-                Grab your affiliate link below:
-              </p>
               <div className="flex items-stretch gap-2">
                 <code className="flex-1 min-w-0 text-xs bg-background border border-dashed border-border rounded px-2.5 py-2 font-mono text-foreground/90 truncate">
                   {product.affiliateLink}
