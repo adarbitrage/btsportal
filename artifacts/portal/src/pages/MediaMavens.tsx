@@ -27,26 +27,25 @@ const CATEGORY_STYLES: Record<
   { panel: string; badge: string; chevron: string }
 > = {
   Health: {
-    panel: "bg-emerald-50/70 dark:bg-emerald-950/30",
+    panel: "bg-emerald-100 dark:bg-emerald-900/50",
     badge:
-      "bg-white/70 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
-    chevron: "text-emerald-700 dark:text-emerald-300",
+      "bg-white dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-100",
+    chevron: "text-emerald-700 dark:text-emerald-200",
   },
   Beauty: {
-    panel: "bg-rose-50/70 dark:bg-rose-950/30",
-    badge: "bg-white/70 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
-    chevron: "text-rose-700 dark:text-rose-300",
+    panel: "bg-rose-100 dark:bg-rose-900/50",
+    badge: "bg-white dark:bg-rose-950/70 text-rose-800 dark:text-rose-100",
+    chevron: "text-rose-700 dark:text-rose-200",
   },
   Pets: {
-    panel: "bg-amber-50/70 dark:bg-amber-950/30",
-    badge:
-      "bg-white/70 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
-    chevron: "text-amber-700 dark:text-amber-300",
+    panel: "bg-amber-100 dark:bg-amber-900/50",
+    badge: "bg-white dark:bg-amber-950/70 text-amber-800 dark:text-amber-100",
+    chevron: "text-amber-700 dark:text-amber-200",
   },
   Home: {
-    panel: "bg-sky-50/70 dark:bg-sky-950/30",
-    badge: "bg-white/70 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200",
-    chevron: "text-sky-700 dark:text-sky-300",
+    panel: "bg-sky-100 dark:bg-sky-900/50",
+    badge: "bg-white dark:bg-sky-950/70 text-sky-800 dark:text-sky-100",
+    chevron: "text-sky-700 dark:text-sky-200",
   },
 };
 
