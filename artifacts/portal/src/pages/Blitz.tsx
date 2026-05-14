@@ -1173,8 +1173,6 @@ const blitzBodyHTML = `<div class="version-banner">
     Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="5ElueNM6UCsDKpyO" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Know Whether to Use MetricMover or Individual Landing Pages</div><div class="vd">Watch this first to confirm which method applies to your path</div></div></div>
-
   <h4>Universal Setup — Everyone Does This First</h4>
 
   <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
