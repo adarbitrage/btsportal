@@ -1211,10 +1211,13 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p>Follow the <strong>MM1–MM13 video series</strong> in the Media Mavens path above — the process is identical. Your starting point is a cloned jump page template in Flexy™ with your custom body copy already in place.</p>
 
+    <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
     <div class="video-slot" data-vidalytics-id="8DOS192WmesN98rW" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
     <div class="video-slot" data-vidalytics-id="zO4NB3FSTGul5lsT" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
-    <div class="video-slot" data-vidalytics-id="hsneAr96RHna7XrH" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">CF3 — How to Customize Your Jump Page Body Copy</div><div class="vd">Edit the template with your offer-specific body copy</div></div></div>
+    <div class="video-slot" data-vidalytics-id="jPThI9Fb3vDiapbI" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF3 — How to Change the Headline and Hero Shot</div><div class="vd">Swap in your offer-specific headline and hero shot on the cloned page</div></div></div>
     <div class="video-slot" data-vidalytics-id="9FRDaxeaAwSY1zhF" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
+    <div class="video-slot" data-vidalytics-id="GHoc9NyuYVqgk_so" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF5 — Cloning and Editing More Landing Page Variants</div><div class="vd">Repeat the clone-and-edit process to build out the rest of your landing page variants</div></div></div>
+    <div class="video-slot" data-vidalytics-id="3QHD9PNADTOIJySD" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF6 — Gathering Your Landing Page Variant URLs</div><div class="vd">Collect every variant URL you'll need before moving into MetricMover™ / DIYTrax</div></div></div>
 
     <p>Once your jump page template is customized, follow MM1–MM13 above to import it into MetricMover™ and generate your 25 combinations.</p>
   </div>
