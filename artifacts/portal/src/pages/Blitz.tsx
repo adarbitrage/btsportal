@@ -769,7 +769,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="path-block cb">
     <div class="path-block-label">✦ ClickBank</div>
-    <div class="video-slot" data-vidalytics-id="DRuqCGX8GUhmyezM"><div class="play-icon"></div><div><div class="vt">Choosing Your ClickBank Product To Promote</div><div class="vd">How to browse the ClickBank marketplace and identify good candidates</div></div></div>
+    <div class="video-slot" data-vidalytics-id="DRuqCGX8GUhmyezM" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choosing Your ClickBank Product To Promote</div><div class="vd">How to browse the ClickBank marketplace and identify good candidates</div></div></div>
     <p>After choosing your product, save your affiliate link. Note the product's sales page URL — you'll refer to it when writing your jump page body copy in Step 2.</p>
   </div>
 
@@ -947,8 +947,8 @@ const blitzBodyHTML = `<div class="version-banner">
     Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="1_pFw6Xw5zsIf42q"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
-  <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z"><div class="play-icon"></div><div><div class="vt">How to Create Ad Headlines and Descriptions for Caterpillar</div><div class="vd">Draw angles from your advertorial and the product's sales page</div></div></div>
+  <div class="video-slot" data-vidalytics-id="1_pFw6Xw5zsIf42q" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
+  <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ad Headlines and Descriptions for Caterpillar</div><div class="vd">Draw angles from your advertorial and the product's sales page</div></div></div>
 
   <div class="card"><div class="card-title">Optional: Dynamic Macros — Make Ads Feel Personal</div>
     <p style="font-size:.87rem; margin-bottom:8px;">Caterpillar lets you insert placeholder codes that auto-fill viewer-specific info, making ads feel personalized. Example: <code>{city}</code> is replaced by the viewer's actual city. You can ask Claude to help incorporate these naturally into your headlines.</p>
@@ -969,7 +969,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Remember: in Round 1 you're testing with one image. You don't need it to be perfect — you need it to be a strong starting point. Round 2 is specifically for testing different visual approaches against each other.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
+  <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
   <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Step 4 (Flexy setup) while awaiting approval, but do not go live in Step 6 until compliance is confirmed.</div>
 
@@ -1010,7 +1010,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p>After you have generated your landing page headlines, learn how to make them even stronger by using Copy Blocks:</p>
 
-    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert — watch before writing</div></div></div>
+    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert — watch before writing</div></div></div>
 
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong>Copy Blocks Mini Tutorial (Google Doc)</strong> — exercises to complete while watching. File → Make a copy to get your own version. Pause at each exercise before scrolling to reveal the answer.</li>
@@ -1063,14 +1063,14 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Step A — Write Your Jump Page Body Copy</h4>
     <p>Your jump page body copy is a short, curiosity-building passage that sits between your headline and the button linking to the VSL. It doesn't need to be long — its job is simply to deepen the reader's interest enough that they click through. Use the product's sales page, key benefits, and target audience as your source material.</p>
 
-    <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
-    <div class="video-slot" data-vidalytics-id="SZTE9m7CzKj724QW"><div class="play-icon"></div><div><div class="vt">Bridge Page Copy Bot Intro — Call Recording</div><div class="vd">Full introduction to the bot and how to get the best results</div></div></div>
+    <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
+    <div class="video-slot" data-vidalytics-id="SZTE9m7CzKj724QW" data-status="ready"><div class="play-icon"></div><div><div class="vt">Bridge Page Copy Bot Intro — Call Recording</div><div class="vd">Full introduction to the bot and how to get the best results</div></div></div>
 
     <h4>Step B — Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
 
     <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
-    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
+    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong>Copy Blocks Mini Tutorial (Google Doc)</strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
       <li><strong>Copy Blocks Essential Understanding (Google Doc)</strong> — a deeper reference guide. Read after the video exercises.</li>
@@ -1341,7 +1341,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="alert warning"><strong>The Patience Rule</strong>Do not cut ads or make landing page decisions before the spend milestones above. Data at $10 in spend is unreliable. A headline that looks weak at $10 may be your winner at $30. Wait for the thresholds.</div>
 
-  <div class="video-slot" data-vidalytics-id="CcD81oUVcZ1KpyeL"><div class="play-icon"></div><div><div class="vt">Round 1: When to Make an Ad Inactive</div><div class="vd">Visual walkthrough of the decision-making process</div></div></div>
+  <div class="video-slot" data-vidalytics-id="CcD81oUVcZ1KpyeL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Round 1: When to Make an Ad Inactive</div><div class="vd">Visual walkthrough of the decision-making process</div></div></div>
   <h4>Phase 2 — Test — Round 1 Exit Gate</h4>
   <div class="gate pass"><div class="gate-header">✅ Pass: Spent $500+ and have 1 headline with metrics strong enough to move forward</div><p style="font-size:.9rem;margin:0;">Proceed to Round 2.</p></div>
   <div class="gate fail">
@@ -1459,7 +1459,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="gate pass"><div class="gate-header">✅ Round 3 Pass: Best placement returning approximately 60% ROAS</div><p style="font-size:.9rem;margin:0;">Earning ~$600 on $1,000 spent means you are closing in on a profitable combination. Continue to refine and iterate based on your top performing ads and landing pages — keep testing until you find the winning combination that produces a positive return.</p></div>
   <div class="gate fail"><div class="gate-header">❌ Round 3 Fail: Best placement below 60% ROAS</div><p style="font-size:.9rem;margin:0;">Take your top performing placement and run a focused headline + description test: 5 headlines × 2 descriptions = 10 ads. Spend at least 1× CPA per ad before cutting. Your top performing visual is solid — the messaging may need refinement.</p></div>
 
-  <div class="video-slot" data-vidalytics-id="T0xLx5hA7Ex7udDA"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
+  <div class="video-slot" data-vidalytics-id="T0xLx5hA7Ex7udDA" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
 
   <div class="alert danger">
     <strong>⚠ Important Update — Subcampaign Structure for Round 3</strong>
