@@ -38,6 +38,7 @@ import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_17
 import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
 import affiliateCmoLogo from "@assets/affiliatecmo-logo-250x222_1778796180683.png";
 import freeAdCopyLogo from "@assets/freeadcopy-logo-250x222_1778796182562.png";
+import anstrexLogo from "@assets/anstrex-logo-250x222_1778797055591.jpg";
 
 type PartnerTool = {
   name: string;
@@ -49,7 +50,8 @@ type PartnerTool = {
   logoBg?: string;
   perk?: string;
   couponCode?: string;
-  registerUrl: string;
+  credentials?: { user: string; password: string };
+  registerUrl?: string;
   loginUrl?: string;
 };
 
@@ -88,6 +90,25 @@ const PARTNER_TOOLS: PartnerTool[] = [
     perk: "1,000 credits applied instantly — completely FREE for BTS members.",
     registerUrl: "https://www.freeadcopy.com/signup?bonusCode=0VLP2B3X",
     loginUrl: "https://www.freeadcopy.com/?loginpopup=true#",
+  },
+  {
+    name: "Anstrex",
+    category: "Competitive Intelligence",
+    tagline: "Spy on the world's top advertisers and reverse-engineer their winning campaigns.",
+    description:
+      "Improve your ROI by unlocking your competitors' marketing strategies across native, push, popup, display, and dropshipping channels. Anstrex is the multi-network ad spy tool affiliate marketers use to find proven angles, headlines, and landing pages without burning test budget.",
+    highlights: [
+      "Spy on native ads across Taboola, Outbrain, Revcontent, MGID, and more",
+      "Push, popup, and display ad libraries with advanced search filters",
+      "Download competitor landing pages and Shopify dropship product research",
+    ],
+    logo: anstrexLogo,
+    perk: "BTS members get FREE access — copy the shared login below:",
+    credentials: {
+      user: "support@buildtestscale.com",
+      password: "JesusLives3838!",
+    },
+    loginUrl: "https://app.anstrex.com/login",
   },
 ];
 
@@ -577,15 +598,14 @@ function AppCard({
 
 function PartnerToolCard({ tool }: { tool: PartnerTool }) {
   const { toast } = useToast();
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const handleCopyCoupon = async () => {
-    if (!tool.couponCode) return;
+  const copy = async (key: string, value: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(tool.couponCode);
-      setCopied(true);
-      toast({ title: "Copied", description: "Coupon code copied to clipboard." });
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      toast({ title: "Copied", description: `${label} copied to clipboard.` });
+      setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 2000);
     } catch {
       toast({
         title: "Copy failed",
@@ -650,28 +670,60 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
                     {tool.couponCode && (
                       <button
                         type="button"
-                        onClick={handleCopyCoupon}
+                        onClick={() => copy("coupon", tool.couponCode!, "Coupon code")}
                         className="inline-flex items-center gap-1 font-mono bg-muted border border-border rounded px-1.5 py-0.5 text-foreground hover:border-foreground/40"
                       >
                         {tool.couponCode}
-                        {copied ? (
+                        {copiedKey === "coupon" ? (
                           <><Check className="w-3 h-3" /> Copied</>
                         ) : (
                           <><Copy className="w-3 h-3" /></>
                         )}
                       </button>
                     )}
+                    {tool.credentials && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => copy("user", tool.credentials!.user, "Username")}
+                          className="inline-flex items-center gap-1 font-mono bg-muted border border-border rounded px-1.5 py-0.5 text-foreground hover:border-foreground/40"
+                        >
+                          <span className="text-muted-foreground">user:</span>
+                          {tool.credentials.user}
+                          {copiedKey === "user" ? (
+                            <><Check className="w-3 h-3" /> Copied</>
+                          ) : (
+                            <><Copy className="w-3 h-3" /></>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copy("pw", tool.credentials!.password, "Password")}
+                          className="inline-flex items-center gap-1 font-mono bg-muted border border-border rounded px-1.5 py-0.5 text-foreground hover:border-foreground/40"
+                        >
+                          <span className="text-muted-foreground">pass:</span>
+                          {tool.credentials.password}
+                          {copiedKey === "pw" ? (
+                            <><Check className="w-3 h-3" /> Copied</>
+                          ) : (
+                            <><Copy className="w-3 h-3" /></>
+                          )}
+                        </button>
+                      </>
+                    )}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                <Button asChild size="sm">
-                  <a href={tool.registerUrl} target="_blank" rel="noopener noreferrer">
-                    Register
-                  </a>
-                </Button>
+                {tool.registerUrl && (
+                  <Button asChild size="sm">
+                    <a href={tool.registerUrl} target="_blank" rel="noopener noreferrer">
+                      Register
+                    </a>
+                  </Button>
+                )}
                 {tool.loginUrl && (
-                  <Button asChild size="sm" variant="outline">
+                  <Button asChild size="sm" variant={tool.registerUrl ? "outline" : "default"}>
                     <a href={tool.loginUrl} target="_blank" rel="noopener noreferrer">
                       Log In
                     </a>

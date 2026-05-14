@@ -3,11 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles, Wrench, Globe, Radar, FolderOpen,
-  Calculator, Mail, Search, ChevronDown, ChevronRight
+  Calculator, Mail, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
 
-type SectionId = "apps" | "networks" | "traffic" | "creative-drive" | "pnl" | "email-template" | "spy";
+type SectionId = "apps" | "networks" | "traffic" | "creative-drive" | "pnl" | "email-template";
 
 type Tint = { bg: string; border: string; text: string };
 
@@ -26,7 +26,6 @@ const navItems: NavItem[] = [
   { id: "creative-drive", label: "Creative Drive", icon: FolderOpen, tint: { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" } },
   { id: "pnl", label: "P&L Tracker™", icon: Calculator, tint: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" } },
   { id: "email-template", label: "Email Template", icon: Mail, tint: { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" } },
-  { id: "spy", label: "Spy Tool (Anstrex)", icon: Search, tint: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" } },
 ];
 
 const tintFor = (id: SectionId) => navItems.find((n) => n.id === id)!.tint;
@@ -376,28 +375,6 @@ export default function Advantage() {
           </Card>
         </section>
 
-        <section id="spy" className="space-y-4 scroll-mt-6">
-          <SectionHeader id="spy" title="Spy Tool" />
-
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-foreground text-lg">Anstrex (Competitive Intelligence)</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Improve your ROI by unlocking your competitors' marketing strategies. Marketers of all kinds use Anstrex to uncover the secrets of world-class advertisers.
-              </p>
-              <p className="text-sm text-muted-foreground font-medium">
-                BTS members get FREE access — log in with the shared credentials below:
-              </p>
-              <div className="bg-muted/40 border border-border/60 rounded-xl p-4 space-y-1 font-mono text-sm">
-                <p><span className="text-muted-foreground">USER:</span> <span className="text-foreground">support@buildtestscale.com</span></p>
-                <p><span className="text-muted-foreground">PASSWORD:</span> <span className="text-foreground">JesusLives3838!</span></p>
-              </div>
-              <Button asChild size="sm">
-                <a href="https://app.anstrex.com/login" target="_blank" rel="noopener noreferrer">Log In to Anstrex</a>
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
       </div>
     </AppLayout>
   );
