@@ -22,31 +22,11 @@ type Category = "Health" | "Beauty" | "Pets" | "Home";
 
 const CATEGORY_ORDER: Category[] = ["Health", "Beauty", "Pets", "Home"];
 
-const CATEGORY_STYLES: Record<
-  Category,
-  { panel: string; badge: string; chevron: string }
-> = {
-  Health: {
-    panel: "bg-emerald-100 dark:bg-emerald-900/50",
-    badge:
-      "bg-white dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-100",
-    chevron: "text-emerald-700 dark:text-emerald-200",
-  },
-  Beauty: {
-    panel: "bg-rose-100 dark:bg-rose-900/50",
-    badge: "bg-white dark:bg-rose-950/70 text-rose-800 dark:text-rose-100",
-    chevron: "text-rose-700 dark:text-rose-200",
-  },
-  Pets: {
-    panel: "bg-amber-100 dark:bg-amber-900/50",
-    badge: "bg-white dark:bg-amber-950/70 text-amber-800 dark:text-amber-100",
-    chevron: "text-amber-700 dark:text-amber-200",
-  },
-  Home: {
-    panel: "bg-sky-100 dark:bg-sky-900/50",
-    badge: "bg-white dark:bg-sky-950/70 text-sky-800 dark:text-sky-100",
-    chevron: "text-sky-700 dark:text-sky-200",
-  },
+const SECTION_STYLES = {
+  panel: "bg-slate-100 dark:bg-slate-800/60",
+  badge:
+    "bg-white dark:bg-slate-900/70 text-slate-700 dark:text-slate-200",
+  chevron: "text-slate-600 dark:text-slate-300",
 };
 
 type Product = {
@@ -495,7 +475,7 @@ function CategorySection({
   products: Product[];
 }) {
   const [open, setOpen] = useState(true);
-  const styles = CATEGORY_STYLES[category];
+  const styles = SECTION_STYLES;
   return (
     <div className="rounded-xl border-2 border-border overflow-hidden">
       <button
