@@ -469,28 +469,28 @@ function CategorySection({
 }) {
   const [open, setOpen] = useState(true);
   return (
-    <div className="rounded-xl border-2 border-border bg-card overflow-hidden">
+    <div className="rounded-xl border-2 border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover-elevate active-elevate-2"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-slate-100 dark:bg-slate-800 hover-elevate active-elevate-2"
         data-testid={`button-category-${category.toLowerCase()}`}
         aria-expanded={open}
       >
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-foreground">{category}</h2>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/70 dark:bg-slate-900/60 text-slate-700 dark:text-slate-200">
             {products.length}
           </span>
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-muted-foreground transition-transform ${
+          className={`w-5 h-5 text-slate-600 dark:text-slate-300 transition-transform ${
             open ? "rotate-180" : ""
           }`}
         />
       </button>
       {open && (
-        <div className="border-t border-border bg-background p-4 grid grid-cols-1 gap-5">
+        <div className="border-t border-border bg-slate-50/70 dark:bg-slate-900/30 p-4 grid grid-cols-1 gap-5">
           {products.map((p) => (
             <ProductCard key={p.slug} product={p} />
           ))}
