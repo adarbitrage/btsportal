@@ -381,35 +381,13 @@ export default function PartnerTools() {
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Partner Tools</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Third-party tools that BTS members get free access to. Register through
-              the BTS link to claim your free account or credits.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-5">
-            {PARTNER_TOOLS.map((tool) => (
-              <PartnerToolCard key={tool.name} tool={tool} />
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Chrome Extensions</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Browser extensions built to speed up the day-to-day workflow of finding,
-              cropping, and shipping ad creative. Install once and use them across every
-              campaign.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-5">
-            {CHROME_EXTENSIONS.map((ext) => (
-              <ExtensionCard key={ext.name} ext={ext} />
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-5">
+          {PARTNER_TOOLS.map((tool) => (
+            <PartnerToolCard key={tool.name} tool={tool} />
+          ))}
+          {CHROME_EXTENSIONS.map((ext) => (
+            <ExtensionCard key={ext.name} ext={ext} />
+          ))}
         </div>
       </div>
     </AppLayout>
