@@ -151,6 +151,9 @@ const blitzCSS = `.blitz-content{
   .blitz-content .video-slot[data-status="needs-rerecord"]::after{
     content:"⚠ RE-RECORD"; color:#3b1d05; background:#fbbf24; border-color:#f59e0b;
   }
+  .blitz-content .video-slot[data-status="incorrect-link"]::after{
+    content:"✗ WRONG LINK"; color:#fff; background:#ef4444; border-color:#dc2626;
+  }
 
   .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
@@ -998,7 +1001,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Writing Your 5 Landing Page Headlines</h4>
     <p>Remember: landing page headlines have a different job than your ad headlines. Where ad headlines create curiosity to earn the click, landing page headlines need to <strong>carry that curiosity forward</strong> and pull the reader into the advertorial. Start by generating your headline angles using the AffAngleArchitect bot, then use the Copy Blocks framework to make them even stronger.</p>
 
-    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
 
     <div class="callout-box"><div class="pe-label">💡 What is Poe.com?</div>Poe is a platform that gives you access to AI chatbots, including specialized bots built for specific tasks ($20/mo for 1 million credits). The AffAngleArchitect bot is pre-configured specifically to generate strong marketing angles for affiliate campaigns — much more targeted than a general AI tool.</div>
 
@@ -1063,7 +1066,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Step B — Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
 
-    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
     <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong>Copy Blocks Mini Tutorial (Google Doc)</strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
@@ -1879,17 +1882,19 @@ export default function Blitz() {
     document.body.appendChild(badge);
     const update = () => {
       const slots = contentEl.querySelectorAll<HTMLElement>(".video-slot");
-      let ready = 0, redo = 0, unrev = 0;
+      let ready = 0, redo = 0, wrong = 0, unrev = 0;
       slots.forEach((s) => {
         const st = s.getAttribute("data-status");
         if (st === "ready") ready++;
         else if (st === "needs-rerecord") redo++;
+        else if (st === "incorrect-link") wrong++;
         else unrev++;
       });
       badge.innerHTML =
         `<span style="color:#cbd5e1">${unrev} unreviewed</span> · ` +
         `<span style="color:#6ee7b7">${ready} ready</span> · ` +
-        `<span style="color:#fbbf24">${redo} re-record</span>`;
+        `<span style="color:#fbbf24">${redo} re-record</span> · ` +
+        `<span style="color:#fca5a5">${wrong} wrong link</span>`;
     };
     update();
     const obs = new MutationObserver(update);
