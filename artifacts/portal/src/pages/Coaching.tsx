@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, ExternalLink, Users, Headphones } from "lucide-react";
+import { Calendar, Video, Users, Headphones } from "lucide-react";
 
 const GOOGLE_MEET_LINK = "https://meet.google.com/adz-axqj-pjm";
 
@@ -97,9 +97,8 @@ export default function Coaching() {
                       {session.coach}
                     </span>
                   </div>
-                  <Button asChild size="sm" className="gap-1.5 font-semibold">
+                  <Button asChild size="sm" className="font-semibold">
                     <a href={GOOGLE_MEET_LINK} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3.5 h-3.5" />
                       Join Call
                     </a>
                   </Button>
@@ -163,9 +162,8 @@ export default function Coaching() {
                       {member.initials}
                     </div>
                     <h3 className="text-sm font-bold text-foreground mb-3">{member.name}</h3>
-                    <Button asChild size="sm" className="w-full gap-1.5">
+                    <Button asChild size="sm" className="w-full">
                       <a href={member.bookingUrl} target="_blank" rel="noopener noreferrer">
-                        <Calendar className="w-3.5 h-3.5" />
                         Book Call
                       </a>
                     </Button>
