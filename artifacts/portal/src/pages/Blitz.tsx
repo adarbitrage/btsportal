@@ -787,8 +787,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="path-block mw">
     <div class="path-block-label">✦ MaxWeb</div>
     <p>MaxWeb requires account approval and <strong>proof of revenue generated from previous affiliate campaigns</strong> before you can get started. Please check with a coach before attempting to apply for a MaxWeb account. Once approved, follow the steps below.</p>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_006" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Applying For A MaxWeb Affiliate Account</div><div class="vd">How to complete your application — approval is typically within 1 business day</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_007" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Connecting MaxWeb Account to DIYtrax</div><div class="vd">Complete this step after your account is approved</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_006" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">Applying For A MaxWeb Affiliate Account</div><div class="vd">How to complete your application — approval is typically within 1 business day</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_007" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">Connecting MaxWeb Account to DIYtrax</div><div class="vd">Complete this step after your account is approved</div></div></div>
     <p>To browse products: click "Campaigns" in the left-hand menu → click any product image for details → click "Promote" to apply. Your Account Representative's contact info is on your MaxWeb Dashboard.</p>
   </div>
 
@@ -1173,7 +1173,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="5ElueNM6UCsDKpyO"><div class="play-icon"></div><div><div class="vt">How to Know Whether to Use MetricMover or Individual Landing Pages</div><div class="vd">Watch this first to confirm which method applies to your path</div></div></div>
+  <div class="video-slot" data-vidalytics-id="5ElueNM6UCsDKpyO" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Know Whether to Use MetricMover or Individual Landing Pages</div><div class="vd">Watch this first to confirm which method applies to your path</div></div></div>
 
   <h4>Universal Setup — Everyone Does This First</h4>
 
