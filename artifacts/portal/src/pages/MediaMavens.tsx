@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ExternalLink, Download, Copy, Check } from "lucide-react";
+import { Sparkles, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import vistaVeilImg from "@assets/vista-veil-404x400_1778783637190.png";
 import skinSpectraImg from "@assets/skin-spectra-404x400_1778783632451.png";
@@ -69,18 +69,18 @@ function ProductCard({ product }: { product: Product }) {
     >
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row">
-          <div className="bg-white flex items-center justify-center p-6 md:p-8 md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-border">
+          <div className="bg-white flex items-center justify-center md:w-80 shrink-0 border-b md:border-b-0 md:border-r border-border overflow-hidden">
             <img
               src={product.image}
               alt={`${product.name} product`}
-              className="max-h-56 max-w-full object-contain"
+              className="w-full h-auto object-contain block"
             />
           </div>
 
           <div className="flex-1 p-5 flex flex-col">
-            <div className="mb-3">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h2 className="text-xl font-bold text-foreground">{product.name}</h2>
-              <p className="text-sm text-muted-foreground mt-1">{product.tagline}</p>
+              <p className="text-sm text-muted-foreground">{product.tagline}</p>
             </div>
 
             <p className="text-sm text-foreground/90 leading-relaxed mb-4">
@@ -90,8 +90,7 @@ function ProductCard({ product }: { product: Product }) {
             <div className="flex flex-wrap gap-2 mb-4">
               <Button asChild size="sm" data-testid={`button-sales-${product.slug}`}>
                 <a href={product.salesPageUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-1.5" />
-                  View the Sales Page
+                  View Sales Page
                 </a>
               </Button>
               <Button
@@ -101,8 +100,7 @@ function ProductCard({ product }: { product: Product }) {
                 data-testid={`button-logo-${product.slug}`}
               >
                 <a href={product.logoDriveUrl} target="_blank" rel="noreferrer">
-                  <Download className="w-4 h-4 mr-1.5" />
-                  Download the Official Logo
+                  Download Official Logo
                 </a>
               </Button>
             </div>
