@@ -53,7 +53,6 @@ import {
   Radio,
   Layers,
   UserCircle,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
