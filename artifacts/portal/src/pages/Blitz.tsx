@@ -762,8 +762,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens</div>
     <p>Many Media Mavens products come with <strong>pre-made advertorials</strong> — ready-to-use landing pages. When browsing products, look for the pre-made advertorial indicator in the product listing. Starting with one of these products means you can skip writing your page from scratch and jump straight to customizing headlines and images.</p>
-    <div class="video-slot" data-vidalytics-id="6I7mIlw4eJSiKV0g"><div class="play-icon"></div><div><div class="vt">Logging Into Media Mavens For The First Time</div><div class="vd">How to navigate the platform after creating your account</div></div></div>
-    <div class="video-slot" data-vidalytics-id="Vo7HAtxS4VKOb71j"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
+    <div class="video-slot" data-vidalytics-id="6I7mIlw4eJSiKV0g" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Logging Into Media Mavens For The First Time</div><div class="vd">How to navigate the platform after creating your account</div></div></div>
+    <div class="video-slot" data-vidalytics-id="Vo7HAtxS4VKOb71j" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
     <div class="video-slot" data-vidalytics-id="VIDEO_ID_004" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How To Get Your Media Mavens Affiliate Link</div><div class="vd">Where to find and copy your unique tracking link</div></div></div>
   </div>
 
@@ -1046,7 +1046,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Step 4.</div>
-    <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
+    <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
   <!-- ── CLICKBANK / MAXWEB PATH ── -->
@@ -1233,7 +1233,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="card-title">Setup Sequence — Follow In This Order</div>
     <ol class="step-list">
       <li><div class="step-num">1</div><div class="step-body"><strong>Create Campaign Placeholder</strong> — generates the tracking link you'll embed on your landing pages
-        <div class="video-slot" data-vidalytics-id="jLy2BysHyTrFFpIP" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create DIYTrax Campaign Placeholder</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
+        <div class="video-slot" data-vidalytics-id="jLy2BysHyTrFFpIP" data-status="needs-rerecord" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create DIYTrax Campaign Placeholder</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
       </div></li>
       <li><div class="step-num">2</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
         <div class="video-slot" data-vidalytics-id="2FPdP3k_ADZB_kPR" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
@@ -1439,8 +1439,8 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Take your Round 2 winning image or video and convert it into these 5 additional placement formats:</p>
     <ul><li>Static Image — 9:16 (portrait)</li><li>Animated GIF — 16:9</li><li>Animated GIF — 9:16</li><li>Video — 16:9</li><li>Video — 9:16</li></ul>
     <p><strong>Tip:</strong> Use Grok Imagine to animate your static image into GIFs and videos automatically.</p>
-    <div class="video-slot" data-vidalytics-id="FTjdhZ3twc8E8AWY"><div class="play-icon"></div><div><div class="vt">V1 — How to Use Cropbot to Crop Your Image to 9:16</div><div class="vd">Convert your 16:9 Round 2 winner into portrait format</div></div></div>
-    <div class="video-slot" data-vidalytics-id="O8uPK1cWPPsvvhF7"><div class="play-icon"></div><div><div class="vt">V2 — How to Create Videos From Your Base Image</div><div class="vd">Animate your static image into video format</div></div></div>
+    <div class="video-slot" data-vidalytics-id="FTjdhZ3twc8E8AWY" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">V1 — How to Use Cropbot to Crop Your Image to 9:16</div><div class="vd">Convert your 16:9 Round 2 winner into portrait format</div></div></div>
+    <div class="video-slot" data-vidalytics-id="O8uPK1cWPPsvvhF7" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">V2 — How to Create Videos From Your Base Image</div><div class="vd">Animate your static image into video format</div></div></div>
     <div class="video-slot" data-vidalytics-id="4MW15NDvkIFuSZ3P"><div class="play-icon"></div><div><div class="vt">V3 — How to Trim Video Length Using Adobe Express</div><div class="vd">Cut videos to the right length before converting to GIF</div></div></div>
     <div class="video-slot" data-vidalytics-id="b377d5GfR9zBawPr"><div class="play-icon"></div><div><div class="vt">V4 — How to Convert Videos to GIFs Using Adobe Express</div><div class="vd">Create animated GIFs from your video files</div></div></div>
     <div class="video-slot" data-vidalytics-id="mQzZ7M9qOS6CNRmn"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
