@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, ArrowRight, Shield,
+  Building2, Shield,
   DollarSign, TrendingUp, FileText, CreditCard,
 } from "lucide-react";
 
@@ -102,13 +102,12 @@ export default function PrimeCorporate() {
               you the blueprint.
             </p>
             <div className="pt-2">
-              <Button asChild size="lg" className="gap-2 text-base">
+              <Button asChild size="lg" className="text-base">
                 <a
                   href="https://www.primecorporateservices.com/buildtestscale/"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ArrowRight className="w-5 h-5" />
                   Book Your Free Empire-Building Session
                 </a>
               </Button>
