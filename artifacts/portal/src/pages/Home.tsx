@@ -4,7 +4,7 @@ import { useGetCurrentMember } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
   Layers, Trophy, MessageSquare, Rocket, ArrowRight, Mail, Target,
-  DollarSign, Lightbulb, Users, GraduationCap, Shield, Sparkles, Video, Zap
+  DollarSign, Lightbulb, Users, GraduationCap, Shield, Sparkles, Video, Zap, AppWindow
 } from "lucide-react";
 
 const pillars = [
@@ -21,7 +21,7 @@ const getStartedLinks = [
   { href: "/core-training/7-pillars", icon: Layers, title: "7 Pillars", desc: "The BTS framework" },
   { href: "/blitz", icon: Zap, title: "The Blitz™", desc: "30-day launch sprint" },
   { href: "/coaching", icon: Video, title: "Coaching Calls", desc: "Live group sessions" },
-  { href: "/wins", icon: Trophy, title: "Wall of Wins", desc: "Celebrate success" },
+  { href: "/apps", icon: AppWindow, title: "Apps", desc: "Proprietary BTS tools" },
   { href: "/ai-assistant", icon: MessageSquare, title: "AI Assistant", desc: "Get instant help" },
   { href: "/support", icon: Rocket, title: "Support", desc: "We're here for you" },
 ];
