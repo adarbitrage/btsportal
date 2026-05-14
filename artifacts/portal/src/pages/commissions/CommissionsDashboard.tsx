@@ -45,12 +45,12 @@ export default function CommissionsDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
-        <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="space-y-6 max-w-6xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold text-foreground">Commissions</h1>
+              <h1 className="text-3xl font-bold">Commissions</h1>
               <Badge variant="outline" className="capitalize text-sm">
                 {summary.tierLabel}
               </Badge>
@@ -59,7 +59,7 @@ export default function CommissionsDashboard() {
               Track your referral earnings, manage links, and view performance.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 shrink-0">
             <Link href="/commissions/rates">
               <Button variant="outline" size="sm">View Rate Table</Button>
             </Link>
