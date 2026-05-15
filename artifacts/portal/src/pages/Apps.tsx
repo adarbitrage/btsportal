@@ -211,66 +211,11 @@ function StatusBadge({ status }: { status: AppInstance["status"] }) {
 }
 
 function FlexyCredentialsInline() {
-  const { toast } = useToast();
-  const { data, isLoading, error } = useGetFlexyCredentials();
-  const [copied, setCopied] = useState(false);
-
-  if (isLoading) {
-    return (
-      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-        <Loader2 className="w-3 h-3 animate-spin" /> Loading login email…
-      </div>
-    );
-  }
-
-  if (error || !data?.email) {
-    return null;
-  }
-
-  const email = data.email;
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(email);
-      setCopied(true);
-      toast({ title: "Copied", description: "Login email copied to clipboard." });
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({
-        title: "Copy failed",
-        description: "Couldn't copy to your clipboard.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-muted-foreground">Login email:</span>
-        <span
-          className="text-xs font-mono break-all text-foreground"
-          data-testid="text-flexy-email"
-        >
-          {email}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex items-center text-xs text-primary hover:underline gap-1"
-          data-testid="button-copy-flexy-email"
-        >
-          {copied ? (
-            <><Check className="w-3 h-3" /> Copied</>
-          ) : (
-            <><Copy className="w-3 h-3" /> Copy</>
-          )}
-        </button>
-      </div>
-      <p className="text-[11px] text-muted-foreground/80 italic">
-        First time? Use <span className="font-medium not-italic">Forgot password</span> on the Flexy login screen.
-      </p>
-    </div>
+    <p className="text-[11px] text-muted-foreground/80 italic">
+      First time? Login using the email in your BTS account and click{" "}
+      <span className="font-medium not-italic">Forgot password</span>
+    </p>
   );
 }
 
