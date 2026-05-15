@@ -50,6 +50,34 @@
   .tier-list{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 18px;margin:12px 0}
   .footer-ack{margin-top:32px;padding:18px 20px;background:#f8fafc;border:1px solid var(--line);
     border-radius:10px;color:var(--ink);font-weight:600}
+  /* Initial / checkbox affordances on refund-guarantee items */
+  .chk-list{list-style:none;padding-left:0}
+  .chk-list > li, .chk-ol > li{position:relative;padding-left:30px;margin:10px 0}
+  .chk-ol{list-style:none;counter-reset:chk;padding-left:0}
+  .chk-ol > li{counter-increment:chk}
+  .chk-ol > li::before{content:counter(chk) ".";position:absolute;left:0;top:0;
+    color:var(--primary);font-weight:800;width:22px;text-align:right}
+  .chk{display:inline-block;width:14px;height:14px;border:1.5px solid var(--primary);
+    border-radius:3px;vertical-align:-2px;margin-right:8px;background:#fff}
+  .chk-ol > li > .chk{position:absolute;left:24px;top:6px;margin-right:0}
+  .chk-ol > li{padding-left:48px}
+  .initial{display:inline-block;color:var(--muted);font-size:13px;font-style:italic;
+    margin-left:6px;white-space:nowrap}
+  .initial .line{display:inline-block;border-bottom:1px solid var(--ink);
+    width:90px;height:14px;vertical-align:-3px;margin-left:4px}
+  /* Signature block */
+  .sig-section{margin-top:36px;padding-top:24px;border-top:2px solid var(--accent-border)}
+  .sig-section h2{border-bottom:0;padding-bottom:0;margin-top:0}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+  .sig-card{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:20px}
+  .sig-card h3{margin:0 0 14px;color:var(--ink);font-size:15px;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .sig-row{margin:14px 0}
+  .sig-row .label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:4px;font-weight:600}
+  .sig-row .field{border-bottom:1.5px solid var(--ink);min-height:30px;width:100%}
+  .sig-row.sig .field{min-height:42px}
+  @media (max-width:640px){.sig-grid{grid-template-columns:1fr}}
   footer.foot{padding:22px 36px;color:var(--muted);font-size:13px;text-align:center;border-top:1px solid var(--line);background:#fafbfc}
   footer.foot a{color:var(--primary);text-decoration:none}
   @media (max-width:640px){
@@ -93,28 +121,28 @@
       <h2><span class="num">2.</span>90-Day Action-Based Refund Guarantee</h2>
       <p>The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). The minimum revenue threshold that must be missed in order to trigger the Guarantee depends on the Customer's mentorship tier:</p>
       <div class="tier-list">
-        <ul>
-          <li><strong>Three-Month Mentorship:</strong> $5,000 in revenue within 90 days of being granted access to the Program.</li>
-          <li><strong>Six-Month, One-Year, and Lifetime Mentorships:</strong> $10,000 in revenue within the first 90 days of being granted access to the Program.</li>
+        <ul class="chk-list">
+          <li><span class="chk"></span><strong>Three-Month Mentorship:</strong> $5,000 in revenue within 90 days of being granted access to the Program. <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span><strong>Six-Month, One-Year, and Lifetime Mentorships:</strong> $10,000 in revenue within the first 90 days of being granted access to the Program. <span class="initial">Initial: <span class="line"></span></span></li>
         </ul>
       </div>
       <p>If the Customer does not generate at least the applicable revenue threshold within their 90-day window, the Customer is eligible for a full refund of the purchase price <strong>AND</strong> continued access to all coaches and resources until that threshold is reached, <strong>provided that</strong> the Customer has met <strong>all four</strong> of the following criteria within the 90-day period:</p>
-      <ol>
-        <li><strong>Active and Engaged Participation in At Least 10 Live Zoom Calls.</strong> Attendance alone is not sufficient. The Customer must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify.</li>
-        <li><strong>Effective Utilization of the BTS Concierge.</strong> The Customer must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service.</li>
-        <li><strong>Diligent Sharing and Daily Updating of a Profit &amp; Loss (P&amp;L) Spreadsheet.</strong> The Customer must update the P&amp;L Spreadsheet daily, notify the support team at each ad-spend milestone (<code>support@buildtestscale.com</code>), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase.</li>
+      <ol class="chk-ol">
+        <li><span class="chk"></span><strong>Active and Engaged Participation in At Least 10 Live Zoom Calls.</strong> Attendance alone is not sufficient. The Customer must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><span class="chk"></span><strong>Effective Utilization of the BTS Concierge.</strong> The Customer must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><span class="chk"></span><strong>Diligent Sharing and Daily Updating of a Profit &amp; Loss (P&amp;L) Spreadsheet.</strong> The Customer must update the P&amp;L Spreadsheet daily, notify the support team at each ad-spend milestone (<code>support@buildtestscale.com</code>), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase. <span class="initial">Initial: <span class="line"></span></span></li>
         <li>
-          <strong>Achieving the Minimum Ad-Spend Threshold for the Customer's Mentorship Tier on Specified Traffic Sources.</strong> The Customer must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
+          <span class="chk"></span><strong>Achieving the Minimum Ad-Spend Threshold for the Customer's Mentorship Tier on Specified Traffic Sources.</strong> The Customer must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
           <div class="tier-list">
-            <ul>
-              <li><strong>Three-Month Mentorship:</strong> $5,000 USD in ad spend.</li>
-              <li><strong>Six-Month, One-Year, and Lifetime Mentorships:</strong> $10,000 USD in ad spend within the first 90 days.</li>
+            <ul class="chk-list">
+              <li><span class="chk"></span><strong>Three-Month Mentorship:</strong> $5,000 USD in ad spend. <span class="initial">Initial: <span class="line"></span></span></li>
+              <li><span class="chk"></span><strong>Six-Month, One-Year, and Lifetime Mentorships:</strong> $10,000 USD in ad spend within the first 90 days. <span class="initial">Initial: <span class="line"></span></span></li>
             </ul>
           </div>
-          The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing.
+          The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing. <span class="initial">Initial: <span class="line"></span></span>
         </li>
       </ol>
-      <div class="callout">The 90-day period begins on the date the Customer is granted access to the Program, <strong>not</strong> the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above.</div>
+      <div class="callout">The 90-day period begins on the date the Customer is granted access to the Program, <strong>not</strong> the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above. <span class="initial">Initial: <span class="line"></span></span></div>
 
       <h2><span class="num">3.</span>Payment</h2>
       <p>The Customer shall pay the Company the agreed-upon fee for the Services. The fee may be paid in full upfront or in installments, as specified in the invoice provided by the Company. Failure to pay any installment may result in suspension or termination of access to the Program. The Company reserves the right to change Program rates at any time, but such changes shall not apply to the Customer's existing Program.</p>
@@ -177,6 +205,26 @@
       <p>For questions regarding this Agreement, contact us at <code>support@buildtestscale.com</code>.</p>
 
       <div class="footer-ack">By proceeding, you acknowledge that you have read, understand, and agree to the terms of this BTS Mentorship Program Agreement.</div>
+
+      <section class="sig-section">
+        <h2><span class="num">22.</span>Signatures</h2>
+        <p>The parties have executed this Agreement as of the dates set forth below.</p>
+        <div class="sig-grid">
+          <div class="sig-card">
+            <h3>Customer</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+          <div class="sig-card">
+            <h3>Company &mdash; BTS (Build. Test. Scale.)</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Title</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+        </div>
+      </section>
     </div>
 
     <footer class="foot">

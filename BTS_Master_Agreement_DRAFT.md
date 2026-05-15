@@ -16,24 +16,24 @@ The Company will make every effort to deliver Program content as scheduled but d
 
 The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). The minimum revenue threshold that must be missed in order to trigger the Guarantee depends on the Customer's mentorship tier:
 
-- **Three-Month Mentorship:** $5,000 in revenue within 90 days of being granted access to the Program.
-- **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 in revenue within the first 90 days of being granted access to the Program.
+- [ ] **Three-Month Mentorship:** $5,000 in revenue within 90 days of being granted access to the Program. _(Initial: ______)_
+- [ ] **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 in revenue within the first 90 days of being granted access to the Program. _(Initial: ______)_
 
 If the Customer does not generate at least the applicable revenue threshold within their 90-day window, the Customer is eligible for a full refund of the purchase price **AND** continued access to all coaches and resources until that threshold is reached, **provided that** the Customer has met **all four** of the following criteria within the 90-day period:
 
-1. **Active and Engaged Participation in At Least 10 Live Zoom Calls.** Attendance alone is not sufficient. The Customer must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify.
+1. [ ] **Active and Engaged Participation in At Least 10 Live Zoom Calls.** Attendance alone is not sufficient. The Customer must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify. _(Initial: ______)_
 
-2. **Effective Utilization of the BTS Concierge.** The Customer must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service.
+2. [ ] **Effective Utilization of the BTS Concierge.** The Customer must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service. _(Initial: ______)_
 
-3. **Diligent Sharing and Daily Updating of a Profit & Loss (P&L) Spreadsheet.** The Customer must update the P&L Spreadsheet daily, notify the support team at each ad-spend milestone (`support@buildtestscale.com`), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase.
+3. [ ] **Diligent Sharing and Daily Updating of a Profit & Loss (P&L) Spreadsheet.** The Customer must update the P&L Spreadsheet daily, notify the support team at each ad-spend milestone (`support@buildtestscale.com`), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase. _(Initial: ______)_
 
-4. **Achieving the Minimum Ad-Spend Threshold for the Customer's Mentorship Tier on Specified Traffic Sources.** The Customer must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
-   - **Three-Month Mentorship:** $5,000 USD in ad spend.
-   - **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 USD in ad spend within the first 90 days.
+4. [ ] **Achieving the Minimum Ad-Spend Threshold for the Customer's Mentorship Tier on Specified Traffic Sources.** The Customer must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
+   - [ ] **Three-Month Mentorship:** $5,000 USD in ad spend. _(Initial: ______)_
+   - [ ] **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 USD in ad spend within the first 90 days. _(Initial: ______)_
 
-   The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing.
+   The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing. _(Initial: ______)_
 
-The 90-day period begins on the date the Customer is granted access to the Program, **not** the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above.
+The 90-day period begins on the date the Customer is granted access to the Program, **not** the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above. _(Initial: ______)_
 
 ## 3. Payment
 
@@ -118,3 +118,26 @@ This Agreement constitutes the entire agreement between the Company and the Cust
 For questions regarding this Agreement, contact us at `support@buildtestscale.com`.
 
 By proceeding, you acknowledge that you have read, understand, and agree to the terms of this BTS Mentorship Program Agreement.
+
+---
+
+## 22. Signatures
+
+The parties have executed this Agreement as of the dates set forth below.
+
+### Customer
+
+| Field | |
+|---|---|
+| **Printed Name** | ______________________________________________ |
+| **Signature** | ______________________________________________ |
+| **Date** | ______________________________________________ |
+
+### Company — BTS (Build. Test. Scale.)
+
+| Field | |
+|---|---|
+| **Printed Name** | ______________________________________________ |
+| **Title** | ______________________________________________ |
+| **Signature** | ______________________________________________ |
+| **Date** | ______________________________________________ |
