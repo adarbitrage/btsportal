@@ -14,7 +14,12 @@ The Company will make every effort to deliver Program content as scheduled but d
 
 ## 2. 90-Day Action-Based Refund Guarantee
 
-The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). If the Customer does not generate at least $5,000 in revenue within 90 days of being granted access to the Program, the Customer is eligible for a full refund of the purchase price **AND** continued access to all coaches and resources until the $5,000 threshold is reached, **provided that** the Customer has met **all four** of the following criteria within the 90-day period:
+The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). The minimum revenue threshold that must be missed in order to trigger the Guarantee depends on the Customer's mentorship tier:
+
+- **Three-Month Mentorship:** $5,000 in revenue within 90 days of being granted access to the Program.
+- **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 in revenue within the first 90 days of being granted access to the Program.
+
+If the Customer does not generate at least the applicable revenue threshold within their 90-day window, the Customer is eligible for a full refund of the purchase price **AND** continued access to all coaches and resources until that threshold is reached, **provided that** the Customer has met **all four** of the following criteria within the 90-day period:
 
 1. **Active and Engaged Participation in At Least 10 Live Zoom Calls.** Attendance alone is not sufficient. The Customer must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify.
 
