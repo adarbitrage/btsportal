@@ -822,7 +822,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div id="blitz-step2">
   <div id="step2-overview">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets</span></div>
-  <h3 id="step2">Step 2 — Build Your Creative Assets <span class="path-tag tag-all">Everyone</span></h3>
+  <h3 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
 
