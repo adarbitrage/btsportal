@@ -906,6 +906,37 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <div class="card">
+    <div class="card-title">The Impact of Each Ad Element — Where to Focus</div>
+    <p style="margin-bottom:14px;">Not all ad elements are created equal. Here's how much each one affects conversion rate:</p>
+    <table style="margin:0;">
+      <thead><tr><th>Element</th><th>Impact</th><th>What It Means</th></tr></thead>
+      <tbody>
+        <tr style="background:#ecfdf5;">
+          <td><strong style="color:#047857;">Ad Angle</strong></td>
+          <td><strong style="color:#047857;">70%</strong></td>
+          <td>The idea your ad represents — how all elements work together to start the story. This moves the needle more than anything else.</td>
+        </tr>
+        <tr>
+          <td><strong>Headline</strong></td>
+          <td><strong>15%</strong></td>
+          <td>The specific words that hook attention and create the curiosity gap.</td>
+        </tr>
+        <tr>
+          <td><strong>Image / Animation</strong></td>
+          <td><strong>10%</strong></td>
+          <td>The visual that stops the scroll. Animations outperform static images on Caterpillar for click-through rate.</td>
+        </tr>
+        <tr>
+          <td>Supporting Copy</td>
+          <td>5%</td>
+          <td>Additional text that deepens curiosity and keeps the loop open.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);font-style:italic;">Get the angle right and everything else will fall into place. Your metrics are a mirror of your marketing — if your marketing is good, the numbers will reflect it.</p>
+  </div>
+
+  <div class="card">
     <div class="card-title">Why Angles Drive Everything You'll Build in This Step</div>
     <p style="margin-bottom:14px;">Every creative asset you create in Step 2 is an angle hypothesis — a bet on what will resonate with your audience. Here's how angles play out across all four asset types:</p>
     <table style="margin:0;">
