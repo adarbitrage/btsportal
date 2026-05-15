@@ -22,7 +22,11 @@ The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). If the 
 
 3. **Diligent Sharing and Daily Updating of a Profit & Loss (P&L) Spreadsheet.** The Customer must update the P&L Spreadsheet daily, notify the support team at each ad-spend milestone (`support@buildtestscale.com`), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase.
 
-4. **Achieving a Minimum of $5,000 in Ad Spend on Specified Traffic Sources.** The Customer must spend a minimum of $5,000 USD on advertisements using only the traffic sources taught within the Program. The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing.
+4. **Achieving the Minimum Ad-Spend Threshold for the Customer's Mentorship Tier on Specified Traffic Sources.** The Customer must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
+   - **Three-Month Mentorship:** $5,000 USD in ad spend.
+   - **Six-Month, One-Year, and Lifetime Mentorships:** $10,000 USD in ad spend within the first 90 days.
+
+   The Customer must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing.
 
 The 90-day period begins on the date the Customer is granted access to the Program, **not** the date the Customer first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Customer understands that the Company does not guarantee success and that any refund is contingent upon the Customer's actual participation as described above.
 
