@@ -408,11 +408,6 @@ function AppCard({
                       {expanded ? "Show less" : "Read more"}
                     </button>
                   )}
-                  {inst?.domain && (
-                    <p className="text-xs text-muted-foreground font-mono break-all">
-                      {inst.domain}
-                    </p>
-                  )}
                   {app.name === "flexy" && status === "installed" && (
                     <FlexyCredentialsInline />
                   )}
