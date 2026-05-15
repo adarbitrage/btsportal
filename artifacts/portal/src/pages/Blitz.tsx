@@ -864,15 +864,20 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="7nwbAaCdt87p7eLn"><div class="play-icon"></div><div><div class="vt">Finding Your Edge With Ad Banner Psychology</div><div class="vd">Watch this first — it shapes how you approach everything that follows</div></div></div>
 
+  <div class="why-box">
+    <div class="why-label">💡 The Affiliate Funnel Is a Three-Part Story</div>
+    Your affiliate campaign tells a story across three steps. The <strong>ad</strong> is the beginning — it starts the story and creates enough curiosity to earn a click. The <strong>landing page (advertorial)</strong> is the middle — it deepens engagement and pre-sells the reader. The <strong>offer page</strong> is the end — it closes the sale. Everything you build in this step is about starting that story the right way.
+  </div>
+
   <div class="callout-box">
     <div class="pe-label">💡 The Two-Headline Concept — Understanding the Difference</div>
-    In affiliate marketing you'll be writing two different types of headlines, and they have two very different jobs:
+    In affiliate marketing you'll be writing two types of headlines with two very different jobs — and your image plays a third, separate role. Understanding how these work together is the foundation of everything in this step.
     <br><br>
-    <strong>Ad Headlines</strong> — These appear in your Caterpillar native ads. Their only job is to generate enough <em>curiosity and interest</em> to get someone to click. They don't need to explain everything — they just need to intrigue. Think of them like a movie trailer: enough to make you want to see more, but not the whole story.
+    <strong>Ad Headlines</strong> — These appear in your Caterpillar native ads alongside your ad image. Together, the image and headline have one job: stop the scroll and earn the click. The image creates the visual hook; the headline opens a curiosity gap. They start the story — they don't tell it. You'll begin with static images, which is where most mentees start. As you advance, animations become a powerful tool for improving click-through rate.
     <br><br>
-    <strong>Landing Page Headlines</strong> — These appear at the top of your landing page. Their job is to <em>carry the story forward</em> from the ad click, deepen the reader's engagement, and pull them into the advertorial or page content far enough that they're motivated to buy. They build on the curiosity the ad headline created.
+    <strong>Landing Page Headlines</strong> — Once someone has clicked, your landing page headline takes over. Its job is to carry the story forward, deepen the reader's engagement, and pull them into the content far enough that they're motivated to buy. This is where conversions are won or lost.
     <br><br>
-    Both are critical — but they work together, not independently. A great ad headline that leads to a mismatched landing page headline will kill conversions. The two need to feel like a connected, continuous experience for the reader.
+    All three elements — ad image, ad headline, and landing page headline — must feel like one connected, continuous experience. A great ad that leads to a mismatched landing page kills conversions. Get the click first with the image and ad headline, then earn the conversion with the landing page.
   </div>
 
   <hr class="divider">
