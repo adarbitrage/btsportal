@@ -880,6 +880,11 @@ const blitzBodyHTML = `<div class="version-banner">
     All three elements — ad image, ad headline, and landing page headline — must feel like one connected, continuous experience. A great ad that leads to a mismatched landing page kills conversions. Get the click first with the image and ad headline, then earn the conversion with the landing page.
   </div>
 
+  <div class="why-box">
+    <div class="why-label">💬 Rule: Keep the Loop Open</div>
+    Never close the curiosity gap in your ad. Do not name the product. Do not give the price. Do not answer the question your image or headline raises. Your ad is selling the click — not the product. The reader needs to feel they <em>must</em> click to find out what happens next. The moment you answer the question in the ad, you've given them a reason not to click.
+  </div>
+
   <hr class="divider">
 
   <h4>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h4>
