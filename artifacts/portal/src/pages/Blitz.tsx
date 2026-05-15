@@ -11,20 +11,23 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   3: { section: "s3", label: "Phase 1 — Overview" },
   4: { section: "s4", label: "Network Selection" },
   5: { section: "s5", label: "Phase 1 · Step 1 — Product Selection" },
-  6: { section: "s6", label: "Phase 1 · Step 2 — Creative Assets" },
-  7: { section: "s7", label: "Phase 1 · Step 3 — Compliance Review" },
-  8: { section: "s8", label: "Phase 1 · Step 4 — Landing Pages" },
-  9: { section: "s9", label: "Phase 1 · Step 5 — DIYTrax Setup" },
-  10: { section: "s10", label: "Phase 1 · Step 6 — Go Live" },
-  11: { section: "s11", label: "Phase 2 — Overview" },
-  12: { section: "s12", label: "Phase 2 · Round 1" },
-  13: { section: "s13", label: "Between Rounds 1 & 2" },
-  14: { section: "s14", label: "Phase 2 · Round 2" },
-  15: { section: "s15", label: "Between Rounds 2 & 3" },
-  16: { section: "s16", label: "Phase 2 · Round 3" },
-  17: { section: "s17", label: "Phase 3 · Method 1 — Scale Budget" },
-  18: { section: "s18", label: "Phase 3 · Method 2 — New Placements" },
-  19: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
+  6: { section: "s6", label: "Phase 1 · Step 2 — Creative Assets · Foundation" },
+  7: { section: "s6b", label: "Phase 1 · Step 2 — Create Your Native Ad Assets" },
+  8: { section: "s6c", label: "Phase 1 · Step 2 — Landing Page Assets · Media Mavens" },
+  9: { section: "s6d", label: "Phase 1 · Step 2 — Landing Page Assets · ClickBank / MaxWeb" },
+  10: { section: "s7", label: "Phase 1 · Step 3 — Compliance Review" },
+  11: { section: "s8", label: "Phase 1 · Step 4 — Landing Pages" },
+  12: { section: "s9", label: "Phase 1 · Step 5 — DIYTrax Setup" },
+  13: { section: "s10", label: "Phase 1 · Step 6 — Go Live" },
+  14: { section: "s11", label: "Phase 2 — Overview" },
+  15: { section: "s12", label: "Phase 2 · Round 1" },
+  16: { section: "s13", label: "Between Rounds 1 & 2" },
+  17: { section: "s14", label: "Phase 2 · Round 2" },
+  18: { section: "s15", label: "Between Rounds 2 & 3" },
+  19: { section: "s16", label: "Phase 2 · Round 3" },
+  20: { section: "s17", label: "Phase 3 · Method 1 — Scale Budget" },
+  21: { section: "s18", label: "Phase 3 · Method 2 — New Placements" },
+  22: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
 };
 
 // Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
@@ -33,18 +36,39 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
 // per lesson-section. Keys are LESSON_LOOKUP section values that should render
 // part (or all) of module1; sections not listed here let module1 fall through
 // to the default data-section filter (which will hide it).
+// Step 2 (Creative Assets) is split into four lessons. Each sub-block of
+// #blitz-step2 (#step2-overview, #step2-native, #step2-mm, #step2-cb) is
+// shown for its corresponding lesson section.
+type Step2Parts = {
+  overview: boolean;
+  native: boolean;
+  mm: boolean;
+  cb: boolean;
+};
+const ALL_STEP2: Step2Parts = { overview: true, native: true, mm: true, cb: true };
+const NO_STEP2: Step2Parts = { overview: false, native: false, mm: false, cb: false };
 const MODULE1_OVERRIDES: Record<
   string,
-  { showModule1: boolean; showOverview: boolean; showStep1: boolean; showStep2: boolean }
+  {
+    showModule1: boolean;
+    showOverview: boolean;
+    showStep1: boolean;
+    showStep2: boolean;
+    step2Parts: Step2Parts;
+  }
 > = {
-  s3: { showModule1: true, showOverview: true, showStep1: false, showStep2: false },
-  s5: { showModule1: true, showOverview: false, showStep1: true, showStep2: false },
-  s6: { showModule1: true, showOverview: false, showStep1: false, showStep2: true },
-  s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
-  s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
-  s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
-  s10: { showModule1: false, showOverview: false, showStep1: false, showStep2: false },
+  s3: { showModule1: true, showOverview: true, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s5: { showModule1: true, showOverview: false, showStep1: true, showStep2: false, step2Parts: NO_STEP2 },
+  s6: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: true, native: false, mm: false, cb: false } },
+  s6b: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: true, mm: false, cb: false } },
+  s6c: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: true, cb: false } },
+  s6d: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
+  s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s10: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
 };
+void ALL_STEP2;
 
 // Source: attached_assets/blitz_main_caterpillar_110_1778523623764.html (v4.0, 2026-04-21)
 // Generated by artifacts/api-server/src/scripts/build-blitz-from-html.ts
@@ -627,7 +651,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div>
 
 <!-- MODULE 1: BUILD -->
-<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s7 s8 s9 s10">
+<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
   <div id="module1-overview">
   <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in Step 2 — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
@@ -796,6 +820,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
+  <div id="step2-overview">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets</span></div>
   <h3 id="step2">Step 2 — Build Your Creative Assets <span class="path-tag tag-all">Everyone</span></h3>
 
@@ -908,6 +933,9 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
+  </div><!-- end step2-overview -->
+  <div id="step2-native">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets · Part 2</span></div>
   <h4 id="part2-native">Part 2 — Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h4>
 
   <p>Regardless of which affiliate network you're using, you'll need to create your native ad assets for Caterpillar. These are the headlines, description, and image that appear in your ads — their only job is to generate enough curiosity that someone clicks.</p>
@@ -975,13 +1003,20 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-  <h4 id="part3-lp">Part 3 — Create Your Landing Page Assets <span class="path-tag tag-all">Everyone — then paths split</span></h4>
+  </div><!-- end step2-native -->
+  <div id="step2-mm">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets · Part 3 (Media Mavens)</span></div>
+  <h4 id="part3-lp">Part 3 — Create Your Landing Page Assets <span class="path-tag tag-mm">Media Mavens / Affiliati (pre-built advertorial)</span></h4>
+
+  <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
+    <strong>Promoting a ClickBank, MaxWeb, or Affiliati (jump page) offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb</em> lesson instead.
+  </div>
 
   <div class="module-intro">
     A landing page is the web page a visitor sees after clicking your ad. Its job is to take someone who was just curious enough to click and turn them into someone who is engaged enough to buy.
   </div>
 
-  <p>This is where the two paths diverge — but not as dramatically as before. <strong>Media Mavens</strong> products come with a pre-built advertorial body copy. <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> require you to write your own short body copy for a jump page template. In both cases, you'll then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations. Find your path below and follow it through to completion.</p>
+  <p>This is where the two paths diverge — but not as dramatically as before. <strong>Media Mavens</strong> products come with a pre-built advertorial body copy. <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> require you to write your own short body copy for a jump page template. In both cases, you'll then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations. This lesson covers the <strong>Media Mavens</strong> path.</p>
 
   <!-- ── MEDIA MAVENS PATH ── -->
   <div class="path-block mm">
@@ -1048,6 +1083,13 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Step 4.</div>
     <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
+
+  </div><!-- end step2-mm -->
+  <div id="step2-cb">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets · Part 3 (ClickBank / MaxWeb)</span></div>
+  <h4>Part 3 — Create Your Landing Page Assets <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati (jump page)</span></h4>
+
+  <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
 
   <!-- ── CLICKBANK / MAXWEB PATH ── -->
   <div class="path-block cb">
@@ -1120,6 +1162,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
+  </div><!-- end step2-cb -->
   </div><!-- end blitz-step2 -->
   </div><!-- end module1-steps -->
 
@@ -1695,6 +1738,10 @@ export default function Blitz() {
     const m1Steps = contentEl.querySelector<HTMLElement>("#module1-steps");
     const m1Step1 = contentEl.querySelector<HTMLElement>("#blitz-step1");
     const m1Step2 = contentEl.querySelector<HTMLElement>("#blitz-step2");
+    const s2Overview = contentEl.querySelector<HTMLElement>("#step2-overview");
+    const s2Native = contentEl.querySelector<HTMLElement>("#step2-native");
+    const s2MM = contentEl.querySelector<HTMLElement>("#step2-mm");
+    const s2CB = contentEl.querySelector<HTMLElement>("#step2-cb");
     const ovr = MODULE1_OVERRIDES[wanted];
     if (ovr) {
       if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
@@ -1704,6 +1751,10 @@ export default function Blitz() {
       }
       if (m1Step1) m1Step1.style.display = ovr.showStep1 ? "" : "none";
       if (m1Step2) m1Step2.style.display = ovr.showStep2 ? "" : "none";
+      if (s2Overview) s2Overview.style.display = ovr.step2Parts.overview ? "" : "none";
+      if (s2Native) s2Native.style.display = ovr.step2Parts.native ? "" : "none";
+      if (s2MM) s2MM.style.display = ovr.step2Parts.mm ? "" : "none";
+      if (s2CB) s2CB.style.display = ovr.step2Parts.cb ? "" : "none";
     } else {
       // Lesson section unrelated to module1 — restore inner defaults so a
       // later switch back into module1 starts from a clean slate.
@@ -1711,6 +1762,10 @@ export default function Blitz() {
       if (m1Steps) m1Steps.style.display = "";
       if (m1Step1) m1Step1.style.display = "";
       if (m1Step2) m1Step2.style.display = "";
+      if (s2Overview) s2Overview.style.display = "";
+      if (s2Native) s2Native.style.display = "";
+      if (s2MM) s2MM.style.display = "";
+      if (s2CB) s2CB.style.display = "";
     }
 
     // Scroll to top on section switch.

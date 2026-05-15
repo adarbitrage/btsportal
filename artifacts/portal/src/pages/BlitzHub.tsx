@@ -61,29 +61,55 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 1", section: "s5" }],
   },
   {
-    id: 6, phase: "build", step: "Phase 1 — Step 2: Creative Assets",
-    title: "Build Your Creative Assets",
+    id: 6, phase: "build", step: "Phase 1 — Step 2: Creative Assets (Part 1)",
+    title: "Understanding Creative Assets — The Foundation of Your Campaign",
     desc: (
       <>
-        Create all four asset types your campaign needs: ad headlines and ad image (to earn the click), and landing page headlines and hero shots (to engage and convert). This step begins with a crucial section on <strong>angles</strong> — understanding why you're testing multiple headlines and images at both the ad and landing page level is the foundation of everything that follows. Also covers jump page body copy for ClickBank/MaxWeb.
+        Before creating anything, understand what you're actually testing and why. This lesson covers the <strong>Two-Headline Concept</strong> (ad headlines vs landing page headlines and their different jobs), what an angle is, and why every headline and image you create is an angle hypothesis. The angles section includes a table showing how angles play out across all four asset types.
+      </>
+    ),
+    ctas: [{ label: "Go to Section", section: "s6" }],
+  },
+  {
+    id: 7, phase: "build", step: "Phase 1 — Step 2: Creative Assets (Part 2)",
+    title: "Create Your Native Ad Assets",
+    desc: "Create the three assets that make up your Caterpillar ad: 10 headlines (max 90 characters each), 1 description, and 1 static image (16:9, min 960×540px). Covers using FreeAdCopy™ to generate headlines, what makes a strong ad image, and the optional dynamic macro codes for personalization.",
+    tags: [
+      { kind: "all", label: "10 Headlines · 1 Description · 1 Image" },
+    ],
+    ctas: [{ label: "Go to Section", section: "s6b" }],
+  },
+  {
+    id: 8, phase: "build", step: "Phase 1 — Step 2: Creative Assets (Part 3 — Media Mavens)",
+    title: "Create Your Landing Page Assets",
+    desc: (
+      <>
+        For Media Mavens: generate 5 landing page headlines using AffAngleArchitect and Copy Blocks, then source 5 hero shot images. These 5 headlines × 5 hero shots = 25 combinations that MetricMover™ will create automatically in the next step. <em>Skip this lesson if you're using a ClickBank, MaxWeb, or Affiliati (jump page) offer — go to the next lesson instead.</em>
       </>
     ),
     tags: [
-      { kind: "all", label: "10 Ad Headlines + 1 Ad Image" },
-      { kind: "mm", label: "MM: 5 LP Headlines + 5 Hero Shots" },
-      { kind: "cb", label: "CB/MW: Jump page body copy + 5 LP Headlines + 5 Hero Shots" },
+      { kind: "mm", label: "5 LP Headlines + 5 Hero Shots = 25 combinations" },
     ],
-    ctas: [{ label: "Go to Step 2", section: "s6" }],
+    ctas: [{ label: "Go to Section", section: "s6c" }],
   },
   {
-    id: 7, phase: "build", step: "Phase 1 — Step 3: Compliance",
+    id: 9, phase: "build", step: "Phase 1 — Step 2: Creative Assets (Part 3 — ClickBank / MaxWeb)",
+    title: "Create Your Landing Page Assets",
+    desc: "For ClickBank, MaxWeb, and Affiliati (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
+    tags: [
+      { kind: "cb", label: "VSL → Transcript → Body Copy → 5 Headlines + 5 Hero Shots" },
+    ],
+    ctas: [{ label: "Go to Section", section: "s6d" }],
+  },
+  {
+    id: 10, phase: "build", step: "Phase 1 — Step 3: Compliance",
     title: "Submit Your Assets for Compliance Review",
     desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 4 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
     ctas: [{ label: "Go to Step 3", section: "s7" }],
   },
   {
-    id: 8, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
+    id: 11, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
     title: "Build Your Landing Pages in Flexy™ Using MetricMover™",
     desc: "Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM13. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM13 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.",
     tags: [
@@ -94,7 +120,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 4", section: "s8" }],
   },
   {
-    id: 9, phase: "build", step: "Phase 1 — Step 5: DIYTrax Setup",
+    id: 12, phase: "build", step: "Phase 1 — Step 5: DIYTrax Setup",
     title: "Set Up DIYTrax",
     desc: "Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.",
     tags: [
@@ -104,7 +130,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 5", section: "s9" }],
   },
   {
-    id: 10, phase: "build", step: "Phase 1 — Step 6: Go Live",
+    id: 13, phase: "build", step: "Phase 1 — Step 6: Go Live",
     title: "Configure Caterpillar and Go Live",
     desc: "Create your campaign in Caterpillar, upload all 10 ad headlines across 2 sub-campaigns of 5 each, upload your ad image, fund your account with at least $500, and complete the pre-launch checklist before activating. Watch T1–T9 in order.",
     tags: [
@@ -115,26 +141,26 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 6", section: "s10" }],
   },
   {
-    id: 11, phase: "test", step: "Testing — Getting Started",
+    id: 14, phase: "test", step: "Testing — Getting Started",
     title: "Find Your Winners Through Data",
     desc: "Read this before launching Round 1. Phase 2 is where your campaign gets smarter — most mentees go through multiple rounds before reaching profitability, and that's the process working as designed. Learn the daily monitoring routine (conversions → ad CTR → landing page CTR) and set up your P&L Tracker so every round produces clean data for the next one.",
     ctas: [{ label: "Go to Phase 2 Overview", section: "s11" }],
   },
   {
-    id: 12, phase: "test", step: "Round 1 · Min. $500",
+    id: 15, phase: "test", step: "Round 1 · Min. $500",
     title: "Find Your Top Performing Headline",
     desc: "Run all 10 ads and monitor performance daily. At $25/ad: cut any ad with 33+ clicks but zero landing page clicks. At $500 total: identify the headline with the strongest metrics. Expect ~20% ROAS — you are buying data, not revenue.",
     tags: [{ kind: "all", label: "Target: ~$100 returned (20% ROAS)" }],
     ctas: [{ label: "Go to Round 1", section: "s12" }],
   },
   {
-    id: 13, phase: "test", step: "Between Rounds 1 and 2",
+    id: 16, phase: "test", step: "Between Rounds 1 and 2",
     title: "Prepare Additional Static Images While Round 1 Runs",
     desc: "While Round 1 is running, prepare your Round 2 assets. Create 9 new static images in 16:9 format using AI tools. These will compete against your original Round 1 image in Round 2. MM/CB path: also prepare 5 new landing page headlines, 5 new hero shots, and set up a new MetricMover™ project.",
     ctas: [{ label: "Go to Between Rounds", section: "s13" }],
   },
   {
-    id: 14, phase: "test", step: "Round 2 · Min. $500",
+    id: 17, phase: "test", step: "Round 2 · Min. $500",
     title: "Find Your Top Performing Visual Creative",
     desc: "Run 10 static images in 16:9 format — your original plus 9 new ones — all using your Round 1 top performing headline. Identify which visual generates the best return. Target approximately 75% ROAS before advancing to Round 3.",
     tags: [
@@ -144,13 +170,13 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Round 2", section: "s14" }],
   },
   {
-    id: 15, phase: "test", step: "Between Rounds 2 and 3",
+    id: 18, phase: "test", step: "Between Rounds 2 and 3",
     title: "Prepare Your Round 3 Placement Format Assets",
     desc: "Take your Round 2 top performing creative and convert it into all 6 placement formats: 16:9 static image, 9:16 static image, 16:9 GIF, 9:16 GIF, 16:9 video, and 9:16 video. Use Cropbot, Adobe Express, and GIFSTER as needed.",
     ctas: [{ label: "Go to Between Rounds", section: "s15" }],
   },
   {
-    id: 16, phase: "test", step: "Round 3 · Min. $1,000",
+    id: 19, phase: "test", step: "Round 3 · Min. $1,000",
     title: "Find Your Top Performing Placement Format",
     desc: "Run all 6 placement formats as 6 separate sub-campaigns — one format per sub-campaign, as required by the publisher. Identify which placement format generates the best return. Earning ~$600 on $1,000 means you're closing in on profitability — continue refining until the campaign generates a positive return.",
     tags: [
@@ -160,20 +186,20 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Round 3", section: "s16" }],
   },
   {
-    id: 17, phase: "scale", step: "Method 1",
+    id: 20, phase: "scale", step: "Method 1",
     title: "Increase Budget on Your Top Performing Placement",
     desc: "Remove non-profitable ads and increase your daily budget 2× on your top performing placement. If ROAS stays stable after 3–5 days, increase to 5×, then 10×. Monitor daily — stop scaling a placement if ROAS declines for 5+ consecutive days.",
     tags: [{ kind: "warn", label: "Only enter Phase 3 once Phase 2 is profitable" }],
     ctas: [{ label: "Go to Scale Module", section: "s17" }],
   },
   {
-    id: 18, phase: "scale", step: "Method 2",
+    id: 21, phase: "scale", step: "Method 2",
     title: "Test New Placements and Publishers",
     desc: "Use your proven ads and landing pages on Grasshopper or Crane publishers — no new creative required. Minimum $1,500 per new placement. See the Grasshopper and Crane Supplemental Guides for setup instructions.",
     ctas: [{ label: "Go to Scale Module", section: "s18" }],
   },
   {
-    id: 19, phase: "scale", step: "Method 3",
+    id: 22, phase: "scale", step: "Method 3",
     title: "Master Publisher",
     desc: "A dedicated email blast to a large subscriber list — dramatically higher reach than native or banner ads. Only available after 14+ consecutive profitable days. Requires a single best headline, image, and landing page. Discuss with your coach before pursuing.",
     tags: [
@@ -185,7 +211,7 @@ const LESSONS: HubLesson[] = [
 ];
 
 const TOTAL = LESSONS.length;
-const STEP_COURSE_PREFIX = "blitz-hub-step-";
+const STEP_COURSE_PREFIX = "blitz-hub-step-v2-";
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 const GUIDE_BASE = `${import.meta.env.BASE_URL}blitz/guide`;
 
@@ -446,7 +472,7 @@ export default function BlitzHub() {
         if (cancelled) return;
         const next = new Set<number>();
         for (const row of rows ?? []) {
-          const m = row.courseId?.match(/^blitz-hub-step-(\d+)$/);
+          const m = row.courseId?.match(/^blitz-hub-step-v2-(\d+)$/);
           if (m) next.add(Number(m[1]));
         }
         setCompleted(next);
@@ -531,7 +557,7 @@ export default function BlitzHub() {
         const rows: ProgressEntry[] = await res.json();
         const next = new Set<number>();
         for (const row of rows ?? []) {
-          const m = row.courseId?.match(/^blitz-hub-step-(\d+)$/);
+          const m = row.courseId?.match(/^blitz-hub-step-v2-(\d+)$/);
           if (m) next.add(Number(m[1]));
         }
         setCompleted(next);
