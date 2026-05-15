@@ -120,3 +120,9 @@ id = "eILVoX7c1a2vkRY8z_1Os"
 uri = "file://.local/exports/bts-master-agreement-draft.md"
 type = "text"
 title = "BTS Master Agreement Draft (Markdown)"
+
+[[outputs]]
+id = "PBJE3uZag2E0TggihxanK"
+uri = "file://exports/BTS_Mentorship_Agreement_Preview.pdf"
+type = "pdf"
+title = "BTS Mentorship Agreement — Mentee Preview"
