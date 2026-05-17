@@ -1090,7 +1090,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert — watch before writing</div></div></div>
 
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
-      <li><strong>Copy Blocks Mini Tutorial (Google Doc)</strong> — exercises to complete while watching. File → Make a copy to get your own version. Pause at each exercise before scrolling to reveal the answer.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version. Pause at each exercise before scrolling to reveal the answer.</li>
       <li><strong>Copy Blocks Essential Understanding (Google Doc)</strong> — a deeper reference guide with many more examples. Read this after completing the video exercises.</li>
     </ul>
     <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
@@ -1163,7 +1163,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
     <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
-      <li><strong>Copy Blocks Mini Tutorial (Google Doc)</strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
       <li><strong>Copy Blocks Essential Understanding (Google Doc)</strong> — a deeper reference guide. Read after the video exercises.</li>
     </ul>
     <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
