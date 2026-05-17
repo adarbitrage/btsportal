@@ -1083,6 +1083,8 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
 
+    <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
+
     <div class="callout-box"><div class="pe-label">💡 What is Poe.com?</div>Poe is a platform that gives you access to AI chatbots, including specialized bots built for specific tasks ($20/mo for 1 million credits). The AffAngleArchitect bot is pre-configured specifically to generate strong marketing angles for affiliate campaigns — much more targeted than a general AI tool.</div>
 
     <p>After you have generated your landing page headlines, learn how to make them even stronger by using Copy Blocks:</p>
