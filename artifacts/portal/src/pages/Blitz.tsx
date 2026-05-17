@@ -1017,7 +1017,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <div class="video-slot" data-vidalytics-id="n0qLplS9RLK24Xc1" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
-  <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Shorten Your Ad Headline Title and Insert Dynamic Macros</div><div class="vd">Draw angles from your advertorial and the product's sales page</div></div></div>
+  <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Shorten Your Ad Headline Title and Insert Dynamic Macros</div><div class="vd">Trim long headlines to fit Caterpillar's character limits and use macros like {city} and {state} to personalize ads</div></div></div>
 
   <div class="card"><div class="card-title">Optional: Dynamic Macros — Make Ads Feel Personal</div>
     <p style="font-size:.87rem; margin-bottom:8px;">Caterpillar lets you insert placeholder codes that auto-fill viewer-specific info, making ads feel personalized. Example: <code>{city}</code> is replaced by the viewer's actual city. You can ask Claude to help incorporate these naturally into your headlines.</p>
