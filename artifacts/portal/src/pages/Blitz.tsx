@@ -1091,7 +1091,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version. Pause at each exercise before scrolling to reveal the answer.</li>
-      <li><strong>Copy Blocks Essential Understanding (Google Doc)</strong> — a deeper reference guide with many more examples. Read this after completing the video exercises.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1Q822qgrEJaG-O1HOcz8G5-DMOaJ39FSPFHwegdotAPM/edit?tab=t.0#heading=h.u2iwak40dl0w" target="_blank" rel="noopener noreferrer">Copy Blocks Essential Understanding (Google Doc)</a></strong> — a deeper reference guide with many more examples. Read this after completing the video exercises.</li>
     </ul>
     <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
     </div>
@@ -1164,7 +1164,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
-      <li><strong>Copy Blocks Essential Understanding (Google Doc)</strong> — a deeper reference guide. Read after the video exercises.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1Q822qgrEJaG-O1HOcz8G5-DMOaJ39FSPFHwegdotAPM/edit?tab=t.0#heading=h.u2iwak40dl0w" target="_blank" rel="noopener noreferrer">Copy Blocks Essential Understanding (Google Doc)</a></strong> — a deeper reference guide. Read after the video exercises.</li>
     </ul>
     <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
     </div>
