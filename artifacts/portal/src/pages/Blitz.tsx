@@ -1016,7 +1016,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="1_pFw6Xw5zsIf42q" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
+  <div class="video-slot" data-vidalytics-id="n0qLplS9RLK24Xc1" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
   <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ad Headlines and Descriptions for Caterpillar</div><div class="vd">Draw angles from your advertorial and the product's sales page</div></div></div>
 
   <div class="card"><div class="card-title">Optional: Dynamic Macros — Make Ads Feel Personal</div>
