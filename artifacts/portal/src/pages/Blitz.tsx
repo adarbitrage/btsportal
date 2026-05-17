@@ -1163,6 +1163,9 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
 
     <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+
+    <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
+
     <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
     <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
       <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
