@@ -1489,7 +1489,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <h4>Phase 2 — Test — Round 2 Landing Page Prep</h4>
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens / Affiliati (advertorial)</div>
-    <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use AffAngleArchitect or FreeAdCopy™ to generate completely new angles.</p>
+    <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">AffAngleArchitect</a> or FreeAdCopy™ to generate completely new angles.</p>
     <p><strong>5 new hero shots:</strong> Same logic — keep close variations of what worked, replace what didn't. Set up a new MetricMover project for these 25 new combinations.</p>
   </div>
   <div class="path-block cb">
