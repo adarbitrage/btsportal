@@ -40,20 +40,61 @@ import {
   Legend,
 } from "recharts";
 
-const dailyChartConfig: ChartConfig = {
+const trendChartConfig: ChartConfig = {
   impressions: { label: "Impressions", color: "#3b82f6" },
   clicks: { label: "Clicks", color: "#10b981" },
   ctr: { label: "CTR (%)", color: "#f59e0b" },
 };
 
-function formatDayLabel(day: string): string {
-  const d = new Date(`${day}T00:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return day;
-  return d.toLocaleDateString(undefined, {
+type TrendGranularity = "day" | "week" | "month";
+
+function formatBucketLabel(bucket: string, granularity: TrendGranularity): string {
+  const d = new Date(`${bucket}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return bucket;
+  if (granularity === "month") {
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+  const short = d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
   });
+  return granularity === "week" ? `Week of ${short}` : short;
+}
+
+function formatTrendTooltipLabel(bucket: string, granularity: TrendGranularity): string {
+  const d = new Date(`${bucket}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return bucket;
+  if (granularity === "month") {
+    return `Month of ${d.toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    })}`;
+  }
+  const long = d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return granularity === "week" ? `Week of ${long}` : long;
+}
+
+function trendCardTitle(granularity: TrendGranularity): string {
+  if (granularity === "week") return "Weekly trend";
+  if (granularity === "month") return "Monthly trend";
+  return "Daily trend";
+}
+
+function trendEmptyMessage(granularity: TrendGranularity): string {
+  if (granularity === "week") return "No weekly activity in this range yet.";
+  if (granularity === "month") return "No monthly activity in this range yet.";
+  return "No daily activity in this range yet.";
 }
 
 function isoDateOnly(date: Date): string {
@@ -281,19 +322,26 @@ export default function UpgradePromptAnalytics() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Daily trend</CardTitle>
+                <CardTitle className="text-base" data-testid="upgrade-prompts-trend-title">
+                  {trendCardTitle(data?.granularity ?? "day")}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {!data?.daily.length ? (
-                  <p className="text-sm text-muted-foreground">No daily activity in this range yet.</p>
+                {!data?.trend.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    {trendEmptyMessage(data?.granularity ?? "day")}
+                  </p>
                 ) : (
-                  <div data-testid="chart-upgrade-prompts-daily">
-                    <ChartContainer config={dailyChartConfig} className="h-[320px] w-full">
-                      <ComposedChart data={data.daily}>
+                  <div
+                    data-testid="chart-upgrade-prompts-trend"
+                    data-granularity={data.granularity}
+                  >
+                    <ChartContainer config={trendChartConfig} className="h-[320px] w-full">
+                      <ComposedChart data={data.trend}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
-                          dataKey="day"
-                          tickFormatter={formatDayLabel}
+                          dataKey="bucket"
+                          tickFormatter={(value: string) => formatBucketLabel(value, data.granularity)}
                           minTickGap={24}
                         />
                         <YAxis yAxisId="left" allowDecimals={false} />
@@ -307,7 +355,9 @@ export default function UpgradePromptAnalytics() {
                           content={
                             <ChartTooltipContent
                               labelFormatter={(value) =>
-                                typeof value === "string" ? formatDayLabel(value) : String(value)
+                                typeof value === "string"
+                                  ? formatTrendTooltipLabel(value, data.granularity)
+                                  : String(value)
                               }
                             />
                           }

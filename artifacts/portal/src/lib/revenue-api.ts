@@ -152,8 +152,10 @@ export interface UpgradePromptComboStat {
   ctr: number;
 }
 
-export interface UpgradePromptDailyStat {
-  day: string;
+export type UpgradePromptTrendGranularity = "day" | "week" | "month";
+
+export interface UpgradePromptTrendBucket {
+  bucket: string;
   impressions: number;
   clicks: number;
   ctr: number;
@@ -161,10 +163,11 @@ export interface UpgradePromptDailyStat {
 
 export interface UpgradePromptAnalyticsResponse {
   range: { from: string; to: string };
+  granularity: UpgradePromptTrendGranularity;
   totals: { impressions: number; clicks: number; ctr: number };
   byVariant: UpgradePromptVariantStat[];
   byTier: UpgradePromptTierStat[];
-  daily: UpgradePromptDailyStat[];
+  trend: UpgradePromptTrendBucket[];
   topFeatureCombos: UpgradePromptComboStat[];
 }
 

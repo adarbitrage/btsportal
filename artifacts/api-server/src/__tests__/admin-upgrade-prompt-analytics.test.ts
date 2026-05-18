@@ -152,29 +152,31 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
 
     const body = res.body as {
       range: { from: string; to: string };
+      granularity: "day" | "week" | "month";
       totals: { impressions: number; clicks: number; ctr: number };
       byVariant: { variant: string; impressions: number; clicks: number; ctr: number }[];
       byTier: { sourceTier: string; impressions: number; clicks: number; ctr: number }[];
-      daily: { day: string; impressions: number; clicks: number; ctr: number }[];
+      trend: { bucket: string; impressions: number; clicks: number; ctr: number }[];
       topFeatureCombos: { keys: string[]; impressions: number; clicks: number; ctr: number }[];
     };
 
-    expect(Array.isArray(body.daily)).toBe(true);
-    expect(body.daily.length).toBeGreaterThanOrEqual(2);
-    // Days are returned in ascending order
-    const days = body.daily.map((d) => d.day);
-    expect([...days].sort()).toEqual(days);
+    expect(body.granularity).toBe("day");
+    expect(Array.isArray(body.trend)).toBe(true);
+    expect(body.trend.length).toBeGreaterThanOrEqual(2);
+    // Buckets are returned in ascending order
+    const buckets = body.trend.map((d) => d.bucket);
+    expect([...buckets].sort()).toEqual(buckets);
     // Each row should be a YYYY-MM-DD date string
-    for (const row of body.daily) {
-      expect(row.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const row of body.trend) {
+      expect(row.bucket).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(row.ctr).toBe(
         row.impressions > 0 ? Math.round((row.clicks / row.impressions) * 1000) / 10 : 0,
       );
     }
-    const totalImpressionsFromDaily = body.daily.reduce((sum, r) => sum + r.impressions, 0);
-    const totalClicksFromDaily = body.daily.reduce((sum, r) => sum + r.clicks, 0);
-    expect(totalImpressionsFromDaily).toBe(body.totals.impressions);
-    expect(totalClicksFromDaily).toBe(body.totals.clicks);
+    const totalImpressionsFromTrend = body.trend.reduce((sum, r) => sum + r.impressions, 0);
+    const totalClicksFromTrend = body.trend.reduce((sum, r) => sum + r.clicks, 0);
+    expect(totalImpressionsFromTrend).toBe(body.totals.impressions);
+    expect(totalClicksFromTrend).toBe(body.totals.clicks);
 
     expect(body.range.from).toBeTruthy();
     expect(body.range.to).toBeTruthy();
@@ -237,7 +239,7 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
     expect(res.status).toBe(400);
   });
 
-  it("filters totals, daily, byVariant, and byTier by variant", async () => {
+  it("filters totals, trend, byVariant, and byTier by variant", async () => {
     const res = await request(app)
       .get("/api/admin/analytics/upgrade-prompts?variant=sidebar")
       .set("Cookie", adminCookie);
@@ -247,7 +249,7 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
       totals: { impressions: number; clicks: number };
       byVariant: { variant: string }[];
       byTier: { sourceTier: string; impressions: number; clicks: number }[];
-      daily: { impressions: number; clicks: number }[];
+      trend: { impressions: number; clicks: number }[];
     };
 
     // Only sidebar should appear
@@ -255,10 +257,10 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
     // Sidebar events were all on "starter"
     expect(body.byTier.every((t) => t.sourceTier === "starter")).toBe(true);
 
-    const dailyImpressions = body.daily.reduce((s, r) => s + r.impressions, 0);
-    const dailyClicks = body.daily.reduce((s, r) => s + r.clicks, 0);
-    expect(dailyImpressions).toBe(body.totals.impressions);
-    expect(dailyClicks).toBe(body.totals.clicks);
+    const trendImpressions = body.trend.reduce((s, r) => s + r.impressions, 0);
+    const trendClicks = body.trend.reduce((s, r) => s + r.clicks, 0);
+    expect(trendImpressions).toBe(body.totals.impressions);
+    expect(trendClicks).toBe(body.totals.clicks);
     // Sidebar seed events: 1 impression, 2 clicks
     expect(body.totals.impressions).toBe(1);
     expect(body.totals.clicks).toBe(2);
@@ -290,12 +292,12 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
 
     const body = res.body as {
       totals: { impressions: number; clicks: number };
-      daily: unknown[];
+      trend: unknown[];
     };
     // No events match dashboard+starter in the seed data
     expect(body.totals.impressions).toBe(0);
     expect(body.totals.clicks).toBe(0);
-    expect(body.daily.length).toBe(0);
+    expect(body.trend.length).toBe(0);
   });
 
   it("rejects an unknown variant filter", async () => {
@@ -303,6 +305,36 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
       .get("/api/admin/analytics/upgrade-prompts?variant=popup")
       .set("Cookie", adminCookie);
     expect(res.status).toBe(400);
+  });
+
+  it("rolls the trend up into weekly buckets for ranges over ~90 days", async () => {
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+    const res = await request(app)
+      .get(`/api/admin/analytics/upgrade-prompts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.granularity).toBe("week");
+    for (const row of res.body.trend as { bucket: string }[]) {
+      expect(row.bucket).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      // Postgres date_trunc('week', ...) returns a Monday
+      const d = new Date(`${row.bucket}T00:00:00.000Z`);
+      expect(d.getUTCDay()).toBe(1);
+    }
+  });
+
+  it("rolls the trend up into monthly buckets for ranges over ~12 months", async () => {
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - 366 * 24 * 60 * 60 * 1000).toISOString();
+    const res = await request(app)
+      .get(`/api/admin/analytics/upgrade-prompts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.granularity).toBe("month");
+    for (const row of res.body.trend as { bucket: string }[]) {
+      // First of the month
+      expect(row.bucket).toMatch(/^\d{4}-\d{2}-01$/);
+    }
   });
 
   it("rejects ranges where from is after to", async () => {

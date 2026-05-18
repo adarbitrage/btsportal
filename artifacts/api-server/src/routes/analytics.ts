@@ -17,6 +17,21 @@ const MAX_RANGE_DAYS = 366;
 const DEFAULT_RANGE_DAYS = 30;
 const TOP_FEATURE_COMBOS_LIMIT = 10;
 
+// Bucket the daily-trend response based on the requested span so the chart
+// stays legible and the payload stays small. At a year of daily bars the
+// chart is unreadable; weekly buckets keep a 12-month view in roughly the
+// same shape as the default 30-day daily view.
+const WEEKLY_BUCKET_THRESHOLD_DAYS = 90;
+const MONTHLY_BUCKET_THRESHOLD_DAYS = 365;
+
+export type TrendGranularity = "day" | "week" | "month";
+
+export function pickTrendGranularity(spanDays: number): TrendGranularity {
+  if (spanDays > MONTHLY_BUCKET_THRESHOLD_DAYS) return "month";
+  if (spanDays > WEEKLY_BUCKET_THRESHOLD_DAYS) return "week";
+  return "day";
+}
+
 // Per-user cap on POST /analytics/events. The portal client de-dupes
 // impressions per render, so a real member only emits a handful of events
 // per page navigation (one impression + an optional cta_click for each of
@@ -106,8 +121,8 @@ interface FeatureComboRow {
   clicks: number;
 }
 
-interface DailyRow {
-  day: string;
+interface TrendRow {
+  bucket: string;
   impressions: number;
   clicks: number;
 }
@@ -117,7 +132,9 @@ function ratePercent(clicks: number, impressions: number): number {
   return Math.round((clicks / impressions) * 1000) / 10;
 }
 
-function parseRange(query: Record<string, unknown>): { from: Date; to: Date } | null {
+function parseRange(
+  query: Record<string, unknown>,
+): { from: Date; to: Date; spanDays: number } | null {
   const rawFrom = typeof query.from === "string" ? query.from : null;
   const rawTo = typeof query.to === "string" ? query.to : null;
 
@@ -142,7 +159,7 @@ function parseRange(query: Record<string, unknown>): { from: Date; to: Date } | 
   const spanDays = (to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000);
   if (spanDays > MAX_RANGE_DAYS) return null;
 
-  return { from, to };
+  return { from, to, spanDays };
 }
 
 router.get(
@@ -190,17 +207,22 @@ router.get(
       .where(where)
       .groupBy(upgradePromptEventsTable.variant, upgradePromptEventsTable.sourceTier)) as AggregateRow[];
 
-    const dayExpr = sql<string>`to_char(date_trunc('day', ${upgradePromptEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
-    const dailyRows = (await db
+    const granularity = pickTrendGranularity(range.spanDays);
+    // `date_trunc('week', ...)` uses ISO weeks (Monday-start) which matches
+    // the "Week of <Mon>" label we render on the chart. `granularity` is a
+    // controlled enum (day|week|month) so it's safe to inline as a SQL literal.
+    const bucketUnitLiteral = sql.raw(`'${granularity}'`);
+    const bucketExpr = sql<string>`to_char(date_trunc(${bucketUnitLiteral}, ${upgradePromptEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
+    const trendRows = (await db
       .select({
-        day: dayExpr.as("day"),
+        bucket: bucketExpr.as("bucket"),
         impressions: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'impression' then 1 else 0 end)::int`,
         clicks: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'cta_click' then 1 else 0 end)::int`,
       })
       .from(upgradePromptEventsTable)
       .where(where)
-      .groupBy(dayExpr)
-      .orderBy(dayExpr)) as DailyRow[];
+      .groupBy(bucketExpr)
+      .orderBy(bucketExpr)) as TrendRow[];
 
     const comboKeyExpr = sql<string>`coalesce((select string_agg(value, '|' order by value) from jsonb_array_elements_text(${upgradePromptEventsTable.lockedFeatureKeys}) as t(value)), '')`;
     const comboRows = (await db
@@ -254,11 +276,11 @@ router.get(
       }))
       .sort((a, b) => b.clicks - a.clicks);
 
-    const daily = dailyRows.map((row) => {
+    const trend = trendRows.map((row) => {
       const impressions = Number(row.impressions) || 0;
       const clicks = Number(row.clicks) || 0;
       return {
-        day: row.day,
+        bucket: row.bucket,
         impressions,
         clicks,
         ctr: ratePercent(clicks, impressions),
@@ -279,6 +301,7 @@ router.get(
 
     res.json({
       range: { from: range.from.toISOString(), to: range.to.toISOString() },
+      granularity,
       totals: {
         impressions: totals.impressions,
         clicks: totals.clicks,
@@ -286,7 +309,7 @@ router.get(
       },
       byVariant,
       byTier,
-      daily,
+      trend,
       topFeatureCombos,
     });
   },
