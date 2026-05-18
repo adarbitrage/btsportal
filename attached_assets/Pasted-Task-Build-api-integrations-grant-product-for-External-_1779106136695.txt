@@ -1,0 +1,25 @@
+Task: Build /api/integrations/grant-product for External Integration (YSE).
+A separate Replit project (YSE) needs to grant BTS product purchases when YSE customers complete NMI-backed checkouts on the operator’s internal cart system. This task builds the BTS-side receiver: a REST endpoint that authenticates via API key, accepts a payload describing the purchase, and triggers the full side-effect chain (user create, product grant, welcome email, GHL sync, commission attribution).
+Critical context:
+	•	YSE is the operator’s lead-magnet funnel system (Workshop + eBook funnels at yoursecondengine.com), running on the operator’s internal NMI-backed cart.
+	•	Customers complete a $67 front-end purchase plus optional bumps/upsells via NMI on YSE.
+	•	5 new BTS products need to be created to represent the YSE catalog:
+	•	YSE Front End ($67) — entitlement_keys: TBD (operator decision)
+	•	Affiliate CMO ($47 bump) — entitlement_keys: TBD (operator decision)
+	•	21-Day Blitz ($297 upsell_1) — entitlement_keys: TBD (operator decision)
+	•	Swipe Resource Bank ($97 upsell_2 / downsell_1) — entitlement_keys: TBD (operator decision)
+	•	Profit Maximizer Pass ($97 upsell_3) — entitlement_keys: TBD (operator decision)
+	•	Halt with proposed entitlement_keys for each YSE product before seeding. Operator confirms at halt review.
+Scope
+Step 1 — Seed 5 new YSE product rows
+	1.	Add 5 new product rows to BTS’s products table, following the existing seed pattern in artifacts/api-server/src/seed.ts.
+	2.	For each product: choose a stable slug (e.g., yse_front_end, yse_affiliate_cmo_bump, yse_21_day_blitz, yse_swipe_resource_bank, yse_profit_maximizer_pass), human-readable name, price in cents, and entitlement_keys JSONB array.
+	3.	Halt before seeding with the proposed slugs + entitlement_keys mapping for operator confirmation.
+	4.	Use idempotent seed pattern — if products with these slugs already exist, do not duplicate.
+Step 2 — Build the API-key-authenticated grant endpoint
+	1.	New route: POST /api/integrations/grant-product mounted in BTS’s artifacts/api-server/src/routes/ directory.
+	2.	Auth: existing authenticateApiKey middleware (artifacts/api-server/src/middleware/auth.ts).
+	3.	Required scope/permission on the API key: define a new scope integrations:grant_products and gate the endpoint on it. Generate the API key during this task using the existing key-management flow (artifacts/api-server/src/routes/admin-api-keys.ts).
+	4.	Document the API key in the halt report. Operator copies the plaintext value once and stores it in the YSE Replit’s secrets as BTS_API_KEY. Plaintext is shown only at creation per the existing bts_{env}_{type}_{random} token convention.
+Step 3 — Request/response payload contract
+Request body (validate with Zod or equivalent):

@@ -1,0 +1,59 @@
+Errors:
+	•	401 missing/invalid API key
+	•	403 API key lacks integrations:grant_products scope
+	•	400 invalid payload (missing required fields, malformed email, etc.)
+	•	404 unknown product slug
+	•	500 internal error (database, etc.) — log full context, return generic message
+Step 4 — Endpoint implementation
+Build the function handleExternalGrantProduct(payload) that performs the side-effect chain:
+	1.	findOrCreateUser — for customer email lookup/creation (use the existing pattern in artifacts/api-server/src/lib/webhook-handler.ts:197-241, which generates a 32-char hex temp password, bcrypt-hashes it, sets sourceProduct = "yse" for new users, and triggers welcome email)
+	2.	Resolve product slugs to product IDs from the products table. If any slug is unknown, return 404 listing the unknown slugs.
+	3.	For each product, check existing active user_products row for (user_id, product_id). If exists with status='active', mark as alreadyGranted: true and skip insert. Otherwise insert new user_products row with external_order_id set, status='active', optional expires_at.
+	4.	Queue welcome email via CommunicationService — but ONLY on new user creation. Existing users already received their welcome email; do not re-send.
+	5.	Trigger GHL contact sync (same as the existing internal handler flow does).
+	6.	Trigger commission attribution if applicable (same as the existing internal handler flow does).
+	7.	Log the call to webhook_logs with externalId = ${externalSource}\_${externalOrderId} for idempotency.
+	8.	Idempotency: if webhook_logs.externalId matches existing row, short-circuit and return the cached response from the original call. This makes the endpoint safe to retry from the YSE side.
+Build the function as a clean new implementation. Reuse the internal building blocks (findOrCreateUser, CommunicationService.queueEmail, GHL sync helpers, commission attribution helpers) directly — do not try to coerce the YSE payload into an existing handler’s shape.
+Step 5 — Schema additions if needed
+	1.	Check if user_products has columns to track external source (e.g., external_order_id TEXT NULL, external_source TEXT NULL). If not present, add via migration.
+	2.	Existing per-source columns (if any exist for legacy sources) should remain untouched. The new columns are additive.
+	3.	Document migration file in the halt report.
+Step 6 — Tests
+	1.	Valid request with new customer → creates user, grants products, queues welcome email, returns 200 with full response
+	2.	Valid request with existing customer (one who has bought before) → re-uses user, grants new products, does NOT queue welcome email, returns 200
+	3.	Valid request with already-granted product → returns 200 with alreadyGranted: true for that slug
+	4.	Duplicate request (same externalOrderId + externalSource) → idempotent, returns cached response
+	5.	Missing API key → 401
+	6.	API key without integrations:grant_products scope → 403
+	7.	Malformed payload (missing email) → 400
+	8.	Unknown product slug → 404 with the unknown slug listed
+	9.	Multiple product slugs (front-end + bump + upsell in one call) → all granted in single transaction
+Step 7 — Documentation for YSE integration
+Create docs/yse-integration-contract.md documenting:
+	•	Endpoint URL (full, including domain — e.g. https://portal.buildtestscale.com/api/integrations/grant-product)
+	•	Auth header format
+	•	Request body shape with example
+	•	Response body shape with example
+	•	All error codes
+	•	Idempotency semantics
+	•	The plaintext API key (operator will rotate after copying to YSE secrets)
+	•	The 5 YSE product slugs as seeded
+Out of scope
+	•	YSE-side integration code (separate dispatch in YSE Replit)
+	•	Changes to existing webhook receivers or admin routes
+	•	Modifying the welcome email template (use as-is)
+	•	Direct DB access from YSE — explicitly use this API
+Halt with
+	1.	Step 1 proposed product seed (5 products with slugs + names + prices + entitlement_keys) for operator confirmation
+	2.	After seed: confirmation of inserted product rows
+	3.	Step 2 API key creation: plaintext key (one-time display), scope/permission used, expiration if any
+	4.	Step 3-4 endpoint implementation diff
+	5.	Step 5 schema additions if any
+	6.	Step 6 test count (expected 9+) and pass/fail
+	7.	Step 7 documentation file location
+	8.	tsc clean, lint clean
+	9.	Existing BTS test suites still green (no regression)
+	10.	The full API key value, request URL, and example payload — formatted so operator can paste these into the YSE Replit’s chat to drive the YSE-side dispatch
+	11.	Any deviations
+Proceed.

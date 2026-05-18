@@ -1,0 +1,34 @@
+Task: BTS Portal Entitlement System Inventory for External Integration
+A separate Replit project (the YSE/Machine codebase) needs to grant BTS portal entitlements when YSE customers complete purchases. Before writing the integration on the YSE side, I need a complete inventory of how BTS handles entitlements today. No code changes in this BTS project — read-only inventory.
+What to inventory and report back:
+1. The 22 entitlement keys
+	•	Full list of every entitlement key currently in the system
+	•	For each key: human-readable name, the product/tier it grants access to, the price point typically associated with it
+	•	File path where the keys are defined (constants file, schema, etc.)
+2. The grant API or function
+	•	How is an entitlement granted to a user today? (HTTP API endpoint, internal function, DB write, admin UI action, all of the above)
+	•	If HTTP API: endpoint URL, auth model (API key header? Bearer token? Shared secret?), exact request payload shape, response shape, error codes
+	•	If internal function: function signature, location, what it does (creates user if not exists? Grants entitlement? Sends welcome email? All of the above?)
+	•	If direct DB write: which tables, which columns, what indexes/constraints matter
+3. User creation flow
+	•	When someone gets their first entitlement and has no existing BTS account, what happens?
+	•	Does an account auto-create? Where? What fields are required?
+	•	Password generation: random + emailed? Magic link? Set-your-password link?
+	•	Are users keyed by email? UUID? Both?
+	•	What happens if the same email comes through twice with different entitlements?
+4. Welcome / credentials email
+	•	Does BTS send a welcome email when a new user is created and their first entitlement is granted?
+	•	If yes: who sends it (BTS itself? Or does the calling system send it?), what’s in the email (login URL, credentials, framing), where the template lives
+	•	If no: how do users currently find out they have access?
+5. Existing integration patterns
+	•	Does anything outside BTS already grant entitlements? (The Machine? Another internal system?)
+	•	If yes, find the integration code in BTS — how does the external system identify itself, authenticate, and call BTS?
+	•	Document the existing pattern so the YSE integration can mirror it
+6. Database access
+	•	Does BTS share a Neon database with other Cherrington Media projects, or run its own DB?
+	•	If shared, what’s the connection string env var name?
+	•	If separate, what would be needed for an external system to reach BTS’s DB (network access, separate connection, etc.)?
+7. Webhook receivers (if any)
+	•	Does BTS expose any webhook receivers that accept external purchase events?
+	•	If yes: URL paths, payload format, signature verification mechanism
+Halt with the full inventory. All 7 sections. Even if some sections are “doesn’t exist” or “manual only” — say so explicitly so I know what’s missing vs. what’s there.
