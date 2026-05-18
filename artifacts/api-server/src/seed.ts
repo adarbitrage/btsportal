@@ -15,7 +15,7 @@ import {
   winMilestonesTable, winsTable,
   toolCategoriesTable, toolsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable,
   chatRateLimitsTable,
-  coachAvailabilityTable, coachAvailabilityOverridesTable, coachingSessionsTable, coachingRatingsTable
+  coachAvailabilityTable, coachAvailabilityOverridesTable, coachingSessionsTable, coachingRatingsTable,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -125,6 +125,69 @@ async function seed() {
   const insertedProducts = await db.insert(productsTable).values(productData).returning();
   const productsBySlug: Record<string, number> = {};
   for (const p of insertedProducts) {
+    productsBySlug[p.slug] = p.id;
+  }
+
+  // ── YSE (Your Second Engine) products ────────────────────────────────────
+  // Granted automatically via POST /api/integrations/grant-product when a
+  // customer purchases on yoursecondengine.com. Inserted separately with
+  // onConflictDoNothing so this block is safe to re-run on an existing DB
+  // without wiping data (unlike the full-truncate dev seed above).
+  // thrivecartProductId is intentionally null — YSE uses NMI, not ThriveCart.
+  const yseProductData = [
+    {
+      slug: "yse_front_end",
+      name: "YSE Front End ($67)",
+      type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$67",
+      sortOrder: 9,
+    },
+    {
+      slug: "yse_affiliate_cmo_bump",
+      name: "YSE Affiliate CMO Bump ($47)",
+      type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$47",
+      sortOrder: 10,
+    },
+    {
+      slug: "yse_21_day_blitz",
+      name: "YSE 21-Day Blitz ($297)",
+      type: "backend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"],
+      durationDays: 21,
+      priceDisplay: "$297",
+      sortOrder: 11,
+    },
+    {
+      slug: "yse_swipe_resource_bank",
+      name: "YSE Swipe Resource Bank ($97)",
+      type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$97",
+      sortOrder: 12,
+    },
+    {
+      slug: "yse_profit_maximizer_pass",
+      name: "YSE Profit Maximizer Pass ($97)",
+      type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "content:advanced", "support:standard", "chat:full"],
+      priceDisplay: "$97",
+      sortOrder: 13,
+    },
+  ];
+  const insertedYseProducts = await db
+    .insert(productsTable)
+    .values(yseProductData)
+    .onConflictDoNothing({ target: productsTable.slug })
+    .returning();
+  for (const p of insertedYseProducts) {
     productsBySlug[p.slug] = p.id;
   }
 
