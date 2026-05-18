@@ -3,6 +3,7 @@ import { sendError, ErrorCodes } from "../lib/api-errors";
 import {
   getCachedGrantResponse,
   handleExternalGrantProduct,
+  redactPii,
 } from "../lib/external-grant-product";
 
 const router: IRouter = Router();
@@ -153,8 +154,17 @@ router.post(
 
       res.json(result);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[Integrations] grant-product error:", message, err);
+      // Redact PII (emails) before logging — request bodies and error
+      // messages may contain customer email addresses that should not be
+      // written to production log aggregators in plaintext.
+      const safeMessage = redactPii(err);
+      const stack =
+        err instanceof Error && err.stack ? redactPii(err.stack) : undefined;
+      console.error(
+        "[Integrations] grant-product error:",
+        safeMessage,
+        stack ?? "",
+      );
       sendError(
         res,
         500,

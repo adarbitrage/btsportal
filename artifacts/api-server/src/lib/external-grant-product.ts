@@ -60,6 +60,19 @@ interface ResolvedProduct {
   durationDays: number | null;
 }
 
+/**
+ * Redact PII (email addresses) from a string so it's safe to write to log
+ * aggregators. Replaces local-parts with "***" while keeping the domain
+ * visible for debugging (e.g. "***@example.com").
+ */
+export function redactPii(input: unknown): string {
+  const str = input instanceof Error ? input.message : String(input ?? "");
+  return str.replace(
+    /([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g,
+    "***@$2",
+  );
+}
+
 export class UnknownProductSlugsError extends Error {
   constructor(public readonly unknownSlugs: string[]) {
     super(`Unknown product slug(s): ${unknownSlugs.join(", ")}`);
@@ -393,13 +406,19 @@ export async function handleExternalGrantProduct(
 
   // Mirrors webhook-handler.ts handleOrderSuccess(): ensureAffiliateProfile + commission
   await ensureAffiliateProfile(userId).catch((err: unknown) => {
-    console.error("[ExternalGrant] Error ensuring affiliate profile:", err);
+    console.error(
+      "[ExternalGrant] Error ensuring affiliate profile:",
+      redactPii(err),
+    );
   });
 
   try {
     await attributeYseCommission(payload, userId, grants);
   } catch (err) {
-    console.error("[ExternalGrant] Commission attribution error:", err);
+    console.error(
+      "[ExternalGrant] Commission attribution error:",
+      redactPii(err),
+    );
   }
 
   return {

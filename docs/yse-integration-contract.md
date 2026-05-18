@@ -44,7 +44,13 @@ A BTS admin must create the key once via the admin API key UI (`POST /admin/api-
 
 The plaintext key is shown **once** at creation and must be immediately stored as `BTS_API_KEY` in the YSE Replit's Secrets. It begins with `bts_live_sk_`.
 
-**Never commit the key to source control.**
+**Never commit the key to source control.** The plaintext key is intentionally **not** stored in this document — see "Where the key lives" below.
+
+### Where the key lives
+
+- **Plaintext copy:** stored only as the `BTS_API_KEY` secret in the YSE Replit (Secrets pane). YSE reads it from `process.env.BTS_API_KEY` at runtime.
+- **BTS side:** only a bcrypt hash + last-4 preview is persisted, in the `api_keys` table (row `id=5`, label "YSE Grant-Product Integration"). The plaintext cannot be recovered from BTS; if it is lost, an admin must rotate the key (create a new one, update the YSE secret, then revoke the old row).
+- **This document:** must **never** contain the plaintext key. If you arrived here looking for the key, retrieve it from the YSE Replit Secrets pane.
 
 ---
 
