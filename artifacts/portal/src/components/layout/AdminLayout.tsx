@@ -11,13 +11,17 @@ import {
   Vault,
   FolderOpen,
   TrendingUp,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { AdminNotifications } from "@/components/admin/AdminNotifications";
 import { GlobalSearch } from "@/components/admin/GlobalSearch";
 
-const adminNav = [
+type NavItem = { href: string; label: string; icon: typeof Ticket };
+type NavGroup = { label: string; items: NavItem[] };
+
+const adminNav: NavItem[] = [
   { href: "/admin/tickets", label: "Ticket Queue", icon: Ticket },
   { href: "/admin/routing-rules", label: "Routing Rules", icon: Route },
   { href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquareText },
@@ -26,6 +30,15 @@ const adminNav = [
   { href: "/admin/resources", label: "Resource Vault", icon: Vault },
   { href: "/admin/collections", label: "Collections", icon: FolderOpen },
   { href: "/admin/vault/analytics", label: "Vault Analytics", icon: TrendingUp },
+];
+
+const adminNavGroups: NavGroup[] = [
+  {
+    label: "Integrations",
+    items: [
+      { href: "/admin/integrations/yse", label: "YSE Orders", icon: ShoppingCart },
+    ],
+  },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {
@@ -65,6 +78,34 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+
+          {adminNavGroups.map((group) => (
+            <div key={group.label} className="pt-4">
+              <p className="px-3 pb-2 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/70">
+                {group.label}
+              </p>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = location === item.href || location.startsWith(item.href + "/");
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-primary" : "")} />
+                        {item.label}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="p-4 mt-auto">
