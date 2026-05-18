@@ -1221,6 +1221,42 @@ export const adminPanelApi = {
     >;
   },
 
+  async getYseOrders(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    source?: string;
+  }): Promise<{
+    orders: Array<{
+      externalOrderId: string;
+      externalSource: string;
+      userId: number;
+      userEmail: string;
+      userName: string | null;
+      grantedAt: string | null;
+      products: Array<{ name: string; slug: string }>;
+      productCount: number;
+      wasNewUser: boolean;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.search) qs.set("search", params.search);
+    if (params.source) qs.set("source", params.source);
+    const res = await authFetch(
+      `/admin/integrations/yse/orders?${qs.toString()}`,
+    );
+    if (!res.ok) throw new Error("Failed to fetch YSE orders");
+    return res.json();
+  },
+
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));

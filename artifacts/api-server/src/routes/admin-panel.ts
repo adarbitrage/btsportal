@@ -3807,4 +3807,161 @@ router.get("/admin/members", requirePermission("members:view"), async (req: Requ
   }
 });
 
+// ─── YSE order history ───────────────────────────────────────────────────────
+// Lists grants that came in through the external grant-product endpoint,
+// grouped per (externalSource, externalOrderId, userId) so a single order
+// that provisioned multiple products renders as one row with all product
+// names. Defaults to externalSource = "yse" but accepts a `source` query
+// param so this same view can be reused for future integration sources.
+router.get(
+  "/admin/integrations/yse/orders",
+  requirePermission("members:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const {
+        page = "1",
+        limit = "20",
+        search,
+        source = "yse",
+      } = req.query;
+      const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+      const limitNum = Math.min(
+        100,
+        Math.max(1, parseInt(limit as string, 10) || 20),
+      );
+      const offset = (pageNum - 1) * limitNum;
+
+      const sourceStr =
+        typeof source === "string" && source.trim() !== ""
+          ? source.trim()
+          : "yse";
+
+      const conditions: SQL[] = [
+        eq(userProductsTable.externalSource, sourceStr),
+        isNotNull(userProductsTable.externalOrderId),
+      ];
+
+      if (search && typeof search === "string" && search.trim() !== "") {
+        const term = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(userProductsTable.externalOrderId, term),
+            ilike(usersTable.email, term),
+          )!,
+        );
+      }
+
+      const whereClause = and(...conditions);
+
+      const grantedAtExpr = sql<Date>`min(${userProductsTable.purchasedAt})`;
+
+      // One row per (externalOrderId, userId): aggregate product names and
+      // take the earliest purchasedAt as the order's granted-at timestamp.
+      // "wasNewUser" is true when the user was provisioned by this same
+      // import — i.e. their account was created within a small window of the
+      // grant and their sourceProduct matches the external source.
+      const rowsPromise = db
+        .select({
+          externalOrderId: userProductsTable.externalOrderId,
+          externalSource: userProductsTable.externalSource,
+          userId: usersTable.id,
+          userEmail: usersTable.email,
+          userName: usersTable.name,
+          userSourceProduct: usersTable.sourceProduct,
+          userCreatedAt: usersTable.createdAt,
+          grantedAt: grantedAtExpr,
+          // Aggregate each granted product as a {name, slug} JSON object
+          // so the pair always stays together — earlier versions used two
+          // separate array_aggs with different ORDER BYs, which could zip
+          // a slug onto the wrong name when alphabetical order diverged.
+          products: sql<Array<{ name: string; slug: string }>>`json_agg(json_build_object('name', ${productsTable.name}, 'slug', ${productsTable.slug}) order by ${productsTable.name})`,
+          productCount: sql<number>`count(*)`,
+        })
+        .from(userProductsTable)
+        .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
+        .innerJoin(
+          productsTable,
+          eq(userProductsTable.productId, productsTable.id),
+        )
+        .where(whereClause)
+        .groupBy(
+          userProductsTable.externalOrderId,
+          userProductsTable.externalSource,
+          usersTable.id,
+          usersTable.email,
+          usersTable.name,
+          usersTable.sourceProduct,
+          usersTable.createdAt,
+        )
+        .orderBy(desc(grantedAtExpr))
+        .limit(limitNum)
+        .offset(offset);
+
+      const countPromise = db
+        .select({
+          count: sql<number>`count(*)`,
+        })
+        .from(
+          db
+            .selectDistinct({
+              externalOrderId: userProductsTable.externalOrderId,
+              userId: userProductsTable.userId,
+            })
+            .from(userProductsTable)
+            .innerJoin(
+              usersTable,
+              eq(userProductsTable.userId, usersTable.id),
+            )
+            .where(whereClause)
+            .as("distinct_orders"),
+        );
+
+      const [rows, countResult] = await Promise.all([rowsPromise, countPromise]);
+
+      const orders = rows.map((r) => {
+        const grantedAt = r.grantedAt ? new Date(r.grantedAt) : null;
+        const userCreatedAt = r.userCreatedAt
+          ? new Date(r.userCreatedAt)
+          : null;
+        // 60-second window: the external-grant handler creates the user and
+        // inserts the grants inside the same transaction, so a "new user"
+        // order has user.createdAt essentially equal to the grant's
+        // purchasedAt. Anything older means the user already existed.
+        const wasNewUser =
+          !!grantedAt &&
+          !!userCreatedAt &&
+          r.userSourceProduct === sourceStr &&
+          Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
+
+        return {
+          externalOrderId: r.externalOrderId,
+          externalSource: r.externalSource,
+          userId: r.userId,
+          userEmail: r.userEmail,
+          userName: r.userName,
+          grantedAt: grantedAt ? grantedAt.toISOString() : null,
+          products: Array.isArray(r.products) ? r.products : [],
+          productCount: Number(r.productCount || 0),
+          wasNewUser,
+        };
+      });
+
+      const total = Number(countResult[0]?.count || 0);
+
+      res.json({
+        orders,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (error) {
+      console.error("[Admin] YSE orders list error:", error);
+      res.status(500).json({ error: "Failed to fetch YSE orders" });
+    }
+  },
+);
+
 export default router;
