@@ -24,8 +24,6 @@ import {
   AlertTriangle,
   RefreshCw,
   FileText,
-  Download,
-  Loader2,
 } from "lucide-react";
 import {
   adminPanelApi,
