@@ -40,7 +40,7 @@ vi.mock("../lib/webhook-events", () => ({
 }));
 
 import { buildTestApp } from "./test-app";
-import integrationsGrantProductRouter from "../routes/integrations-grant-product";
+import integrationsRouter from "../routes/integrations";
 
 const TEST_TAG = `yse-grant-test-${randomUUID().slice(0, 8)}`;
 const seededUserIds: number[] = [];
@@ -116,7 +116,7 @@ let bumpProduct: { id: number; slug: string };
 let blitzProduct: { id: number; slug: string };
 
 beforeAll(async () => {
-  app = buildTestApp({ routers: [integrationsGrantProductRouter] });
+  app = buildTestApp({ routers: [integrationsRouter] });
 
   frontEndProduct = await insertTestProduct("yse-front-end");
   bumpProduct = await insertTestProduct("yse-bump");
