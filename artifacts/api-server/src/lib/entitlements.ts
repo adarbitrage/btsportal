@@ -54,6 +54,8 @@ export async function getUserProducts(userId: number) {
       purchasedAt: userProductsTable.purchasedAt,
       expiresAt: userProductsTable.expiresAt,
       status: userProductsTable.status,
+      externalOrderId: userProductsTable.externalOrderId,
+      externalSource: userProductsTable.externalSource,
     })
     .from(userProductsTable)
     .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))

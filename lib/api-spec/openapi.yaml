@@ -6211,6 +6211,12 @@ components:
           format: date-time
         status:
           type: string
+        externalOrderId:
+          type: ["string", "null"]
+          description: External order identifier (e.g. YSE order number) when the product was granted by an upstream system rather than purchased directly.
+        externalSource:
+          type: ["string", "null"]
+          description: Identifier of the upstream system that granted the product (e.g. "yse"). Null for direct purchases.
       required: [id, productId, productSlug, productName, productType, purchasedAt, status]
 
     EntitlementSet:

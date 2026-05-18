@@ -53,6 +53,7 @@ import {
   Radio,
   Layers,
   UserCircle,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -151,6 +152,7 @@ const MEMBER_NAV: NavNode[] = [
     ],
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
+  { kind: "leaf", href: "/account/products", label: "My Products", icon: Package },
 ];
 
 const ADMIN_CHILDREN: NavNode[] = [

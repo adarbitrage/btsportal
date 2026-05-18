@@ -1199,13 +1199,23 @@ export default function MemberDetail() {
                 ) : (
                   <div className="space-y-3">
                     {products.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50" data-testid={`admin-member-product-${p.id}`}>
                         <div>
                           <p className="font-medium text-sm">{p.productName}</p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge>
+                            {p.externalSource && (
+                              <Badge variant="outline" data-testid={`admin-member-product-${p.id}-source`}>
+                                Source: {p.externalSource}
+                              </Badge>
+                            )}
                             {p.expiresAt && <span className="text-xs text-muted-foreground">Expires: {format(new Date(p.expiresAt), "MMM d, yyyy")}</span>}
                           </div>
+                          {p.externalOrderId && (
+                            <p className="text-xs text-muted-foreground mt-1" data-testid={`admin-member-product-${p.id}-order`}>
+                              Order: <span className="font-mono">{p.externalOrderId}</span>
+                            </p>
+                          )}
                         </div>
                         {p.status === "active" && (
                           <Button variant="destructive" size="sm" onClick={() => handleRevokeProduct(p.id)}>

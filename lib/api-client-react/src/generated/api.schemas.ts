@@ -391,6 +391,16 @@ export interface OwnedProduct {
   /** @nullable */
   expiresAt?: string | null;
   status: string;
+  /**
+   * External order identifier (e.g. YSE order number) when the product was granted by an upstream system rather than purchased directly.
+   * @nullable
+   */
+  externalOrderId?: string | null;
+  /**
+   * Identifier of the upstream system that granted the product (e.g. "yse"). Null for direct purchases.
+   * @nullable
+   */
+  externalSource?: string | null;
 }
 
 export interface MemberProfile {

@@ -89,6 +89,8 @@ export const GetMemberProductsResponseItem = zod.object({
   purchasedAt: zod.date(),
   expiresAt: zod.date().nullish(),
   status: zod.string(),
+  externalOrderId: zod.string().nullish(),
+  externalSource: zod.string().nullish(),
 });
 export const GetMemberProductsResponse = zod.array(
   GetMemberProductsResponseItem,
