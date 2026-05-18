@@ -106,6 +106,12 @@ interface FeatureComboRow {
   clicks: number;
 }
 
+interface DailyRow {
+  day: string;
+  impressions: number;
+  clicks: number;
+}
+
 function ratePercent(clicks: number, impressions: number): number {
   if (impressions <= 0) return 0;
   return Math.round((clicks / impressions) * 1000) / 10;
@@ -165,6 +171,18 @@ router.get(
       .where(where)
       .groupBy(upgradePromptEventsTable.variant, upgradePromptEventsTable.sourceTier)) as AggregateRow[];
 
+    const dayExpr = sql<string>`to_char(date_trunc('day', ${upgradePromptEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
+    const dailyRows = (await db
+      .select({
+        day: dayExpr.as("day"),
+        impressions: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'impression' then 1 else 0 end)::int`,
+        clicks: sql<number>`sum(case when ${upgradePromptEventsTable.eventType} = 'cta_click' then 1 else 0 end)::int`,
+      })
+      .from(upgradePromptEventsTable)
+      .where(where)
+      .groupBy(dayExpr)
+      .orderBy(dayExpr)) as DailyRow[];
+
     const comboKeyExpr = sql<string>`coalesce((select string_agg(value, '|' order by value) from jsonb_array_elements_text(${upgradePromptEventsTable.lockedFeatureKeys}) as t(value)), '')`;
     const comboRows = (await db
       .select({
@@ -217,6 +235,17 @@ router.get(
       }))
       .sort((a, b) => b.clicks - a.clicks);
 
+    const daily = dailyRows.map((row) => {
+      const impressions = Number(row.impressions) || 0;
+      const clicks = Number(row.clicks) || 0;
+      return {
+        day: row.day,
+        impressions,
+        clicks,
+        ctr: ratePercent(clicks, impressions),
+      };
+    });
+
     const topFeatureCombos = comboRows.map((row) => {
       const impressions = Number(row.impressions) || 0;
       const clicks = Number(row.clicks) || 0;
@@ -238,6 +267,7 @@ router.get(
       },
       byVariant,
       byTier,
+      daily,
       topFeatureCombos,
     });
   },

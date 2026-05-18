@@ -155,8 +155,26 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
       totals: { impressions: number; clicks: number; ctr: number };
       byVariant: { variant: string; impressions: number; clicks: number; ctr: number }[];
       byTier: { sourceTier: string; impressions: number; clicks: number; ctr: number }[];
+      daily: { day: string; impressions: number; clicks: number; ctr: number }[];
       topFeatureCombos: { keys: string[]; impressions: number; clicks: number; ctr: number }[];
     };
+
+    expect(Array.isArray(body.daily)).toBe(true);
+    expect(body.daily.length).toBeGreaterThanOrEqual(2);
+    // Days are returned in ascending order
+    const days = body.daily.map((d) => d.day);
+    expect([...days].sort()).toEqual(days);
+    // Each row should be a YYYY-MM-DD date string
+    for (const row of body.daily) {
+      expect(row.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(row.ctr).toBe(
+        row.impressions > 0 ? Math.round((row.clicks / row.impressions) * 1000) / 10 : 0,
+      );
+    }
+    const totalImpressionsFromDaily = body.daily.reduce((sum, r) => sum + r.impressions, 0);
+    const totalClicksFromDaily = body.daily.reduce((sum, r) => sum + r.clicks, 0);
+    expect(totalImpressionsFromDaily).toBe(body.totals.impressions);
+    expect(totalClicksFromDaily).toBe(body.totals.clicks);
 
     expect(body.range.from).toBeTruthy();
     expect(body.range.to).toBeTruthy();

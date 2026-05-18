@@ -17,6 +17,37 @@ import { RefreshCw, MousePointerClick, Eye, TrendingUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpgradePromptAnalytics } from "@/lib/revenue-api";
 import { RevenueSubNav } from "./RevenueDashboard";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+} from "recharts";
+
+const dailyChartConfig: ChartConfig = {
+  impressions: { label: "Impressions", color: "#3b82f6" },
+  clicks: { label: "Clicks", color: "#10b981" },
+  ctr: { label: "CTR (%)", color: "#f59e0b" },
+};
+
+function formatDayLabel(day: string): string {
+  const d = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return day;
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 function isoDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -170,6 +201,67 @@ export default function UpgradePromptAnalytics() {
                 hint="Clicks ÷ impressions"
               />
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Daily trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!data?.daily.length ? (
+                  <p className="text-sm text-muted-foreground">No daily activity in this range yet.</p>
+                ) : (
+                  <div data-testid="chart-upgrade-prompts-daily">
+                    <ChartContainer config={dailyChartConfig} className="h-[320px] w-full">
+                      <ComposedChart data={data.daily}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="day"
+                          tickFormatter={formatDayLabel}
+                          minTickGap={24}
+                        />
+                        <YAxis yAxisId="left" allowDecimals={false} />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tickFormatter={(v: number) => `${v}%`}
+                          domain={[0, "auto"]}
+                        />
+                        <ChartTooltip
+                          content={
+                            <ChartTooltipContent
+                              labelFormatter={(value) =>
+                                typeof value === "string" ? formatDayLabel(value) : String(value)
+                              }
+                            />
+                          }
+                        />
+                        <Legend />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="impressions"
+                          fill="var(--color-impressions)"
+                          radius={[2, 2, 0, 0]}
+                        />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="clicks"
+                          fill="var(--color-clicks)"
+                          radius={[2, 2, 0, 0]}
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="ctr"
+                          stroke="var(--color-ctr)"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </ChartContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

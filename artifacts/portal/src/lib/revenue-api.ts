@@ -152,11 +152,19 @@ export interface UpgradePromptComboStat {
   ctr: number;
 }
 
+export interface UpgradePromptDailyStat {
+  day: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
 export interface UpgradePromptAnalyticsResponse {
   range: { from: string; to: string };
   totals: { impressions: number; clicks: number; ctr: number };
   byVariant: UpgradePromptVariantStat[];
   byTier: UpgradePromptTierStat[];
+  daily: UpgradePromptDailyStat[];
   topFeatureCombos: UpgradePromptComboStat[];
 }
 
