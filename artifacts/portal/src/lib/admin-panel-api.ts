@@ -1330,14 +1330,22 @@ export const adminPanelApi = {
     return streamDownload(res, "csv", onProgress);
   },
 
-  async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
+  async getMembers(params: { page?: number; limit?: number; search?: string; role?: string; externalSource?: string; externalOrderId?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));
     if (params.limit) qs.set("limit", String(params.limit));
     if (params.search) qs.set("search", params.search);
     if (params.role) qs.set("role", params.role);
+    if (params.externalSource) qs.set("externalSource", params.externalSource);
+    if (params.externalOrderId) qs.set("externalOrderId", params.externalOrderId);
     const res = await authFetch(`/admin/members?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch members");
+    return res.json();
+  },
+
+  async getMemberExternalSources(): Promise<{ sources: string[] }> {
+    const res = await authFetch(`/admin/members/external-sources`);
+    if (!res.ok) throw new Error("Failed to fetch external sources");
     return res.json();
   },
 

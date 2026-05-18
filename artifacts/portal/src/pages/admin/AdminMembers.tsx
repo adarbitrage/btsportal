@@ -5,16 +5,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2 } from "lucide-react";
 import { adminPanelApi, saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
 import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
+const SOURCE_ANY = "any";
+const SOURCE_DIRECT = "direct";
+
+function formatSourceLabel(source: string): string {
+  if (source === SOURCE_ANY) return "Any source";
+  if (source === SOURCE_DIRECT) return "Direct";
+  return source.toUpperCase();
+}
+
 export default function AdminMembers() {
   const [members, setMembers] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState("");
+  const [externalSource, setExternalSource] = useState<string>(SOURCE_ANY);
+  const [externalOrderId, setExternalOrderId] = useState("");
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   // Tracks an in-flight export so we can disable the button (no double
   // submits) and surface a streamed bytes/rows hint while a wide member
@@ -25,7 +38,12 @@ export default function AdminMembers() {
   const load = async (page = 1) => {
     try {
       setLoading(true);
-      const data = await adminPanelApi.getMembers({ page, search: search || undefined });
+      const data = await adminPanelApi.getMembers({
+        page,
+        search: search || undefined,
+        externalSource: externalSource && externalSource !== SOURCE_ANY ? externalSource : undefined,
+        externalOrderId: externalOrderId || undefined,
+      });
       setMembers(data.members);
       setPagination(data.pagination);
     } catch (err: any) {
@@ -36,6 +54,16 @@ export default function AdminMembers() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    // Best-effort populate of the source-filter dropdown. The endpoint
+    // is read-only and the filter still works (the value is sent through
+    // either way) if the request fails, so we just log and move on.
+    adminPanelApi
+      .getMemberExternalSources()
+      .then((data) => setAvailableSources(data.sources ?? []))
+      .catch(() => setAvailableSources([]));
+  }, []);
 
   const handleSearch = () => { load(1); };
 
@@ -101,13 +129,39 @@ export default function AdminMembers() {
         </div>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4 space-y-3">
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} placeholder="Search by name or email..." className="pl-10" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} placeholder="Search by name or email..." className="pl-10" data-testid="input-search-members" />
               </div>
-              <Button onClick={handleSearch}>Search</Button>
+              <Button onClick={handleSearch} data-testid="button-search-members">Search</Button>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="sm:w-48">
+                <Select value={externalSource} onValueChange={setExternalSource}>
+                  <SelectTrigger data-testid="select-external-source">
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SOURCE_ANY}>{formatSourceLabel(SOURCE_ANY)}</SelectItem>
+                    <SelectItem value={SOURCE_DIRECT}>{formatSourceLabel(SOURCE_DIRECT)}</SelectItem>
+                    {availableSources.map((s) => (
+                      <SelectItem key={s} value={s}>{formatSourceLabel(s)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative flex-1">
+                <Input
+                  value={externalOrderId}
+                  onChange={(e) => setExternalOrderId(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  placeholder="Find by external order ID (e.g. YSE order ABC-123)"
+                  data-testid="input-external-order-id"
+                />
+              </div>
+              <Button variant="outline" onClick={handleSearch} data-testid="button-apply-filters">Apply</Button>
             </div>
           </CardContent>
         </Card>

@@ -3894,7 +3894,7 @@ router.post("/admin/oncall-destinations/test", requirePermission("settings:manag
 
 router.get("/admin/members", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const { page = "1", limit = "20", search, role } = req.query;
+    const { page = "1", limit = "20", search, role, externalSource, externalOrderId } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 20));
     const offset = (pageNum - 1) * limitNum;
@@ -3907,6 +3907,45 @@ router.get("/admin/members", requirePermission("members:view"), async (req: Requ
       conditions.push(eq(usersTable.role, role));
     } else if (!role || role !== "all") {
       conditions.push(eq(usersTable.role, "member"));
+    }
+
+    // Filter by where the member's access came from. `externalSource`
+    // accepts either a specific source value (e.g. "yse"), the special
+    // "direct" sentinel (members who have NO user_products row with an
+    // external_source — i.e. signed up directly), or "any"/missing for
+    // no filter. `externalOrderId` matches members who have at least
+    // one user_products row whose external_order_id matches (case
+    // insensitive). Both filters use EXISTS / NOT EXISTS subqueries to
+    // keep the user row count stable (a join would multiply duplicates
+    // when a member owns several products from the same source).
+    const externalSourceStr =
+      typeof externalSource === "string" ? externalSource.trim() : "";
+    const externalOrderIdStr =
+      typeof externalOrderId === "string" ? externalOrderId.trim() : "";
+
+    if (externalSourceStr && externalSourceStr.toLowerCase() !== "any") {
+      if (externalSourceStr.toLowerCase() === "direct") {
+        conditions.push(sql`NOT EXISTS (
+          SELECT 1 FROM ${userProductsTable}
+          WHERE ${userProductsTable.userId} = ${usersTable.id}
+            AND ${userProductsTable.externalSource} IS NOT NULL
+        )`);
+      } else {
+        conditions.push(sql`EXISTS (
+          SELECT 1 FROM ${userProductsTable}
+          WHERE ${userProductsTable.userId} = ${usersTable.id}
+            AND ${userProductsTable.externalSource} = ${externalSourceStr}
+        )`);
+      }
+    }
+
+    if (externalOrderIdStr) {
+      const pattern = `%${externalOrderIdStr}%`;
+      conditions.push(sql`EXISTS (
+        SELECT 1 FROM ${userProductsTable}
+        WHERE ${userProductsTable.userId} = ${usersTable.id}
+          AND ${userProductsTable.externalOrderId} ILIKE ${pattern}
+      )`);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -3926,6 +3965,31 @@ router.get("/admin/members", requirePermission("members:view"), async (req: Requ
     res.status(500).json({ error: "Failed to fetch members" });
   }
 });
+
+// Distinct `external_source` values currently present on `user_products`.
+// Used to populate the source-filter dropdown on the admin members list
+// without hard-coding the integration set in the frontend — when a new
+// integration starts grant-importing rows, it shows up automatically.
+router.get(
+  "/admin/members/external-sources",
+  requirePermission("members:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .selectDistinct({ externalSource: userProductsTable.externalSource })
+        .from(userProductsTable)
+        .where(isNotNull(userProductsTable.externalSource));
+      const sources = rows
+        .map((r) => r.externalSource)
+        .filter((s): s is string => typeof s === "string" && s.length > 0)
+        .sort();
+      res.json({ sources });
+    } catch (error) {
+      console.error("[Admin] External sources list error:", error);
+      res.status(500).json({ error: "Failed to fetch external sources" });
+    }
+  },
+);
 
 // ─── YSE order history ───────────────────────────────────────────────────────
 // Lists grants that came in through the external grant-product endpoint,
