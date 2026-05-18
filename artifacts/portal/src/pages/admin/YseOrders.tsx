@@ -71,13 +71,6 @@ export default function YseOrders() {
   const [pendingError, setPendingError] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
 
-  // Tracks an in-flight CSV export. Set to a progress sample for the
-  // duration of the download so the button can flip to "Exporting…" and
-  // disable itself, matching the Members / Audit Log / Comms Log
-  // streaming-export pattern.
-  const [exportProgress, setExportProgress] =
-    useState<StreamDownloadProgress | null>(null);
-
   const { toast } = useToast();
 
   const errorMessage = (err: unknown, fallback: string): string => {
@@ -168,30 +161,6 @@ export default function YseOrders() {
   }, []);
 
   const handleSearch = () => load(1);
-
-  const handleExport = async () => {
-    // Belt-and-braces: the button is also disabled while an export runs,
-    // but a stale Enter / double-tap could still re-enter this handler
-    // before the disabled state has re-rendered.
-    if (exportProgress) return;
-    setExportProgress({ bytesReceived: 0, rowsReceived: null });
-    try {
-      const { blob } = await adminPanelApi.exportYseOrders(
-        { search: search.trim() || undefined },
-        (progress) => setExportProgress(progress),
-      );
-      saveBlobAsFile(blob, "yse-orders-export.csv");
-      toast({ title: "Export complete" });
-    } catch (err: any) {
-      toast({
-        title: "Export failed",
-        description: err.message,
-        variant: "destructive",
-      });
-    } finally {
-      setExportProgress(null);
-    }
-  };
 
   const failedCount = pending.length;
 

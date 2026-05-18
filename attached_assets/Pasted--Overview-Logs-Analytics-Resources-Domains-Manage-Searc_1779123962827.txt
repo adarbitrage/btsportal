@@ -1,0 +1,252 @@
+
+
+Overview
+
+Logs
+
+Analytics
+
+Resources
+
+Domains
+
+Manage
+Search
+
+
+Errors only
+
+Date
+Time
+Deployment
+Source
+Log
+2026-05-12 19:58:14.79
+0ef3337e
+User
+To prepare for this change:
+2026-05-13 08:23:52.65
+77772012
+User
+at async tC.queryWithCache (/home/runner/workspace/artifacts/api-server/dist/index.cjs:64:37461)
+2026-05-13 08:23:52.65
+77772012
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-05-13 08:23:52.65
+77772012
+User
+at /home/runner/workspace/artifacts/api-server/dist/index.cjs:57:15265
+2026-05-13 08:23:52.65
+77772012
+User
+[TicketJobs] Error running ticket jobs: t [Error]: Failed query: select "id", "ticket_number", "user_id", "category", "priority", "status", "subject", "assigned_to", "created_at", "updated_at", "resolved_at" from "tickets" where ("tickets"."status" = $1 and "tickets"."updated_at" < $2)
+2026-05-13 08:23:52.65
+77772012
+User
+cause: error: Authentication timed out
+2026-05-13 08:23:52.65
+77772012
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-05-13 08:23:52.65
+77772012
+User
+at async Timeout._onTimeout (/home/runner/workspace/artifacts/api-server/dist/index.cjs:1140:29745) {
+2026-05-13 08:23:52.65
+77772012
+User
+at async ije (/home/runner/workspace/artifacts/api-server/dist/index.cjs:1140:28504)
+2026-05-13 08:23:52.65
+77772012
+User
+at tC.queryWithCache (/home/runner/workspace/artifacts/api-server/dist/index.cjs:64:37486)
+2026-05-13 08:23:52.65
+77772012
+User
+at async /home/runner/workspace/artifacts/api-server/dist/index.cjs:64:41172
+2026-05-13 08:23:52.65
+77772012
+User
+at async /home/runner/workspace/artifacts/api-server/dist/index.cjs:64:40963
+2026-05-13 08:23:52.65
+77772012
+User
+query: 'select "id", "ticket_number", "user_id", "category", "priority", "status", "subject", "assigned_to", "created_at", "updated_at", "resolved_at" from "tickets" where ("tickets"."status" = $1 and "tickets"."updated_at" < $2)',
+2026-05-13 08:23:52.65
+77772012
+User
+params: awaiting_response,2026-05-06T13:23:26.651Z
+2026-05-13 08:23:52.65
+77772012
+User
+at async /home/runner/workspace/artifacts/api-server/dist/index.cjs:64:40963
+2026-05-13 11:46:24.25
+77772012
+User
+(node:18) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-13 12:33:45.20
+21ee597f
+User
+(node:18) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-13 12:33:45.20
+21ee597f
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-13 13:37:00.97
+21ee597f
+User
+[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.
+2026-05-14 09:36:14.14
+05223a75
+User
+[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.
+2026-05-14 09:46:50.59
+f43b9f14
+User
+[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.
+2026-05-14 15:00:04.10
+6ce773e9
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-05-14 15:00:04.10
+6ce773e9
+User
+To prepare for this change:
+2026-05-14 15:00:04.10
+6ce773e9
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-14 15:00:04.10
+6ce773e9
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+2026-05-14 15:00:04.10
+6ce773e9
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-05-14 16:12:45.47
+8ac21868
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-14 16:12:45.47
+8ac21868
+User
+(node:18) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-14 17:28:24.52
+8ac21868
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-05-14 17:28:24.52
+8ac21868
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-14 17:28:24.52
+8ac21868
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-14 17:28:24.52
+8ac21868
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-05-15 08:27:55.19
+9c476e02
+User
+[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.
+2026-05-15 09:14:32.78
+9c476e02
+User
+[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.
+2026-05-15 17:23:53.57
+a7f22955
+User
+(node:19) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-15 19:49:42.22
+a7f22955
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-15 19:49:42.22
+a7f22955
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-16 06:51:59.79
+a7f22955
+User
+^
+2026-05-16 06:51:59.79
+a7f22955
+User
+throw er; // Unhandled 'error' event
+2026-05-16 06:51:59.79
+a7f22955
+User
+node:events:486
+2026-05-16 06:52:03.19
+a7f22955
+System
+artifact process exited with error error=exit status 1 artifact=artifacts/api-server
+2026-05-16 06:52:03.19
+a7f22955
+System
+crash loop detected
+2026-05-16 06:52:03.19
+a7f22955
+System
+an artifact process exited unexpectedly
+2026-05-16 14:23:32.90
+a7f22955
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-16 14:23:32.90
+a7f22955
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-05-16 18:27:40.65
+a7f22955
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-16 18:27:40.65
+a7f22955
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-05-16 18:27:40.65
+a7f22955
+User
+To prepare for this change:
+2026-05-16 20:29:00.53
+a7f22955
+User
+(node:20) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-16 20:29:00.53
+a7f22955
+User
+To prepare for this change:
+2026-05-16 22:58:59.24
+a7f22955
+User
+(node:21) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-05-16 22:58:59.24
+a7f22955
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-05-16 22:58:59.24
+a7f22955
+User
+To prepare for this change:
+2026-05-16 22:58:59.24
+a7f22955
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-05-16 22:58:59.24
+a7f22955
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-05-16 22:58:59.24
+a7f22955
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-05-16 22:58:59.24
+a7f22955
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
