@@ -1386,6 +1386,112 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {health.services?.upgradePromptEventsCleanup && (() => {
+                const upe = health.services.upgradePromptEventsCleanup as {
+                  intervalMs: number;
+                  retentionDays: number;
+                  lastRanAt: string | null;
+                  lastDeletedCount: number | null;
+                  lastError: { at: string; message: string } | null;
+                  stale: boolean;
+                };
+                const lastRanLabel = upe.lastRanAt
+                  ? new Date(upe.lastRanAt).toLocaleString()
+                  : "Never";
+                const intervalLabel = upe.intervalMs >= 60 * 60 * 1000
+                  ? `${Math.round(upe.intervalMs / (60 * 60 * 1000))}h`
+                  : upe.intervalMs >= 60 * 1000
+                    ? `${Math.round(upe.intervalMs / 60000)}m`
+                    : `${Math.round(upe.intervalMs / 1000)}s`;
+                const statusLabel = upe.stale
+                  ? "Stale"
+                  : upe.lastRanAt
+                    ? "Healthy"
+                    : "Pending";
+                const statusVariant: "default" | "warning" | "secondary" = upe.stale
+                  ? "warning"
+                  : upe.lastRanAt
+                    ? "default"
+                    : "secondary";
+                return (
+                  <Card data-testid="card-upgrade-prompt-events-cleanup">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Brush className="w-4 h-4" />Upgrade-prompt analytics retention
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Badge
+                            variant={statusVariant}
+                            data-testid="upgrade-prompt-events-cleanup-status"
+                          >
+                            {statusLabel}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Retention window</span>
+                          <span
+                            className="text-sm font-medium"
+                            data-testid="upgrade-prompt-events-cleanup-retention"
+                          >
+                            {upe.retentionDays}d
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Run interval</span>
+                          <span
+                            className="text-sm font-medium"
+                            data-testid="upgrade-prompt-events-cleanup-interval"
+                          >
+                            {intervalLabel}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Last run</span>
+                          <span
+                            className={`text-sm font-medium ${upe.stale ? "text-red-600" : ""}`}
+                            data-testid="upgrade-prompt-events-cleanup-last-ran"
+                          >
+                            {lastRanLabel}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Rows deleted last run</span>
+                          <span
+                            className="text-sm font-medium"
+                            data-testid="upgrade-prompt-events-cleanup-deleted"
+                          >
+                            {upe.lastDeletedCount ?? 0}
+                          </span>
+                        </div>
+                        {upe.stale && (
+                          <p
+                            className="text-xs text-red-600"
+                            data-testid="upgrade-prompt-events-cleanup-stale-warning"
+                          >
+                            {upe.lastRanAt
+                              ? `Sweep hasn't reported in over 2× its ${intervalLabel} interval — the cleanup job may have stopped. Upgrade-prompt analytics could grow past the ${upe.retentionDays}d window. Check the API server logs.`
+                              : `Sweep hasn't reported a single run in over 2× its ${intervalLabel} interval since this server started — check the API server logs to confirm the job is running.`}
+                          </p>
+                        )}
+                        {upe.lastError && (
+                          <p
+                            className="text-xs text-amber-700 dark:text-amber-300"
+                            data-testid="upgrade-prompt-events-cleanup-last-error"
+                            title={`Failed at ${new Date(upe.lastError.at).toLocaleString()}`}
+                          >
+                            Last sweep error: {upe.lastError.message}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.emailChangeAttemptsCleanup && (() => {
                 const ecc = health.services.emailChangeAttemptsCleanup as {
                   intervalMs: number;

@@ -2,7 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { randomUUID } from "crypto";
 import { db, upgradePromptEventsTable } from "@workspace/db";
 import { and, eq, gt, sql } from "drizzle-orm";
-import { runUpgradePromptEventsCleanup } from "../lib/upgrade-prompt-events-cleanup";
+import {
+  runUpgradePromptEventsCleanup,
+  getUpgradePromptEventsCleanupStatus,
+  __resetUpgradePromptEventsCleanupStatusForTests,
+} from "../lib/upgrade-prompt-events-cleanup";
 
 const TAG = `upe-cleanup-${randomUUID().slice(0, 8)}`;
 let baselineId = 0;
@@ -35,6 +39,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await clearTaggedRows();
   delete process.env.UPGRADE_PROMPT_EVENTS_RETENTION_DAYS;
+  delete process.env.UPGRADE_PROMPT_EVENTS_CLEANUP_INTERVAL_SECONDS;
+  __resetUpgradePromptEventsCleanupStatusForTests();
 });
 
 async function insertEventRow(ageDays: number, eventType = "impression") {
@@ -116,5 +122,76 @@ describe("runUpgradePromptEventsCleanup", () => {
     const deleted = await runUpgradePromptEventsCleanup();
     expect(deleted).toBeGreaterThanOrEqual(1);
     expect(await countTaggedRows()).toBe(1);
+  });
+});
+
+describe("getUpgradePromptEventsCleanupStatus", () => {
+  it("returns null lastRanAt and lastDeletedCount before the first run", () => {
+    const status = getUpgradePromptEventsCleanupStatus();
+    expect(status.lastRanAt).toBeNull();
+    expect(status.lastDeletedCount).toBeNull();
+    expect(status.lastError).toBeNull();
+    expect(status.intervalMs).toBeGreaterThan(0);
+    expect(status.retentionDays).toBeGreaterThan(0);
+    expect(status.stale).toBe(false);
+  });
+
+  it("populates lastRanAt and lastDeletedCount after a successful run", async () => {
+    await insertEventRow(120);
+
+    const before = Date.now();
+    await runUpgradePromptEventsCleanup();
+    const after = Date.now();
+
+    const status = getUpgradePromptEventsCleanupStatus();
+    expect(status.lastRanAt).not.toBeNull();
+    const ranAt = new Date(status.lastRanAt as string).getTime();
+    expect(ranAt).toBeGreaterThanOrEqual(before);
+    expect(ranAt).toBeLessThanOrEqual(after);
+    expect(status.lastDeletedCount).toBeGreaterThanOrEqual(1);
+    expect(status.lastError).toBeNull();
+  });
+
+  it("reflects the configured retention window from env overrides", () => {
+    process.env.UPGRADE_PROMPT_EVENTS_RETENTION_DAYS = "30";
+    const status = getUpgradePromptEventsCleanupStatus();
+    expect(status.retentionDays).toBe(30);
+  });
+
+  it("reflects the configured interval from env overrides", () => {
+    process.env.UPGRADE_PROMPT_EVENTS_CLEANUP_INTERVAL_SECONDS = "120";
+    const status = getUpgradePromptEventsCleanupStatus();
+    expect(status.intervalMs).toBe(120_000);
+  });
+
+  it("reports stale=true when the last run is older than 2× the interval", async () => {
+    await runUpgradePromptEventsCleanup();
+    const status = getUpgradePromptEventsCleanupStatus();
+    expect(status.stale).toBe(false);
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + 3 * status.intervalMs;
+    try {
+      const stale = getUpgradePromptEventsCleanupStatus();
+      expect(stale.stale).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it("reports stale=true when the job has never reported a run after 2× the interval", () => {
+    const baseline = getUpgradePromptEventsCleanupStatus();
+    expect(baseline.lastRanAt).toBeNull();
+    expect(baseline.stale).toBe(false);
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + 3 * baseline.intervalMs;
+    try {
+      const stale = getUpgradePromptEventsCleanupStatus();
+      expect(stale.lastRanAt).toBeNull();
+      expect(stale.stale).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
   });
 });
