@@ -26,6 +26,7 @@ import {
   YSE_GRANT_MAX_ATTEMPTS,
   type ExternalGrantPayload,
 } from "./external-grant-product";
+import { evaluateExhaustedYseGrants } from "./yse-grant-exhausted-alerter";
 
 const RUN_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 25;
@@ -138,6 +139,19 @@ export async function runYseGrantRetrySweep(): Promise<RetrySweepResult> {
   state.lastFailed = failed;
   state.lastError = null;
 
+  // Fire on-call pages for any row that just crossed into "exhausted
+  // retries" during this sweep (or any prior sweep that didn't manage to
+  // alert). The alerter persists `alert_sent_at` so this is naturally
+  // idempotent across sweeps and pods.
+  try {
+    await evaluateExhaustedYseGrants();
+  } catch (err) {
+    console.error(
+      "[YseGrantRetry] Exhausted-grant alert evaluation failed:",
+      redactPii(err),
+    );
+  }
+
   return { picked: rows.length, succeeded, failed };
 }
 
@@ -157,6 +171,14 @@ export interface PendingFailedGrant {
   productSlugs: string[];
   terminal: boolean;
   payloadPreview: string;
+  /**
+   * ISO timestamp at which on-call was paged about this row hitting the
+   * retry cap, or null if no alert has been sent (yet, or because this
+   * row hasn't actually exhausted retries). Surfaced on the admin
+   * pending/failed-deliveries view so on-call can tell at a glance which
+   * stuck grants have already been escalated.
+   */
+  alertSentAt: string | null;
 }
 
 /**
@@ -179,6 +201,7 @@ export async function listPendingFailedYseGrants(
       createdAt: webhookLogsTable.createdAt,
       payload: webhookLogsTable.payload,
       result: webhookLogsTable.result,
+      alertSentAt: webhookLogsTable.alertSentAt,
     })
     .from(webhookLogsTable)
     .where(
@@ -213,6 +236,7 @@ export async function listPendingFailedYseGrants(
         0,
         2000,
       ),
+      alertSentAt: r.alertSentAt ? r.alertSentAt.toISOString() : null,
     };
   });
 }
@@ -252,6 +276,12 @@ export async function manuallyRetryYseGrant(
       nextRetryAt: null,
       errorMessage: null,
       status: "failed",
+      // Clear the alert-sent gate too: if this manual retry also fails
+      // and the row exhausts the cap again, we want on-call paged a
+      // second time, not silently re-stuck. Clear the transient claim
+      // lease in the same UPDATE for the same reason.
+      alertSentAt: null,
+      alertClaimedAt: null,
     })
     .where(eq(webhookLogsTable.id, webhookLogId));
 

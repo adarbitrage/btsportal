@@ -1362,6 +1362,7 @@ export const adminPanelApi = {
       productSlugs: string[];
       terminal: boolean;
       payloadPreview: string;
+      alertSentAt: string | null;
     }>;
     status: {
       lastRanAt: string | null;

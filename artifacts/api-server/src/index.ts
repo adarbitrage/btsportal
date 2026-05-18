@@ -9,6 +9,10 @@ import { startSignupChallengeAlerter, stopSignupChallengeAlerter } from "./lib/s
 import { startAuthRateLimitAlerter, stopAuthRateLimitAlerter } from "./lib/auth-rate-limit-alerter";
 import { startProductionEnvGuard, stopProductionEnvGuard } from "./lib/production-env-guard";
 import {
+  startYseGrantExhaustedAlerter,
+  stopYseGrantExhaustedAlerter,
+} from "./lib/yse-grant-exhausted-alerter";
+import {
   startAbuseRateLimitCleanupAlerter,
   stopAbuseRateLimitCleanupAlerter,
 } from "./lib/abuse-rate-limit-cleanup-alerter";
@@ -61,6 +65,7 @@ startQueueFallbackAlerter();
 startSignupChallengeAlerter();
 startAuthRateLimitAlerter();
 startProductionEnvGuard();
+startYseGrantExhaustedAlerter();
 startAbuseRateLimitCleanupAlerter();
 startRateLimitAuditFailureAlerter();
 
@@ -83,6 +88,7 @@ async function gracefulShutdown(signal: string) {
   stopSignupChallengeAlerter();
   stopAuthRateLimitAlerter();
   stopProductionEnvGuard();
+  stopYseGrantExhaustedAlerter();
   stopAbuseRateLimitCleanupAlerter();
   stopRateLimitAuditFailureAlerter();
   process.exit(0);

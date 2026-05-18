@@ -9,6 +9,8 @@ import {
   Loader2,
   Clock,
   CheckCircle2,
+  BellRing,
+  BellOff,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -182,6 +184,9 @@ export default function YseGrantFailures() {
                     <th className="p-3 text-xs font-medium text-muted-foreground">
                       Next retry
                     </th>
+                    <th className="p-3 text-xs font-medium text-muted-foreground">
+                      On-call alert
+                    </th>
                     <th className="p-3 text-xs font-medium text-muted-foreground"></th>
                   </tr>
                 </thead>
@@ -264,6 +269,34 @@ export default function YseGrantFailures() {
                           </span>
                         ) : (
                           "ASAP"
+                        )}
+                      </td>
+                      <td className="p-3 text-xs whitespace-nowrap">
+                        {g.alertSentAt ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-amber-700"
+                            title={`On-call paged at ${new Date(g.alertSentAt).toISOString()}`}
+                            data-testid={`text-yse-alert-sent-${g.id}`}
+                          >
+                            <BellRing className="w-3 h-3" />
+                            Alerted{" "}
+                            {format(new Date(g.alertSentAt), "MMM d, h:mm a")}
+                          </span>
+                        ) : g.terminal ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-muted-foreground"
+                            data-testid={`text-yse-alert-pending-${g.id}`}
+                          >
+                            <BellOff className="w-3 h-3" />
+                            Pending alert
+                          </span>
+                        ) : (
+                          <span
+                            className="text-muted-foreground"
+                            data-testid={`text-yse-alert-none-${g.id}`}
+                          >
+                            —
+                          </span>
                         )}
                       </td>
                       <td className="p-3">
