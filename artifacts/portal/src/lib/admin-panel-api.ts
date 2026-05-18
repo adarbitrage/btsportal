@@ -635,6 +635,16 @@ export const adminPanelApi = {
       resolvedAt: string | null;
       member: { id: number; name: string; email: string } | null;
       assignee: { id: number; name: string; email: string } | null;
+      // Service tier the SLA was sized against (e.g. "lifetime", "1year",
+      // "free"). Null when the ticket has no SLA row yet — the UI renders
+      // these as "—" rather than special-casing per-tier styling.
+      tier: string | null;
+      // Single SLA bucket derived server-side from the
+      // firstResponse/resolution breached + warning flags so the Ticket
+      // Queue can filter, sort, badge, and tint rows with one field
+      // instead of recomputing the precedence on every render. Null when
+      // the ticket has no SLA row.
+      slaStatus: "breached" | "approaching" | "within" | null;
     }>>;
   },
 

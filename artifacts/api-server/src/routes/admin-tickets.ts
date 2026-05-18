@@ -386,6 +386,13 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
     // "<ticketNumber> · <member name>" for each candidate without an
     // additional round-trip per row. assignedTo is nullable, so we use
     // an aliased left join for the agent.
+    // Also left-join `ticket_sla` so each row carries the canonical
+    // service tier and the breach / warning flags the Ticket Queue
+    // uses to drive its SLA badges, tier column, row tinting, and
+    // default "most urgent first" sort. Tickets that somehow don't
+    // have an SLA row (legacy data, mid-flight inserts) come back
+    // with `tier: null` and `slaStatus: null` so the UI can render
+    // them as "—" without exploding.
     const assignedAgent = alias(usersTable, "assigned_agent");
     const baseQuery = db
       .select({
@@ -406,36 +413,59 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
         memberEmail: usersTable.email,
         assignedAgentName: assignedAgent.name,
         assignedAgentEmail: assignedAgent.email,
+        tierSlug: ticketSlaTable.tierSlug,
+        firstResponseBreached: ticketSlaTable.firstResponseBreached,
+        firstResponseWarning: ticketSlaTable.firstResponseWarning,
+        resolutionBreached: ticketSlaTable.resolutionBreached,
+        resolutionWarning: ticketSlaTable.resolutionWarning,
       })
       .from(ticketsTable)
       .leftJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
-      .leftJoin(assignedAgent, eq(ticketsTable.assignedTo, assignedAgent.id));
+      .leftJoin(assignedAgent, eq(ticketsTable.assignedTo, assignedAgent.id))
+      .leftJoin(ticketSlaTable, eq(ticketsTable.id, ticketSlaTable.ticketId));
 
     const rows = conditions.length > 0
       ? await baseQuery.where(and(...conditions)).orderBy(desc(ticketsTable.createdAt))
       : await baseQuery.orderBy(desc(ticketsTable.createdAt));
 
-    const tickets = rows.map((row) => ({
-      id: row.id,
-      ticketNumber: row.ticketNumber,
-      userId: row.userId,
-      category: row.category,
-      priority: row.priority,
-      status: row.status,
-      subject: row.subject,
-      source: row.source,
-      sourceReferenceId: row.sourceReferenceId,
-      assignedTo: row.assignedTo,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      resolvedAt: row.resolvedAt,
-      member: row.memberName
-        ? { id: row.userId, name: row.memberName, email: row.memberEmail }
-        : null,
-      assignee: row.assignedTo
-        ? { id: row.assignedTo, name: row.assignedAgentName, email: row.assignedAgentEmail }
-        : null,
-    }));
+    const tickets = rows.map((row) => {
+      // Derive a single SLA status the UI can filter / sort / badge on.
+      // A breach trumps a warning trumps "within target"; tickets with
+      // no SLA row at all return null so the UI can render "—".
+      let slaStatus: "breached" | "approaching" | "within" | null = null;
+      if (row.tierSlug != null) {
+        if (row.firstResponseBreached || row.resolutionBreached) {
+          slaStatus = "breached";
+        } else if (row.firstResponseWarning || row.resolutionWarning) {
+          slaStatus = "approaching";
+        } else {
+          slaStatus = "within";
+        }
+      }
+      return {
+        id: row.id,
+        ticketNumber: row.ticketNumber,
+        userId: row.userId,
+        category: row.category,
+        priority: row.priority,
+        status: row.status,
+        subject: row.subject,
+        source: row.source,
+        sourceReferenceId: row.sourceReferenceId,
+        assignedTo: row.assignedTo,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        resolvedAt: row.resolvedAt,
+        member: row.memberName
+          ? { id: row.userId, name: row.memberName, email: row.memberEmail }
+          : null,
+        assignee: row.assignedTo
+          ? { id: row.assignedTo, name: row.assignedAgentName, email: row.assignedAgentEmail }
+          : null,
+        tier: row.tierSlug,
+        slaStatus,
+      };
+    });
 
     res.json(tickets);
   } catch (error) {
