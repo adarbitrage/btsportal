@@ -1329,14 +1329,17 @@ export const adminPanelApi = {
   },
 
   async exportYseOrders(
-    params: { search?: string; source?: string } = {},
+    filters: { search?: string; source?: string } = {},
     onProgress?: (progress: StreamDownloadProgress) => void,
+    signal?: AbortSignal,
   ): Promise<StreamDownloadResult> {
     const qs = new URLSearchParams();
-    if (params.search) qs.set("search", params.search);
-    if (params.source) qs.set("source", params.source);
+    qs.set("format", "csv");
+    if (filters.search) qs.set("search", filters.search);
+    if (filters.source) qs.set("source", filters.source);
     const res = await authFetch(
       `/admin/integrations/yse/orders/export?${qs.toString()}`,
+      { signal },
     );
     if (!res.ok) throw new Error("Failed to export YSE orders");
     return streamDownload(res, "csv", onProgress);
@@ -1358,6 +1361,7 @@ export const adminPanelApi = {
       externalSource: string | null;
       productSlugs: string[];
       terminal: boolean;
+      payloadPreview: string;
     }>;
     status: {
       lastRanAt: string | null;
@@ -1375,9 +1379,11 @@ export const adminPanelApi = {
   },
 
   async retryYseGrant(id: number): Promise<{ ok: true }> {
-    const res = await authFetch(`/admin/yse-grants/${id}/retry`, { method: "POST" });
+    const res = await authFetch(`/admin/yse-grants/${id}/retry`, {
+      method: "POST",
+    });
     if (!res.ok) {
-      let reason = "Retry failed";
+      let reason = "Manual retry failed";
       try {
         const body = await res.json();
         if (body?.error) reason = body.error;
@@ -1389,7 +1395,14 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async getMembers(params: { page?: number; limit?: number; search?: string; role?: string; externalSource?: string; externalOrderId?: string }) {
+  async getMembers(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    externalSource?: string;
+    externalOrderId?: string;
+  }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));
     if (params.limit) qs.set("limit", String(params.limit));

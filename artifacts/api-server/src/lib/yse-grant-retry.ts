@@ -156,6 +156,7 @@ export interface PendingFailedGrant {
   externalSource: string | null;
   productSlugs: string[];
   terminal: boolean;
+  payloadPreview: string;
 }
 
 /**
@@ -208,6 +209,10 @@ export async function listPendingFailedYseGrants(
       externalSource: p.externalSource ?? null,
       productSlugs: Array.isArray(p.productSlugs) ? p.productSlugs : [],
       terminal: r.attempts >= YSE_GRANT_MAX_ATTEMPTS,
+      payloadPreview: redactPii(JSON.stringify(r.payload ?? {}, null, 2)).slice(
+        0,
+        2000,
+      ),
     };
   });
 }
