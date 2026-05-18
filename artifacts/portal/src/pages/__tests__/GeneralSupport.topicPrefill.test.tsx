@@ -132,4 +132,29 @@ describe("GeneralSupport — topic pre-fill from query string", () => {
     expect(textarea).toBeDefined();
     expect(textarea!.value).toBe("");
   });
+
+  it("shows a topic-aware notice above the form when topic=email-admin-cancelled", () => {
+    currentSearch = "topic=email-admin-cancelled";
+    render(<GeneralSupport />);
+
+    // The notice reassures the member that their cancellation context
+    // carried over so they don't wipe the pre-filled message thinking
+    // it's stale.
+    const notice = screen.getByTestId("topic-notice");
+    expect(notice.textContent?.toLowerCase()).toMatch(
+      /cancelled email change/i,
+    );
+  });
+
+  it("does not render the topic notice when no topic is set", () => {
+    currentSearch = "";
+    render(<GeneralSupport />);
+    expect(screen.queryByTestId("topic-notice")).toBeNull();
+  });
+
+  it("does not render the topic notice for unknown topic values", () => {
+    currentSearch = "topic=does-not-exist";
+    render(<GeneralSupport />);
+    expect(screen.queryByTestId("topic-notice")).toBeNull();
+  });
 });

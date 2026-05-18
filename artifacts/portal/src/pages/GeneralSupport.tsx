@@ -6,15 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
-import { Send, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
+import { Send, CheckCircle, Loader2, ArrowLeft, Info } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
 
-const TOPIC_PRESETS: Record<string, { subject: string; messagePrompt: string }> = {
+const TOPIC_PRESETS: Record<
+  string,
+  { subject: string; messagePrompt: string; notice: string }
+> = {
   "email-admin-cancelled": {
     subject: "Question about cancelled email change",
     messagePrompt:
       "I'm contacting you about a pending email change on my account that was cancelled by an administrator. Please help me understand what happened.\n\n",
+    notice:
+      "We've started a request about your recently cancelled email change. Feel free to add any details before sending.",
   },
 };
 
@@ -117,6 +122,17 @@ export default function GeneralSupport() {
                 We're here to help. Simply fill out the form below and we will reply within 24 hours.
               </p>
             </div>
+
+            {preset?.notice && (
+              <div
+                role="status"
+                className="mb-6 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+                data-testid="topic-notice"
+              >
+                <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
+                <p>{preset.notice}</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
