@@ -9,15 +9,20 @@
  *   - `auth_rate_limit_blocked` / `auth_rate_limit_alert` — cleaned by
  *     `auth-rate-limit-audit-cleanup.ts` (30d retention).
  *
- * This module covers the next tier of action types: ones that are
- * admin-initiated (so not as bursty as the auto-logged types above) but
- * are written per-event and would still grow without bound on a busy
- * tenant. Today that's the Flexy support tooling — `regenerate_password`
- * and `notify_password` get one row per support action and a busy support
- * team can write hundreds per day. We cap them at one year of history,
- * which still comfortably covers the admin password-reset history view
- * (`/admin/apps/flexy/password-reset-history`) — that endpoint paginates
- * to a `limit` of at most 100 rows and never asks for older history.
+ * This module covers the remaining action types that would otherwise
+ * grow without bound on a busy tenant. Today that's:
+ *   - Flexy support tooling — `regenerate_password` and `notify_password`
+ *     get one row per support action and a busy support team can write
+ *     hundreds per day. Capped at one year, which still comfortably
+ *     covers the admin password-reset history view
+ *     (`/admin/apps/flexy/password-reset-history`) — that endpoint
+ *     paginates to a `limit` of at most 100 rows and never asks for
+ *     older history.
+ *   - `signup_notice_suppressed` — written automatically by the
+ *     signup-attempted email throttle. The throttle's dedup gate caps
+ *     these to one row per targeted address per window, but sustained
+ *     probing can still pile up thousands of rows over time. Capped at
+ *     30 days to match the other auto-logged types.
  *
  * Adding a new noisy action type is a one-line change to `RETENTION_POLICIES`
  * below. Each policy is enforced independently, so a new entry only ever
@@ -34,6 +39,7 @@
 import { db, auditLogTable } from "@workspace/db";
 import { and, inArray, lt } from "drizzle-orm";
 import { FLEXY_RESET_ACTIONS } from "../routes/admin-apps";
+import { SIGNUP_NOTICE_SUPPRESSED_AUDIT_ACTION } from "../routes/auth";
 
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -62,6 +68,19 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     // strings live in exactly one place.
     actionTypes: FLEXY_RESET_ACTIONS,
     retentionDays: 365,
+  },
+  {
+    // Written automatically by the signup-attempted email throttle (see
+    // `SIGNUP_NOTICE_SUPPRESSED_AUDIT_ACTION` in `routes/auth.ts`). The
+    // throttle's dedup gate caps these to one row per targeted address per
+    // window, but sustained probing of a busy tenant can still pile up
+    // thousands of rows over time, and admins only need recent history
+    // for incident retros. 30 days matches the bespoke cleanup windows
+    // used by the other auto-logged auth/queue types
+    // (queue_fallback*, auth_rate_limit_*).
+    label: "signup_notice_suppressed",
+    actionTypes: [SIGNUP_NOTICE_SUPPRESSED_AUDIT_ACTION],
+    retentionDays: 30,
   },
 ];
 
