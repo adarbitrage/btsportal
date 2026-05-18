@@ -521,6 +521,136 @@ export async function handleExternalGrantProduct(
   };
 }
 
+export const YSE_REVOKE_EVENT_TYPE = "external.revoke_product";
+
+export interface ExternalRevokePayload {
+  externalOrderId: string;
+  externalSource: string;
+  reason?: string;
+}
+
+export interface RevokedProductInfo {
+  userProductId: number;
+  userId: number;
+  productId: number;
+}
+
+export interface ExternalRevokeResponse {
+  externalOrderId: string;
+  externalSource: string;
+  revokedCount: number;
+  alreadyCancelledCount: number;
+  revoked: RevokedProductInfo[];
+}
+
+/**
+ * Soft-cancel a previously YSE-granted product. Sets `cancelledAt` and
+ * `status='cancelled'` on every matching `user_products` row keyed by
+ * (externalSource, externalOrderId) without deleting the audit trail. The
+ * matching `webhook_logs` entry is updated so the result jsonb records the
+ * revocation alongside the original grant payload.
+ *
+ * Idempotent: rows that already have `cancelledAt` set are counted as
+ * `alreadyCancelledCount` and left untouched.
+ */
+export async function handleExternalRevokeProduct(
+  payload: ExternalRevokePayload,
+): Promise<ExternalRevokeResponse> {
+  const externalId = `${payload.externalSource}_${payload.externalOrderId}`;
+  const now = new Date();
+
+  return db.transaction(async (tx) => {
+    const matches = await tx
+      .select({
+        id: userProductsTable.id,
+        userId: userProductsTable.userId,
+        productId: userProductsTable.productId,
+        cancelledAt: userProductsTable.cancelledAt,
+      })
+      .from(userProductsTable)
+      .where(
+        and(
+          eq(userProductsTable.externalOrderId, payload.externalOrderId),
+          eq(userProductsTable.externalSource, payload.externalSource),
+        ),
+      );
+
+    const toRevoke = matches.filter((m) => m.cancelledAt == null);
+    const alreadyCancelledCount = matches.length - toRevoke.length;
+
+    if (toRevoke.length > 0) {
+      await tx
+        .update(userProductsTable)
+        .set({ cancelledAt: now, status: "cancelled" })
+        .where(
+          inArray(
+            userProductsTable.id,
+            toRevoke.map((r) => r.id),
+          ),
+        );
+    }
+
+    const revocationInfo = {
+      revokedAt: now.toISOString(),
+      reason: payload.reason ?? null,
+      revokedUserProductIds: toRevoke.map((r) => r.id),
+      alreadyCancelledCount,
+    };
+
+    const [existingLog] = await tx
+      .select({ id: webhookLogsTable.id, result: webhookLogsTable.result })
+      .from(webhookLogsTable)
+      .where(eq(webhookLogsTable.externalId, externalId))
+      .limit(1);
+
+    if (existingLog) {
+      const existingResult =
+        (existingLog.result as Record<string, unknown> | null) ?? {};
+      await tx
+        .update(webhookLogsTable)
+        .set({
+          status: "revoked",
+          result: {
+            ...existingResult,
+            revocation: revocationInfo,
+          } as unknown as Record<string, unknown>,
+          processedAt: now,
+          lastAttemptAt: now,
+        })
+        .where(eq(webhookLogsTable.id, existingLog.id));
+    } else {
+      await tx
+        .insert(webhookLogsTable)
+        .values({
+          externalId,
+          eventType: YSE_REVOKE_EVENT_TYPE,
+          status: "revoked",
+          payload: payload as unknown as Record<string, unknown>,
+          result: { revocation: revocationInfo } as unknown as Record<
+            string,
+            unknown
+          >,
+          attempts: 1,
+          lastAttemptAt: now,
+          processedAt: now,
+        })
+        .onConflictDoNothing();
+    }
+
+    return {
+      externalOrderId: payload.externalOrderId,
+      externalSource: payload.externalSource,
+      revokedCount: toRevoke.length,
+      alreadyCancelledCount,
+      revoked: toRevoke.map((r) => ({
+        userProductId: r.id,
+        userId: r.userId,
+        productId: r.productId,
+      })),
+    };
+  });
+}
+
 async function attributeYseCommission(
   payload: ExternalGrantPayload,
   buyerUserId: number,

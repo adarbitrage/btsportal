@@ -3,6 +3,7 @@ import { sendError, ErrorCodes } from "../lib/api-errors";
 import {
   getCachedGrantResponse,
   handleExternalGrantProduct,
+  handleExternalRevokeProduct,
   redactPii,
 } from "../lib/external-grant-product";
 
@@ -170,6 +171,86 @@ router.post(
         500,
         ErrorCodes.INTERNAL_ERROR,
         "An internal error occurred while processing the grant",
+      );
+    }
+  },
+);
+
+function validateRevokeProductBody(body: unknown):
+  | {
+      ok: true;
+      data: { externalOrderId: string; externalSource: string; reason?: string };
+    }
+  | { ok: false; message: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, message: "Request body must be a JSON object" };
+  }
+  const b = body as Record<string, unknown>;
+
+  if (
+    !b.externalOrderId ||
+    typeof b.externalOrderId !== "string" ||
+    b.externalOrderId.trim() === ""
+  ) {
+    return {
+      ok: false,
+      message: "externalOrderId is required and must be a non-empty string",
+    };
+  }
+  if (
+    !b.externalSource ||
+    typeof b.externalSource !== "string" ||
+    b.externalSource.trim() === ""
+  ) {
+    return {
+      ok: false,
+      message: "externalSource is required and must be a non-empty string",
+    };
+  }
+  if (b.reason !== undefined && typeof b.reason !== "string") {
+    return { ok: false, message: "reason must be a string when provided" };
+  }
+
+  return {
+    ok: true,
+    data: {
+      externalOrderId: b.externalOrderId.trim(),
+      externalSource: b.externalSource.trim(),
+      reason:
+        typeof b.reason === "string" && b.reason.trim() !== ""
+          ? b.reason.trim()
+          : undefined,
+    },
+  };
+}
+
+router.post(
+  "/integrations/revoke-product",
+  requireApiKeyScope("integrations:grant_products"),
+  async (req: Request, res: Response): Promise<void> => {
+    const validation = validateRevokeProductBody(req.body);
+    if (!validation.ok) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, validation.message);
+      return;
+    }
+
+    try {
+      const result = await handleExternalRevokeProduct(validation.data);
+      res.json(result);
+    } catch (err: unknown) {
+      const safeMessage = redactPii(err);
+      const stack =
+        err instanceof Error && err.stack ? redactPii(err.stack) : undefined;
+      console.error(
+        "[Integrations] revoke-product error:",
+        safeMessage,
+        stack ?? "",
+      );
+      sendError(
+        res,
+        500,
+        ErrorCodes.INTERNAL_ERROR,
+        "An internal error occurred while processing the revocation",
       );
     }
   },
