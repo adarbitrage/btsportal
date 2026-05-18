@@ -1,19 +1,22 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Search, X } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 type AdminTicket = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[number];
 type TicketPriority = AdminTicket["priority"];
 type TicketStatus = AdminTicket["status"];
 type SlaStatus = NonNullable<AdminTicket["slaStatus"]>;
+type Assignee = { id: number; name: string; email: string };
 
 function PriorityBadge({ priority }: { priority: TicketPriority }) {
   const colors: Record<TicketPriority, string> = {
@@ -127,6 +130,7 @@ function slaRowTint(status: SlaStatus | null): string {
 }
 
 export default function AdminTicketQueue() {
+  const { toast } = useToast();
   const [tickets, setTickets] = useState<AdminTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,23 +141,36 @@ export default function AdminTicketQueue() {
   const [agentFilter, setAgentFilter] = useState("all");
   const [slaFilter, setSlaFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [bulkPending, setBulkPending] = useState(false);
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await adminPanelApi.getAdminTickets();
+      setTickets(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tickets");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     adminPanelApi
-      .getAdminTickets()
+      .getTicketAssignees()
       .then((data) => {
-        if (cancelled) return;
-        setTickets(data);
+        if (!cancelled) setAssignees(data);
       })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load tickets");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch(() => {
+        /* assignee dropdown will simply be empty */
       });
     return () => {
       cancelled = true;
@@ -219,6 +236,37 @@ export default function AdminTicketQueue() {
     return sortTickets(result);
   }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter, slaFilter, tierFilter]);
 
+  const filteredIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
+  const selectedVisibleCount = useMemo(
+    () => filteredIds.filter((id) => selectedIds.has(id)).length,
+    [filteredIds, selectedIds],
+  );
+  const allVisibleSelected = filteredIds.length > 0 && selectedVisibleCount === filteredIds.length;
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
+
+  const toggleRow = (id: number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        for (const id of filteredIds) next.add(id);
+      } else {
+        for (const id of filteredIds) next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
   const clearFilters = () => {
     setStatusFilter("all");
     setCategoryFilter("all");
@@ -245,6 +293,60 @@ export default function AdminTicketQueue() {
     slaBreached: tickets.filter((t) => t.slaStatus === "breached").length,
     slaApproaching: tickets.filter((t) => t.slaStatus === "approaching").length,
   }), [tickets]);
+
+  const runBulk = async (
+    label: string,
+    ids: number[],
+    action: (id: number) => Promise<unknown>,
+  ) => {
+    setBulkPending(true);
+    const results = await Promise.allSettled(ids.map(action));
+    const failures = results.filter((r) => r.status === "rejected").length;
+    const successes = ids.length - failures;
+    await loadTickets();
+    setBulkPending(false);
+    if (failures === 0) {
+      toast({ title: `${label} ${successes} ticket${successes === 1 ? "" : "s"}` });
+      clearSelection();
+    } else if (successes === 0) {
+      toast({
+        title: `Failed to ${label.toLowerCase()} tickets`,
+        description: `${failures} ticket${failures === 1 ? "" : "s"} could not be updated.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: `${label} ${successes} of ${ids.length} tickets`,
+        description: `${failures} failed; selection kept so you can retry.`,
+        variant: "destructive",
+      });
+      setSelectedIds(() => {
+        const next = new Set<number>();
+        results.forEach((r, i) => {
+          if (r.status === "rejected") next.add(ids[i]);
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleBulkAssign = (value: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const assignedTo = value === "__unassigned" ? null : Number(value);
+    if (value !== "__unassigned" && Number.isNaN(assignedTo as number)) return;
+    const assigneeName =
+      assignedTo === null ? "Unassigned" : assignees.find((a) => a.id === assignedTo)?.name ?? "agent";
+    void runBulk(`Assigned to ${assigneeName} —`, ids, (id) =>
+      adminPanelApi.updateTicketAssignee(id, assignedTo as number | null),
+    );
+  };
+
+  const handleBulkClose = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    void runBulk("Closed", ids, (id) => adminPanelApi.updateTicketStatus(id, "closed"));
+  };
 
   return (
     <AdminLayout>
@@ -358,8 +460,63 @@ export default function AdminTicketQueue() {
             </div>
           </div>
 
+          {selectedIds.size > 0 && (
+            <div
+              className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center gap-3 flex-wrap"
+              data-testid="bulk-action-bar"
+            >
+              <span className="text-sm font-medium text-blue-900">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                <Select
+                  value=""
+                  onValueChange={handleBulkAssign}
+                  disabled={bulkPending}
+                >
+                  <SelectTrigger className="w-[200px] bg-white" data-testid="bulk-assign-trigger">
+                    <SelectValue placeholder="Assign to…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassigned">Unassigned</SelectItem>
+                    {assignees.map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkClose}
+                  disabled={bulkPending}
+                  data-testid="bulk-close-button"
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  disabled={bulkPending}
+                  className="text-muted-foreground"
+                >
+                  <X className="w-4 h-4 mr-1" /> Clear selection
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="divide-y divide-border">
-            <div className="grid grid-cols-[1fr_100px_120px_110px_140px_160px_140px] gap-2 px-4 py-2.5 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="grid grid-cols-[36px_1fr_100px_120px_110px_140px_160px_140px] gap-2 px-4 py-2.5 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wider items-center">
+              <div>
+                <Checkbox
+                  checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                  onCheckedChange={(v) => toggleAllVisible(v === true)}
+                  disabled={filteredIds.length === 0 || bulkPending}
+                  aria-label="Select all visible tickets"
+                  data-testid="bulk-select-all"
+                />
+              </div>
               <div>Ticket</div>
               <div>Priority</div>
               <div>SLA</div>
@@ -377,43 +534,59 @@ export default function AdminTicketQueue() {
                 {tickets.length === 0 ? "No tickets yet." : "No tickets match the current filters."}
               </div>
             ) : (
-              filtered.map((ticket) => (
-                <Link key={ticket.id} href={`/admin/tickets/${ticket.id}`}>
-                  <div
-                    className={cn(
-                      "grid grid-cols-[1fr_100px_120px_110px_140px_160px_140px] gap-2 px-4 py-3 transition-colors items-center cursor-pointer",
-                      slaRowTint(ticket.slaStatus),
-                    )}
-                  >
-                    <div className="group">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
-                        {ticket.member?.name && (
-                          <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
-                        )}
-                      </div>
-                      <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
-                    </div>
-                    <div><PriorityBadge priority={ticket.priority} /></div>
-                    <div><SlaBadge status={ticket.slaStatus} /></div>
-                    <div><TierBadge tier={ticket.tier} /></div>
-                    <div>
-                      <Badge
-                        variant={ticket.status === "open" ? "warning" : ticket.status === "resolved" ? "success" : "secondary"}
-                        className="text-[10px]"
+              filtered.map((ticket) => {
+                const isSelected = selectedIds.has(ticket.id);
+                return (
+                  <Link key={ticket.id} href={`/admin/tickets/${ticket.id}`}>
+                    <div
+                      className={cn(
+                        "grid grid-cols-[36px_1fr_100px_120px_110px_140px_160px_140px] gap-2 px-4 py-3 transition-colors items-center cursor-pointer",
+                        slaRowTint(ticket.slaStatus),
+                        isSelected && "bg-blue-50/40",
+                      )}
+                    >
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
                       >
-                        {STATUS_LABELS[ticket.status] ?? ticket.status}
-                      </Badge>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(v) => toggleRow(ticket.id, v === true)}
+                          disabled={bulkPending}
+                          aria-label={`Select ticket ${ticket.ticketNumber}`}
+                          data-testid={`bulk-select-row-${ticket.id}`}
+                        />
+                      </div>
+                      <div className="group">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
+                          {ticket.member?.name && (
+                            <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
+                      </div>
+                      <div><PriorityBadge priority={ticket.priority} /></div>
+                      <div><SlaBadge status={ticket.slaStatus} /></div>
+                      <div><TierBadge tier={ticket.tier} /></div>
+                      <div>
+                        <Badge
+                          variant={ticket.status === "open" ? "warning" : ticket.status === "resolved" ? "success" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {STATUS_LABELS[ticket.status] ?? ticket.status}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {ticket.assignee?.name ?? <span className="text-orange-600 font-medium">Unassigned</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(ticket.updatedAt), "MMM d, h:mm a")}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {ticket.assignee?.name ?? <span className="text-orange-600 font-medium">Unassigned</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(ticket.updatedAt), "MMM d, h:mm a")}
-                    </div>
-                  </div>
-                </Link>
-              ))
+                  </Link>
+                );
+              })
             )}
           </div>
         </Card>

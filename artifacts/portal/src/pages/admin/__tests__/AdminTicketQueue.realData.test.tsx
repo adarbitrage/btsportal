@@ -12,10 +12,16 @@ vi.mock("@/components/layout/AdminLayout", () => ({
 }));
 
 const getAdminTickets = vi.fn();
+const getTicketAssignees = vi.fn();
+const updateTicketStatus = vi.fn();
+const updateTicketAssignee = vi.fn();
 
 vi.mock("@/lib/admin-panel-api", () => ({
   adminPanelApi: {
     getAdminTickets: (...args: unknown[]) => getAdminTickets(...args),
+    getTicketAssignees: (...args: unknown[]) => getTicketAssignees(...args),
+    updateTicketStatus: (...args: unknown[]) => updateTicketStatus(...args),
+    updateTicketAssignee: (...args: unknown[]) => updateTicketAssignee(...args),
   },
 }));
 
@@ -44,6 +50,8 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     resolvedAt: null,
     member: { id: 100, name: "Default Member", email: "default@example.test" },
     assignee: null,
+    tier: null,
+    slaStatus: null,
     ...overrides,
   };
 }
@@ -87,6 +95,9 @@ const TICKETS: Ticket[] = [
 
 beforeEach(() => {
   getAdminTickets.mockReset().mockResolvedValue(TICKETS);
+  getTicketAssignees.mockReset().mockResolvedValue([]);
+  updateTicketStatus.mockReset().mockResolvedValue({ success: true });
+  updateTicketAssignee.mockReset().mockResolvedValue({ success: true });
 });
 
 afterEach(() => {
