@@ -29,6 +29,11 @@ export const GetCurrentMemberResponse = zod.object({
     .union([
       zod
         .object({
+          attemptId: zod
+            .number()
+            .describe(
+              'email_change_attempts.id of the cancelled attempt. Passed back\nthrough when the member clicks \"Contact support\" from the banner\nso the resulting ticket can be linked to this exact attempt for\nthe support team.\n',
+            ),
           newEmail: zod
             .string()
             .describe(
@@ -72,6 +77,18 @@ export const GetCurrentMemberResponse = zod.object({
       purchasedAt: zod.date(),
       expiresAt: zod.date().nullish(),
       status: zod.string(),
+      externalOrderId: zod
+        .string()
+        .nullish()
+        .describe(
+          "External order identifier (e.g. YSE order number) when the product was granted by an upstream system rather than purchased directly.",
+        ),
+      externalSource: zod
+        .string()
+        .nullish()
+        .describe(
+          'Identifier of the upstream system that granted the product (e.g. \"yse\"). Null for direct purchases.',
+        ),
     }),
   ),
   ticketLimit: zod.number(),
@@ -89,8 +106,18 @@ export const GetMemberProductsResponseItem = zod.object({
   purchasedAt: zod.date(),
   expiresAt: zod.date().nullish(),
   status: zod.string(),
-  externalOrderId: zod.string().nullish(),
-  externalSource: zod.string().nullish(),
+  externalOrderId: zod
+    .string()
+    .nullish()
+    .describe(
+      "External order identifier (e.g. YSE order number) when the product was granted by an upstream system rather than purchased directly.",
+    ),
+  externalSource: zod
+    .string()
+    .nullish()
+    .describe(
+      'Identifier of the upstream system that granted the product (e.g. \"yse\"). Null for direct purchases.',
+    ),
 });
 export const GetMemberProductsResponse = zod.array(
   GetMemberProductsResponseItem,
@@ -657,6 +684,18 @@ export const CreateTicketBody = zod.object({
   category: zod.enum(["billing", "technical", "training", "account", "other"]),
   subject: zod.string(),
   description: zod.string(),
+  source: zod
+    .string()
+    .optional()
+    .describe(
+      'Stable identifier for the in-app surface that opened the ticket.\nCurrently \"email_admin_cancelled_banner\" — set by the\ncancelled-email banner on the member account page so the support\nteam can filter \/ prioritise these tickets as a group. Optional;\nomit for ad-hoc tickets opened from the generic support form.\n',
+    ),
+  sourceReferenceId: zod
+    .number()
+    .optional()
+    .describe(
+      'Optional reference into the originating record. For\nsource=\"email_admin_cancelled_banner\" this is the\nemail_change_attempts.id of the cancelled attempt, used by the\nadmin Ticket Detail page to deep-link back to the member\'s\nhistory.\n',
+    ),
 });
 
 /**
@@ -674,6 +713,8 @@ export const GetTicketResponse = zod.object({
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),
+  source: zod.string().nullish(),
+  sourceReferenceId: zod.number().nullish(),
   assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
@@ -745,6 +786,8 @@ export const AdminListTicketsResponseItem = zod.object({
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),
+  source: zod.string().nullish(),
+  sourceReferenceId: zod.number().nullish(),
   assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
@@ -767,6 +810,8 @@ export const AdminGetTicketResponse = zod.object({
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),
+  source: zod.string().nullish(),
+  sourceReferenceId: zod.number().nullish(),
   assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
@@ -808,6 +853,8 @@ export const AdminUpdateTicketStatusResponse = zod.object({
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),
+  source: zod.string().nullish(),
+  sourceReferenceId: zod.number().nullish(),
   assignedTo: zod.number().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
@@ -878,6 +925,8 @@ export const AdminMergeTicketsResponse = zod.object({
     priority: zod.string(),
     status: zod.string(),
     subject: zod.string(),
+    source: zod.string().nullish(),
+    sourceReferenceId: zod.number().nullish(),
     assignedTo: zod.number().nullish(),
     createdAt: zod.date(),
     updatedAt: zod.date(),

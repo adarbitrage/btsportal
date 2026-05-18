@@ -16,6 +16,10 @@ export interface AdminTicketWithMessages {
   status: string;
   subject: string;
   /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  sourceReferenceId?: number | null;
+  /** @nullable */
   assignedTo?: number | null;
   createdAt: Date;
   updatedAt: Date;

@@ -10,14 +10,23 @@ import { Send, CheckCircle, Loader2, ArrowLeft, Info } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
 
+// Stable identifier persisted on the ticket so the support team can filter
+// these tickets out of the generic "other" bucket and admins can deep-link
+// back to the originating record from the Ticket Detail page. Kept as a
+// constant on both ends (portal here, server-side default in
+// `artifacts/api-server/src/routes/tickets.ts`) so any rename has to happen
+// in one place.
+const SOURCE_EMAIL_ADMIN_CANCELLED_BANNER = "email_admin_cancelled_banner";
+
 const TOPIC_PRESETS: Record<
   string,
-  { subject: string; messagePrompt: string; notice: string }
+  { subject: string; messagePrompt: string; source: string; notice: string }
 > = {
   "email-admin-cancelled": {
     subject: "Question about cancelled email change",
     messagePrompt:
       "I'm contacting you about a pending email change on my account that was cancelled by an administrator. Please help me understand what happened.\n\n",
+    source: SOURCE_EMAIL_ADMIN_CANCELLED_BANNER,
     notice:
       "We've started a request about your recently cancelled email change. Feel free to add any details before sending.",
   },
@@ -30,6 +39,16 @@ export default function GeneralSupport() {
   const searchParams = new URLSearchParams(searchString);
   const topic = searchParams.get("topic") ?? "";
   const preset = TOPIC_PRESETS[topic];
+  // Banner-deep-linked attempt id (only meaningful when a preset is matched).
+  // Parsed defensively because the value comes from the URL — a malformed
+  // `?attemptId=` should fall back to "no reference" rather than send NaN to
+  // the server, which would fail zod validation and surface as a generic
+  // error toast even though the rest of the submission is fine.
+  const rawAttemptId = searchParams.get("attemptId");
+  const parsedAttemptId = rawAttemptId != null ? Number.parseInt(rawAttemptId, 10) : NaN;
+  const sourceReferenceId = preset && Number.isFinite(parsedAttemptId) && parsedAttemptId > 0
+    ? parsedAttemptId
+    : null;
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [firstName, setFirstName] = useState(user?.name?.split(" ")[0] || "");
@@ -58,6 +77,11 @@ export default function GeneralSupport() {
           category: "other",
           subject,
           description: descriptionWithContact,
+          // Only attach the source/sourceReferenceId tag when the preset
+          // matched a known topic — otherwise the ticket is just a generic
+          // support submission and the admin badge / deep-link doesn't apply.
+          ...(preset?.source ? { source: preset.source } : {}),
+          ...(sourceReferenceId != null ? { sourceReferenceId } : {}),
         }),
       });
 

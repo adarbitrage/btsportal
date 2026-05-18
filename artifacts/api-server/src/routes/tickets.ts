@@ -130,6 +130,13 @@ router.post("/tickets", async (req, res): Promise<void> => {
           priority: "normal",
           status: "open",
           subject: parsed.data.subject,
+          // Persist the originating-surface tag so the support team can
+          // filter / prioritise these tickets as a group and the admin
+          // Ticket Detail page can deep-link back to the originating record
+          // (currently the cancelled email-change attempt). Both fields are
+          // optional — generic support form submissions leave them null.
+          source: parsed.data.source ?? null,
+          sourceReferenceId: parsed.data.sourceReferenceId ?? null,
         })
         .returning();
 

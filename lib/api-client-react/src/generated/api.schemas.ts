@@ -375,6 +375,12 @@ portal can explain why a previously pending change has disappeared.
 
  */
 export interface AdminCancelledEmailChange {
+  /** email_change_attempts.id of the cancelled attempt. Passed back
+through when the member clicks "Contact support" from the banner
+so the resulting ticket can be linked to this exact attempt for
+the support team.
+ */
+  attemptId: number;
   /** The address the member tried to change to before the cancellation. */
   newEmail: string;
   /** When the admin cancelled the pending change. */
@@ -729,6 +735,20 @@ export interface CreateTicket {
   category: CreateTicketCategory;
   subject: string;
   description: string;
+  /** Stable identifier for the in-app surface that opened the ticket.
+Currently "email_admin_cancelled_banner" — set by the
+cancelled-email banner on the member account page so the support
+team can filter / prioritise these tickets as a group. Optional;
+omit for ad-hoc tickets opened from the generic support form.
+ */
+  source?: string;
+  /** Optional reference into the originating record. For
+source="email_admin_cancelled_banner" this is the
+email_change_attempts.id of the cancelled attempt, used by the
+admin Ticket Detail page to deep-link back to the member's
+history.
+ */
+  sourceReferenceId?: number;
 }
 
 export type TicketMessageSenderType =
@@ -755,6 +775,10 @@ export interface TicketWithMessages {
   priority: string;
   status: string;
   subject: string;
+  /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  sourceReferenceId?: number | null;
   /** @nullable */
   assignedTo?: number | null;
   createdAt: string;
@@ -892,6 +916,10 @@ export interface AdminTicket {
   status: string;
   subject: string;
   /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  sourceReferenceId?: number | null;
+  /** @nullable */
   assignedTo?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -924,6 +952,10 @@ export interface AdminTicketWithMessages {
   priority: string;
   status: string;
   subject: string;
+  /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  sourceReferenceId?: number | null;
   /** @nullable */
   assignedTo?: number | null;
   createdAt: string;

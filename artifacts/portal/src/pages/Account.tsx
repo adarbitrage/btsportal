@@ -434,7 +434,7 @@ export default function Account() {
                         </span>
                         . If you weren't expecting this,{" "}
                         <Link
-                          href="/support/contact?topic=email-admin-cancelled"
+                          href={`/support/contact?topic=email-admin-cancelled&attemptId=${member.lastAdminCancelledEmailChange.attemptId}`}
                           data-testid="link-admin-cancelled-contact-support"
                           className="font-medium text-blue-900 underline hover:no-underline"
                         >

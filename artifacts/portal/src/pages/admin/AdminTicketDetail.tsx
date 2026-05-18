@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   ScrollText,
   ExternalLink,
+  MailX,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
@@ -573,6 +574,41 @@ export default function AdminTicketDetail() {
                 <span>·</span>
                 <span>Created {format(new Date(ticket.createdAt), "MMM d, yyyy h:mm a")}</span>
               </div>
+              {ticket.source === "email_admin_cancelled_banner" && (
+                // Tickets opened from the cancelled-email banner carry a
+                // source tag so support can spot them at a glance and jump
+                // back to the member's account page (where the email-change
+                // history lives) without hunting through audit logs. The
+                // attempt id is captured in sourceReferenceId; we surface
+                // it next to the badge so admins can cross-reference it
+                // with the audit trail if needed.
+                <div
+                  className="mt-3 inline-flex items-center gap-2 text-sm"
+                  data-testid="ticket-source-banner"
+                >
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-amber-300 bg-amber-50 text-amber-900"
+                    data-testid="ticket-source-badge"
+                  >
+                    <MailX className="w-3 h-3" />
+                    From cancelled-email banner
+                  </Badge>
+                  <Link
+                    href={`/admin/members/${ticket.userId}`}
+                    className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                    data-testid="ticket-source-link"
+                  >
+                    View member
+                    {ticket.sourceReferenceId != null && (
+                      <span className="text-muted-foreground">
+                        (attempt #{ticket.sourceReferenceId})
+                      </span>
+                    )}
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0" data-testid="ticket-sla-badge">
               {slaStatus === "breached" && (

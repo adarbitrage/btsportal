@@ -71,6 +71,11 @@ router.get("/members/me", async (req, res): Promise<void> => {
   // the account page.
   const [latestAttempt] = await db
     .select({
+      // `id` is surfaced on the response so the cancelled-email banner can
+      // pass it through to the support form — POST /tickets persists it as
+      // `sourceReferenceId` so the admin Ticket Detail page can deep-link
+      // back to this exact attempt.
+      id: emailChangeAttemptsTable.id,
       newEmail: emailChangeAttemptsTable.newEmail,
       cancelledAt: emailChangeAttemptsTable.cancelledAt,
       cancelledByAdminId: emailChangeAttemptsTable.cancelledByAdminId,
@@ -94,6 +99,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     latestAttempt.newEmail &&
     latestAttempt.dismissedByMemberAt == null
       ? {
+          attemptId: latestAttempt.id,
           newEmail: latestAttempt.newEmail,
           cancelledAt: latestAttempt.cancelledAt,
         }

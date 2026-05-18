@@ -94,6 +94,62 @@ describe("GeneralSupport — topic pre-fill from query string", () => {
     expect(body.category).toBe("other");
   });
 
+  it("tags the ticket with source=email_admin_cancelled_banner and the attemptId from the URL", async () => {
+    // The banner link on the account page appends both ?topic and ?attemptId
+    // — we forward attemptId as sourceReferenceId so the admin Ticket Detail
+    // page can deep-link back to the originating email-change record.
+    currentSearch = "topic=email-admin-cancelled&attemptId=4242";
+    render(<GeneralSupport />);
+
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(authFetchMock).toHaveBeenCalledTimes(1);
+    });
+    const [, init] = authFetchMock.mock.calls[0] as [string, { body?: string }];
+    const body = JSON.parse(init.body ?? "{}");
+    expect(body.source).toBe("email_admin_cancelled_banner");
+    expect(body.sourceReferenceId).toBe(4242);
+  });
+
+  it("drops a malformed attemptId rather than sending NaN to the server", async () => {
+    currentSearch = "topic=email-admin-cancelled&attemptId=not-a-number";
+    render(<GeneralSupport />);
+
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(authFetchMock).toHaveBeenCalledTimes(1);
+    });
+    const [, init] = authFetchMock.mock.calls[0] as [string, { body?: string }];
+    const body = JSON.parse(init.body ?? "{}");
+    // Source tag should still ride along (the topic itself is valid), but
+    // sourceReferenceId must be omitted entirely — sending NaN would fail
+    // server-side zod validation and bubble up as a generic error toast.
+    expect(body.source).toBe("email_admin_cancelled_banner");
+    expect(body.sourceReferenceId).toBeUndefined();
+  });
+
+  it("does not attach a source tag when the topic is unknown", async () => {
+    currentSearch = "topic=does-not-exist&attemptId=1";
+    render(<GeneralSupport />);
+
+    const textareas = screen.getAllByRole("textbox") as HTMLElement[];
+    const textarea = textareas.find(
+      (el) => el.tagName.toLowerCase() === "textarea",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(authFetchMock).toHaveBeenCalledTimes(1);
+    });
+    const [, init] = authFetchMock.mock.calls[0] as [string, { body?: string }];
+    const body = JSON.parse(init.body ?? "{}");
+    expect(body.source).toBeUndefined();
+    expect(body.sourceReferenceId).toBeUndefined();
+  });
+
   it("falls back to the default subject and an empty message when no topic is set", async () => {
     currentSearch = "";
     render(<GeneralSupport />);

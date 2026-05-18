@@ -574,6 +574,8 @@ export const adminPanelApi = {
       priority: "urgent" | "high" | "normal" | "low";
       status: "open" | "in_progress" | "awaiting_response" | "resolved" | "closed";
       subject: string;
+      source: string | null;
+      sourceReferenceId: number | null;
       assignedTo: number | null;
       createdAt: string;
       updatedAt: string;

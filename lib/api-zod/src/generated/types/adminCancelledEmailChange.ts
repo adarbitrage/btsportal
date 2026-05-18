@@ -13,6 +13,12 @@ portal can explain why a previously pending change has disappeared.
 
  */
 export interface AdminCancelledEmailChange {
+  /** email_change_attempts.id of the cancelled attempt. Passed back
+through when the member clicks "Contact support" from the banner
+so the resulting ticket can be linked to this exact attempt for
+the support team.
+ */
+  attemptId: number;
   /** The address the member tried to change to before the cancellation. */
   newEmail: string;
   /** When the admin cancelled the pending change. */

@@ -11,6 +11,21 @@ export const ticketsTable = pgTable("tickets", {
   priority: text("priority").notNull().default("normal"),
   status: text("status").notNull().default("open"),
   subject: text("subject").notNull(),
+  // Stable identifier for the surface that opened this ticket. Set when the
+  // ticket originated from an in-app entry point that the support team wants
+  // to filter / prioritise as a group — currently the cancelled-email banner
+  // on the member account page (value: "email_admin_cancelled_banner").
+  // Null for ad-hoc tickets opened from the generic support form. Kept as
+  // free-form text (not an enum) so adding a new entry point in the future
+  // doesn't require a schema migration.
+  source: text("source"),
+  // Optional foreign key into the originating record so admins can jump from
+  // the ticket back to the row that triggered it. For the cancelled-email
+  // banner source this is the `email_change_attempts.id` of the cancelled
+  // attempt. Stored as a plain int (not a FK constraint) because the source
+  // table varies by `source` value — the ticket still makes sense if the
+  // upstream row is later deleted.
+  sourceReferenceId: integer("source_reference_id"),
   assignedTo: integer("assigned_to").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

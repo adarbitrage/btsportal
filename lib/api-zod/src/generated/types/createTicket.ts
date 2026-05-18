@@ -11,4 +11,18 @@ export interface CreateTicket {
   category: CreateTicketCategory;
   subject: string;
   description: string;
+  /** Stable identifier for the in-app surface that opened the ticket.
+Currently "email_admin_cancelled_banner" — set by the
+cancelled-email banner on the member account page so the support
+team can filter / prioritise these tickets as a group. Optional;
+omit for ad-hoc tickets opened from the generic support form.
+ */
+  source?: string;
+  /** Optional reference into the originating record. For
+source="email_admin_cancelled_banner" this is the
+email_change_attempts.id of the cancelled attempt, used by the
+admin Ticket Detail page to deep-link back to the member's
+history.
+ */
+  sourceReferenceId?: number;
 }
