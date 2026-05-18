@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy } from "lucide-react";
+import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info } from "lucide-react";
+import { getTopicPresetForSubject } from "@/lib/support-topics";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -174,10 +175,23 @@ export default function Support() {
                 <Link key={ticket.id} href={`/support/tickets/${ticket.id}`}>
                   <div className="p-5 hover:bg-muted/40 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
+                      <div className="flex items-center gap-3 mb-1 flex-wrap">
                         <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
                         <Badge variant={statusColors[ticket.status] as any}>{ticket.status.replace('_', ' ')}</Badge>
                         <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{ticket.category}</span>
+                        {(() => {
+                          const preset = getTopicPresetForSubject(ticket.subject);
+                          if (!preset) return null;
+                          return (
+                            <span
+                              data-testid={`ticket-topic-badge-${ticket.id}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-900"
+                            >
+                              <Info className="w-3 h-3 text-blue-600" />
+                              {preset.badgeLabel}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">{ticket.subject}</h4>
                     </div>

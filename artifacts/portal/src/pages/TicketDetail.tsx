@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
+import { getTopicPresetForSubject } from "@/lib/support-topics";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -33,6 +34,7 @@ export default function TicketDetail() {
 
   const visibleMessages = ticket.messages.filter((msg: any) => !msg.isInternal);
 
+  const topicPreset = getTopicPresetForSubject(ticket.subject);
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
 
   const isSystemMessage = (body: string) => {
@@ -95,6 +97,16 @@ export default function TicketDetail() {
               {ticket.status.replace('_', ' ')}
             </Badge>
           </div>
+          {topicPreset && (
+            <div
+              role="status"
+              data-testid="ticket-topic-notice"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+            >
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
+              <p>{topicPreset.notice}</p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

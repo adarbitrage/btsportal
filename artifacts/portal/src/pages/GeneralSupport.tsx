@@ -9,28 +9,7 @@ import { authFetch } from "@/lib/auth";
 import { Send, CheckCircle, Loader2, ArrowLeft, Info } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
-
-// Stable identifier persisted on the ticket so the support team can filter
-// these tickets out of the generic "other" bucket and admins can deep-link
-// back to the originating record from the Ticket Detail page. Kept as a
-// constant on both ends (portal here, server-side default in
-// `artifacts/api-server/src/routes/tickets.ts`) so any rename has to happen
-// in one place.
-const SOURCE_EMAIL_ADMIN_CANCELLED_BANNER = "email_admin_cancelled_banner";
-
-const TOPIC_PRESETS: Record<
-  string,
-  { subject: string; messagePrompt: string; source: string; notice: string }
-> = {
-  "email-admin-cancelled": {
-    subject: "Question about cancelled email change",
-    messagePrompt:
-      "I'm contacting you about a pending email change on my account that was cancelled by an administrator. Please help me understand what happened.\n\n",
-    source: SOURCE_EMAIL_ADMIN_CANCELLED_BANNER,
-    notice:
-      "We've started a request about your recently cancelled email change. Feel free to add any details before sending.",
-  },
-};
+import { TOPIC_PRESETS } from "@/lib/support-topics";
 
 export default function GeneralSupport() {
   const { user } = useAuth();
