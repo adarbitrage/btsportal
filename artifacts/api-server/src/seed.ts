@@ -138,6 +138,7 @@ async function seed() {
     {
       slug: "yse_21_day_blitz", name: "YSE 21-Day Blitz", type: "backend",
       entitlementKeys: ["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"],
+      durationDays: null,
       priceDisplay: "$297", sortOrder: 11,
     },
     {
@@ -188,7 +189,7 @@ async function seed() {
       type: "backend",
       thrivecartProductId: null,
       entitlementKeys: ["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"],
-      durationDays: 21,
+      durationDays: null,
       priceDisplay: "$297",
       sortOrder: 11,
     },
