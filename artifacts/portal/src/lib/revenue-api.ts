@@ -168,13 +168,22 @@ export interface UpgradePromptAnalyticsResponse {
   topFeatureCombos: UpgradePromptComboStat[];
 }
 
-export function useUpgradePromptAnalytics(from: string, to: string) {
+export function useUpgradePromptAnalytics(
+  from: string,
+  to: string,
+  filters: { variant?: string; sourceTier?: string } = {},
+) {
+  const { variant = "", sourceTier = "" } = filters;
   return useQuery({
-    queryKey: ["/api/admin/analytics/upgrade-prompts", from, to],
-    queryFn: () =>
-      adminFetch<UpgradePromptAnalyticsResponse>(
-        `/admin/analytics/upgrade-prompts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-      ),
+    queryKey: ["/api/admin/analytics/upgrade-prompts", from, to, variant, sourceTier],
+    queryFn: () => {
+      const params = new URLSearchParams({ from, to });
+      if (variant) params.set("variant", variant);
+      if (sourceTier) params.set("sourceTier", sourceTier);
+      return adminFetch<UpgradePromptAnalyticsResponse>(
+        `/admin/analytics/upgrade-prompts?${params.toString()}`,
+      );
+    },
   });
 }
 

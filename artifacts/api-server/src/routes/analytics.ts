@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, upgradePromptEventsTable } from "@workspace/db";
-import { and, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import { abuseRateLimit } from "../middleware/abuse-rate-limit";
@@ -155,10 +155,29 @@ router.get(
       return;
     }
 
-    const where = and(
+    const rawVariant = typeof req.query.variant === "string" ? req.query.variant : "";
+    const rawSourceTier = typeof req.query.sourceTier === "string" ? req.query.sourceTier : "";
+
+    if (rawVariant && !VALID_VARIANTS.has(rawVariant)) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid variant");
+      return;
+    }
+    if (rawSourceTier && (rawSourceTier.length === 0 || rawSourceTier.length > MAX_TIER_LENGTH)) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid sourceTier");
+      return;
+    }
+
+    const conditions: SQL[] = [
       gte(upgradePromptEventsTable.createdAt, range.from),
       lte(upgradePromptEventsTable.createdAt, range.to),
-    );
+    ];
+    if (rawVariant) {
+      conditions.push(eq(upgradePromptEventsTable.variant, rawVariant));
+    }
+    if (rawSourceTier) {
+      conditions.push(eq(upgradePromptEventsTable.sourceTier, rawSourceTier));
+    }
+    const where = and(...conditions);
 
     const aggregateRows = (await db
       .select({

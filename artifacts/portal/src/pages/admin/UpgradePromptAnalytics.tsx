@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -92,18 +99,39 @@ function StatTile({
   );
 }
 
+const ANY_VALUE = "__any__";
+
 export default function UpgradePromptAnalytics() {
   const initial = useMemo(defaultRange, []);
   const [from, setFrom] = useState<string>(initial.from);
   const [to, setTo] = useState<string>(initial.to);
   const [appliedFrom, setAppliedFrom] = useState<string>(initial.from);
   const [appliedTo, setAppliedTo] = useState<string>(initial.to);
+  const [variantFilter, setVariantFilter] = useState<string>(ANY_VALUE);
+  const [tierFilter, setTierFilter] = useState<string>(ANY_VALUE);
 
   const fromIso = useMemo(() => new Date(`${appliedFrom}T00:00:00.000Z`).toISOString(), [appliedFrom]);
   const toIso = useMemo(() => new Date(`${appliedTo}T23:59:59.999Z`).toISOString(), [appliedTo]);
 
-  const { data, isLoading, error } = useUpgradePromptAnalytics(fromIso, toIso);
+  const filters = useMemo(
+    () => ({
+      variant: variantFilter === ANY_VALUE ? undefined : variantFilter,
+      sourceTier: tierFilter === ANY_VALUE ? undefined : tierFilter,
+    }),
+    [variantFilter, tierFilter],
+  );
+
+  const { data, isLoading, error } = useUpgradePromptAnalytics(fromIso, toIso, filters);
+  // Unfiltered query in the same range so the tier dropdown still lists every
+  // tier that has events, even after a tier filter is applied (which would
+  // otherwise collapse byTier to a single row).
+  const { data: tierOptionsData } = useUpgradePromptAnalytics(fromIso, toIso);
   const queryClient = useQueryClient();
+
+  const tierOptions = useMemo(() => {
+    const tiers = (tierOptionsData?.byTier ?? []).map((row) => row.sourceTier);
+    return Array.from(new Set(tiers)).sort();
+  }, [tierOptionsData]);
 
   const handleApply = () => {
     setAppliedFrom(from);
@@ -158,6 +186,55 @@ export default function UpgradePromptAnalytics() {
                   className="w-[180px]"
                   data-testid="input-upgrade-prompts-to"
                 />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="upgrade-prompts-variant">Filter trend by variant</Label>
+                <Select value={variantFilter} onValueChange={setVariantFilter}>
+                  <SelectTrigger
+                    id="upgrade-prompts-variant"
+                    className="w-[180px]"
+                    data-testid="select-upgrade-prompts-variant"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ANY_VALUE} data-testid="option-variant-any">
+                      Any variant
+                    </SelectItem>
+                    <SelectItem value="dashboard" data-testid="option-variant-dashboard">
+                      Dashboard
+                    </SelectItem>
+                    <SelectItem value="sidebar" data-testid="option-variant-sidebar">
+                      Sidebar
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="upgrade-prompts-tier">Filter trend by source tier</Label>
+                <Select value={tierFilter} onValueChange={setTierFilter}>
+                  <SelectTrigger
+                    id="upgrade-prompts-tier"
+                    className="w-[200px]"
+                    data-testid="select-upgrade-prompts-tier"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ANY_VALUE} data-testid="option-tier-any">
+                      Any source tier
+                    </SelectItem>
+                    {tierOptions.map((tier) => (
+                      <SelectItem
+                        key={tier}
+                        value={tier}
+                        data-testid={`option-tier-${tier}`}
+                      >
+                        {tier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={handleApply} data-testid="button-apply-upgrade-prompts-range">
                 Apply

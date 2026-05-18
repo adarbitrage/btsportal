@@ -237,6 +237,74 @@ describe("GET /api/admin/analytics/upgrade-prompts", () => {
     expect(res.status).toBe(400);
   });
 
+  it("filters totals, daily, byVariant, and byTier by variant", async () => {
+    const res = await request(app)
+      .get("/api/admin/analytics/upgrade-prompts?variant=sidebar")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const body = res.body as {
+      totals: { impressions: number; clicks: number };
+      byVariant: { variant: string }[];
+      byTier: { sourceTier: string; impressions: number; clicks: number }[];
+      daily: { impressions: number; clicks: number }[];
+    };
+
+    // Only sidebar should appear
+    expect(body.byVariant.every((v) => v.variant === "sidebar")).toBe(true);
+    // Sidebar events were all on "starter"
+    expect(body.byTier.every((t) => t.sourceTier === "starter")).toBe(true);
+
+    const dailyImpressions = body.daily.reduce((s, r) => s + r.impressions, 0);
+    const dailyClicks = body.daily.reduce((s, r) => s + r.clicks, 0);
+    expect(dailyImpressions).toBe(body.totals.impressions);
+    expect(dailyClicks).toBe(body.totals.clicks);
+    // Sidebar seed events: 1 impression, 2 clicks
+    expect(body.totals.impressions).toBe(1);
+    expect(body.totals.clicks).toBe(2);
+  });
+
+  it("filters by source tier", async () => {
+    const res = await request(app)
+      .get("/api/admin/analytics/upgrade-prompts?sourceTier=free")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const body = res.body as {
+      totals: { impressions: number; clicks: number };
+      byTier: { sourceTier: string }[];
+      byVariant: { variant: string }[];
+    };
+    expect(body.byTier.every((t) => t.sourceTier === "free")).toBe(true);
+    // Free-tier events were all on dashboard
+    expect(body.byVariant.every((v) => v.variant === "dashboard")).toBe(true);
+    expect(body.totals.impressions).toBe(2);
+    expect(body.totals.clicks).toBe(1);
+  });
+
+  it("filters by variant and source tier together", async () => {
+    const res = await request(app)
+      .get("/api/admin/analytics/upgrade-prompts?variant=dashboard&sourceTier=starter")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const body = res.body as {
+      totals: { impressions: number; clicks: number };
+      daily: unknown[];
+    };
+    // No events match dashboard+starter in the seed data
+    expect(body.totals.impressions).toBe(0);
+    expect(body.totals.clicks).toBe(0);
+    expect(body.daily.length).toBe(0);
+  });
+
+  it("rejects an unknown variant filter", async () => {
+    const res = await request(app)
+      .get("/api/admin/analytics/upgrade-prompts?variant=popup")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+  });
+
   it("rejects ranges where from is after to", async () => {
     const from = new Date().toISOString();
     const to = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
