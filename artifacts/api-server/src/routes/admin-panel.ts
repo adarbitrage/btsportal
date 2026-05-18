@@ -1754,6 +1754,10 @@ router.get("/admin/products", requirePermission("members:view"), async (_req: Re
         durationDays: productsTable.durationDays,
         priceDisplay: productsTable.priceDisplay,
         sortOrder: productsTable.sortOrder,
+        tagline: productsTable.tagline,
+        durationLabel: productsTable.durationLabel,
+        highlights: productsTable.highlights,
+        recommended: productsTable.recommended,
       })
       .from(productsTable)
       .orderBy(productsTable.sortOrder);
@@ -1761,6 +1765,120 @@ router.get("/admin/products", requirePermission("members:view"), async (_req: Re
   } catch (error) {
     console.error("[Admin] List products error:", error);
     res.status(500).json({ error: "Failed to list products" });
+  }
+});
+
+// PATCH /admin/products/:id — edit the plan presentation metadata (tagline,
+// highlights bullets, "Most popular" recommended flag, durationLabel) that's
+// rendered on the public /plans page. Only those four fields are editable
+// here; the rest of the product row (slug, name, price, entitlements, etc.)
+// is still managed elsewhere. Every changed field is sent through to the
+// audit log so support staff can trace marketing-copy edits.
+router.patch("/admin/products/:id", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid product ID" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const update: {
+      tagline?: string | null;
+      durationLabel?: string | null;
+      highlights?: string[];
+      recommended?: boolean;
+    } = {};
+    const changedFields: string[] = [];
+
+    if ("tagline" in body) {
+      const v = body.tagline;
+      if (v !== null && typeof v !== "string") {
+        res.status(400).json({ error: "tagline must be a string or null" });
+        return;
+      }
+      // Trim and treat empty strings as null so the column stays clean.
+      const trimmed = typeof v === "string" ? v.trim() : null;
+      update.tagline = trimmed && trimmed.length > 0 ? trimmed : null;
+      changedFields.push("tagline");
+    }
+
+    if ("durationLabel" in body) {
+      const v = body.durationLabel;
+      if (v !== null && typeof v !== "string") {
+        res.status(400).json({ error: "durationLabel must be a string or null" });
+        return;
+      }
+      const trimmed = typeof v === "string" ? v.trim() : null;
+      update.durationLabel = trimmed && trimmed.length > 0 ? trimmed : null;
+      changedFields.push("durationLabel");
+    }
+
+    if ("highlights" in body) {
+      const v = body.highlights;
+      if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) {
+        res.status(400).json({ error: "highlights must be an array of strings" });
+        return;
+      }
+      // Strip blank entries so the bullet list stays tidy. We pass the array
+      // through directly — Drizzle's jsonb binding stores it as a JSONB
+      // array (the `products_highlights_is_array` CHECK rejects anything else).
+      update.highlights = (v as string[])
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      changedFields.push("highlights");
+    }
+
+    if ("recommended" in body) {
+      const v = body.recommended;
+      if (typeof v !== "boolean") {
+        res.status(400).json({ error: "recommended must be a boolean" });
+        return;
+      }
+      update.recommended = v;
+      changedFields.push("recommended");
+    }
+
+    if (changedFields.length === 0) {
+      res.status(400).json({ error: "No editable fields supplied" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(productsTable)
+      .set(update)
+      .where(eq(productsTable.id, id))
+      .returning({
+        id: productsTable.id,
+        slug: productsTable.slug,
+        name: productsTable.name,
+        type: productsTable.type,
+        durationDays: productsTable.durationDays,
+        priceDisplay: productsTable.priceDisplay,
+        sortOrder: productsTable.sortOrder,
+        tagline: productsTable.tagline,
+        durationLabel: productsTable.durationLabel,
+        highlights: productsTable.highlights,
+        recommended: productsTable.recommended,
+      });
+
+    if (!updated) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    await logAdminAction(
+      req,
+      "update_product_metadata",
+      "product",
+      String(id),
+      `Updated plan metadata fields [${changedFields.join(", ")}] for product ${updated.slug}`,
+    );
+
+    res.json(updated);
+  } catch (error) {
+    console.error("[Admin] Update product metadata error:", error);
+    res.status(500).json({ error: "Failed to update product metadata" });
   }
 });
 

@@ -6,15 +6,13 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface ProductInfo {
-  id: number;
-  slug: string;
-  name: string;
-  type: string;
-  /** @nullable */
-  priceDisplay?: string | null;
-  entitlementKeys?: string[];
-  sortOrder: number;
+/**
+ * Partial update body for PATCH /admin/products/{id}. Every field is
+optional; only the fields included in the request are written. At
+least one editable field must be supplied or the server returns 400.
+
+ */
+export interface UpdateProductMetadataBody {
   /** @nullable */
   tagline?: string | null;
   /** @nullable */

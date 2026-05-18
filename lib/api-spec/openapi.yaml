@@ -365,11 +365,14 @@ paths:
       summary: List upgradeable membership plans for the public /plans page
       description: |
         Returns the upgradeable membership plans rendered on the public
-        /plans page. Plan name, priceDisplay, durationDays, and entitlements
-        come from the `products` table (so admin edits propagate
-        automatically). Tagline, highlights, the "recommended" flag, and
-        upgrade rank are server-side static metadata for plan slugs that
-        currently cannot be edited via the admin product editor.
+        /plans page. Plan name, priceDisplay, durationDays, entitlements,
+        tagline, highlights, durationLabel, and the "recommended" ("Most
+        popular") flag all come from the `products` table — admins edit
+        them via PATCH /admin/products/{id} and the changes propagate to
+        /plans automatically. Only the upgrade `rank` (slug ordering) is
+        still server-side: the list of slugs that count as upgradeable
+        plans and their order lives in
+        `artifacts/api-server/src/lib/plans.ts`.
       responses:
         "200":
           description: Ordered list of upgradeable plans (lowest to highest tier)
@@ -379,6 +382,44 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Plan"
+
+  /admin/products/{id}:
+    patch:
+      operationId: adminUpdateProductMetadata
+      tags: [products]
+      security:
+        - cookieAuth: []
+      summary: Edit a product's plan presentation metadata
+      description: |
+        Update the marketing-copy fields of a product row that are surfaced
+        on the public /plans page: `tagline`, `highlights`, `durationLabel`,
+        and the `recommended` ("Most popular") badge. Only fields included
+        in the request body are touched; any field omitted is left as-is.
+        Blank/whitespace-only `tagline` or `durationLabel` strings are
+        stored as null. Blank entries in `highlights` are dropped.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductMetadataBody"
+      responses:
+        "200":
+          description: Updated product row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductInfo"
+        "400":
+          description: Validation failed or no editable fields supplied
+        "404":
+          description: Product not found
 
   /dashboard:
     get:
@@ -6234,6 +6275,24 @@ components:
           type: integer
       required: [entitlements, highestProductName, highestProductSlug, ticketLimit]
 
+    UpdateProductMetadataBody:
+      type: object
+      description: |
+        Partial update body for PATCH /admin/products/{id}. Every field is
+        optional; only the fields included in the request are written. At
+        least one editable field must be supplied or the server returns 400.
+      properties:
+        tagline:
+          type: ["string", "null"]
+        durationLabel:
+          type: ["string", "null"]
+        highlights:
+          type: array
+          items:
+            type: string
+        recommended:
+          type: boolean
+
     ProductInfo:
       type: object
       properties:
@@ -6253,16 +6312,28 @@ components:
             type: string
         sortOrder:
           type: integer
+        tagline:
+          type: ["string", "null"]
+        durationLabel:
+          type: ["string", "null"]
+        highlights:
+          type: array
+          items:
+            type: string
+        recommended:
+          type: boolean
       required: [id, slug, name, type, sortOrder]
 
     Plan:
       type: object
       description: |
-        Upgradeable membership plan as rendered on the /plans page. Combines
-        DB-backed product fields (name, priceDisplay, durationDays,
-        entitlements) with server-side static metadata (tagline, highlights,
-        recommended, rank, durationLabel) for plan-only presentation
-        attributes that aren't editable in the admin product editor.
+        Upgradeable membership plan as rendered on the /plans page. Plan
+        name, priceDisplay, durationDays, entitlements, tagline, highlights,
+        durationLabel, and the "recommended" ("Most popular") flag all come
+        from the `products` table and are editable via PATCH
+        /admin/products/{id}. Only the upgrade `rank` (slug ordering) is
+        server-side, sourced from the slug map in
+        `artifacts/api-server/src/lib/plans.ts`.
       properties:
         slug:
           type: string

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb, check } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, boolean, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -22,6 +22,17 @@ export const productsTable = pgTable(
     // a checkout for them. The /members/me/checkout endpoint appends the
     // member's email/name and a return_url before redirecting.
     checkoutUrl: text("checkout_url"),
+    // Plan presentation metadata surfaced on the public /plans page. Lives on
+    // the products table (rather than a static map in code) so admins can
+    // edit marketing copy without a code deploy via PATCH /admin/products/:id.
+    // `tagline` is the short subtitle shown under the plan name, `highlights`
+    // is the bullet list under the price, `durationLabel` is the human label
+    // (e.g. "90 days", "Lifetime") shown next to the price, and `recommended`
+    // controls the "Most popular" badge. See artifacts/api-server/src/lib/plans.ts.
+    tagline: text("tagline"),
+    durationLabel: text("duration_label"),
+    highlights: jsonb("highlights").notNull().default([]),
+    recommended: boolean("recommended").notNull().default(false),
   },
   (table) => ({
     // Pin the storage shape of `entitlement_keys` to a JSONB array. Without
@@ -36,6 +47,13 @@ export const productsTable = pgTable(
     entitlementKeysIsArray: check(
       "products_entitlement_keys_is_array",
       sql`jsonb_typeof(${table.entitlementKeys}) = 'array'`,
+    ),
+    // Same rationale as entitlement_keys: pin `highlights` to a JSONB array
+    // so a stray `JSON.stringify([...])` on the way in is rejected at the DB
+    // layer instead of silently producing a string scalar.
+    highlightsIsArray: check(
+      "products_highlights_is_array",
+      sql`jsonb_typeof(${table.highlights}) = 'array'`,
     ),
   }),
 );

@@ -258,6 +258,7 @@ import type {
   UpdateApiKey,
   UpdateChatPromptBody,
   UpdateProductMapping,
+  UpdateProductMetadataBody,
   UpdateToolDataBody,
   UploadUrlResponse,
   VerifyEmailBody,
@@ -1646,11 +1647,14 @@ export function useListProducts<
 
 /**
  * Returns the upgradeable membership plans rendered on the public
-/plans page. Plan name, priceDisplay, durationDays, and entitlements
-come from the `products` table (so admin edits propagate
-automatically). Tagline, highlights, the "recommended" flag, and
-upgrade rank are server-side static metadata for plan slugs that
-currently cannot be edited via the admin product editor.
+/plans page. Plan name, priceDisplay, durationDays, entitlements,
+tagline, highlights, durationLabel, and the "recommended" ("Most
+popular") flag all come from the `products` table — admins edit
+them via PATCH /admin/products/{id} and the changes propagate to
+/plans automatically. Only the upgrade `rank` (slug ordering) is
+still server-side: the list of slugs that count as upgradeable
+plans and their order lives in
+`artifacts/api-server/src/lib/plans.ts`.
 
  * @summary List upgradeable membership plans for the public /plans page
  */
@@ -1715,6 +1719,101 @@ export function useListPlans<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Update the marketing-copy fields of a product row that are surfaced
+on the public /plans page: `tagline`, `highlights`, `durationLabel`,
+and the `recommended` ("Most popular") badge. Only fields included
+in the request body are touched; any field omitted is left as-is.
+Blank/whitespace-only `tagline` or `durationLabel` strings are
+stored as null. Blank entries in `highlights` are dropped.
+
+ * @summary Edit a product's plan presentation metadata
+ */
+export const getAdminUpdateProductMetadataUrl = (id: number) => {
+  return `/api/admin/products/${id}`;
+};
+
+export const adminUpdateProductMetadata = async (
+  id: number,
+  updateProductMetadataBody: UpdateProductMetadataBody,
+  options?: RequestInit,
+): Promise<ProductInfo> => {
+  return customFetch<ProductInfo>(getAdminUpdateProductMetadataUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateProductMetadataBody),
+  });
+};
+
+export const getAdminUpdateProductMetadataMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateProductMetadata>>,
+    TError,
+    { id: number; data: BodyType<UpdateProductMetadataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateProductMetadata>>,
+  TError,
+  { id: number; data: BodyType<UpdateProductMetadataBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateProductMetadata"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateProductMetadata>>,
+    { id: number; data: BodyType<UpdateProductMetadataBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateProductMetadata(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateProductMetadataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateProductMetadata>>
+>;
+export type AdminUpdateProductMetadataMutationBody =
+  BodyType<UpdateProductMetadataBody>;
+export type AdminUpdateProductMetadataMutationError = ErrorType<void>;
+
+/**
+ * @summary Edit a product's plan presentation metadata
+ */
+export const useAdminUpdateProductMetadata = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateProductMetadata>>,
+    TError,
+    { id: number; data: BodyType<UpdateProductMetadataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateProductMetadata>>,
+  TError,
+  { id: number; data: BodyType<UpdateProductMetadataBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateProductMetadataMutationOptions(options));
+};
 
 /**
  * @summary Get dashboard summary

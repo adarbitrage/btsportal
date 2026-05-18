@@ -350,6 +350,7 @@ export * from "./updateAffiliateProfile";
 export * from "./updateApiKey";
 export * from "./updateChatPromptBody";
 export * from "./updateProductMapping";
+export * from "./updateProductMetadataBody";
 export * from "./updateToolDataBody";
 export * from "./updateToolDataBodyDataValue";
 export * from "./uploadUrlResponse";

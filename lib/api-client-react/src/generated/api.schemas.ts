@@ -451,6 +451,21 @@ export interface EntitlementSet {
   ticketLimit: number;
 }
 
+/**
+ * Partial update body for PATCH /admin/products/{id}. Every field is
+optional; only the fields included in the request are written. At
+least one editable field must be supplied or the server returns 400.
+
+ */
+export interface UpdateProductMetadataBody {
+  /** @nullable */
+  tagline?: string | null;
+  /** @nullable */
+  durationLabel?: string | null;
+  highlights?: string[];
+  recommended?: boolean;
+}
+
 export interface ProductInfo {
   id: number;
   slug: string;
@@ -460,14 +475,22 @@ export interface ProductInfo {
   priceDisplay?: string | null;
   entitlementKeys?: string[];
   sortOrder: number;
+  /** @nullable */
+  tagline?: string | null;
+  /** @nullable */
+  durationLabel?: string | null;
+  highlights?: string[];
+  recommended?: boolean;
 }
 
 /**
- * Upgradeable membership plan as rendered on the /plans page. Combines
-DB-backed product fields (name, priceDisplay, durationDays,
-entitlements) with server-side static metadata (tagline, highlights,
-recommended, rank, durationLabel) for plan-only presentation
-attributes that aren't editable in the admin product editor.
+ * Upgradeable membership plan as rendered on the /plans page. Plan
+name, priceDisplay, durationDays, entitlements, tagline, highlights,
+durationLabel, and the "recommended" ("Most popular") flag all come
+from the `products` table and are editable via PATCH
+/admin/products/{id}. Only the upgrade `rank` (slug ordering) is
+server-side, sourced from the slug map in
+`artifacts/api-server/src/lib/plans.ts`.
 
  */
 export interface Plan {

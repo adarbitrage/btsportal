@@ -351,6 +351,7 @@ export type {
   UpdateApiKey,
   UpdateChatPromptBody,
   UpdateProductMapping,
+  UpdateProductMetadataBody,
   UpdateToolDataBody,
   UpdateToolDataBodyDataValue,
   UploadUrlResponse,

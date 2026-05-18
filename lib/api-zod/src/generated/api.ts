@@ -311,16 +311,23 @@ export const ListProductsResponseItem = zod.object({
   priceDisplay: zod.string().nullish(),
   entitlementKeys: zod.array(zod.string()).optional(),
   sortOrder: zod.number(),
+  tagline: zod.string().nullish(),
+  durationLabel: zod.string().nullish(),
+  highlights: zod.array(zod.string()).optional(),
+  recommended: zod.boolean().optional(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
  * Returns the upgradeable membership plans rendered on the public
-/plans page. Plan name, priceDisplay, durationDays, and entitlements
-come from the `products` table (so admin edits propagate
-automatically). Tagline, highlights, the "recommended" flag, and
-upgrade rank are server-side static metadata for plan slugs that
-currently cannot be edited via the admin product editor.
+/plans page. Plan name, priceDisplay, durationDays, entitlements,
+tagline, highlights, durationLabel, and the "recommended" ("Most
+popular") flag all come from the `products` table — admins edit
+them via PATCH /admin/products/{id} and the changes propagate to
+/plans automatically. Only the upgrade `rank` (slug ordering) is
+still server-side: the list of slugs that count as upgradeable
+plans and their order lives in
+`artifacts/api-server/src/lib/plans.ts`.
 
  * @summary List upgradeable membership plans for the public /plans page
  */
@@ -338,9 +345,48 @@ export const ListPlansResponseItem = zod
     rank: zod.number(),
   })
   .describe(
-    "Upgradeable membership plan as rendered on the \/plans page. Combines\nDB-backed product fields (name, priceDisplay, durationDays,\nentitlements) with server-side static metadata (tagline, highlights,\nrecommended, rank, durationLabel) for plan-only presentation\nattributes that aren't editable in the admin product editor.\n",
+    'Upgradeable membership plan as rendered on the \/plans page. Plan\nname, priceDisplay, durationDays, entitlements, tagline, highlights,\ndurationLabel, and the \"recommended\" (\"Most popular\") flag all come\nfrom the `products` table and are editable via PATCH\n\/admin\/products\/{id}. Only the upgrade `rank` (slug ordering) is\nserver-side, sourced from the slug map in\n`artifacts\/api-server\/src\/lib\/plans.ts`.\n',
   );
 export const ListPlansResponse = zod.array(ListPlansResponseItem);
+
+/**
+ * Update the marketing-copy fields of a product row that are surfaced
+on the public /plans page: `tagline`, `highlights`, `durationLabel`,
+and the `recommended` ("Most popular") badge. Only fields included
+in the request body are touched; any field omitted is left as-is.
+Blank/whitespace-only `tagline` or `durationLabel` strings are
+stored as null. Blank entries in `highlights` are dropped.
+
+ * @summary Edit a product's plan presentation metadata
+ */
+export const AdminUpdateProductMetadataParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateProductMetadataBody = zod
+  .object({
+    tagline: zod.string().nullish(),
+    durationLabel: zod.string().nullish(),
+    highlights: zod.array(zod.string()).optional(),
+    recommended: zod.boolean().optional(),
+  })
+  .describe(
+    "Partial update body for PATCH \/admin\/products\/{id}. Every field is\noptional; only the fields included in the request are written. At\nleast one editable field must be supplied or the server returns 400.\n",
+  );
+
+export const AdminUpdateProductMetadataResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  type: zod.string(),
+  priceDisplay: zod.string().nullish(),
+  entitlementKeys: zod.array(zod.string()).optional(),
+  sortOrder: zod.number(),
+  tagline: zod.string().nullish(),
+  durationLabel: zod.string().nullish(),
+  highlights: zod.array(zod.string()).optional(),
+  recommended: zod.boolean().optional(),
+});
 
 /**
  * @summary Get dashboard summary
