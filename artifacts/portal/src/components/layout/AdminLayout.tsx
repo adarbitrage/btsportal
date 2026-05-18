@@ -12,6 +12,7 @@ import {
   FolderOpen,
   TrendingUp,
   ShoppingCart,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -37,6 +38,7 @@ const adminNavGroups: NavGroup[] = [
     label: "Integrations",
     items: [
       { href: "/admin/integrations/yse", label: "YSE Orders", icon: ShoppingCart },
+      { href: "/admin/integrations/yse/failures", label: "YSE Grant Failures", icon: AlertTriangle },
     ],
   },
 ];

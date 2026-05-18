@@ -132,6 +132,7 @@ import LtvAnalysis from "@/pages/admin/LtvAnalysis";
 import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
 import YseOrders from "@/pages/admin/YseOrders";
+import YseGrantFailures from "@/pages/admin/YseGrantFailures";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import MyProducts from "@/pages/MyProducts";
@@ -443,6 +444,7 @@ function Router() {
       <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="revenue:view" />}</Route>
       <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>
       <Route path="/admin/integrations/yse">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
+      <Route path="/admin/integrations/yse/failures">{() => <AdminRoute component={YseGrantFailures} permission="system:view" />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

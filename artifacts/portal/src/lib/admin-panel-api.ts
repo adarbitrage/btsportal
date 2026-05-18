@@ -1332,6 +1332,53 @@ export const adminPanelApi = {
     return streamDownload(res, "csv", onProgress);
   },
 
+  async getYsePendingGrants(limit = 100): Promise<{
+    items: Array<{
+      id: number;
+      externalId: string;
+      attempts: number;
+      maxAttempts: number;
+      status: string;
+      errorMessage: string | null;
+      lastAttemptAt: string | null;
+      nextRetryAt: string | null;
+      createdAt: string;
+      customerEmail: string | null;
+      externalOrderId: string | null;
+      externalSource: string | null;
+      productSlugs: string[];
+      terminal: boolean;
+    }>;
+    status: {
+      lastRanAt: string | null;
+      lastSucceeded: number;
+      lastFailed: number;
+      lastError: { at: string; message: string } | null;
+      intervalMs: number;
+      maxAttempts: number;
+    };
+  }> {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    const res = await authFetch(`/admin/yse-grants/pending?${qs.toString()}`);
+    if (!res.ok) throw new Error("Failed to fetch pending YSE grants");
+    return res.json();
+  },
+
+  async retryYseGrant(id: number): Promise<{ ok: true }> {
+    const res = await authFetch(`/admin/yse-grants/${id}/retry`, { method: "POST" });
+    if (!res.ok) {
+      let reason = "Retry failed";
+      try {
+        const body = await res.json();
+        if (body?.error) reason = body.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(reason);
+    }
+    return res.json();
+  },
+
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string; externalSource?: string; externalOrderId?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));

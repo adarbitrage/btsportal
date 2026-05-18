@@ -241,6 +241,10 @@ function readNotificationPermission(): NotifyPermissionState {
 export default function SystemHealth() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [yseGrantSummary, setYseGrantSummary] = useState<{
+    pending: number;
+    terminal: number;
+  } | null>(null);
   const [fallbackEvents, setFallbackEvents] = useState<QueueFallbackEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -574,6 +578,25 @@ export default function SystemHealth() {
     }
   }, [toast]);
 
+  // Count pending vs. terminal-failed YSE grants so on-call can see at a
+  // glance whether any paying customer is still waiting for portal access.
+  // Failures here are silent because this card is a sidecar to the main
+  // health snapshot, not load-bearing for the rest of the page.
+  const loadYseGrantSummary = useCallback(async () => {
+    try {
+      // Request the backend's max (500) so counts on the System Health
+      // card don't underreport against a large backlog.
+      const data = await adminPanelApi.getYsePendingGrants(500);
+      const terminal = data.items.filter((i) => i.terminal).length;
+      setYseGrantSummary({
+        pending: data.items.length - terminal,
+        terminal,
+      });
+    } catch {
+      // ignore — card hides its numbers and surfaces a dashed value
+    }
+  }, []);
+
   const loadFallbackEvents = useCallback(async (silent = false) => {
     try {
       if (!silent) setEventsLoading(true);
@@ -721,6 +744,7 @@ export default function SystemHealth() {
         loadAlertEvents(silent),
         loadAlerterHealth(silent),
         loadOnCallHistory(silent),
+        loadYseGrantSummary(),
       ]);
       const allOk = healthOk && eventsOk && alertEventsOk && alerterHealthOk && oncallHistoryOk;
       if (silent) {
@@ -736,7 +760,7 @@ export default function SystemHealth() {
       inFlightRef.current = Math.max(0, inFlightRef.current - 1);
       setRefreshInFlight(inFlightRef.current);
     }
-  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth, loadOnCallHistory]);
+  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth, loadOnCallHistory, loadYseGrantSummary]);
 
   // Once we've loaded an alerter snapshot with at least one active throttle
   // slot, tick a counter every second so the "remaining" labels update in
@@ -1125,6 +1149,50 @@ export default function SystemHealth() {
                     <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total</span><span className="text-sm font-medium">{health.webhooks.last24h}</span></div>
                     <div className="flex justify-between"><span className="text-sm text-muted-foreground">Failed</span><span className={`text-sm font-medium ${health.webhooks.failed24h > 0 ? "text-red-600" : ""}`}>{health.webhooks.failed24h}</span></div>
                     <div className="flex justify-between"><span className="text-sm text-muted-foreground">Audit Events</span><span className="text-sm font-medium">{health.auditLogs.last24h}</span></div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                data-testid="card-yse-grant-failures"
+                className={
+                  yseGrantSummary && yseGrantSummary.terminal > 0
+                    ? "border-red-500/40 bg-red-50/40 dark:bg-red-950/20"
+                    : undefined
+                }
+              >
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />YSE Grant Deliveries
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Pending (retrying)</span>
+                      <span
+                        className={`text-sm font-medium ${yseGrantSummary && yseGrantSummary.pending > 0 ? "text-amber-600" : ""}`}
+                        data-testid="text-yse-pending-count"
+                      >
+                        {yseGrantSummary ? yseGrantSummary.pending : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Terminal failures</span>
+                      <span
+                        className={`text-sm font-medium ${yseGrantSummary && yseGrantSummary.terminal > 0 ? "text-red-600" : ""}`}
+                        data-testid="text-yse-terminal-count"
+                      >
+                        {yseGrantSummary ? yseGrantSummary.terminal : "—"}
+                      </span>
+                    </div>
+                    <Link
+                      href="/admin/integrations/yse/failures"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                      data-testid="link-yse-grant-failures"
+                    >
+                      View details <ExternalLink className="w-3 h-3" />
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
