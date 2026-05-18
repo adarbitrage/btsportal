@@ -1,58 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import {
-  Search,
-  AlertTriangle,
-  Clock,
-  CheckCircle2,
-  Users,
-  X,
-  Tag,
-} from "lucide-react";
-import { mockTickets, type AdminTicket } from "@/lib/admin-mock-data";
+import { Search, X } from "lucide-react";
+import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
 
-type SlaStatus = AdminTicket["slaStatus"];
+type AdminTicket = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[number];
 type TicketPriority = AdminTicket["priority"];
 type TicketStatus = AdminTicket["status"];
-type TicketTier = AdminTicket["tier"];
-
-function getSlaRowClass(slaStatus: SlaStatus) {
-  switch (slaStatus) {
-    case "breached": return "bg-red-50 border-l-4 border-l-red-500";
-    case "approaching": return "bg-orange-50 border-l-4 border-l-orange-500";
-    case "within": return "bg-green-50/30 border-l-4 border-l-green-500";
-    default: return "";
-  }
-}
-
-function SlaBadge({ status }: { status: SlaStatus }) {
-  switch (status) {
-    case "breached":
-      return <Badge className="bg-red-600 hover:bg-red-700 text-white gap-1"><AlertTriangle className="w-3 h-3" />Breached</Badge>;
-    case "approaching":
-      return <Badge className="bg-orange-500 hover:bg-orange-600 gap-1"><Clock className="w-3 h-3" />Approaching</Badge>;
-    case "within":
-      return <Badge className="bg-green-600 hover:bg-green-700 gap-1"><CheckCircle2 className="w-3 h-3" />Within SLA</Badge>;
-    default:
-      return null;
-  }
-}
 
 function PriorityBadge({ priority }: { priority: TicketPriority }) {
   const colors: Record<TicketPriority, string> = {
@@ -65,118 +25,111 @@ function PriorityBadge({ priority }: { priority: TicketPriority }) {
 }
 
 function sortTickets(tickets: AdminTicket[]): AdminTicket[] {
-  const slaOrder: Record<SlaStatus, number> = { breached: 0, approaching: 1, within: 2 };
   const priorityOrder: Record<TicketPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
-  const tierOrder: Record<TicketTier, number> = { vip: 0, premium: 1, standard: 2, basic: 3 };
-
   return [...tickets].sort((a, b) => {
-    const sla = slaOrder[a.slaStatus] - slaOrder[b.slaStatus];
-    if (sla !== 0) return sla;
-    const tier = tierOrder[a.tier] - tierOrder[b.tier];
-    if (tier !== 0) return tier;
     const pri = priorityOrder[a.priority] - priorityOrder[b.priority];
     if (pri !== 0) return pri;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }
 
-const AGENTS = ["Sarah Chen", "Mike Johnson", "Lisa Wang", "James Rodriguez"];
-const CATEGORIES: AdminTicket["category"][] = ["billing", "technical", "training", "account", "other"];
+const STATUS_LABELS: Record<TicketStatus, string> = {
+  open: "open",
+  in_progress: "in progress",
+  awaiting_response: "awaiting response",
+  resolved: "resolved",
+  closed: "closed",
+};
 
 export default function AdminTicketQueue() {
-  const [tickets, setTickets] = useState<AdminTicket[]>(mockTickets);
+  const [tickets, setTickets] = useState<AdminTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
-  const [tierFilter, setTierFilter] = useState("all");
-  const [slaFilter, setSlaFilter] = useState("all");
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showCategorizeDialog, setShowCategorizeDialog] = useState(false);
-  const [bulkAssignAgent, setBulkAssignAgent] = useState("");
-  const [bulkCategory, setBulkCategory] = useState("");
 
-  const agents = useMemo(() => [...new Set(tickets.map(t => t.assignedAgent).filter(Boolean) as string[])], [tickets]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    adminPanelApi
+      .getAdminTickets()
+      .then((data) => {
+        if (cancelled) return;
+        setTickets(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load tickets");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const agents = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of tickets) {
+      if (t.assignee?.name) names.add(t.assignee.name);
+    }
+    return Array.from(names).sort();
+  }, [tickets]);
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const t of tickets) cats.add(t.category);
+    return Array.from(cats).sort();
+  }, [tickets]);
 
   const filtered = useMemo(() => {
     let result = tickets;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
+      result = result.filter((t) =>
         t.subject.toLowerCase().includes(q) ||
         t.ticketNumber.toLowerCase().includes(q) ||
-        t.memberName.toLowerCase().includes(q)
+        (t.member?.name?.toLowerCase().includes(q) ?? false)
       );
     }
-    if (statusFilter !== "all") result = result.filter(t => t.status === statusFilter);
-    if (categoryFilter !== "all") result = result.filter(t => t.category === categoryFilter);
-    if (agentFilter !== "all") result = result.filter(t => t.assignedAgent === agentFilter);
-    if (tierFilter !== "all") result = result.filter(t => t.tier === tierFilter);
-    if (slaFilter !== "all") result = result.filter(t => t.slaStatus === slaFilter);
-    return sortTickets(result);
-  }, [tickets, searchQuery, statusFilter, categoryFilter, agentFilter, tierFilter, slaFilter]);
-
-  const toggleSelect = (id: number) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map(t => t.id)));
+    if (statusFilter !== "all") result = result.filter((t) => t.status === statusFilter);
+    if (categoryFilter !== "all") result = result.filter((t) => t.category === categoryFilter);
+    if (priorityFilter !== "all") result = result.filter((t) => t.priority === priorityFilter);
+    if (agentFilter !== "all") {
+      if (agentFilter === "__unassigned") {
+        result = result.filter((t) => !t.assignee);
+      } else {
+        result = result.filter((t) => t.assignee?.name === agentFilter);
+      }
     }
-  };
-
-  const bulkClose = () => {
-    setTickets(prev => prev.map(t =>
-      selectedIds.has(t.id) ? { ...t, status: "closed" as TicketStatus } : t
-    ));
-    setSelectedIds(new Set());
-  };
-
-  const bulkAssign = () => {
-    if (!bulkAssignAgent) return;
-    setTickets(prev => prev.map(t =>
-      selectedIds.has(t.id) ? { ...t, assignedAgent: bulkAssignAgent } : t
-    ));
-    setSelectedIds(new Set());
-    setShowAssignDialog(false);
-    setBulkAssignAgent("");
-  };
-
-  const bulkCategorize = () => {
-    if (!bulkCategory) return;
-    setTickets(prev => prev.map(t =>
-      selectedIds.has(t.id) ? { ...t, category: bulkCategory } : t
-    ));
-    setSelectedIds(new Set());
-    setShowCategorizeDialog(false);
-    setBulkCategory("");
-  };
+    return sortTickets(result);
+  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter]);
 
   const clearFilters = () => {
     setStatusFilter("all");
     setCategoryFilter("all");
+    setPriorityFilter("all");
     setAgentFilter("all");
-    setTierFilter("all");
-    setSlaFilter("all");
     setSearchQuery("");
   };
 
-  const hasFilters = statusFilter !== "all" || categoryFilter !== "all" || agentFilter !== "all" || tierFilter !== "all" || slaFilter !== "all";
+  const hasFilters =
+    statusFilter !== "all" ||
+    categoryFilter !== "all" ||
+    priorityFilter !== "all" ||
+    agentFilter !== "all" ||
+    searchQuery !== "";
 
   const stats = useMemo(() => ({
     total: tickets.length,
-    breached: tickets.filter(t => t.slaStatus === "breached").length,
-    approaching: tickets.filter(t => t.slaStatus === "approaching").length,
-    unassigned: tickets.filter(t => !t.assignedAgent).length,
+    open: tickets.filter((t) => t.status === "open").length,
+    inProgress: tickets.filter((t) => t.status === "in_progress").length,
+    unassigned: tickets.filter((t) => !t.assignee).length,
   }), [tickets]);
 
   return (
@@ -184,7 +137,7 @@ export default function AdminTicketQueue() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Ticket Queue</h1>
-          <p className="text-muted-foreground">Manage support tickets sorted by SLA urgency</p>
+          <p className="text-muted-foreground">Manage support tickets</p>
         </div>
 
         <div className="grid grid-cols-4 gap-4">
@@ -192,13 +145,13 @@ export default function AdminTicketQueue() {
             <div className="text-2xl font-bold">{stats.total}</div>
             <div className="text-sm text-muted-foreground">Total Tickets</div>
           </Card>
-          <Card className="p-4 border-red-200 bg-red-50/50">
-            <div className="text-2xl font-bold text-red-700">{stats.breached}</div>
-            <div className="text-sm text-red-600">SLA Breached</div>
+          <Card className="p-4">
+            <div className="text-2xl font-bold">{stats.open}</div>
+            <div className="text-sm text-muted-foreground">Open</div>
           </Card>
-          <Card className="p-4 border-orange-200 bg-orange-50/50">
-            <div className="text-2xl font-bold text-orange-700">{stats.approaching}</div>
-            <div className="text-sm text-orange-600">Approaching SLA</div>
+          <Card className="p-4">
+            <div className="text-2xl font-bold">{stats.inProgress}</div>
+            <div className="text-sm text-muted-foreground">In Progress</div>
           </Card>
           <Card className="p-4 border-blue-200 bg-blue-50/50">
             <div className="text-2xl font-bold text-blue-700">{stats.unassigned}</div>
@@ -230,41 +183,33 @@ export default function AdminTicketQueue() {
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Priority" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="technical">Technical</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="account">Account</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={agentFilter} onValueChange={setAgentFilter}>
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Agent" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Agents</SelectItem>
-                  {agents.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="w-[130px]"><SelectValue placeholder="Tier" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tiers</SelectItem>
-                  <SelectItem value="vip">VIP</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="basic">Basic</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={slaFilter} onValueChange={setSlaFilter}>
-                <SelectTrigger className="w-[140px]"><SelectValue placeholder="SLA" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All SLA</SelectItem>
-                  <SelectItem value="breached">Breached</SelectItem>
-                  <SelectItem value="approaching">Approaching</SelectItem>
-                  <SelectItem value="within">Within SLA</SelectItem>
+                  <SelectItem value="__unassigned">Unassigned</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {hasFilters && (
@@ -273,115 +218,58 @@ export default function AdminTicketQueue() {
                 </Button>
               )}
             </div>
-
-            {selectedIds.size > 0 && (
-              <div className="flex items-center gap-3 bg-primary/5 p-3 rounded-lg border border-primary/20">
-                <span className="text-sm font-medium">{selectedIds.size} ticket(s) selected</span>
-                <Button size="sm" variant="outline" onClick={() => setShowAssignDialog(true)}>
-                  <Users className="w-3 h-3 mr-1" /> Assign
-                </Button>
-                <Button size="sm" variant="outline" onClick={bulkClose}>Close Selected</Button>
-                <Button size="sm" variant="outline" onClick={() => setShowCategorizeDialog(true)}>
-                  <Tag className="w-3 h-3 mr-1" /> Categorize
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                  <X className="w-3 h-3 mr-1" /> Deselect
-                </Button>
-              </div>
-            )}
           </div>
 
           <div className="divide-y divide-border">
-            <div className="grid grid-cols-[40px_1fr_100px_100px_100px_120px_120px_100px] gap-2 px-4 py-2.5 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <div className="flex items-center">
-                <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
-                  onCheckedChange={toggleAll}
-                />
-              </div>
+            <div className="grid grid-cols-[1fr_100px_140px_160px_140px] gap-2 px-4 py-2.5 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <div>Ticket</div>
               <div>Priority</div>
               <div>Status</div>
-              <div>Tier</div>
               <div>Agent</div>
-              <div>SLA</div>
               <div>Updated</div>
             </div>
-            {filtered.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">No tickets match the current filters.</div>
+            {loading ? (
+              <div className="p-8 text-center text-muted-foreground">Loading tickets…</div>
+            ) : error ? (
+              <div className="p-8 text-center text-red-600">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {tickets.length === 0 ? "No tickets yet." : "No tickets match the current filters."}
+              </div>
             ) : (
-              filtered.map(ticket => (
-                <div key={ticket.id} className={cn("grid grid-cols-[40px_1fr_100px_100px_100px_120px_120px_100px] gap-2 px-4 py-3 hover:bg-secondary/20 transition-colors items-center", getSlaRowClass(ticket.slaStatus))}>
-                  <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(ticket.id)}
-                      onCheckedChange={() => toggleSelect(ticket.id)}
-                    />
-                  </div>
-                  <Link href={`/admin/tickets/${ticket.id}`}>
-                    <div className="cursor-pointer group">
+              filtered.map((ticket) => (
+                <Link key={ticket.id} href={`/admin/tickets/${ticket.id}`}>
+                  <div className="grid grid-cols-[1fr_100px_140px_160px_140px] gap-2 px-4 py-3 hover:bg-secondary/20 transition-colors items-center cursor-pointer">
+                    <div className="group">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
-                        <span className="text-xs text-muted-foreground">· {ticket.memberName}</span>
+                        {ticket.member?.name && (
+                          <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
+                        )}
                       </div>
                       <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
                     </div>
-                  </Link>
-                  <div><PriorityBadge priority={ticket.priority} /></div>
-                  <div>
-                    <Badge variant={ticket.status === "open" ? "warning" : ticket.status === "resolved" ? "success" : "secondary"} className="text-[10px]">
-                      {ticket.status.replace(/_/g, " ")}
-                    </Badge>
+                    <div><PriorityBadge priority={ticket.priority} /></div>
+                    <div>
+                      <Badge
+                        variant={ticket.status === "open" ? "warning" : ticket.status === "resolved" ? "success" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {STATUS_LABELS[ticket.status] ?? ticket.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {ticket.assignee?.name ?? <span className="text-orange-600 font-medium">Unassigned</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(ticket.updatedAt), "MMM d, h:mm a")}
+                    </div>
                   </div>
-                  <div>
-                    <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded", ticket.tier === "vip" ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-700")}>{ticket.tier}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">{ticket.assignedAgent || <span className="text-orange-600 font-medium">Unassigned</span>}</div>
-                  <div><SlaBadge status={ticket.slaStatus} /></div>
-                  <div className="text-xs text-muted-foreground">{format(new Date(ticket.updatedAt), "MMM d, h:mm a")}</div>
-                </div>
+                </Link>
               ))
             )}
           </div>
         </Card>
-
-        <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Bulk Assign</DialogTitle>
-              <DialogDescription>Assign {selectedIds.size} ticket(s) to an agent.</DialogDescription>
-            </DialogHeader>
-            <Select value={bulkAssignAgent} onValueChange={setBulkAssignAgent}>
-              <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
-              <SelectContent>
-                {AGENTS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
-              <Button onClick={bulkAssign} disabled={!bulkAssignAgent}>Assign</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showCategorizeDialog} onOpenChange={setShowCategorizeDialog}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Bulk Categorize</DialogTitle>
-              <DialogDescription>Set category for {selectedIds.size} ticket(s).</DialogDescription>
-            </DialogHeader>
-            <Select value={bulkCategory} onValueChange={setBulkCategory}>
-              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowCategorizeDialog(false)}>Cancel</Button>
-              <Button onClick={bulkCategorize} disabled={!bulkCategory}>Categorize</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </AdminLayout>
   );
