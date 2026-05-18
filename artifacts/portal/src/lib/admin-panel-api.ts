@@ -1271,6 +1271,20 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async exportYseOrders(
+    params: { search?: string; source?: string } = {},
+    onProgress?: (progress: StreamDownloadProgress) => void,
+  ): Promise<StreamDownloadResult> {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set("search", params.search);
+    if (params.source) qs.set("source", params.source);
+    const res = await authFetch(
+      `/admin/integrations/yse/orders/export?${qs.toString()}`,
+    );
+    if (!res.ok) throw new Error("Failed to export YSE orders");
+    return streamDownload(res, "csv", onProgress);
+  },
+
   async getMembers(params: { page?: number; limit?: number; search?: string; role?: string }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));

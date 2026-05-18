@@ -3966,4 +3966,123 @@ router.get(
   },
 );
 
+// CSV export for the YSE order history page. Emits one row per
+// (order, product) — i.e. the grouped table on /admin/integrations/yse
+// is "unwrapped" so reconciliation against YSE's own records is a
+// straight row-for-row diff. Honours the same `search` and `source`
+// filters as the read endpoint above. We do NOT page or hard-cap here:
+// the underlying table is bounded by real YSE order volume and admins
+// pulling for reconciliation expect the full slice.
+router.get(
+  "/admin/integrations/yse/orders/export",
+  requirePermission("members:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const { search, source = "yse" } = req.query;
+
+      const sourceStr =
+        typeof source === "string" && source.trim() !== ""
+          ? source.trim()
+          : "yse";
+
+      const conditions: SQL[] = [
+        eq(userProductsTable.externalSource, sourceStr),
+        isNotNull(userProductsTable.externalOrderId),
+      ];
+
+      if (search && typeof search === "string" && search.trim() !== "") {
+        const term = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(userProductsTable.externalOrderId, term),
+            ilike(usersTable.email, term),
+          )!,
+        );
+      }
+
+      const whereClause = and(...conditions);
+
+      // One row per (order, product). Mirrors the read endpoint's
+      // "was new user" rule (user.sourceProduct matches the external
+      // source and the grant landed within ~60s of account creation)
+      // so the CSV row's `was_new_user` column lines up with what the
+      // admin saw in the UI before clicking Export.
+      const rows = await db
+        .select({
+          externalOrderId: userProductsTable.externalOrderId,
+          externalSource: userProductsTable.externalSource,
+          userEmail: usersTable.email,
+          userSourceProduct: usersTable.sourceProduct,
+          userCreatedAt: usersTable.createdAt,
+          purchasedAt: userProductsTable.purchasedAt,
+          productSlug: productsTable.slug,
+          productName: productsTable.name,
+        })
+        .from(userProductsTable)
+        .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
+        .innerJoin(
+          productsTable,
+          eq(userProductsTable.productId, productsTable.id),
+        )
+        .where(whereClause)
+        .orderBy(
+          desc(userProductsTable.purchasedAt),
+          asc(productsTable.name),
+        );
+
+      await logAdminAction(
+        req,
+        "export_data",
+        "yse_orders",
+        undefined,
+        `Exported ${rows.length} YSE order/product rows`,
+      );
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${sourceStr}-orders-export.csv`,
+      );
+      res.write(
+        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user\n",
+      );
+
+      for (const r of rows) {
+        const grantedAt = r.purchasedAt ? new Date(r.purchasedAt) : null;
+        const userCreatedAt = r.userCreatedAt
+          ? new Date(r.userCreatedAt)
+          : null;
+        const wasNewUser =
+          !!grantedAt &&
+          !!userCreatedAt &&
+          r.userSourceProduct === sourceStr &&
+          Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
+
+        res.write(
+          [
+            r.externalOrderId ?? "",
+            r.externalSource ?? "",
+            r.userEmail ?? "",
+            r.productSlug ?? "",
+            r.productName ?? "",
+            grantedAt ? grantedAt.toISOString() : "",
+            wasNewUser ? "true" : "false",
+          ]
+            .map(csvEscape)
+            .join(",") + "\n",
+        );
+      }
+
+      res.end();
+    } catch (error) {
+      console.error("[Admin] YSE orders export error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to export YSE orders" });
+      } else {
+        res.end();
+      }
+    }
+  },
+);
+
 export default router;

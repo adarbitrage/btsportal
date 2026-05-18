@@ -11,8 +11,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Download,
+  Loader2,
 } from "lucide-react";
-import { adminPanelApi } from "@/lib/admin-panel-api";
+import {
+  adminPanelApi,
+  saveBlobAsFile,
+  type StreamDownloadProgress,
+} from "@/lib/admin-panel-api";
+import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -30,6 +37,12 @@ export default function YseOrders() {
   });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  // Tracks an in-flight CSV export. Set to a progress sample for the
+  // duration of the download so the button can flip to "Exporting…" and
+  // disable itself, matching the Members / Audit Log / Comms Log
+  // streaming-export pattern.
+  const [exportProgress, setExportProgress] =
+    useState<StreamDownloadProgress | null>(null);
   const { toast } = useToast();
 
   const load = async (page = 1) => {
@@ -59,19 +72,73 @@ export default function YseOrders() {
 
   const handleSearch = () => load(1);
 
+  const handleExport = async () => {
+    // Belt-and-braces: the button is also disabled while an export runs,
+    // but a stale Enter / double-tap could still re-enter this handler
+    // before the disabled state has re-rendered.
+    if (exportProgress) return;
+    setExportProgress({ bytesReceived: 0, rowsReceived: null });
+    try {
+      const { blob } = await adminPanelApi.exportYseOrders(
+        { search: search.trim() || undefined },
+        (progress) => setExportProgress(progress),
+      );
+      saveBlobAsFile(blob, "yse-orders-export.csv");
+      toast({ title: "Export complete" });
+    } catch (err: any) {
+      toast({
+        title: "Export failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setExportProgress(null);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1
-            className="text-2xl font-bold flex items-center gap-2"
-            data-testid="heading-yse-orders"
-          >
-            <ShoppingBag className="w-6 h-6" /> YSE Order History
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Grants provisioned through the YSE integration, most recent first.
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1
+              className="text-2xl font-bold flex items-center gap-2"
+              data-testid="heading-yse-orders"
+            >
+              <ShoppingBag className="w-6 h-6" /> YSE Order History
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Grants provisioned through the YSE integration, most recent first.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {exportProgress && (
+              <span
+                className="text-xs text-muted-foreground tabular-nums"
+                aria-live="polite"
+                data-testid="text-yse-export-progress"
+              >
+                {formatDownloadProgress({
+                  bytesReceived: exportProgress.bytesReceived,
+                  rowsReceived: exportProgress.rowsReceived,
+                })}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={!!exportProgress}
+              data-testid="button-export-yse-orders"
+            >
+              {exportProgress ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-1" />
+              )}
+              {exportProgress ? "Exporting…" : "Export CSV"}
+            </Button>
+          </div>
         </div>
 
         <Card>
