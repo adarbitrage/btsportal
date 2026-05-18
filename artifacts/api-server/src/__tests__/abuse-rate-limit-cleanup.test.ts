@@ -38,15 +38,16 @@ import {
   runAbuseRateLimitCleanup,
   getAbuseRateLimitCleanupStatus,
   __resetAbuseRateLimitCleanupStatusForTests,
+  __resetInMemoryAbuseRateLimitCleanupCacheForTests,
 } from "../lib/abuse-rate-limit-cleanup";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-beforeEach(() => {
+beforeEach(async () => {
   sortedSets.clear();
   ttls.clear();
   redisGetMock.mockClear();
-  __resetAbuseRateLimitCleanupStatusForTests();
+  await __resetAbuseRateLimitCleanupStatusForTests();
 });
 
 afterEach(() => {
@@ -131,8 +132,8 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     }
   });
 
-  it("returns null lastRanAt and lastResult before the first run", () => {
-    const status = getAbuseRateLimitCleanupStatus();
+  it("returns null lastRanAt and lastResult before the first run", async () => {
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.lastRanAt).toBeNull();
     expect(status.lastResult).toBeNull();
     expect(status.intervalMs).toBeGreaterThan(0);
@@ -147,7 +148,7 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     await runAbuseRateLimitCleanup();
     const after = Date.now();
 
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.lastResult).toEqual({ scanned: 1, trimmed: 1, deleted: 1 });
     expect(status.lastRanAt).not.toBeNull();
     const ranAt = new Date(status.lastRanAt as string).getTime();
@@ -158,14 +159,14 @@ describe("getAbuseRateLimitCleanupStatus", () => {
   it("records a run even when redis is unavailable", async () => {
     redisGetMock.mockReturnValueOnce(null);
     await runAbuseRateLimitCleanup();
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.lastResult).toEqual({ scanned: 0, trimmed: 0, deleted: 0 });
     expect(status.lastRanAt).not.toBeNull();
   });
 
-  it("reports stale=false right after module reset, even when REDIS_URL is set", () => {
+  it("reports stale=false right after module reset, even when REDIS_URL is set", async () => {
     process.env.REDIS_URL = "redis://example";
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.enabled).toBe(true);
     expect(status.lastRanAt).toBeNull();
     // baseline was just reset to "now", so we are within the grace window
@@ -175,13 +176,13 @@ describe("getAbuseRateLimitCleanupStatus", () => {
   it("reports stale=true when the last run is older than 2× the interval and REDIS_URL is set", async () => {
     process.env.REDIS_URL = "redis://example";
     await runAbuseRateLimitCleanup();
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.stale).toBe(false);
 
     const realNow = Date.now;
     Date.now = () => realNow() + 3 * status.intervalMs;
     try {
-      const stale = getAbuseRateLimitCleanupStatus();
+      const stale = await getAbuseRateLimitCleanupStatus();
       expect(stale.stale).toBe(true);
       expect(stale.enabled).toBe(true);
     } finally {
@@ -189,16 +190,16 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     }
   });
 
-  it("reports stale=true when the job has never reported a run and REDIS_URL is set for >2× interval", () => {
+  it("reports stale=true when the job has never reported a run and REDIS_URL is set for >2× interval", async () => {
     process.env.REDIS_URL = "redis://example";
-    const baseline = getAbuseRateLimitCleanupStatus();
+    const baseline = await getAbuseRateLimitCleanupStatus();
     expect(baseline.lastRanAt).toBeNull();
     expect(baseline.stale).toBe(false);
 
     const realNow = Date.now;
     Date.now = () => realNow() + 3 * baseline.intervalMs;
     try {
-      const stale = getAbuseRateLimitCleanupStatus();
+      const stale = await getAbuseRateLimitCleanupStatus();
       expect(stale.lastRanAt).toBeNull();
       expect(stale.enabled).toBe(true);
       expect(stale.stale).toBe(true);
@@ -218,7 +219,7 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     await expect(runAbuseRateLimitCleanup()).rejects.toThrow("redis exploded");
     const after = Date.now();
 
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.lastRanAt).not.toBeNull();
     const ranAt = new Date(status.lastRanAt as string).getTime();
     expect(ranAt).toBeGreaterThanOrEqual(before);
@@ -236,10 +237,10 @@ describe("getAbuseRateLimitCleanupStatus", () => {
       },
     } as any);
     await expect(runAbuseRateLimitCleanup()).rejects.toThrow("transient");
-    expect(getAbuseRateLimitCleanupStatus().lastError?.message).toBe("transient");
+    expect((await getAbuseRateLimitCleanupStatus()).lastError?.message).toBe("transient");
 
     await runAbuseRateLimitCleanup();
-    expect(getAbuseRateLimitCleanupStatus().lastError).toBeNull();
+    expect((await getAbuseRateLimitCleanupStatus()).lastError).toBeNull();
   });
 
   it("appends each run to recentRuns and caps the buffer at 24 entries", async () => {
@@ -256,9 +257,10 @@ describe("getAbuseRateLimitCleanupStatus", () => {
       await runAbuseRateLimitCleanup();
     }
 
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.recentRuns.length).toBe(24);
-    // Newest entry's timestamp should match lastRanAt (same Date object).
+    // Newest entry's timestamp should match lastRanAt (same instant, derived
+    // from the most recent persisted row).
     expect(status.recentRuns[status.recentRuns.length - 1].at).toBe(status.lastRanAt);
     // Each entry exposes the per-run counters.
     for (const entry of status.recentRuns) {
@@ -278,7 +280,7 @@ describe("getAbuseRateLimitCleanupStatus", () => {
 
     await expect(runAbuseRateLimitCleanup()).rejects.toThrow("redis exploded");
 
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.recentRuns.length).toBe(1);
     expect(status.recentRuns[0]).toMatchObject({
       scanned: 0,
@@ -287,25 +289,95 @@ describe("getAbuseRateLimitCleanupStatus", () => {
     });
   });
 
-  it("starts with an empty recentRuns buffer", () => {
-    const status = getAbuseRateLimitCleanupStatus();
+  it("starts with an empty recentRuns buffer", async () => {
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.recentRuns).toEqual([]);
   });
 
   it("reports stale=false when REDIS_URL is unset, regardless of last-run age", async () => {
     delete process.env.REDIS_URL;
     await runAbuseRateLimitCleanup();
-    const status = getAbuseRateLimitCleanupStatus();
+    const status = await getAbuseRateLimitCleanupStatus();
     expect(status.enabled).toBe(false);
     expect(status.stale).toBe(false);
 
     const realNow = Date.now;
     Date.now = () => realNow() + 24 * status.intervalMs;
     try {
-      const old = getAbuseRateLimitCleanupStatus();
+      const old = await getAbuseRateLimitCleanupStatus();
       expect(old.stale).toBe(false);
     } finally {
       Date.now = realNow;
+    }
+  });
+
+  it("hydrates recentRuns, lastRanAt, and lastResult from the durable store after a simulated restart", async () => {
+    // Two runs that should land in the durable store with non-trivial
+    // counters so we can assert they survive the simulated restart.
+    sortedSets.set("abuse-rate:register:email:persisted-1", [
+      { score: Date.now() - 2 * HOUR_MS, member: "old-1" },
+    ]);
+    await runAbuseRateLimitCleanup();
+    sortedSets.set("abuse-rate:register:email:persisted-2", [
+      { score: Date.now() - 2 * HOUR_MS, member: "old-2" },
+    ]);
+    await runAbuseRateLimitCleanup();
+
+    // Simulate an API server restart: wipe the in-memory cache only,
+    // leaving the durable `abuse_rate_limit_cleanup_runs` rows intact.
+    __resetInMemoryAbuseRateLimitCleanupCacheForTests();
+
+    const status = await getAbuseRateLimitCleanupStatus();
+    expect(status.recentRuns.length).toBe(2);
+    expect(status.lastRanAt).not.toBeNull();
+    expect(status.lastResult).toEqual({ scanned: 1, trimmed: 1, deleted: 1 });
+    expect(status.lastError).toBeNull();
+    // Newest entry's timestamp matches the derived lastRanAt.
+    expect(status.recentRuns[status.recentRuns.length - 1].at).toBe(status.lastRanAt);
+  });
+
+  it("derives lastError from the most recent persisted row after a simulated restart", async () => {
+    redisGetMock.mockReturnValueOnce({
+      async scan() {
+        throw new Error("persisted boom");
+      },
+    } as any);
+    await expect(runAbuseRateLimitCleanup()).rejects.toThrow("persisted boom");
+
+    __resetInMemoryAbuseRateLimitCleanupCacheForTests();
+
+    const status = await getAbuseRateLimitCleanupStatus();
+    expect(status.lastError?.message).toBe("persisted boom");
+    expect(status.lastResult).toEqual({ scanned: 0, trimmed: 0, deleted: 0 });
+    expect(status.recentRuns.length).toBe(1);
+  });
+
+  it("prunes durable rows older than the retention window", async () => {
+    process.env.ABUSE_RATE_CLEANUP_RUNS_RETENTION_DAYS = "7";
+    try {
+      const { db, abuseRateLimitCleanupRunsTable } = await import("@workspace/db");
+      // Insert a stale row directly so we can verify the cleanup sweep
+      // prunes it on the next run, regardless of how it was written.
+      const ancient = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      await db.insert(abuseRateLimitCleanupRunsTable).values({
+        ranAt: ancient,
+        scanned: 1,
+        trimmed: 1,
+        deleted: 1,
+        errorMessage: null,
+      });
+
+      await runAbuseRateLimitCleanup();
+
+      __resetInMemoryAbuseRateLimitCleanupCacheForTests();
+      const status = await getAbuseRateLimitCleanupStatus();
+      // Only the freshly-recorded run should remain; the 30d-old row was
+      // pruned by the inline retention in the cleanup sweep.
+      expect(status.recentRuns.length).toBe(1);
+      const ranAt = new Date(status.recentRuns[0].at).getTime();
+      expect(ranAt).toBeGreaterThan(ancient.getTime());
+    } finally {
+      delete process.env.ABUSE_RATE_CLEANUP_RUNS_RETENTION_DAYS;
     }
   });
 });

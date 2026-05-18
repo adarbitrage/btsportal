@@ -1,3 +1,5 @@
+import { db, abuseRateLimitCleanupRunsTable } from "@workspace/db";
+import { desc, lt } from "drizzle-orm";
 import { getRedis } from "./redis";
 
 // Hourly sweep is paired with the middleware-level per-key cap as a
@@ -30,6 +32,19 @@ const SWEEP_HORIZON_MS = (() => {
     return parsed * 1000;
   }
   return 60 * 60 * 1000;
+})();
+
+// How long persisted run rows are retained in
+// `abuse_rate_limit_cleanup_runs`. Default 7 days is enough to compare
+// today's sweep volume against last week's on the System Health
+// sparkline, well past the 24-entry display cap, while keeping the table
+// trivially small (≤ ~168 rows at the default 1h interval). Override with
+// `ABUSE_RATE_CLEANUP_RUNS_RETENTION_DAYS` if a longer window is needed.
+const PERSISTED_RUNS_RETENTION_MS = (() => {
+  const raw = process.env.ABUSE_RATE_CLEANUP_RUNS_RETENTION_DAYS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  const days = Number.isFinite(parsed) && parsed > 0 ? parsed : 7;
+  return days * 24 * 60 * 60 * 1000;
 })();
 
 export interface AbuseRateLimitCleanupResult {
@@ -67,6 +82,11 @@ const RECENT_RUNS_CAPACITY = 24;
 // the end of every `runAbuseRateLimitCleanup` call (success OR failure), so
 // `lastRanAt` doubles as a heartbeat and a silent crash in the inner loop
 // still flips the panel out of "Pending".
+//
+// Kept as an in-memory cache so the status endpoint can fall back to it if
+// the persistent store (`abuse_rate_limit_cleanup_runs`) is unreachable.
+// The durable store is the source of truth — it survives a server restart;
+// these locals are only a hot cache populated by the current process.
 let lastRanAt: Date | null = null;
 let lastResult: AbuseRateLimitCleanupResult | null = null;
 let lastError: { at: Date; message: string } | null = null;
@@ -77,6 +97,11 @@ let lastError: { at: Date; message: string } | null = null;
 // `lastRanAt`. Failed runs that never made it past SCAN show up as a
 // row of zeros, which is exactly the "regression that suddenly trims
 // nothing" signal the sparkline is meant to surface.
+//
+// Used as a fallback when the durable store is unreachable; otherwise
+// `getAbuseRateLimitCleanupStatus` reads from
+// `abuse_rate_limit_cleanup_runs` so the chart is populated immediately
+// after an API server restart instead of waiting ~24h to re-fill.
 let recentRuns: Array<{ at: Date; result: AbuseRateLimitCleanupResult }> = [];
 
 // Baseline used to compute staleness when the job has not yet reported a
@@ -87,8 +112,39 @@ let recentRuns: Array<{ at: Date; result: AbuseRateLimitCleanupResult }> = [];
 // stale instead of leaving it on "Pending" forever.
 let baselineSince: Date = new Date();
 
+async function persistRun(
+  ranAt: Date,
+  result: AbuseRateLimitCleanupResult,
+  errorMessage: string | null,
+): Promise<void> {
+  try {
+    await db.insert(abuseRateLimitCleanupRunsTable).values({
+      ranAt,
+      scanned: result.scanned,
+      trimmed: result.trimmed,
+      deleted: result.deleted,
+      errorMessage,
+    });
+    // Prune in the same write path so the table can never grow without
+    // bound, even if a dedicated retention sweep is never wired up.
+    const cutoff = new Date(Date.now() - PERSISTED_RUNS_RETENTION_MS);
+    await db
+      .delete(abuseRateLimitCleanupRunsTable)
+      .where(lt(abuseRateLimitCleanupRunsTable.ranAt, cutoff));
+  } catch (err) {
+    // Persistence failure must never break the in-memory tracking or the
+    // cleanup sweep itself — the in-memory ring buffer still serves the
+    // current process. Log so the next-deploy regression is investigable.
+    console.error(
+      "[AbuseRateLimitCleanup] Failed to persist run to durable store:",
+      (err as Error)?.message || err,
+    );
+  }
+}
+
 export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupResult> {
   const stats: AbuseRateLimitCleanupResult = { scanned: 0, trimmed: 0, deleted: 0 };
+  let runError: Error | null = null;
   try {
     const redis = getRedis();
     if (!redis) {
@@ -140,11 +196,12 @@ export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupR
     // unchanged, so a job that broke immediately would look like it had
     // never run. We record a heartbeat on the failure path and remember
     // the error so the System Health page can surface it.
+    runError = err instanceof Error ? err : new Error(String(err));
     lastError = {
       at: new Date(),
-      message: (err as Error)?.message ?? String(err),
+      message: runError.message,
     };
-    throw err;
+    throw runError;
   } finally {
     const ranAt = new Date();
     lastRanAt = ranAt;
@@ -153,37 +210,136 @@ export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupR
     if (recentRuns.length > RECENT_RUNS_CAPACITY) {
       recentRuns = recentRuns.slice(-RECENT_RUNS_CAPACITY);
     }
+    // Persist *after* the in-memory cache is updated so a slow/failed DB
+    // write can never delay the in-process tracking. We intentionally do
+    // not await this Promise in a way that re-throws — `persistRun`
+    // swallows its own errors so the cleanup sweep's success/failure is
+    // determined entirely by the Redis work above.
+    await persistRun(ranAt, stats, runError?.message ?? null);
   }
 }
 
-export function getAbuseRateLimitCleanupStatus(): AbuseRateLimitCleanupStatus {
+export async function getAbuseRateLimitCleanupStatus(): Promise<AbuseRateLimitCleanupStatus> {
   const enabled = Boolean(process.env.REDIS_URL);
+
+  // Source of truth is the durable store so the System Health chart is
+  // populated immediately after a server restart instead of resetting
+  // to empty. We always re-fetch (rather than caching) because the
+  // alerter and the System Health endpoint together poll on the order
+  // of once per minute — cheap enough to read fresh.
+  let durableRows: Array<{
+    ranAt: Date;
+    scanned: number;
+    trimmed: number;
+    deleted: number;
+    errorMessage: string | null;
+  }> = [];
+  let durableReadOk = false;
+  try {
+    durableRows = await db
+      .select({
+        ranAt: abuseRateLimitCleanupRunsTable.ranAt,
+        scanned: abuseRateLimitCleanupRunsTable.scanned,
+        trimmed: abuseRateLimitCleanupRunsTable.trimmed,
+        deleted: abuseRateLimitCleanupRunsTable.deleted,
+        errorMessage: abuseRateLimitCleanupRunsTable.errorMessage,
+      })
+      .from(abuseRateLimitCleanupRunsTable)
+      .orderBy(desc(abuseRateLimitCleanupRunsTable.ranAt))
+      .limit(RECENT_RUNS_CAPACITY);
+    durableReadOk = true;
+  } catch (err) {
+    console.error(
+      "[AbuseRateLimitCleanup] Failed to read durable run history:",
+      (err as Error)?.message || err,
+    );
+  }
+
+  // When the durable store is reachable, derive `lastRanAt` / `lastResult`
+  // / `lastError` from the most recent persisted row so they survive a
+  // restart alongside the sparkline. Fall back to the in-memory cache
+  // only when the read failed, which preserves the legacy behavior on
+  // a DB outage.
+  let resolvedLastRanAt: Date | null = lastRanAt;
+  let resolvedLastResult: AbuseRateLimitCleanupResult | null = lastResult;
+  let resolvedLastError: { at: Date; message: string } | null = lastError;
+  let resolvedRecent: AbuseRateLimitCleanupRunEntry[] = recentRuns.map((r) => ({
+    at: r.at.toISOString(),
+    scanned: r.result.scanned,
+    trimmed: r.result.trimmed,
+    deleted: r.result.deleted,
+  }));
+
+  if (durableReadOk) {
+    if (durableRows.length > 0) {
+      const latest = durableRows[0];
+      resolvedLastRanAt = latest.ranAt;
+      resolvedLastResult = {
+        scanned: latest.scanned,
+        trimmed: latest.trimmed,
+        deleted: latest.deleted,
+      };
+      // lastError mirrors the legacy semantics: it reflects whether the
+      // most recent run failed (cleared by the next success), not the
+      // last-ever failure. Derive that from the latest row.
+      resolvedLastError = latest.errorMessage
+        ? { at: latest.ranAt, message: latest.errorMessage }
+        : null;
+    } else {
+      resolvedLastRanAt = null;
+      resolvedLastResult = null;
+      resolvedLastError = null;
+    }
+    // Reverse so the response is oldest → newest, matching the legacy
+    // in-memory buffer shape that the System Health chart already expects.
+    resolvedRecent = [...durableRows].reverse().map((r) => ({
+      at: r.ranAt.toISOString(),
+      scanned: r.scanned,
+      trimmed: r.trimmed,
+      deleted: r.deleted,
+    }));
+  }
+
   // When the job has never reported a run we fall back to the module-load
   // baseline: if the process has been up longer than 2 intervals without a
   // single sweep landing, that is itself a regression worth surfacing.
-  const referenceTs = (lastRanAt ?? baselineSince).getTime();
+  const referenceTs = (resolvedLastRanAt ?? baselineSince).getTime();
   const stale = enabled && Date.now() - referenceTs > 2 * RUN_INTERVAL_MS;
+
   return {
     enabled,
     intervalMs: RUN_INTERVAL_MS,
-    lastRanAt: lastRanAt ? lastRanAt.toISOString() : null,
-    lastResult: lastResult ? { ...lastResult } : null,
-    lastError: lastError
-      ? { at: lastError.at.toISOString(), message: lastError.message }
+    lastRanAt: resolvedLastRanAt ? resolvedLastRanAt.toISOString() : null,
+    lastResult: resolvedLastResult ? { ...resolvedLastResult } : null,
+    lastError: resolvedLastError
+      ? { at: resolvedLastError.at.toISOString(), message: resolvedLastError.message }
       : null,
     stale,
-    recentRuns: recentRuns.map((r) => ({
-      at: r.at.toISOString(),
-      scanned: r.result.scanned,
-      trimmed: r.result.trimmed,
-      deleted: r.result.deleted,
-    })),
+    recentRuns: resolvedRecent,
   };
 }
 
 // Test hook: reset the in-memory status back to its initial state so each
 // test can assert against a clean slate. Not intended for production use.
-export function __resetAbuseRateLimitCleanupStatusForTests(): void {
+// Also truncates the durable run history so DB-backed assertions start
+// from an empty table.
+export async function __resetAbuseRateLimitCleanupStatusForTests(): Promise<void> {
+  __resetInMemoryAbuseRateLimitCleanupCacheForTests();
+  try {
+    await db.delete(abuseRateLimitCleanupRunsTable);
+  } catch (err) {
+    console.error(
+      "[AbuseRateLimitCleanup] Failed to truncate durable history during test reset:",
+      (err as Error)?.message || err,
+    );
+  }
+}
+
+// Test hook: clear ONLY the in-memory cache, leaving the durable
+// `abuse_rate_limit_cleanup_runs` rows intact. Used to simulate an API
+// server restart and verify the System Health chart is hydrated from
+// the persistent store on the next status read.
+export function __resetInMemoryAbuseRateLimitCleanupCacheForTests(): void {
   lastRanAt = null;
   lastResult = null;
   lastError = null;

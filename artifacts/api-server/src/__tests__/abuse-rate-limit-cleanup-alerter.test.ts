@@ -39,7 +39,7 @@ function setStatus(opts: {
   lastRanAt?: string | null;
   lastError?: { at: string; message: string } | null;
 }): void {
-  statusMock.mockReturnValue({
+  statusMock.mockResolvedValue({
     enabled: opts.enabled ?? true,
     intervalMs: 60 * 60 * 1000,
     lastRanAt: opts.lastRanAt ?? null,

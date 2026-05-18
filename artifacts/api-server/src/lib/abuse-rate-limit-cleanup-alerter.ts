@@ -88,7 +88,7 @@ export interface AbuseRateLimitCleanupAlertPayload {
    * sweep has been silent and the last error (if any) without having to
    * open System Health first.
    */
-  status: ReturnType<typeof getAbuseRateLimitCleanupStatus>;
+  status: Awaited<ReturnType<typeof getAbuseRateLimitCleanupStatus>>;
 }
 
 export interface DeliveryResult {
@@ -317,7 +317,7 @@ async function dispatchAll(
 export async function evaluateAbuseRateLimitCleanupAlert(
   now: number = Date.now(),
 ): Promise<DeliveryResult[]> {
-  const status = getAbuseRateLimitCleanupStatus();
+  const status = await getAbuseRateLimitCleanupStatus();
   if (!status.enabled) {
     return [];
   }

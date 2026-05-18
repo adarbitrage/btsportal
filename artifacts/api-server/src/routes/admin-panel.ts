@@ -2439,7 +2439,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         database: { status: dbOk ? "up" : "down", totalUsers: userCount, totalTickets: ticketCount },
         redis: { status: redisStatus, queueFallbacks },
         signupChallenge: { enforced: isSignupChallengeEnforced() },
-        abuseRateLimitCleanup: getAbuseRateLimitCleanupStatus(),
+        abuseRateLimitCleanup: await getAbuseRateLimitCleanupStatus(),
         upgradePromptEventsCleanup: getUpgradePromptEventsCleanupStatus(),
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
         emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
