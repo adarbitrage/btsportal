@@ -32,7 +32,6 @@ import {
   ScrollText,
   ExternalLink,
 } from "lucide-react";
-import { mockCannedResponses } from "@/lib/admin-mock-data";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +50,20 @@ type AdminTicketDetail = Awaited<ReturnType<typeof adminPanelApi.getAdminTicket>
 type AdminTicketSla = NonNullable<Awaited<ReturnType<typeof adminPanelApi.getAdminTicketSla>>>;
 type AdminTicketListItem = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[number];
 type Assignee = Awaited<ReturnType<typeof adminPanelApi.getTicketAssignees>>[number];
+type CannedResponse = Awaited<ReturnType<typeof adminPanelApi.getCannedResponses>>[number];
+
+// Pull {{variable_name}} placeholders out of a canned-response body so we
+// can render the same little token badges the picker showed when it was
+// reading from the mock fixtures (the real API stores the body only).
+function extractCannedVariables(body: string): string[] {
+  const seen = new Set<string>();
+  const re = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(body)) !== null) {
+    seen.add(match[1]);
+  }
+  return Array.from(seen);
+}
 
 type SlaBadgeStatus = "breached" | "approaching" | "within";
 
@@ -78,21 +91,52 @@ function CannedResponsePicker({
 }) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [responses, setResponses] = useState<CannedResponse[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Refetch every time the dialog opens so admins always see the latest
+  // saved replies — another admin may have just added or edited one in
+  // the Canned Responses settings page.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setResponses(null);
+    setLoadError(null);
+    // Reset filters on each open so a previously-chosen category that no
+    // longer exists in the freshly fetched data doesn't leave the list
+    // looking empty.
+    setSearch("");
+    setSelectedCategory("all");
+    adminPanelApi
+      .getCannedResponses()
+      .then((rows) => {
+        if (!cancelled) setResponses(rows);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : "Failed to load canned responses");
+        setResponses([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const categories = useMemo(() => {
-    const cats = [...new Set(mockCannedResponses.map((r) => r.category))];
-    return cats;
-  }, []);
+    if (!responses) return [];
+    return [...new Set(responses.map((r) => r.category))];
+  }, [responses]);
 
   const filtered = useMemo(() => {
-    let responses = mockCannedResponses;
-    if (selectedCategory !== "all") responses = responses.filter((r) => r.category === selectedCategory);
+    if (!responses) return [];
+    let rows = responses;
+    if (selectedCategory !== "all") rows = rows.filter((r) => r.category === selectedCategory);
     if (search) {
       const q = search.toLowerCase();
-      responses = responses.filter((r) => r.title.toLowerCase().includes(q) || r.body.toLowerCase().includes(q));
+      rows = rows.filter((r) => r.title.toLowerCase().includes(q) || r.body.toLowerCase().includes(q));
     }
-    return responses;
-  }, [search, selectedCategory]);
+    return rows;
+  }, [responses, search, selectedCategory]);
 
   const memberName = ticket.member?.name ?? "Member";
   const memberEmail = ticket.member?.email ?? "";
@@ -139,29 +183,43 @@ function CannedResponsePicker({
           </Select>
         </div>
         <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
-          {filtered.map((response) => (
-            <div
-              key={response.id}
-              className="p-3 border rounded-lg hover:bg-secondary/30 cursor-pointer transition-colors group"
-              onClick={() => {
-                onInsert(replaceVariables(response.body));
-                onClose();
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{response.title}</h4>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-secondary text-muted-foreground">{response.category}</span>
-              </div>
-              <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap">{replaceVariables(response.body)}</p>
-              {response.variables.length > 0 && (
-                <div className="flex gap-1 mt-1.5">
-                  {response.variables.map((v) => (
-                    <span key={v} className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{`{{${v}}}`}</span>
-                  ))}
+          {responses === null ? (
+            <p className="text-sm text-muted-foreground" data-testid="canned-responses-loading">Loading canned responses…</p>
+          ) : loadError ? (
+            <p className="text-sm text-destructive" data-testid="canned-responses-error">{loadError}</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground" data-testid="canned-responses-empty">
+              {responses.length === 0 ? "No canned responses configured." : "No canned responses match your filters."}
+            </p>
+          ) : (
+            filtered.map((response) => {
+              const variables = extractCannedVariables(response.body);
+              return (
+                <div
+                  key={response.id}
+                  className="p-3 border rounded-lg hover:bg-secondary/30 cursor-pointer transition-colors group"
+                  onClick={() => {
+                    onInsert(replaceVariables(response.body));
+                    onClose();
+                  }}
+                  data-testid={`canned-response-${response.id}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{response.title}</h4>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-secondary text-muted-foreground">{response.category}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap">{replaceVariables(response.body)}</p>
+                  {variables.length > 0 && (
+                    <div className="flex gap-1 mt-1.5">
+                      {variables.map((v) => (
+                        <span key={v} className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{`{{${v}}}`}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })
+          )}
         </div>
       </DialogContent>
     </Dialog>

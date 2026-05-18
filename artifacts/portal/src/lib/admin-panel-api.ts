@@ -636,6 +636,20 @@ export const adminPanelApi = {
     }>>;
   },
 
+  async getCannedResponses() {
+    const res = await authFetch("/admin/canned-responses");
+    if (!res.ok) throw new Error("Failed to fetch canned responses");
+    return res.json() as Promise<Array<{
+      id: number;
+      title: string;
+      category: string;
+      body: string;
+      sortOrder: number;
+      createdAt: string;
+      updatedAt: string;
+    }>>;
+  },
+
   async getTicketAssignees() {
     const res = await authFetch("/admin/tickets/assignees");
     if (!res.ok) throw new Error("Failed to fetch assignees");
