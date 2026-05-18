@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,29 +14,43 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, Search, Eye, Info } from "lucide-react";
-import { mockCannedResponses, type CannedResponse } from "@/lib/admin-mock-data";
+import { adminPanelApi } from "@/lib/admin-panel-api";
+
+type CannedResponse = Awaited<ReturnType<typeof adminPanelApi.getCannedResponses>>[number];
+
+const CATEGORY_OPTIONS = ["general", "billing", "technical", "training", "account"] as const;
+
+function extractVariables(text: string): string[] {
+  const matches = text.match(/\{\{(\w+)\}\}/g);
+  if (!matches) return [];
+  return [...new Set(matches.map((m) => m.replace(/\{\{|\}\}/g, "")))];
+}
 
 function ResponseForm({
   open,
   onClose,
   response,
   onSave,
+  saving,
+  saveError,
 }: {
   open: boolean;
   onClose: () => void;
   response?: CannedResponse;
-  onSave: (data: { title: string; category: string; body: string; variables: string[] }) => void;
+  onSave: (data: { title: string; category: string; body: string }) => void | Promise<void>;
+  saving: boolean;
+  saveError: string | null;
 }) {
   const isEditing = !!response;
   const [preview, setPreview] = useState(false);
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("General");
+  const [category, setCategory] = useState<string>("general");
   const [body, setBody] = useState("");
 
   useEffect(() => {
     if (open) {
       setTitle(response?.title || "");
-      setCategory(response?.category || "General");
+      setCategory(response?.category || "general");
       setBody(response?.body || "");
       setPreview(false);
     }
@@ -47,20 +61,14 @@ function ResponseForm({
     .replace(/\{\{member_email\}\}/g, "john@example.com")
     .replace(/\{\{agent_name\}\}/g, "Sarah Chen")
     .replace(/\{\{ticket_number\}\}/g, "BTS-100234")
+    .replace(/\{\{ticket_id\}\}/g, "100234")
     .replace(/\{\{refund_amount\}\}/g, "$20.00")
     .replace(/\{\{sla_hours\}\}/g, "24")
     .replace(/\{\{resolution_summary\}\}/g, "The billing discrepancy was caused by a prorating error. A refund has been issued.");
 
-  const extractVariables = (text: string): string[] => {
-    const matches = text.match(/\{\{(\w+)\}\}/g);
-    if (!matches) return [];
-    return [...new Set(matches.map((m) => m.replace(/\{\{|\}\}/g, "")))];
-  };
-
   const handleSave = () => {
     if (!title.trim() || !body.trim()) return;
-    onSave({ title, category, body, variables: extractVariables(body) });
-    onClose();
+    onSave({ title: title.trim(), category, body });
   };
 
   return (
@@ -82,17 +90,17 @@ function ResponseForm({
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full p-2 border rounded-md bg-white text-sm"
                 placeholder="e.g., Billing Refund Confirmation"
+                data-testid="canned-response-title-input"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Category</label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger data-testid="canned-response-category-select"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="General">General</SelectItem>
-                  <SelectItem value="Billing">Billing</SelectItem>
-                  <SelectItem value="Technical">Technical</SelectItem>
-                  <SelectItem value="Account">Account</SelectItem>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -113,6 +121,7 @@ function ResponseForm({
                 rows={6}
                 className="w-full p-2 border rounded-md bg-white text-sm font-mono"
                 placeholder="Hi {{member_name}},\n\nYour response here..."
+                data-testid="canned-response-body-input"
               />
             )}
           </div>
@@ -121,18 +130,25 @@ function ResponseForm({
               <Info className="w-4 h-4" /> Available Variables
             </div>
             <div className="flex flex-wrap gap-2">
-              {["member_name", "member_email", "agent_name", "ticket_number", "refund_amount", "sla_hours", "resolution_summary"].map((v) => (
+              {["member_name", "member_email", "agent_name", "ticket_number", "ticket_id", "refund_amount", "sla_hours", "resolution_summary"].map((v) => (
                 <code key={v} className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-mono cursor-pointer hover:bg-blue-200 transition-colors">
                   {`{{${v}}}`}
                 </code>
               ))}
             </div>
           </div>
+          {saveError && (
+            <p className="text-sm text-destructive" data-testid="canned-response-save-error">{saveError}</p>
+          )}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !body.trim()}>
-            {isEditing ? "Save Changes" : "Create Response"}
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={!title.trim() || !body.trim() || saving}
+            data-testid="canned-response-save-button"
+          >
+            {saving ? "Saving…" : isEditing ? "Save Changes" : "Create Response"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -141,32 +157,65 @@ function ResponseForm({
 }
 
 export default function CannedResponses() {
-  const [responses, setResponses] = useState<CannedResponse[]>(mockCannedResponses);
+  const [responses, setResponses] = useState<CannedResponse[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingResponse, setEditingResponse] = useState<CannedResponse | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const categories = useMemo(() => [...new Set(responses.map((r) => r.category))], [responses]);
+  const reload = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const rows = await adminPanelApi.getCannedResponses();
+      setResponses(rows);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load canned responses");
+      setResponses([]);
+    }
+  }, []);
 
-  const filterBySearch = (list: CannedResponse[]) => {
-    if (!searchQuery) return list;
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const list = responses ?? [];
+  const categories = useMemo(() => [...new Set(list.map((r) => r.category))], [list]);
+
+  const filterBySearch = (rows: CannedResponse[]) => {
+    if (!searchQuery) return rows;
     const q = searchQuery.toLowerCase();
-    return list.filter((r) => r.title.toLowerCase().includes(q) || r.body.toLowerCase().includes(q));
+    return rows.filter((r) => r.title.toLowerCase().includes(q) || r.body.toLowerCase().includes(q));
   };
 
-  const handleSave = (data: { title: string; category: string; body: string; variables: string[] }) => {
-    if (editingResponse) {
-      setResponses((prev) =>
-        prev.map((r) => (r.id === editingResponse.id ? { ...r, ...data } : r))
-      );
-    } else {
-      const newId = Math.max(...responses.map((r) => r.id), 0) + 1;
-      setResponses((prev) => [...prev, { id: newId, ...data }]);
+  const handleSave = async (data: { title: string; category: string; body: string }) => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      if (editingResponse) {
+        await adminPanelApi.updateCannedResponse(editingResponse.id, data);
+      } else {
+        const nextSortOrder = list.length > 0 ? Math.max(...list.map((r) => r.sortOrder)) + 1 : 0;
+        await adminPanelApi.createCannedResponse({ ...data, sortOrder: nextSortOrder });
+      }
+      await reload();
+      setShowForm(false);
+      setEditingResponse(undefined);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save canned response");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const deleteResponse = (id: number) => {
-    setResponses((prev) => prev.filter((r) => r.id !== id));
+  const deleteResponse = async (id: number) => {
+    try {
+      await adminPanelApi.deleteCannedResponse(id);
+      await reload();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to delete canned response");
+    }
   };
 
   return (
@@ -180,8 +229,10 @@ export default function CannedResponses() {
           <Button
             onClick={() => {
               setEditingResponse(undefined);
+              setSaveError(null);
               setShowForm(true);
             }}
+            data-testid="canned-response-add-button"
           >
             <Plus className="w-4 h-4 mr-2" /> Add Response
           </Button>
@@ -198,41 +249,34 @@ export default function CannedResponses() {
           />
         </div>
 
-        <Tabs defaultValue="all">
-          <TabsList>
-            <TabsTrigger value="all">All ({responses.length})</TabsTrigger>
-            {categories.map((cat) => (
-              <TabsTrigger key={cat} value={cat}>
-                {cat} ({responses.filter((r) => r.category === cat).length})
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {loadError && (
+          <p className="text-sm text-destructive" data-testid="canned-responses-load-error">{loadError}</p>
+        )}
 
-          <TabsContent value="all" className="mt-4">
-            <div className="grid gap-4">
-              {filterBySearch(responses).map((response) => (
-                <ResponseCard
-                  key={response.id}
-                  response={response}
-                  onEdit={() => {
-                    setEditingResponse(response);
-                    setShowForm(true);
-                  }}
-                  onDelete={() => deleteResponse(response.id)}
-                />
+        {responses === null ? (
+          <p className="text-sm text-muted-foreground" data-testid="canned-responses-loading">Loading canned responses…</p>
+        ) : list.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="canned-responses-empty">No canned responses configured.</p>
+        ) : (
+          <Tabs defaultValue="all">
+            <TabsList>
+              <TabsTrigger value="all">All ({list.length})</TabsTrigger>
+              {categories.map((cat) => (
+                <TabsTrigger key={cat} value={cat}>
+                  {cat} ({list.filter((r) => r.category === cat).length})
+                </TabsTrigger>
               ))}
-            </div>
-          </TabsContent>
+            </TabsList>
 
-          {categories.map((cat) => (
-            <TabsContent key={cat} value={cat} className="mt-4">
+            <TabsContent value="all" className="mt-4">
               <div className="grid gap-4">
-                {filterBySearch(responses.filter((r) => r.category === cat)).map((response) => (
+                {filterBySearch(list).map((response) => (
                   <ResponseCard
                     key={response.id}
                     response={response}
                     onEdit={() => {
                       setEditingResponse(response);
+                      setSaveError(null);
                       setShowForm(true);
                     }}
                     onDelete={() => deleteResponse(response.id)}
@@ -240,14 +284,40 @@ export default function CannedResponses() {
                 ))}
               </div>
             </TabsContent>
-          ))}
-        </Tabs>
+
+            {categories.map((cat) => (
+              <TabsContent key={cat} value={cat} className="mt-4">
+                <div className="grid gap-4">
+                  {filterBySearch(list.filter((r) => r.category === cat)).map((response) => (
+                    <ResponseCard
+                      key={response.id}
+                      response={response}
+                      onEdit={() => {
+                        setEditingResponse(response);
+                        setSaveError(null);
+                        setShowForm(true);
+                      }}
+                      onDelete={() => deleteResponse(response.id)}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
 
         <ResponseForm
           open={showForm}
-          onClose={() => setShowForm(false)}
+          onClose={() => {
+            if (saving) return;
+            setShowForm(false);
+            setEditingResponse(undefined);
+            setSaveError(null);
+          }}
           response={editingResponse}
           onSave={handleSave}
+          saving={saving}
+          saveError={saveError}
         />
       </div>
     </AdminLayout>
@@ -263,8 +333,9 @@ function ResponseCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const variables = useMemo(() => extractVariables(response.body), [response.body]);
   return (
-    <Card className="p-4 hover:shadow-md transition-shadow">
+    <Card className="p-4 hover:shadow-md transition-shadow" data-testid={`canned-response-row-${response.id}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
@@ -272,19 +343,19 @@ function ResponseCard({
             <Badge variant="secondary" className="text-[10px]">{response.category}</Badge>
           </div>
           <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3 mb-2">{response.body}</p>
-          {response.variables.length > 0 && (
+          {variables.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {response.variables.map((v) => (
+              {variables.map((v) => (
                 <span key={v} className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{`{{${v}}}`}</span>
               ))}
             </div>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onEdit}>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onEdit} data-testid={`canned-response-edit-${response.id}`}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={onDelete}>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={onDelete} data-testid={`canned-response-delete-${response.id}`}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>

@@ -650,6 +650,51 @@ export const adminPanelApi = {
     }>>;
   },
 
+  async createCannedResponse(input: { title: string; category: string; body: string; sortOrder?: number }) {
+    const res = await authFetch("/admin/canned-responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error("Failed to create canned response");
+    return res.json() as Promise<{
+      id: number;
+      title: string;
+      category: string;
+      body: string;
+      sortOrder: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  },
+
+  async updateCannedResponse(
+    id: number,
+    input: { title?: string; category?: string; body?: string; sortOrder?: number },
+  ) {
+    const res = await authFetch(`/admin/canned-responses/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error("Failed to update canned response");
+    return res.json() as Promise<{
+      id: number;
+      title: string;
+      category: string;
+      body: string;
+      sortOrder: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  },
+
+  async deleteCannedResponse(id: number) {
+    const res = await authFetch(`/admin/canned-responses/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete canned response");
+    return res.json() as Promise<{ success: boolean }>;
+  },
+
   async getTicketAssignees() {
     const res = await authFetch("/admin/tickets/assignees");
     if (!res.ok) throw new Error("Failed to fetch assignees");
