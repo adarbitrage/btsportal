@@ -22,6 +22,7 @@ import { startQueueFallbackAuditCleanupJob } from "./lib/queue-fallback-audit-cl
 import { startAuthRateLimitAuditCleanupJob } from "./lib/auth-rate-limit-audit-cleanup";
 import { startUpgradePromptEventsCleanupJob } from "./lib/upgrade-prompt-events-cleanup";
 import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
+import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
@@ -145,6 +146,7 @@ startQueueFallbackAuditCleanupJob();
 startAuthRateLimitAuditCleanupJob();
 startUpgradePromptEventsCleanupJob();
 startAuditLogRetentionJob();
+startYseGrantRetryJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }

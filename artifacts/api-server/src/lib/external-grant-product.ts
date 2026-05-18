@@ -17,6 +17,71 @@ import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
 import { emitWebhookEvent } from "./webhook-events";
 
+export const YSE_GRANT_EVENT_TYPE = "external.grant_product";
+export const YSE_GRANT_MAX_ATTEMPTS = 5;
+/**
+ * Exponential backoff (in ms) between retry attempts. Index = number of
+ * attempts that have already been made. After the 5th failure we stop
+ * retrying and the row stays as `status='failed'` with `attempts >= MAX`
+ * until an admin replays it from the dashboard.
+ */
+export const YSE_GRANT_BACKOFF_MS = [
+  60_000,
+  5 * 60_000,
+  30 * 60_000,
+  2 * 60 * 60_000,
+  6 * 60 * 60_000,
+];
+
+/**
+ * Record a failed YSE grant attempt to webhook_logs so the retry job can
+ * pick it up. Uses upsert keyed on the external_id unique constraint so a
+ * retry that fails again just increments the attempts counter and pushes
+ * out the next retry timestamp.
+ *
+ * This is intentionally a self-contained INSERT … ON CONFLICT outside of
+ * any caller-supplied transaction — the grant transaction is already
+ * rolled back by the time we get here, and we never want a logging
+ * failure to mask the real error.
+ */
+async function recordFailedAttempt(
+  externalId: string,
+  payload: ExternalGrantPayload,
+  err: unknown,
+): Promise<void> {
+  const errorMessage = redactPii(err).substring(0, 1000);
+  try {
+    await db.execute(sql`
+      INSERT INTO webhook_logs (external_id, event_type, status, payload,
+        attempts, last_attempt_at, next_retry_at, error_message)
+      VALUES (${externalId}, ${YSE_GRANT_EVENT_TYPE}, 'failed',
+        ${payload as unknown as Record<string, unknown>}::jsonb,
+        1, now(),
+        now() + (${YSE_GRANT_BACKOFF_MS[0]} || ' milliseconds')::interval,
+        ${errorMessage})
+      ON CONFLICT (external_id) DO UPDATE SET
+        status = 'failed',
+        attempts = webhook_logs.attempts + 1,
+        last_attempt_at = now(),
+        error_message = EXCLUDED.error_message,
+        next_retry_at = CASE
+          WHEN webhook_logs.attempts + 1 >= ${YSE_GRANT_MAX_ATTEMPTS} THEN NULL
+          ELSE now() + (
+            (ARRAY[${sql.raw(YSE_GRANT_BACKOFF_MS.join(","))}]::bigint[])[
+              LEAST(webhook_logs.attempts + 1, ${YSE_GRANT_BACKOFF_MS.length})
+            ] || ' milliseconds'
+          )::interval
+        END
+      WHERE webhook_logs.result IS NULL
+    `);
+  } catch (writeErr) {
+    console.error(
+      "[ExternalGrant] Failed to record failed-attempt row:",
+      redactPii(writeErr),
+    );
+  }
+}
+
 export interface ExternalGrantCustomer {
   email: string;
   firstName?: string;
@@ -231,14 +296,31 @@ export async function handleExternalGrantProduct(
       return { cached: true, result: existing.result as ExternalGrantResponse };
     }
 
-    // Claim the processing slot before doing any grant work
+    // Claim the processing slot before doing any grant work. We upsert
+    // here so a retry of a previously-failed delivery (status='failed',
+    // result=null) re-takes ownership instead of crashing on the
+    // external_id unique constraint. The attempts counter advances on
+    // every retake so the retry job can stop after MAX_ATTEMPTS.
     const [logEntry] = await tx
       .insert(webhookLogsTable)
       .values({
         externalId,
-        eventType: "external.grant_product",
+        eventType: YSE_GRANT_EVENT_TYPE,
         status: "processing",
         payload: payload as unknown as Record<string, unknown>,
+        attempts: 1,
+        lastAttemptAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: webhookLogsTable.externalId,
+        set: {
+          status: "processing",
+          payload: payload as unknown as Record<string, unknown>,
+          attempts: sql`${webhookLogsTable.attempts} + 1`,
+          lastAttemptAt: new Date(),
+          errorMessage: null,
+          nextRetryAt: null,
+        },
       })
       .returning({ id: webhookLogsTable.id });
 
@@ -336,10 +418,20 @@ export async function handleExternalGrantProduct(
         status: "processed",
         result: result as unknown as Record<string, unknown>,
         processedAt: new Date(),
+        errorMessage: null,
+        nextRetryAt: null,
+        lastAttemptAt: new Date(),
       })
       .where(eq(webhookLogsTable.id, logEntry.id));
 
     return { cached: false, userId, userCreated, grants };
+  }).catch(async (err) => {
+    // The transaction rolled back, so no `processing` row remains in
+    // webhook_logs. Record (or update) a `failed` row so the retry job
+    // can pick it up. We don't await any post-commit side-effects here
+    // because nothing was committed.
+    await recordFailedAttempt(externalId, payload, err);
+    throw err;
   });
 
 

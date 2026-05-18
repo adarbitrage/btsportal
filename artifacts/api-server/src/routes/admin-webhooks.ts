@@ -2,8 +2,66 @@ import { Router, type Request, type Response } from "express";
 import { db, webhookLogsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
+import {
+  listPendingFailedYseGrants,
+  manuallyRetryYseGrant,
+  runYseGrantRetrySweep,
+  getYseGrantRetryStatus,
+} from "../lib/yse-grant-retry";
 
 const router = Router();
+
+router.get(
+  "/admin/yse-grants/pending",
+  requirePermission("system:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt((req.query.limit as string) ?? "100", 10) || 100;
+      const items = await listPendingFailedYseGrants(limit);
+      res.json({ items, status: getYseGrantRetryStatus() });
+    } catch (err) {
+      console.error("[Admin] Error listing pending YSE grants:", err);
+      res.status(500).json({ error: "Failed to list pending YSE grants" });
+    }
+  },
+);
+
+router.post(
+  "/admin/yse-grants/:id/retry",
+  requirePermission("settings:manage"),
+  async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid log ID" });
+      return;
+    }
+    try {
+      const result = await manuallyRetryYseGrant(id);
+      if (!result.ok) {
+        res.status(409).json({ error: result.reason });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[Admin] Manual YSE retry failed:", err);
+      res.status(500).json({ error: "Manual retry failed" });
+    }
+  },
+);
+
+router.post(
+  "/admin/yse-grants/sweep",
+  requirePermission("settings:manage"),
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await runYseGrantRetrySweep();
+      res.json(result);
+    } catch (err) {
+      console.error("[Admin] YSE retry sweep failed:", err);
+      res.status(500).json({ error: "Sweep failed" });
+    }
+  },
+);
 
 router.get("/admin/webhook-logs", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
