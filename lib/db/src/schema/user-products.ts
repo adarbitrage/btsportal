@@ -13,11 +13,11 @@ export const userProductsTable = pgTable("user_products", {
   status: text("status").notNull().default("active"),
   thrivecartOrderId: text("thrivecart_order_id"),
   thrivecartSubId: text("thrivecart_sub_id"),
+  externalOrderId: text("external_order_id"),
+  externalSource: text("external_source"),
   graceExpiresAt: timestamp("grace_expires_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  externalOrderId: text("external_order_id"),
-  externalSource: text("external_source"),
 }, (table) => ({
   externalSourceOrderIdx: index("user_products_external_source_order_idx").on(table.externalSource, table.externalOrderId),
 }));

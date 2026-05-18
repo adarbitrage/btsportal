@@ -169,10 +169,7 @@ The endpoint is **fully idempotent** on the combination of `externalSource` + `e
 ### Request
 
 ```bash
-curl -X POST https://<YOUR_PORTAL_DOMAIN>/api/integrations/grant-product \
-  -H "Authorization: Bearer bts_live_sk_<your_key_here>" \
-  -H "Content-Type: application/json" \
-  -d '{
+curl -X POST https://<YOUR_PORTAL_DOMAIN>/api/integrations/grant-product   -H "Authorization: Bearer <BTS_API_KEY>"   -H "Content-Type: application/json"   -d '{
     "externalOrderId": "nmi_order_55512",
     "externalSource": "yse",
     "customer": {

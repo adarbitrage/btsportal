@@ -56,7 +56,7 @@ import kbStagingRouter from "./admin/knowledgebase-staging.js";
 import appsRouter from "./apps";
 import adminAppsRouter from "./admin-apps";
 import analyticsRouter from "./analytics";
-import integrationsGrantProductRouter from "./integrations-grant-product";
+import integrationsRouter from "./integrations";
 
 const router: IRouter = Router();
 
@@ -117,6 +117,6 @@ router.use("/admin/knowledgebase/staging", kbStagingRouter);
 router.use(appsRouter);
 router.use(adminAppsRouter);
 router.use(analyticsRouter);
-router.use(integrationsGrantProductRouter);
+router.use(integrationsRouter);
 
 export default router;

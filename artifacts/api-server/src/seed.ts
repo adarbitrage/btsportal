@@ -121,6 +121,35 @@ async function seed() {
       priceDisplay: "TBD", sortOrder: 8,
       checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
     },
+    // YSE (Your Second Engine) products — purchased via yoursecondengine.com
+    // and granted to BTS via the /api/integrations/grant-product endpoint.
+    // thrivecartProductId is null because these products are sold by YSE's
+    // NMI-backed checkout, not ThriveCart.
+    {
+      slug: "yse_front_end", name: "YSE Front End", type: "frontend",
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$67", sortOrder: 9,
+    },
+    {
+      slug: "yse_affiliate_cmo_bump", name: "YSE Affiliate CMO Bump", type: "frontend",
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$47", sortOrder: 10,
+    },
+    {
+      slug: "yse_21_day_blitz", name: "YSE 21-Day Blitz", type: "backend",
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "support:standard", "chat:full"],
+      priceDisplay: "$297", sortOrder: 11,
+    },
+    {
+      slug: "yse_swipe_resource_bank", name: "YSE Swipe Resource Bank", type: "frontend",
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: "$97", sortOrder: 12,
+    },
+    {
+      slug: "yse_profit_maximizer_pass", name: "YSE Profit Maximizer Pass", type: "frontend",
+      entitlementKeys: ["content:frontend", "content:advanced", "support:standard", "chat:full"],
+      priceDisplay: "$97", sortOrder: 13,
+    },
   ];
   const insertedProducts = await db.insert(productsTable).values(productData).returning();
   const productsBySlug: Record<string, number> = {};

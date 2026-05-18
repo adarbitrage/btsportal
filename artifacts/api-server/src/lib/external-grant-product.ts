@@ -11,7 +11,7 @@ import {
   commissionRatesTable,
   referralLinksTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
@@ -33,18 +33,23 @@ export interface ExternalGrantPayload {
   metadata?: Record<string, unknown>;
 }
 
-export interface GrantEntry {
+export interface GrantResult {
   productSlug: string;
   productId: number;
   userProductId: number;
   alreadyGranted: boolean;
 }
 
-export interface ExternalGrantResult {
+export interface ExternalGrantResponse {
   userId: number;
   userCreated: boolean;
-  grants: GrantEntry[];
+  grants: GrantResult[];
   welcomeEmailQueued: boolean;
+}
+
+export interface ExternalGrantError {
+  code: "UNKNOWN_SLUGS";
+  unknownSlugs: string[];
 }
 
 interface ResolvedProduct {
@@ -67,16 +72,96 @@ function externalIdLockKeys(externalId: string): [number, number] {
   return [hash.readInt32BE(0), hash.readInt32BE(4)];
 }
 
+/**
+ * Look up a previously processed result for the given external order.
+ * Returns null if not found or not yet fully processed.
+ */
+export async function getCachedGrantResponse(
+  externalSource: string,
+  externalOrderId: string,
+): Promise<ExternalGrantResponse | null> {
+  const externalId = `${externalSource}_${externalOrderId}`;
+
+  const [existing] = await db
+    .select({ result: webhookLogsTable.result, status: webhookLogsTable.status })
+    .from(webhookLogsTable)
+    .where(eq(webhookLogsTable.externalId, externalId))
+    .limit(1);
+
+  if (!existing) return null;
+  if (existing.status !== "processed" || !existing.result) return null;
+
+  return existing.result as ExternalGrantResponse;
+}
+
+/**
+ * Attempt to claim exclusive processing rights for an external order by
+ * inserting a "received" sentinel row. Uses the unique constraint on
+ * `external_id` to serialise concurrent duplicate requests at the DB level.
+ *
+ * Returns the new row id if the claim succeeded, or null if another caller
+ * already owns it.
+ */
+async function claimProcessingSlot(
+  externalId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<number | null> {
+  const rows = await db
+    .insert(webhookLogsTable)
+    .values({
+      externalId,
+      eventType,
+      status: "received",
+      payload,
+    })
+    .onConflictDoNothing()
+    .returning({ id: webhookLogsTable.id });
+
+  return rows.length > 0 ? rows[0].id : null;
+}
+
+/**
+ * Poll (up to `timeoutMs`) for another in-flight request to finish writing
+ * the processed result, then return the cached response. Returns null when
+ * the timeout elapses without a result (caller should treat as retriable).
+ */
+async function waitForProcessedResult(
+  externalId: string,
+  timeoutMs = 3000,
+): Promise<ExternalGrantResponse | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100));
+    const cached = await getCachedGrantResponse(
+      externalId.split("_").slice(0, 1).join(""),
+      externalId,
+    );
+    // Re-derive source+orderId from the externalId is fragile; query directly.
+    const [row] = await db
+      .select({ result: webhookLogsTable.result, status: webhookLogsTable.status })
+      .from(webhookLogsTable)
+      .where(eq(webhookLogsTable.externalId, externalId))
+      .limit(1);
+    if (row?.status === "processed" && row.result) {
+      return row.result as ExternalGrantResponse;
+    }
+    void cached; // unused – kept for clarity
+  }
+  return null;
+}
+
 export async function handleExternalGrantProduct(
-  payload: ExternalGrantPayload
-): Promise<ExternalGrantResult> {
+  payload: ExternalGrantPayload,
+): Promise<ExternalGrantResponse | ExternalGrantError> {
   const externalId = `${payload.externalSource}_${payload.externalOrderId}`;
   const email = payload.customer.email.toLowerCase().trim();
   const name =
     [payload.customer.firstName, payload.customer.lastName]
       .filter(Boolean)
-      .join(" ") || email;
+      .join(" ") || email.split("@")[0];
 
+  // Fetch only the requested products (efficient targeted query)
   const allProducts = await db
     .select({
       id: productsTable.id,
@@ -85,7 +170,8 @@ export async function handleExternalGrantProduct(
       type: productsTable.type,
       durationDays: productsTable.durationDays,
     })
-    .from(productsTable);
+    .from(productsTable)
+    .where(inArray(productsTable.slug, payload.productSlugs));
 
   const bySlug = new Map<string, ResolvedProduct>();
   for (const p of allProducts) {
@@ -104,21 +190,24 @@ export async function handleExternalGrantProduct(
   }
 
   if (unknownSlugs.length > 0) {
-    throw new UnknownProductSlugsError(unknownSlugs);
+    return { code: "UNKNOWN_SLUGS", unknownSlugs };
   }
 
   const [lockKey1, lockKey2] = externalIdLockKeys(externalId);
+
   let tempPassword: string | null = null;
 
   type TxOutcome =
-    | { cached: true; result: ExternalGrantResult }
-    | { cached: false; userId: number; userCreated: boolean; grants: GrantEntry[]; logId: number };
+    | { cached: true; result: ExternalGrantResponse }
+    | { cached: false; userId: number; userCreated: boolean; grants: GrantResult[] };
 
   const txOutcome = await db.transaction(async (tx): Promise<TxOutcome> => {
+    // Acquire advisory lock so concurrent requests with same externalId serialize
     await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(${lockKey1}, ${lockKey2})`
+      sql`SELECT pg_advisory_xact_lock(${lockKey1}, ${lockKey2})`,
     );
 
+    // Check for a cached result inside the lock
     const [existing] = await tx
       .select({ id: webhookLogsTable.id, result: webhookLogsTable.result })
       .from(webhookLogsTable)
@@ -126,9 +215,10 @@ export async function handleExternalGrantProduct(
       .limit(1);
 
     if (existing?.result != null) {
-      return { cached: true, result: existing.result as ExternalGrantResult };
+      return { cached: true, result: existing.result as ExternalGrantResponse };
     }
 
+    // Claim the processing slot before doing any grant work
     const [logEntry] = await tx
       .insert(webhookLogsTable)
       .values({
@@ -160,14 +250,16 @@ export async function handleExternalGrantProduct(
           email,
           name,
           passwordHash,
+          phone: payload.customer.phone || null,
           sourceProduct: "yse",
         })
         .returning({ id: usersTable.id });
       userId = newUser.id;
       userCreated = true;
+      console.log(`[ExternalGrant] Created new user: ${email} (id=${userId})`);
     }
 
-    const grants: GrantEntry[] = [];
+    const grants: GrantResult[] = [];
     for (const product of products) {
       const [existingGrant] = await tx
         .select({ id: userProductsTable.id })
@@ -176,8 +268,8 @@ export async function handleExternalGrantProduct(
           and(
             eq(userProductsTable.userId, userId),
             eq(userProductsTable.productId, product.id),
-            eq(userProductsTable.status, "active")
-          )
+            eq(userProductsTable.status, "active"),
+          ),
         )
         .limit(1);
 
@@ -188,6 +280,7 @@ export async function handleExternalGrantProduct(
           userProductId: existingGrant.id,
           alreadyGranted: true,
         });
+        continue;
       } else {
         let expiresAt: Date | null = null;
         if (product.durationDays) {
@@ -211,10 +304,13 @@ export async function handleExternalGrantProduct(
           userProductId: newGrant.id,
           alreadyGranted: false,
         });
+        console.log(
+          `[ExternalGrant] Granted product "${product.name}" to user ${email}`,
+        );
       }
     }
 
-    const result: ExternalGrantResult = {
+    const result: ExternalGrantResponse = {
       userId,
       userCreated,
       grants,
@@ -230,8 +326,9 @@ export async function handleExternalGrantProduct(
       })
       .where(eq(webhookLogsTable.id, logEntry.id));
 
-    return { cached: false, userId, userCreated, grants, logId: logEntry.id };
+    return { cached: false, userId, userCreated, grants };
   });
+
 
   if (txOutcome.cached) {
     return txOutcome.result;
@@ -293,6 +390,7 @@ export async function handleExternalGrantProduct(
     noteBody: `Products granted via ${payload.externalSource} (Order: ${payload.externalOrderId})`,
   });
 
+
   // Mirrors webhook-handler.ts handleOrderSuccess(): ensureAffiliateProfile + commission
   await ensureAffiliateProfile(userId).catch((err: unknown) => {
     console.error("[ExternalGrant] Error ensuring affiliate profile:", err);
@@ -315,12 +413,14 @@ export async function handleExternalGrantProduct(
 async function attributeYseCommission(
   payload: ExternalGrantPayload,
   buyerUserId: number,
-  grants: GrantEntry[]
+  grants: GrantResult[],
 ): Promise<Record<string, unknown>> {
   const affiliateCode =
     typeof payload.metadata?.bts_ref === "string"
       ? payload.metadata.bts_ref.trim()
-      : "";
+      : typeof payload.metadata?.affiliateCode === "string"
+        ? payload.metadata.affiliateCode.trim()
+        : "";
 
   if (!affiliateCode) {
     return { action: "no_attribution", reason: "No affiliate code found in metadata.bts_ref" };
@@ -376,7 +476,7 @@ async function attributeYseCommission(
     }
   }
 
-  const rawPrice = payload.metadata?.purchasePrice;
+  const rawPrice = payload.metadata?.purchasePrice ?? payload.metadata?.saleAmountCents;
   const saleAmount = rawPrice != null ? Math.round(parseFloat(String(rawPrice)) * 100) : 0;
 
   if (saleAmount <= 0) {
@@ -395,8 +495,8 @@ async function attributeYseCommission(
       .where(
         and(
           eq(commissionRatesTable.tier, affiliate.tier),
-          eq(commissionRatesTable.productId, grant.productId)
-        )
+          eq(commissionRatesTable.productId, grant.productId),
+        ),
       )
       .limit(1);
 
@@ -444,8 +544,8 @@ async function attributeYseCommission(
       .where(
         and(
           eq(referralLinksTable.affiliateId, affiliate.id),
-          eq(referralLinksTable.productId, grant.productId)
-        )
+          eq(referralLinksTable.productId, grant.productId),
+        ),
       );
 
     if (fraudFlag) {
@@ -459,7 +559,7 @@ async function attributeYseCommission(
     }
 
     console.log(
-      `[ExternalGrant] Commission created: $${(commissionAmount / 100).toFixed(2)} for affiliate ${affiliateCode} on order ${payload.externalOrderId}`
+      `[ExternalGrant] Commission created: $${(commissionAmount / 100).toFixed(2)} for affiliate ${affiliateCode} on order ${payload.externalOrderId}`,
     );
 
     emitWebhookEvent("commission.earned", {
