@@ -1,0 +1,47 @@
+Yes, all three — pull the slugs, write the handoff doc, mint a fresh API key. But before you do, two important corrections to surface, because what you found doesn't fully match what I expected.
+
+**First, the "already-merged" finding is good news but it raises a flag.** I had no record of the grant endpoint already being built. The audit task #431 (the BTS portal entitlement audit) returned **RED** with the explicit finding "No BTS integration code exists in this repo." That audit was thorough — it checked `artifacts/api-server/src/routes/`, `lib/`, looked for entitlement-granting patterns, and explicitly concluded the integration wasn't there.
+
+Either:
+- **The audit missed the file** (`external-grant-product.ts` and `routes/integrations.ts` existed but weren't found in the search), or
+- **The work landed between the audit and this status check** (Task #425's "revoke" came in alongside a grant counterpart, but the audit pre-dates that work)
+
+Either way, I need to know what's actually in the file before locking the handoff doc. The audit thought there was nothing; you're now saying there's a fully built endpoint. **The handoff doc you write needs to be based on what the code actually does, not on what the (now-invalidated) audit assumed needed to be built.**
+
+**Second, you noted there's a pre-existing failing test case.** "Returns 404 listing unknown slug(s)" — handler returns the error object instead of throwing. That's a real bug, not just cosmetic. If the grant endpoint silently returns an error object where it should throw, the YSE side might treat a 404-unknown-slug as success and assume the customer got their entitlement when they actually didn't. **That's a launch-blocking bug if it's real.**
+
+**Here's what I want you to do, in order:**
+
+1. **Read `artifacts/api-server/src/lib/external-grant-product.ts` and `artifacts/api-server/src/routes/integrations.ts` end-to-end** and report back what they actually do. Specifically:
+   - The actual request/response payload shape (matches what I drafted in the dispatch above? Different? Missing fields?)
+   - All error codes returned, and whether errors are thrown vs returned as objects
+   - Whether `webhook_logs`-based idempotency exists (per the BTS inventory, this is the pattern other external integrations use)
+   - Whether the welcome-email-on-new-user flow fires
+   - Whether GHL sync fires
+   - Whether commission attribution fires
+   - Anything else relevant to the YSE side
+
+2. **Pull the actual 5 seeded YSE product slugs from the `products` table.** If they don't exist (i.e., grant endpoint was built but YSE products weren't seeded), flag that — the executor of the prior task may have built the endpoint expecting the seed to happen later.
+
+3. **Verify the entitlement_keys assigned to each YSE product in the seed** (assuming the products exist). The operator hasn't yet answered my three commission-tier questions, but if the seed already happened with some default mapping, we need to know what it is so the operator can either confirm or revise.
+
+4. **Look at the pre-existing failing test case and tell me what the expected behavior should be.** Specifically: should the handler throw on unknown slugs, or return a typed error response? The test was written one way, the handler implements it another way. Which is correct depends on the contract design — and the contract was supposed to be 404 with a body listing unknown slugs, which suggests the test is right and the handler has a bug.
+
+5. **DO NOT mint the API key yet.** Wait until items 1-4 surface no other surprises. Once we know the endpoint actually behaves as expected (or until the failing test is fixed), then mint the key.
+
+**Report back with:**
+
+- The handoff doc draft based on the actual code (not my dispatch's assumptions)
+- The 5 product slugs from the DB (or "not seeded" if missing)
+- The entitlement_keys per product (or "not seeded" if missing)
+- Your read on the failing test — is the handler bugged, or is the test wrong, or is the contract ambiguous?
+- A recommendation: ship the YSE-side integration against the existing endpoint as-is, or fix the failing test case first, or fix the handler bug first?
+
+Once you come back with that, I can:
+- Either write a corrected dispatch for the YSE-side work that integrates against the actual built endpoint
+- Or scope a small fix dispatch for whatever's broken before we proceed
+- Or both
+
+The key thing: **don't proceed past the audit until we understand what's actually there.** The audit said one thing, you're finding another, and reconciling that gap matters before we ship the YSE side.
+
+Stand by — and thanks for catching this. If you'd just minted the API key and written the handoff doc without flagging the discrepancy, we'd have shipped YSE against an endpoint with an unknown failing test. Good discipline.
