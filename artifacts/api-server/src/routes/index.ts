@@ -57,6 +57,7 @@ import appsRouter from "./apps";
 import adminAppsRouter from "./admin-apps";
 import analyticsRouter from "./analytics";
 import integrationsRouter from "./integrations";
+import affiliateNetworksRouter from "./admin-affiliate-networks";
 
 const router: IRouter = Router();
 
@@ -118,5 +119,6 @@ router.use(appsRouter);
 router.use(adminAppsRouter);
 router.use(analyticsRouter);
 router.use(integrationsRouter);
+router.use(affiliateNetworksRouter);
 
 export default router;

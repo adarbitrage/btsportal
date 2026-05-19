@@ -5,6 +5,59 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+export interface AffiliateNetwork {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  logoUrl?: string | null;
+  logoBg: string;
+  highlights: string[];
+  publishers: string;
+  approvalLabel: string;
+  recommendedForBeginners: boolean;
+  accentPreset: string;
+  accentBorder: string;
+  accentBadgeBg: string;
+  accentBadgeText: string;
+  accentBadgeBorder: string;
+  registerUrl?: string | null;
+  loginUrl?: string | null;
+  extraCtaLabel?: string | null;
+  extraCtaHref?: string | null;
+  extraCtaStyle: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AffiliateNetworkInput {
+  slug: string;
+  name: string;
+  tagline?: string;
+  description?: string;
+  logoUrl?: string | null;
+  logoBg?: string;
+  highlights?: string[];
+  publishers?: string;
+  approvalLabel?: string;
+  recommendedForBeginners?: boolean;
+  accentPreset?: string;
+  accentBorder?: string;
+  accentBadgeBg?: string;
+  accentBadgeText?: string;
+  accentBadgeBorder?: string;
+  registerUrl?: string | null;
+  loginUrl?: string | null;
+  extraCtaLabel?: string | null;
+  extraCtaHref?: string | null;
+  extraCtaStyle?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
 export interface ErrorResponse {
   /** Error message */
   error: string;
@@ -2932,4 +2985,18 @@ export const GetAppSsoRedirectAdmin = {
 
 export type GetAppSsoRedirect200 = {
   url: string;
+};
+
+export type AdminReorderAffiliateNetworksBodyOrderItem = {
+  id: number;
+  displayOrder: number;
+};
+
+export type AdminReorderAffiliateNetworksBody = {
+  order: AdminReorderAffiliateNetworksBodyOrderItem[];
+};
+
+export type AdminGetAffiliateNetworkLogoUploadUrl200 = {
+  uploadURL: string;
+  objectPath: string;
 };

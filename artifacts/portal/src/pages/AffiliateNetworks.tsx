@@ -2,143 +2,30 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Network, Star, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
-import mediaMavensLogo from "@assets/mediamavens-logo_1778609315487.png";
-import clickbankLogo from "@assets/clickbank-logo_1778609315487.jpg";
-import maxwebLogo from "@assets/maxweb-logo_1778609315486.jpeg";
-import affiliatiLogo from "@assets/affiliati-logo_1778609315486.png";
+import { useListAffiliateNetworks } from "@workspace/api-client-react";
+import type { AffiliateNetwork } from "@workspace/api-client-react";
 
-type AffiliateNetwork = {
-  slug: string;
-  name: string;
-  logo: string;
-  logoBg: string;
-  tagline: string;
-  description: string;
-  highlights: string[];
-  publishers: string;
-  approval: "Instant signup" | "Approval + proof of revenue";
-  recommendedForBeginners?: boolean;
-  accent: {
-    border: string;
-    badgeBg: string;
-    badgeText: string;
-    badgeBorder: string;
-  };
-  registerUrl: string | null;
-  loginUrl: string | null;
-};
-
-const NETWORKS: AffiliateNetwork[] = [
-  {
-    slug: "media-mavens",
-    name: "Media Mavens",
-    logo: mediaMavensLogo,
-    logoBg: "bg-white",
-    tagline: "Our own in-house curated network — designed specifically for this system.",
-    description:
-      "If you're brand new, start here. Media Mavens is our in-house network, built specifically for the Build Test Scale system, which gives you several real advantages over public marketplaces right from the start. Simple to sign up — no approval required.",
-    highlights: [
-      "Higher commissions than comparable products on other networks",
-      "No chargebacks — if a customer returns a product, you keep your commission",
-      "Pre-made advertorials (landing pages) for many products — meaning less work to get started",
-      "Works with all three ad publishers (Caterpillar, Grasshopper, Crane)",
-    ],
-    publishers: "Caterpillar, Grasshopper, Crane",
-    approval: "Instant signup",
-    recommendedForBeginners: true,
-    accent: {
-      border: "border-emerald-300",
-      badgeBg: "bg-emerald-50",
-      badgeText: "text-emerald-800",
-      badgeBorder: "border-emerald-200",
-    },
-    registerUrl: null,
-    loginUrl: null,
-  },
-  {
-    slug: "clickbank",
-    name: "ClickBank",
-    logo: clickbankLogo,
-    logoBg: "bg-white",
-    tagline: "A large public marketplace with thousands of products to promote.",
-    description:
-      "The next easiest entry point after Media Mavens. ClickBank is a large public marketplace — simple to sign up, no approval required. You'll create your own landing pages using the product's video as your source material.",
-    highlights: [
-      "Instant signup — no approval required",
-      "Thousands of products across many verticals",
-      "Works with Caterpillar and Grasshopper publishers",
-      "Requires building your own jump pages from scratch",
-    ],
-    publishers: "Caterpillar, Grasshopper",
-    approval: "Instant signup",
-    accent: {
-      border: "border-amber-300",
-      badgeBg: "bg-amber-50",
-      badgeText: "text-amber-800",
-      badgeBorder: "border-amber-200",
-    },
-    registerUrl: "https://www.clickbank.com/affiliates/",
-    loginUrl: "https://accounts.clickbank.com/login.htm",
-  },
-  {
-    slug: "affiliati",
-    name: "Affiliati",
-    logo: affiliatiLogo,
-    logoBg: "bg-white",
-    tagline: "A curated network with many strong offers.",
-    description:
-      "Affiliati is a curated network with many strong offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for an Affiliati account.",
-    highlights: [
-      "Requires account approval and proof of revenue from previous affiliate campaigns",
-      "Check with a coach before applying",
-      "Pre-made advertorials available for select products",
-      "Works with Caterpillar and Grasshopper publishers",
-    ],
-    publishers: "Caterpillar, Grasshopper",
-    approval: "Approval + proof of revenue",
-    accent: {
-      border: "border-violet-300",
-      badgeBg: "bg-violet-50",
-      badgeText: "text-violet-800",
-      badgeBorder: "border-violet-200",
-    },
-    registerUrl: "https://affiliatinetwork.com/",
-    loginUrl: "https://login.affiliatinetwork.com/?ReturnUrl=%2faffiliates%2f",
-  },
-  {
-    slug: "maxweb",
-    name: "MaxWeb",
-    logo: maxwebLogo,
-    logoBg: "bg-white",
-    tagline: "A curated network with quality offers.",
-    description:
-      "MaxWeb is a curated network with quality offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for a MaxWeb account.",
-    highlights: [
-      "Requires account approval and proof of revenue from previous affiliate campaigns",
-      "Check with a coach before applying",
-      "Dedicated Account Representative listed on your MaxWeb Dashboard once approved",
-      "Works with Caterpillar and Grasshopper publishers",
-    ],
-    publishers: "Caterpillar, Grasshopper",
-    approval: "Approval + proof of revenue",
-    accent: {
-      border: "border-orange-300",
-      badgeBg: "bg-orange-50",
-      badgeText: "text-orange-800",
-      badgeBorder: "border-orange-200",
-    },
-    registerUrl: "https://affiliates-backoffice.maxweb.com/auth#signup",
-    loginUrl: "https://affiliates-backoffice.maxweb.com/auth",
-  },
-];
+function getLogoSrc(network: AffiliateNetwork): string | null {
+  if (!network.logoUrl) return null;
+  if (network.logoUrl.startsWith("http://") || network.logoUrl.startsWith("https://")) {
+    return network.logoUrl;
+  }
+  return `${import.meta.env.BASE_URL}api${network.logoUrl}`;
+}
 
 function NetworkCard({ network }: { network: AffiliateNetwork }) {
   const hasLinks = Boolean(network.registerUrl || network.loginUrl);
+  const logoSrc = getLogoSrc(network);
+
+  const isInternalHref = (href: string) =>
+    !href.startsWith("http://") && !href.startsWith("https://");
+
   return (
     <Card
-      className={`border-2 ${network.accent.border} hover:shadow-lg transition-shadow overflow-hidden`}
+      className={`border-2 ${network.accentBorder} hover:shadow-lg transition-shadow overflow-hidden`}
       data-testid={`card-network-${network.slug}`}
     >
       <CardContent className="p-0">
@@ -146,11 +33,17 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
           <div
             className={`${network.logoBg} flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border`}
           >
-            <img
-              src={network.logo}
-              alt={`${network.name} logo`}
-              className="max-h-24 max-w-full object-contain"
-            />
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={`${network.name} logo`}
+                className="max-h-24 max-w-full object-contain"
+              />
+            ) : (
+              <div className="w-24 h-24 flex items-center justify-center rounded-lg bg-muted">
+                <Network className="w-10 h-10 text-muted-foreground" />
+              </div>
+            )}
           </div>
 
           <div className="flex-1 p-5 flex flex-col">
@@ -168,9 +61,9 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
               </div>
               <Badge
                 variant="outline"
-                className={`${network.accent.badgeBg} ${network.accent.badgeText} ${network.accent.badgeBorder} shrink-0`}
+                className={`${network.accentBadgeBg} ${network.accentBadgeText} ${network.accentBadgeBorder} shrink-0`}
               >
-                {network.approval}
+                {network.approvalLabel}
               </Badge>
             </div>
 
@@ -193,22 +86,35 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
                   <span className="font-semibold text-foreground">Publishers:</span>{" "}
                   {network.publishers}
                 </p>
-                {!hasLinks && (
+                {!hasLinks && !network.extraCtaLabel && (
                   <p className="text-[11px] text-muted-foreground/70 italic mt-0.5">
                     Register and log-in links coming soon.
                   </p>
                 )}
               </div>
               <div className="flex gap-2 shrink-0">
-                {network.slug === "media-mavens" && (
-                  <Button
-                    asChild
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    data-testid={`button-view-products-${network.slug}`}
-                  >
-                    <Link href="/media-mavens">View Products</Link>
-                  </Button>
+                {network.extraCtaLabel && network.extraCtaHref && (
+                  isInternalHref(network.extraCtaHref) ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      className={network.extraCtaStyle === "emerald" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+                      data-testid={`button-extra-cta-${network.slug}`}
+                    >
+                      <Link href={network.extraCtaHref}>{network.extraCtaLabel}</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      asChild
+                      className={network.extraCtaStyle === "emerald" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+                      data-testid={`button-extra-cta-${network.slug}`}
+                    >
+                      <a href={network.extraCtaHref} target="_blank" rel="noreferrer">
+                        {network.extraCtaLabel}
+                      </a>
+                    </Button>
+                  )
                 )}
                 {network.registerUrl ? (
                   <Button
@@ -250,7 +156,32 @@ function NetworkCard({ network }: { network: AffiliateNetwork }) {
   );
 }
 
+function NetworkCardSkeleton() {
+  return (
+    <Card className="border-2 border-border overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          <div className="flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border">
+            <Skeleton className="w-24 h-16" />
+          </div>
+          <div className="flex-1 p-5 flex flex-col gap-3">
+            <div className="flex justify-between items-start">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-5 w-28" />
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-4/6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AffiliateNetworks() {
+  const { data: networks, isLoading, isError } = useListAffiliateNetworks();
+
   return (
     <AppLayout>
       <div className="space-y-6 max-w-6xl">
@@ -282,7 +213,27 @@ export default function AffiliateNetworks() {
         </div>
 
         <div className="grid grid-cols-1 gap-5">
-          {NETWORKS.map((n) => (
+          {isLoading && (
+            <>
+              <NetworkCardSkeleton />
+              <NetworkCardSkeleton />
+              <NetworkCardSkeleton />
+              <NetworkCardSkeleton />
+            </>
+          )}
+          {isError && (
+            <div className="text-center py-12 text-muted-foreground">
+              <Network className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p>Failed to load affiliate networks. Please try refreshing the page.</p>
+            </div>
+          )}
+          {!isLoading && !isError && networks && networks.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <Network className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p>No affiliate networks available at this time.</p>
+            </div>
+          )}
+          {networks?.map((n) => (
             <NetworkCard key={n.slug} network={n} />
           ))}
         </div>

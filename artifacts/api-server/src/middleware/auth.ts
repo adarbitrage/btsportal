@@ -39,6 +39,7 @@ const PUBLIC_PATHS = [
   "/healthz",
   "/products",
   "/announcements",
+  "/affiliate-networks",
   "/email/unsubscribe",
   "/v1/health",
 ];

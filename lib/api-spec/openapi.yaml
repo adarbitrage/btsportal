@@ -5547,6 +5547,155 @@ paths:
         "502":
           description: Squidy lookup or delete API error
 
+  /affiliate-networks:
+    get:
+      operationId: listAffiliateNetworks
+      tags: [affiliate-networks]
+      summary: List active affiliate networks
+      responses:
+        "200":
+          description: List of active affiliate networks ordered by display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AffiliateNetwork"
+
+  /admin/affiliate-networks:
+    get:
+      operationId: adminListAffiliateNetworks
+      tags: [affiliate-networks]
+      summary: List all affiliate networks (admin)
+      responses:
+        "200":
+          description: All affiliate networks including inactive ones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AffiliateNetwork"
+        "403":
+          description: Forbidden
+    post:
+      operationId: adminCreateAffiliateNetwork
+      tags: [affiliate-networks]
+      summary: Create a new affiliate network (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateNetworkInput"
+      responses:
+        "201":
+          description: Created affiliate network
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateNetwork"
+        "400":
+          description: Missing required fields or duplicate slug
+        "403":
+          description: Forbidden
+
+  /admin/affiliate-networks/reorder:
+    post:
+      operationId: adminReorderAffiliateNetworks
+      tags: [affiliate-networks]
+      summary: Bulk reorder affiliate networks (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      displayOrder:
+                        type: integer
+                    required: [id, displayOrder]
+              required: [order]
+      responses:
+        "200":
+          description: Order updated
+        "403":
+          description: Forbidden
+
+  /admin/affiliate-networks/upload-logo-url:
+    post:
+      operationId: adminGetAffiliateNetworkLogoUploadUrl
+      tags: [affiliate-networks]
+      summary: Get a presigned URL to upload a network logo (admin)
+      responses:
+        "200":
+          description: Presigned upload URL and resulting object path
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadURL:
+                    type: string
+                  objectPath:
+                    type: string
+                required: [uploadURL, objectPath]
+        "403":
+          description: Forbidden
+
+  /admin/affiliate-networks/{id}:
+    put:
+      operationId: adminUpdateAffiliateNetwork
+      tags: [affiliate-networks]
+      summary: Update an affiliate network (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateNetworkInput"
+      responses:
+        "200":
+          description: Updated affiliate network
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateNetwork"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteAffiliateNetwork
+      tags: [affiliate-networks]
+      summary: Delete an affiliate network (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
 security:
   - cookieAuth: []
   - apiKeyAuth: []
@@ -5628,6 +5777,126 @@ components:
           description: Unix timestamp when the rate limit window resets
 
   schemas:
+    AffiliateNetwork:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        description:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        logoBg:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        publishers:
+          type: string
+        approvalLabel:
+          type: string
+        recommendedForBeginners:
+          type: boolean
+        accentPreset:
+          type: string
+        accentBorder:
+          type: string
+        accentBadgeBg:
+          type: string
+        accentBadgeText:
+          type: string
+        accentBadgeBorder:
+          type: string
+        registerUrl:
+          type: string
+          nullable: true
+        loginUrl:
+          type: string
+          nullable: true
+        extraCtaLabel:
+          type: string
+          nullable: true
+        extraCtaHref:
+          type: string
+          nullable: true
+        extraCtaStyle:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, tagline, description, logoBg, highlights, publishers, approvalLabel, recommendedForBeginners, accentPreset, accentBorder, accentBadgeBg, accentBadgeText, accentBadgeBorder, extraCtaStyle, displayOrder, isActive, createdAt, updatedAt]
+
+    AffiliateNetworkInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        description:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        logoBg:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        publishers:
+          type: string
+        approvalLabel:
+          type: string
+        recommendedForBeginners:
+          type: boolean
+        accentPreset:
+          type: string
+        accentBorder:
+          type: string
+        accentBadgeBg:
+          type: string
+        accentBadgeText:
+          type: string
+        accentBadgeBorder:
+          type: string
+        registerUrl:
+          type: string
+          nullable: true
+        loginUrl:
+          type: string
+          nullable: true
+        extraCtaLabel:
+          type: string
+          nullable: true
+        extraCtaHref:
+          type: string
+          nullable: true
+        extraCtaStyle:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [slug, name]
+
     ErrorResponse:
       type: object
       properties:

@@ -167,6 +167,7 @@ const ADMIN_CHILDREN: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/admin/content/tracks", label: "Training CMS", icon: GraduationCap, requiredPermission: "content:manage" },
+      { kind: "leaf", href: "/admin/affiliate-networks", label: "Affiliate Networks", icon: Network, requiredPermission: "content:manage" },
       { kind: "leaf", href: "/admin/resources", label: "Resource Vault", icon: FolderOpen, requiredPermission: "vault:view" },
       { kind: "leaf", href: "/admin/collections", label: "Collections", icon: Layers, requiredPermission: "vault:manage" },
       { kind: "leaf", href: "/admin/vault/analytics", label: "Vault Analytics", icon: BarChart3, requiredPermission: "vault:view" },

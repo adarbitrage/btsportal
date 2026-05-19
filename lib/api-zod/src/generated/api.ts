@@ -4833,3 +4833,186 @@ export const UninstallAppResponse = zod.object({
   createdAt: zod.date().nullish(),
   updatedAt: zod.date().nullish(),
 });
+
+/**
+ * @summary List active affiliate networks
+ */
+export const ListAffiliateNetworksResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  description: zod.string(),
+  logoUrl: zod.string().nullish(),
+  logoBg: zod.string(),
+  highlights: zod.array(zod.string()),
+  publishers: zod.string(),
+  approvalLabel: zod.string(),
+  recommendedForBeginners: zod.boolean(),
+  accentPreset: zod.string(),
+  accentBorder: zod.string(),
+  accentBadgeBg: zod.string(),
+  accentBadgeText: zod.string(),
+  accentBadgeBorder: zod.string(),
+  registerUrl: zod.string().nullish(),
+  loginUrl: zod.string().nullish(),
+  extraCtaLabel: zod.string().nullish(),
+  extraCtaHref: zod.string().nullish(),
+  extraCtaStyle: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListAffiliateNetworksResponse = zod.array(
+  ListAffiliateNetworksResponseItem,
+);
+
+/**
+ * @summary List all affiliate networks (admin)
+ */
+export const AdminListAffiliateNetworksResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  description: zod.string(),
+  logoUrl: zod.string().nullish(),
+  logoBg: zod.string(),
+  highlights: zod.array(zod.string()),
+  publishers: zod.string(),
+  approvalLabel: zod.string(),
+  recommendedForBeginners: zod.boolean(),
+  accentPreset: zod.string(),
+  accentBorder: zod.string(),
+  accentBadgeBg: zod.string(),
+  accentBadgeText: zod.string(),
+  accentBadgeBorder: zod.string(),
+  registerUrl: zod.string().nullish(),
+  loginUrl: zod.string().nullish(),
+  extraCtaLabel: zod.string().nullish(),
+  extraCtaHref: zod.string().nullish(),
+  extraCtaStyle: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListAffiliateNetworksResponse = zod.array(
+  AdminListAffiliateNetworksResponseItem,
+);
+
+/**
+ * @summary Create a new affiliate network (admin)
+ */
+export const AdminCreateAffiliateNetworkBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string().optional(),
+  description: zod.string().optional(),
+  logoUrl: zod.string().nullish(),
+  logoBg: zod.string().optional(),
+  highlights: zod.array(zod.string()).optional(),
+  publishers: zod.string().optional(),
+  approvalLabel: zod.string().optional(),
+  recommendedForBeginners: zod.boolean().optional(),
+  accentPreset: zod.string().optional(),
+  accentBorder: zod.string().optional(),
+  accentBadgeBg: zod.string().optional(),
+  accentBadgeText: zod.string().optional(),
+  accentBadgeBorder: zod.string().optional(),
+  registerUrl: zod.string().nullish(),
+  loginUrl: zod.string().nullish(),
+  extraCtaLabel: zod.string().nullish(),
+  extraCtaHref: zod.string().nullish(),
+  extraCtaStyle: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Bulk reorder affiliate networks (admin)
+ */
+export const AdminReorderAffiliateNetworksBody = zod.object({
+  order: zod.array(
+    zod.object({
+      id: zod.number(),
+      displayOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a presigned URL to upload a network logo (admin)
+ */
+export const AdminGetAffiliateNetworkLogoUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Update an affiliate network (admin)
+ */
+export const AdminUpdateAffiliateNetworkParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateAffiliateNetworkBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string().optional(),
+  description: zod.string().optional(),
+  logoUrl: zod.string().nullish(),
+  logoBg: zod.string().optional(),
+  highlights: zod.array(zod.string()).optional(),
+  publishers: zod.string().optional(),
+  approvalLabel: zod.string().optional(),
+  recommendedForBeginners: zod.boolean().optional(),
+  accentPreset: zod.string().optional(),
+  accentBorder: zod.string().optional(),
+  accentBadgeBg: zod.string().optional(),
+  accentBadgeText: zod.string().optional(),
+  accentBadgeBorder: zod.string().optional(),
+  registerUrl: zod.string().nullish(),
+  loginUrl: zod.string().nullish(),
+  extraCtaLabel: zod.string().nullish(),
+  extraCtaHref: zod.string().nullish(),
+  extraCtaStyle: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateAffiliateNetworkResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  description: zod.string(),
+  logoUrl: zod.string().nullish(),
+  logoBg: zod.string(),
+  highlights: zod.array(zod.string()),
+  publishers: zod.string(),
+  approvalLabel: zod.string(),
+  recommendedForBeginners: zod.boolean(),
+  accentPreset: zod.string(),
+  accentBorder: zod.string(),
+  accentBadgeBg: zod.string(),
+  accentBadgeText: zod.string(),
+  accentBadgeBorder: zod.string(),
+  registerUrl: zod.string().nullish(),
+  loginUrl: zod.string().nullish(),
+  extraCtaLabel: zod.string().nullish(),
+  extraCtaHref: zod.string().nullish(),
+  extraCtaStyle: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete an affiliate network (admin)
+ */
+export const AdminDeleteAffiliateNetworkParams = zod.object({
+  id: zod.coerce.number(),
+});

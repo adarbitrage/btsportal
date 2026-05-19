@@ -1,3 +1,5 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -25,6 +27,7 @@ import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
+import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
 
@@ -60,6 +63,9 @@ app.use("/api/webhooks", express.raw({ type: "*/*" }), (req: Request, _res: Resp
   next();
 });
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use("/api/logos", express.static(path.join(__dirname, "..", "public", "logos")));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -79,6 +85,7 @@ app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
+seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 
 (async () => {
   try {

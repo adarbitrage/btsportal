@@ -48,6 +48,7 @@ import type {
   AdminDeleteToolCategory200,
   AdminDuplicateLessonBody,
   AdminFlagChatMessageBody,
+  AdminGetAffiliateNetworkLogoUploadUrl200,
   AdminGetCommunicationAnalyticsParams,
   AdminGetCommunicationLogParams,
   AdminGetGhlLogParams,
@@ -69,6 +70,7 @@ import type {
   AdminPreviewSystemPrompt200,
   AdminPreviewSystemPromptBody,
   AdminPublishLessonBody,
+  AdminReorderAffiliateNetworksBody,
   AdminTicket,
   AdminTicketMessage,
   AdminTicketWithMessages,
@@ -90,6 +92,8 @@ import type {
   AdminUpdateTool,
   AdminUpdateToolCategory,
   AdminUpdateTrack,
+  AffiliateNetwork,
+  AffiliateNetworkInput,
   AffiliateProfile,
   AffiliateResource,
   AgentPerformance,
@@ -23006,4 +23010,588 @@ export const useUninstallApp = <
   TContext
 > => {
   return useMutation(getUninstallAppMutationOptions(options));
+};
+
+/**
+ * @summary List active affiliate networks
+ */
+export const getListAffiliateNetworksUrl = () => {
+  return `/api/affiliate-networks`;
+};
+
+export const listAffiliateNetworks = async (
+  options?: RequestInit,
+): Promise<AffiliateNetwork[]> => {
+  return customFetch<AffiliateNetwork[]>(getListAffiliateNetworksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAffiliateNetworksQueryKey = () => {
+  return [`/api/affiliate-networks`] as const;
+};
+
+export const getListAffiliateNetworksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAffiliateNetworks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAffiliateNetworks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAffiliateNetworksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAffiliateNetworks>>
+  > = ({ signal }) => listAffiliateNetworks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAffiliateNetworks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAffiliateNetworksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAffiliateNetworks>>
+>;
+export type ListAffiliateNetworksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active affiliate networks
+ */
+
+export function useListAffiliateNetworks<
+  TData = Awaited<ReturnType<typeof listAffiliateNetworks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAffiliateNetworks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAffiliateNetworksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all affiliate networks (admin)
+ */
+export const getAdminListAffiliateNetworksUrl = () => {
+  return `/api/admin/affiliate-networks`;
+};
+
+export const adminListAffiliateNetworks = async (
+  options?: RequestInit,
+): Promise<AffiliateNetwork[]> => {
+  return customFetch<AffiliateNetwork[]>(getAdminListAffiliateNetworksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListAffiliateNetworksQueryKey = () => {
+  return [`/api/admin/affiliate-networks`] as const;
+};
+
+export const getAdminListAffiliateNetworksQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAffiliateNetworks>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAffiliateNetworks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListAffiliateNetworksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAffiliateNetworks>>
+  > = ({ signal }) => adminListAffiliateNetworks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAffiliateNetworks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAffiliateNetworksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAffiliateNetworks>>
+>;
+export type AdminListAffiliateNetworksQueryError = ErrorType<void>;
+
+/**
+ * @summary List all affiliate networks (admin)
+ */
+
+export function useAdminListAffiliateNetworks<
+  TData = Awaited<ReturnType<typeof adminListAffiliateNetworks>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAffiliateNetworks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAffiliateNetworksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new affiliate network (admin)
+ */
+export const getAdminCreateAffiliateNetworkUrl = () => {
+  return `/api/admin/affiliate-networks`;
+};
+
+export const adminCreateAffiliateNetwork = async (
+  affiliateNetworkInput: AffiliateNetworkInput,
+  options?: RequestInit,
+): Promise<AffiliateNetwork> => {
+  return customFetch<AffiliateNetwork>(getAdminCreateAffiliateNetworkUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(affiliateNetworkInput),
+  });
+};
+
+export const getAdminCreateAffiliateNetworkMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>,
+    TError,
+    { data: BodyType<AffiliateNetworkInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>,
+  TError,
+  { data: BodyType<AffiliateNetworkInput> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateAffiliateNetwork"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>,
+    { data: BodyType<AffiliateNetworkInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateAffiliateNetwork(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateAffiliateNetworkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>
+>;
+export type AdminCreateAffiliateNetworkMutationBody =
+  BodyType<AffiliateNetworkInput>;
+export type AdminCreateAffiliateNetworkMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new affiliate network (admin)
+ */
+export const useAdminCreateAffiliateNetwork = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>,
+    TError,
+    { data: BodyType<AffiliateNetworkInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateAffiliateNetwork>>,
+  TError,
+  { data: BodyType<AffiliateNetworkInput> },
+  TContext
+> => {
+  return useMutation(getAdminCreateAffiliateNetworkMutationOptions(options));
+};
+
+/**
+ * @summary Bulk reorder affiliate networks (admin)
+ */
+export const getAdminReorderAffiliateNetworksUrl = () => {
+  return `/api/admin/affiliate-networks/reorder`;
+};
+
+export const adminReorderAffiliateNetworks = async (
+  adminReorderAffiliateNetworksBody: AdminReorderAffiliateNetworksBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderAffiliateNetworksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminReorderAffiliateNetworksBody),
+  });
+};
+
+export const getAdminReorderAffiliateNetworksMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>,
+    TError,
+    { data: BodyType<AdminReorderAffiliateNetworksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>,
+  TError,
+  { data: BodyType<AdminReorderAffiliateNetworksBody> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderAffiliateNetworks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>,
+    { data: BodyType<AdminReorderAffiliateNetworksBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderAffiliateNetworks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderAffiliateNetworksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>
+>;
+export type AdminReorderAffiliateNetworksMutationBody =
+  BodyType<AdminReorderAffiliateNetworksBody>;
+export type AdminReorderAffiliateNetworksMutationError = ErrorType<void>;
+
+/**
+ * @summary Bulk reorder affiliate networks (admin)
+ */
+export const useAdminReorderAffiliateNetworks = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>,
+    TError,
+    { data: BodyType<AdminReorderAffiliateNetworksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderAffiliateNetworks>>,
+  TError,
+  { data: BodyType<AdminReorderAffiliateNetworksBody> },
+  TContext
+> => {
+  return useMutation(getAdminReorderAffiliateNetworksMutationOptions(options));
+};
+
+/**
+ * @summary Get a presigned URL to upload a network logo (admin)
+ */
+export const getAdminGetAffiliateNetworkLogoUploadUrlUrl = () => {
+  return `/api/admin/affiliate-networks/upload-logo-url`;
+};
+
+export const adminGetAffiliateNetworkLogoUploadUrl = async (
+  options?: RequestInit,
+): Promise<AdminGetAffiliateNetworkLogoUploadUrl200> => {
+  return customFetch<AdminGetAffiliateNetworkLogoUploadUrl200>(
+    getAdminGetAffiliateNetworkLogoUploadUrlUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminGetAffiliateNetworkLogoUploadUrlMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminGetAffiliateNetworkLogoUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>,
+    void
+  > = () => {
+    return adminGetAffiliateNetworkLogoUploadUrl(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminGetAffiliateNetworkLogoUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>
+>;
+
+export type AdminGetAffiliateNetworkLogoUploadUrlMutationError =
+  ErrorType<void>;
+
+/**
+ * @summary Get a presigned URL to upload a network logo (admin)
+ */
+export const useAdminGetAffiliateNetworkLogoUploadUrl = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminGetAffiliateNetworkLogoUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAdminGetAffiliateNetworkLogoUploadUrlMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update an affiliate network (admin)
+ */
+export const getAdminUpdateAffiliateNetworkUrl = (id: number) => {
+  return `/api/admin/affiliate-networks/${id}`;
+};
+
+export const adminUpdateAffiliateNetwork = async (
+  id: number,
+  affiliateNetworkInput: AffiliateNetworkInput,
+  options?: RequestInit,
+): Promise<AffiliateNetwork> => {
+  return customFetch<AffiliateNetwork>(getAdminUpdateAffiliateNetworkUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(affiliateNetworkInput),
+  });
+};
+
+export const getAdminUpdateAffiliateNetworkMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>,
+    TError,
+    { id: number; data: BodyType<AffiliateNetworkInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>,
+  TError,
+  { id: number; data: BodyType<AffiliateNetworkInput> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateAffiliateNetwork"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>,
+    { id: number; data: BodyType<AffiliateNetworkInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateAffiliateNetwork(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateAffiliateNetworkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>
+>;
+export type AdminUpdateAffiliateNetworkMutationBody =
+  BodyType<AffiliateNetworkInput>;
+export type AdminUpdateAffiliateNetworkMutationError = ErrorType<void>;
+
+/**
+ * @summary Update an affiliate network (admin)
+ */
+export const useAdminUpdateAffiliateNetwork = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>,
+    TError,
+    { id: number; data: BodyType<AffiliateNetworkInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateAffiliateNetwork>>,
+  TError,
+  { id: number; data: BodyType<AffiliateNetworkInput> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateAffiliateNetworkMutationOptions(options));
+};
+
+/**
+ * @summary Delete an affiliate network (admin)
+ */
+export const getAdminDeleteAffiliateNetworkUrl = (id: number) => {
+  return `/api/admin/affiliate-networks/${id}`;
+};
+
+export const adminDeleteAffiliateNetwork = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeleteAffiliateNetworkUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteAffiliateNetworkMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteAffiliateNetwork"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteAffiliateNetwork(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteAffiliateNetworkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>
+>;
+
+export type AdminDeleteAffiliateNetworkMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete an affiliate network (admin)
+ */
+export const useAdminDeleteAffiliateNetwork = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteAffiliateNetwork>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteAffiliateNetworkMutationOptions(options));
 };

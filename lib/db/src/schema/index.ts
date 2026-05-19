@@ -68,3 +68,4 @@ export * from "./phone-change-history";
 export * from "./password-reset-attempts";
 export * from "./upgrade-prompt-events";
 export * from "./abuse-rate-limit-cleanup-runs";
+export * from "./affiliate-networks";

@@ -956,3 +956,134 @@ export function useAdminToolUsage(id: number) {
     enabled: id > 0,
   });
 }
+
+export interface AdminAffiliateNetwork {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  logoUrl: string | null;
+  logoBg: string;
+  highlights: string[];
+  publishers: string;
+  approvalLabel: string;
+  recommendedForBeginners: boolean;
+  accentPreset: string;
+  accentBorder: string;
+  accentBadgeBg: string;
+  accentBadgeText: string;
+  accentBadgeBorder: string;
+  registerUrl: string | null;
+  loginUrl: string | null;
+  extraCtaLabel: string | null;
+  extraCtaHref: string | null;
+  extraCtaStyle: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AffiliateNetworkFormData {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  logoUrl: string | null;
+  logoBg: string;
+  highlights: string[];
+  publishers: string;
+  approvalLabel: string;
+  recommendedForBeginners: boolean;
+  accentPreset: string;
+  accentBorder: string;
+  accentBadgeBg: string;
+  accentBadgeText: string;
+  accentBadgeBorder: string;
+  registerUrl: string | null;
+  loginUrl: string | null;
+  extraCtaLabel: string | null;
+  extraCtaHref: string | null;
+  extraCtaStyle: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export const adminAffiliateNetworksApi = {
+  list: () => adminFetch<AdminAffiliateNetwork[]>("/admin/affiliate-networks"),
+  create: (data: AffiliateNetworkFormData) =>
+    adminFetch<AdminAffiliateNetwork>("/admin/affiliate-networks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<AffiliateNetworkFormData>) =>
+    adminFetch<AdminAffiliateNetwork>(`/admin/affiliate-networks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    adminFetch<{ success: boolean }>(`/admin/affiliate-networks/${id}`, { method: "DELETE" }),
+  reorder: (order: Array<{ id: number; displayOrder: number }>) =>
+    adminFetch<{ success: boolean }>("/admin/affiliate-networks/reorder", {
+      method: "POST",
+      body: JSON.stringify({ order }),
+    }),
+  getLogoUploadUrl: () =>
+    adminFetch<{ uploadURL: string; objectPath: string }>("/admin/affiliate-networks/upload-logo-url", {
+      method: "POST",
+    }),
+};
+
+export function useAdminAffiliateNetworks() {
+  return useQuery({
+    queryKey: ["/api/admin/affiliate-networks"],
+    queryFn: () => adminAffiliateNetworksApi.list(),
+  });
+}
+
+export function useAdminCreateAffiliateNetwork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AffiliateNetworkFormData) => adminAffiliateNetworksApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-networks"] });
+      qc.invalidateQueries({ queryKey: ["/api/affiliate-networks"] });
+    },
+  });
+}
+
+export function useAdminUpdateAffiliateNetwork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<AffiliateNetworkFormData> }) =>
+      adminAffiliateNetworksApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-networks"] });
+      qc.invalidateQueries({ queryKey: ["/api/affiliate-networks"] });
+    },
+  });
+}
+
+export function useAdminDeleteAffiliateNetwork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => adminAffiliateNetworksApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-networks"] });
+      qc.invalidateQueries({ queryKey: ["/api/affiliate-networks"] });
+    },
+  });
+}
+
+export function useAdminReorderAffiliateNetworks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (order: Array<{ id: number; displayOrder: number }>) =>
+      adminAffiliateNetworksApi.reorder(order),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/affiliate-networks"] });
+      qc.invalidateQueries({ queryKey: ["/api/affiliate-networks"] });
+    },
+  });
+}

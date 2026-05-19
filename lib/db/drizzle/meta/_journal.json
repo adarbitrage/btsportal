@@ -50,6 +50,13 @@
       "when": 1776542400000,
       "tag": "0006_app_global_settings_visible",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1747699200000,
+      "tag": "0007_affiliate_networks",
+      "breakpoints": true
     }
   ]
 }
