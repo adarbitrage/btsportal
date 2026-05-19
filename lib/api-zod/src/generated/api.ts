@@ -5016,3 +5016,226 @@ export const AdminUpdateAffiliateNetworkResponse = zod.object({
 export const AdminDeleteAffiliateNetworkParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary List active Media Mavens categories
+ */
+export const ListMediaMavensCategoriesResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListMediaMavensCategoriesResponse = zod.array(
+  ListMediaMavensCategoriesResponseItem,
+);
+
+/**
+ * @summary List all Media Mavens categories (admin)
+ */
+export const AdminListMediaMavensCategoriesResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListMediaMavensCategoriesResponse = zod.array(
+  AdminListMediaMavensCategoriesResponseItem,
+);
+
+/**
+ * @summary Create a new category (admin)
+ */
+export const AdminCreateMediaMavensCategoryBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Bulk reorder categories (admin)
+ */
+export const AdminReorderMediaMavensCategoriesBody = zod.object({
+  order: zod.array(
+    zod.object({
+      id: zod.number(),
+      displayOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update a category (admin)
+ */
+export const AdminUpdateMediaMavensCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateMediaMavensCategoryBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateMediaMavensCategoryResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a category (admin)
+ */
+export const AdminDeleteMediaMavensCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List active Media Mavens products
+ */
+export const ListMediaMavensProductsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  category: zod.string(),
+  imageUrl: zod.string().nullish(),
+  description: zod.string(),
+  costToConsumer: zod.string(),
+  affiliateCommission: zod.string(),
+  salesPageUrl: zod.string(),
+  logoDriveUrl: zod.string(),
+  affiliateLink: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListMediaMavensProductsResponse = zod.array(
+  ListMediaMavensProductsResponseItem,
+);
+
+/**
+ * @summary List all Media Mavens products (admin)
+ */
+export const AdminListMediaMavensProductsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  category: zod.string(),
+  imageUrl: zod.string().nullish(),
+  description: zod.string(),
+  costToConsumer: zod.string(),
+  affiliateCommission: zod.string(),
+  salesPageUrl: zod.string(),
+  logoDriveUrl: zod.string(),
+  affiliateLink: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const AdminListMediaMavensProductsResponse = zod.array(
+  AdminListMediaMavensProductsResponseItem,
+);
+
+/**
+ * @summary Create a new Media Mavens product (admin)
+ */
+export const AdminCreateMediaMavensProductBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string().optional(),
+  category: zod.string().optional(),
+  imageUrl: zod.string().nullish(),
+  description: zod.string().optional(),
+  costToConsumer: zod.string().optional(),
+  affiliateCommission: zod.string().optional(),
+  salesPageUrl: zod.string().optional(),
+  logoDriveUrl: zod.string().optional(),
+  affiliateLink: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Bulk reorder Media Mavens products (admin)
+ */
+export const AdminReorderMediaMavensProductsBody = zod.object({
+  order: zod.array(
+    zod.object({
+      id: zod.number(),
+      displayOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a presigned URL to upload a product image (admin)
+ */
+export const AdminGetMediaMavensProductImageUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Update a Media Mavens product (admin)
+ */
+export const AdminUpdateMediaMavensProductParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateMediaMavensProductBody = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string().optional(),
+  category: zod.string().optional(),
+  imageUrl: zod.string().nullish(),
+  description: zod.string().optional(),
+  costToConsumer: zod.string().optional(),
+  affiliateCommission: zod.string().optional(),
+  salesPageUrl: zod.string().optional(),
+  logoDriveUrl: zod.string().optional(),
+  affiliateLink: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateMediaMavensProductResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  tagline: zod.string(),
+  category: zod.string(),
+  imageUrl: zod.string().nullish(),
+  description: zod.string(),
+  costToConsumer: zod.string(),
+  affiliateCommission: zod.string(),
+  salesPageUrl: zod.string(),
+  logoDriveUrl: zod.string(),
+  affiliateLink: zod.string(),
+  displayOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a Media Mavens product (admin)
+ */
+export const AdminDeleteMediaMavensProductParams = zod.object({
+  id: zod.coerce.number(),
+});

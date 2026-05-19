@@ -28,6 +28,7 @@ import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
+import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
 
@@ -65,6 +66,7 @@ app.use("/api/webhooks", express.raw({ type: "*/*" }), (req: Request, _res: Resp
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use("/api/logos", express.static(path.join(__dirname, "..", "public", "logos")));
+app.use("/api/media-mavens", express.static(path.join(__dirname, "..", "public", "media-mavens")));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -86,6 +88,7 @@ app.use("/api", apiErrorHandler);
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
+seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
 
 (async () => {
   try {

@@ -1087,3 +1087,202 @@ export function useAdminReorderAffiliateNetworks() {
     },
   });
 }
+
+export interface AdminMediaMavensProduct {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  category: string;
+  imageUrl: string | null;
+  description: string;
+  costToConsumer: string;
+  affiliateCommission: string;
+  salesPageUrl: string;
+  logoDriveUrl: string;
+  affiliateLink: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaMavensProductFormData {
+  slug: string;
+  name: string;
+  tagline: string;
+  category: string;
+  imageUrl: string | null;
+  description: string;
+  costToConsumer: string;
+  affiliateCommission: string;
+  salesPageUrl: string;
+  logoDriveUrl: string;
+  affiliateLink: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export const adminMediaMavensApi = {
+  list: () => adminFetch<AdminMediaMavensProduct[]>("/admin/media-mavens-products"),
+  create: (data: MediaMavensProductFormData) =>
+    adminFetch<AdminMediaMavensProduct>("/admin/media-mavens-products", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<MediaMavensProductFormData>) =>
+    adminFetch<AdminMediaMavensProduct>(`/admin/media-mavens-products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    adminFetch<{ success: boolean }>(`/admin/media-mavens-products/${id}`, { method: "DELETE" }),
+  reorder: (order: Array<{ id: number; displayOrder: number }>) =>
+    adminFetch<{ success: boolean }>("/admin/media-mavens-products/reorder", {
+      method: "POST",
+      body: JSON.stringify({ order }),
+    }),
+  getImageUploadUrl: () =>
+    adminFetch<{ uploadURL: string; objectPath: string }>("/admin/media-mavens-products/upload-image-url", {
+      method: "POST",
+    }),
+};
+
+export function useAdminMediaMavensProducts() {
+  return useQuery({
+    queryKey: ["/api/admin/media-mavens-products"],
+    queryFn: () => adminMediaMavensApi.list(),
+  });
+}
+
+export function useAdminCreateMediaMavensProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MediaMavensProductFormData) => adminMediaMavensApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
+      qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
+    },
+  });
+}
+
+export function useAdminUpdateMediaMavensProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<MediaMavensProductFormData> }) =>
+      adminMediaMavensApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
+      qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
+    },
+  });
+}
+
+export function useAdminDeleteMediaMavensProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => adminMediaMavensApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
+      qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
+    },
+  });
+}
+
+export function useAdminReorderMediaMavensProducts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (order: Array<{ id: number; displayOrder: number }>) =>
+      adminMediaMavensApi.reorder(order),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
+      qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
+    },
+  });
+}
+
+export interface AdminMediaMavensCategory {
+  id: number;
+  slug: string;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaMavensCategoryFormData {
+  slug: string;
+  name: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export const adminMediaMavensCategoriesApi = {
+  list: () => adminFetch<AdminMediaMavensCategory[]>("/admin/media-mavens-categories"),
+  create: (data: MediaMavensCategoryFormData) =>
+    adminFetch<AdminMediaMavensCategory>("/admin/media-mavens-categories", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<MediaMavensCategoryFormData>) =>
+    adminFetch<AdminMediaMavensCategory>(`/admin/media-mavens-categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    adminFetch<{ success: boolean }>(`/admin/media-mavens-categories/${id}`, { method: "DELETE" }),
+  reorder: (order: Array<{ id: number; displayOrder: number }>) =>
+    adminFetch<{ success: boolean }>("/admin/media-mavens-categories/reorder", {
+      method: "POST",
+      body: JSON.stringify({ order }),
+    }),
+};
+
+export function useAdminMediaMavensCategories() {
+  return useQuery({
+    queryKey: ["/api/admin/media-mavens-categories"],
+    queryFn: () => adminMediaMavensCategoriesApi.list(),
+  });
+}
+
+function invalidateCategoryQueries(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-categories"] });
+  qc.invalidateQueries({ queryKey: ["/api/media-mavens-categories"] });
+  qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
+  qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
+}
+
+export function useAdminCreateMediaMavensCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MediaMavensCategoryFormData) => adminMediaMavensCategoriesApi.create(data),
+    onSuccess: () => invalidateCategoryQueries(qc),
+  });
+}
+
+export function useAdminUpdateMediaMavensCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<MediaMavensCategoryFormData> }) =>
+      adminMediaMavensCategoriesApi.update(id, data),
+    onSuccess: () => invalidateCategoryQueries(qc),
+  });
+}
+
+export function useAdminDeleteMediaMavensCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => adminMediaMavensCategoriesApi.delete(id),
+    onSuccess: () => invalidateCategoryQueries(qc),
+  });
+}
+
+export function useAdminReorderMediaMavensCategories() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (order: Array<{ id: number; displayOrder: number }>) =>
+      adminMediaMavensCategoriesApi.reorder(order),
+    onSuccess: () => invalidateCategoryQueries(qc),
+  });
+}

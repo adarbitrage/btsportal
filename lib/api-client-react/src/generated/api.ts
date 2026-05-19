@@ -52,6 +52,7 @@ import type {
   AdminGetCommunicationAnalyticsParams,
   AdminGetCommunicationLogParams,
   AdminGetGhlLogParams,
+  AdminGetMediaMavensProductImageUploadUrl200,
   AdminImportContent201,
   AdminImportContentBody,
   AdminLesson,
@@ -71,6 +72,8 @@ import type {
   AdminPreviewSystemPromptBody,
   AdminPublishLessonBody,
   AdminReorderAffiliateNetworksBody,
+  AdminReorderMediaMavensCategoriesBody,
+  AdminReorderMediaMavensProductsBody,
   AdminTicket,
   AdminTicketMessage,
   AdminTicketWithMessages,
@@ -200,6 +203,10 @@ import type {
   LogToolUsageBody,
   LoginBody,
   LoginErrorResponse,
+  MediaMavensCategory,
+  MediaMavensCategoryInput,
+  MediaMavensProduct,
+  MediaMavensProductInput,
   MemberProfile,
   MergeTicketsBody,
   MergeTicketsResult,
@@ -23594,4 +23601,1112 @@ export const useAdminDeleteAffiliateNetwork = <
   TContext
 > => {
   return useMutation(getAdminDeleteAffiliateNetworkMutationOptions(options));
+};
+
+/**
+ * @summary List active Media Mavens categories
+ */
+export const getListMediaMavensCategoriesUrl = () => {
+  return `/api/media-mavens-categories`;
+};
+
+export const listMediaMavensCategories = async (
+  options?: RequestInit,
+): Promise<MediaMavensCategory[]> => {
+  return customFetch<MediaMavensCategory[]>(getListMediaMavensCategoriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaMavensCategoriesQueryKey = () => {
+  return [`/api/media-mavens-categories`] as const;
+};
+
+export const getListMediaMavensCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaMavensCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMediaMavensCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMediaMavensCategories>>
+  > = ({ signal }) => listMediaMavensCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensCategories>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMediaMavensCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaMavensCategories>>
+>;
+export type ListMediaMavensCategoriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active Media Mavens categories
+ */
+
+export function useListMediaMavensCategories<
+  TData = Awaited<ReturnType<typeof listMediaMavensCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMediaMavensCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all Media Mavens categories (admin)
+ */
+export const getAdminListMediaMavensCategoriesUrl = () => {
+  return `/api/admin/media-mavens-categories`;
+};
+
+export const adminListMediaMavensCategories = async (
+  options?: RequestInit,
+): Promise<MediaMavensCategory[]> => {
+  return customFetch<MediaMavensCategory[]>(
+    getAdminListMediaMavensCategoriesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListMediaMavensCategoriesQueryKey = () => {
+  return [`/api/admin/media-mavens-categories`] as const;
+};
+
+export const getAdminListMediaMavensCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListMediaMavensCategories>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListMediaMavensCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListMediaMavensCategories>>
+  > = ({ signal }) =>
+    adminListMediaMavensCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensCategories>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListMediaMavensCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListMediaMavensCategories>>
+>;
+export type AdminListMediaMavensCategoriesQueryError = ErrorType<void>;
+
+/**
+ * @summary List all Media Mavens categories (admin)
+ */
+
+export function useAdminListMediaMavensCategories<
+  TData = Awaited<ReturnType<typeof adminListMediaMavensCategories>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListMediaMavensCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new category (admin)
+ */
+export const getAdminCreateMediaMavensCategoryUrl = () => {
+  return `/api/admin/media-mavens-categories`;
+};
+
+export const adminCreateMediaMavensCategory = async (
+  mediaMavensCategoryInput: MediaMavensCategoryInput,
+  options?: RequestInit,
+): Promise<MediaMavensCategory> => {
+  return customFetch<MediaMavensCategory>(
+    getAdminCreateMediaMavensCategoryUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mediaMavensCategoryInput),
+    },
+  );
+};
+
+export const getAdminCreateMediaMavensCategoryMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>,
+    TError,
+    { data: BodyType<MediaMavensCategoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>,
+  TError,
+  { data: BodyType<MediaMavensCategoryInput> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateMediaMavensCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>,
+    { data: BodyType<MediaMavensCategoryInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateMediaMavensCategory(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateMediaMavensCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>
+>;
+export type AdminCreateMediaMavensCategoryMutationBody =
+  BodyType<MediaMavensCategoryInput>;
+export type AdminCreateMediaMavensCategoryMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new category (admin)
+ */
+export const useAdminCreateMediaMavensCategory = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>,
+    TError,
+    { data: BodyType<MediaMavensCategoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateMediaMavensCategory>>,
+  TError,
+  { data: BodyType<MediaMavensCategoryInput> },
+  TContext
+> => {
+  return useMutation(getAdminCreateMediaMavensCategoryMutationOptions(options));
+};
+
+/**
+ * @summary Bulk reorder categories (admin)
+ */
+export const getAdminReorderMediaMavensCategoriesUrl = () => {
+  return `/api/admin/media-mavens-categories/reorder`;
+};
+
+export const adminReorderMediaMavensCategories = async (
+  adminReorderMediaMavensCategoriesBody: AdminReorderMediaMavensCategoriesBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderMediaMavensCategoriesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminReorderMediaMavensCategoriesBody),
+  });
+};
+
+export const getAdminReorderMediaMavensCategoriesMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>,
+    TError,
+    { data: BodyType<AdminReorderMediaMavensCategoriesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>,
+  TError,
+  { data: BodyType<AdminReorderMediaMavensCategoriesBody> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderMediaMavensCategories"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>,
+    { data: BodyType<AdminReorderMediaMavensCategoriesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderMediaMavensCategories(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderMediaMavensCategoriesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>
+>;
+export type AdminReorderMediaMavensCategoriesMutationBody =
+  BodyType<AdminReorderMediaMavensCategoriesBody>;
+export type AdminReorderMediaMavensCategoriesMutationError = ErrorType<void>;
+
+/**
+ * @summary Bulk reorder categories (admin)
+ */
+export const useAdminReorderMediaMavensCategories = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>,
+    TError,
+    { data: BodyType<AdminReorderMediaMavensCategoriesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderMediaMavensCategories>>,
+  TError,
+  { data: BodyType<AdminReorderMediaMavensCategoriesBody> },
+  TContext
+> => {
+  return useMutation(
+    getAdminReorderMediaMavensCategoriesMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update a category (admin)
+ */
+export const getAdminUpdateMediaMavensCategoryUrl = (id: number) => {
+  return `/api/admin/media-mavens-categories/${id}`;
+};
+
+export const adminUpdateMediaMavensCategory = async (
+  id: number,
+  mediaMavensCategoryInput: MediaMavensCategoryInput,
+  options?: RequestInit,
+): Promise<MediaMavensCategory> => {
+  return customFetch<MediaMavensCategory>(
+    getAdminUpdateMediaMavensCategoryUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mediaMavensCategoryInput),
+    },
+  );
+};
+
+export const getAdminUpdateMediaMavensCategoryMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>,
+    TError,
+    { id: number; data: BodyType<MediaMavensCategoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>,
+  TError,
+  { id: number; data: BodyType<MediaMavensCategoryInput> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateMediaMavensCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>,
+    { id: number; data: BodyType<MediaMavensCategoryInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateMediaMavensCategory(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateMediaMavensCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>
+>;
+export type AdminUpdateMediaMavensCategoryMutationBody =
+  BodyType<MediaMavensCategoryInput>;
+export type AdminUpdateMediaMavensCategoryMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a category (admin)
+ */
+export const useAdminUpdateMediaMavensCategory = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>,
+    TError,
+    { id: number; data: BodyType<MediaMavensCategoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensCategory>>,
+  TError,
+  { id: number; data: BodyType<MediaMavensCategoryInput> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateMediaMavensCategoryMutationOptions(options));
+};
+
+/**
+ * @summary Delete a category (admin)
+ */
+export const getAdminDeleteMediaMavensCategoryUrl = (id: number) => {
+  return `/api/admin/media-mavens-categories/${id}`;
+};
+
+export const adminDeleteMediaMavensCategory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeleteMediaMavensCategoryUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteMediaMavensCategoryMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteMediaMavensCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteMediaMavensCategory(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteMediaMavensCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>
+>;
+
+export type AdminDeleteMediaMavensCategoryMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a category (admin)
+ */
+export const useAdminDeleteMediaMavensCategory = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteMediaMavensCategoryMutationOptions(options));
+};
+
+/**
+ * @summary List active Media Mavens products
+ */
+export const getListMediaMavensProductsUrl = () => {
+  return `/api/media-mavens-products`;
+};
+
+export const listMediaMavensProducts = async (
+  options?: RequestInit,
+): Promise<MediaMavensProduct[]> => {
+  return customFetch<MediaMavensProduct[]>(getListMediaMavensProductsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaMavensProductsQueryKey = () => {
+  return [`/api/media-mavens-products`] as const;
+};
+
+export const getListMediaMavensProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaMavensProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMediaMavensProductsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMediaMavensProducts>>
+  > = ({ signal }) => listMediaMavensProducts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensProducts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMediaMavensProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaMavensProducts>>
+>;
+export type ListMediaMavensProductsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active Media Mavens products
+ */
+
+export function useListMediaMavensProducts<
+  TData = Awaited<ReturnType<typeof listMediaMavensProducts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaMavensProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMediaMavensProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all Media Mavens products (admin)
+ */
+export const getAdminListMediaMavensProductsUrl = () => {
+  return `/api/admin/media-mavens-products`;
+};
+
+export const adminListMediaMavensProducts = async (
+  options?: RequestInit,
+): Promise<MediaMavensProduct[]> => {
+  return customFetch<MediaMavensProduct[]>(
+    getAdminListMediaMavensProductsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListMediaMavensProductsQueryKey = () => {
+  return [`/api/admin/media-mavens-products`] as const;
+};
+
+export const getAdminListMediaMavensProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListMediaMavensProducts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListMediaMavensProductsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListMediaMavensProducts>>
+  > = ({ signal }) =>
+    adminListMediaMavensProducts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensProducts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListMediaMavensProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListMediaMavensProducts>>
+>;
+export type AdminListMediaMavensProductsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all Media Mavens products (admin)
+ */
+
+export function useAdminListMediaMavensProducts<
+  TData = Awaited<ReturnType<typeof adminListMediaMavensProducts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListMediaMavensProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListMediaMavensProductsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new Media Mavens product (admin)
+ */
+export const getAdminCreateMediaMavensProductUrl = () => {
+  return `/api/admin/media-mavens-products`;
+};
+
+export const adminCreateMediaMavensProduct = async (
+  mediaMavensProductInput: MediaMavensProductInput,
+  options?: RequestInit,
+): Promise<MediaMavensProduct> => {
+  return customFetch<MediaMavensProduct>(
+    getAdminCreateMediaMavensProductUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mediaMavensProductInput),
+    },
+  );
+};
+
+export const getAdminCreateMediaMavensProductMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>,
+    TError,
+    { data: BodyType<MediaMavensProductInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>,
+  TError,
+  { data: BodyType<MediaMavensProductInput> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateMediaMavensProduct"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>,
+    { data: BodyType<MediaMavensProductInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateMediaMavensProduct(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateMediaMavensProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>
+>;
+export type AdminCreateMediaMavensProductMutationBody =
+  BodyType<MediaMavensProductInput>;
+export type AdminCreateMediaMavensProductMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new Media Mavens product (admin)
+ */
+export const useAdminCreateMediaMavensProduct = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>,
+    TError,
+    { data: BodyType<MediaMavensProductInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateMediaMavensProduct>>,
+  TError,
+  { data: BodyType<MediaMavensProductInput> },
+  TContext
+> => {
+  return useMutation(getAdminCreateMediaMavensProductMutationOptions(options));
+};
+
+/**
+ * @summary Bulk reorder Media Mavens products (admin)
+ */
+export const getAdminReorderMediaMavensProductsUrl = () => {
+  return `/api/admin/media-mavens-products/reorder`;
+};
+
+export const adminReorderMediaMavensProducts = async (
+  adminReorderMediaMavensProductsBody: AdminReorderMediaMavensProductsBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminReorderMediaMavensProductsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminReorderMediaMavensProductsBody),
+  });
+};
+
+export const getAdminReorderMediaMavensProductsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>,
+    TError,
+    { data: BodyType<AdminReorderMediaMavensProductsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>,
+  TError,
+  { data: BodyType<AdminReorderMediaMavensProductsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminReorderMediaMavensProducts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>,
+    { data: BodyType<AdminReorderMediaMavensProductsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminReorderMediaMavensProducts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReorderMediaMavensProductsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>
+>;
+export type AdminReorderMediaMavensProductsMutationBody =
+  BodyType<AdminReorderMediaMavensProductsBody>;
+export type AdminReorderMediaMavensProductsMutationError = ErrorType<void>;
+
+/**
+ * @summary Bulk reorder Media Mavens products (admin)
+ */
+export const useAdminReorderMediaMavensProducts = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>,
+    TError,
+    { data: BodyType<AdminReorderMediaMavensProductsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReorderMediaMavensProducts>>,
+  TError,
+  { data: BodyType<AdminReorderMediaMavensProductsBody> },
+  TContext
+> => {
+  return useMutation(
+    getAdminReorderMediaMavensProductsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Get a presigned URL to upload a product image (admin)
+ */
+export const getAdminGetMediaMavensProductImageUploadUrlUrl = () => {
+  return `/api/admin/media-mavens-products/upload-image-url`;
+};
+
+export const adminGetMediaMavensProductImageUploadUrl = async (
+  options?: RequestInit,
+): Promise<AdminGetMediaMavensProductImageUploadUrl200> => {
+  return customFetch<AdminGetMediaMavensProductImageUploadUrl200>(
+    getAdminGetMediaMavensProductImageUploadUrlUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminGetMediaMavensProductImageUploadUrlMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminGetMediaMavensProductImageUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>,
+    void
+  > = () => {
+    return adminGetMediaMavensProductImageUploadUrl(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminGetMediaMavensProductImageUploadUrlMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>
+  >;
+
+export type AdminGetMediaMavensProductImageUploadUrlMutationError =
+  ErrorType<void>;
+
+/**
+ * @summary Get a presigned URL to upload a product image (admin)
+ */
+export const useAdminGetMediaMavensProductImageUploadUrl = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminGetMediaMavensProductImageUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAdminGetMediaMavensProductImageUploadUrlMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update a Media Mavens product (admin)
+ */
+export const getAdminUpdateMediaMavensProductUrl = (id: number) => {
+  return `/api/admin/media-mavens-products/${id}`;
+};
+
+export const adminUpdateMediaMavensProduct = async (
+  id: number,
+  mediaMavensProductInput: MediaMavensProductInput,
+  options?: RequestInit,
+): Promise<MediaMavensProduct> => {
+  return customFetch<MediaMavensProduct>(
+    getAdminUpdateMediaMavensProductUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mediaMavensProductInput),
+    },
+  );
+};
+
+export const getAdminUpdateMediaMavensProductMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>,
+    TError,
+    { id: number; data: BodyType<MediaMavensProductInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>,
+  TError,
+  { id: number; data: BodyType<MediaMavensProductInput> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateMediaMavensProduct"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>,
+    { id: number; data: BodyType<MediaMavensProductInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateMediaMavensProduct(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateMediaMavensProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>
+>;
+export type AdminUpdateMediaMavensProductMutationBody =
+  BodyType<MediaMavensProductInput>;
+export type AdminUpdateMediaMavensProductMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a Media Mavens product (admin)
+ */
+export const useAdminUpdateMediaMavensProduct = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>,
+    TError,
+    { id: number; data: BodyType<MediaMavensProductInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateMediaMavensProduct>>,
+  TError,
+  { id: number; data: BodyType<MediaMavensProductInput> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateMediaMavensProductMutationOptions(options));
+};
+
+/**
+ * @summary Delete a Media Mavens product (admin)
+ */
+export const getAdminDeleteMediaMavensProductUrl = (id: number) => {
+  return `/api/admin/media-mavens-products/${id}`;
+};
+
+export const adminDeleteMediaMavensProduct = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeleteMediaMavensProductUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteMediaMavensProductMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteMediaMavensProduct"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteMediaMavensProduct(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteMediaMavensProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>
+>;
+
+export type AdminDeleteMediaMavensProductMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a Media Mavens product (admin)
+ */
+export const useAdminDeleteMediaMavensProduct = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteMediaMavensProduct>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteMediaMavensProductMutationOptions(options));
 };

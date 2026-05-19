@@ -43,6 +43,7 @@ import Resources from "@/pages/Resources";
 import ResourceLibrary from "@/pages/ResourceLibrary";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import AdminAffiliateNetworks from "@/pages/admin/AdminAffiliateNetworks";
+import AdminMediaMavens from "@/pages/admin/AdminMediaMavens";
 import MediaMavens from "@/pages/MediaMavens";
 import CollectionDetail from "@/pages/CollectionDetail";
 import ResourceDetail from "@/pages/ResourceDetail";
@@ -350,6 +351,7 @@ function Router() {
       <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} permission="content:manage" />}</Route>
       <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
+      <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>

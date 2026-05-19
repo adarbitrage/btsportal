@@ -58,6 +58,8 @@ import adminAppsRouter from "./admin-apps";
 import analyticsRouter from "./analytics";
 import integrationsRouter from "./integrations";
 import affiliateNetworksRouter from "./admin-affiliate-networks";
+import mediaMavensProductsRouter from "./admin-media-mavens-products";
+import mediaMavensCategoriesRouter from "./admin-media-mavens-categories";
 
 const router: IRouter = Router();
 
@@ -120,5 +122,7 @@ router.use(adminAppsRouter);
 router.use(analyticsRouter);
 router.use(integrationsRouter);
 router.use(affiliateNetworksRouter);
+router.use(mediaMavensProductsRouter);
+router.use(mediaMavensCategoriesRouter);
 
 export default router;

@@ -5696,6 +5696,287 @@ paths:
         "404":
           description: Not found
 
+  /media-mavens-categories:
+    get:
+      operationId: listMediaMavensCategories
+      tags: [media-mavens]
+      summary: List active Media Mavens categories
+      responses:
+        "200":
+          description: List of active categories ordered by display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaMavensCategory"
+
+  /admin/media-mavens-categories:
+    get:
+      operationId: adminListMediaMavensCategories
+      tags: [media-mavens]
+      summary: List all Media Mavens categories (admin)
+      responses:
+        "200":
+          description: All categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaMavensCategory"
+        "403":
+          description: Forbidden
+    post:
+      operationId: adminCreateMediaMavensCategory
+      tags: [media-mavens]
+      summary: Create a new category (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaMavensCategoryInput"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaMavensCategory"
+        "400":
+          description: Missing required fields
+        "409":
+          description: Duplicate slug
+        "403":
+          description: Forbidden
+
+  /admin/media-mavens-categories/reorder:
+    post:
+      operationId: adminReorderMediaMavensCategories
+      tags: [media-mavens]
+      summary: Bulk reorder categories (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      displayOrder:
+                        type: integer
+                    required: [id, displayOrder]
+              required: [order]
+      responses:
+        "200":
+          description: Order updated
+        "403":
+          description: Forbidden
+
+  /admin/media-mavens-categories/{id}:
+    put:
+      operationId: adminUpdateMediaMavensCategory
+      tags: [media-mavens]
+      summary: Update a category (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaMavensCategoryInput"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaMavensCategory"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteMediaMavensCategory
+      tags: [media-mavens]
+      summary: Delete a category (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: Cannot delete category with products
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /media-mavens-products:
+    get:
+      operationId: listMediaMavensProducts
+      tags: [media-mavens]
+      summary: List active Media Mavens products
+      responses:
+        "200":
+          description: List of active Media Mavens products ordered by display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaMavensProduct"
+
+  /admin/media-mavens-products:
+    get:
+      operationId: adminListMediaMavensProducts
+      tags: [media-mavens]
+      summary: List all Media Mavens products (admin)
+      responses:
+        "200":
+          description: All Media Mavens products including inactive ones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaMavensProduct"
+        "403":
+          description: Forbidden
+    post:
+      operationId: adminCreateMediaMavensProduct
+      tags: [media-mavens]
+      summary: Create a new Media Mavens product (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaMavensProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaMavensProduct"
+        "400":
+          description: Missing required fields or duplicate slug
+        "403":
+          description: Forbidden
+
+  /admin/media-mavens-products/reorder:
+    post:
+      operationId: adminReorderMediaMavensProducts
+      tags: [media-mavens]
+      summary: Bulk reorder Media Mavens products (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      displayOrder:
+                        type: integer
+                    required: [id, displayOrder]
+              required: [order]
+      responses:
+        "200":
+          description: Order updated
+        "403":
+          description: Forbidden
+
+  /admin/media-mavens-products/upload-image-url:
+    post:
+      operationId: adminGetMediaMavensProductImageUploadUrl
+      tags: [media-mavens]
+      summary: Get a presigned URL to upload a product image (admin)
+      responses:
+        "200":
+          description: Presigned upload URL and resulting object path
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadURL:
+                    type: string
+                  objectPath:
+                    type: string
+                required: [uploadURL, objectPath]
+        "403":
+          description: Forbidden
+
+  /admin/media-mavens-products/{id}:
+    put:
+      operationId: adminUpdateMediaMavensProduct
+      tags: [media-mavens]
+      summary: Update a Media Mavens product (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaMavensProductInput"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaMavensProduct"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteMediaMavensProduct
+      tags: [media-mavens]
+      summary: Delete a Media Mavens product (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
 security:
   - cookieAuth: []
   - apiKeyAuth: []
@@ -5890,6 +6171,112 @@ components:
           type: string
           nullable: true
         extraCtaStyle:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [slug, name]
+
+    MediaMavensCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, displayOrder, isActive, createdAt, updatedAt]
+
+    MediaMavensCategoryInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [slug, name]
+
+    MediaMavensProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+        costToConsumer:
+          type: string
+        affiliateCommission:
+          type: string
+        salesPageUrl:
+          type: string
+        logoDriveUrl:
+          type: string
+        affiliateLink:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, tagline, category, description, costToConsumer, affiliateCommission, salesPageUrl, logoDriveUrl, affiliateLink, displayOrder, isActive, createdAt, updatedAt]
+
+    MediaMavensProductInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        tagline:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+        costToConsumer:
+          type: string
+        affiliateCommission:
+          type: string
+        salesPageUrl:
+          type: string
+        logoDriveUrl:
+          type: string
+        affiliateLink:
           type: string
         displayOrder:
           type: integer

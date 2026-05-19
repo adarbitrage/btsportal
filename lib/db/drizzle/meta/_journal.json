@@ -57,6 +57,20 @@
       "when": 1747699200000,
       "tag": "0007_affiliate_networks",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1747785600000,
+      "tag": "0008_media_mavens_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1747872000000,
+      "tag": "0035_media_mavens_categories",
+      "breakpoints": true
     }
   ]
 }

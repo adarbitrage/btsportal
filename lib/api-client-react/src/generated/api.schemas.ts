@@ -58,6 +58,58 @@ export interface AffiliateNetworkInput {
   isActive?: boolean;
 }
 
+export interface MediaMavensCategory {
+  id: number;
+  slug: string;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaMavensCategoryInput {
+  slug: string;
+  name: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface MediaMavensProduct {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  category: string;
+  imageUrl?: string | null;
+  description: string;
+  costToConsumer: string;
+  affiliateCommission: string;
+  salesPageUrl: string;
+  logoDriveUrl: string;
+  affiliateLink: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaMavensProductInput {
+  slug: string;
+  name: string;
+  tagline?: string;
+  category?: string;
+  imageUrl?: string | null;
+  description?: string;
+  costToConsumer?: string;
+  affiliateCommission?: string;
+  salesPageUrl?: string;
+  logoDriveUrl?: string;
+  affiliateLink?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
 export interface ErrorResponse {
   /** Error message */
   error: string;
@@ -2997,6 +3049,29 @@ export type AdminReorderAffiliateNetworksBody = {
 };
 
 export type AdminGetAffiliateNetworkLogoUploadUrl200 = {
+  uploadURL: string;
+  objectPath: string;
+};
+
+export type AdminReorderMediaMavensCategoriesBodyOrderItem = {
+  id: number;
+  displayOrder: number;
+};
+
+export type AdminReorderMediaMavensCategoriesBody = {
+  order: AdminReorderMediaMavensCategoriesBodyOrderItem[];
+};
+
+export type AdminReorderMediaMavensProductsBodyOrderItem = {
+  id: number;
+  displayOrder: number;
+};
+
+export type AdminReorderMediaMavensProductsBody = {
+  order: AdminReorderMediaMavensProductsBodyOrderItem[];
+};
+
+export type AdminGetMediaMavensProductImageUploadUrl200 = {
   uploadURL: string;
   objectPath: string;
 };
