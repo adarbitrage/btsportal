@@ -171,8 +171,16 @@ export async function runAbuseRateLimitCleanup(): Promise<AbuseRateLimitCleanupR
           if (removed > 0) stats.trimmed += removed;
           const remaining = await redis.zcard(key);
           if (remaining === 0) {
-            const wasDeleted = await redis.del(key);
-            if (wasDeleted > 0) stats.deleted++;
+            // Real Redis auto-deletes a sorted set whose last member was
+            // removed by ZREMRANGEBYSCORE, so the explicit DEL below
+            // often returns 0 — the key is already gone. We still count
+            // this as a "deleted" key for status/metrics purposes
+            // (otherwise this counter is silently always 0 against a
+            // real server, even though emptied keys are being cleaned
+            // up correctly). The DEL is still issued as a belt-and-
+            // suspenders against future fake-vs-real drift.
+            await redis.del(key);
+            stats.deleted++;
           }
         } catch (err) {
           console.error(
