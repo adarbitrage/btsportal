@@ -45,7 +45,25 @@ import {
   X,
   Upload,
   Image,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   useAdminAffiliateNetworks,
   useAdminCreateAffiliateNetwork,
@@ -664,6 +682,122 @@ function NetworkFormDialog({
   );
 }
 
+function SortableNetworkCard({
+  network,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  toggleDisabled,
+  dragDisabled,
+}: {
+  network: AdminAffiliateNetwork;
+  onToggleActive: (n: AdminAffiliateNetwork) => void;
+  onEdit: (n: AdminAffiliateNetwork) => void;
+  onDelete: (n: AdminAffiliateNetwork) => void;
+  toggleDisabled: boolean;
+  dragDisabled: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: network.id,
+    disabled: dragDisabled,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.85 : undefined,
+  };
+
+  const accentBorder = network.accentBorder || "border-gray-200";
+  const logoSrc = network.logoUrl
+    ? network.logoUrl.startsWith("http://") || network.logoUrl.startsWith("https://")
+      ? network.logoUrl
+      : `${import.meta.env.BASE_URL}api${network.logoUrl}`
+    : null;
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card
+        className={`border-2 ${accentBorder} ${!network.isActive ? "opacity-60" : ""} ${
+          isDragging ? "shadow-lg" : ""
+        }`}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              className={`flex items-center justify-center h-10 w-6 text-muted-foreground touch-none ${
+                dragDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:text-foreground cursor-grab active:cursor-grabbing"
+              }`}
+              aria-label={`Drag to reorder ${network.name}`}
+              disabled={dragDisabled}
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="w-5 h-5" />
+            </button>
+
+            <div className={`${network.logoBg} w-16 h-12 flex items-center justify-center rounded border border-border shrink-0`}>
+              {logoSrc ? (
+                <img src={logoSrc} alt={network.name} className="max-h-10 max-w-14 object-contain" />
+              ) : (
+                <Network className="w-6 h-6 text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold">{network.name}</span>
+                <span className="text-xs text-muted-foreground font-mono">{network.slug}</span>
+                {network.recommendedForBeginners && (
+                  <Badge className="bg-emerald-700 hover:bg-emerald-700 text-white text-[10px]">
+                    <Star className="w-2.5 h-2.5 mr-1" />Beginners
+                  </Badge>
+                )}
+                {!network.isActive && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground truncate mt-0.5">{network.tagline}</p>
+              <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                <span>{network.approvalLabel}</span>
+                {network.highlights.length > 0 && <span>{network.highlights.length} highlights</span>}
+                <span>Order: {network.displayOrder}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleActive(network)}
+                disabled={toggleDisabled}
+                title={network.isActive ? "Deactivate" : "Activate"}
+              >
+                {network.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onEdit(network)}>
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDelete(network)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AdminAffiliateNetworks() {
   const { toast } = useToast();
   const { data: networks = [], isLoading } = useAdminAffiliateNetworks();
@@ -674,6 +808,11 @@ export default function AdminAffiliateNetworks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AdminAffiliateNetwork | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAffiliateNetwork | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function openCreate() {
     setEditing(null);
@@ -704,20 +843,22 @@ export default function AdminAffiliateNetworks() {
     }
   }
 
-  async function moveNetwork(index: number, direction: "up" | "down") {
-    const sorted = [...networks].sort((a, b) => a.displayOrder - b.displayOrder);
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= sorted.length) return;
-    [sorted[index], sorted[newIndex]] = [sorted[newIndex], sorted[index]];
-    const order = sorted.map((n, i) => ({ id: n.id, displayOrder: i }));
+  const sorted = [...networks].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex((n) => n.id === active.id);
+    const newIndex = sorted.findIndex((n) => n.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(sorted, oldIndex, newIndex);
+    const order = reordered.map((n, i) => ({ id: n.id, displayOrder: i }));
     try {
       await reorderMutation.mutateAsync(order);
     } catch {
       toast({ title: "Reorder failed", variant: "destructive" });
     }
   }
-
-  const sorted = [...networks].sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
     <AppLayout>
@@ -755,97 +896,23 @@ export default function AdminAffiliateNetworks() {
           </Card>
         )}
 
-        <div className="space-y-3">
-          {sorted.map((n, i) => {
-            const accentBorder = n.accentBorder || "border-gray-200";
-            const logoSrc = n.logoUrl
-              ? n.logoUrl.startsWith("http://") || n.logoUrl.startsWith("https://")
-                ? n.logoUrl
-                : `${import.meta.env.BASE_URL}api${n.logoUrl}`
-              : null;
-
-            return (
-              <Card key={n.id} className={`border-2 ${accentBorder} ${!n.isActive ? "opacity-60" : ""}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => moveNetwork(i, "up")}
-                        disabled={i === 0 || reorderMutation.isPending}
-                      >
-                        <ChevronUp className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => moveNetwork(i, "down")}
-                        disabled={i === sorted.length - 1 || reorderMutation.isPending}
-                      >
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <div className={`${n.logoBg} w-16 h-12 flex items-center justify-center rounded border border-border shrink-0`}>
-                      {logoSrc ? (
-                        <img src={logoSrc} alt={n.name} className="max-h-10 max-w-14 object-contain" />
-                      ) : (
-                        <Network className="w-6 h-6 text-muted-foreground" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold">{n.name}</span>
-                        <span className="text-xs text-muted-foreground font-mono">{n.slug}</span>
-                        {n.recommendedForBeginners && (
-                          <Badge className="bg-emerald-700 hover:bg-emerald-700 text-white text-[10px]">
-                            <Star className="w-2.5 h-2.5 mr-1" />Beginners
-                          </Badge>
-                        )}
-                        {!n.isActive && (
-                          <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate mt-0.5">{n.tagline}</p>
-                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                        <span>{n.approvalLabel}</span>
-                        {n.highlights.length > 0 && <span>{n.highlights.length} highlights</span>}
-                        <span>Order: {n.displayOrder}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleActive(n)}
-                        disabled={updateMutation.isPending}
-                        title={n.isActive ? "Deactivate" : "Activate"}
-                      >
-                        {n.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(n)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(n)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sorted.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {sorted.map((n) => (
+                <SortableNetworkCard
+                  key={n.id}
+                  network={n}
+                  onToggleActive={handleToggleActive}
+                  onEdit={openEdit}
+                  onDelete={setDeleteTarget}
+                  toggleDisabled={updateMutation.isPending}
+                  dragDisabled={reorderMutation.isPending}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         <NetworkFormDialog
           key={editing?.id ?? "new"}
