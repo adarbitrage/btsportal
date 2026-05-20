@@ -1158,6 +1158,8 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
     <div class="video-slot" data-vidalytics-id="SZTE9m7CzKj724QW" data-status="ready"><div class="play-icon"></div><div><div class="vt">Bridge Page Copy Bot Intro — Call Recording</div><div class="vd">Full introduction to the bot and how to get the best results</div></div></div>
+    <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
+    <div class="video-slot" data-vidalytics-id="LMe9EeU5R991GLFt" data-status="ready"><div class="play-icon"></div><div><div class="vt">Create Your Landing Page Base Copy</div><div class="vd">Use the Bridge Page Copy Bot output to draft the base copy for your landing page</div></div></div>
 
     <h4>Step C — Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
@@ -1298,7 +1300,6 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p>Follow the <strong>MM1–MM5 video series</strong> in the Media Mavens path above — the process is identical. Your starting point is a cloned jump page template in Flexy™ with your custom body copy already in place.</p>
 
-    <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
     <div class="video-slot" data-vidalytics-id="8DOS192WmesN98rW" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
     <div class="video-slot" data-vidalytics-id="zO4NB3FSTGul5lsT" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
     <div class="video-slot" data-vidalytics-id="jPThI9Fb3vDiapbI" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF3 — How to Change the Headline and Hero Shot</div><div class="vd">Swap in your offer-specific headline and hero shot on the cloned page</div></div></div>
