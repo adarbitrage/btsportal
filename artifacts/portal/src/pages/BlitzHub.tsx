@@ -111,9 +111,9 @@ const LESSONS: HubLesson[] = [
   {
     id: 11, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
     title: "Build Your Landing Pages in Flexy™ Using MetricMover™",
-    desc: "Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM13. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM13 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.",
+    desc: "Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM5. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM5 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.",
     tags: [
-      { kind: "all", label: "MM1–MM13 Video Series" },
+      { kind: "all", label: "MM1–MM5 Video Series" },
       { kind: "mm", label: "MM: Advertorial imported into MetricMover™" },
       { kind: "cb", label: "CB/MW: Jump page template imported into MetricMover™" },
     ],
