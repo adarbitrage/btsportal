@@ -1273,8 +1273,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <h4>Universal Setup — Everyone Does This First</h4>
 
   <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
-  <div class="video-slot" data-vidalytics-id="6PHV5xuSKZesS3Ew" data-status="ready"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
-  <div class="video-slot" data-vidalytics-id="6VjLDPAvCxY5VR_J" data-status="ready"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
+  <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs" data-status="ready"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
+  <div class="video-slot" data-vidalytics-id="6PHV5xuSKZesS3Ew" data-status="ready"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
   <div class="video-slot" data-vidalytics-id="aXOaPoKhmckiyMXL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
 
   <div class="path-block mm">
