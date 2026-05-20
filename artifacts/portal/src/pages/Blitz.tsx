@@ -1285,7 +1285,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
       The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
     </div>
-    <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1</div><div class="vd">Title coming soon</div></div></div>
+    <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
     <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2</div><div class="vd">Title coming soon</div></div></div>
     <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3</div><div class="vd">Title coming soon</div></div></div>
     <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4</div><div class="vd">Title coming soon</div></div></div>
