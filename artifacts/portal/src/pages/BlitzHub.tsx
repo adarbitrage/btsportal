@@ -109,15 +109,25 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Step 3", section: "s7" }],
   },
   {
-    id: 11, phase: "build", step: "Phase 1 — Step 4: Landing Pages",
-    title: "Build Your Landing Pages in Flexy™ Using MetricMover™",
-    desc: "Clone your Flexy™ website and connect your domain. Media Mavens path: import your advertorial into MetricMover™ and follow MM1–MM5. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF4), then follow MM1–MM5 to set up MetricMover™. Both paths end with 25 combinations imported into DIYTrax.",
+    id: 11, phase: "build", step: "Phase 1 — Step 4a: Flexy™ Setup",
+    title: "Setting Up Your Website in Flexy™",
+    desc: "Clone the pre-built Flexy™ website template into your account, connect a custom domain, and learn how to duplicate individual pages within your site. This is the universal setup everyone completes before moving on to MetricMover™ — regardless of whether you're on the Media Mavens or ClickBank/MaxWeb path.",
+    tags: [
+      { kind: "all", label: "Universal — Everyone Does This First" },
+      { kind: "all", label: "Ends with: Clone Page Into Any Website" },
+    ],
+    ctas: [{ label: "Go to Step 4a", section: "s8" }],
+  },
+  {
+    id: 23, phase: "build", step: "Phase 1 — Step 4b: MetricMover™",
+    title: "Using MetricMover™",
+    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. Media Mavens path: import your pre-built advertorial into MetricMover™ and follow MM1–MM5. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF6), then follow MM1–MM5 to set up MetricMover™. Both paths end with 25 combinations ready to import into DIYTrax.",
     tags: [
       { kind: "all", label: "MM1–MM5 Video Series" },
       { kind: "mm", label: "MM: Advertorial imported into MetricMover™" },
       { kind: "cb", label: "CB/MW: Jump page template imported into MetricMover™" },
     ],
-    ctas: [{ label: "Go to Step 4", section: "s8" }],
+    ctas: [{ label: "Go to Step 4b", section: "s8b" }],
   },
   {
     id: 12, phase: "build", step: "Phase 1 — Step 5: DIYTrax Setup",

@@ -16,7 +16,8 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   8: { section: "s6c", label: "Phase 1 · Step 2 — Landing Page Assets · Media Mavens" },
   9: { section: "s6d", label: "Phase 1 · Step 2 — Landing Page Assets · ClickBank / MaxWeb" },
   10: { section: "s7", label: "Phase 1 · Step 3 — Compliance Review" },
-  11: { section: "s8", label: "Phase 1 · Step 4 — Landing Pages" },
+  11: { section: "s8", label: "Phase 1 · Step 4 — Setting Up Your Website in Flexy™" },
+  23: { section: "s8b", label: "Phase 1 · Step 4 — Using MetricMover™" },
   12: { section: "s9", label: "Phase 1 · Step 5 — DIYTrax Setup" },
   13: { section: "s10", label: "Phase 1 · Step 6 — Go Live" },
   14: { section: "s11", label: "Phase 2 — Overview" },
@@ -65,6 +66,7 @@ const MODULE1_OVERRIDES: Record<
   s6d: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
   s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
   s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8b: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
   s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
   s10: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
 };
@@ -1279,6 +1281,17 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="6PHV5xuSKZesS3Ew" data-status="ready"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
   <div class="video-slot" data-vidalytics-id="aXOaPoKhmckiyMXL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
 
+  <hr class="divider">
+
+</div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
+
+<span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
+<div class="module" id="blitz-step3b" data-section="s8b">
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Using MetricMover™</span></div>
+  <h3 id="step4-metricmover">Step 4 (cont.) — Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h3>
+
+  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. Follow the path that matches your offer type below.</p>
+
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens / Affiliati (pre-built advertorial) — MetricMover™ Setup</div>
     <p>Since the advertorials are pre-built for these products, there will be no need to do any editing of the advertorial itself. All the work for creating the landing pages with your 5 headlines and hero shots is done initially inside of MetricMover™. You will be required to create one specific landing page in Flexy™ that will hold the MetricMover™ embed code, but beyond that nothing else needs to be completed inside Flexy™. Watch the videos below to learn how to use MetricMover™.</p>
@@ -1314,7 +1327,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-</div><!-- end blitz-step3 -->
+</div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — DIYTrax Setup</span></div>
   <h3 id="step5">Step 5 — Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
