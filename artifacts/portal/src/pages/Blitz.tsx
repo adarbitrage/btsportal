@@ -1150,8 +1150,8 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>For ClickBank products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
 
     <div class="video-slot" data-vidalytics-id="MdyXqshujFu9X4_R" data-status="ready"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VSL_DOWNLOAD" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VSL_TRANSCRIPT_TEMI" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">How to Get a Transcript of Your VSL Using Temi</div><div class="vd">Convert the video to text — clean it up for accuracy before passing it to the Copy Bot</div></div></div>
+    <div class="video-slot" data-vidalytics-id="YStBLA01f5f6beyS" data-status="ready"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
+    <div class="video-slot" data-vidalytics-id="4wsEaqFN77BMkfI0" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Get a Transcript of Your VSL Using Temi</div><div class="vd">Convert the video to text — clean it up for accuracy before passing it to the Copy Bot</div></div></div>
 
     <h4>Step B — Write Your Jump Page Body Copy</h4>
     <p>With your VSL transcript in hand, use the Bridge Page Copy Bot to generate your jump page body copy. Paste the transcript into the bot — it will extract the key angles, hooks, and benefit statements and turn them into short, curiosity-building body copy for your jump page.</p>
