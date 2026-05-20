@@ -1307,21 +1307,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="zGwUsZj7lsZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
   </div>
 
-  <div class="path-block cb">
-    <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati (jump page) — MetricMover™ Setup</div>
-    <div class="callout-box"><div class="pe-label">💡 How this works</div>The ClickBank/MaxWeb path now follows the same MetricMover™ process as Media Mavens. Start by cloning a jump page template in Flexy™ and customizing the body copy for your offer. Then follow the MM1–MM5 video series to set up MetricMover™ with your 5 headlines and 5 hero shots — generating 25 combinations that are imported directly into DIYTrax for split testing. One Flexy™ page holds the MetricMover™ embed code.</div>
-
-    <p>Follow the <strong>MM1–MM5 video series</strong> in the Media Mavens path above — the process is identical. Your starting point is a cloned jump page template in Flexy™ with your custom body copy already in place.</p>
-
-    <div class="video-slot" data-vidalytics-id="8DOS192WmesN98rW" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF1 — What You Need for a Cloned Flexy™ Page Test</div><div class="vd">Overview of your jump page setup before starting MetricMover™</div></div></div>
-    <div class="video-slot" data-vidalytics-id="zO4NB3FSTGul5lsT" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF2 — How to Duplicate Your Base Flexy™ Page</div><div class="vd">Clone the jump page template into your Flexy™ account</div></div></div>
-    <div class="video-slot" data-vidalytics-id="jPThI9Fb3vDiapbI" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF3 — How to Change the Headline and Hero Shot</div><div class="vd">Swap in your offer-specific headline and hero shot on the cloned page</div></div></div>
-    <div class="video-slot" data-vidalytics-id="9FRDaxeaAwSY1zhF" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF4 — Further Page Edits</div><div class="vd">Adjust styling, links, and remove unwanted elements</div></div></div>
-    <div class="video-slot" data-vidalytics-id="GHoc9NyuYVqgk_so" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF5 — Cloning and Editing More Landing Page Variants</div><div class="vd">Repeat the clone-and-edit process to build out the rest of your landing page variants</div></div></div>
-    <div class="video-slot" data-vidalytics-id="3QHD9PNADTOIJySD" data-status="ready"><div class="play-icon"></div><div><div class="vt">CF6 — Gathering Your Landing Page Variant URLs</div><div class="vd">Collect every variant URL you'll need before moving into MetricMover™ / DIYTrax</div></div></div>
-
-    <p>Once your jump page template is customized, follow MM1–MM5 above to import it into MetricMover™ and generate your 25 combinations.</p>
-  </div>
+  <div class="alert info"><strong>Note for ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The MetricMover™ process is identical for everyone — follow MM1–MM5 above. The jump page cloning and customization work (CF1–CF6) is covered in <strong>Step 2 — Landing Page Assets · ClickBank / MaxWeb</strong>, which you'll complete before reaching this step.</div>
 
   <div class="alert info"><strong>Stuck on Flexy™ or MetricMover™?</strong> Contact TCE Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 

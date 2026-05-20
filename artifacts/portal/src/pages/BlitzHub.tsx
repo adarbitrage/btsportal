@@ -121,11 +121,10 @@ const LESSONS: HubLesson[] = [
   {
     id: 23, phase: "build", step: "Phase 1 — Step 4b: MetricMover™",
     title: "Using MetricMover™",
-    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. Media Mavens path: import your pre-built advertorial into MetricMover™ and follow MM1–MM5. ClickBank/MaxWeb path: first clone and customize your jump page template in Flexy™ (CF1–CF6), then follow MM1–MM5 to set up MetricMover™. Both paths end with 25 combinations ready to import into DIYTrax.",
+    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank / MaxWeb jump page customization is handled earlier in Step 2 — Landing Page Assets.)",
     tags: [
       { kind: "all", label: "MM1–MM5 Video Series" },
-      { kind: "mm", label: "MM: Advertorial imported into MetricMover™" },
-      { kind: "cb", label: "CB/MW: Jump page template imported into MetricMover™" },
+      { kind: "all", label: "Same process for every path" },
     ],
     ctas: [{ label: "Go to Step 4b", section: "s8b" }],
   },
