@@ -479,9 +479,9 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
     <div class="gloss-item"><div class="gloss-term">IPN (Instant Payment Notification)</div><div class="gloss-def">A ClickBank-specific technical integration that sends sale notifications from ClickBank to DIYTrax automatically. Without IPN set up, DIYTrax cannot record ClickBank sales accurately. Only required for ClickBank users.</div></div>
     <div class="gloss-item"><div class="gloss-term">CPC (Cost Per Click)</div><div class="gloss-def">The amount you pay each time someone clicks your ad. On Caterpillar, you set a CPC bid — the maximum you're willing to pay per click. When scaling, increasing your CPC bid can help you reach more of the available audience.</div></div>
-    <div class="gloss-item"><div class="gloss-term">Custom Value Method</div><div class="gloss-def">The preferred way to embed your DIYTrax tracking link into a Flexy™ landing page. A backup method is also available if needed. Both are covered in the Step 6 video series.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Custom Value Method</div><div class="gloss-def">The preferred way to embed your DIYTrax tracking link into a Flexy™ landing page. A backup method is also available if needed. Both are covered in the Go Live video series.</div></div>
     <div class="gloss-item"><div class="gloss-term">Master Publisher</div><div class="gloss-def">A scaling method that uses a dedicated email blast to a large subscriber list — much higher reach than native or banner ads. Only available after 14+ consecutive profitable days on your current publishers. Discuss with your coach before pursuing this.</div></div>
-    <div class="gloss-item"><div class="gloss-term">QA (Quality Assurance)</div><div class="gloss-def">A final check of your entire campaign setup before going live — confirming that every link works, every page displays correctly, and every tracking connection is functioning. Step 6 includes a dedicated QA video (T8) for this purpose.</div></div>
+    <div class="gloss-item"><div class="gloss-term">QA (Quality Assurance)</div><div class="gloss-def">A final check of your entire campaign setup before going live — confirming that every link works, every page displays correctly, and every tracking connection is functioning. The Go Live section includes a dedicated QA video (T8) for this purpose.</div></div>
     <div class="gloss-item"><div class="gloss-term">Platform Names (Caterpillar, Grasshopper, Crane)</div><div class="gloss-def">These are the names used in this program to refer to specific paid advertising platforms. Caterpillar is a native advertising platform (ads that look like article recommendations). Grasshopper and Crane are banner advertising platforms covered in separate Supplemental Guides.</div></div>
   </div>
 </div>
@@ -572,7 +572,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="alert warning" style="margin-top:16px;margin-bottom:0;"><strong>Phase 2 Testing Continues Until Profitability Is Achieved</strong>The rounds outlined above represent the minimum testing sequence, but Phase 2 does not end after Round 3. If your campaign is not yet profitable, you continue split testing your ads and landing pages — refining headlines, visuals, and placements — until you find a combination that generates a positive return. You do not move to Phase 3 until Phase 2 testing has produced a profitable campaign. There is no fixed number of rounds — there is only the data, and what it tells you to do next.</div>
   </div>
 
-  <div class="alert warning"><strong>The Test Phase Almost Always Takes Multiple Rounds</strong>Almost all mentees go through multiple rounds of testing during Phase 2 before reaching profitability. This is normal and expected — it is how the system works. Think of each round as an experiment that teaches you something. How quickly you progress depends mainly on how quickly you develop two skills: <strong>writing effective headlines</strong> and <strong>selecting the right images</strong>The training in Steps 2 and 4 help mentees learn and develop those skills. Mentees who master these crucial skills will move through training faster.</div>
+  <div class="alert warning"><strong>The Test Phase Almost Always Takes Multiple Rounds</strong>Almost all mentees go through multiple rounds of testing during Phase 2 before reaching profitability. This is normal and expected — it is how the system works. Think of each round as an experiment that teaches you something. How quickly you progress depends mainly on how quickly you develop two skills: <strong>writing effective headlines</strong> and <strong>selecting the right images</strong>. The Creative Assets and Flexy™ Setup training help mentees learn and develop those skills. Mentees who master these crucial skills will move through training faster.</div>
 
   <h3>Phase Gates — How You Know When to Advance</h3>
   <p>At the end of each phase there's a gate — a set of criteria you must meet before moving forward. These protect your money by preventing you from scaling something that hasn't yet proven it can work.</p>
@@ -655,8 +655,8 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- MODULE 1: BUILD -->
 <span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
   <div id="module1-overview">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation — Steps 1 Through 6</h2></div>
-  <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in Step 2 — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
+  <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in the Creative Assets foundation lesson — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
   <p>Before diving into the steps, here's a picture of how all the tools and pieces connect. This is the flow every campaign follows — from the ad a visitor sees, all the way through to you earning a commission.</p>
@@ -775,7 +775,7 @@ const blitzBodyHTML = `<div class="version-banner">
         </tr>
       </tbody>
     </table>
-    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Not sure which applies to your product? Check with your coach or the support team before proceeding past Step 1. Choosing the wrong path means building the wrong assets — it's worth confirming now.</p>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Not sure which applies to your product? Check with your coach or the support team before proceeding past Product Selection. Choosing the wrong path means building the wrong assets — it's worth confirming now.</p>
   </div>
 
   </div><!-- end module1-overview -->
@@ -796,7 +796,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="path-block cb">
     <div class="path-block-label">✦ ClickBank</div>
     <div class="video-slot" data-vidalytics-id="DRuqCGX8GUhmyezM" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choosing Your ClickBank Product To Promote</div><div class="vd">How to browse the ClickBank marketplace and identify good candidates</div></div></div>
-    <p>After choosing your product, save your affiliate link. Note the product's sales page URL — you'll refer to it when writing your jump page body copy in Step 2.</p>
+    <p>After choosing your product, save your affiliate link. Note the product's sales page URL — you'll refer to it when writing your jump page body copy in the Landing Page Assets lesson.</p>
   </div>
 
   <div class="path-block af">
@@ -804,7 +804,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Affiliati requires account approval and <strong>proof of revenue generated from previous affiliate campaigns</strong> before you can get started. Please check with a coach before attempting to apply for an Affiliati account.</p>
     <ul class="checklist">
       <li>Apply for your Affiliati account and wait for approval</li>
-      <li>After logging in, check whether your chosen product has a <strong>pre-made advertorial</strong>. If yes → follow the Media Mavens path for Steps 3 and 4. If no → follow the ClickBank path for those steps.</li>
+      <li>After logging in, check whether your chosen product has a <strong>pre-made advertorial</strong>. If yes → follow the Media Mavens path for the Landing Page Assets and Flexy™ Setup sections. If no → follow the ClickBank path for those sections.</li>
       <li>Save your affiliate link for your chosen product</li>
     </ul>
     <div class="callout-box"><div class="pe-label">💡 Which path should Affiliati users follow?</div>It depends on whether your product includes a pre-made advertorial. If it does, you're essentially following the Media Mavens process. If it doesn't, you're following the ClickBank process. Your coach or support team can confirm which applies to your specific product.</div>
@@ -940,7 +940,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="card">
     <div class="card-title">Why Angles Drive Everything You'll Build in This Step</div>
-    <p style="margin-bottom:14px;">Every creative asset you create in Step 2 is an angle hypothesis — a bet on what will resonate with your audience. Here's how angles play out across all four asset types:</p>
+    <p style="margin-bottom:14px;">Every creative asset you create is an angle hypothesis — a bet on what will resonate with your audience. Here's how angles play out across all four asset types:</p>
     <table style="margin:0;">
       <thead><tr><th>Asset</th><th>What the Angle Looks Like</th><th>What You're Testing</th></tr></thead>
       <tbody>
@@ -1043,7 +1043,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
-  <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Step 4 (Flexy setup) while awaiting approval, but do not go live in Step 6 until compliance is confirmed.</div>
+  <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
 
   <hr class="divider">
 
@@ -1126,7 +1126,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </ul>
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
-    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Step 4.</div>
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Flexy™ setup.</div>
     <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
@@ -1192,7 +1192,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </ul>
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
-    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Step 4. Wait for approval before building pages in Flexy™.</div>
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Flexy™ setup. Wait for approval before building pages in Flexy™.</div>
     <div class="video-slot" data-vidalytics-id="qRq5oQk59skK_zBL"><div class="play-icon"></div><div><div class="vt">Submit Landing Page Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
@@ -1242,7 +1242,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <h3>How Long Does It Take?</h3>
-  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in Step 4 after approval.</p>
+  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in the Flexy™ Setup section after approval.</p>
 
   <h3>What Happens If Something Is Rejected?</h3>
   <div class="callout-box">
@@ -1307,7 +1307,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="zGwUsZj7lsZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
   </div>
 
-  <div class="alert info"><strong>Note for ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The MetricMover™ process is identical for everyone — follow MM1–MM5 above. The jump page cloning and customization work (CF1–CF6) is covered in <strong>Step 2 — Landing Page Assets · ClickBank / MaxWeb</strong>, which you'll complete before reaching this step.</div>
+  <div class="alert info"><strong>Note for ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The MetricMover™ process is identical for everyone — follow MM1–MM5 above. The jump page cloning and customization work (CF1–CF6) is covered in <strong>Landing Page Assets · ClickBank / MaxWeb</strong>, which you'll complete before reaching this section.</div>
 
   <div class="alert info"><strong>Stuck on Flexy™ or MetricMover™?</strong> Contact TCE Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
@@ -1331,7 +1331,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">3</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
         <div class="video-slot" data-vidalytics-id="8dx0ftVuvNUxxiLI" data-status="awaiting-link" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
       </div></li>
-      <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in Step 4. All paths now use MetricMover™.</em>
+      <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
       </div></li>
       <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
         <div class="video-slot" data-vidalytics-id="Toc8vrneJVGdKzUY" data-status="awaiting-link" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Optimize Landing Page Base Copy</div><div class="vd">Final landing page review before going live</div></div></div>

@@ -33,12 +33,12 @@ const LESSONS: HubLesson[] = [
   {
     id: 3, phase: "build", step: "Phase 1 — Overview",
     title: "How Phase 1 Works — Campaign Architecture and Your Path",
-    desc: "Read this before starting Step 1. Start here to understand how all the tools and pieces fit together — the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and an orientation to the six Phase 1 build steps. Work through the steps in order — understanding angles and creative direction in Step 2 directly shapes everything you build afterward.",
+    desc: "Read this before starting Product Selection. Start here to understand how all the tools and pieces fit together — the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and an orientation to the Phase 1 build sections. Work through the sections in order — understanding angles and creative direction in the Creative Assets lessons directly shapes everything you build afterward.",
     tags: [
       { kind: "mm", label: "Path A: Pre-built advertorial → MetricMover™" },
       { kind: "cb", label: "Path B: Jump page template → MetricMover™" },
     ],
-    ctas: [{ label: "Go to Phase 1 Overview", section: "s3" }],
+    ctas: [{ label: "Go to Section", section: "s3" }],
   },
   {
     id: 4, phase: "build", step: "Phase 1 — Network Selection",
@@ -104,7 +104,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 10, phase: "build", step: "Phase 1 — Compliance",
     title: "Submit Your Assets for Compliance Review",
-    desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Step 4 (Flexy™ setup) while waiting, but do not go live until approval is confirmed.",
+    desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Flexy™ setup while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
     ctas: [{ label: "Go to Section", section: "s7" }],
   },
@@ -121,7 +121,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 12, phase: "build", step: "Phase 1 — MetricMover™",
     title: "Using MetricMover™",
-    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank / MaxWeb jump page customization is handled earlier in Step 2 — Landing Page Assets.)",
+    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank / MaxWeb jump page customization is handled earlier in the Landing Page Assets lesson.)",
     tags: [
       { kind: "all", label: "MM1–MM5 Video Series" },
       { kind: "all", label: "Same process for every path" },
