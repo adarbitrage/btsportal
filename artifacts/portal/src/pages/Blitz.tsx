@@ -1149,7 +1149,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Step A — Get Your VSL Transcript</h4>
     <p>For ClickBank products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
 
-    <div class="video-slot" data-vidalytics-id="VSL_DOWNLOADHELPER" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
+    <div class="video-slot" data-vidalytics-id="MdyXqshujFu9X4_R" data-status="ready"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
     <div class="video-slot" data-vidalytics-id="VSL_DOWNLOAD" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
     <div class="video-slot" data-vidalytics-id="VSL_TRANSCRIPT_TEMI" data-status="awaiting-link"><div class="play-icon"></div><div><div class="vt">How to Get a Transcript of Your VSL Using Temi</div><div class="vd">Convert the video to text — clean it up for accuracy before passing it to the Copy Bot</div></div></div>
 
