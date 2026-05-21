@@ -1294,7 +1294,6 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens / Affiliati (pre-built advertorial) — MetricMover™ Setup</div>
-    <p>Since the advertorials are pre-built for these products, there will be no need to do any editing of the advertorial itself. All the work for creating the landing pages with your 5 headlines and hero shots is done initially inside of MetricMover™. You will be required to create one specific landing page in Flexy™ that will hold the MetricMover™ embed code, but beyond that nothing else needs to be completed inside Flexy™. Watch the videos below to learn how to use MetricMover™.</p>
     <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
     <div class="callout-box" style="margin-bottom:16px;">
       <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
