@@ -1290,23 +1290,20 @@ const blitzBodyHTML = `<div class="version-banner">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Using MetricMover™</span></div>
   <h3 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h3>
 
-  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. Follow the path that matches your offer type below.</p>
+  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
 
-  <div class="path-block mm">
-    <div class="path-block-label">✦ Media Mavens / Affiliati (pre-built advertorial) — MetricMover™ Setup</div>
-    <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
-    <div class="callout-box" style="margin-bottom:16px;">
-      <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
-      The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
-    </div>
-    <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
-    <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2 — Create Your 5 Landing Page Headline Variants</div><div class="vd">How to add and save your headline variations in MetricMover™</div></div></div>
-    <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3 — Create Your 5 Hero Shot Image Variants</div><div class="vd">Upload your images to Flexy™, grab the links, and set up image variations in MetricMover™</div></div></div>
-    <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
-    <div class="video-slot" data-vidalytics-id="zGwUsZj7lsZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
+  <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
+  <div class="callout-box" style="margin-bottom:16px;">
+    <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
+    The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
   </div>
+  <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
+  <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2 — Create Your 5 Landing Page Headline Variants</div><div class="vd">How to add and save your headline variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3 — Create Your 5 Hero Shot Image Variants</div><div class="vd">Upload your images to Flexy™, grab the links, and set up image variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
+  <div class="video-slot" data-vidalytics-id="zGwUsZj7lsZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
 
-  <div class="alert info"><strong>Note for ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The MetricMover™ process is identical for everyone — follow MM1–MM5 above. The jump page cloning and customization work (CF1–CF6) is covered in <strong>Landing Page Assets · ClickBank / MaxWeb</strong>, which you'll complete before reaching this section.</div>
+  <div class="alert info"><strong>ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
 
   <div class="alert info"><strong>Stuck on Flexy™ or MetricMover™?</strong> Contact TCE Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
