@@ -1148,14 +1148,14 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <p><strong>Your target: 1 jump page with custom body copy + 5 headlines × 5 hero shots = 25 MetricMover™ combinations.</strong></p>
 
-    <h4>Step A — Get Your VSL Transcript</h4>
+    <h4>Get Your VSL Transcript</h4>
     <p>For ClickBank products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
 
     <div class="video-slot" data-vidalytics-id="MdyXqshujFu9X4_R" data-status="ready"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
     <div class="video-slot" data-vidalytics-id="YStBLA01f5f6beyS" data-status="ready"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
     <div class="video-slot" data-vidalytics-id="4wsEaqFN77BMkfI0" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Get a Transcript of Your VSL Using Temi</div><div class="vd">Convert the video to text — clean it up for accuracy before passing it to the Copy Bot</div></div></div>
 
-    <h4>Step B — Write Your Jump Page Body Copy</h4>
+    <h4>Write Your Jump Page Body Copy</h4>
     <p>With your VSL transcript in hand, use the Bridge Page Copy Bot to generate your jump page body copy. Paste the transcript into the bot — it will extract the key angles, hooks, and benefit statements and turn them into short, curiosity-building body copy for your jump page.</p>
 
     <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
@@ -1163,7 +1163,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
     <div class="video-slot" data-vidalytics-id="LMe9EeU5R991GLFt" data-status="ready"><div class="play-icon"></div><div><div class="vt">Create Your Landing Page Base Copy</div><div class="vd">Use the Bridge Page Copy Bot output to draft the base copy for your landing page</div></div></div>
 
-    <h4>Step C — Generate 5 Landing Page Headlines</h4>
+    <h4>Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
 
     <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="incorrect-link"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
@@ -1178,7 +1178,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
     </div>
 
-    <h4>Step D — Source 5 Hero Shot Images</h4>
+    <h4>Source 5 Hero Shot Images</h4>
     <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
 
     <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
