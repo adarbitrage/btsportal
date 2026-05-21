@@ -2102,6 +2102,48 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
   }
 });
 
+router.post("/admin/members/:id/force-verify", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, emailVerified: usersTable.emailVerified })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const wasVerified = member.emailVerified;
+
+    // Always run the update (even when already verified) so the response is
+    // idempotent and the audit trail records the admin's intent either way —
+    // matching the /unlock pattern.
+    await db
+      .update(usersTable)
+      .set({ emailVerified: true })
+      .where(eq(usersTable.id, id));
+
+    await logAdminAction(
+      req,
+      "force_verify_email",
+      "user",
+      String(id),
+      `Force-verified email for member ${member.email} (bypassed email verification link)`,
+      {
+        before: { emailVerified: wasVerified },
+        after: { emailVerified: true },
+        memberEmail: member.email,
+      },
+    );
+
+    res.json({ success: true, id, emailVerified: true, alreadyVerified: wasVerified });
+  } catch (error) {
+    console.error("[Admin] Force-verify email error:", error);
+    res.status(500).json({ error: "Failed to force-verify email" });
+  }
+});
+
 router.post("/admin/members/:id/unlock", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);

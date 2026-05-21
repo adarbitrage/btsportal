@@ -76,6 +76,8 @@ export default function MemberDetail() {
   const [grantSubmitting, setGrantSubmitting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
+  const [forceVerifying, setForceVerifying] = useState(false);
+  const [forceVerifyConfirmOpen, setForceVerifyConfirmOpen] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page. Ordinary audit rows live for ~90 days, but
@@ -480,6 +482,20 @@ export default function MemberDetail() {
     }
   };
 
+  const handleForceVerifyEmail = async () => {
+    try {
+      setForceVerifying(true);
+      await adminPanelApi.forceVerifyMemberEmail(memberId);
+      toast({ title: "Email verified" });
+      setForceVerifyConfirmOpen(false);
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setForceVerifying(false);
+    }
+  };
+
   const handleRevokeProduct = async (userProductId: number) => {
     try {
       await adminPanelApi.revokeProduct(memberId, userProductId);
@@ -673,6 +689,77 @@ export default function MemberDetail() {
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{tickets.length}</p><p className="text-xs text-muted-foreground">Tickets</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{community.posts + community.comments}</p><p className="text-xs text-muted-foreground">Community Activity</p></CardContent></Card>
         </div>
+
+        {!member.emailVerified && (
+          <Card data-testid="card-email-unverified">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Email verification
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1 min-w-0">
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-transparent" data-testid="badge-email-unverified">
+                    Email not verified
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Member can't sign in until they confirm their address. Force-verify only if you've confirmed their identity another way.
+                  </p>
+                </div>
+                {canEditMembers && (
+                  <Dialog open={forceVerifyConfirmOpen} onOpenChange={setForceVerifyConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        disabled={forceVerifying}
+                        data-testid="button-force-verify-email"
+                      >
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        {forceVerifying ? "Verifying..." : "Force verify email"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-confirm-force-verify">
+                      <DialogHeader>
+                        <DialogTitle>Force-verify this email?</DialogTitle>
+                        <DialogDescription>
+                          Mark <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}
+                          {" "}as verified without requiring them to click the verification
+                          link. They'll be able to sign in immediately. Only use this when
+                          you've confirmed their identity through another channel.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setForceVerifyConfirmOpen(false)}
+                          disabled={forceVerifying}
+                          data-testid="button-cancel-force-verify"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleForceVerifyEmail}
+                          disabled={forceVerifying}
+                          data-testid="button-confirm-force-verify"
+                        >
+                          <ShieldCheck className="w-3 h-3 mr-1" />
+                          {forceVerifying ? "Verifying..." : "Force verify"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {showLockCard && (
           <Card data-testid="card-account-lock">

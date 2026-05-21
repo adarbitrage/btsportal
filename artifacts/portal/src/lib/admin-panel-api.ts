@@ -956,6 +956,15 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async forceVerifyMemberEmail(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/force-verify`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to force-verify email");
+    }
+    return res.json();
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");
