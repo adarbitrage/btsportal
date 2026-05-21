@@ -1050,7 +1050,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end step2-native -->
   <div id="step2-mm">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (Media Mavens)</span></div>
-  <h4 id="part3-lp">Create Your Landing Page Assets <span class="path-tag tag-mm">Media Mavens / Affiliati (pre-built advertorial)</span></h4>
+  <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens / Affiliati (pre-built advertorial)</span></h4>
 
   <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
     <strong>Promoting a ClickBank, MaxWeb, or Affiliati (jump page) offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb</em> lesson instead.
@@ -1133,7 +1133,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end step2-mm -->
   <div id="step2-cb">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (ClickBank / MaxWeb)</span></div>
-  <h4>Create Your Landing Page Assets <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati (jump page)</span></h4>
+  <h4>Create Your Landing Page Assets — ClickBank <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati (jump page)</span></h4>
 
   <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
 

@@ -81,7 +81,7 @@ const LESSONS: HubLesson[] = [
   },
   {
     id: 8, phase: "build", step: "Phase 1 — Creative Assets",
-    title: "Create Your Landing Page Assets",
+    title: "Create Your Landing Page Assets — Media Mavens",
     desc: (
       <>
         For Media Mavens: generate 5 landing page headlines using AffAngleArchitect and Copy Blocks, then source 5 hero shot images. These 5 headlines × 5 hero shots = 25 combinations that MetricMover™ will create automatically in the next step. <em>Skip this lesson if you're using a ClickBank, MaxWeb, or Affiliati (jump page) offer — go to the next lesson instead.</em>
@@ -94,7 +94,7 @@ const LESSONS: HubLesson[] = [
   },
   {
     id: 9, phase: "build", step: "Phase 1 — Creative Assets",
-    title: "Create Your Landing Page Assets",
+    title: "Create Your Landing Page Assets — ClickBank",
     desc: "For ClickBank, MaxWeb, and Affiliati (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
     tags: [
       { kind: "cb", label: "VSL → Transcript → Body Copy → 5 Headlines + 5 Hero Shots" },
