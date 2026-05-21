@@ -14,7 +14,7 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   6: { section: "s6", label: "Phase 1 — Creative Assets · Foundation" },
   7: { section: "s6b", label: "Phase 1 — Create Your Native Ad Assets" },
   8: { section: "s6c", label: "Phase 1 — Landing Page Assets · Media Mavens" },
-  9: { section: "s6d", label: "Phase 1 — Landing Page Assets · ClickBank / MaxWeb" },
+  9: { section: "s6d", label: "Phase 1 — Landing Page Assets · ClickBank / MaxWeb / Affiliati" },
   10: { section: "s7", label: "Phase 1 — Compliance Review" },
   11: { section: "s8", label: "Phase 1 — Setting Up Your Website in Flexy™" },
   12: { section: "s8b", label: "Phase 1 — Using MetricMover™" },
@@ -460,9 +460,9 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">Affiliate Network</div><div class="gloss-def">A marketplace where companies list products they want promoted. You sign up, pick a product, and get a unique tracking link. When someone buys through your link, you get paid. In The Blitz™: Media Mavens, ClickBank, Affiliati, and MaxWeb.</div></div>
     <div class="gloss-item"><div class="gloss-term">Commission / CPA</div><div class="gloss-def"><strong>Commission</strong> is the money you receive when someone buys the product you are promoting — it's your payout per sale. <strong>CPA (Cost Per Acquisition)</strong> is what it costs you in ad spend to generate one sale. Example: if you spend $50 in ads to produce one sale and earn a $80 commission on that sale, your CPA is $50 and your commission is $80.</div></div>
     <div class="gloss-item"><div class="gloss-term">Landing Page</div><div class="gloss-def">The web page someone sees after clicking your ad. Its job is to warm them up and get them interested enough to click through to the product's sales page. You create and control this page.</div></div>
-    <div class="gloss-item"><div class="gloss-term">Advertorial</div><div class="gloss-def">A type of landing page that reads like an article or editorial — it tells a story or shares information rather than being an obvious ad. Used in Media Mavens and some Affiliati campaigns. Some products include a pre-made advertorial you can use right away.</div></div>
-    <div class="gloss-item"><div class="gloss-term">Jump Page / Bridge Page</div><div class="gloss-def">A short landing page designed to send visitors directly to a product's video sales letter (VSL). It typically contains a headline, a hero shot image, a short paragraph about the product that creates curiosity and builds interest, and a button that sends the visitor to the VSL. Used in ClickBank and MaxWeb campaigns.</div></div>
-    <div class="gloss-item"><div class="gloss-term">VSL (Video Sales Letter)</div><div class="gloss-def">A video that sells the product. The product owner creates it; your job is to get people to watch it. Many ClickBank and MaxWeb products use a VSL as their main selling tool.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Advertorial</div><div class="gloss-def">A type of landing page that reads like an article or editorial — it tells a story or shares information rather than being an obvious ad. Used in Media Mavens campaigns. Many Media Mavens products include a pre-made advertorial you can use right away.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Jump Page / Bridge Page</div><div class="gloss-def">A short landing page designed to send visitors directly to a product's video sales letter (VSL). It typically contains a headline, a hero shot image, a short paragraph about the product that creates curiosity and builds interest, and a button that sends the visitor to the VSL. Used in ClickBank, MaxWeb, and Affiliati campaigns.</div></div>
+    <div class="gloss-item"><div class="gloss-term">VSL (Video Sales Letter)</div><div class="gloss-def">A video that sells the product. The product owner creates it; your job is to get people to watch it. Many ClickBank, MaxWeb, and Affiliati products use a VSL as their main selling tool.</div></div>
     <div class="gloss-item"><div class="gloss-term">Native Ad</div><div class="gloss-def">An ad that blends into surrounding content — it looks like a recommended article rather than a traditional advertisement. On Caterpillar, you upload your headline (as plain text) and image (as a file) separately. The platform assembles the ad automatically.</div></div>
     <div class="gloss-item"><div class="gloss-term">Traffic Source / Publisher</div><div class="gloss-def">The advertising platform that shows your ads to potential buyers. In this guide you're using Caterpillar — a native advertising platform. Grasshopper and Crane (banner ad platforms) are covered in separate Supplemental Guides.</div></div>
     <div class="gloss-item"><div class="gloss-term">Hero Shot</div><div class="gloss-def">The main image on your landing page — the first big visual a visitor sees. It sets the emotional tone and needs to connect with your headline.</div></div>
@@ -472,10 +472,10 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">DIYTrax</div><div class="gloss-def">Your campaign tracking dashboard. It connects your ads, landing pages, and affiliate links, and records which combinations generate sales. Think of it as your campaign's control center.</div></div>
     <div class="gloss-item"><div class="gloss-term">Placement</div><div class="gloss-def">The specific format and shape of your ad. On Caterpillar, placements are things like "16:9 static image," "9:16 animated GIF," or "16:9 video." You test different placements in Round 3 once you've identified your top performing visual creative in Round 2.</div></div>
     <div class="gloss-item"><div class="gloss-term">Compliance</div><div class="gloss-def">A review process where your ads and landing pages are checked against the affiliate network's and publisher's rules. You must submit your creative assets for compliance approval before going live.</div></div>
-    <div class="gloss-item"><div class="gloss-term">Flexy™</div><div class="gloss-def">The website builder used to create and host your landing pages. You clone a pre-built template and customize it with your own headlines, images, and copy — no coding required. For Media Mavens users, Flexy™ hosts the single page that holds the MetricMover™ embed code. For ClickBank users, Flexy™ hosts the single page that holds the MetricMover™ embed code — the same as the Media Mavens path.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Flexy™</div><div class="gloss-def">The website builder used to create and host your landing pages. You clone a pre-built template and customize it with your own headlines, images, and copy — no coding required. For Media Mavens users, Flexy™ hosts the single page that holds the MetricMover™ embed code. For ClickBank, MaxWeb, and Affiliati users, Flexy™ hosts the customized jump page along with the page that holds the MetricMover™ embed code.</div></div>
     <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by BTS for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the BTS member portal.</div></div>
-    <div class="gloss-item"><div class="gloss-term">AffAngleArchitect</div><div class="gloss-def">A specialized AI bot on Poe.com, pre-configured to generate strong marketing angles for affiliate campaigns. Used to create landing page headline angles for all paths — Media Mavens advertorials and ClickBank/MaxWeb jump pages.</div></div>
-    <div class="gloss-item"><div class="gloss-term">MetricMover™</div><div class="gloss-def">A split-testing tool used for Media Mavens and Affiliati advertorial campaigns. It automatically rotates your 5 headlines × 5 hero shots (25 combinations) and tracks which combinations convert best.</div></div>
+    <div class="gloss-item"><div class="gloss-term">AffAngleArchitect</div><div class="gloss-def">A specialized AI bot on Poe.com, pre-configured to generate strong marketing angles for affiliate campaigns. Used to create landing page headline angles for all paths — Media Mavens advertorials and ClickBank/MaxWeb/Affiliati jump pages.</div></div>
+    <div class="gloss-item"><div class="gloss-term">MetricMover™</div><div class="gloss-def">A split-testing tool used by every path in The Blitz™. It automatically rotates your 5 headlines × 5 hero shots (25 combinations) and tracks which combinations convert best.</div></div>
     <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
     <div class="gloss-item"><div class="gloss-term">IPN (Instant Payment Notification)</div><div class="gloss-def">A ClickBank-specific technical integration that sends sale notifications from ClickBank to DIYTrax automatically. Without IPN set up, DIYTrax cannot record ClickBank sales accurately. Only required for ClickBank users.</div></div>
     <div class="gloss-item"><div class="gloss-term">CPC (Cost Per Click)</div><div class="gloss-def">The amount you pay each time someone clicks your ad. On Caterpillar, you set a CPC bid — the maximum you're willing to pay per click. When scaling, increasing your CPC bid can help you reach more of the available audience.</div></div>
@@ -623,8 +623,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <div class="net-name"><span class="path-tag tag-af">Affiliati</span></div>
       <div class="net-desc">A curated network with many strong offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
         <ul>
-          <li><strong>Pre-made advertorials</strong> available for select products</li>
-          <li>Other products require building your own landing page</li>
+          <li>You'll build your own jump pages from the product's VSL</li>
           <li>Works with Caterpillar and Grasshopper</li>
         </ul>
       </div>
@@ -688,7 +687,7 @@ const blitzBodyHTML = `<div class="version-banner">
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
             <td style="background:#fff7ed;padding:16px 10px;border:1px solid var(--border);">
               <strong>Flexy™</strong><br>
-              <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB/MW)</span>
+              <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB/MW/AF)</span>
             </td>
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
             <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
@@ -758,24 +757,23 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="card" style="border:2px solid var(--accent);margin-bottom:24px;">
     <div class="card-title" style="color:var(--accent);">🔀 Which Path Are You On? — Find Out Before You Start</div>
-    <p style="margin-bottom:16px;">Your path through Module 1 depends on one key question: <strong>does your product come with a pre-built advertorial?</strong> Both paths end up using MetricMover™ for split testing — the difference is what you build first before getting there.</p>
+    <p style="margin-bottom:16px;">Your path through Module 1 depends on your network. Both paths end up using MetricMover™ for split testing — the difference is what you build first before getting there.</p>
     <table style="margin:0;">
-      <thead><tr><th>Question</th><th>Answer</th><th>Your Path</th><th>What You'll Build</th></tr></thead>
+      <thead><tr><th>Your Network</th><th>Your Path</th><th>What You'll Build</th></tr></thead>
       <tbody>
         <tr style="background:var(--mm-bg);">
-          <td rowspan="2"><strong>Does your product have a pre-built advertorial?</strong></td>
-          <td><strong style="color:var(--mm-color);">✅ Yes</strong><br><span style="font-size:.85rem;color:var(--muted);">Media Mavens (most products) or Affiliati (some products)</span></td>
+          <td><strong style="color:var(--mm-color);">Media Mavens</strong><br><span style="font-size:.85rem;color:var(--muted);">Products come with a pre-built advertorial</span></td>
           <td><span class="path-tag tag-mm">MetricMover™ Path</span></td>
           <td>5 landing page headlines + 5 hero shots → MetricMover™ creates 25 combinations automatically</td>
         </tr>
         <tr style="background:var(--cb-bg);">
-          <td><strong style="color:var(--cb-color);">❌ No</strong><br><span style="font-size:.85rem;color:var(--muted);">ClickBank, MaxWeb, or Affiliati (products without pre-built advertorial)</span></td>
+          <td><strong style="color:var(--cb-color);">ClickBank, MaxWeb, or Affiliati</strong><br><span style="font-size:.85rem;color:var(--muted);">No pre-built advertorial — build your own jump page</span></td>
           <td><span class="path-tag tag-cb">Jump Page Path</span><br><br><span class="path-tag tag-mm" style="display:inline-block;margin-top:4px;">MetricMover™ Path</span></td>
           <td>Select a jump page template in Flexy™ → add custom body copy for your chosen offer → then follow the MetricMover™ path for 5 headlines × 5 hero shots = 25 combinations</td>
         </tr>
       </tbody>
     </table>
-    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Not sure which applies to your product? Check with your coach or the support team before proceeding past Product Selection. Choosing the wrong path means building the wrong assets — it's worth confirming now.</p>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Your network determines your path. If you're between networks, your coach can help you choose.</p>
   </div>
 
   </div><!-- end module1-overview -->
@@ -804,10 +802,10 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Affiliati requires account approval and <strong>proof of revenue generated from previous affiliate campaigns</strong> before you can get started. Please check with a coach before attempting to apply for an Affiliati account.</p>
     <ul class="checklist">
       <li>Apply for your Affiliati account and wait for approval</li>
-      <li>After logging in, check whether your chosen product has a <strong>pre-made advertorial</strong>. If yes → follow the Media Mavens path for the Landing Page Assets and Flexy™ Setup sections. If no → follow the ClickBank path for those sections.</li>
-      <li>Save your affiliate link for your chosen product</li>
+      <li>Browse offers and choose a product to promote</li>
+      <li>Save your affiliate link and note the product's sales page URL — you'll refer to it when writing your jump page body copy in the Landing Page Assets lesson</li>
     </ul>
-    <div class="callout-box"><div class="pe-label">💡 Which path should Affiliati users follow?</div>It depends on whether your product includes a pre-made advertorial. If it does, you're essentially following the Media Mavens process. If it doesn't, you're following the ClickBank process. Your coach or support team can confirm which applies to your specific product.</div>
+    <div class="callout-box"><div class="pe-label">💡 Affiliati uses the jump page path</div>Affiliati products do not come with pre-built advertorials. You'll follow the same jump page path as ClickBank and MaxWeb — see the <em>Landing Page Assets — ClickBank / MaxWeb / Affiliati</em> lesson.</div>
   </div>
 
   <div class="path-block mw">
@@ -1050,21 +1048,21 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end step2-native -->
   <div id="step2-mm">
   <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (Media Mavens)</span></div>
-  <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens / Affiliati (pre-built advertorial)</span></h4>
+  <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h4>
 
   <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
-    <strong>Promoting a ClickBank, MaxWeb, or Affiliati (jump page) offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb</em> lesson instead.
+    <strong>Promoting a ClickBank, MaxWeb, or Affiliati offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb / Affiliati</em> lesson instead.
   </div>
 
   <div class="module-intro">
     A landing page is the web page a visitor sees after clicking your ad. Its job is to take someone who was just curious enough to click and turn them into someone who is engaged enough to buy.
   </div>
 
-  <p>This is where the two paths diverge — but not as dramatically as before. <strong>Media Mavens</strong> products come with a pre-built advertorial body copy. <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> require you to write your own short body copy for a jump page template. In both cases, you'll then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations. This lesson covers the <strong>Media Mavens</strong> path.</p>
+  <p>This is where the two paths diverge — but not as dramatically as before. <strong>Media Mavens</strong> products come with a pre-built advertorial body copy. <strong>ClickBank, MaxWeb, and Affiliati</strong> require you to write your own short body copy for a jump page template. In both cases, you'll then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations. This lesson covers the <strong>Media Mavens</strong> path.</p>
 
   <!-- ── MEDIA MAVENS PATH ── -->
   <div class="path-block mm">
-    <div class="path-block-label">✦ Media Mavens / Affiliati (with pre-built advertorial)</div>
+    <div class="path-block-label">✦ Media Mavens</div>
 
     <div class="callout-box">
       <div class="pe-label">💡 How this path works</div>
@@ -1134,24 +1132,24 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-mm -->
   <div id="step2-cb">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (ClickBank / MaxWeb)</span></div>
-  <h4>Create Your Landing Page Assets — ClickBank <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati (jump page)</span></h4>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span></div>
+  <h4>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h4>
 
-  <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati (jump page)</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
+  <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
 
-  <!-- ── CLICKBANK / MAXWEB PATH ── -->
+  <!-- ── CLICKBANK / MAXWEB / AFFILIATI PATH ── -->
   <div class="path-block cb">
-    <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati (jump page)</div>
+    <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati</div>
 
     <div class="callout-box">
       <div class="pe-label">💡 How this path works</div>
-      For ClickBank, MaxWeb, and Affiliati jump page products, you'll start with a jump page template in Flexy™ and customize the body copy to reflect your specific offer. The body copy is a short paragraph (or a few) that creates curiosity about the product and motivates the visitor to click through to the VSL. Once your body copy is written, the process is identical to the Media Mavens path — you create 5 landing page headlines and 5 hero shots, and MetricMover™ generates all 25 combinations for testing.
+      For ClickBank, MaxWeb, and Affiliati products, you'll start with a jump page template in Flexy™ and customize the body copy to reflect your specific offer. The body copy is a short paragraph (or a few) that creates curiosity about the product and motivates the visitor to click through to the VSL. Once your body copy is written, the process is identical to the Media Mavens path — you create 5 landing page headlines and 5 hero shots, and MetricMover™ generates all 25 combinations for testing.
     </div>
 
     <p><strong>Your target: 1 jump page with custom body copy + 5 headlines × 5 hero shots = 25 MetricMover™ combinations.</strong></p>
 
     <h4>Get Your VSL Transcript</h4>
-    <p>For ClickBank products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
+    <p>For ClickBank, MaxWeb, and Affiliati products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
 
     <div class="video-slot" data-vidalytics-id="MdyXqshujFu9X4_R" data-status="ready"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
     <div class="video-slot" data-vidalytics-id="YStBLA01f5f6beyS" data-status="ready"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
@@ -1201,18 +1199,16 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
 
-  <!-- ── AFFILIATI NOTE ── -->
-  <div class="path-block af">
-    <div class="path-block-label">✦ Affiliati — Which Path Are You On?</div>
-    <p><strong>If your product has a pre-built advertorial:</strong> Follow the Media Mavens path above — generate 5 landing page headlines and 5 hero shots using the Copy Blocks framework and AffAngleArchitect.</p>
-    <p><strong>If your product requires you to build your own jump page:</strong> Follow the ClickBank path above — write your jump page body copy, then generate 5 landing page headlines and 5 hero shots for MetricMover™.</p>
-    <p style="margin-bottom:0;"><em>Not sure which applies to your product? Ask your coach or the support team before proceeding.</em></p>
-  </div>
-
   <!-- ── MAXWEB PATH ── -->
   <div class="path-block mw">
     <div class="path-block-label">✦ MaxWeb</div>
     <p>Follow the ClickBank path above: write your jump page body copy using the Bridge Page Copy Bot, then generate 5 landing page headlines and 5 hero shots for MetricMover™. If you need product-specific guidance, contact your MaxWeb Account Representative whose details are on your MaxWeb Dashboard.</p>
+  </div>
+
+  <!-- ── AFFILIATI PATH ── -->
+  <div class="path-block af">
+    <div class="path-block-label">✦ Affiliati</div>
+    <p>Affiliati products do not come with pre-built advertorials, so you'll build your own jump page just like ClickBank and MaxWeb. Follow the ClickBank path above: get the product's VSL transcript, write your jump page body copy using the Bridge Page Copy Bot, then generate 5 landing page headlines and 5 hero shots for MetricMover™. If you need product-specific guidance, reach out to your Affiliati Account Manager.</p>
   </div>
 
   <hr class="divider">
@@ -1246,7 +1242,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <h3>How Long Does It Take?</h3>
-  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in the Flexy™ Setup section after approval.</p>
+  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank/MaxWeb/Affiliati — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in the Flexy™ Setup section after approval.</p>
 
   <h3>What Happens If Something Is Rejected?</h3>
   <div class="callout-box">
@@ -1271,9 +1267,9 @@ const blitzBodyHTML = `<div class="version-banner">
     <br><br>
     <strong>How you use Flexy™ depends on which path you're on:</strong>
     <br><br>
-    <strong>Media Mavens / Affiliati (pre-built advertorial):</strong> Your pre-built advertorial is imported into MetricMover™, which takes your 5 headlines and 5 hero shots and creates 25 variations of that advertorial page. Those 25 variations are then imported into DIYTrax, our tracking software, which handles the split testing by rotating visitors between them. You'll create one landing page in Flexy™ to host the MetricMover™ embed code.
+    <strong>Media Mavens:</strong> Your pre-built advertorial is imported into MetricMover™, which takes your 5 headlines and 5 hero shots and creates 25 variations of that advertorial page. Those 25 variations are then imported into DIYTrax, our tracking software, which handles the split testing by rotating visitors between them. You'll create one landing page in Flexy™ to host the MetricMover™ embed code.
     <br><br>
-    <strong>ClickBank / MaxWeb / Affiliati (jump page):</strong> You'll clone a jump page template in Flexy™ and customize the body copy for your offer. Then, just like the Media Mavens path, you'll use MetricMover™ to generate 25 combinations from your 5 headlines and 5 hero shots. One Flexy™ page is created to hold the MetricMover™ embed code.
+    <strong>ClickBank / MaxWeb / Affiliati:</strong> You'll clone a jump page template in Flexy™ and customize the body copy for your offer. Then, just like the Media Mavens path, you'll use MetricMover™ to generate 25 combinations from your 5 headlines and 5 hero shots. One Flexy™ page is created to hold the MetricMover™ embed code.
     <br><br>
     Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
   </div>
@@ -1309,7 +1305,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
   <div class="video-slot" data-vidalytics-id="zGwUsZj7lsZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
 
-  <div class="alert info"><strong>ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
+  <div class="alert info"><strong>ClickBank / MaxWeb / Affiliati path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati</strong>, which you'll complete before reaching this section.</div>
 
   <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
@@ -1482,12 +1478,12 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <h4>Phase 2 — Test — Round 2 Landing Page Prep</h4>
   <div class="path-block mm">
-    <div class="path-block-label">✦ Media Mavens / Affiliati (advertorial)</div>
+    <div class="path-block-label">✦ Media Mavens</div>
     <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">AffAngleArchitect</a> or FreeAdCopy™ to generate completely new angles.</p>
     <p><strong>5 new hero shots:</strong> Same logic — keep close variations of what worked, replace what didn't. Set up a new MetricMover project for these 25 new combinations.</p>
   </div>
   <div class="path-block cb">
-    <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati (own pages)</div>
+    <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati</div>
     <p>Review Round 1 landing page data. Which pages generated the most sales? Which had the highest LP CTR? Build your next set of variants based on what worked — improve winners, drop losers.</p>
   </div>
 
