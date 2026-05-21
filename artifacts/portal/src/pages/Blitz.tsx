@@ -1457,7 +1457,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <h4>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h4>
-  <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@cherringtonmedia.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
+  <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@buildtestscale.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
 
   <hr class="divider">
 
