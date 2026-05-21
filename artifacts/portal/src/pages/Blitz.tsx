@@ -473,7 +473,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">Placement</div><div class="gloss-def">The specific format and shape of your ad. On Caterpillar, placements are things like "16:9 static image," "9:16 animated GIF," or "16:9 video." You test different placements in Round 3 once you've identified your top performing visual creative in Round 2.</div></div>
     <div class="gloss-item"><div class="gloss-term">Compliance</div><div class="gloss-def">A review process where your ads and landing pages are checked against the affiliate network's and publisher's rules. You must submit your creative assets for compliance approval before going live.</div></div>
     <div class="gloss-item"><div class="gloss-term">Flexy™</div><div class="gloss-def">The website builder used to create and host your landing pages. You clone a pre-built template and customize it with your own headlines, images, and copy — no coding required. For Media Mavens users, Flexy™ hosts the single page that holds the MetricMover™ embed code. For ClickBank users, Flexy™ hosts the single page that holds the MetricMover™ embed code — the same as the Media Mavens path.</div></div>
-    <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by BTS for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the CherringtonMedia portal.</div></div>
+    <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by BTS for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the BTS member portal.</div></div>
     <div class="gloss-item"><div class="gloss-term">AffAngleArchitect</div><div class="gloss-def">A specialized AI bot on Poe.com, pre-configured to generate strong marketing angles for affiliate campaigns. Used to create landing page headline angles for all paths — Media Mavens advertorials and ClickBank/MaxWeb jump pages.</div></div>
     <div class="gloss-item"><div class="gloss-term">MetricMover™</div><div class="gloss-def">A split-testing tool used for Media Mavens and Affiliati advertorial campaigns. It automatically rotates your 5 headlines × 5 hero shots (25 combinations) and tracks which combinations convert best.</div></div>
     <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
@@ -1225,7 +1225,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="module-intro">Compliance is a required step before your campaign can go live. It is not optional and it cannot be skipped. This section explains what it is, how it works, and what to do if something is rejected — so you're not caught off guard when you reach that step.</div>
 
   <h3>What Is Compliance?</h3>
-  <p>Before your ads and landing pages can run, your headlines and images are reviewed by <strong>Cherrington Media</strong> to make sure they comply with the advertising standards of the publisher (Caterpillar). This review process is called compliance.</p>
+  <p>Before your ads and landing pages can run, your headlines and images are reviewed by <strong>BTS</strong> to make sure they comply with the advertising standards of the publisher (Caterpillar). This review process is called compliance.</p>
   <p>The purpose is to protect the platforms and their users from misleading claims, prohibited content, and poor-quality ads. Every affiliate marketer goes through this — it's a standard part of the process, not a reflection on you personally.</p>
 
   <h3>What Gets Reviewed</h3>
@@ -1365,7 +1365,7 @@ const blitzBodyHTML = `<div class="version-banner">
         <tr><td><strong>Pending</strong></td><td>Under review by publisher</td><td>Wait — review usually takes under 24 hours</td></tr>
         <tr><td><strong>Active</strong></td><td>Ad is live and running</td><td>Nothing — this is the goal!</td></tr>
         <tr><td><strong>Inactive</strong></td><td>Ad is turned off</td><td>Check if you turned it off, or if there's an account issue</td></tr>
-        <tr><td><strong>Rejected</strong></td><td>Ad was rejected at the publisher level</td><td>Contact Cherrington Media Support and notify them of the rejection</td></tr>
+        <tr><td><strong>Rejected</strong></td><td>Ad was rejected at the publisher level</td><td>Contact BTS Support and notify them of the rejection</td></tr>
         <tr><td><strong>Warning</strong></td><td>Account or payment issue at publisher level</td><td>Separate from your DIYTrax balance — contact support</td></tr>
       </tbody>
     </table>

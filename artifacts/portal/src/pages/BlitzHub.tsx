@@ -104,7 +104,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 10, phase: "build", step: "Phase 1 — Compliance",
     title: "Submit Your Assets for Compliance Review",
-    desc: "Before building any pages, submit your headlines, images, and landing page assets to Cherrington Media for compliance review. Typical turnaround is 24–48 hours. You may begin Flexy™ setup while waiting, but do not go live until approval is confirmed.",
+    desc: "Before building any pages, submit your headlines, images, and landing page assets to BTS for compliance review. Typical turnaround is 24–48 hours. You may begin Flexy™ setup while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
     ctas: [{ label: "Go to Section", section: "s7" }],
   },
@@ -683,7 +683,7 @@ export default function BlitzHub() {
         </div>
 
         <div className="hub-footer">
-          The Blitz™ — Caterpillar Edition · Cherrington Media · v4.0
+          The Blitz™ — Caterpillar Edition · BTS · v4.0
         </div>
       </div>
     </AppLayout>
