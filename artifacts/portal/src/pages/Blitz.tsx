@@ -473,7 +473,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="gloss-item"><div class="gloss-term">Placement</div><div class="gloss-def">The specific format and shape of your ad. On Caterpillar, placements are things like "16:9 static image," "9:16 animated GIF," or "16:9 video." You test different placements in Round 3 once you've identified your top performing visual creative in Round 2.</div></div>
     <div class="gloss-item"><div class="gloss-term">Compliance</div><div class="gloss-def">A review process where your ads and landing pages are checked against the affiliate network's and publisher's rules. You must submit your creative assets for compliance approval before going live.</div></div>
     <div class="gloss-item"><div class="gloss-term">Flexy™</div><div class="gloss-def">The website builder used to create and host your landing pages. You clone a pre-built template and customize it with your own headlines, images, and copy — no coding required. For Media Mavens users, Flexy™ hosts the single page that holds the MetricMover™ embed code. For ClickBank users, Flexy™ hosts the single page that holds the MetricMover™ embed code — the same as the Media Mavens path.</div></div>
-    <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by TCE for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the CherringtonMedia portal.</div></div>
+    <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by BTS for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the CherringtonMedia portal.</div></div>
     <div class="gloss-item"><div class="gloss-term">AffAngleArchitect</div><div class="gloss-def">A specialized AI bot on Poe.com, pre-configured to generate strong marketing angles for affiliate campaigns. Used to create landing page headline angles for all paths — Media Mavens advertorials and ClickBank/MaxWeb jump pages.</div></div>
     <div class="gloss-item"><div class="gloss-term">MetricMover™</div><div class="gloss-def">A split-testing tool used for Media Mavens and Affiliati advertorial campaigns. It automatically rotates your 5 headlines × 5 hero shots (25 combinations) and tracks which combinations convert best.</div></div>
     <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
@@ -585,8 +585,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <p>Help is available at every stage. A full breakdown of when and how to use each resource is in the Support section at the end of this guide.</p>
   <div class="support-grid">
     <div class="support-card"><div class="sc-type">📅 Coaching Calls — 6 days/week</div>Best for: strategic decisions, interpreting data at round transitions, deciding between Option A and B at any exit gate.</div>
-    <div class="support-card"><div class="sc-type">💬 TCE Community — 24/7</div>Best for: quick daily questions, troubleshooting tools, seeing how other mentees handled similar situations.</div>
-    <div class="support-card"><div class="sc-type">🛠 TCE Concierge™</div>Best for: technical blockages, or when you want a step handled so you can focus on strategy. Available for any step.</div>
+    <div class="support-card"><div class="sc-type">💬 BTS Community — 24/7</div>Best for: quick daily questions, troubleshooting tools, seeing how other mentees handled similar situations.</div>
+    <div class="support-card"><div class="sc-type">🛠 BTS Concierge™</div>Best for: technical blockages, or when you want a step handled so you can focus on strategy. Available for any step.</div>
     <div class="support-card"><div class="sc-type">💬 Live Chat Support — Mon–Fri, 8AM–5PM CST</div>Best for: problems and technical support during business hours. Chat directly with the support team for fast, real-time help.</div>
   </div>
 </div>
@@ -1281,6 +1281,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="6PHV5xuSKZesS3Ew" data-status="ready"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
   <div class="video-slot" data-vidalytics-id="aXOaPoKhmckiyMXL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
 
+  <div class="alert info"><strong>Stuck on Flexy™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
+
   <hr class="divider">
 
 </div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
@@ -1305,7 +1307,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="alert info"><strong>ClickBank / MaxWeb / Affiliati (jump page) path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
 
-  <div class="alert info"><strong>Stuck on Flexy™ or MetricMover™?</strong> Contact TCE Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
+  <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
   <hr class="divider">
 
@@ -1386,7 +1388,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <li>Campaign is split into 2 Sub-Campaigns of 5 headlines each</li>
       <li>Final QA check completed (T8 video)</li>
     </ul>
-    <p style="font-size:.9rem;margin-bottom:0;color:var(--muted);"><em>If any item above is incomplete, resolve it before going live. Contact TCE Concierge™ or bring it to a coaching call if you're blocked.</em></p>
+    <p style="font-size:.9rem;margin-bottom:0;color:var(--muted);"><em>If any item above is incomplete, resolve it before going live. Contact BTS Concierge™ or bring it to a coaching call if you're blocked.</em></p>
   </div>
 
   <div class="alert success"><strong>🎉 Your campaign is now live!</strong>Now move to Phase 2. Do NOT make any changes to your campaign until you've spent at least $25 per ad or $500 total. Making changes too early — before you have enough data — is the most common beginner mistake.</div>
@@ -1455,7 +1457,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <h4>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h4>
-  <div class="card"><p>Record a 2–5 minute video about your TCE experience and email the link to <strong>support@cherringtonmedia.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
+  <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@cherringtonmedia.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
 
   <hr class="divider">
 
@@ -1647,12 +1649,12 @@ const blitzBodyHTML = `<div class="version-banner">
     <table>
       <thead><tr><th>The Situation</th><th>What Kind of Problem Is It</th><th>Where to Go</th></tr></thead>
       <tbody>
-        <tr><td>Something isn't working technically — a tool, a link, a setup step</td><td>Technical</td><td>🛠 Support team or TCE Concierge™ — same-day help</td></tr>
+        <tr><td>Something isn't working technically — a tool, a link, a setup step</td><td>Technical</td><td>🛠 Support team or BTS Concierge™ — same-day help</td></tr>
         <tr><td>You don't know which option to choose (Option A vs B, which offer, which path)</td><td>Strategic</td><td>📅 Coaching call — bring your data and get a recommendation</td></tr>
-        <tr><td>You're not sure if what you're seeing in your campaign is normal</td><td>Interpretation</td><td>💬 TCE Community — post your numbers, others have been here</td></tr>
+        <tr><td>You're not sure if what you're seeing in your campaign is normal</td><td>Interpretation</td><td>💬 BTS Community — post your numbers, others have been here</td></tr>
         <tr><td>Round 1 is losing money and you're panicking</td><td>Mindset (normal process)</td><td>Re-read the "Before You Start" section on early round testing and spending. Then: 💬 Community for reassurance, 📅 coaching call if you need data guidance</td></tr>
         <tr><td>You've been trying to figure something out for more than 30 minutes</td><td>Any of the above</td><td>Stop and ask for help. That's what the resources are for. Time spent stuck is wasted budget.</td></tr>
-        <tr><td>You want a step done for you so you can keep moving</td><td>Capacity</td><td>🛠 TCE Concierge™ — done-for-you at any step</td></tr>
+        <tr><td>You want a step done for you so you can keep moving</td><td>Capacity</td><td>🛠 BTS Concierge™ — done-for-you at any step</td></tr>
       </tbody>
     </table>
   </div>
@@ -1669,8 +1671,8 @@ const blitzBodyHTML = `<div class="version-banner">
   <p>Four support channels are available to you at every stage of the program. Use the right one for your situation — the "What To Do When You're Stuck" section above helps you identify which applies.</p>
   <div class="support-grid">
     <div class="support-card"><div class="sc-type">📅 Coaching Calls — 6 days/week</div>Use when: you're at a decision point, you've completed a round and aren't sure if you pass the gate, or you want to discuss data with an expert before spending more.</div>
-    <div class="support-card"><div class="sc-type">💬 TCE Community — 24/7</div>Use when: you have a quick question that doesn't need a full coaching call, or you want to see how other mentees handled a similar situation.</div>
-    <div class="support-card"><div class="sc-type">🛠 TCE Concierge™</div>Use when: a technical issue is blocking your progress, or you want a step handled for you. Available for any step of the process.</div>
+    <div class="support-card"><div class="sc-type">💬 BTS Community — 24/7</div>Use when: you have a quick question that doesn't need a full coaching call, or you want to see how other mentees handled a similar situation.</div>
+    <div class="support-card"><div class="sc-type">🛠 BTS Concierge™</div>Use when: a technical issue is blocking your progress, or you want a step handled for you. Available for any step of the process.</div>
     <div class="support-card"><div class="sc-type">💬 Live Chat Support — Mon–Fri, 8AM–5PM CST</div>Use when: you have a problem or technical issue during business hours and need fast, real-time help from the support team.</div>
   </div>
   <div class="alert info"><strong>One Last Reminder</strong>The biggest difference between mentees who succeed and those who don't isn't prior experience — it's whether they follow the process consistently and ask for help when stuck. Use your resources.</div>
