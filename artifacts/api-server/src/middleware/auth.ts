@@ -42,6 +42,7 @@ const PUBLIC_PATHS = [
   "/affiliate-networks",
   "/email/unsubscribe",
   "/v1/health",
+  "/integrations/machine-purchase",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
