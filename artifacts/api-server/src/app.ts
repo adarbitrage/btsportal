@@ -29,6 +29,10 @@ import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
+// seedYseProducts is intentionally NOT imported/run here — it must complete
+// BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
+// endpoint hard-depends on the `yse_front_end` product row existing). It is
+// awaited from index.ts as part of bootstrapCriticalPrerequisites().
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
 

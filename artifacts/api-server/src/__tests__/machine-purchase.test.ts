@@ -213,6 +213,36 @@ describe("POST /api/integrations/machine-purchase — validation", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("accepts null for every optional field (phone, names, ids, click ids, total_cents)", async () => {
+    const body = validBody({
+      email: `${TEST_TAG}-allnulls@machine.test`,
+      order_number: `tm_ord_nulls_${randomUUID().slice(0, 6)}`,
+      first_name: null,
+      last_name: null,
+      phone: null,
+      product_ids: null,
+      total_cents: null,
+      tm_click_id: null,
+      tap_ref: null,
+    });
+    const res = await authedPost(body);
+    expect([200, 201]).toContain(res.status);
+    expect(res.body.error).toBeUndefined();
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+  });
+
+  it("rejects wrong types on optional fields with VALIDATION_ERROR (null is OK, 123 is not)", async () => {
+    const res = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-badphone@machine.test`,
+        order_number: `tm_ord_badphone_${randomUUID().slice(0, 6)}`,
+        phone: 5551234567,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("accepts all three valid funnel_slug values", async () => {
     for (const slug of ["yse-workshop", "yse-ebook", "your-second-engine"]) {
       const res = await authedPost(

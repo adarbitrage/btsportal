@@ -393,9 +393,9 @@ If it returns rows, **stop**. Do not auto-dedupe — bring the rows to the opera
 
 ## 2. Production seed — YSE products
 
-Apply the 5 YSE product rows to prod (slugs, prices, and entitlements are in the "Seeded YSE Products" section above). The seed script in `artifacts/api-server/src/seed.ts` already contains the idempotent block; running it against the prod DB inserts only the missing rows.
+**Automatic on api-server startup.** The api-server runs `seedYseProducts()` on boot (see `artifacts/api-server/src/lib/seed-yse-products.ts`, wired in `src/app.ts`). The function is idempotent (insert-if-missing on `slug`) and inserts any of the 5 YSE rows that aren't already present. No manual SQL is required — the next prod deploy of api-server will seed any missing rows.
 
-Verify after seeding that `yse_21_day_blitz` has `duration_days = NULL` (the product name is marketing-only; access is permanent).
+Verify after the first prod boot that `yse_21_day_blitz` has `duration_days = NULL` (the product name is marketing-only; access is permanent). If a previous deploy seeded it with `duration_days = 21`, see step 4 for the backfill.
 
 ## 3. Mint the production API key
 

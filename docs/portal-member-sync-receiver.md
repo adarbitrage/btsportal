@@ -86,15 +86,17 @@ The secret is plaintext on both sides; rotate by setting a new value in Portal's
 |---|---|---|---|
 | `order_number` | string | ✓ | Idempotency key. Stored as `webhook_logs.external_id = "machine_<order_number>"`. |
 | `email` | string (email) | ✓ | Normalized to lowercase. Drives merge-by-email. |
-| `first_name` | string | ✗ | |
-| `last_name` | string | ✗ | |
-| `phone` | string | ✗ | E.164 format recommended. |
+| `first_name` | string \| null | ✗ | |
+| `last_name` | string \| null | ✗ | |
+| `phone` | string \| null | ✗ | E.164 format recommended. |
 | `funnel_slug` | enum | ✓ | One of `yse-workshop`, `yse-ebook`, `your-second-engine`. |
-| `product_ids` | string[] | ✗ | Machine-side product ids; stored as metadata only. Does NOT affect what gets granted. |
-| `total_cents` | integer | ✗ | Stored as metadata. |
+| `product_ids` | string[] \| null | ✗ | Machine-side product ids; stored as metadata only. Does NOT affect what gets granted. |
+| `total_cents` | integer \| null | ✗ | Stored as metadata. |
 | `occurred_at` | string (ISO 8601) | ✓ | Original order timestamp. |
-| `tm_click_id` | string | ✗ | Stored as metadata. |
-| `tap_ref` | string | ✗ | Forwarded as `metadata.bts_ref` for affiliate commission attribution. |
+| `tm_click_id` | string \| null | ✗ | Stored as metadata. |
+| `tap_ref` | string \| null | ✗ | Forwarded as `metadata.bts_ref` for affiliate commission attribution. |
+
+**Optional field shape:** every field marked optional accepts **either** `null` **or** an omitted key — both mean "not provided" and are treated identically. You don't need to strip null fields from your serialized payload. Required fields (`order_number`, `email`, `funnel_slug`, `occurred_at`) must still be present and non-null.
 
 ---
 

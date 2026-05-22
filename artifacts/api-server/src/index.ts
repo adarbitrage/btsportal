@@ -21,6 +21,7 @@ import {
   stopRateLimitAuditFailureAlerter,
 } from "./lib/rate-limit-audit-failure-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
+import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 
 const rawPort = process.env["PORT"];
 
@@ -69,16 +70,30 @@ startYseGrantExhaustedAlerter();
 startAbuseRateLimitCleanupAlerter();
 startRateLimitAuditFailureAlerter();
 
-const server = app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  seedBlitzDocs().catch((err) => {
-    console.error("[Blitz Seed] Startup seed failed:", err);
+// Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
+// BEFORE accepting traffic so a fresh deploy can never race the
+// /api/integrations/machine-purchase endpoint. Drift in the prereqs is logged
+// loudly but does NOT block startup — the rest of the API surface still needs
+// to come up so other endpoints and the admin UI remain available for the
+// operator to investigate.
+let server: ReturnType<typeof app.listen> | null = null;
+(async () => {
+  try {
+    await bootstrapCriticalPrerequisites();
+  } catch (err) {
+    console.error("[Bootstrap] bootstrapCriticalPrerequisites threw — continuing startup:", err);
+  }
+  server = app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+    seedBlitzDocs().catch((err) => {
+      console.error("[Blitz Seed] Startup seed failed:", err);
+    });
   });
-});
+})();
 
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received — shutting down gracefully`);
-  server.close();
+  server?.close();
   await shutdown();
   await stopCommunicationWorkers();
   await shutdownSequenceEngine();

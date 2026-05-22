@@ -317,36 +317,56 @@ function validateMachinePurchaseBody(body: unknown):
   if (!b.occurred_at || typeof b.occurred_at !== "string" || isNaN(Date.parse(b.occurred_at as string))) {
     return { ok: false, message: "occurred_at is required and must be a valid ISO 8601 datetime string", details: { occurred_at: "required, ISO 8601" } };
   }
-  if (b.first_name !== undefined && typeof b.first_name !== "string") {
-    return { ok: false, message: "first_name must be a string when provided" };
+  // Optional fields: accept undefined, null, or a value of the expected type.
+  // Senders that emit JSON from a typed object frequently send `null` for
+  // missing optional fields rather than omitting them — both shapes mean
+  // "not provided" and are treated identically downstream.
+  const optStr = (v: unknown) => v === undefined || v === null || typeof v === "string";
+  if (!optStr(b.first_name)) {
+    return { ok: false, message: "first_name must be a string or null when provided" };
   }
-  if (b.last_name !== undefined && typeof b.last_name !== "string") {
-    return { ok: false, message: "last_name must be a string when provided" };
+  if (!optStr(b.last_name)) {
+    return { ok: false, message: "last_name must be a string or null when provided" };
   }
-  if (b.phone !== undefined && typeof b.phone !== "string") {
-    return { ok: false, message: "phone must be a string when provided" };
+  if (!optStr(b.phone)) {
+    return { ok: false, message: "phone must be a string or null when provided" };
   }
-  if (b.product_ids !== undefined && (!Array.isArray(b.product_ids) || b.product_ids.some((id) => typeof id !== "string"))) {
-    return { ok: false, message: "product_ids must be an array of strings when provided" };
+  if (!optStr(b.tm_click_id)) {
+    return { ok: false, message: "tm_click_id must be a string or null when provided" };
   }
-  if (b.total_cents !== undefined && (typeof b.total_cents !== "number" || !Number.isInteger(b.total_cents))) {
-    return { ok: false, message: "total_cents must be an integer when provided" };
+  if (!optStr(b.tap_ref)) {
+    return { ok: false, message: "tap_ref must be a string or null when provided" };
   }
+  if (b.product_ids !== undefined && b.product_ids !== null) {
+    if (!Array.isArray(b.product_ids) || b.product_ids.some((id) => typeof id !== "string")) {
+      return { ok: false, message: "product_ids must be an array of strings or null when provided" };
+    }
+  }
+  if (b.total_cents !== undefined && b.total_cents !== null) {
+    if (typeof b.total_cents !== "number" || !Number.isInteger(b.total_cents)) {
+      return { ok: false, message: "total_cents must be an integer or null when provided" };
+    }
+  }
+
+  // Coerce null → undefined on the way out so downstream code sees a single
+  // "not provided" shape regardless of which sender style produced it.
+  const orUndef = <T,>(v: unknown): T | undefined =>
+    v === undefined || v === null ? undefined : (v as T);
 
   return {
     ok: true,
     data: {
       order_number: (b.order_number as string).trim(),
       email: (b.email as string).toLowerCase().trim(),
-      first_name: b.first_name as string | undefined,
-      last_name: b.last_name as string | undefined,
-      phone: b.phone as string | undefined,
+      first_name: orUndef<string>(b.first_name),
+      last_name: orUndef<string>(b.last_name),
+      phone: orUndef<string>(b.phone),
       funnel_slug: b.funnel_slug as MachineFunnelSlug,
-      product_ids: b.product_ids as string[] | undefined,
-      total_cents: b.total_cents as number | undefined,
+      product_ids: orUndef<string[]>(b.product_ids),
+      total_cents: orUndef<number>(b.total_cents),
       occurred_at: b.occurred_at as string,
-      tm_click_id: b.tm_click_id as string | undefined,
-      tap_ref: b.tap_ref as string | undefined,
+      tm_click_id: orUndef<string>(b.tm_click_id),
+      tap_ref: orUndef<string>(b.tap_ref),
     },
   };
 }
