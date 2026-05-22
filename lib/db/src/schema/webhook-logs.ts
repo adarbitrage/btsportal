@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const webhookLogsTable = pgTable("webhook_logs", {
   id: serial("id").primaryKey(),
-  externalId: text("external_id").notNull(),
+  externalId: text("external_id").notNull().unique(),
   eventType: text("event_type").notNull(),
   status: text("status").notNull().default("received"),
   payload: jsonb("payload").notNull(),
