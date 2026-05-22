@@ -78,6 +78,7 @@ export default function MemberDetail() {
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const [forceVerifying, setForceVerifying] = useState(false);
   const [forceVerifyConfirmOpen, setForceVerifyConfirmOpen] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page. Ordinary audit rows live for ~90 days, but
@@ -482,6 +483,21 @@ export default function MemberDetail() {
     }
   };
 
+  const handleResendInvite = async () => {
+    try {
+      setResendingInvite(true);
+      await adminPanelApi.resendMemberInvite(memberId);
+      toast({
+        title: "Invite sent",
+        description: "The member will receive a fresh password-setup link.",
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setResendingInvite(false);
+    }
+  };
+
   const handleForceVerifyEmail = async () => {
     try {
       setForceVerifying(true);
@@ -756,6 +772,41 @@ export default function MemberDetail() {
                     </DialogContent>
                   </Dialog>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {canEditMembers && (
+          <Card data-testid="card-account-access">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <KeyRound className="w-4 h-4" />
+                Account access
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm">Resend password-setup email</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sends the member a fresh link to set (or reset) their password. Use this if their original invite expired or they can't get into their account.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResendInvite}
+                  disabled={resendingInvite}
+                  data-testid="button-resend-invite"
+                >
+                  {resendingInvite ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="w-3 h-3 mr-1" />
+                  )}
+                  {resendingInvite ? "Sending…" : "Resend invite"}
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -956,6 +956,15 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async resendMemberInvite(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/resend-invite`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to resend invite");
+    }
+    return res.json() as Promise<{ success: true; id: number }>;
+  },
+
   async createMember(input: { email: string; name: string }) {
     const res = await authFetch(`/admin/members`, { method: "POST", body: JSON.stringify(input) });
     if (!res.ok) {

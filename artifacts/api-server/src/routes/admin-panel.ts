@@ -2194,6 +2194,61 @@ router.post("/admin/members", requirePermission("members:edit"), async (req: Req
   }
 });
 
+// Re-send the password-setup / password-reset email to an existing member.
+// Useful when the original invite (from POST /admin/members) expired before
+// the new member clicked it, or when a member is stuck and can't trigger
+// /auth/forgot-password themselves (e.g. they don't remember their email,
+// or rate limits are biting). Always mints a FRESH token — any previous
+// reset token is invalidated — and uses the same `password_reset` template
+// the public forgot-password flow uses.
+router.post("/admin/members/:id/resend-invite", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await db
+      .update(usersTable)
+      .set({ resetToken: resetTokenHash, resetTokenExpires: resetExpires })
+      .where(eq(usersTable.id, id));
+
+    console.log(`[Admin] Resent invite (password_reset) to member id=${id}`);
+    await CommunicationService.sendEmailNow({
+      templateSlug: "password_reset",
+      to: member.email,
+      variables: { member_name: member.name, reset_token: resetToken },
+      userId: member.id,
+    }).catch((err) =>
+      console.error("[Admin] Failed to resend invite email:", err),
+    );
+
+    await logAdminAction(
+      req,
+      "resend_invite",
+      "user",
+      String(id),
+      `Resent password-setup email to member ${member.email}`,
+      undefined,
+      { memberEmail: member.email },
+    );
+
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error("[Admin] Resend invite error:", error);
+    res.status(500).json({ error: "Failed to resend invite" });
+  }
+});
+
 router.post("/admin/members/:id/force-verify", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);

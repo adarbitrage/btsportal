@@ -150,6 +150,12 @@ const DESCRIPTION_REWRITERS: Record<string, (description: string) => string> = {
       /^(Created member ).+?( via admin panel .+)$/,
       `$1${REDACTED_RECIPIENT}$2`,
     ),
+  // "Resent password-setup email to member jane@example.com"
+  resend_invite: (d) =>
+    d.replace(
+      /^(Resent password-setup email to member ).+$/,
+      `$1${REDACTED_RECIPIENT}`,
+    ),
 };
 
 const PII_BEARING_ACTION_TYPES = new Set<string>(
