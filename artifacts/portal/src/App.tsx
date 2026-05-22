@@ -57,9 +57,6 @@ import GhlDashboard from "@/pages/admin/GhlDashboard";
 import GhlContacts from "@/pages/admin/GhlContacts";
 import GhlConfig from "@/pages/admin/GhlConfig";
 import AdminApiKeys from "@/pages/AdminApiKeys";
-import CommissionsDashboard from "@/pages/commissions/CommissionsDashboard";
-import CommissionsResources from "@/pages/commissions/CommissionsResources";
-import CommissionsRates from "@/pages/commissions/CommissionsRates";
 import ChatAnalytics from "@/pages/admin/ChatAnalytics";
 import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
@@ -355,9 +352,6 @@ function Router() {
       <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
-      <Route path="/commissions">{() => <EntitlementRoute component={CommissionsDashboard} entitlement="commissions:*" />}</Route>
-      <Route path="/commissions/resources">{() => <EntitlementRoute component={CommissionsResources} entitlement="commissions:*" />}</Route>
-      <Route path="/commissions/rates">{() => <EntitlementRoute component={CommissionsRates} entitlement="commissions:*" />}</Route>
       <Route path="/wins">{() => <ProtectedRoute component={WinsWall} />}</Route>
       <Route path="/wins/submit">{() => <ProtectedRoute component={WinSubmit} />}</Route>
       <Route path="/wins/mine">{() => <ProtectedRoute component={MyWins} />}</Route>

@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { CommissionsSummaryWidget } from "@/components/commissions/CommissionsSummaryWidget";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
@@ -19,7 +18,6 @@ export default function Dashboard() {
   const { data: member } = useGetCurrentMember();
   const [, navigate] = useLocation();
   const memberEntitlements = new Set(member?.entitlements ?? []);
-  const hasCommissions = Array.from(memberEntitlements).some((e: string) => e.startsWith("commissions:"));
   const hasLifetime = (member?.sourceProduct ?? "free") === "lifetime";
   const { data: vaultStats } = useVaultStats();
 
@@ -197,7 +195,6 @@ export default function Dashboard() {
             {(Array.from(memberEntitlements).some((e: string) => e.startsWith("coaching:one_on_one:"))) && (
               <CoachingDashboardWidget />
             )}
-            {hasCommissions && <CommissionsSummaryWidget />}
             {dashboard.recentTools && dashboard.recentTools.length > 0 && (
               <Card>
                 <CardHeader className="pb-4 border-b border-border/50">

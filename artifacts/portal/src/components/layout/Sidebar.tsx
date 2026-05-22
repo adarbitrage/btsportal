@@ -145,7 +145,6 @@ const MEMBER_NAV: NavNode[] = [
     icon: DollarSign,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/commissions", label: "Commissions", icon: DollarSign, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
       { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus },
