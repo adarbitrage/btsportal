@@ -357,6 +357,48 @@ const blitzCSS = `.blitz-content{
     z-index: 10;
   }
   .blitz-content .vd-lightbox-close:hover{ opacity: 1; }
+  .blitz-content .vd-lightbox-fullscreen{
+    position: absolute;
+    top: -38px;
+    right: 44px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.35rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+    opacity: .8;
+    z-index: 10;
+  }
+  .blitz-content .vd-lightbox-fullscreen:hover{ opacity: 1; }
+  /* When the lightbox-inner is the fullscreen element, paint a solid
+     background behind the 16:9 video so the surrounding area isn't white,
+     and pin the close/fullscreen buttons inside the viewport (the original
+     top:-38px puts them above the visible area in fullscreen). */
+  .blitz-content .vd-lightbox-inner:fullscreen{
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  .blitz-content .vd-lightbox-inner:fullscreen .vd-lightbox-video{
+    width: min(100vw, calc(100vh * 16 / 9));
+    padding-top: 0;
+    aspect-ratio: 16 / 9;
+  }
+  .blitz-content .vd-lightbox-inner:fullscreen .vd-lightbox-close{
+    top: 12px;
+    right: 16px;
+  }
+  .blitz-content .vd-lightbox-inner:fullscreen .vd-lightbox-fullscreen{
+    top: 12px;
+    right: 56px;
+  }
   .blitz-content .vd-lightbox-video{
     width: 100%;
     position: relative;
@@ -1685,6 +1727,7 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- VIDALYTICS LIGHTBOX -->
 <div class="vd-lightbox-overlay" id="vdLightbox">
   <div class="vd-lightbox-inner">
+    <button class="vd-lightbox-fullscreen" id="vdFullscreen" aria-label="Toggle fullscreen" title="Fullscreen (f)">⛶</button>
     <button class="vd-lightbox-close" id="vdClose" aria-label="Close video">&times;</button>
     <div class="vd-lightbox-video" id="vdVideoContainer"></div>
   </div>
@@ -1820,6 +1863,8 @@ export default function Blitz() {
     const overlay = contentEl.querySelector<HTMLElement>("#vdLightbox");
     const container = contentEl.querySelector<HTMLElement>("#vdVideoContainer");
     const closeBtn = contentEl.querySelector<HTMLElement>("#vdClose");
+    const fsBtn = contentEl.querySelector<HTMLElement>("#vdFullscreen");
+    const inner = overlay?.querySelector<HTMLElement>(".vd-lightbox-inner") ?? null;
     if (!overlay || !container) return;
 
     // Re-parent the overlay to <body> so its `position: fixed` is always
@@ -1934,20 +1979,54 @@ export default function Blitz() {
       if (e.target === overlay) close();
     };
 
+    const toggleFullscreen = () => {
+      if (!inner) return;
+      // Browsers reject requestFullscreen if the lightbox isn't visible —
+      // guard so the keyboard shortcut is a no-op when the modal is closed.
+      if (!overlay.classList.contains("active")) return;
+      const fsEl = document.fullscreenElement;
+      if (fsEl) {
+        document.exitFullscreen?.().catch(() => { /* user-gesture / permission denied */ });
+      } else {
+        inner.requestFullscreen?.().catch(() => { /* user-gesture / permission denied */ });
+      }
+    };
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && overlay.classList.contains("active")) close();
+      if (!overlay.classList.contains("active")) return;
+      if (e.key === "Escape") {
+        // Browser handles ESC for fullscreen exit automatically; only close
+        // the lightbox when we aren't in fullscreen mode.
+        if (!document.fullscreenElement) close();
+        return;
+      }
+      if (e.key === "f" || e.key === "F") {
+        // Don't hijack typing inside form fields.
+        const t = e.target as HTMLElement | null;
+        const tag = t?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+        e.preventDefault();
+        toggleFullscreen();
+      }
     };
 
     document.addEventListener("click", onContentClick);
     overlay.addEventListener("click", onOverlayClick);
     closeBtn?.addEventListener("click", close);
+    fsBtn?.addEventListener("click", toggleFullscreen);
     document.addEventListener("keydown", onKey);
 
     return () => {
       document.removeEventListener("click", onContentClick);
       overlay.removeEventListener("click", onOverlayClick);
       closeBtn?.removeEventListener("click", close);
+      fsBtn?.removeEventListener("click", toggleFullscreen);
       document.removeEventListener("keydown", onKey);
+      // Exit fullscreen on unmount so a route-change while fullscreened
+      // doesn't leave the user stuck on a torn-down element.
+      if (document.fullscreenElement === inner) {
+        document.exitFullscreen?.().catch(() => { /* ignore */ });
+      }
       // Full teardown: if the lightbox unmounts while open (e.g. route change),
       // tear down the player + remove owned scripts + reset globals.
       close();
