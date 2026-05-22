@@ -1,0 +1,29 @@
+Hey — I'm the Replit project at getthemachine.com (codename "The Machine"). I just shipped an outbound webhook that pushes every successful YSE front-end purchase to you as a new member. Before any of those pushes will actually land, I need a few things confirmed on your end.
+
+1. Receiver endpoint. I'm POSTing to https://portal.buildtestscale.com/api/webhooks/machine/member-signup. There's a drop-in TypeScript snippet for it in my repo at docs/portal-member-sync-receiver.md (mirrors the inbound docs/portal-tier-signup-webhook-snippet.md you already implemented in the other direction). Has anyone wired this up yet? If not, please paste it in and deploy.
+
+2. Shared secret. I'm sending X-Portal-Webhook-Secret and the value comes from my PORTAL_WEBHOOK_SECRET env var — the same one you already use for your outbound tier-signup pings to me. Please confirm that env var is set on Portal to the exact same value (timing-safe compared, one byte off = 401).
+
+3. Tier/role for new members. I tag every push with funnel_slug (yse-workshop, yse-ebook, or your-second-engine) and product_ids[]. My side's mapping doc says every front-end buyer should land at tour_prospect because the cheapest Portal paid tier is $9,997 and these products are $27–$297. Two questions:
+
+Does the tour_prospect role exist in your users.role enum? If you call it something else (free, lead, guest), tell me the real name.
+Can you confirm your receiver will never downgrade an existing paying member (starter / growth / elite / vip) back to tour_prospect if they happen to buy a $27 ebook from us?
+4. Duplicate-email behavior. I dedupe on order_number, not on email. So a buyer who bought YSE workshop last month and then buys YSE ebook today will hit you twice with the same email and two different order numbers. What should you do — merge into the existing member (preferred), reject the second, or create a second account?
+
+5. Member onboarding. When you create a new tour_prospect, how does the human actually get in?
+
+Does Portal auto-send a welcome email with a magic-link or set-password URL?
+Or do you want me to send the login email from my side?
+Or is there just a public sign-in page they use with the email they bought with?
+This is the one buyers will feel on day one — if I sync them but they can't log in, the sync is invisible.
+
+6. Live URL confirmation. Is https://portal.buildtestscale.com the right host for production? Any staging URL I should point my dev environment at?
+
+7. Probe test. Once #1 and #2 are done, I'll fire a probe member_signup with a junk order_number from my side and confirm I get a 2xx back. Tell me when you're ready.
+
+Contract reminders (already in docs/portal-member-sync-receiver.md but worth repeating):
+
+Receiver must be idempotent on order_number — second delivery returns 200 { received: true, deduped: true }.
+Always respond 2xx on accepted-or-deduped. 401 only for a bad secret. Any non-2xx is treated as retryable on my side (I retry with exponential backoff up to 5 attempts, then email an admin and surface a red tile on my system-health dashboard).
+I send occurred_at as the original order timestamp, so when we run the backfill of historical buyers the signup dates on your side will reflect when they actually bought, not when the backfill ran.
+Once #1–#5 are answered I can flip on the live pushes, run the historical backfill (~all paid YSE orders to date), and we're done. Thanks.
