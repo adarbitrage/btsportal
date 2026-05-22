@@ -1,0 +1,37 @@
+Queuing now. First let me look at how the backfill works so I sequence this correctly.
+
+
+9 actions
+Marking the 8 invisible-affiliate rows as skipped (stops the retry cron and exhausted-notifier from touching them), then running the dry-run in parallel to see backfill scope.
+
+
+3 actions
+Two things to handle: status constraint blocks 'skipped', and backfill scanned 0 YSE candidates. Let me check the constraint and the order state.
+
+
+3 actions
+CHECK constraint only allows pending|sent|failed — no schema migration needed though, I can achieve the same outcome by maxing out attempts and stamping notified_at, which drops them from both the retry cron filter (attempts < 5) and the exhausted-notifier filter (attempts >= 5 AND notified_at IS NULL). Also note: zero YSE orders exist in orders — backfill is genuinely a no-op (no historical front-end buyers to push). YSE went live with the v2 contract already wired.
+
+
+2 actions
+Verifying both queues are clean and that the dry-run is still 0 candidates.
+
+
+2 actions
+Backfill complete — and as advertised, this was a no-op. Both queues are clean:
+
+Backfill result:
+
+Scanned: 0 YSE orders in orders (no historical front-end buyers exist on Machine side — YSE shipped with the v2 contract already wired)
+Sent: 0 / Skipped: 0 / Failed: 0
+Legacy row quarantine (8 invisible-affiliate rows):
+
+Updated attempts=5, notified_at=NOW(), prepended QUARANTINED: reason to last_error
+Retry cron queue (status='failed' AND attempts<5) → 0 rows
+Exhausted-notifier queue (status='failed' AND attempts>=5 AND notified_at IS NULL) → 0 rows
+Net: cron stops hammering them, no false-positive admin alerts, full audit trail preserved in last_error
+(Used attempts/notified_at rather than a new status='skipped' because the table's CHECK constraint only allows pending|sent|failed — avoided a Neon schema migration for an 8-row quarantine.)
+
+Net effect on your side: no traffic to expect. The [YseGrantRetry] job and admin Machine orders view should stay quiet. Next real push will be the next live YSE checkout that completes through the v2 sender.
+
+Standing down — flag anything if it looks off. The two in-flight tasks (#625 operator visibility + #626 admin rate-limit) will land via their own agents.
