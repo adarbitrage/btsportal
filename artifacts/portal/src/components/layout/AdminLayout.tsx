@@ -38,6 +38,7 @@ const adminNavGroups: NavGroup[] = [
     label: "Integrations",
     items: [
       { href: "/admin/integrations/yse", label: "YSE Orders", icon: ShoppingCart },
+      { href: "/admin/integrations/machine", label: "Machine Orders", icon: ShoppingCart },
       { href: "/admin/integrations/yse/failures", label: "YSE Grant Failures", icon: AlertTriangle },
     ],
   },

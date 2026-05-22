@@ -442,6 +442,7 @@ function Router() {
       <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="revenue:view" />}</Route>
       <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>
       <Route path="/admin/integrations/yse">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
+      <Route path="/admin/integrations/machine">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/yse/failures">{() => <AdminRoute component={YseGrantFailures} permission="system:view" />}</Route>
       <Route component={NotFound} />
     </Switch>

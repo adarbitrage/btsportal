@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable } from "@workspace/db";
+import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
@@ -4180,12 +4180,33 @@ router.get(
   },
 );
 
-// ─── YSE order history ───────────────────────────────────────────────────────
+// ─── External-integration order history ──────────────────────────────────────
 // Lists grants that came in through the external grant-product endpoint,
 // grouped per (externalSource, externalOrderId, userId) so a single order
 // that provisioned multiple products renders as one row with all product
-// names. Defaults to externalSource = "yse" but accepts a `source` query
-// param so this same view can be reused for future integration sources.
+// names. Defaults to externalSource = "yse" for backwards compatibility, but
+// accepts a `source` query param (single value, comma-separated list, or the
+// special value "any") so the same view powers YSE, Machine (getthemachine.com),
+// and any future integration sources. The Machine integration also stores the
+// originating `tap_ref` as `metadata.bts_ref` and the funnel as
+// `metadata.funnel_slug` on the webhook_logs payload — both are surfaced
+// alongside each order so staff can attribute / filter by affiliate code.
+const KNOWN_EXTERNAL_SOURCES = ["yse", "machine"] as const;
+
+function parseSourceParam(source: unknown): string[] {
+  if (typeof source !== "string") return ["yse"];
+  const trimmed = source.trim();
+  if (trimmed === "" || trimmed.toLowerCase() === "yse") return ["yse"];
+  if (trimmed.toLowerCase() === "any" || trimmed.toLowerCase() === "all") {
+    return [...KNOWN_EXTERNAL_SOURCES];
+  }
+  const parts = trimmed
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return parts.length > 0 ? parts : ["yse"];
+}
+
 router.get(
   "/admin/integrations/yse/orders",
   requirePermission("members:view"),
@@ -4196,6 +4217,7 @@ router.get(
         limit = "20",
         search,
         source = "yse",
+        btsRef,
       } = req.query;
       const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
       const limitNum = Math.min(
@@ -4204,13 +4226,16 @@ router.get(
       );
       const offset = (pageNum - 1) * limitNum;
 
-      const sourceStr =
-        typeof source === "string" && source.trim() !== ""
-          ? source.trim()
-          : "yse";
+      const sources = parseSourceParam(source);
+      const btsRefStr =
+        typeof btsRef === "string" && btsRef.trim() !== ""
+          ? btsRef.trim()
+          : null;
 
       const conditions: SQL[] = [
-        eq(userProductsTable.externalSource, sourceStr),
+        sources.length === 1
+          ? eq(userProductsTable.externalSource, sources[0])
+          : inArray(userProductsTable.externalSource, sources),
         isNotNull(userProductsTable.externalOrderId),
       ];
 
@@ -4221,6 +4246,20 @@ router.get(
             ilike(userProductsTable.externalOrderId, term),
             ilike(usersTable.email, term),
           )!,
+        );
+      }
+
+      // bts_ref / funnel_slug live on the webhook_logs payload (json),
+      // keyed by external_id = `${externalSource}_${externalOrderId}`.
+      // Left-join so YSE rows (which don't always have a webhook_logs row
+      // for the same external_id pattern) still render.
+      const webhookExternalId = sql<string>`${userProductsTable.externalSource} || '_' || ${userProductsTable.externalOrderId}`;
+      const btsRefExpr = sql<string | null>`max(${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref')`;
+      const funnelSlugExpr = sql<string | null>`max(${webhookLogsTable.payload} -> 'metadata' ->> 'funnel_slug')`;
+
+      if (btsRefStr) {
+        conditions.push(
+          sql`${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref' = ${btsRefStr}`,
         );
       }
 
@@ -4247,14 +4286,20 @@ router.get(
           // so the pair always stays together — earlier versions used two
           // separate array_aggs with different ORDER BYs, which could zip
           // a slug onto the wrong name when alphabetical order diverged.
-          products: sql<Array<{ name: string; slug: string }>>`json_agg(json_build_object('name', ${productsTable.name}, 'slug', ${productsTable.slug}) order by ${productsTable.name})`,
-          productCount: sql<number>`count(*)`,
+          products: sql<Array<{ name: string; slug: string }>>`json_agg(distinct jsonb_build_object('name', ${productsTable.name}, 'slug', ${productsTable.slug}))`,
+          productCount: sql<number>`count(distinct ${productsTable.id})`,
+          btsRef: btsRefExpr,
+          funnelSlug: funnelSlugExpr,
         })
         .from(userProductsTable)
         .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
         .innerJoin(
           productsTable,
           eq(userProductsTable.productId, productsTable.id),
+        )
+        .leftJoin(
+          webhookLogsTable,
+          eq(webhookLogsTable.externalId, webhookExternalId),
         )
         .where(whereClause)
         .groupBy(
@@ -4285,6 +4330,10 @@ router.get(
               usersTable,
               eq(userProductsTable.userId, usersTable.id),
             )
+            .leftJoin(
+              webhookLogsTable,
+              eq(webhookLogsTable.externalId, webhookExternalId),
+            )
             .where(whereClause)
             .as("distinct_orders"),
         );
@@ -4303,7 +4352,7 @@ router.get(
         const wasNewUser =
           !!grantedAt &&
           !!userCreatedAt &&
-          r.userSourceProduct === sourceStr &&
+          r.userSourceProduct === r.externalSource &&
           Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
 
         return {
@@ -4316,6 +4365,8 @@ router.get(
           products: Array.isArray(r.products) ? r.products : [],
           productCount: Number(r.productCount || 0),
           wasNewUser,
+          btsRef: r.btsRef ?? null,
+          funnelSlug: r.funnelSlug ?? null,
         };
       });
 
@@ -4331,8 +4382,8 @@ router.get(
         },
       });
     } catch (error) {
-      console.error("[Admin] YSE orders list error:", error);
-      res.status(500).json({ error: "Failed to fetch YSE orders" });
+      console.error("[Admin] External orders list error:", error);
+      res.status(500).json({ error: "Failed to fetch external orders" });
     }
   },
 );
@@ -4349,15 +4400,18 @@ router.get(
   requirePermission("members:view"),
   async (req: Request, res: Response) => {
     try {
-      const { search, source = "yse" } = req.query;
+      const { search, source = "yse", btsRef } = req.query;
 
-      const sourceStr =
-        typeof source === "string" && source.trim() !== ""
-          ? source.trim()
-          : "yse";
+      const sources = parseSourceParam(source);
+      const btsRefStr =
+        typeof btsRef === "string" && btsRef.trim() !== ""
+          ? btsRef.trim()
+          : null;
 
       const conditions: SQL[] = [
-        eq(userProductsTable.externalSource, sourceStr),
+        sources.length === 1
+          ? eq(userProductsTable.externalSource, sources[0])
+          : inArray(userProductsTable.externalSource, sources),
         isNotNull(userProductsTable.externalOrderId),
       ];
 
@@ -4371,6 +4425,12 @@ router.get(
         );
       }
 
+      if (btsRefStr) {
+        conditions.push(
+          sql`${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref' = ${btsRefStr}`,
+        );
+      }
+
       const whereClause = and(...conditions);
 
       // One row per (order, product). Mirrors the read endpoint's
@@ -4378,6 +4438,7 @@ router.get(
       // source and the grant landed within ~60s of account creation)
       // so the CSV row's `was_new_user` column lines up with what the
       // admin saw in the UI before clicking Export.
+      const webhookExternalId = sql<string>`${userProductsTable.externalSource} || '_' || ${userProductsTable.externalOrderId}`;
       const rows = await db
         .select({
           externalOrderId: userProductsTable.externalOrderId,
@@ -4388,6 +4449,8 @@ router.get(
           purchasedAt: userProductsTable.purchasedAt,
           productSlug: productsTable.slug,
           productName: productsTable.name,
+          btsRef: sql<string | null>`${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref'`,
+          funnelSlug: sql<string | null>`${webhookLogsTable.payload} -> 'metadata' ->> 'funnel_slug'`,
         })
         .from(userProductsTable)
         .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
@@ -4395,27 +4458,32 @@ router.get(
           productsTable,
           eq(userProductsTable.productId, productsTable.id),
         )
+        .leftJoin(
+          webhookLogsTable,
+          eq(webhookLogsTable.externalId, webhookExternalId),
+        )
         .where(whereClause)
         .orderBy(
           desc(userProductsTable.purchasedAt),
           asc(productsTable.name),
         );
 
+      const filenameSource = sources.length === 1 ? sources[0] : "external";
       await logAdminAction(
         req,
         "export_data",
-        "yse_orders",
+        "external_orders",
         undefined,
-        `Exported ${rows.length} YSE order/product rows`,
+        `Exported ${rows.length} ${filenameSource} order/product rows`,
       );
 
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=${sourceStr}-orders-export.csv`,
+        `attachment; filename=${filenameSource}-orders-export.csv`,
       );
       res.write(
-        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user\n",
+        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug\n",
       );
 
       for (const r of rows) {
@@ -4426,7 +4494,7 @@ router.get(
         const wasNewUser =
           !!grantedAt &&
           !!userCreatedAt &&
-          r.userSourceProduct === sourceStr &&
+          r.userSourceProduct === r.externalSource &&
           Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
 
         res.write(
@@ -4438,6 +4506,8 @@ router.get(
             r.productName ?? "",
             grantedAt ? grantedAt.toISOString() : "",
             wasNewUser ? "true" : "false",
+            r.btsRef ?? "",
+            r.funnelSlug ?? "",
           ]
             .map(csvEscape)
             .join(",") + "\n",
@@ -4446,9 +4516,9 @@ router.get(
 
       res.end();
     } catch (error) {
-      console.error("[Admin] YSE orders export error:", error);
+      console.error("[Admin] External orders export error:", error);
       if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to export YSE orders" });
+        res.status(500).json({ error: "Failed to export external orders" });
       } else {
         res.end();
       }

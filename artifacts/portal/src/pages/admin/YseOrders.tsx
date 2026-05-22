@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,35 @@ type RetryStatus = Awaited<
   ReturnType<typeof adminPanelApi.getYsePendingGrants>
 >["status"];
 
+type SourceFilter = "yse" | "machine" | "any";
+
+const SOURCE_LABELS: Record<string, string> = {
+  yse: "YSE",
+  machine: "Machine",
+};
+
+function sourceBadgeVariant(
+  source: string,
+): "default" | "secondary" | "outline" | "warning" {
+  if (source === "machine") return "warning";
+  if (source === "yse") return "default";
+  return "secondary";
+}
+
 export default function YseOrders() {
+  const [location] = useLocation();
+  // Source is driven by the URL: /admin/integrations/machine → "machine",
+  // /admin/integrations/yse → "yse". Keep them as separate routes so the
+  // sidebar entry can deep-link and bookmarks stay stable, while reusing
+  // the same component + endpoint behind the scenes.
+  const initialSource: SourceFilter = useMemo(() => {
+    if (location.startsWith("/admin/integrations/machine")) return "machine";
+    return "yse";
+  }, [location]);
+
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(initialSource);
+  const [btsRef, setBtsRef] = useState("");
+
   const [orders, setOrders] = useState<YseOrder[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -83,13 +111,15 @@ export default function YseOrders() {
       const data = await adminPanelApi.getYseOrders({
         page,
         search: search.trim() || undefined,
+        source: sourceFilter,
+        btsRef: btsRef.trim() || undefined,
       });
       setOrders(data.orders);
       setPagination(data.pagination);
     } catch (err: unknown) {
       toast({
         title: "Error",
-        description: errorMessage(err, "Failed to load YSE orders"),
+        description: errorMessage(err, "Failed to load orders"),
         variant: "destructive",
       });
     } finally {
@@ -136,10 +166,15 @@ export default function YseOrders() {
     setExportProgress({ bytesReceived: 0, rowsReceived: null });
     try {
       const { blob } = await adminPanelApi.exportYseOrders(
-        { search: search.trim() || undefined },
+        {
+          search: search.trim() || undefined,
+          source: sourceFilter,
+          btsRef: btsRef.trim() || undefined,
+        },
         (progress) => setExportProgress(progress),
       );
-      saveBlobAsFile(blob, "yse-orders-export.csv");
+      const filenameSource = sourceFilter === "any" ? "external" : sourceFilter;
+      saveBlobAsFile(blob, `${filenameSource}-orders-export.csv`);
       toast({ title: "Export complete" });
     } catch (err: unknown) {
       toast({
@@ -153,7 +188,15 @@ export default function YseOrders() {
   };
 
   useEffect(() => {
-    load();
+    setSourceFilter(initialSource);
+  }, [initialSource]);
+
+  useEffect(() => {
+    load(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceFilter]);
+
+  useEffect(() => {
     loadPending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -171,10 +214,19 @@ export default function YseOrders() {
               className="text-2xl font-bold flex items-center gap-2"
               data-testid="heading-yse-orders"
             >
-              <ShoppingBag className="w-6 h-6" /> YSE Order History
+              <ShoppingBag className="w-6 h-6" />{" "}
+              {sourceFilter === "machine"
+                ? "Machine Order History"
+                : sourceFilter === "any"
+                  ? "External Order History"
+                  : "YSE Order History"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Grants provisioned through the YSE integration, most recent first.
+              {sourceFilter === "machine"
+                ? "Grants provisioned through the Machine (getthemachine.com) integration, most recent first."
+                : sourceFilter === "any"
+                  ? "Grants from every external integration, most recent first."
+                  : "Grants provisioned through the YSE integration, most recent first."}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -233,8 +285,8 @@ export default function YseOrders() {
           <TabsContent value="granted" className="space-y-6">
             <Card>
               <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
+                <div className="flex flex-wrap gap-3">
+                  <div className="relative flex-1 min-w-[240px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       value={search}
@@ -245,6 +297,26 @@ export default function YseOrders() {
                       data-testid="input-yse-search"
                     />
                   </div>
+                  <Input
+                    value={btsRef}
+                    onChange={(e) => setBtsRef(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    placeholder="Affiliate code (bts_ref)…"
+                    className="w-56"
+                    data-testid="input-yse-bts-ref"
+                  />
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) =>
+                      setSourceFilter(e.target.value as SourceFilter)
+                    }
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    data-testid="select-yse-source"
+                  >
+                    <option value="yse">Source: YSE</option>
+                    <option value="machine">Source: Machine</option>
+                    <option value="any">Source: All</option>
+                  </select>
                   <Button onClick={handleSearch} data-testid="button-yse-search">
                     Search
                   </Button>
@@ -263,7 +335,7 @@ export default function YseOrders() {
                     className="p-8 text-center text-muted-foreground"
                     data-testid="text-yse-empty"
                   >
-                    No YSE orders found
+                    No orders found
                   </div>
                 ) : (
                   <table className="w-full">
@@ -273,10 +345,16 @@ export default function YseOrders() {
                           Order ID
                         </th>
                         <th className="p-4 text-xs font-medium text-muted-foreground">
+                          Source
+                        </th>
+                        <th className="p-4 text-xs font-medium text-muted-foreground">
                           Customer
                         </th>
                         <th className="p-4 text-xs font-medium text-muted-foreground">
                           Products
+                        </th>
+                        <th className="p-4 text-xs font-medium text-muted-foreground">
+                          Affiliate / Funnel
                         </th>
                         <th className="p-4 text-xs font-medium text-muted-foreground">
                           Granted
@@ -296,6 +374,16 @@ export default function YseOrders() {
                         >
                           <td className="p-4 text-sm font-mono">
                             {o.externalOrderId}
+                          </td>
+                          <td className="p-4">
+                            <Badge
+                              variant={sourceBadgeVariant(o.externalSource)}
+                              className="text-[10px]"
+                              data-testid={`badge-source-${o.externalOrderId}`}
+                            >
+                              {SOURCE_LABELS[o.externalSource] ||
+                                o.externalSource}
+                            </Badge>
                           </td>
                           <td className="p-4 text-sm">
                             <div className="font-medium">
@@ -317,6 +405,26 @@ export default function YseOrders() {
                                 </Badge>
                               ))}
                             </div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            {o.btsRef ? (
+                              <div
+                                className="font-mono"
+                                data-testid={`text-bts-ref-${o.externalOrderId}`}
+                              >
+                                {o.btsRef}
+                              </div>
+                            ) : (
+                              <div className="text-muted-foreground">—</div>
+                            )}
+                            {o.funnelSlug && (
+                              <div
+                                className="text-muted-foreground mt-1"
+                                data-testid={`text-funnel-slug-${o.externalOrderId}`}
+                              >
+                                {o.funnelSlug}
+                              </div>
+                            )}
                           </td>
                           <td className="p-4 text-sm text-muted-foreground">
                             {o.grantedAt

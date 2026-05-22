@@ -1324,6 +1324,7 @@ export const adminPanelApi = {
     limit?: number;
     search?: string;
     source?: string;
+    btsRef?: string;
   }): Promise<{
     orders: Array<{
       externalOrderId: string;
@@ -1335,6 +1336,8 @@ export const adminPanelApi = {
       products: Array<{ name: string; slug: string }>;
       productCount: number;
       wasNewUser: boolean;
+      btsRef: string | null;
+      funnelSlug: string | null;
     }>;
     pagination: {
       page: number;
@@ -1348,15 +1351,16 @@ export const adminPanelApi = {
     if (params.limit) qs.set("limit", String(params.limit));
     if (params.search) qs.set("search", params.search);
     if (params.source) qs.set("source", params.source);
+    if (params.btsRef) qs.set("btsRef", params.btsRef);
     const res = await authFetch(
       `/admin/integrations/yse/orders?${qs.toString()}`,
     );
-    if (!res.ok) throw new Error("Failed to fetch YSE orders");
+    if (!res.ok) throw new Error("Failed to fetch external orders");
     return res.json();
   },
 
   async exportYseOrders(
-    filters: { search?: string; source?: string } = {},
+    filters: { search?: string; source?: string; btsRef?: string } = {},
     onProgress?: (progress: StreamDownloadProgress) => void,
     signal?: AbortSignal,
   ): Promise<StreamDownloadResult> {
@@ -1364,11 +1368,12 @@ export const adminPanelApi = {
     qs.set("format", "csv");
     if (filters.search) qs.set("search", filters.search);
     if (filters.source) qs.set("source", filters.source);
+    if (filters.btsRef) qs.set("btsRef", filters.btsRef);
     const res = await authFetch(
       `/admin/integrations/yse/orders/export?${qs.toString()}`,
       { signal },
     );
-    if (!res.ok) throw new Error("Failed to export YSE orders");
+    if (!res.ok) throw new Error("Failed to export external orders");
     return streamDownload(res, "csv", onProgress);
   },
 
