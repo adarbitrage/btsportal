@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2, UserPlus } from "lucide-react";
 import { adminPanelApi, saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
 import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { format } from "date-fns";
 
 const SOURCE_ANY = "any";
@@ -33,7 +37,14 @@ export default function AdminMembers() {
   // submits) and surface a streamed bytes/rows hint while a wide member
   // export is being pulled down. `null` whenever no export is running.
   const [exportProgress, setExportProgress] = useState<StreamDownloadProgress | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const { user: currentUser } = useAuth();
+  const canCreateMembers = hasPermission(currentUser?.role, "members:edit");
 
   const load = async (page = 1) => {
     try {
@@ -66,6 +77,31 @@ export default function AdminMembers() {
   }, []);
 
   const handleSearch = () => { load(1); };
+
+  const handleCreate = async () => {
+    const email = newEmail.trim();
+    const name = newName.trim();
+    if (!email || !name) {
+      toast({ title: "Missing info", description: "Email and name are required.", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    try {
+      const result = await adminPanelApi.createMember({ email, name });
+      toast({
+        title: "Member created",
+        description: `Sent a password-setup email to ${result.email}.`,
+      });
+      setAddOpen(false);
+      setNewEmail("");
+      setNewName("");
+      navigate(`/admin/members/${result.id}`);
+    } catch (err: any) {
+      toast({ title: "Could not create member", description: err.message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleExport = async () => {
     // Belt-and-braces: the button is also disabled while an export runs,
@@ -110,6 +146,16 @@ export default function AdminMembers() {
                   rowsReceived: exportProgress.rowsReceived,
                 })}
               </span>
+            )}
+            {canCreateMembers && (
+              <Button
+                size="sm"
+                onClick={() => setAddOpen(true)}
+                data-testid="button-add-member"
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
+                Add Member
+              </Button>
             )}
             <Button
               variant="outline"
@@ -204,6 +250,61 @@ export default function AdminMembers() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={addOpen} onOpenChange={(open) => { if (!creating) setAddOpen(open); }}>
+          <DialogContent data-testid="dialog-add-member">
+            <DialogHeader>
+              <DialogTitle>Add a new member</DialogTitle>
+              <DialogDescription>
+                Creates the account and emails the member a link to set their own password.
+                Their email is marked verified — only add people you trust the address for.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-member-name">Name</Label>
+                <Input
+                  id="new-member-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Jane Doe"
+                  autoComplete="off"
+                  data-testid="input-new-member-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-member-email">Email</Label>
+                <Input
+                  id="new-member-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="jane@example.com"
+                  autoComplete="off"
+                  data-testid="input-new-member-email"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setAddOpen(false)}
+                disabled={creating}
+                data-testid="button-cancel-add-member"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreate}
+                disabled={creating}
+                data-testid="button-confirm-add-member"
+              >
+                {creating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
+                {creating ? "Creating…" : "Create & send invite"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {pagination.totalPages > 1 && (
           <div className="flex items-center justify-between">

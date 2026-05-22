@@ -1,4 +1,6 @@
 import { Router, type Request, type Response } from "express";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable } from "@workspace/db";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -2099,6 +2101,96 @@ router.post("/admin/members/:id/cancel-email-change", requirePermission("members
   } catch (error) {
     console.error("[Admin] Cancel email change error:", error);
     res.status(500).json({ error: "Failed to cancel pending email change" });
+  }
+});
+
+// Manually create a member from the admin panel. Used to onboard people who
+// haven't signed up themselves (e.g. someone paid via an off-platform channel,
+// or the public /register attempt never landed). Behavior:
+//   - Validates email + name.
+//   - Returns 409 if the email is already registered (admin needs to see this
+//     — unlike the public /auth/register path, which is intentionally
+//     non-enumerable for anonymous callers).
+//   - Creates the user with a random, unguessable password (the admin never
+//     sees it) and emailVerified=true (the admin is asserting they trust the
+//     address). Clicking the password-reset link is what actually proves the
+//     new member controls the inbox.
+//   - Sends the standard `password_reset` email so the new member can set
+//     their own password in one click — same template the forgot-password
+//     flow uses, so no new template work.
+//   - Writes an audit log entry tied to the actor admin.
+router.post("/admin/members", requirePermission("members:edit"), async (req: Request, res: Response) => {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    const rawName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!rawEmail || !rawName) { res.status(400).json({ error: "Email and name are required" }); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(rawEmail)) { res.status(400).json({ error: "Invalid email format" }); return; }
+    const email = rawEmail.toLowerCase();
+
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+    if (existing) { res.status(409).json({ error: "A member with that email already exists", id: existing.id }); return; }
+
+    // Random password the admin never sees. The member sets their real password
+    // via the password_reset email link below.
+    const randomPassword = crypto.randomBytes(32).toString("hex");
+    const passwordHash = await bcrypt.hash(randomPassword, 12);
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    let user;
+    try {
+      [user] = await db.insert(usersTable).values({
+        name: rawName,
+        email,
+        passwordHash,
+        emailVerified: true,
+        resetToken: resetTokenHash,
+        resetTokenExpires: resetExpires,
+      }).returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name });
+    } catch (err) {
+      // Race: someone else just inserted this email between our check and insert.
+      const [raced] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1);
+      if (raced) { res.status(409).json({ error: "A member with that email already exists", id: raced.id }); return; }
+      throw err;
+    }
+
+    // Intentionally do NOT log the raw email here — admin actor + new member id
+    // are sufficient to correlate this row with the audit log entry below, and
+    // the audit log carries the email under structured PII redaction.
+    console.log(`[Admin] Created member id=${user.id} via admin panel`);
+    await CommunicationService.sendEmailNow({
+      templateSlug: "password_reset",
+      to: email,
+      variables: { member_name: rawName, reset_token: resetToken },
+      userId: user.id,
+    }).catch((err) =>
+      console.error("[Admin] Failed to send password_reset email to new member:", err),
+    );
+
+    await logAdminAction(
+      req,
+      "create_member",
+      "user",
+      String(user.id),
+      `Created member ${email} via admin panel (sent password_reset email)`,
+      { after: { email, name: rawName, emailVerified: true } },
+      { memberEmail: email },
+    );
+
+    res.status(201).json({ success: true, id: user.id, email: user.email, name: user.name });
+  } catch (error) {
+    console.error("[Admin] Create member error:", error);
+    res.status(500).json({ error: "Failed to create member" });
   }
 });
 

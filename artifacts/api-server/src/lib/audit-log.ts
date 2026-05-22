@@ -144,6 +144,12 @@ const DESCRIPTION_REWRITERS: Record<string, (description: string) => string> = {
       /^(Unlocked account for member ).+?( \(cleared .+)$/,
       `$1${REDACTED_RECIPIENT}$2`,
     ),
+  // "Created member jane@example.com via admin panel (sent password_reset email)"
+  create_member: (d) =>
+    d.replace(
+      /^(Created member ).+?( via admin panel .+)$/,
+      `$1${REDACTED_RECIPIENT}$2`,
+    ),
 };
 
 const PII_BEARING_ACTION_TYPES = new Set<string>(
