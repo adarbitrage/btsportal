@@ -4193,6 +4193,25 @@ router.get(
 // alongside each order so staff can attribute / filter by affiliate code.
 const KNOWN_EXTERNAL_SOURCES = ["yse", "machine"] as const;
 
+// portal_product_keys comes back from SQL as a JSON-array-shaped text (we
+// have to cast jsonb → text to use max() over it). Defensively parse: bad
+// or missing values collapse to [] rather than throwing.
+function parsePortalProductKeys(raw: unknown): string[] {
+  if (raw === null || raw === undefined) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((k): k is string => typeof k === "string");
+  }
+  if (typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((k): k is string => typeof k === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseSourceParam(source: unknown): string[] {
   if (typeof source !== "string") return ["yse"];
   const trimmed = source.trim();
@@ -4256,6 +4275,11 @@ router.get(
       const webhookExternalId = sql<string>`${userProductsTable.externalSource} || '_' || ${userProductsTable.externalOrderId}`;
       const btsRefExpr = sql<string | null>`max(${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref')`;
       const funnelSlugExpr = sql<string | null>`max(${webhookLogsTable.payload} -> 'metadata' ->> 'funnel_slug')`;
+      // PostgreSQL has no max() aggregate over jsonb, so we cast to text and
+      // JSON.parse on the JS side. All rows in a (userId, externalOrderId)
+      // group join to the same webhook_logs row, so the aggregate is just
+      // picking the single value that's there.
+      const portalProductKeysExpr = sql<string | null>`max((${webhookLogsTable.payload} -> 'metadata' -> 'portal_product_keys')::text)`;
 
       if (btsRefStr) {
         conditions.push(
@@ -4290,6 +4314,7 @@ router.get(
           productCount: sql<number>`count(distinct ${productsTable.id})`,
           btsRef: btsRefExpr,
           funnelSlug: funnelSlugExpr,
+          portalProductKeys: portalProductKeysExpr,
         })
         .from(userProductsTable)
         .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
@@ -4367,6 +4392,7 @@ router.get(
           wasNewUser,
           btsRef: r.btsRef ?? null,
           funnelSlug: r.funnelSlug ?? null,
+          portalProductKeys: parsePortalProductKeys(r.portalProductKeys),
         };
       });
 
@@ -4451,6 +4477,7 @@ router.get(
           productName: productsTable.name,
           btsRef: sql<string | null>`${webhookLogsTable.payload} -> 'metadata' ->> 'bts_ref'`,
           funnelSlug: sql<string | null>`${webhookLogsTable.payload} -> 'metadata' ->> 'funnel_slug'`,
+          portalProductKeys: sql<string[] | null>`${webhookLogsTable.payload} -> 'metadata' -> 'portal_product_keys'`,
         })
         .from(userProductsTable)
         .innerJoin(usersTable, eq(userProductsTable.userId, usersTable.id))
@@ -4483,7 +4510,7 @@ router.get(
         `attachment; filename=${filenameSource}-orders-export.csv`,
       );
       res.write(
-        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug\n",
+        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys\n",
       );
 
       for (const r of rows) {
@@ -4508,6 +4535,9 @@ router.get(
             wasNewUser ? "true" : "false",
             r.btsRef ?? "",
             r.funnelSlug ?? "",
+            Array.isArray(r.portalProductKeys)
+              ? JSON.stringify(r.portalProductKeys)
+              : "",
           ]
             .map(csvEscape)
             .join(",") + "\n",

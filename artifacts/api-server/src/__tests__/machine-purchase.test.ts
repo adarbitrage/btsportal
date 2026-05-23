@@ -416,3 +416,270 @@ describe("POST /api/integrations/machine-purchase — happy paths", () => {
     expect(metadata.funnel_slug).toBe("yse-workshop");
   });
 });
+
+// ─── Contract conformance ────────────────────────────────────────────────
+// These tests pin the exact wire-contract shapes that The Machine team
+// codes against. Edits to the route MUST NOT silently change these shapes
+// without coordinating with the Machine team first.
+describe("POST /api/integrations/machine-purchase — contract conformance", () => {
+  function authedPost(body: object) {
+    return request(app).post(URL).set("X-Machine-Webhook-Secret", TEST_SECRET).send(body);
+  }
+
+  it("201 first-time create shape: { received, userCreated, welcomeEmailQueued, userId }", async () => {
+    const body = validBody({
+      email: `${TEST_TAG}-contract-first@machine.test`,
+      order_number: `tm_ord_contract_first_${randomUUID().slice(0, 6)}`,
+    });
+    const res = await authedPost(body);
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({
+      received: true,
+      userCreated: true,
+      welcomeEmailQueued: true,
+      userId: expect.any(Number),
+    });
+    seededUserIds.push(res.body.userId);
+  });
+
+  it("200 existing-member merge shape: { received, merged, userId, userCreated:false, welcomeEmailQueued:false }", async () => {
+    const email = `${TEST_TAG}-contract-merge@machine.test`;
+    const passwordHash = await bcrypt.hash("Existing1!", 4);
+    const [user] = await db
+      .insert(usersTable)
+      .values({
+        email,
+        name: "Existing",
+        passwordHash,
+        sourceProduct: "1year",
+        emailVerified: true,
+        onboardingComplete: true,
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(user.id);
+
+    const res = await authedPost(
+      validBody({ email, order_number: `tm_ord_contract_merge_${randomUUID().slice(0, 6)}` }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      received: true,
+      merged: true,
+      userId: user.id,
+      userCreated: false,
+      welcomeEmailQueued: false,
+    });
+  });
+
+  it("200 duplicate order_number shape: { received, deduped, userId }", async () => {
+    const body = validBody({
+      email: `${TEST_TAG}-contract-dupe@machine.test`,
+      order_number: `tm_ord_contract_dupe_${randomUUID().slice(0, 6)}`,
+    });
+    const first = await authedPost(body);
+    expect([200, 201]).toContain(first.status);
+    seededUserIds.push(first.body.userId);
+
+    const second = await authedPost(body);
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual({
+      received: true,
+      deduped: true,
+      userId: first.body.userId,
+    });
+  });
+
+  it("401 INVALID_SECRET shape on missing header: { error: { code } }", async () => {
+    const res = await request(app).post(URL).send(validBody());
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: { code: "INVALID_SECRET" } });
+  });
+
+  it("401 INVALID_SECRET shape on wrong header value", async () => {
+    const res = await request(app)
+      .post(URL)
+      .set("X-Machine-Webhook-Secret", "definitely-not-the-secret")
+      .send(validBody());
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: { code: "INVALID_SECRET" } });
+  });
+
+  it("400 VALIDATION_ERROR shape on bad body: { error: { code, message, details } }", async () => {
+    const body = validBody();
+    delete (body as Record<string, unknown>).order_number;
+    const res = await authedPost(body);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: expect.any(String),
+        details: expect.any(Object),
+      },
+    });
+  });
+
+  it("400 VALIDATION_ERROR shape when portal_product_keys is the wrong type", async () => {
+    // Not an array at all
+    const r1 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad1@machine.test`,
+        order_number: `tm_ord_ppk_bad1_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: "yse_front_end",
+      }),
+    );
+    expect(r1.status).toBe(400);
+    expect(r1.body).toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: expect.any(String),
+        details: { portal_product_keys: expect.any(String) },
+      },
+    });
+
+    // Array with non-string entries
+    const r2 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad2@machine.test`,
+        order_number: `tm_ord_ppk_bad2_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: ["yse_front_end", 42],
+      }),
+    );
+    expect(r2.status).toBe(400);
+    expect(r2.body.error.code).toBe("VALIDATION_ERROR");
+
+    // Array with a string that's too long (>20 chars)
+    const r3 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad3@machine.test`,
+        order_number: `tm_ord_ppk_bad3_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: ["x".repeat(21)],
+      }),
+    );
+    expect(r3.status).toBe(400);
+    expect(r3.body.error.code).toBe("VALIDATION_ERROR");
+
+    // Array with an empty string (<1 char)
+    const r4 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad4@machine.test`,
+        order_number: `tm_ord_ppk_bad4_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: [""],
+      }),
+    );
+    expect(r4.status).toBe(400);
+    expect(r4.body.error.code).toBe("VALIDATION_ERROR");
+
+    // Array with a string that's not snake_case-ish (uppercase letters)
+    const r5 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad5@machine.test`,
+        order_number: `tm_ord_ppk_bad5_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: ["YseFrontEnd"],
+      }),
+    );
+    expect(r5.status).toBe(400);
+    expect(r5.body.error.code).toBe("VALIDATION_ERROR");
+
+    // Array with a string containing disallowed characters (spaces, dashes)
+    const r6 = await authedPost(
+      validBody({
+        email: `${TEST_TAG}-ppk-bad6@machine.test`,
+        order_number: `tm_ord_ppk_bad6_${randomUUID().slice(0, 6)}`,
+        portal_product_keys: ["yse-front-end"],
+      }),
+    );
+    expect(r6.status).toBe(400);
+    expect(r6.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("503 SERVICE_UNAVAILABLE shape when shared secret is unset", async () => {
+    const saved = process.env.MACHINE_PORTAL_SHARED_SECRET;
+    delete process.env.MACHINE_PORTAL_SHARED_SECRET;
+    try {
+      const res = await request(app)
+        .post(URL)
+        .set("X-Machine-Webhook-Secret", "anything")
+        .send(validBody());
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({ error: { code: "SERVICE_UNAVAILABLE" } });
+    } finally {
+      process.env.MACHINE_PORTAL_SHARED_SECRET = saved;
+    }
+  });
+});
+
+// ─── portal_product_keys capture ─────────────────────────────────────────
+// We don't drive entitlements off this field yet (the receiver continues
+// to grant only ["yse_front_end"]); we're persisting it so admins can
+// reconcile "what The Machine intended to grant" against "what we
+// actually granted" before flipping the switch.
+describe("POST /api/integrations/machine-purchase — portal_product_keys capture", () => {
+  function authedPost(body: object) {
+    return request(app).post(URL).set("X-Machine-Webhook-Secret", TEST_SECRET).send(body);
+  }
+
+  async function readMetadata(order: string): Promise<Record<string, unknown>> {
+    const [log] = await db
+      .select({ payload: webhookLogsTable.payload })
+      .from(webhookLogsTable)
+      .where(eq(webhookLogsTable.externalId, `machine_${order}`));
+    expect(log).toBeDefined();
+    return (log.payload as { metadata: Record<string, unknown> }).metadata;
+  }
+
+  it("persists the received portal_product_keys array verbatim under metadata.portal_product_keys", async () => {
+    const email = `${TEST_TAG}-ppk-ok@machine.test`;
+    const order = `tm_ord_ppk_ok_${randomUUID().slice(0, 6)}`;
+    // Keys must be snake_case-ish and ≤20 chars per the pinned contract;
+    // both fit comfortably and represent realistic Machine product keys.
+    const keys = ["yse_front_end", "yse_cmo_bump"];
+    const res = await authedPost(
+      validBody({ email, order_number: order, portal_product_keys: keys }),
+    );
+    expect([200, 201]).toContain(res.status);
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.portal_product_keys).toEqual(keys);
+  });
+
+  it("accepts an empty array and persists [] under metadata.portal_product_keys", async () => {
+    const email = `${TEST_TAG}-ppk-empty@machine.test`;
+    const order = `tm_ord_ppk_empty_${randomUUID().slice(0, 6)}`;
+    const res = await authedPost(
+      validBody({ email, order_number: order, portal_product_keys: [] }),
+    );
+    expect([200, 201]).toContain(res.status);
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.portal_product_keys).toEqual([]);
+  });
+
+  it("treats missing portal_product_keys as [] for backward compatibility", async () => {
+    const email = `${TEST_TAG}-ppk-missing@machine.test`;
+    const order = `tm_ord_ppk_missing_${randomUUID().slice(0, 6)}`;
+    const body = validBody({ email, order_number: order });
+    // Explicitly ensure the field is absent from the payload
+    delete (body as Record<string, unknown>).portal_product_keys;
+    const res = await authedPost(body);
+    expect([200, 201]).toContain(res.status);
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.portal_product_keys).toEqual([]);
+  });
+
+  it("treats null portal_product_keys as [] for backward compatibility", async () => {
+    const email = `${TEST_TAG}-ppk-null@machine.test`;
+    const order = `tm_ord_ppk_null_${randomUUID().slice(0, 6)}`;
+    const res = await authedPost(
+      validBody({ email, order_number: order, portal_product_keys: null }),
+    );
+    expect([200, 201]).toContain(res.status);
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.portal_product_keys).toEqual([]);
+  });
+});

@@ -293,6 +293,7 @@ function validateMachinePurchaseBody(body: unknown):
         occurred_at: string;
         tm_click_id?: string;
         tap_ref?: string;
+        portal_product_keys: string[];
       };
     }
   | { ok: false; message: string; details?: Record<string, string> } {
@@ -348,6 +349,40 @@ function validateMachinePurchaseBody(body: unknown):
     }
   }
 
+  // portal_product_keys: optional; missing/null → []; must be array of
+  // snake_case-ish strings (lowercase letters, digits, underscores), each
+  // 1–20 chars. Rejects obvious garbage so the contract can't drift.
+  const SNAKE_CASE_ISH = /^[a-z0-9_]+$/;
+  let portal_product_keys: string[] = [];
+  if (b.portal_product_keys !== undefined && b.portal_product_keys !== null) {
+    if (!Array.isArray(b.portal_product_keys)) {
+      return {
+        ok: false,
+        message: "portal_product_keys must be an array of strings or null when provided",
+        details: { portal_product_keys: "must be an array of strings" },
+      };
+    }
+    for (const key of b.portal_product_keys) {
+      if (
+        typeof key !== "string" ||
+        key.length < 1 ||
+        key.length > 20 ||
+        !SNAKE_CASE_ISH.test(key)
+      ) {
+        return {
+          ok: false,
+          message:
+            "portal_product_keys entries must be snake_case-ish strings (lowercase letters, digits, underscores) of 1–20 characters",
+          details: {
+            portal_product_keys:
+              "each entry must be a snake_case-ish string of 1–20 characters",
+          },
+        };
+      }
+    }
+    portal_product_keys = b.portal_product_keys as string[];
+  }
+
   // Coerce null → undefined on the way out so downstream code sees a single
   // "not provided" shape regardless of which sender style produced it.
   const orUndef = <T,>(v: unknown): T | undefined =>
@@ -367,6 +402,7 @@ function validateMachinePurchaseBody(body: unknown):
       occurred_at: b.occurred_at as string,
       tm_click_id: orUndef<string>(b.tm_click_id),
       tap_ref: orUndef<string>(b.tap_ref),
+      portal_product_keys,
     },
   };
 }
@@ -405,6 +441,7 @@ router.post(
     if (data.product_ids !== undefined) metadata.product_ids = data.product_ids;
     if (data.total_cents !== undefined) metadata.total_cents = data.total_cents;
     if (data.tm_click_id !== undefined) metadata.tm_click_id = data.tm_click_id;
+    metadata.portal_product_keys = data.portal_product_keys;
 
     try {
       const cached = await getCachedGrantResponse("machine", data.order_number);

@@ -35,6 +35,8 @@ const YSE_ORDER_ID = `${TEST_TAG}_yse_${randomUUID().slice(0, 6)}`;
 const MACHINE_ORDER_ID = `${TEST_TAG}_machine_${randomUUID().slice(0, 6)}`;
 const MACHINE_BTS_REF = `bts_${randomUUID().slice(0, 8)}`;
 const MACHINE_FUNNEL = "yse-workshop";
+// Snake_case-ish, ≤20 chars per the pinned validator contract.
+const MACHINE_PORTAL_PRODUCT_KEYS = ["yse_front_end", "yse_cmo_bump"];
 
 function signCookie(userId: number, email: string): string {
   const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: "1h" });
@@ -108,6 +110,7 @@ beforeAll(async () => {
         metadata: {
           bts_ref: MACHINE_BTS_REF,
           funnel_slug: MACHINE_FUNNEL,
+          portal_product_keys: MACHINE_PORTAL_PRODUCT_KEYS,
         },
       } as Record<string, unknown>,
     })
@@ -153,6 +156,7 @@ describe("GET /api/admin/integrations/yse/orders — Machine source", () => {
     expect(order.externalSource).toBe("machine");
     expect(order.btsRef).toBe(MACHINE_BTS_REF);
     expect(order.funnelSlug).toBe(MACHINE_FUNNEL);
+    expect(order.portalProductKeys).toEqual(MACHINE_PORTAL_PRODUCT_KEYS);
 
     // Default (yse) view must not leak Machine orders.
     const yseRes = await request(app)
@@ -202,10 +206,18 @@ describe("GET /api/admin/integrations/yse/orders — Machine source", () => {
     expect(res.status).toBe(200);
     const csv = res.text;
     expect(csv.split("\n")[0]).toBe(
-      "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug",
+      "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys",
     );
     expect(csv).toContain(MACHINE_ORDER_ID);
     expect(csv).toContain(MACHINE_BTS_REF);
     expect(csv).toContain(MACHINE_FUNNEL);
+    // portal_product_keys cell is JSON-serialized and then csv-escaped
+    // (embedded quotes get doubled). Assert against the unescaped JSON
+    // form being present in some shape inside the row.
+    const machineRow = csv
+      .split("\n")
+      .find((line) => line.includes(MACHINE_ORDER_ID))!;
+    expect(machineRow).toContain("yse_front_end");
+    expect(machineRow).toContain("yse_cmo_bump");
   });
 });
