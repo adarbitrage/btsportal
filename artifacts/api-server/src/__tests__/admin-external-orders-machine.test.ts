@@ -158,6 +158,18 @@ describe("GET /api/admin/integrations/yse/orders — Machine source", () => {
     expect(order.funnelSlug).toBe(MACHINE_FUNNEL);
     expect(order.portalProductKeys).toEqual(MACHINE_PORTAL_PRODUCT_KEYS);
 
+    // The seeded Machine order grants exactly one product (TEST_TAG-prod)
+    // while The Machine claimed to pay for two distinct portal_product_keys
+    // — that's a mismatch and the endpoint should flag it as such.
+    expect(order.mismatch).toBe(true);
+    expect(res.body.mismatchSummary).toBeTruthy();
+    expect(res.body.mismatchSummary.machineOrdersInView).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(
+      res.body.mismatchSummary.machineOrdersWithMismatch,
+    ).toBeGreaterThanOrEqual(1);
+
     // Default (yse) view must not leak Machine orders.
     const yseRes = await request(app)
       .get("/api/admin/integrations/yse/orders")
@@ -206,7 +218,7 @@ describe("GET /api/admin/integrations/yse/orders — Machine source", () => {
     expect(res.status).toBe(200);
     const csv = res.text;
     expect(csv.split("\n")[0]).toBe(
-      "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys",
+      "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys,mismatch",
     );
     expect(csv).toContain(MACHINE_ORDER_ID);
     expect(csv).toContain(MACHINE_BTS_REF);
@@ -219,5 +231,8 @@ describe("GET /api/admin/integrations/yse/orders — Machine source", () => {
       .find((line) => line.includes(MACHINE_ORDER_ID))!;
     expect(machineRow).toContain("yse_front_end");
     expect(machineRow).toContain("yse_cmo_bump");
+    // The seeded Machine order under-grants vs. its portal_product_keys, so
+    // the mismatch column (the last cell on the row) must be "true".
+    expect(machineRow.trimEnd().endsWith(",true")).toBe(true);
   });
 });

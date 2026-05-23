@@ -4212,6 +4212,28 @@ function parsePortalProductKeys(raw: unknown): string[] {
   }
 }
 
+// A Machine order "mismatches" when the set of product slugs we actually
+// granted doesn't equal the set of portal_product_keys The Machine told us
+// to grant — either we missed one (under-grant) or granted something extra
+// (over-grant). Only meaningful when:
+//   - source is "machine" (other sources don't send portal_product_keys), AND
+//   - portal_product_keys was captured on the webhook (pre-task-491 rows
+//     have nothing to compare against and stay "not flagged").
+function computeOrderMismatch(
+  externalSource: string,
+  grantedSlugs: string[],
+  portalProductKeys: string[],
+): boolean {
+  if (externalSource !== "machine") return false;
+  if (portalProductKeys.length === 0) return false;
+  const granted = new Set(grantedSlugs.filter((s) => !!s));
+  const expected = new Set(portalProductKeys);
+  if (granted.size !== expected.size) return true;
+  for (const s of granted) if (!expected.has(s)) return true;
+  for (const k of expected) if (!granted.has(k)) return true;
+  return false;
+}
+
 function parseSourceParam(source: unknown): string[] {
   if (typeof source !== "string") return ["yse"];
   const trimmed = source.trim();
@@ -4380,6 +4402,14 @@ router.get(
           r.userSourceProduct === r.externalSource &&
           Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
 
+        const products = Array.isArray(r.products) ? r.products : [];
+        const portalProductKeys = parsePortalProductKeys(r.portalProductKeys);
+        const mismatch = computeOrderMismatch(
+          r.externalSource,
+          products.map((p) => p.slug),
+          portalProductKeys,
+        );
+
         return {
           externalOrderId: r.externalOrderId,
           externalSource: r.externalSource,
@@ -4387,16 +4417,27 @@ router.get(
           userEmail: r.userEmail,
           userName: r.userName,
           grantedAt: grantedAt ? grantedAt.toISOString() : null,
-          products: Array.isArray(r.products) ? r.products : [],
+          products,
           productCount: Number(r.productCount || 0),
           wasNewUser,
           btsRef: r.btsRef ?? null,
           funnelSlug: r.funnelSlug ?? null,
-          portalProductKeys: parsePortalProductKeys(r.portalProductKeys),
+          portalProductKeys,
+          mismatch,
         };
       });
 
       const total = Number(countResult[0]?.count || 0);
+
+      // Page-scoped mismatch summary — counts only the rows in this page's
+      // slice, so the "N of M Machine orders…" line in the UI matches what
+      // the admin is currently looking at.
+      const machineOrders = orders.filter((o) => o.externalSource === "machine");
+      const mismatchSummary = {
+        machineOrdersInView: machineOrders.length,
+        machineOrdersWithMismatch: machineOrders.filter((o) => o.mismatch)
+          .length,
+      };
 
       res.json({
         orders,
@@ -4406,6 +4447,7 @@ router.get(
           total,
           totalPages: Math.ceil(total / limitNum),
         },
+        mismatchSummary,
       });
     } catch (error) {
       console.error("[Admin] External orders list error:", error);
@@ -4510,8 +4552,36 @@ router.get(
         `attachment; filename=${filenameSource}-orders-export.csv`,
       );
       res.write(
-        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys\n",
+        "order_id,source,customer_email,product_slug,product_name,granted_at,was_new_user,bts_ref,funnel_slug,portal_product_keys,mismatch\n",
       );
+
+      // Pre-compute the mismatch flag once per (source, orderId, email)
+      // group — the CSV unwraps to one row per (order, product), but the
+      // mismatch is a property of the order as a whole, so we have to
+      // aggregate the granted slugs across all rows in the group first.
+      const groupKey = (r: (typeof rows)[number]) =>
+        `${r.externalSource ?? ""}|${r.externalOrderId ?? ""}|${r.userEmail ?? ""}`;
+      const slugsByGroup = new Map<string, string[]>();
+      for (const r of rows) {
+        const key = groupKey(r);
+        const list = slugsByGroup.get(key) ?? [];
+        if (r.productSlug) list.push(r.productSlug);
+        slugsByGroup.set(key, list);
+      }
+      const mismatchByGroup = new Map<string, boolean>();
+      for (const r of rows) {
+        const key = groupKey(r);
+        if (mismatchByGroup.has(key)) continue;
+        const portalProductKeys = parsePortalProductKeys(r.portalProductKeys);
+        mismatchByGroup.set(
+          key,
+          computeOrderMismatch(
+            r.externalSource ?? "",
+            slugsByGroup.get(key) ?? [],
+            portalProductKeys,
+          ),
+        );
+      }
 
       for (const r of rows) {
         const grantedAt = r.purchasedAt ? new Date(r.purchasedAt) : null;
@@ -4523,6 +4593,8 @@ router.get(
           !!userCreatedAt &&
           r.userSourceProduct === r.externalSource &&
           Math.abs(grantedAt.getTime() - userCreatedAt.getTime()) <= 60_000;
+
+        const mismatch = mismatchByGroup.get(groupKey(r)) ?? false;
 
         res.write(
           [
@@ -4538,6 +4610,7 @@ router.get(
             Array.isArray(r.portalProductKeys)
               ? JSON.stringify(r.portalProductKeys)
               : "",
+            mismatch ? "true" : "false",
           ]
             .map(csvEscape)
             .join(",") + "\n",

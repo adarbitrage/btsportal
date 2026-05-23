@@ -1338,12 +1338,18 @@ export const adminPanelApi = {
       wasNewUser: boolean;
       btsRef: string | null;
       funnelSlug: string | null;
+      portalProductKeys: string[];
+      mismatch: boolean;
     }>;
     pagination: {
       page: number;
       limit: number;
       total: number;
       totalPages: number;
+    };
+    mismatchSummary: {
+      machineOrdersInView: number;
+      machineOrdersWithMismatch: number;
     };
   }> {
     const qs = new URLSearchParams();

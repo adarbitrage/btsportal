@@ -82,6 +82,10 @@ export default function YseOrders() {
     total: 0,
     totalPages: 0,
   });
+  const [mismatchSummary, setMismatchSummary] = useState({
+    machineOrdersInView: 0,
+    machineOrdersWithMismatch: 0,
+  });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   // Tracks an in-flight CSV export. Set to a progress sample for the
@@ -116,6 +120,7 @@ export default function YseOrders() {
       });
       setOrders(data.orders);
       setPagination(data.pagination);
+      setMismatchSummary(data.mismatchSummary);
     } catch (err: unknown) {
       toast({
         title: "Error",
@@ -324,6 +329,42 @@ export default function YseOrders() {
               </CardContent>
             </Card>
 
+            {!loading && mismatchSummary.machineOrdersInView > 0 && (
+              <div
+                className={
+                  mismatchSummary.machineOrdersWithMismatch > 0
+                    ? "rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 flex items-center gap-2"
+                    : "rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2"
+                }
+                data-testid="banner-yse-mismatch-summary"
+              >
+                {mismatchSummary.machineOrdersWithMismatch > 0 && (
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                )}
+                <span>
+                  <span
+                    className="font-semibold"
+                    data-testid="text-yse-mismatch-count"
+                  >
+                    {mismatchSummary.machineOrdersWithMismatch}
+                  </span>{" "}
+                  of{" "}
+                  <span data-testid="text-yse-machine-total">
+                    {mismatchSummary.machineOrdersInView}
+                  </span>{" "}
+                  Machine{" "}
+                  {mismatchSummary.machineOrdersInView === 1
+                    ? "order"
+                    : "orders"}{" "}
+                  in the current view{" "}
+                  {mismatchSummary.machineOrdersWithMismatch === 1
+                    ? "has"
+                    : "have"}{" "}
+                  a key mismatch.
+                </span>
+              </div>
+            )}
+
             <Card>
               <CardContent className="p-0">
                 {loading ? (
@@ -394,7 +435,7 @@ export default function YseOrders() {
                             </div>
                           </td>
                           <td className="p-4 text-sm">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                               {o.products.map((p) => (
                                 <Badge
                                   key={p.slug || p.name}
@@ -404,6 +445,17 @@ export default function YseOrders() {
                                   {p.name}
                                 </Badge>
                               ))}
+                              {o.mismatch && (
+                                <Badge
+                                  variant="warning"
+                                  className="text-[10px] gap-1"
+                                  data-testid={`badge-mismatch-${o.externalOrderId}`}
+                                  title={`The Machine sent portal_product_keys=${JSON.stringify(o.portalProductKeys)} but we granted ${JSON.stringify(o.products.map((p) => p.slug))}.`}
+                                >
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Key mismatch
+                                </Badge>
+                              )}
                             </div>
                           </td>
                           <td className="p-4 text-xs">
