@@ -1,6 +1,7 @@
 import { db, productsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { seedYseProducts } from "./seed-yse-products";
+import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -26,6 +27,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedYseProducts() threw:", err);
     missing.push("seedYseProducts");
+  }
+
+  // 1b. Default machine_product_key_mappings rows so the receiver can
+  //     translate Machine `portal_product_keys` → Portal product slugs on a
+  //     freshly-provisioned environment. Admin edits are preserved via
+  //     onConflictDoNothing so a restart never clobbers them.
+  try {
+    await seedMachineProductKeyMappings();
+  } catch (err) {
+    console.error("[Bootstrap] seedMachineProductKeyMappings() threw:", err);
+    missing.push("seedMachineProductKeyMappings");
   }
 
   // 2. Verify yse_front_end product actually exists post-seed (catches

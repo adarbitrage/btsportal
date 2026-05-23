@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "crypto";
+import { db, productsTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import {
   getCachedGrantResponse,
@@ -7,6 +9,11 @@ import {
   handleExternalRevokeProduct,
   redactPii,
 } from "../lib/external-grant-product";
+import {
+  getMachineProductKeyMappings,
+  recordUnknownMachineProductKeys,
+  resolveMachineProductKeys,
+} from "../lib/machine-product-key-mappings";
 
 if (!process.env.MACHINE_PORTAL_SHARED_SECRET) {
   console.error(
@@ -443,6 +450,83 @@ router.post(
     if (data.tm_click_id !== undefined) metadata.tm_click_id = data.tm_click_id;
     metadata.portal_product_keys = data.portal_product_keys;
 
+    // Translate `portal_product_keys` → Portal product slugs via the
+    // admin-editable mapping table. Unknown keys are captured into
+    // `machine_unknown_product_keys` (surfaced to admins via the admin
+    // panel) and also stamped onto the webhook_logs payload metadata
+    // alongside the originals, so post-hoc reconciliation never has to
+    // diff two separate sources of truth. If the mapping produces an
+    // empty set (every key unknown, or none supplied), we fall back to
+    // the legacy ["yse_front_end"] grant so the 201/200/200-dedupe wire
+    // contract is unchanged for senders that haven't started emitting
+    // the field yet — see task #493.
+    let resolvedSlugs: string[];
+    let unknownKeys: string[];
+    let usedFallback: boolean;
+    try {
+      const mappings = await getMachineProductKeyMappings();
+      const resolution = resolveMachineProductKeys(
+        data.portal_product_keys,
+        mappings,
+      );
+      resolvedSlugs = resolution.portalSlugs;
+      unknownKeys = resolution.unknownKeys;
+      usedFallback = resolution.usedFallback;
+    } catch (err) {
+      // The mapping read failed — preserve the previous behaviour
+      // (front-end only) rather than 500ing on a non-grant code path.
+      console.error(
+        "[MachinePurchase] mapping lookup failed; falling back to yse_front_end:",
+        redactPii(err),
+      );
+      resolvedSlugs = ["yse_front_end"];
+      unknownKeys = [];
+      usedFallback = true;
+    }
+    // Defensive: a mapping row may point at a portal slug whose `products`
+    // row hasn't been seeded yet (e.g. a fresh test DB, or a mapping that
+    // was added before the corresponding product). Filter those out so a
+    // misconfigured mapping doesn't 500 the whole grant; the dropped
+    // slugs are captured into metadata.unmapped_portal_slugs for admins.
+    let unmappedSlugs: string[] = [];
+    try {
+      const existing = await db
+        .select({ slug: productsTable.slug })
+        .from(productsTable)
+        .where(inArray(productsTable.slug, resolvedSlugs));
+      const existingSet = new Set(existing.map((p) => p.slug));
+      const filtered = resolvedSlugs.filter((s) => existingSet.has(s));
+      unmappedSlugs = resolvedSlugs.filter((s) => !existingSet.has(s));
+      if (filtered.length === 0) {
+        // Every mapped slug is missing as a product — fall back to the
+        // legacy front-end grant so the wire contract still holds.
+        resolvedSlugs = ["yse_front_end"];
+        usedFallback = true;
+      } else {
+        resolvedSlugs = filtered;
+      }
+    } catch (err) {
+      console.error(
+        "[MachinePurchase] product existence check failed; using resolved slugs as-is:",
+        redactPii(err),
+      );
+    }
+
+    metadata.resolved_portal_slugs = resolvedSlugs;
+    metadata.unknown_portal_product_keys = unknownKeys;
+    metadata.unmapped_portal_slugs = unmappedSlugs;
+    metadata.portal_product_keys_fallback = usedFallback;
+
+    if (unknownKeys.length > 0) {
+      // Fire-and-forget: the helper swallows its own errors so a logging
+      // failure can never block a successful grant.
+      void recordUnknownMachineProductKeys(
+        unknownKeys,
+        "machine",
+        data.order_number,
+      );
+    }
+
     try {
       const cached = await getCachedGrantResponse("machine", data.order_number);
       if (cached) {
@@ -463,7 +547,7 @@ router.post(
           lastName: data.last_name,
           phone: data.phone,
         },
-        productSlugs: ["yse_front_end"],
+        productSlugs: resolvedSlugs,
         purchasedAt: data.occurred_at,
         metadata,
       });

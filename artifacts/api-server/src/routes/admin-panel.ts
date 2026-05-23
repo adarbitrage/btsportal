@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable } from "@workspace/db";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
@@ -4670,6 +4670,260 @@ router.get(
       } else {
         res.end();
       }
+    }
+  },
+);
+
+// ─── Machine product-key mappings ────────────────────────────────────────────
+// The receiver at POST /api/integrations/machine-purchase translates each
+// `portal_product_keys` entry from The Machine onto a Portal product slug
+// using `machine_product_key_mappings`. Admins manage that table here, and
+// can review/dismiss unknown keys that came in without a mapping. See
+// task #493 and `artifacts/api-server/src/lib/machine-product-key-mappings.ts`.
+
+const SNAKE_CASE_ISH = /^[a-z0-9_]+$/;
+
+function validateMappingInput(body: unknown):
+  | { ok: true; data: { machineKey: string; portalSlug: string; notes: string | null } }
+  | { ok: false; message: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, message: "Request body must be a JSON object" };
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b.machineKey !== "string" || b.machineKey.length < 1 || b.machineKey.length > 64 || !SNAKE_CASE_ISH.test(b.machineKey)) {
+    return { ok: false, message: "machineKey must be a snake_case-ish string of 1–64 chars" };
+  }
+  if (typeof b.portalSlug !== "string" || b.portalSlug.trim().length < 1 || b.portalSlug.length > 128) {
+    return { ok: false, message: "portalSlug must be a non-empty string of ≤128 chars" };
+  }
+  const notes =
+    typeof b.notes === "string" && b.notes.trim() !== "" ? b.notes.trim() : null;
+  return {
+    ok: true,
+    data: {
+      machineKey: b.machineKey,
+      portalSlug: b.portalSlug.trim(),
+      notes,
+    },
+  };
+}
+
+router.get(
+  "/admin/integrations/machine-product-key-mappings",
+  requirePermission("members:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select({
+          id: machineProductKeyMappingsTable.id,
+          machineKey: machineProductKeyMappingsTable.machineKey,
+          portalSlug: machineProductKeyMappingsTable.portalSlug,
+          notes: machineProductKeyMappingsTable.notes,
+          createdAt: machineProductKeyMappingsTable.createdAt,
+          updatedAt: machineProductKeyMappingsTable.updatedAt,
+          updatedBy: machineProductKeyMappingsTable.updatedBy,
+        })
+        .from(machineProductKeyMappingsTable)
+        .orderBy(asc(machineProductKeyMappingsTable.machineKey));
+      res.json({ mappings: rows });
+    } catch (error) {
+      console.error("[Admin] List machine product key mappings error:", error);
+      res.status(500).json({ error: "Failed to list mappings" });
+    }
+  },
+);
+
+router.post(
+  "/admin/integrations/machine-product-key-mappings",
+  requirePermission("members:edit"),
+  async (req: Request, res: Response) => {
+    const validation = validateMappingInput(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: validation.message });
+      return;
+    }
+    try {
+      const actor = req.user?.email ?? `user:${req.user?.userId ?? "unknown"}`;
+      const [row] = await db
+        .insert(machineProductKeyMappingsTable)
+        .values({
+          machineKey: validation.data.machineKey,
+          portalSlug: validation.data.portalSlug,
+          notes: validation.data.notes,
+          updatedBy: actor,
+        })
+        .returning();
+      await logAdminAction(
+        req,
+        "create",
+        "machine_product_key_mapping",
+        String(row.id),
+        `Mapped ${row.machineKey} → ${row.portalSlug}`,
+      );
+      res.status(201).json({ mapping: row });
+    } catch (error: any) {
+      const code = error?.code ?? error?.cause?.code;
+      const message = `${error?.message ?? ""} ${error?.cause?.message ?? ""}`;
+      if (
+        code === "23505" ||
+        /duplicate key|unique constraint|machine_product_key_mappings_machine_key/i.test(message)
+      ) {
+        res.status(409).json({ error: "machineKey already mapped" });
+        return;
+      }
+      console.error("[Admin] Create machine product key mapping error:", error);
+      res.status(500).json({ error: "Failed to create mapping" });
+    }
+  },
+);
+
+router.patch(
+  "/admin/integrations/machine-product-key-mappings/:id",
+  requirePermission("members:edit"),
+  async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid mapping id" });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const update: { portalSlug?: string; notes?: string | null; updatedBy?: string } = {};
+    if ("portalSlug" in body) {
+      if (typeof body.portalSlug !== "string" || body.portalSlug.trim().length < 1 || body.portalSlug.length > 128) {
+        res.status(400).json({ error: "portalSlug must be a non-empty string of ≤128 chars" });
+        return;
+      }
+      update.portalSlug = body.portalSlug.trim();
+    }
+    if ("notes" in body) {
+      if (body.notes === null) {
+        update.notes = null;
+      } else if (typeof body.notes === "string") {
+        update.notes = body.notes.trim() === "" ? null : body.notes.trim();
+      } else {
+        res.status(400).json({ error: "notes must be a string or null" });
+        return;
+      }
+    }
+    if (Object.keys(update).length === 0) {
+      res.status(400).json({ error: "No editable fields supplied" });
+      return;
+    }
+    update.updatedBy = req.user?.email ?? `user:${req.user?.userId ?? "unknown"}`;
+    try {
+      const [row] = await db
+        .update(machineProductKeyMappingsTable)
+        .set(update)
+        .where(eq(machineProductKeyMappingsTable.id, id))
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Mapping not found" });
+        return;
+      }
+      await logAdminAction(
+        req,
+        "update",
+        "machine_product_key_mapping",
+        String(id),
+        `Updated mapping ${row.machineKey} → ${row.portalSlug}`,
+      );
+      res.json({ mapping: row });
+    } catch (error) {
+      console.error("[Admin] Update machine product key mapping error:", error);
+      res.status(500).json({ error: "Failed to update mapping" });
+    }
+  },
+);
+
+router.delete(
+  "/admin/integrations/machine-product-key-mappings/:id",
+  requirePermission("members:edit"),
+  async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid mapping id" });
+      return;
+    }
+    try {
+      const [row] = await db
+        .delete(machineProductKeyMappingsTable)
+        .where(eq(machineProductKeyMappingsTable.id, id))
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Mapping not found" });
+        return;
+      }
+      await logAdminAction(
+        req,
+        "delete",
+        "machine_product_key_mapping",
+        String(id),
+        `Removed mapping ${row.machineKey} → ${row.portalSlug}`,
+      );
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("[Admin] Delete machine product key mapping error:", error);
+      res.status(500).json({ error: "Failed to delete mapping" });
+    }
+  },
+);
+
+router.get(
+  "/admin/integrations/machine-unknown-product-keys",
+  requirePermission("members:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const includeDismissed = req.query.includeDismissed === "true";
+      const conditions: SQL[] = [];
+      if (!includeDismissed) {
+        conditions.push(isNull(machineUnknownProductKeysTable.dismissedAt));
+      }
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const rows = await db
+        .select()
+        .from(machineUnknownProductKeysTable)
+        .where(where as SQL | undefined)
+        .orderBy(desc(machineUnknownProductKeysTable.lastSeenAt))
+        .limit(200);
+      res.json({ unknownKeys: rows });
+    } catch (error) {
+      console.error("[Admin] List unknown machine product keys error:", error);
+      res.status(500).json({ error: "Failed to list unknown keys" });
+    }
+  },
+);
+
+router.post(
+  "/admin/integrations/machine-unknown-product-keys/:id/dismiss",
+  requirePermission("members:edit"),
+  async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    try {
+      const actor = req.user?.email ?? `user:${req.user?.userId ?? "unknown"}`;
+      const [row] = await db
+        .update(machineUnknownProductKeysTable)
+        .set({ dismissedAt: new Date(), dismissedBy: actor })
+        .where(eq(machineUnknownProductKeysTable.id, id))
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Unknown key row not found" });
+        return;
+      }
+      await logAdminAction(
+        req,
+        "dismiss",
+        "machine_unknown_product_key",
+        String(id),
+        `Dismissed unknown machine key ${row.machineKey}`,
+      );
+      res.json({ unknownKey: row });
+    } catch (error) {
+      console.error("[Admin] Dismiss unknown machine product key error:", error);
+      res.status(500).json({ error: "Failed to dismiss" });
     }
   },
 );

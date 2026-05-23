@@ -71,3 +71,5 @@ export * from "./abuse-rate-limit-cleanup-runs";
 export * from "./affiliate-networks";
 export * from "./media-mavens-products";
 export * from "./media-mavens-categories";
+export * from "./machine-product-key-mappings";
+export * from "./machine-unknown-product-keys";
