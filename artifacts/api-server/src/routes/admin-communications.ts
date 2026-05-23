@@ -1010,7 +1010,12 @@ router.post("/admin/communications/broadcasts/:id/send", requirePermission("comm
         const recipientList = recipients.map(user => ({
           email: user.email,
           userId: user.id,
-          variables: { member_name: user.name, portal_url: process.env.PORTAL_URL || "https://portal.buildtestscale.com" },
+          // portal_url is intentionally omitted here so the per-tenant
+          // resolver inside CommunicationService.getCommonVariables wins.
+          // The resolver sources system_settings → PORTAL_URL env → dev
+          // default, so broadcast recipients see the same tenant-correct
+          // portal URL as every other branded email.
+          variables: { member_name: user.name },
         }));
         try {
           const result = await CommunicationService.queueBroadcastEmail({

@@ -21,6 +21,10 @@ import {
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import {
+  getPortalUrl,
+  PORTAL_URL_SETTING_KEY,
+} from "../lib/portal-url-settings";
+import {
   verifyEmailChangePrefillToken,
   signEmailChangePrefillToken,
   buildEmailChangeRestartUrl,
@@ -641,37 +645,44 @@ router.post("/members/me/email/cancel", async (req, res): Promise<void> => {
   // restart link in the notification to their verified address.
   if (cancelled?.pendingEmail) {
     const previousPendingEmail = cancelled.pendingEmail;
-    // Sign a short-lived prefill token tied to this member so the
-    // cancellation email can deep-link straight to the email-change form
-    // with the discarded address pre-filled. The token is verified
-    // server-side against the authenticated session before any pre-fill
-    // occurs (see GET /members/me/email/prefill above), so the URL can't
-    // be used to seed a phishing form on someone else's account.
-    const prefillToken = signEmailChangePrefillToken({
-      userId,
-      prefillEmail: previousPendingEmail,
-    });
-    const restartUrl = buildEmailChangeRestartUrl(
-      process.env.PORTAL_URL || "https://portal.buildtestscale.com",
-      prefillToken,
-    );
-
-    CommunicationService.queueEmail({
-      templateSlug: "email_change_cancelled_by_member",
-      to: cancelled.email,
-      variables: {
-        member_name: cancelled.name,
-        member_email: cancelled.email,
-        cancelled_pending_email: previousPendingEmail,
-        restart_url: restartUrl,
-      },
-      userId,
-    }).catch((err) =>
+    // The restart_url CTA deep-links into the tenant's portal; if no portal
+    // URL is configured in production we skip this notification rather than
+    // ship a wrong-tenant link. Mirrors admin-panel.ts's admin-cancel path.
+    const portalUrl = await getPortalUrl();
+    if (!portalUrl) {
       console.error(
-        "[Members] Failed to enqueue email_change_cancelled_by_member notice:",
-        err,
-      ),
-    );
+        `[Members] Skipping email_change_cancelled_by_member notice for user ${userId}: no portal URL configured (set ${PORTAL_URL_SETTING_KEY} in admin settings or PORTAL_URL env var)`,
+      );
+    } else {
+      // Sign a short-lived prefill token tied to this member so the
+      // cancellation email can deep-link straight to the email-change form
+      // with the discarded address pre-filled. The token is verified
+      // server-side against the authenticated session before any pre-fill
+      // occurs (see GET /members/me/email/prefill above), so the URL can't
+      // be used to seed a phishing form on someone else's account.
+      const prefillToken = signEmailChangePrefillToken({
+        userId,
+        prefillEmail: previousPendingEmail,
+      });
+      const restartUrl = buildEmailChangeRestartUrl(portalUrl, prefillToken);
+
+      CommunicationService.queueEmail({
+        templateSlug: "email_change_cancelled_by_member",
+        to: cancelled.email,
+        variables: {
+          member_name: cancelled.name,
+          member_email: cancelled.email,
+          cancelled_pending_email: previousPendingEmail,
+          restart_url: restartUrl,
+        },
+        userId,
+      }).catch((err) =>
+        console.error(
+          "[Members] Failed to enqueue email_change_cancelled_by_member notice:",
+          err,
+        ),
+      );
+    }
   }
 
   // Separate heads-up to the dropped pending address (fire-and-forget),

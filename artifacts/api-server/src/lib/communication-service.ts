@@ -14,6 +14,7 @@ import {
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
 import { recordQueueFallback } from "./queue-fallback-tracker";
+import { getPortalUrl, PORTAL_URL_SETTING_KEY } from "./portal-url-settings";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -37,8 +38,14 @@ const FROM_EMAIL_TRANSACTIONAL = process.env.FROM_EMAIL_TRANSACTIONAL || "norepl
 const FROM_EMAIL_MARKETING = process.env.FROM_EMAIL_MARKETING || "team@buildtestscale.com";
 const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || "Build Test Scale";
 
-const PORTAL_URL = process.env.PORTAL_URL || "https://portal.buildtestscale.com";
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || "bts-unsub-secret-change-me";
+
+// Twilio's delivery-status callback hits OUR API server (it's not a branded
+// member-facing link), so it still uses the global PORTAL_URL env var rather
+// than the per-tenant portal URL resolver. The single API server fronts every
+// tenant's portal so a per-tenant override would be wrong here.
+const TWILIO_CALLBACK_BASE =
+  process.env.PORTAL_URL || "https://portal.buildtestscale.com";
 
 if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
@@ -264,9 +271,42 @@ function replaceVariables(template: string, variables: Record<string, string>): 
   });
 }
 
-function getCommonVariables(extra?: Record<string, string>): Record<string, string> {
+/**
+ * Build the {{portal_url}}, {{support_email}}, etc. template variables every
+ * branded email/SMS shares. The portal URL is resolved per-call via the
+ * per-tenant resolver (system_settings → PORTAL_URL env → dev default) so a
+ * tenant that has saved their own portal domain in the admin UI never ships
+ * members a link to a different tenant's portal.
+ *
+ * Behavior when nothing is configured:
+ *   - In non-production (NODE_ENV !== "production") the resolver returns its
+ *     dev default ("http://localhost:5000") so tests and `pnpm dev` keep
+ *     working without setup.
+ *   - In production with neither a DB row nor PORTAL_URL env var, the
+ *     resolver returns null. We DO NOT skip the email — that would silently
+ *     drop password resets and verifications operators expected to send. We
+ *     fall back to an empty string for {{portal_url}}, which produces a
+ *     visibly-broken (but not wrong-tenant) link, and log a loud error so
+ *     operators notice. Callers that build a URL where the portal value is
+ *     load-bearing (e.g. the email-change "restart" link in admin-panel)
+ *     should resolve the portal URL themselves and skip when null — see
+ *     `getPortalUrl` callers.
+ *
+ * A caller-supplied `extra.portal_url` still wins via the trailing spread,
+ * which preserves the pre-existing override used by the admin broadcast
+ * route and a handful of tests.
+ */
+async function getCommonVariables(
+  extra?: Record<string, string>,
+): Promise<Record<string, string>> {
+  const portalUrl = await getPortalUrl();
+  if (!portalUrl) {
+    console.error(
+      `[Comms] No portal URL configured (set ${PORTAL_URL_SETTING_KEY} in admin settings or the PORTAL_URL env var). Emails using {{portal_url}} will render with an empty value.`,
+    );
+  }
   return {
-    portal_url: PORTAL_URL,
+    portal_url: portalUrl ?? "",
     support_email: FROM_EMAIL_TRANSACTIONAL,
     company_name: "Build Test Scale",
     current_year: new Date().getFullYear().toString(),
@@ -417,7 +457,14 @@ async function sendEmailDirect(params: {
 
     if (isMarketing && includeUnsubscribe) {
       const token = generateUnsubscribeToken(to);
-      const unsubscribeUrl = `${PORTAL_URL}/api/email/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
+      // Resolve the per-tenant portal URL for the branded unsubscribe link so
+      // members on a custom-domain tenant don't see a buildtestscale.com URL.
+      // Falls back to the env var (TWILIO_CALLBACK_BASE happens to share the
+      // same source) when nothing is configured — better a same-product URL
+      // than an empty one in the List-Unsubscribe header, which some inbox
+      // providers reject outright.
+      const portalUrl = (await getPortalUrl()) ?? TWILIO_CALLBACK_BASE;
+      const unsubscribeUrl = `${portalUrl}/api/email/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
       headers["List-Unsubscribe"] = `<${unsubscribeUrl}>`;
       headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
       finalHtml += `\n<p style="text-align:center;font-size:12px;color:#999;margin-top:40px;">You are receiving this email because you are a member of Build Test Scale. <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe</a></p>`;
@@ -500,7 +547,7 @@ async function sendSmsDirect(params: {
       to,
       from: TWILIO_PHONE_NUMBER,
       body,
-      statusCallback: `${PORTAL_URL}/api/webhooks/twilio`,
+      statusCallback: `${TWILIO_CALLBACK_BASE}/api/webhooks/twilio`,
     });
 
     await db.update(communicationLogTable)
@@ -541,7 +588,7 @@ export const CommunicationService = {
       return { result: "skipped", reason: "template_not_found" };
     }
 
-    const allVars = getCommonVariables(variables);
+    const allVars = await getCommonVariables(variables);
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
     const text = replaceVariables(template.textBody, allVars);
@@ -612,7 +659,7 @@ export const CommunicationService = {
       return { result: "skipped", reason: "template_not_found" };
     }
 
-    const allVars = getCommonVariables(variables);
+    const allVars = await getCommonVariables(variables);
     const body = replaceVariables(template.body, allVars);
 
     const jobData = { to, body, userId, templateSlug };
@@ -667,7 +714,7 @@ export const CommunicationService = {
       return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
     }
 
-    const allVars = getCommonVariables(variables);
+    const allVars = await getCommonVariables(variables);
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
     const text = replaceVariables(template.textBody, allVars);
@@ -704,7 +751,7 @@ export const CommunicationService = {
       return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
     }
 
-    const allVars = getCommonVariables(variables);
+    const allVars = await getCommonVariables(variables);
     const body = replaceVariables(template.body, allVars);
 
     return sendSmsDirect({ to, body, userId, templateSlug });
