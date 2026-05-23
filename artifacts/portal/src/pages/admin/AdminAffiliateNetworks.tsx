@@ -74,6 +74,31 @@ import {
   type AffiliateNetworkFormData,
   adminAffiliateNetworksApi,
 } from "@/lib/admin-api";
+import { NetworkCard, type NetworkCardData } from "@/components/NetworkCard";
+
+function formToPreviewData(form: AffiliateNetworkFormData): NetworkCardData {
+  return {
+    slug: form.slug,
+    name: form.name,
+    tagline: form.tagline,
+    description: form.description,
+    logoUrl: form.logoUrl,
+    logoBg: form.logoBg,
+    highlights: form.highlights.filter((h) => h.trim() !== ""),
+    publishers: form.publishers,
+    approvalLabel: form.approvalLabel,
+    recommendedForBeginners: form.recommendedForBeginners,
+    accentBorder: form.accentBorder || "border-border",
+    accentBadgeBg: form.accentBadgeBg,
+    accentBadgeText: form.accentBadgeText,
+    accentBadgeBorder: form.accentBadgeBorder,
+    registerUrl: form.registerUrl || null,
+    loginUrl: form.loginUrl || null,
+    extraCtaLabel: form.extraCtaLabel || null,
+    extraCtaHref: form.extraCtaHref || null,
+    extraCtaStyle: form.extraCtaStyle,
+  };
+}
 
 const ACCENT_PRESETS = [
   {
@@ -481,13 +506,31 @@ function NetworkFormDialog({
     }
   }
 
+  const previewData = formToPreviewData(form);
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? `Edit ${network?.name}` : "Create Affiliate Network"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+          <div
+            className="order-2 lg:order-1 lg:sticky lg:top-0 lg:self-start space-y-2"
+            data-testid="admin-network-preview"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Live preview</p>
+              <p className="text-xs text-muted-foreground">How the member card will look</p>
+            </div>
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+              <NetworkCard network={previewData} testIdPrefix="preview-network" disableLinks />
+            </div>
+            <p className="text-[11px] text-muted-foreground italic">
+              Buttons and links are disabled in this preview.
+            </p>
+          </div>
+          <form onSubmit={handleSubmit} className="order-1 lg:order-2 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Name *</Label>
@@ -676,7 +719,8 @@ function NetworkFormDialog({
               {isSaving ? "Saving…" : isEdit ? "Save changes" : "Create network"}
             </Button>
           </DialogFooter>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
