@@ -10,6 +10,7 @@ import {
   type AuthRateLimitAlertConfigStatus,
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
+  type MachineMismatchAlertConfigStatus,
 } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,6 +81,8 @@ export default function AdminSettings() {
         <OnCallDestinationsCard />
 
         <AuthRateLimitAlertConfigCard />
+
+        <MachineMismatchAlertConfigCard />
 
         <ChangeHistoryRetentionConfigCard />
 
@@ -1079,6 +1082,226 @@ function alertConfigActorDisplay(event: AlertConfigHistoryEvent): string {
   if (event.actorName) return event.actorName;
   if (event.actorEmail) return event.actorEmail;
   return "System";
+}
+
+type MachineMismatchAlertField = "threshold" | "windowHours";
+
+const MACHINE_MISMATCH_ALERT_FIELD_LABELS: Record<MachineMismatchAlertField, string> = {
+  threshold: "Alert threshold",
+  windowHours: "Window (hours)",
+};
+
+const MACHINE_MISMATCH_ALERT_FIELD_HINTS: Record<MachineMismatchAlertField, string> = {
+  threshold: "Number of Machine orders with mismatched product details required in the window before the alert fires.",
+  windowHours: "How many hours of recent Machine orders to consider when counting mismatches.",
+};
+
+/**
+ * Settings card for the Machine order mismatch alert. Mirrors the
+ * auth rate-limit card's per-field provenance + bounds-validated inputs +
+ * reset-to-defaults UX, minus the traffic preview and history panels —
+ * mismatches are rare and don't carry the same operational urgency, so
+ * the simpler card stays inside one viewport. Sends `null` for fields on
+ * reset so per-field provenance flips back to "default" rather than
+ * leaving a row that just happens to match the default.
+ */
+function MachineMismatchAlertConfigCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<MachineMismatchAlertConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ threshold: string; windowHours: string }>({
+    threshold: "",
+    windowHours: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<MachineMismatchAlertField, string>>>({});
+
+  const hydrate = (s: MachineMismatchAlertConfigStatus) => {
+    setStatus(s);
+    setDraft({
+      threshold: String(s.config.threshold),
+      windowHours: String(s.config.windowHours),
+    });
+    setFieldErrors({});
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getMachineMismatchAlertConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const validateLocal = (): { ok: boolean; payload: { threshold: number; windowHours: number } } => {
+    if (!status) return { ok: false, payload: { threshold: 0, windowHours: 0 } };
+    const errors: Partial<Record<MachineMismatchAlertField, string>> = {};
+
+    const thresholdNum = Number(draft.threshold);
+    if (!Number.isFinite(thresholdNum) || !Number.isInteger(thresholdNum)) {
+      errors.threshold = "Must be a whole number";
+    } else if (thresholdNum < status.bounds.threshold.min || thresholdNum > status.bounds.threshold.max) {
+      errors.threshold = `Must be between ${status.bounds.threshold.min} and ${status.bounds.threshold.max}`;
+    }
+
+    const windowNum = Number(draft.windowHours);
+    if (!Number.isFinite(windowNum) || !Number.isInteger(windowNum)) {
+      errors.windowHours = "Must be a whole number";
+    } else if (windowNum < status.bounds.windowHours.min || windowNum > status.bounds.windowHours.max) {
+      errors.windowHours = `Must be between ${status.bounds.windowHours.min} and ${status.bounds.windowHours.max} hours`;
+    }
+
+    setFieldErrors(errors);
+    return {
+      ok: Object.keys(errors).length === 0,
+      payload: { threshold: thresholdNum, windowHours: windowNum },
+    };
+  };
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted fields and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateMachineMismatchAlertConfig(v.payload);
+      hydrate(data);
+      if (data.changedFields.length === 0) {
+        toast({ title: "No changes to save" });
+      } else {
+        toast({ title: "Alert thresholds saved" });
+      }
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const next: Partial<Record<MachineMismatchAlertField, string>> = {};
+        for (const e of err.fieldErrors as Array<{ field: string; message: string }>) {
+          if (e.field === "threshold" || e.field === "windowHours") {
+            next[e.field] = e.message;
+          }
+        }
+        setFieldErrors(next);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    const anyCustomized = status.sources.threshold === "db" || status.sources.windowHours === "db";
+    if (!anyCustomized) {
+      setDraft({
+        threshold: String(status.defaults.threshold),
+        windowHours: String(status.defaults.windowHours),
+      });
+      setFieldErrors({});
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateMachineMismatchAlertConfig({
+        threshold: null,
+        windowHours: null,
+      });
+      hydrate(data);
+      setFieldErrors({});
+      toast({ title: "Reset to defaults" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> Machine order mismatch alert
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Pages on-call when at least <em>threshold</em> Machine orders in the last <em>window</em> have product details that don't line up with the matched portal product. Changes take effect on the alerter's next poll.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading alert thresholds...</div>
+        ) : (
+          <>
+            {(["threshold", "windowHours"] as MachineMismatchAlertField[]).map((field) => (
+              <div key={field} className="border rounded-md p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{MACHINE_MISMATCH_ALERT_FIELD_LABELS[field]}</p>
+                    <p className="text-xs text-muted-foreground">{MACHINE_MISMATCH_ALERT_FIELD_HINTS[field]}</p>
+                  </div>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      status.sources[field] === "db"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {status.sources[field] === "db" ? "Customized" : "Using default"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    step={1}
+                    min={status.bounds[field].min}
+                    max={status.bounds[field].max}
+                    value={draft[field]}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, [field]: e.target.value }))}
+                    className="w-40"
+                    data-testid={`machine-mismatch-alert-${field}-input`}
+                    aria-invalid={!!fieldErrors[field]}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Range {status.bounds[field].min}–{status.bounds[field].max}. Current: {status.config[field]}. Default: {status.defaults[field]}.
+                  </span>
+                </div>
+                {fieldErrors[field] && (
+                  <p className="text-xs text-destructive" data-testid={`machine-mismatch-alert-${field}-error`}>{fieldErrors[field]}</p>
+                )}
+              </div>
+            ))}
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResetDefaults}
+                disabled={saving}
+                data-testid="machine-mismatch-alert-reset-button"
+              >
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                data-testid="machine-mismatch-alert-save-button"
+              >
+                <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function AuthRateLimitAlertConfigCard() {

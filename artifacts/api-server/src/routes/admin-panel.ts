@@ -7,6 +7,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
 import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
+import { computeOrderMismatch, parsePortalProductKeys } from "../lib/external-order-mismatch";
 import { CommunicationService } from "../lib/communication-service";
 import {
   signEmailChangePrefillToken,
@@ -52,6 +53,13 @@ import {
   validateUpdate as validateAuthRateLimitAlertUpdate,
   isAuthRateLimitAlertSettingKey,
 } from "../lib/auth-rate-limit-alert-settings";
+import {
+  getMachineMismatchAlertConfigStatus,
+  applyMachineMismatchAlertConfigUpdate,
+  validateUpdate as validateMachineMismatchAlertUpdate,
+  isMachineMismatchAlertSettingKey,
+} from "../lib/machine-mismatch-alert-settings";
+import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import {
   getAuthRateLimitAlertTrafficPreview,
   coerceLookbackDays as coerceAlertTrafficPreviewLookbackDays,
@@ -2776,13 +2784,23 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
         ? deliveryChannelParam
         : null;
 
+    // Include every alerter that writes audit rows with entityType="alert"
+    // so the System Health timeline answers "did *any* on-call page go
+    // out?" — not just queue-fallback ones. Today that's queue-fallback +
+    // machine-order-mismatch (task #494); future alerters add their
+    // action-type constant here without any UI changes.
+    const TIMELINE_ALERT_ACTION_TYPES = [
+      QUEUE_FALLBACK_ALERT_ACTION_TYPE,
+      MACHINE_MISMATCH_ALERT_ACTION_TYPE,
+    ];
+
     const baseFilter = and(
-      eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+      inArray(auditLogTable.actionType, TIMELINE_ALERT_ACTION_TYPES),
       eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
     );
 
     const rowConditions = [
-      eq(auditLogTable.actionType, QUEUE_FALLBACK_ALERT_ACTION_TYPE),
+      inArray(auditLogTable.actionType, TIMELINE_ALERT_ACTION_TYPES),
       eq(auditLogTable.entityType, QUEUE_FALLBACK_ALERT_ENTITY_TYPE),
     ];
     if (outcomeFilter) {
@@ -3178,6 +3196,7 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
       (s) =>
         !isOnCallSettingKey(s.key) &&
         !isAuthRateLimitAlertSettingKey(s.key) &&
+        !isMachineMismatchAlertSettingKey(s.key) &&
         !isChangeHistoryRetentionSettingKey(s.key) &&
         !isPortalUrlSettingKey(s.key),
     );
@@ -3206,6 +3225,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     }
     if (isAuthRateLimitAlertSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/auth-rate-limit-alert-config to manage auth rate-limit alert thresholds" });
+      return;
+    }
+    if (isMachineMismatchAlertSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/machine-mismatch-alert-config to manage Machine order mismatch alert thresholds" });
       return;
     }
     if (isChangeHistoryRetentionSettingKey(key)) {
@@ -3505,6 +3528,64 @@ router.put("/admin/auth-rate-limit-alert-config", requirePermission("settings:ma
   } catch (error) {
     console.error("[Admin] Update auth rate-limit alert config error:", error);
     res.status(500).json({ error: "Failed to update auth rate-limit alert config" });
+  }
+});
+
+/**
+ * Read the current Machine order mismatch alert thresholds plus their
+ * defaults and accepted bounds. Mirrors the auth rate-limit endpoint
+ * above so the Settings UI can reuse the same patterns (per-field
+ * provenance, reset to defaults, bounds-driven input validation).
+ */
+router.get("/admin/machine-mismatch-alert-config", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getMachineMismatchAlertConfigStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get machine mismatch alert config error:", error);
+    res.status(500).json({ error: "Failed to fetch machine mismatch alert config" });
+  }
+});
+
+/**
+ * Update one or more of the Machine order mismatch alert thresholds. Body
+ * is a partial — any field omitted is left untouched, and a `null` value
+ * resets that field back to its shipped default. Out-of-bounds values are
+ * rejected 400 with `fieldErrors` so the UI can surface them inline.
+ * Successful saves write an audit-log row tagged
+ * `entityType=machine_mismatch_alert_config` with the per-field diff so
+ * admins can answer "who tuned this to N?" later.
+ */
+router.put("/admin/machine-mismatch-alert-config", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const validation = validateMachineMismatchAlertUpdate(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: "Invalid alert config", fieldErrors: validation.errors });
+      return;
+    }
+    const { before, after, changedFields } = await applyMachineMismatchAlertConfigUpdate(
+      validation.update,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (changedFields.length > 0) {
+      const diff: Record<string, { from: number; to: number }> = {};
+      for (const field of changedFields) {
+        diff[field] = { from: before[field], to: after[field] };
+      }
+      await logAdminAction(
+        req,
+        "update_setting",
+        "machine_mismatch_alert_config",
+        "machine_mismatch_alert",
+        `Updated machine mismatch alert config: ${changedFields.join(", ")}`,
+        { changedFields, diff },
+      );
+    }
+    const status = await getMachineMismatchAlertConfigStatus();
+    res.json({ ...status, changedFields });
+  } catch (error) {
+    console.error("[Admin] Update machine mismatch alert config error:", error);
+    res.status(500).json({ error: "Failed to update machine mismatch alert config" });
   }
 });
 
@@ -4193,46 +4274,10 @@ router.get(
 // alongside each order so staff can attribute / filter by affiliate code.
 const KNOWN_EXTERNAL_SOURCES = ["yse", "machine"] as const;
 
-// portal_product_keys comes back from SQL as a JSON-array-shaped text (we
-// have to cast jsonb → text to use max() over it). Defensively parse: bad
-// or missing values collapse to [] rather than throwing.
-function parsePortalProductKeys(raw: unknown): string[] {
-  if (raw === null || raw === undefined) return [];
-  if (Array.isArray(raw)) {
-    return raw.filter((k): k is string => typeof k === "string");
-  }
-  if (typeof raw !== "string") return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((k): k is string => typeof k === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-// A Machine order "mismatches" when the set of product slugs we actually
-// granted doesn't equal the set of portal_product_keys The Machine told us
-// to grant — either we missed one (under-grant) or granted something extra
-// (over-grant). Only meaningful when:
-//   - source is "machine" (other sources don't send portal_product_keys), AND
-//   - portal_product_keys was captured on the webhook (pre-task-491 rows
-//     have nothing to compare against and stay "not flagged").
-function computeOrderMismatch(
-  externalSource: string,
-  grantedSlugs: string[],
-  portalProductKeys: string[],
-): boolean {
-  if (externalSource !== "machine") return false;
-  if (portalProductKeys.length === 0) return false;
-  const granted = new Set(grantedSlugs.filter((s) => !!s));
-  const expected = new Set(portalProductKeys);
-  if (granted.size !== expected.size) return true;
-  for (const s of granted) if (!expected.has(s)) return true;
-  for (const k of expected) if (!granted.has(k)) return true;
-  return false;
-}
+// `parsePortalProductKeys` and `computeOrderMismatch` live in
+// `../lib/external-order-mismatch` so the background mismatch alerter can
+// reuse them without dragging in this whole route module at startup. See
+// the lib file for the heuristic.
 
 function parseSourceParam(source: unknown): string[] {
   if (typeof source !== "string") return ["yse"];

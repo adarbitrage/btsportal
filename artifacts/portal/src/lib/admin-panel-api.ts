@@ -275,6 +275,21 @@ export type AuthRateLimitAlertTrafficPreview = {
   truncated: boolean;
 };
 
+export type MachineMismatchAlertConfig = {
+  threshold: number;
+  windowHours: number;
+};
+
+export type MachineMismatchAlertConfigStatus = {
+  config: MachineMismatchAlertConfig;
+  sources: Record<keyof MachineMismatchAlertConfig, "db" | "default">;
+  defaults: MachineMismatchAlertConfig;
+  bounds: {
+    threshold: { min: number; max: number };
+    windowHours: { min: number; max: number };
+  };
+};
+
 export type ChangeHistoryRetentionConfig = {
   emailRetentionDays: number;
   phoneRetentionDays: number;
@@ -1278,6 +1293,45 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/auth-rate-limit-alert-config/traffic-preview${qs}`);
     if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert traffic preview");
     return res.json() as Promise<AuthRateLimitAlertTrafficPreview>;
+  },
+
+  async getMachineMismatchAlertConfig() {
+    const res = await authFetch("/admin/machine-mismatch-alert-config");
+    if (!res.ok) throw new Error("Failed to fetch Machine order mismatch alert config");
+    return res.json() as Promise<MachineMismatchAlertConfigStatus>;
+  },
+
+  // A `null` value means "reset this field to its default" — the
+  // underlying row is deleted server-side so per-field provenance flips
+  // back to "default". Omit a field entirely to leave it untouched.
+  async updateMachineMismatchAlertConfig(payload: {
+    threshold?: number | null;
+    windowHours?: number | null;
+  }) {
+    const res = await authFetch("/admin/machine-mismatch-alert-config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const fieldErrors = Array.isArray(body.fieldErrors)
+        ? (body.fieldErrors as Array<{ field: string; message: string }>)
+        : [];
+      const detail =
+        fieldErrors.length > 0
+          ? fieldErrors.map((e) => `${e.field}: ${e.message}`).join("; ")
+          : body.error || "Failed to update Machine order mismatch alert config";
+      const err = new Error(detail) as Error & {
+        fieldErrors?: Array<{ field: string; message: string }>;
+      };
+      if (fieldErrors.length > 0) err.fieldErrors = fieldErrors;
+      throw err;
+    }
+    return res.json() as Promise<
+      MachineMismatchAlertConfigStatus & {
+        changedFields: Array<"threshold" | "windowHours">;
+      }
+    >;
   },
 
   async getChangeHistoryRetentionConfig() {
