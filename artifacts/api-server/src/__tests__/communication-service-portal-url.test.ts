@@ -10,10 +10,11 @@ import {
 import { randomUUID } from "crypto";
 import {
   db,
+  communicationLogTable,
   emailTemplatesTable,
   systemSettingsTable,
 } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import {
   PORTAL_URL_SETTING_KEY,
   __invalidatePortalUrlCacheForTests,
@@ -192,34 +193,82 @@ describe("CommunicationService renders {{portal_url}} from the per-tenant resolv
     expect(msg.html).toContain('href="https://from-env.example/dashboard"');
   });
 
-  it("renders {{portal_url}} as an empty string and logs in production when nothing is configured", async () => {
+  it("skips the send in production and records the reason in communication_log when no portal URL is configured", async () => {
     process.env.NODE_ENV = "production";
-    // No DB row, no env var. The documented behavior is "fall back to
-    // empty string with a loud log" rather than skipping the email — most
-    // templates that include {{portal_url}} also carry critical content
-    // (password reset, verification) we don't want to silently drop.
+    // No DB row, no env var. Previously this path rendered {{portal_url}} as
+    // an empty string and went out with a broken `/reset-password?token=...`
+    // href; now we refuse to ship the broken link and record a skipped
+    // communication_log row so on-call can see why the send didn't happen.
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await CommunicationService.sendEmailNow({
       templateSlug: TEMPLATE_SLUG,
       to: "missing@example.test",
     });
-    expect(result.status).toBe("sent");
-    const prodCall = sendMock.mock.calls.at(-1);
-    expect(prodCall).toBeDefined();
-    const msg = prodCall![0] as unknown as { html: string };
-    // {{portal_url}} → "" so the rendered href is "/dashboard". Visibly
-    // broken but never wrong-tenant.
-    expect(msg.html).toContain('href="/dashboard"');
-    expect(msg.html).not.toContain("portal.buildtestscale.com");
+    expect(result.status).toBe("skipped");
+    expect(result.status === "skipped" && result.reason).toBe(
+      "portal_url_unconfigured",
+    );
+    // SendGrid should NOT have been called for this send.
+    expect(sendMock).not.toHaveBeenCalled();
+
     expect(
       errorSpy.mock.calls.some(
         (call) =>
           typeof call[0] === "string" &&
-          call[0].includes("No portal URL configured"),
+          call[0].includes("no portal URL configured"),
       ),
     ).toBe(true);
 
+    // The skip is breadcrumbed in communication_log with status=skipped,
+    // a stable reason in errorMessage, and a metadata.reason that the
+    // Communications Log dialog can surface.
+    const [logRow] = await db
+      .select()
+      .from(communicationLogTable)
+      .where(eq(communicationLogTable.recipientEmail, "missing@example.test"))
+      .orderBy(desc(communicationLogTable.id))
+      .limit(1);
+    expect(logRow).toBeDefined();
+    expect(logRow!.status).toBe("skipped");
+    expect(logRow!.templateSlug).toBe(TEMPLATE_SLUG);
+    expect(logRow!.errorMessage).toBe("portal_url_unconfigured");
+    expect((logRow!.metadata as { reason?: string } | null)?.reason).toBe(
+      "portal_url_unconfigured",
+    );
+
     errorSpy.mockRestore();
+  });
+
+  it("still sends in production when no portal URL is configured but the template does NOT reference {{portal_url}}", async () => {
+    process.env.NODE_ENV = "production";
+    // Templates without `{{portal_url}}` (e.g. plain-text broadcasts) are
+    // unaffected — only sends that would actually ship a broken link are
+    // skipped.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const plainSlug = `${TEST_TAG}-plain`;
+    await db.insert(emailTemplatesTable).values({
+      slug: plainSlug,
+      name: "Plain template with no portal link",
+      subject: "Hello {{company_name}}",
+      htmlBody: "<p>Welcome.</p>",
+      textBody: "Welcome.",
+      category: "transactional",
+      active: true,
+    });
+
+    try {
+      const result = await CommunicationService.sendEmailNow({
+        templateSlug: plainSlug,
+        to: "plain@example.test",
+      });
+      expect(result.status).toBe("sent");
+      expect(sendMock).toHaveBeenCalledTimes(1);
+    } finally {
+      await db
+        .delete(emailTemplatesTable)
+        .where(eq(emailTemplatesTable.slug, plainSlug));
+      errorSpy.mockRestore();
+    }
   });
 });

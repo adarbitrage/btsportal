@@ -2583,6 +2583,22 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
 
     const queueFallbacks = await getQueueFallbackStatsFromDb();
     const rateLimitAuditFailures = await getRateLimitAuditFailureStatsAggregated();
+    // Per-tenant portal URL provenance. When production has neither a DB row
+    // nor a PORTAL_URL env var, the resolver returns `null` and the
+    // communication-service skips any template that renders {{portal_url}}
+    // (password resets, verifications) so members don't click a broken
+    // `/reset-password?token=...` link. Surface that state on the System
+    // Health page so on-call notices before members do.
+    const portalUrlStatus = await getPortalUrlStatus();
+    const portalUrl = {
+      configured: portalUrlStatus.portalUrl !== null,
+      source: portalUrlStatus.source,
+      // True only in production when nothing is configured. The dev default
+      // is fine outside production, so we don't want to nag local devs.
+      productionFallbackMissing:
+        process.env.NODE_ENV === "production" && portalUrlStatus.portalUrl === null,
+      settingKey: PORTAL_URL_SETTING_KEY,
+    };
     const redisStatus = !redisConnected
       ? "down"
       : queueFallbacks.alerting
@@ -2610,7 +2626,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // entries while the 429s themselves keep flowing. Better to flip the
     // top-level status to "degraded" so the banner pops than to leave the
     // System Health page green.
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing
       ? "degraded"
       : "healthy";
 
@@ -2643,6 +2659,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         auditLogRetention,
         rateLimitAuditFailures,
         missingCriticalSecrets,
+        portalUrl,
       },
       webhooks: { last24h: 0, failed24h: 0 },
       auditLogs: { last24h: recentAuditLogs },

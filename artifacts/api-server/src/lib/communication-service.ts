@@ -14,7 +14,11 @@ import {
 import { eq, and, gte } from "drizzle-orm";
 import { getRedisConnection } from "./redis";
 import { recordQueueFallback } from "./queue-fallback-tracker";
-import { getPortalUrl, PORTAL_URL_SETTING_KEY } from "./portal-url-settings";
+import {
+  getPortalUrl,
+  getPortalUrlStatus,
+  PORTAL_URL_SETTING_KEY,
+} from "./portal-url-settings";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -269,6 +273,103 @@ function replaceVariables(template: string, variables: Record<string, string>): 
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     return variables[key] !== undefined ? variables[key] : match;
   });
+}
+
+// Stable token written to communication_log.errorMessage and to the audit
+// metadata of skipped sends so the System Health page, the admin
+// Communications Log dialog, and external dashboards can all key off the
+// same string. Don't change without grepping for callers.
+export const SKIP_REASON_PORTAL_URL_UNCONFIGURED = "portal_url_unconfigured";
+
+// Per-tenant override key wins over caller-supplied variables (see
+// getCommonVariables). Match the same `{{portal_url}}` token the
+// substitution pass uses so a caller that passes its own value in
+// `variables.portal_url` is treated as having the link covered and the
+// production-skip guard stays out of its way.
+const PORTAL_URL_TOKEN = /\{\{\s*portal_url\s*\}\}/;
+
+/**
+ * True if any of the template fields contain `{{portal_url}}`. We check the
+ * raw template strings (not the rendered output) so the skip decision is
+ * deterministic regardless of whether the caller supplied an override.
+ * Callers thread in only the fields they have — emails use subject + bodies,
+ * SMS uses body only.
+ */
+function templateUsesPortalUrl(
+  fields: ReadonlyArray<string | null | undefined>,
+): boolean {
+  return fields.some((field) => typeof field === "string" && PORTAL_URL_TOKEN.test(field));
+}
+
+/**
+ * Decide whether a template that needs `{{portal_url}}` should be skipped
+ * because no portal URL is configured in production. Returns false (don't
+ * skip) when:
+ *   - the template doesn't reference `{{portal_url}}` at all
+ *   - the caller supplied an explicit `portal_url` override in `variables`
+ *   - the resolver returned a value (DB row, env var, or dev default)
+ *   - we are not running in production (NODE_ENV !== "production")
+ *
+ * The dev/test escape hatch matters: portal-url-settings always returns the
+ * `http://localhost:5000` dev default outside production, so this guard is
+ * effectively production-only. That mirrors the existing comment in
+ * `getCommonVariables` — we deliberately don't drop sends in development.
+ */
+async function shouldSkipForMissingPortalUrl(
+  templateFields: ReadonlyArray<string | null | undefined>,
+  callerVariables: Record<string, string> | undefined,
+): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return false;
+  if (callerVariables && typeof callerVariables.portal_url === "string" && callerVariables.portal_url !== "") {
+    return false;
+  }
+  if (!templateUsesPortalUrl(templateFields)) return false;
+  const portalUrl = await getPortalUrl();
+  return !portalUrl;
+}
+
+/**
+ * Insert a `communication_log` row recording a portal-url-driven skip so
+ * operators tracing a missed password reset can see exactly why the send
+ * didn't happen. Mirrors the columns the normal send path populates so the
+ * existing Communications Log dialog renders these rows without special
+ * cases. The audit signal that surfaces on the System Health page is the
+ * `portalUrl` block on `/admin/system/health` — this row is the
+ * per-recipient breadcrumb the on-call admin clicks into from there.
+ */
+async function logPortalUrlSkip(params: {
+  channel: "email" | "sms";
+  templateSlug: string;
+  userId?: number;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  subject?: string;
+  category?: string;
+}): Promise<number> {
+  console.error(
+    `[Comms] Skipping ${params.channel} template "${params.templateSlug}" to ${
+      params.recipientEmail ?? params.recipientPhone ?? "unknown"
+    }: no portal URL configured (set ${PORTAL_URL_SETTING_KEY} in admin settings or the PORTAL_URL env var). The template references {{portal_url}} and we refuse to ship a broken link in production.`,
+  );
+  const [row] = await db
+    .insert(communicationLogTable)
+    .values({
+      userId: params.userId,
+      channel: params.channel,
+      templateSlug: params.templateSlug,
+      recipientEmail: params.recipientEmail,
+      recipientPhone: params.recipientPhone,
+      subject: params.subject,
+      status: "skipped",
+      category: params.category,
+      errorMessage: SKIP_REASON_PORTAL_URL_UNCONFIGURED,
+      metadata: {
+        reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED,
+        setting: PORTAL_URL_SETTING_KEY,
+      },
+    })
+    .returning({ id: communicationLogTable.id });
+  return row.id;
 }
 
 /**
@@ -588,6 +689,24 @@ export const CommunicationService = {
       return { result: "skipped", reason: "template_not_found" };
     }
 
+    if (
+      await shouldSkipForMissingPortalUrl(
+        [template.subject, template.htmlBody, template.textBody],
+        variables,
+      )
+    ) {
+      const emailCategory = category || template.category;
+      await logPortalUrlSkip({
+        channel: "email",
+        templateSlug,
+        userId,
+        recipientEmail: to,
+        subject: template.subject,
+        category: emailCategory,
+      });
+      return { result: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED };
+    }
+
     const allVars = await getCommonVariables(variables);
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
@@ -659,6 +778,18 @@ export const CommunicationService = {
       return { result: "skipped", reason: "template_not_found" };
     }
 
+    if (
+      await shouldSkipForMissingPortalUrl([template.body], variables)
+    ) {
+      await logPortalUrlSkip({
+        channel: "sms",
+        templateSlug,
+        userId,
+        recipientPhone: to,
+      });
+      return { result: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED };
+    }
+
     const allVars = await getCommonVariables(variables);
     const body = replaceVariables(template.body, allVars);
 
@@ -714,6 +845,24 @@ export const CommunicationService = {
       return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
     }
 
+    if (
+      await shouldSkipForMissingPortalUrl(
+        [template.subject, template.htmlBody, template.textBody],
+        variables,
+      )
+    ) {
+      const emailCategory = category || template.category;
+      const logId = await logPortalUrlSkip({
+        channel: "email",
+        templateSlug,
+        userId,
+        recipientEmail: to,
+        subject: template.subject,
+        category: emailCategory,
+      });
+      return { status: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED, logId };
+    }
+
     const allVars = await getCommonVariables(variables);
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
@@ -749,6 +898,18 @@ export const CommunicationService = {
     if (!template) {
       console.error(`[Comms] SMS template not found: ${templateSlug}`);
       return { status: "skipped", reason: `template_not_found:${templateSlug}`, logId: null };
+    }
+
+    if (
+      await shouldSkipForMissingPortalUrl([template.body], variables)
+    ) {
+      const logId = await logPortalUrlSkip({
+        channel: "sms",
+        templateSlug,
+        userId,
+        recipientPhone: to,
+      });
+      return { status: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED, logId };
     }
 
     const allVars = await getCommonVariables(variables);

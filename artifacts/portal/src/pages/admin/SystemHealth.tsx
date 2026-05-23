@@ -1103,6 +1103,36 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {(health.services?.portalUrl as { productionFallbackMissing?: boolean } | undefined)?.productionFallbackMissing && (
+              <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="portal-url-unconfigured-banner">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-red-900 dark:text-red-200">
+                      Portal URL is not configured
+                    </p>
+                    <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                      No per-tenant portal URL is set and the <code>PORTAL_URL</code>{" "}
+                      env var is empty. Branded emails that include a portal link
+                      (password resets, email verifications) are being{" "}
+                      <strong>skipped</strong> instead of going out with a broken
+                      link. Save a value at{" "}
+                      <Link href="/admin/settings" className="underline">
+                        Admin → Settings → Branding
+                      </Link>{" "}
+                      (key{" "}
+                      <code>
+                        {(health.services.portalUrl as { settingKey?: string } | undefined)
+                          ?.settingKey ?? "branding.portal_url"}
+                      </code>
+                      ) or set the <code>PORTAL_URL</code> env var to restore
+                      delivery.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {health.services?.signupChallenge && health.services.signupChallenge.enforced === false && (
               <Card className="border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950/30">
                 <CardContent className="py-4 flex items-start gap-3">
