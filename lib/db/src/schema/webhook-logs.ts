@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -31,7 +32,27 @@ export const webhookLogsTable = pgTable("webhook_logs", {
   // once a dispatch actually attempts delivery.
   alertClaimedAt: timestamp("alert_claimed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  // Partial index that backs the retry-dispatcher's "what's due to retry next?"
+  // lookup. The dispatcher polls every few seconds with
+  //   WHERE status = 'failed' AND result IS NULL AND next_retry_at <= now()
+  // ordered by (event_type, next_retry_at), so a partial btree on exactly
+  // that predicate keeps the scan tiny even as the table grows. Mirrors the
+  // raw-SQL index created in 0033_webhook_logs_retry_columns.sql; declared
+  // here so `drizzle-kit push` produces the same constraint set.
+  index("webhook_logs_retry_idx")
+    .on(table.eventType, table.status, table.nextRetryAt)
+    .where(sql`"status" = 'failed' AND "result" IS NULL`),
+  // Partial index that backs `yse-grant-exhausted-alerter.ts`'s sweep for
+  // rows that are out of retries but haven't been paged about yet
+  // (status='failed', result IS NULL, alert_sent_at IS NULL). Without it
+  // every sweep would full-scan webhook_logs. Mirrors the raw-SQL index
+  // created in 0034_webhook_logs_alert_sent_at.sql; declared here so
+  // `drizzle-kit push` produces the same constraint set.
+  index("webhook_logs_exhausted_unalerted_idx")
+    .on(table.eventType, table.attempts)
+    .where(sql`"status" = 'failed' AND "result" IS NULL AND "alert_sent_at" IS NULL`),
+]);
 
 export const insertWebhookLogSchema = createInsertSchema(webhookLogsTable).omit({ id: true, createdAt: true });
 export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
