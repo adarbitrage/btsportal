@@ -1,0 +1,51 @@
+Subject: The Machine ↔ Portal product-key mapping — what we just built
+
+Hey — wanted to give you a complete picture of what The Machine is now sending you on every YSE checkout, and the admin tooling we built behind it. Zero coordination needed on your end today; this is informational + a heads-up about a new field on the wire.
+
+1. Wire contract (unchanged endpoint, new field).
+
+Every successful YSE checkout (both server/routes/checkout.ts and server/routes/checkout-yse.ts on our side) fire-and-forgets a POST to:
+
+POST https://portal.buildtestscale.com/api/integrations/machine-purchase
+Header: X-Machine-Webhook-Secret: <MACHINE_PORTAL_SHARED_SECRET>
+
+Body is a flat top-level JSON object — customer, order, attribution, product_ids, etc. — and as of Task #632 it always includes a new field:
+
+"portal_product_keys": ["yse_front_end", "yse_affiliate_cmo_bump"]
+
+It is the deduped + sorted union of Portal product keys across every product in the order. Always present (even if empty []). You can read it or ignore it — we built it knowing your side is opt-in until you wire it into your entitlement-grant path.
+
+2. Where the keys come from on our side.
+
+We added a new admin page, /admin/portal-product-mappings, backed by a portal_product_mapping table (one row per Machine checkout product). Each row stores:
+
+machine_product_id — our checkout product (e.g. "Your Second Engine", "21-Day Blitz")
+portal_product_keys — an array of strings (1–20, snake_case) the operator picked
+notes — optional free text
+When an order ships, the sender resolves each product_id in the order through this table, unions the resulting keys, sorts, dedupes, and writes the result into the outbound payload. The resolver lives in server/services/portal-product-key-resolver.ts (single DB query, swallows errors → [] on failure so it can never block a checkout).
+
+3. The catalog the operator picks from.
+
+The admin UI is a checkbox picker, not free text — the operator was getting nowhere with a blank input. The catalog mirrors the 13 product slugs currently seeded on portal.buildtestscale.com, organized into three groups:
+
+YSE (5): yse_front_end, yse_affiliate_cmo_bump, yse_21_day_blitz, yse_swipe_resource_bank, yse_profit_maximizer_pass
+
+BTS Frontend (3): reserve_income, backroad, offmarket
+
+BTS Mentorship (5): launchpad, 3month, 6month, 1year, lifetime
+
+These 13 came directly from your last data dump (the "13 products currently seeded" answer). If/when you add a new Portal product, ping us and we'll add it to the catalog — it's a one-liner in shared/models/portal-product-mapping.ts.
+
+The mapping is fully many-to-many: one Machine product can grant multiple Portal keys (e.g. a future bundle that grants yse_front_end + lifetime), and one Portal key can be granted by multiple Machine products.
+
+4. Resync + idempotency.
+
+Every outbound POST is logged in portal_member_sync_log, idempotent on order_number.
+We have an admin "Resync" button per row that recomputes portal_product_keys from current mappings before re-POSTing — so if the operator fixes a mapping after a sale already shipped, hitting Resync sends the corrected keys.
+5-minute retry cron handles transient failures (max 5 attempts; admin email on exhaustion).
+We classify your response by responseKind: created (201) / merged (200) / deduped (200) / accepted (any other 2xx). 401 → INVALID_SECRET. 400 → VALIDATION_ERROR. 503 → retry.
+5. What we'd love from you (eventually, no rush).
+
+Whenever you're ready to consume portal_product_keys, wiring it into the entitlement assignment is the cleanest path — it's already in every payload, it's exactly the slugs your products table uses, and the union semantics mean one POST per order grants the full bundle correctly. Until then, you can keep doing whatever you're doing today and the field is just inert metadata.
+
+Receiver contract docs on our side: docs/portal-member-sync-receiver.md. Happy to walk through any of it.
