@@ -1083,6 +1083,8 @@ const blitzBodyHTML = `<div class="version-banner">
     Remember: in Round 1 you're testing with one image. You don't need it to be perfect — you need it to be a strong starting point. Round 2 is specifically for testing different visual approaches against each other.
   </div>
 
+  <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
+
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
   <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
