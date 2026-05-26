@@ -1154,7 +1154,7 @@ const blitzBodyHTML = `<div class="version-banner">
       <div class="play-icon" style="background:#059669;"></div>
       <div>
         <div class="vt">Using AI to Generate Hero Shots</div>
-        <div class="vd" style="color:#6ee7b7;">📌 Video coming soon — recommended starting point for beginners</div>
+        <div class="vd" style="color:#6ee7b7;">Leverging AI to generate image ideas and images</div>
       </div>
     </div>
 
@@ -1227,7 +1227,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Source 5 Hero Shot Images</h4>
     <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
 
-    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
+    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
     <div class="video-slot" data-vidalytics-id="bVZQh22uMsWXS5AR"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
 
     <p><strong>Other ways to generate or source hero shot images:</strong></p>
