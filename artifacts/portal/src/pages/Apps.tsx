@@ -28,18 +28,21 @@ import {
   Ban,
   Copy,
   Check,
+  Chrome,
 } from "lucide-react";
 import flexyLogo from "@assets/flexy-logo_1778710958688.jpg";
 import diytraxLogo from "@assets/diytrax-logo_1778710958688.jpg";
 import metricmoverLogo from "@assets/metricmover-logo_1778710958687.jpg";
 import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
+import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
+import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
 import { VidalyticsDialog } from "@/components/VidalyticsDialog";
 
 type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
 
 type AppCatalogEntry = {
-  name: AppInstanceAppName;
+  name: AppInstanceAppName | string;
   title: string;
   category: string;
   tagline: string;
@@ -50,6 +53,8 @@ type AppCatalogEntry = {
   collapsible?: boolean;
   overviewVideoUrl?: string;
   overviewVideoPoster?: string;
+  appType?: "installable" | "chrome-extension";
+  externalUrl?: string;
   accent: {
     border: string;
     badgeBg: string;
@@ -185,6 +190,60 @@ const APP_CATALOG: AppCatalogEntry[] = [
       badgeBorder: "border-fuchsia-200",
     },
   },
+  {
+    name: "scrapebot",
+    title: "ScrapeBot",
+    category: "Google/Bing Image Scraper",
+    tagline: "Scrape Google, Bing & DuckDuckGo images straight from your browser.",
+    description:
+      "A Chrome extension built for the BTS workflow — quickly locate and download images for banner ads and advertorial pages. Paired with CropBot and PixelPress, it replaces Photoshop entirely.",
+    highlights: [
+      "Scrape images from Google, Bing, and DuckDuckGo with one click",
+      "Bulk-select and download exactly what you need",
+      "Built to feed directly into CropBot and PixelPress",
+      "Used daily by the BTS team for banner and advertorial creation",
+    ],
+    logo: scrapebotLogo,
+    logoBg: "bg-white",
+    collapsible: true,
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/scrapebot.mp4`,
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/scrapebot.jpg`,
+    appType: "chrome-extension",
+    externalUrl: "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
+    accent: {
+      border: "border-blue-300",
+      badgeBg: "bg-blue-50",
+      badgeText: "text-blue-800",
+      badgeBorder: "border-blue-200",
+    },
+  },
+  {
+    name: "cropbot",
+    title: "CropBot",
+    category: "Image Cropper & Resizer",
+    tagline: "Crop and resize the images you grab with ScrapeBot — right in your browser.",
+    description:
+      "A Chrome extension that handles the cropping and resizing step after scraping. Images pulled from Google rarely match your target dimensions — CropBot fixes that in seconds, no Photoshop required.",
+    highlights: [
+      "Crop and resize images to any target dimension in seconds",
+      "Match the exact sizes used by PixelPress banner templates",
+      "Works hand-in-hand with ScrapeBot and PixelPress",
+      "No design software needed — runs entirely inside Chrome",
+    ],
+    logo: cropbotLogo,
+    logoBg: "bg-white",
+    collapsible: true,
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/cropbot.mp4`,
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/cropbot.jpg`,
+    appType: "chrome-extension",
+    externalUrl: "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
+    accent: {
+      border: "border-orange-300",
+      badgeBg: "bg-orange-50",
+      badgeText: "text-orange-800",
+      badgeBorder: "border-orange-200",
+    },
+  },
 ];
 
 function StatusBadge({ status }: { status: AppInstance["status"] }) {
@@ -315,6 +374,10 @@ function AppCard({
                       This app has been temporarily disabled by an administrator. Please check back later.
                     </TooltipContent>
                   </Tooltip>
+                ) : app.appType === "chrome-extension" ? (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Chrome className="w-3 h-3 mr-1" /> Chrome Extension
+                  </Badge>
                 ) : (
                   <StatusBadge status={status} />
                 )}
@@ -383,53 +446,67 @@ function AppCard({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
-                  {status === "not_installed" && (
+                  {app.appType === "chrome-extension" && app.externalUrl ? (
                     <Button
+                      asChild
                       size="sm"
-                      disabled={installIsPending || !hasActiveMembership}
-                      onClick={() => onInstall(app.name)}
-                      data-testid={`button-install-${app.name}`}
+                      data-testid={`button-add-chrome-${app.name}`}
                     >
-                      {isInstallingNow ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
-                      ) : (
-                        "Install"
+                      <a href={app.externalUrl} target="_blank" rel="noopener noreferrer">
+                        <Chrome className="w-4 h-4 mr-2" /> Add to Chrome
+                      </a>
+                    </Button>
+                  ) : (
+                    <>
+                      {status === "not_installed" && (
+                        <Button
+                          size="sm"
+                          disabled={installIsPending || !hasActiveMembership}
+                          onClick={() => onInstall(app.name as AppInstanceAppName)}
+                          data-testid={`button-install-${app.name}`}
+                        >
+                          {isInstallingNow ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+                          ) : (
+                            "Install"
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                  {status === "installing" && (
-                    <Button size="sm" disabled>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
-                    </Button>
-                  )}
-                  {status === "installed" && inst?.domain && (
-                    <Button
-                      size="sm"
-                      disabled={openingApp === app.name || !hasActiveMembership}
-                      onClick={() => onOpen(app.name)}
-                      data-testid={`button-open-${app.name}`}
-                    >
-                      {openingApp === app.name ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
-                      ) : (
-                        <>Open</>
+                      {status === "installing" && (
+                        <Button size="sm" disabled>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing…
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                  {status === "install_failed" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isRetrying || !hasActiveMembership}
-                      onClick={() => onRetry(app.name)}
-                      data-testid={`button-retry-${app.name}`}
-                    >
-                      {isRetrying ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
-                      ) : (
-                        <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
+                      {status === "installed" && inst?.domain && (
+                        <Button
+                          size="sm"
+                          disabled={openingApp === app.name || !hasActiveMembership}
+                          onClick={() => onOpen(app.name as AppInstanceAppName)}
+                          data-testid={`button-open-${app.name}`}
+                        >
+                          {openingApp === app.name ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening…</>
+                          ) : (
+                            <>Open</>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      {status === "install_failed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRetrying || !hasActiveMembership}
+                          onClick={() => onRetry(app.name as AppInstanceAppName)}
+                          data-testid={`button-retry-${app.name}`}
+                        >
+                          {isRetrying ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Retrying…</>
+                          ) : (
+                            <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
+                          )}
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -544,7 +621,9 @@ export default function Apps() {
     );
   }
 
-  const visibleApps = APP_CATALOG.filter((app) => byName.has(app.name));
+  const visibleApps = APP_CATALOG.filter(
+    (app) => app.appType === "chrome-extension" || byName.has(app.name),
+  );
 
   return (
     <AppLayout>
