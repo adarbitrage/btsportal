@@ -1083,7 +1083,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Remember: in Round 1 you're testing with one image. You don't need it to be perfect — you need it to be a strong starting point. Round 2 is specifically for testing different visual approaches against each other.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
+  <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Ad Images</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
 
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create An Ad Image for Caterpillar Campaigns</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
