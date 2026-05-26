@@ -49,6 +49,7 @@ type AppCatalogEntry = {
   logoBg: string;
   collapsible?: boolean;
   overviewVideoUrl?: string;
+  overviewVideoPoster?: string;
   accent: {
     border: string;
     badgeBg: string;
@@ -75,6 +76,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logoBg: "bg-white",
     collapsible: true,
     overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/mxMJcb1ABTOgkKiW/141750/flexy-1.mp4",
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/flexy.jpg`,
     accent: {
       border: "border-red-300",
       badgeBg: "bg-red-50",
@@ -99,6 +101,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logoBg: "bg-white",
     collapsible: true,
     overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/EqqoE4li5xO0wrjq/141747/diytrax-1.mp4",
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/diytrax.jpg`,
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",
@@ -123,6 +126,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logoBg: "bg-white",
     collapsible: true,
     overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/9FQkRbOSSrI3JMML/141757/metric-mover-1.mp4",
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/metricmover.jpg`,
     accent: {
       border: "border-emerald-300",
       badgeBg: "bg-emerald-50",
@@ -148,6 +152,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logoBg: "bg-white",
     collapsible: true,
     overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/vA7IOa_12U66yEFl/141758/pixel-press-1.mp4",
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/pixelpress.jpg`,
     accent: {
       border: "border-yellow-300",
       badgeBg: "bg-yellow-50",
@@ -172,6 +177,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logoBg: "bg-white",
     collapsible: true,
     overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/ucrw84JSj_OoMMQE/141751/gifster-1.mp4",
+    overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/gifster.jpg`,
     accent: {
       border: "border-fuchsia-300",
       badgeBg: "bg-fuchsia-50",
@@ -323,6 +329,7 @@ function AppCard({
               <div className="mb-3">
                 <VidalyticsDialog
                   videoUrl={app.overviewVideoUrl}
+                  posterUrl={app.overviewVideoPoster}
                   title={`${app.title} — Overview`}
                   triggerLabel={`Watch ${app.title} overview`}
                 />

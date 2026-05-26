@@ -7,9 +7,10 @@ type VidalyticsDialogProps = {
   videoUrl: string;
   title: string;
   triggerLabel?: string;
+  posterUrl?: string;
 };
 
-export function VidalyticsDialog({ videoUrl, title, triggerLabel = "Watch overview" }: VidalyticsDialogProps) {
+export function VidalyticsDialog({ videoUrl, title, triggerLabel = "Watch overview", posterUrl }: VidalyticsDialogProps) {
   const [open, setOpen] = useState(false);
 
   if (!videoUrl) return null;
@@ -36,9 +37,11 @@ export function VidalyticsDialog({ videoUrl, title, triggerLabel = "Watch overvi
           <video
             key={videoUrl}
             src={videoUrl}
+            poster={posterUrl}
             controls
             autoPlay
             playsInline
+            preload="metadata"
             className="w-full h-auto aspect-video bg-black"
           >
             Your browser does not support the video tag.
