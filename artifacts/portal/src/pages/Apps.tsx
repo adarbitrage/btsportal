@@ -75,7 +75,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: flexyLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/mxMJcb1ABTOgkKiW/141750/flexy-1.mp4",
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/flexy.mp4`,
     overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/flexy.jpg`,
     accent: {
       border: "border-red-300",
@@ -100,7 +100,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: diytraxLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/EqqoE4li5xO0wrjq/141747/diytrax-1.mp4",
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/diytrax.mp4`,
     overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/diytrax.jpg`,
     accent: {
       border: "border-neutral-300",
@@ -125,7 +125,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: metricmoverLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/9FQkRbOSSrI3JMML/141757/metric-mover-1.mp4",
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/metricmover.mp4`,
     overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/metricmover.jpg`,
     accent: {
       border: "border-emerald-300",
@@ -151,7 +151,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: pixelpressLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/vA7IOa_12U66yEFl/141758/pixel-press-1.mp4",
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/pixelpress.mp4`,
     overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/pixelpress.jpg`,
     accent: {
       border: "border-yellow-300",
@@ -176,7 +176,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: gifsterLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/ucrw84JSj_OoMMQE/141751/gifster-1.mp4",
+    overviewVideoUrl: `${import.meta.env.BASE_URL}videos/gifster.mp4`,
     overviewVideoPoster: `${import.meta.env.BASE_URL}video-posters/gifster.jpg`,
     accent: {
       border: "border-fuchsia-300",
