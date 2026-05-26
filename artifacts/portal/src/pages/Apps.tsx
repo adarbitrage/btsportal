@@ -332,6 +332,7 @@ function AppCard({
                   posterUrl={app.overviewVideoPoster}
                   title={`${app.title} — Overview`}
                   triggerLabel={`Watch ${app.title} overview`}
+                  variant="thumbnail"
                 />
               </div>
             )}
