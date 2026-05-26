@@ -1123,7 +1123,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Writing Your 5 Landing Page Headlines</h4>
     <p>Remember: landing page headlines have a different job than your ad headlines. Where ad headlines create curiosity to earn the click, landing page headlines need to <strong>carry that curiosity forward</strong> and pull the reader into the advertorial. Start by generating your headline angles using the AffAngleArchitect bot, then use the Copy Blocks framework to make them even stronger.</p>
 
-    <div class="video-slot" data-vidalytics-id="GylVUr_VAjq8SUwk" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+    <div class="video-slot" data-vidalytics-id="W7ErW0djTSt_xAzc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
 
     <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
 
@@ -1208,7 +1208,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
 
-    <div class="video-slot" data-vidalytics-id="GylVUr_VAjq8SUwk" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+    <div class="video-slot" data-vidalytics-id="W7ErW0djTSt_xAzc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
 
     <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
 
