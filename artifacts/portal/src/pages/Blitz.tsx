@@ -1148,7 +1148,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>A strong hero shot does two things simultaneously: it reinforces the specific headline it's paired with, and it creates an emotional connection that makes the reader want to keep scrolling. A mismatch between headline and image — even a subtle one — can kill engagement before the reader gets to the first sentence of the advertorial. Think of each headline and hero shot as a pair, not two independent elements.</p>
     <p>Below are two unique methods for generating hero shots. Adam's method for generating GIFs can be very effective, since image motion can enhance or further develop a message, but it is slightly more advanced and complicated, and is not necessary for your first campaign. The choice is yours.</p>
 
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" data-status="needs-rerecord" style="border:2px dashed #6ee7b7;background:#1a2e3a;">
+    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready" style="border:2px dashed #6ee7b7;background:#1a2e3a;">
       <div class="play-icon" style="background:#059669;"></div>
       <div>
         <div class="vt">Using AI to Generate Hero Shots</div>
@@ -1225,7 +1225,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <h4>Source 5 Hero Shot Images</h4>
     <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
 
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_012" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
+    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Recommended starting point for generating hero shot images</div></div></div>
     <div class="video-slot" data-vidalytics-id="bVZQh22uMsWXS5AR"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
 
     <p><strong>Other ways to generate or source hero shot images:</strong></p>
