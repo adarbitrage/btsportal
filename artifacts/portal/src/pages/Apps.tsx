@@ -34,6 +34,7 @@ import diytraxLogo from "@assets/diytrax-logo_1778710958688.jpg";
 import metricmoverLogo from "@assets/metricmover-logo_1778710958687.jpg";
 import pixelpressLogo from "@assets/pixelpress-logo_1778710958686.jpg";
 import gifsterLogo from "@assets/gifster-logo_1778710958687.png";
+import { VidalyticsDialog } from "@/components/VidalyticsDialog";
 
 type AppInstanceWithDisabled = AppInstance & { disabled?: boolean };
 
@@ -47,6 +48,7 @@ type AppCatalogEntry = {
   logo: string;
   logoBg: string;
   collapsible?: boolean;
+  overviewVideoId?: string;
   accent: {
     border: string;
     badgeBg: string;
@@ -72,6 +74,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: flexyLogo,
     logoBg: "bg-white",
     collapsible: true,
+    overviewVideoId: "",
     accent: {
       border: "border-red-300",
       badgeBg: "bg-red-50",
@@ -95,6 +98,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: diytraxLogo,
     logoBg: "bg-white",
     collapsible: true,
+    overviewVideoId: "",
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",
@@ -118,6 +122,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: metricmoverLogo,
     logoBg: "bg-white",
     collapsible: true,
+    overviewVideoId: "",
     accent: {
       border: "border-emerald-300",
       badgeBg: "bg-emerald-50",
@@ -142,6 +147,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: pixelpressLogo,
     logoBg: "bg-white",
     collapsible: true,
+    overviewVideoId: "",
     accent: {
       border: "border-yellow-300",
       badgeBg: "bg-yellow-50",
@@ -165,6 +171,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: gifsterLogo,
     logoBg: "bg-white",
     collapsible: true,
+    overviewVideoId: "",
     accent: {
       border: "border-fuchsia-300",
       badgeBg: "bg-fuchsia-50",
@@ -311,6 +318,16 @@ function AppCard({
             <p className="text-sm text-foreground/90 leading-relaxed mb-3">
               {app.description}
             </p>
+
+            {app.overviewVideoId && (
+              <div className="mb-3">
+                <VidalyticsDialog
+                  videoId={app.overviewVideoId}
+                  title={`${app.title} — Overview`}
+                  triggerLabel={`Watch ${app.title} overview`}
+                />
+              </div>
+            )}
 
             {showHighlights && (
               <ul className="space-y-1 mb-3">
