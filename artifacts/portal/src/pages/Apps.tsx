@@ -74,7 +74,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: flexyLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "",
+    overviewVideoId: "mxMJcb1ABTOgkKiW",
     accent: {
       border: "border-red-300",
       badgeBg: "bg-red-50",
@@ -98,7 +98,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: diytraxLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "",
+    overviewVideoId: "EqqoE4li5xO0wrjq",
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",
@@ -122,7 +122,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: metricmoverLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "",
+    overviewVideoId: "9FQkRbOSSrI3JMML",
     accent: {
       border: "border-emerald-300",
       badgeBg: "bg-emerald-50",
@@ -147,7 +147,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: pixelpressLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "",
+    overviewVideoId: "vA7IOa_12U66yEFl",
     accent: {
       border: "border-yellow-300",
       badgeBg: "bg-yellow-50",
@@ -171,7 +171,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: gifsterLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "",
+    overviewVideoId: "ucrw84JSj_OoMMQE",
     accent: {
       border: "border-fuchsia-300",
       badgeBg: "bg-fuchsia-50",
