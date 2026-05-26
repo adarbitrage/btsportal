@@ -344,34 +344,36 @@ const blitzCSS = `.blitz-content{
   }
   .blitz-content .vd-lightbox-close{
     position: absolute;
-    top: -38px;
-    right: 0;
-    background: none;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,.55);
     border: none;
     color: white;
     font-size: 1.6rem;
     cursor: pointer;
     line-height: 1;
-    padding: 4px 8px;
-    opacity: .8;
-    z-index: 10;
+    padding: 2px 10px;
+    border-radius: 6px;
+    opacity: .85;
+    z-index: 20;
   }
-  .blitz-content .vd-lightbox-close:hover{ opacity: 1; }
+  .blitz-content .vd-lightbox-close:hover{ opacity: 1; background: rgba(0,0,0,.75); }
   .blitz-content .vd-lightbox-fullscreen{
     position: absolute;
-    top: -38px;
-    right: 44px;
-    background: none;
+    top: 10px;
+    right: 52px;
+    background: rgba(0,0,0,.55);
     border: none;
     color: white;
     font-size: 1.35rem;
     cursor: pointer;
     line-height: 1;
-    padding: 4px 8px;
-    opacity: .8;
-    z-index: 10;
+    padding: 4px 10px;
+    border-radius: 6px;
+    opacity: .85;
+    z-index: 20;
   }
-  .blitz-content .vd-lightbox-fullscreen:hover{ opacity: 1; }
+  .blitz-content .vd-lightbox-fullscreen:hover{ opacity: 1; background: rgba(0,0,0,.75); }
   /* When the lightbox-inner is the fullscreen element, paint a solid
      background behind the 16:9 video so the surrounding area isn't white,
      and pin the close/fullscreen buttons inside the viewport (the original
