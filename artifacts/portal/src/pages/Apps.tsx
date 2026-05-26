@@ -48,7 +48,7 @@ type AppCatalogEntry = {
   logo: string;
   logoBg: string;
   collapsible?: boolean;
-  overviewVideoId?: string;
+  overviewVideoUrl?: string;
   accent: {
     border: string;
     badgeBg: string;
@@ -74,7 +74,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: flexyLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "mxMJcb1ABTOgkKiW",
+    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/mxMJcb1ABTOgkKiW/141750/flexy-1.mp4",
     accent: {
       border: "border-red-300",
       badgeBg: "bg-red-50",
@@ -98,7 +98,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: diytraxLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "EqqoE4li5xO0wrjq",
+    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/EqqoE4li5xO0wrjq/141747/diytrax-1.mp4",
     accent: {
       border: "border-neutral-300",
       badgeBg: "bg-neutral-100",
@@ -122,7 +122,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: metricmoverLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "9FQkRbOSSrI3JMML",
+    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/9FQkRbOSSrI3JMML/141757/metric-mover-1.mp4",
     accent: {
       border: "border-emerald-300",
       badgeBg: "bg-emerald-50",
@@ -147,7 +147,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: pixelpressLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "vA7IOa_12U66yEFl",
+    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/vA7IOa_12U66yEFl/141758/pixel-press-1.mp4",
     accent: {
       border: "border-yellow-300",
       badgeBg: "bg-yellow-50",
@@ -171,7 +171,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     logo: gifsterLogo,
     logoBg: "bg-white",
     collapsible: true,
-    overviewVideoId: "ucrw84JSj_OoMMQE",
+    overviewVideoUrl: "https://fast.vidalytics.com/video/trR5xdVa/ucrw84JSj_OoMMQE/141751/gifster-1.mp4",
     accent: {
       border: "border-fuchsia-300",
       badgeBg: "bg-fuchsia-50",
@@ -319,10 +319,10 @@ function AppCard({
               {app.description}
             </p>
 
-            {app.overviewVideoId && (
+            {app.overviewVideoUrl && (
               <div className="mb-3">
                 <VidalyticsDialog
-                  videoId={app.overviewVideoId}
+                  videoUrl={app.overviewVideoUrl}
                   title={`${app.title} — Overview`}
                   triggerLabel={`Watch ${app.title} overview`}
                 />
