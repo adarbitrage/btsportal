@@ -1,6 +1,7 @@
 import { db, communityPostsTable, communityCommentsTable, moderationQueueTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { evaluate } from "./engine";
+import { recordModerationFailure } from "./failure-tracker";
 
 /**
  * Lightweight, in-process background queue for moderation evaluations.
@@ -36,6 +37,10 @@ export async function runModerationJob(job: ModerationJob): Promise<void> {
       `[Moderation] Engine error on ${targetType} ${targetId}, failing open:`,
       err,
     );
+    // Surface to the failure tracker so the on-call alerter can page
+    // when the evaluator starts dropping jobs. "Engine" failures mean
+    // flagged content may have slipped through *unevaluated*.
+    recordModerationFailure("engine", err, { targetType, targetId });
     return;
   }
 
@@ -68,6 +73,11 @@ export async function runModerationJob(job: ModerationJob): Promise<void> {
       `[Moderation] Failed to persist flag for ${targetType} ${targetId}:`,
       err,
     );
+    // "Persist" failures are the more serious of the two: the content
+    // was *known* to be flag-worthy, the DB write to shadow-hide it
+    // threw, and the post stays publicly `active`. Tracked separately
+    // from engine failures so the alert body can call it out.
+    recordModerationFailure("persist", err, { targetType, targetId });
   }
 }
 

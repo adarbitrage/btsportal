@@ -11,6 +11,7 @@ import {
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
   type MachineMismatchAlertConfigStatus,
+  type ModerationFailureAlertConfigStatus,
 } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -83,6 +84,8 @@ export default function AdminSettings() {
         <AuthRateLimitAlertConfigCard />
 
         <MachineMismatchAlertConfigCard />
+
+        <ModerationFailureAlertConfigCard />
 
         <ChangeHistoryRetentionConfigCard />
 
@@ -1295,6 +1298,214 @@ function MachineMismatchAlertConfigCard() {
                 data-testid="machine-mismatch-alert-save-button"
               >
                 <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Settings card for the background moderation-job failure alert. Mirrors the
+ * auth rate-limit and machine-mismatch cards so on-call only has to learn
+ * one alert-tuning UX. Two knobs:
+ *  - threshold: how many failures inside the window page on-call
+ *  - windowMinutes: how long the rolling lookback is
+ *
+ * `null` for either field on save resets it to the shipped default, so the
+ * "Reset to defaults" button can revert per-field provenance back to the
+ * default badge without leaving a "Customized" row that happens to match
+ * the default value.
+ */
+type ModerationFailureAlertField = "threshold" | "windowMinutes";
+
+const MODERATION_FAILURE_ALERT_FIELD_LABELS: Record<ModerationFailureAlertField, string> = {
+  threshold: "Failure threshold",
+  windowMinutes: "Rolling window (minutes)",
+};
+
+const MODERATION_FAILURE_ALERT_FIELD_HINTS: Record<ModerationFailureAlertField, string> = {
+  threshold: "Minimum total engine + persist failures inside the window required to page on-call.",
+  windowMinutes: "How far back to count failures. Longer windows smooth over flaps; shorter windows page faster on a real outage.",
+};
+
+function ModerationFailureAlertConfigCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<ModerationFailureAlertConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ threshold: string; windowMinutes: string }>({
+    threshold: "",
+    windowMinutes: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ModerationFailureAlertField, string>>>({});
+
+  const hydrate = (s: ModerationFailureAlertConfigStatus) => {
+    setStatus(s);
+    setDraft({
+      threshold: String(s.config.threshold),
+      windowMinutes: String(s.config.windowMinutes),
+    });
+    setFieldErrors({});
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getModerationFailureAlertConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const validateLocal = (): { ok: boolean; payload: { threshold: number; windowMinutes: number } } => {
+    if (!status) return { ok: false, payload: { threshold: 0, windowMinutes: 0 } };
+    const errors: Partial<Record<ModerationFailureAlertField, string>> = {};
+    const t = Number(draft.threshold);
+    if (!Number.isFinite(t) || !Number.isInteger(t)) errors.threshold = "Must be a whole number";
+    else if (t < status.bounds.threshold.min || t > status.bounds.threshold.max)
+      errors.threshold = `Must be between ${status.bounds.threshold.min} and ${status.bounds.threshold.max}`;
+    const w = Number(draft.windowMinutes);
+    if (!Number.isFinite(w) || !Number.isInteger(w)) errors.windowMinutes = "Must be a whole number";
+    else if (w < status.bounds.windowMinutes.min || w > status.bounds.windowMinutes.max)
+      errors.windowMinutes = `Must be between ${status.bounds.windowMinutes.min} and ${status.bounds.windowMinutes.max} minutes`;
+    setFieldErrors(errors);
+    return { ok: Object.keys(errors).length === 0, payload: { threshold: t, windowMinutes: w } };
+  };
+
+  const isDirty = !!status && (
+    Number(draft.threshold) !== status.config.threshold ||
+    Number(draft.windowMinutes) !== status.config.windowMinutes
+  );
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted fields and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateModerationFailureAlertConfig(v.payload);
+      hydrate(data);
+      toast({ title: data.changedFields.length === 0 ? "No changes to save" : "Alert thresholds saved" });
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const next: Partial<Record<ModerationFailureAlertField, string>> = {};
+        for (const e of err.fieldErrors as Array<{ field: string; message: string }>) {
+          if (e.field === "threshold" || e.field === "windowMinutes") next[e.field] = e.message;
+        }
+        setFieldErrors(next);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    const anyCustomized = status.sources.threshold === "db" || status.sources.windowMinutes === "db";
+    if (!anyCustomized) {
+      setDraft({
+        threshold: String(status.defaults.threshold),
+        windowMinutes: String(status.defaults.windowMinutes),
+      });
+      setFieldErrors({});
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateModerationFailureAlertConfig({
+        threshold: null,
+        windowMinutes: null,
+      });
+      hydrate(data);
+      toast({ title: "Reset to defaults" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> Moderation job failure alert
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Pages on-call when the background moderation queue starts dropping jobs. The alert fires when at least <em>threshold</em> engine + persist failures land within the rolling <em>window</em>. Persist failures (DB write threw after a flag) and engine failures (evaluator threw) are counted together for the threshold but called out separately in the page body so on-call knows whether known-bad content is still publicly active.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading alert thresholds...</div>
+        ) : (
+          <>
+            {(["threshold", "windowMinutes"] as ModerationFailureAlertField[]).map((field) => {
+              const value = draft[field];
+              const current = status.config[field];
+              const def = status.defaults[field];
+              const source = status.sources[field];
+              const bounds = status.bounds[field];
+              const error = fieldErrors[field];
+              return (
+                <div key={field} className="border rounded-md p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{MODERATION_FAILURE_ALERT_FIELD_LABELS[field]}</p>
+                      <p className="text-xs text-muted-foreground">{MODERATION_FAILURE_ALERT_FIELD_HINTS[field]}</p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded ${
+                        source === "db"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {source === "db" ? "Customized" : "Using default"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      step={1}
+                      min={bounds.min}
+                      max={bounds.max}
+                      value={value}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, [field]: e.target.value }))}
+                      className="w-40"
+                      data-testid={`moderation-failure-alert-${field}-input`}
+                      aria-invalid={!!error}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Range {bounds.min}–{bounds.max}. Current: {current}. Default: {def}.
+                    </span>
+                  </div>
+                  {error && (
+                    <p className="text-xs text-destructive" data-testid={`moderation-failure-alert-${field}-error`}>{error}</p>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={saving} data-testid="moderation-failure-alert-reset-defaults">
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
+              </Button>
+              <Button onClick={handleSave} disabled={saving || !isDirty} data-testid="moderation-failure-alert-save">
+                <Save className="w-4 h-4 mr-1" />{saving ? "Saving..." : "Save thresholds"}
               </Button>
             </div>
           </>

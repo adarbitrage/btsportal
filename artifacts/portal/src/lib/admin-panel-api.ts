@@ -275,6 +275,21 @@ export type AuthRateLimitAlertTrafficPreview = {
   truncated: boolean;
 };
 
+export type ModerationFailureAlertConfig = {
+  threshold: number;
+  windowMinutes: number;
+};
+
+export type ModerationFailureAlertConfigStatus = {
+  config: ModerationFailureAlertConfig;
+  sources: Record<keyof ModerationFailureAlertConfig, "db" | "default">;
+  defaults: ModerationFailureAlertConfig;
+  bounds: {
+    threshold: { min: number; max: number };
+    windowMinutes: { min: number; max: number };
+  };
+};
+
 export type MachineMismatchAlertConfig = {
   threshold: number;
   windowHours: number;
@@ -1293,6 +1308,68 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/auth-rate-limit-alert-config/traffic-preview${qs}`);
     if (!res.ok) throw new Error("Failed to fetch auth rate-limit alert traffic preview");
     return res.json() as Promise<AuthRateLimitAlertTrafficPreview>;
+  },
+
+  async getModerationFailureAlertConfig() {
+    const res = await authFetch("/admin/moderation-failure-alert-config");
+    if (!res.ok) throw new Error("Failed to fetch moderation failure alert config");
+    return res.json() as Promise<ModerationFailureAlertConfigStatus>;
+  },
+
+  async getModerationFailureAlertConfigHistory(limit?: number) {
+    const qs = new URLSearchParams();
+    if (limit) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/moderation-failure-alert-config/history${suffix}`);
+    if (!res.ok) throw new Error("Failed to fetch moderation failure alert config history");
+    return res.json() as Promise<{
+      events: Array<{
+        id: number;
+        createdAt: string;
+        actionType: string;
+        actorId: number | null;
+        actorEmail: string | null;
+        actorName: string | null;
+        description: string;
+        changedFields: Array<"threshold" | "windowMinutes">;
+        diff: Array<{
+          field: "threshold" | "windowMinutes";
+          from: number | null;
+          to: number | null;
+        }>;
+      }>;
+      limit: number;
+    }>;
+  },
+
+  async updateModerationFailureAlertConfig(payload: {
+    threshold?: number | null;
+    windowMinutes?: number | null;
+  }) {
+    const res = await authFetch("/admin/moderation-failure-alert-config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const fieldErrors = Array.isArray(body.fieldErrors)
+        ? (body.fieldErrors as Array<{ field: string; message: string }>)
+        : [];
+      const detail =
+        fieldErrors.length > 0
+          ? fieldErrors.map((e) => `${e.field}: ${e.message}`).join("; ")
+          : body.error || "Failed to update moderation failure alert config";
+      const err = new Error(detail) as Error & {
+        fieldErrors?: Array<{ field: string; message: string }>;
+      };
+      if (fieldErrors.length > 0) err.fieldErrors = fieldErrors;
+      throw err;
+    }
+    return res.json() as Promise<
+      ModerationFailureAlertConfigStatus & {
+        changedFields: Array<"threshold" | "windowMinutes">;
+      }
+    >;
   },
 
   async getMachineMismatchAlertConfig() {

@@ -60,6 +60,20 @@ import {
   validateUpdate as validateMachineMismatchAlertUpdate,
   isMachineMismatchAlertSettingKey,
 } from "../lib/machine-mismatch-alert-settings";
+import {
+  getModerationFailureAlertConfigStatus,
+  applyModerationFailureAlertConfigUpdate,
+  validateUpdate as validateModerationFailureAlertUpdate,
+  isModerationFailureAlertSettingKey,
+} from "../lib/moderation/failure-alert-settings";
+import {
+  getModerationFailuresInWindow,
+  getModerationFailureCumulativeStats,
+} from "../lib/moderation/failure-tracker";
+import {
+  evaluateModerationFailureAlert,
+  getModerationFailureAlertingState,
+} from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import {
   getAuthRateLimitAlertTrafficPreview,
@@ -2627,7 +2641,25 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // entries while the 429s themselves keep flowing. Better to flip the
     // top-level status to "degraded" so the banner pops than to leave the
     // System Health page green.
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing
+    // Snapshot the moderation-job failure tracker for the System Health
+    // card. We grab the in-window stats at the same threshold/window the
+    // alerter is configured with so the page mirrors what's actually
+    // gating the page. Loading the config can throw if the DB flaps —
+    // fall back to defaults (15m window) so the panel still renders.
+    let moderationFailureWindowMinutes = 15;
+    try {
+      const cfg = await getModerationFailureAlertConfigStatus();
+      moderationFailureWindowMinutes = cfg.config.windowMinutes;
+    } catch (err) {
+      console.error("[Admin] system/health: failed to read moderation failure config:", err);
+    }
+    const moderationFailures = {
+      window: getModerationFailuresInWindow(moderationFailureWindowMinutes * 60 * 1000),
+      cumulative: getModerationFailureCumulativeStats(),
+      alerter: getModerationFailureAlertingState(),
+    };
+
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0
       ? "degraded"
       : "healthy";
 
@@ -2660,6 +2692,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         auditLogRetention,
         machineMismatchDigest: getMachineMismatchDigestStatus(),
         rateLimitAuditFailures,
+        moderationFailures,
         missingCriticalSecrets,
         portalUrl,
       },
@@ -3127,6 +3160,29 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
       console.error("[Admin] rate-limit audit-failure alerter dispatch failed:", err);
     });
 
+    // Surface the background-moderation failure alerter in the bell so an
+    // admin sees "moderation jobs are failing" without first opening
+    // System Health. Mirrors the rate-limit-audit-failure block above.
+    // The kick on every notifications poll also doubles as a backstop for
+    // the in-process poll interval — if the interval ever stalls, the
+    // bell's 60s refresh still drives the evaluator forward.
+    const moderationFailureAlerting = getModerationFailureAlertingState();
+    const moderationCumulative = getModerationFailureCumulativeStats();
+    if (moderationFailureAlerting.alerting) {
+      notifications.push({
+        id: "moderation-failure",
+        type: "moderation_failure",
+        severity: "high",
+        title: "Background moderation jobs are failing",
+        message: `${moderationFailureAlerting.lastSeenWindowTotal} failure(s) inside the rolling window — flagged content may be slipping through or staying publicly active. ${moderationCumulative.byKind.persist} persist failure(s) since process start.`,
+        link: "/admin/system",
+        createdAt: moderationFailureAlerting.lastInWindowFailureAt ?? moderationCumulative.lastAt ?? new Date().toISOString(),
+      });
+    }
+    evaluateModerationFailureAlert().catch((err) => {
+      console.error("[Admin] moderation-failure alerter dispatch failed:", err);
+    });
+
     // Production-only: surface a missing Turnstile secret as a high-severity
     // notification so admins notice without having to open System Health.
     // Outside production an unset secret is normal (local dev / CI) and we
@@ -3248,6 +3304,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     }
     if (isMachineMismatchAlertSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/machine-mismatch-alert-config to manage Machine order mismatch alert thresholds" });
+      return;
+    }
+    if (isModerationFailureAlertSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/moderation-failure-alert-config to manage moderation failure alert thresholds" });
       return;
     }
     if (isChangeHistoryRetentionSettingKey(key)) {
@@ -3790,6 +3850,156 @@ router.get("/admin/auth-rate-limit-alert-config/history", requirePermission("set
  * without a network round trip. See
  * `auth-rate-limit-alert-traffic-preview.ts` for cost guards.
  */
+// Audit-log entityType / actionType tags for moderation-failure threshold
+// edits — kept next to the history route below and reused by the PUT
+// handler so the dashboard's "recent threshold edits" timeline stays in
+// sync with the writer.
+const MODERATION_FAILURE_ALERT_CONFIG_ENTITY_TYPE = "moderation_failure_alert_config";
+const MODERATION_FAILURE_ALERT_CONFIG_ACTION_TYPE = "update_setting";
+type ModerationFailureAlertConfigField = "threshold" | "windowMinutes";
+const MODERATION_FAILURE_ALERT_CONFIG_FIELDS: ModerationFailureAlertConfigField[] = [
+  "threshold",
+  "windowMinutes",
+];
+
+interface ModerationFailureAlertConfigDiffEntry {
+  field: ModerationFailureAlertConfigField;
+  from: number | null;
+  to: number | null;
+}
+
+function parseModerationFailureAlertConfigDiff(raw: unknown): {
+  changedFields: ModerationFailureAlertConfigField[];
+  diff: ModerationFailureAlertConfigDiffEntry[];
+} {
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const changedRaw = Array.isArray(obj.changedFields) ? obj.changedFields : [];
+  const changedFields = changedRaw.filter(
+    (f): f is ModerationFailureAlertConfigField =>
+      typeof f === "string" && (MODERATION_FAILURE_ALERT_CONFIG_FIELDS as string[]).includes(f),
+  );
+  const diffMap = (obj.diff ?? {}) as Record<string, unknown>;
+  const diff: ModerationFailureAlertConfigDiffEntry[] = [];
+  for (const field of changedFields) {
+    const entry = diffMap[field];
+    if (!entry || typeof entry !== "object") {
+      diff.push({ field, from: null, to: null });
+      continue;
+    }
+    const rec = entry as Record<string, unknown>;
+    const from = typeof rec.from === "number" && Number.isFinite(rec.from) ? rec.from : null;
+    const to = typeof rec.to === "number" && Number.isFinite(rec.to) ? rec.to : null;
+    diff.push({ field, from, to });
+  }
+  return { changedFields, diff };
+}
+
+/**
+ * Read the current moderation-failure alert thresholds plus defaults +
+ * bounds. Mirrors the auth-rate-limit endpoint above so the Settings UI
+ * can reuse the same alert-config card / history components.
+ */
+router.get("/admin/moderation-failure-alert-config", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getModerationFailureAlertConfigStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get moderation failure alert config error:", error);
+    res.status(500).json({ error: "Failed to fetch moderation failure alert config" });
+  }
+});
+
+/**
+ * Update one or more moderation-failure alert thresholds. Partial body —
+ * `null` for a field resets it back to default. Validation errors come
+ * back per-field so the Settings card can render them inline.
+ */
+router.put("/admin/moderation-failure-alert-config", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const validation = validateModerationFailureAlertUpdate(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: "Invalid alert config", fieldErrors: validation.errors });
+      return;
+    }
+    const { before, after, changedFields } = await applyModerationFailureAlertConfigUpdate(
+      validation.update,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (changedFields.length > 0) {
+      const diff: Record<string, { from: number; to: number }> = {};
+      for (const field of changedFields) {
+        diff[field] = { from: before[field], to: after[field] };
+      }
+      await logAdminAction(
+        req,
+        MODERATION_FAILURE_ALERT_CONFIG_ACTION_TYPE,
+        MODERATION_FAILURE_ALERT_CONFIG_ENTITY_TYPE,
+        "moderation_failure_alert",
+        `Updated moderation failure alert config: ${changedFields.join(", ")}`,
+        { changedFields, diff },
+      );
+    }
+    const status = await getModerationFailureAlertConfigStatus();
+    res.json({ ...status, changedFields });
+  } catch (error) {
+    console.error("[Admin] Update moderation failure alert config error:", error);
+    res.status(500).json({ error: "Failed to update moderation failure alert config" });
+  }
+});
+
+/**
+ * Recent change history for the moderation-failure alert thresholds.
+ * Mirrors the auth-rate-limit history endpoint shape so the Settings UI
+ * can render the same "who tuned what" timeline.
+ */
+router.get("/admin/moderation-failure-alert-config/history", requirePermission("settings:view"), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 10;
+
+    const rows = await db
+      .select({
+        id: auditLogTable.id,
+        createdAt: auditLogTable.createdAt,
+        actionType: auditLogTable.actionType,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        actorName: usersTable.name,
+        description: auditLogTable.description,
+        changeDiff: auditLogTable.changeDiff,
+      })
+      .from(auditLogTable)
+      .leftJoin(usersTable, eq(auditLogTable.actorId, usersTable.id))
+      .where(
+        and(
+          eq(auditLogTable.entityType, MODERATION_FAILURE_ALERT_CONFIG_ENTITY_TYPE),
+          eq(auditLogTable.actionType, MODERATION_FAILURE_ALERT_CONFIG_ACTION_TYPE),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+      .limit(limit);
+
+    const events = rows.map((row) => {
+      const { changedFields, diff } = parseModerationFailureAlertConfigDiff(row.changeDiff);
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        actionType: row.actionType,
+        actorId: row.actorId,
+        actorEmail: row.actorEmail,
+        actorName: row.actorName,
+        description: row.description,
+        changedFields,
+        diff,
+      };
+    });
+    res.json({ events, limit });
+  } catch (error) {
+    console.error("[Admin] Moderation failure alert config history error:", error);
+    res.status(500).json({ error: "Failed to fetch moderation failure alert config history" });
+  }
+});
+
 router.get(
   "/admin/auth-rate-limit-alert-config/traffic-preview",
   requirePermission("settings:view"),

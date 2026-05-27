@@ -25,6 +25,10 @@ import {
   stopMachineMismatchAlerter,
 } from "./lib/machine-mismatch-alerter";
 import {
+  startModerationFailureAlerter,
+  stopModerationFailureAlerter,
+} from "./lib/moderation/failure-alerter";
+import {
   startMachineMismatchDigestJob,
   stopMachineMismatchDigestJob,
 } from "./lib/machine-mismatch-daily-digest";
@@ -79,6 +83,7 @@ startAbuseRateLimitCleanupAlerter();
 startRateLimitAuditFailureAlerter();
 startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
+startModerationFailureAlerter();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
 // BEFORE accepting traffic so a fresh deploy can never race the
@@ -118,6 +123,7 @@ async function gracefulShutdown(signal: string) {
   stopRateLimitAuditFailureAlerter();
   stopMachineMismatchAlerter();
   stopMachineMismatchDigestJob();
+  stopModerationFailureAlerter();
   process.exit(0);
 }
 
