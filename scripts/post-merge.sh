@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
-pnpm --filter db push
+pnpm --filter db push-force
 
 # Run the plan-metadata backfill from task #319. The SQL is fully idempotent
 # (each UPDATE is gated on `tagline IS NULL AND highlights = '[]'`), so it

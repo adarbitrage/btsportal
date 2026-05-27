@@ -60,8 +60,10 @@ import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-r
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
+import { UnreadBadge } from "@/components/dm/unread-badge";
 import {
   filterNavByEntitlements,
+  filterNavByHiddenRoles,
   filterNavByRole,
   getProductDisplayName,
   isLifetimeSlug,
@@ -150,6 +152,14 @@ const MEMBER_NAV: NavNode[] = [
     icon: Users,
     requiredEntitlement: "community:access",
     showNotificationBadge: true,
+  },
+  {
+    kind: "leaf",
+    href: "/dm",
+    label: "Messages",
+    icon: MessageSquare,
+    hiddenForRoles: ["coach"],
+    showUnreadBadge: true,
   },
   {
     kind: "folder",
@@ -369,6 +379,7 @@ function LeafRow({ leaf, location, onNavClick, indent = 0 }: LeafRowProps) {
         <span className="truncate">{leaf.label}</span>
         {leaf.showNotificationBadge && <NotificationBadgeCount />}
         {leaf.showModerationBadge && <ModerationPendingBadge />}
+        {leaf.showUnreadBadge && <UnreadBadge />}
       </div>
     </Link>
   );
@@ -512,7 +523,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.sourceProduct ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
-  const filteredMemberNav = filterNavByEntitlements(MEMBER_NAV, entitlements);
+  const filteredMemberNav = filterNavByHiddenRoles(
+    filterNavByEntitlements(MEMBER_NAV, entitlements),
+    userRole,
+  );
 
   const filteredAdminChildren = isAdminUser
     ? filterNavByRole(ADMIN_CHILDREN, userRole)

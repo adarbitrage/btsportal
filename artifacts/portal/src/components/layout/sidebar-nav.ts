@@ -12,6 +12,8 @@ export interface NavLeaf {
   requiredPermission?: Permission;
   showNotificationBadge?: boolean;
   showModerationBadge?: boolean;
+  showUnreadBadge?: boolean;
+  hiddenForRoles?: string[];
 }
 
 export interface NavFolder {
@@ -78,6 +80,25 @@ export function filterNavByEntitlements(
       node.children,
       entitlements,
     );
+    if (filteredChildren.length === 0) continue;
+    result.push({ ...node, children: filteredChildren });
+  }
+  return result;
+}
+
+export function filterNavByHiddenRoles(
+  nodes: NavNode[],
+  userRole: string | undefined,
+): NavNode[] {
+  const role = userRole ?? "";
+  const result: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") {
+      if (node.hiddenForRoles && node.hiddenForRoles.includes(role)) continue;
+      result.push(node);
+      continue;
+    }
+    const filteredChildren = filterNavByHiddenRoles(node.children, userRole);
     if (filteredChildren.length === 0) continue;
     result.push({ ...node, children: filteredChildren });
   }

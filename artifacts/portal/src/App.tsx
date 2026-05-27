@@ -32,6 +32,8 @@ import Support from "@/pages/Support";
 import GeneralSupport from "@/pages/GeneralSupport";
 import TicketDetail from "@/pages/TicketDetail";
 import CommunityFeed from "@/pages/community/CommunityFeed";
+import DMInbox from "@/pages/dm/inbox";
+import DMThread from "@/pages/dm/thread";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
 import PostDetail from "@/pages/community/PostDetail";
@@ -355,6 +357,8 @@ function Router() {
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
+      <Route path="/dm">{() => <ProtectedRoute component={DMInbox} />}</Route>
+      <Route path="/dm/:threadId">{() => <ProtectedRoute component={DMThread} />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
       <Route path="/community/:postId">{() => <ProtectedRoute component={PostDetail} />}</Route>
