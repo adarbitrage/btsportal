@@ -5,6 +5,44 @@ import { requirePermission } from "../../middleware/rbac";
 
 const router = Router();
 
+router.get("/users", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        userId: userStrikesTable.userId,
+        strikeCount: sql<number>`cast(count(${userStrikesTable.id}) as int)`,
+        lastStrikeAt: sql<string>`max(${userStrikesTable.createdAt})`,
+        name: usersTable.name,
+        email: usersTable.email,
+        postingBannedAt: usersTable.postingBannedAt,
+      })
+      .from(userStrikesTable)
+      .innerJoin(usersTable, eq(userStrikesTable.userId, usersTable.id))
+      .groupBy(userStrikesTable.userId, usersTable.name, usersTable.email, usersTable.postingBannedAt)
+      .orderBy(desc(sql`max(${userStrikesTable.createdAt})`));
+
+    const users = rows.map((r) => ({
+      userId: r.userId,
+      name: r.name,
+      email: r.email,
+      strikeCount: r.strikeCount,
+      isBanned: !!r.postingBannedAt,
+      postingBannedAt: r.postingBannedAt,
+      lastStrikeAt: r.lastStrikeAt,
+    }));
+
+    users.sort((a, b) => {
+      if (a.isBanned !== b.isBanned) return a.isBanned ? -1 : 1;
+      return b.strikeCount - a.strikeCount;
+    });
+
+    res.json({ users });
+  } catch (err) {
+    console.error("[Admin/Strikes] List users error:", err);
+    res.status(500).json({ error: "Failed to fetch users with strikes" });
+  }
+});
+
 router.get("/users/:userId", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId as string, 10);

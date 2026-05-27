@@ -1361,3 +1361,78 @@ export function useAdminDeleteWord() {
     },
   });
 }
+
+export interface StrikeUser {
+  userId: number;
+  name: string;
+  email: string;
+  strikeCount: number;
+  isBanned: boolean;
+  postingBannedAt: string | null;
+  lastStrikeAt: string;
+}
+
+export interface StrikeRecord {
+  id: number;
+  reason: string;
+  queueId: number | null;
+  targetType: string;
+  targetId: number;
+  createdAt: string;
+}
+
+export interface UserStrikesDetail {
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    postingBannedAt: string | null;
+    isBanned: boolean;
+  };
+  strikes: StrikeRecord[];
+  strikeCount: number;
+}
+
+export function useAdminStrikesList() {
+  return useQuery({
+    queryKey: ["/api/admin/strikes/users"],
+    queryFn: () => adminFetch<{ users: StrikeUser[] }>("/admin/strikes/users"),
+  });
+}
+
+export function useAdminUserStrikes(userId: number) {
+  return useQuery({
+    queryKey: ["/api/admin/strikes/users", userId],
+    queryFn: () => adminFetch<UserStrikesDetail>(`/admin/strikes/users/${userId}`),
+    enabled: userId > 0,
+  });
+}
+
+export function useAdminBanUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) =>
+      adminFetch<{ success: boolean; bannedAt: string }>(`/admin/strikes/users/${userId}/ban`, {
+        method: "POST",
+      }),
+    onSuccess: (_, userId) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/strikes/users"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/strikes/users", userId] });
+    },
+  });
+}
+
+export function useAdminUnbanUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, clearStrikes }: { userId: number; clearStrikes: boolean }) =>
+      adminFetch<{ success: boolean; strikesCleared: boolean }>(
+        `/admin/strikes/users/${userId}/unban${clearStrikes ? "?clearStrikes=true" : ""}`,
+        { method: "POST" }
+      ),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/strikes/users"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/strikes/users", vars.userId] });
+    },
+  });
+}
