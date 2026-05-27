@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { useCreatePost, useCommunityCategories } from "@/hooks/use-community";
 import { AuthorAvatar } from "./ProfilePopover";
-import { ImagePlus, AlertCircle, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, Send } from "lucide-react";
 
 interface PostComposerProps {
   defaultCategoryId?: number;
@@ -16,13 +18,14 @@ interface PostComposerProps {
 
 export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
+  const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [categoryId, setCategoryId] = useState<number>(defaultCategoryId ?? 0);
   const { data: categories } = useCommunityCategories();
   const createPost = useCreatePost();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (defaultCategoryId !== undefined) {
@@ -30,32 +33,45 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
     }
   }, [defaultCategoryId]);
 
+  const titleLength = title.length;
   const bodyLength = body.length;
-  const isValid = categoryId > 0 && bodyLength >= 10 && bodyLength <= 5000;
+  const isValid =
+    categoryId > 0 &&
+    titleLength >= 1 &&
+    titleLength <= 120 &&
+    bodyLength >= 1 &&
+    bodyLength <= 5000;
 
   const handleExpand = () => {
     setExpanded(true);
-    setTimeout(() => textareaRef.current?.focus(), 50);
+    setTimeout(() => titleRef.current?.focus(), 50);
   };
 
   const handleCancel = () => {
     setExpanded(false);
+    setTitle("");
     setBody("");
-    setImageUrl("");
     setCategoryId(defaultCategoryId ?? 0);
   };
 
   const handleSubmit = () => {
-    if (!isValid) return;
+    if (!isValid || createPost.isPending) return;
     createPost.mutate(
-      { categoryId, title: body.slice(0, 100), body, imageUrl: imageUrl || undefined },
+      { categoryId, title: title.trim(), body },
       {
         onSuccess: () => {
+          setTitle("");
           setBody("");
-          setImageUrl("");
           setCategoryId(defaultCategoryId ?? 0);
           setExpanded(false);
           onSuccess?.();
+        },
+        onError: (err: any) => {
+          toast({
+            variant: "destructive",
+            title: "Failed to post",
+            description: err?.message ?? "Something went wrong. Please try again.",
+          });
         },
       }
     );
@@ -85,27 +101,35 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
               {authorForAvatar && <AuthorAvatar author={authorForAvatar} size="md" />}
               <div className="flex-1 space-y-3">
                 <div>
-                  <select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(Number(e.target.value))}
-                    className="w-full p-2 border rounded-md bg-white text-sm mb-2.5"
-                  >
-                    <option value={0}>Select a category...</option>
-                    {categories?.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Label htmlFor="composer-title" className="text-xs mb-1.5 block">
+                    Title <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="composer-title"
+                    ref={titleRef}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Give your post a title..."
+                    maxLength={120}
+                    className="text-sm"
+                  />
+                  <p className={`text-[11px] mt-1 text-right ${titleLength > 110 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {titleLength}/120
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="composer-body" className="text-xs mb-1.5 block">
+                    Body <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
-                    ref={textareaRef}
+                    id="composer-body"
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="Share your thoughts, wins, questions..."
                     className="min-h-[120px] resize-y text-sm"
                     maxLength={5000}
                   />
-                  <div className="flex items-center justify-between mt-1.5">
+                  <div className="flex items-center justify-between mt-1">
                     <p className="text-[11px] text-muted-foreground">Supports markdown formatting</p>
                     <p className={`text-[11px] ${bodyLength > 4800 ? "text-destructive" : "text-muted-foreground"}`}>
                       {bodyLength}/5000
@@ -113,17 +137,24 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="composer-image" className="flex items-center gap-1.5 text-xs mb-1.5">
-                    <ImagePlus className="w-3.5 h-3.5" />
-                    Image URL (optional)
+                  <Label className="text-xs mb-1.5 block">
+                    Category <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="composer-image"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                    className="text-sm h-8"
-                  />
+                  <Select
+                    value={categoryId > 0 ? String(categoryId) : ""}
+                    onValueChange={(val) => setCategoryId(Number(val))}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="Select a category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories?.map((cat) => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -132,7 +163,7 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 Be respectful and constructive. No spam or offensive content.
               </div>
-              <Button variant="outline" size="sm" onClick={handleCancel}>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>
                 Cancel
               </Button>
               <Button

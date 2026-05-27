@@ -20,6 +20,7 @@ export const communityPostsTable = pgTable("community_posts", {
   id: serial("id").primaryKey(),
   authorId: integer("author_id").notNull().references(() => usersTable.id),
   categoryId: integer("category_id").notNull().references(() => communityCategoriesTable.id),
+  title: text("title").notNull().default(""),
   content: text("content").notNull(),
   mediaUrls: jsonb("media_urls").notNull().default([]),
   imageUrl: text("image_url"),

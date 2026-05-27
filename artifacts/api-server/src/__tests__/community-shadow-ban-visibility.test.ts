@@ -194,7 +194,7 @@ async function createPostAs(actor: Fixture, body = "hello world") {
   const res = await request(app)
     .post("/api/community/posts")
     .set("Cookie", actor.cookie)
-    .send({ body, categoryId });
+    .send({ title: body.slice(0, 100), body, categoryId });
   return res;
 }
 
@@ -410,7 +410,7 @@ describe("Community shadow-ban moderation wiring", () => {
       const res = await request(app)
         .post("/api/community/posts")
         .set("Cookie", bannedUser.cookie)
-        .send({ body: "I am banned but trying to post", categoryId });
+        .send({ title: "I am banned but trying to post", body: "I am banned but trying to post", categoryId });
       expect(res.status).toBe(403);
       expect(res.body.error?.code).toBe("POSTING_BANNED");
     });
@@ -437,7 +437,7 @@ describe("Community shadow-ban moderation wiring", () => {
       const res = await request(app)
         .post("/api/community/posts")
         .set("Cookie", otherMember.cookie)
-        .send({ body: "not banned, posting fine", categoryId });
+        .send({ title: "not banned, posting fine", body: "not banned, posting fine", categoryId });
       expect(res.status).toBe(201);
       await drainModeration();
     });

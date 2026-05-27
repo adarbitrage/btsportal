@@ -161,7 +161,7 @@ describe("background moderation flow on community create endpoints", () => {
     const res = await request(app)
       .post("/api/community/posts")
       .set("Cookie", memberCookie)
-      .send({ body: `hello ${HARD_TRIGGER} world`, categoryId });
+      .send({ title: "flagged post", body: `hello ${HARD_TRIGGER} world`, categoryId });
 
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("active");
@@ -195,7 +195,7 @@ describe("background moderation flow on community create endpoints", () => {
     const postRes = await request(app)
       .post("/api/community/posts")
       .set("Cookie", memberCookie)
-      .send({ body: "clean parent post for comment moderation test", categoryId });
+      .send({ title: "clean parent post for comment moderation test", body: "clean parent post for comment moderation test", categoryId });
     expect(postRes.status).toBe(201);
     const parentPostId: number = postRes.body.id;
     seededPostIds.push(parentPostId);
@@ -237,7 +237,7 @@ describe("background moderation flow on community create endpoints", () => {
     const postRes = await request(app)
       .post("/api/community/posts")
       .set("Cookie", memberCookie)
-      .send({ body: "a totally benign post about affiliate marketing best practices", categoryId });
+      .send({ title: "a totally benign post", body: "a totally benign post about affiliate marketing best practices", categoryId });
     expect(postRes.status).toBe(201);
     expect(postRes.body.status).toBe("active");
     const postId: number = postRes.body.id;

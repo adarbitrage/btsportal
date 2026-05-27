@@ -34,6 +34,7 @@ import {
 } from "./lib/machine-mismatch-daily-digest";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
+import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -98,6 +99,9 @@ let server: ReturnType<typeof app.listen> | null = null;
   } catch (err) {
     console.error("[Bootstrap] bootstrapCriticalPrerequisites threw — continuing startup:", err);
   }
+  await purgeSeedCommunityPosts().catch((err) => {
+    console.error("[SeedCleanup] Failed to purge seed posts:", err);
+  });
   server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     seedBlitzDocs().catch((err) => {

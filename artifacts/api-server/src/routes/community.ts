@@ -129,7 +129,8 @@ router.get("/community/posts", async (req, res): Promise<void> => {
   const rawCursor = req.query.cursor as string | undefined;
   const cursor = rawCursor ? parseCursor(rawCursor) : null;
 
-  const { posts, nextCursor } = await listPosts({ userId, cursor, limit: limitParam, isAdmin });
+  const categorySlug = req.query.categorySlug as string | undefined;
+  const { posts, nextCursor } = await listPosts({ userId, cursor, limit: limitParam, isAdmin, categorySlug });
 
   res.json({ posts, nextCursor });
 });
@@ -138,7 +139,12 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
 
-  const { body, media_urls, categoryId } = req.body;
+  const { title, body, media_urls, categoryId } = req.body;
+
+  if (!title || typeof title !== "string" || title.trim().length < 1 || title.length > 120) {
+    res.status(400).json({ error: "Post title must be between 1 and 120 characters" });
+    return;
+  }
 
   if (!body || typeof body !== "string" || body.length < 1 || body.length > 5000) {
     res.status(400).json({ error: "Post body must be between 1 and 5000 characters" });
@@ -169,7 +175,7 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
     return;
   }
 
-  const post = await createPostInCategory(userId, body, resolvedCategoryId, media_urls ?? []);
+  const post = await createPostInCategory(userId, title.trim(), body, resolvedCategoryId, media_urls ?? []);
 
   enqueueModerationJob({
     targetType: "post",
@@ -188,6 +194,7 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
   res.status(201).json({
     id: post.id,
     authorId: post.authorId,
+    title: post.title,
     body: post.content,
     mediaUrls: post.mediaUrls,
     status: post.status,
@@ -271,6 +278,7 @@ router.patch("/community/posts/:id", async (req, res): Promise<void> => {
   res.json({
     id: updated.id,
     authorId: updated.authorId,
+    title: updated.title,
     body: updated.content,
     mediaUrls: updated.mediaUrls,
     status: updated.status,

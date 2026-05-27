@@ -4,6 +4,7 @@ import {
   communityPostsTable,
   communityCommentsTable,
   communityReactionsTable,
+  communityCategoriesTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lt, or, sql } from "drizzle-orm";
 
@@ -17,6 +18,7 @@ export interface FeedPost {
   authorId: number;
   authorName: string | null;
   authorAvatarUrl: string | null;
+  title: string;
   body: string;
   mediaUrls: unknown;
   status: string;
@@ -50,6 +52,7 @@ export interface ListPostsOptions {
   cursor?: { createdAt: Date; id: number } | null;
   limit?: number;
   isAdmin?: boolean;
+  categorySlug?: string;
 }
 
 export interface ToggleReactionResult {
@@ -58,7 +61,7 @@ export interface ToggleReactionResult {
 }
 
 export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPost[]; nextCursor: string | null }> {
-  const { userId, cursor, limit = 20, isAdmin = false } = opts;
+  const { userId, cursor, limit = 20, isAdmin = false, categorySlug } = opts;
   const take = Math.min(Math.max(1, limit), 50);
 
   const statusCondition = isAdmin
@@ -75,15 +78,26 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
       )
     : undefined;
 
-  const conditions = cursorCondition
-    ? and(statusCondition, cursorCondition)
-    : statusCondition;
+  let categoryCondition: ReturnType<typeof eq> | undefined;
+  if (categorySlug) {
+    const [cat] = await db
+      .select({ id: communityCategoriesTable.id })
+      .from(communityCategoriesTable)
+      .where(eq(communityCategoriesTable.slug, categorySlug))
+      .limit(1);
+    if (cat) {
+      categoryCondition = eq(communityPostsTable.categoryId, cat.id);
+    }
+  }
+
+  const conditions = and(statusCondition, cursorCondition, categoryCondition);
 
   const rows = await db
     .select({
       id: communityPostsTable.id,
       authorId: communityPostsTable.authorId,
       authorName: usersTable.name,
+      title: communityPostsTable.title,
       body: communityPostsTable.content,
       mediaUrls: communityPostsTable.mediaUrls,
       status: communityPostsTable.status,
@@ -149,6 +163,7 @@ export async function getPostById(
       id: communityPostsTable.id,
       authorId: communityPostsTable.authorId,
       authorName: usersTable.name,
+      title: communityPostsTable.title,
       body: communityPostsTable.content,
       mediaUrls: communityPostsTable.mediaUrls,
       status: communityPostsTable.status,
@@ -233,6 +248,7 @@ export async function getPostById(
 
 export async function createPostInCategory(
   userId: number,
+  title: string,
   body: string,
   categoryId: number,
   mediaUrls: string[] = [],
@@ -242,6 +258,7 @@ export async function createPostInCategory(
     .values({
       authorId: userId,
       categoryId,
+      title,
       content: body,
       mediaUrls,
       status: "active",

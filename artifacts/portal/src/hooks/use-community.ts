@@ -48,29 +48,34 @@ export function useCreatePost() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createPost,
-    onSuccess: (newPost) => {
-      queryClient.setQueryData<{ pages: { posts: CommunityPost[]; nextCursor: string | null; totalCount: number }[]; pageParams: (string | undefined)[] }>(
-        ["community", "posts", "all"],
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page, i) =>
+    onSuccess: (newPost, variables) => {
+      type PageData = { posts: CommunityPost[]; nextCursor: string | null; totalCount: number };
+      type InfiniteData = { pages: PageData[]; pageParams: (string | undefined)[] };
+
+      const categories = queryClient.getQueryData<import("@/lib/community-api").CommunityCategory[]>(["community", "categories"]);
+      const categorySlug = categories?.find((c) => c.id === variables.categoryId)?.slug;
+
+      const allPostQueries = queryClient.getQueriesData<InfiniteData>({
+        queryKey: ["community", "posts"],
+      });
+
+      allPostQueries.forEach(([queryKey, data]) => {
+        if (!data) return;
+        const keyCategory = (queryKey as unknown[])[2] as string | undefined;
+        const isAll = !keyCategory || keyCategory === "all";
+        const matchesCategory = categorySlug && keyCategory === categorySlug;
+        if (isAll || matchesCategory) {
+          queryClient.setQueryData<InfiniteData>(queryKey, {
+            ...data,
+            pages: data.pages.map((page, i) =>
               i === 0
                 ? { ...page, posts: [newPost, ...page.posts], totalCount: (page.totalCount ?? 0) + 1 }
                 : page
             ),
-          };
+          });
         }
-      );
-      queryClient.invalidateQueries({
-        queryKey: ["community", "posts"],
-        predicate: (query) => {
-          const key = query.queryKey as unknown[];
-          return key.length >= 3 && key[2] !== "all";
-        },
-        refetchType: "none",
       });
+
       queryClient.invalidateQueries({ queryKey: ["community", "categories"] });
     },
   });

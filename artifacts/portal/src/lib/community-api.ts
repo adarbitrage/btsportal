@@ -170,7 +170,7 @@ export async function fetchPost(postId: number): Promise<CommunityPost> {
 
 export async function createPost(data: {
   categoryId: number;
-  title?: string;
+  title: string;
   body: string;
   imageUrl?: string;
 }): Promise<CommunityPost> {
@@ -178,7 +178,8 @@ export async function createPost(data: {
     method: "POST",
     body: JSON.stringify({
       categoryId: data.categoryId,
-      content: data.body,
+      title: data.title,
+      body: data.body,
       imageUrl: data.imageUrl,
     }),
   });

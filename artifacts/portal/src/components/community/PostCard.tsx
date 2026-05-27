@@ -139,6 +139,9 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
             </div>
           ) : (
             <>
+              {post.title && (
+                <h3 className="text-base font-semibold text-foreground mb-1.5 leading-snug">{post.title}</h3>
+              )}
               <PostBody body={displayBody} />
               {isLong && !expanded && (
                 <button

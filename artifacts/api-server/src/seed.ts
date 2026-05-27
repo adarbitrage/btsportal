@@ -1151,7 +1151,7 @@ async function seed() {
 
     if (winData.shareToCommunity && winsCategoryId && winData.status !== "draft") {
       const milestone = insertedMilestones.find(m => m.id === winData.milestoneId);
-      const postContent = `🏆 **${milestone?.icon || "🏅"} ${milestone?.name}**\n\n**${winData.title}**\n\n${winData.description}${winData.revenueAmount ? `\n\nRevenue: $${Number(winData.revenueAmount).toLocaleString()}` : ""}`;
+      const postContent = `🏆 **${milestone?.icon || "🏅"} ${milestone?.name}**\n\n**${winData.title}**\n\n${winData.description}`;
 
       const [communityPost] = await db
         .insert(communityPostsTable)
@@ -1364,4 +1364,9 @@ async function seed() {
   console.log("Software & Tools: 6 categories, 8 tools, sample user data seeded.");
 }
 
-seed().catch(console.error).finally(() => process.exit(0));
+if (process.env.NODE_ENV === "production") {
+  console.log("Seed script skipped: NODE_ENV is 'production'. Exiting without changes.");
+  process.exit(0);
+} else {
+  seed().catch(console.error).finally(() => process.exit(0));
+}

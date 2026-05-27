@@ -52,7 +52,7 @@ export default function CommunityFeed() {
 
   return (
     <AppLayout>
-      <div className="space-y-5 max-w-3xl">
+      <div className="space-y-5 max-w-5xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
