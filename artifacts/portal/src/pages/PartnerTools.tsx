@@ -370,7 +370,7 @@ export default function PartnerTools() {
           </div>
           <p className="text-muted-foreground">
             A handpicked set of tools the BTS team actually uses,{" "}
-            <strong className="font-semibold text-foreground">free with your membership</strong>.
+            <strong className="font-semibold text-foreground">included with your membership</strong>.
             Register through the links below to claim them.
           </p>
         </div>
