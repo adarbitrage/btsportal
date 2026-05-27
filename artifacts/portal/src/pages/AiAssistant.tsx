@@ -4,6 +4,7 @@ import {
   Send, Bot, User, Trash2, Plus, MessageCircle,
   Loader2, AlertCircle, Menu, X
 } from "lucide-react";
+import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -123,8 +124,8 @@ export default function AiAssistant() {
     } catch {}
   };
 
-  const sendMessage = async () => {
-    const content = input.trim();
+  const sendMessage = async (overrideText?: string) => {
+    const content = (overrideText ?? input).trim();
     if (!content || isStreaming) return;
 
     setInput("");
@@ -338,35 +339,7 @@ export default function AiAssistant() {
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 ring-1 ring-stone-200 dark:ring-stone-700 flex items-center justify-center mb-5">
-                    <Bot className="w-7 h-7 text-stone-700 dark:text-stone-200" />
-                  </div>
-                  <h3 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 mb-2 tracking-tight">How can I help you today?</h3>
-                  <p className="text-[15px] text-stone-500 max-w-md mb-8 leading-relaxed">
-                    Ask anything about your mentorship, tools, campaigns, or strategies. I'm trained on BTS coaching sessions, Q&A articles, and your complete tool documentation.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-2xl w-full">
-                    {[
-                      "How do I set up my first DIYTrax campaign?",
-                      "What are the live coaching call times?",
-                      "How do I book a Concierge session?",
-                      "What is MetricMover and how do I use it?",
-                    ].map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        onClick={() => {
-                          setInput(suggestion);
-                          setTimeout(() => inputRef.current?.focus(), 100);
-                        }}
-                        className="text-left px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:shadow-sm text-[14px] text-stone-700 dark:text-stone-200 transition-all"
-                        data-testid={`button-suggestion-${suggestion.slice(0, 20)}`}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AssistantEmptyState onSendMessage={sendMessage} />
               ) : (
                 <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
                   {messages.map((msg, i) => (
@@ -433,7 +406,7 @@ export default function AiAssistant() {
                   data-testid="input-message"
                 />
                 <Button
-                  onClick={sendMessage}
+                  onClick={() => sendMessage()}
                   disabled={!input.trim() || isStreaming}
                   className="shrink-0 h-[44px] w-[44px] p-0 rounded-2xl bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 disabled:bg-stone-300 disabled:text-stone-500"
                   data-testid="button-send"
