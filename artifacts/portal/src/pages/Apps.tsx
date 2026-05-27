@@ -634,7 +634,7 @@ export default function Apps() {
             <h1 className="text-3xl font-bold">Apps</h1>
           </div>
           <p className="text-muted-foreground">
-            Over $3,000,000 in proprietary tools, built in-house for the Build
+            Over $4,700,000 in proprietary tools, built in-house for the Build
             Test Scale system and not available anywhere else. Each app removes a
             specific bottleneck in the workflow — from launching landing pages, to
             bulk-creating banner ads, to split testing at scale. Install the ones
