@@ -24,6 +24,10 @@ import {
   startMachineMismatchAlerter,
   stopMachineMismatchAlerter,
 } from "./lib/machine-mismatch-alerter";
+import {
+  startMachineMismatchDigestJob,
+  stopMachineMismatchDigestJob,
+} from "./lib/machine-mismatch-daily-digest";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 
@@ -74,6 +78,7 @@ startYseGrantExhaustedAlerter();
 startAbuseRateLimitCleanupAlerter();
 startRateLimitAuditFailureAlerter();
 startMachineMismatchAlerter();
+startMachineMismatchDigestJob();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
 // BEFORE accepting traffic so a fresh deploy can never race the
@@ -112,6 +117,7 @@ async function gracefulShutdown(signal: string) {
   stopAbuseRateLimitCleanupAlerter();
   stopRateLimitAuditFailureAlerter();
   stopMachineMismatchAlerter();
+  stopMachineMismatchDigestJob();
   process.exit(0);
 }
 
