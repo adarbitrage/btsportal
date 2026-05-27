@@ -1286,3 +1286,78 @@ export function useAdminReorderMediaMavensCategories() {
     onSuccess: () => invalidateCategoryQueries(qc),
   });
 }
+
+export type WordlistCategory = "profanity" | "spam";
+export type WordlistSeverity = "hard" | "soft";
+
+export interface WordlistEntry {
+  id: number;
+  word: string;
+  category: WordlistCategory;
+  severity: WordlistSeverity;
+  addedBy: string | null;
+  addedAt: string;
+  updatedAt: string;
+}
+
+export interface WordlistEntryFormData {
+  word: string;
+  category: WordlistCategory;
+  severity: WordlistSeverity;
+}
+
+export const adminWordlistApi = {
+  list: () => adminFetch<WordlistEntry[]>("/admin/moderation/wordlist"),
+  create: (data: WordlistEntryFormData) =>
+    adminFetch<WordlistEntry>("/admin/moderation/wordlist", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<WordlistEntryFormData>) =>
+    adminFetch<WordlistEntry>(`/admin/moderation/wordlist/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    adminFetch<{ success: boolean }>(`/admin/moderation/wordlist/${id}`, { method: "DELETE" }),
+};
+
+const WORDLIST_KEY = ["/api/admin/moderation/wordlist"] as const;
+
+export function useAdminWordlist() {
+  return useQuery({
+    queryKey: WORDLIST_KEY,
+    queryFn: () => adminWordlistApi.list(),
+  });
+}
+
+export function useAdminCreateWord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: WordlistEntryFormData) => adminWordlistApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORDLIST_KEY });
+    },
+  });
+}
+
+export function useAdminUpdateWord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<WordlistEntryFormData> }) =>
+      adminWordlistApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORDLIST_KEY });
+    },
+  });
+}
+
+export function useAdminDeleteWord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => adminWordlistApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORDLIST_KEY });
+    },
+  });
+}
