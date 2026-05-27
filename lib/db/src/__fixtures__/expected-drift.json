@@ -1,17 +1,10 @@
 {
   "constraints": {
     "onlyInPush": [],
-    "onlyInMigrations": [
-      "chat_system_prompts | u | UNIQUE (name)",
-      "dm_messages | c | CHECK (((char_length(body) >= 1) AND (char_length(body) <= 5000)))",
-      "dm_threads | u | UNIQUE (member_id, admin_id)",
-      "sequence_enrollments | f | FOREIGN KEY (current_step_id) REFERENCES sequence_steps(id)"
-    ]
+    "onlyInMigrations": []
   },
   "indexes": {
     "onlyInPush": [],
-    "onlyInMigrations": [
-      "chat_system_prompts | CREATE UNIQUE INDEX <name> ON public.chat_system_prompts USING btree (name)"
-    ]
+    "onlyInMigrations": []
   }
 }

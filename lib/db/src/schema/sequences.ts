@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, index, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -49,6 +49,11 @@ export const sequenceEnrollmentsTable = pgTable(
     sequenceId: integer("sequence_id").notNull().references(() => sequencesTable.id),
     status: text("status").notNull().default("active"),
     currentStepOrder: integer("current_step_order").notNull().default(0),
+    // Mirror the FK added in 0003_ordinary_namorita.sql so `drizzle-kit push`
+    // produces the same constraint set as running all migrations. The column
+    // is not yet read by the sequence engine (which tracks position via
+    // `current_step_order`), but production carries it so the schema must too.
+    currentStepId: integer("current_step_id").references((): AnyPgColumn => sequenceStepsTable.id),
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
     lastProcessedAt: timestamp("last_processed_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),

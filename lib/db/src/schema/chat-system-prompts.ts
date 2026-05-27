@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const chatSystemPromptsTable = pgTable("chat_system_prompts", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   content: text("content").notNull(),
   version: integer("version").notNull().default(1),
   isActive: boolean("is_active").notNull().default(false),

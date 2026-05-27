@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, index, unique, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 
 export const dmThreadsTable = pgTable("dm_threads", {
@@ -8,7 +9,11 @@ export const dmThreadsTable = pgTable("dm_threads", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex("dm_threads_member_admin_unique").on(table.memberId, table.adminId),
+  // Mirror the UNIQUE constraint added in 0037_dm_tables.sql so `drizzle-kit
+  // push` produces the same constraint set as running all migrations. A
+  // `uniqueIndex` would create the index but not the named UNIQUE constraint
+  // the raw migration attaches, so use `unique()` here.
+  unique("dm_threads_member_admin_unique").on(table.memberId, table.adminId),
   index("dm_threads_last_message_at_idx").on(table.lastMessageAt),
 ]);
 
@@ -21,6 +26,13 @@ export const dmMessagesTable = pgTable("dm_messages", {
   readAt: timestamp("read_at", { withTimezone: true }),
 }, (table) => [
   index("dm_messages_thread_id_created_at_idx").on(table.threadId, table.createdAt),
+  // Mirror the CHECK added in 0037_dm_tables.sql so `drizzle-kit push`
+  // produces the same constraint set as running all migrations. Bounds match
+  // the API-layer validation in artifacts/api-server/src/routes/dm.ts.
+  check(
+    "dm_messages_body_length",
+    sql`char_length(${table.body}) >= 1 AND char_length(${table.body}) <= 5000`,
+  ),
 ]);
 
 export type DmThread = typeof dmThreadsTable.$inferSelect;
