@@ -13,6 +13,12 @@ export interface EvaluateResult {
   triggeredBy: string;
   wordlistMatches: WordlistMatch[];
   aiScores: ClassifierScores;
+  /**
+   * Threshold the AI classifier scores were compared against for this
+   * evaluation. Null when the AI classifier didn't run (hard wordlist
+   * short-circuit), since there's no meaningful threshold to record.
+   */
+  flagThreshold: number | null;
 }
 
 export async function evaluate(input: EvaluateInput): Promise<EvaluateResult> {
@@ -27,6 +33,7 @@ export async function evaluate(input: EvaluateInput): Promise<EvaluateResult> {
       triggeredBy: "wordlist_hard",
       wordlistMatches,
       aiScores: { toxicity: 0, spam: 0, harassment: 0, hate_speech: 0 },
+      flagThreshold: null,
     };
   }
 
@@ -56,5 +63,6 @@ export async function evaluate(input: EvaluateInput): Promise<EvaluateResult> {
     triggeredBy,
     wordlistMatches,
     aiScores,
+    flagThreshold,
   };
 }

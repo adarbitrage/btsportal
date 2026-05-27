@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, index, jsonb, real } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { communityPostsTable } from "./community";
 import { communityCommentsTable } from "./community";
@@ -27,6 +27,15 @@ export const moderationQueueTable = pgTable("moderation_queue", {
   triggeredBy: text("triggered_by").notNull(),
   wordlistMatches: jsonb("wordlist_matches").notNull().default([]),
   aiScores: jsonb("ai_scores").notNull().default({}),
+  // Threshold value in effect at the moment this item was flagged. Persisted
+  // (rather than re-fetched at read time) so the "AI Flagged" admin view can
+  // show what threshold each historical flag was judged against — admins can
+  // tell whether a previous threshold setting was catching too much or too
+  // little. Nullable because wordlist-only flags ("wordlist_hard" /
+  // "wordlist_soft") short-circuit the AI classifier and therefore have no
+  // meaningful threshold to record. Older rows pre-dating this column are
+  // also null.
+  flagThreshold: real("flag_threshold"),
   reviewedBy: integer("reviewed_by").references(() => usersTable.id),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

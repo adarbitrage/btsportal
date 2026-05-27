@@ -10,6 +10,7 @@ const APP_TSX = readFileSync(APP_TSX_PATH, "utf8");
 describe("App.tsx moderation routes", () => {
   const expectedRoutes = [
     "/admin/moderation/queue",
+    "/admin/moderation/ai-flagged",
     "/admin/moderation/wordlist",
     "/admin/moderation/strikes",
     "/admin/moderation/strikes/:userId",
@@ -32,10 +33,10 @@ describe("Sidebar ADMIN_CHILDREN moderation folder", () => {
     expect(moderationFolder).toBeDefined();
   });
 
-  it("has Queue, Wordlist, and Strikes leaf children in that order", () => {
+  it("has Queue, AI Flagged, Wordlist, and Strikes leaf children in that order", () => {
     expect(moderationFolder).toBeDefined();
     const labels = moderationFolder!.children.map((c) => c.label);
-    expect(labels).toEqual(["Queue", "Wordlist", "Strikes"]);
+    expect(labels).toEqual(["Queue", "AI Flagged", "Wordlist", "Strikes"]);
   });
 
   it("each child is a leaf with the expected admin moderation href", () => {
@@ -44,6 +45,7 @@ describe("Sidebar ADMIN_CHILDREN moderation folder", () => {
       moderationFolder!.children.map((c) => [c.label, c as NavLeaf]),
     );
     expect(byLabel.get("Queue")?.href).toBe("/admin/moderation/queue");
+    expect(byLabel.get("AI Flagged")?.href).toBe("/admin/moderation/ai-flagged");
     expect(byLabel.get("Wordlist")?.href).toBe("/admin/moderation/wordlist");
     expect(byLabel.get("Strikes")?.href).toBe("/admin/moderation/strikes");
     for (const child of moderationFolder!.children) {

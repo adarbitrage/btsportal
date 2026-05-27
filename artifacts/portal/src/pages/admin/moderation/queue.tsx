@@ -1,4 +1,5 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
+import { useSearch } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,9 +77,14 @@ interface QueueListProps {
   optimisticIds: Set<number>;
   onRemoveOptimistic: (id: number) => void;
   onRestoreOptimistic: (id: number) => void;
+  highlightItemId?: number;
 }
 
-function QueueList({ status, optimisticIds, onRemoveOptimistic, onRestoreOptimistic }: QueueListProps) {
+function isTab(value: string | null): value is Tab {
+  return value === "pending" || value === "approved" || value === "rejected";
+}
+
+function QueueList({ status, optimisticIds, onRemoveOptimistic, onRestoreOptimistic, highlightItemId }: QueueListProps) {
   const { toast } = useToast();
   const {
     data,
@@ -149,15 +155,33 @@ function QueueList({ status, optimisticIds, onRemoveOptimistic, onRestoreOptimis
   return (
     <div className="space-y-3">
       {visibleItems.map((item) => (
-        <QueueItemCard
+        <div
           key={item.id}
-          item={item}
-          showActions={status === "pending"}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          isApproving={approve.isPending}
-          isRejecting={reject.isPending}
-        />
+          ref={(node) => {
+            // Deep-link from /admin/moderation/queue?itemId=… (e.g. from the
+            // AI Flagged dashboard): scroll the targeted item into view once
+            // it lands in the rendered list, and ring it briefly so it's
+            // obvious which row the admin came here to review.
+            if (node && highlightItemId === item.id) {
+              node.scrollIntoView({ block: "center", behavior: "smooth" });
+            }
+          }}
+          className={
+            highlightItemId === item.id
+              ? "rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background transition-shadow"
+              : undefined
+          }
+          data-testid={`queue-item-${item.id}`}
+        >
+          <QueueItemCard
+            item={item}
+            showActions={status === "pending"}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            isApproving={approve.isPending}
+            isRejecting={reject.isPending}
+          />
+        </div>
       ))}
 
       <div ref={sentinelRef} />
@@ -168,8 +192,33 @@ function QueueList({ status, optimisticIds, onRemoveOptimistic, onRestoreOptimis
 }
 
 export default function ModerationQueue() {
-  const [tab, setTab] = useState<Tab>("pending");
+  // Initialize the active tab and the deep-link target from the query string
+  // (e.g. /admin/moderation/queue?status=approved&itemId=42 from the AI
+  // Flagged dashboard "Review in queue" link). Keep the tab in local state
+  // afterwards so manual tab clicks still work without churning the URL.
+  const searchString = useSearch();
+  const initialQuery = (() => {
+    const params = new URLSearchParams(searchString);
+    const s = params.get("status");
+    const idRaw = params.get("itemId");
+    const idNum = idRaw ? parseInt(idRaw, 10) : NaN;
+    return {
+      status: isTab(s) ? s : ("pending" as Tab),
+      itemId: Number.isFinite(idNum) ? idNum : undefined,
+    };
+  })();
+
+  const [tab, setTab] = useState<Tab>(initialQuery.status);
+  const [highlightItemId, setHighlightItemId] = useState<number | undefined>(initialQuery.itemId);
   const [optimisticIds, setOptimisticIds] = useState<Set<number>>(new Set());
+
+  // Clear the highlight once the admin switches tabs themselves; the
+  // deep-link only meaningfully applies to the tab the link pointed at.
+  useEffect(() => {
+    if (highlightItemId !== undefined && tab !== initialQuery.status) {
+      setHighlightItemId(undefined);
+    }
+  }, [tab, highlightItemId, initialQuery.status]);
 
   const handleTabChange = (t: Tab) => {
     setTab(t);
@@ -206,6 +255,7 @@ export default function ModerationQueue() {
           optimisticIds={optimisticIds}
           onRemoveOptimistic={handleRemoveOptimistic}
           onRestoreOptimistic={handleRestoreOptimistic}
+          highlightItemId={tab === initialQuery.status ? highlightItemId : undefined}
         />
       </div>
     </AppLayout>

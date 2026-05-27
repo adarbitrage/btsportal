@@ -36,11 +36,36 @@ export interface ModerationQueueItem {
   triggeredBy: string;
   wordlistMatches: WordlistMatch[] | null;
   aiScores: Record<string, number> | null;
+  /**
+   * Threshold the classifier was compared against when this row was flagged.
+   * Null when the AI classifier didn't weigh in (hard wordlist) or the row
+   * pre-dates the column being added.
+   */
+  flagThreshold: number | null;
   reviewedBy: number | null;
   reviewedAt: string | null;
   createdAt: string;
   authorName: string | null;
   authorEmail: string | null;
+}
+
+export interface AiFlaggedItem extends ModerationQueueItem {
+  /** Max per-class classifier score for this row (0..1). */
+  maxScore: number;
+}
+
+export interface AiFlaggedPage {
+  items: AiFlaggedItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface AiFlaggedFilters {
+  status?: ModerationStatus | "";
+  from?: string;
+  to?: string;
+  minScore?: string;
+  maxScore?: string;
 }
 
 export interface ModerationQueuePage {
@@ -60,6 +85,30 @@ export function useAdminModerationQueue(status: ModerationStatus) {
       const qs = new URLSearchParams({ status, limit: "25" });
       if (pageParam) qs.set("cursor", pageParam as string);
       return adminFetch<ModerationQueuePage>(`/admin/moderation/queue?${qs.toString()}`);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * Lists moderation queue rows that were flagged by the AI classifier, with
+ * the score, the threshold in effect at flag-time, and the reason. Powers
+ * the AI Flagged admin dashboard so moderators can data-drive their
+ * threshold tuning instead of guessing.
+ */
+export function useAdminAiFlagged(filters: AiFlaggedFilters) {
+  return useInfiniteQuery({
+    queryKey: ["admin", "moderation", "ai-flagged", filters] as const,
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams({ limit: "25" });
+      if (filters.status) qs.set("status", filters.status);
+      if (filters.from) qs.set("from", filters.from);
+      if (filters.to) qs.set("to", filters.to);
+      if (filters.minScore) qs.set("minScore", filters.minScore);
+      if (filters.maxScore) qs.set("maxScore", filters.maxScore);
+      if (pageParam) qs.set("cursor", pageParam as string);
+      return adminFetch<AiFlaggedPage>(`/admin/moderation/queue/ai-flagged?${qs.toString()}`);
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,

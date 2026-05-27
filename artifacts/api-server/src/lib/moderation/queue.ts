@@ -67,6 +67,7 @@ export async function runModerationJob(job: ModerationJob): Promise<void> {
       triggeredBy: result.triggeredBy,
       wordlistMatches: result.wordlistMatches,
       aiScores: result.aiScores,
+      flagThreshold: result.flagThreshold,
     });
   } catch (err) {
     console.error(

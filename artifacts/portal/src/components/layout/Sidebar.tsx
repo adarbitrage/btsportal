@@ -54,6 +54,7 @@ import {
   Layers,
   UserCircle,
   Package,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -242,6 +243,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/admin/moderation/queue", label: "Queue", icon: Eye, requiredPermission: "community:moderate", showModerationBadge: true },
+      { kind: "leaf", href: "/admin/moderation/ai-flagged", label: "AI Flagged", icon: Sparkles, requiredPermission: "community:moderate" },
       { kind: "leaf", href: "/admin/moderation/wordlist", label: "Wordlist", icon: ScrollText, requiredPermission: "community:moderate" },
       { kind: "leaf", href: "/admin/moderation/strikes", label: "Strikes", icon: Shield, requiredPermission: "community:moderate" },
     ],

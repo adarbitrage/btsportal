@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, moderationQueueTable, usersTable, communityPostsTable, communityCommentsTable, userStrikesTable } from "@workspace/db";
-import { eq, and, lt, desc, sql } from "drizzle-orm";
+import { eq, and, lt, gte, lte, desc, sql, inArray, type SQL } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
 import { logAuditEvent } from "../../lib/audit-log";
 
@@ -34,6 +34,7 @@ router.get("/", requirePermission("community:moderate"), async (req: Request, re
         triggeredBy: moderationQueueTable.triggeredBy,
         wordlistMatches: moderationQueueTable.wordlistMatches,
         aiScores: moderationQueueTable.aiScores,
+        flagThreshold: moderationQueueTable.flagThreshold,
         reviewedBy: moderationQueueTable.reviewedBy,
         reviewedAt: moderationQueueTable.reviewedAt,
         createdAt: moderationQueueTable.createdAt,
@@ -57,6 +58,111 @@ router.get("/", requirePermission("community:moderate"), async (req: Request, re
   }
 });
 
+/**
+ * AI-flagged items dashboard. Lists moderation queue rows that were flagged
+ * by the AI classifier (triggeredBy = "ai_classifier" or "combined") with the
+ * per-class scores, the threshold that was in effect at flag-time, and the
+ * highest single score so admins can sort/filter by "how confidently the
+ * classifier wanted this flagged". Backs the admin "AI Flagged" view that
+ * lets moderators tune the threshold setting from real data instead of
+ * guessing.
+ *
+ * Query params (all optional):
+ *   status     — "pending" | "approved" | "rejected" (queue review state)
+ *   from, to   — ISO date strings, inclusive bounds on createdAt
+ *   minScore   — 0..1, lower bound on the *max* per-class AI score
+ *   maxScore   — 0..1, upper bound on the *max* per-class AI score
+ *   cursor     — opaque id from a previous nextCursor
+ *   limit      — page size, 1..100, default 25
+ */
+router.get("/ai-flagged", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  try {
+    const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const minScoreRaw = req.query.minScore as string | undefined;
+    const maxScoreRaw = req.query.maxScore as string | undefined;
+    const cursor = req.query.cursor as string | undefined;
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string || "25", 10) || 25, 1), 100);
+
+    // Highest per-class classifier score for the row. Computed in SQL so
+    // we can both filter by score band and sort by "most-confident flag".
+    // Mirrors the keys produced by ClassifierScores in classifier.ts; if
+    // a new class is added there, add it here too.
+    const maxScoreSql = sql<number>`GREATEST(
+      COALESCE((${moderationQueueTable.aiScores} ->> 'toxicity')::real, 0),
+      COALESCE((${moderationQueueTable.aiScores} ->> 'spam')::real, 0),
+      COALESCE((${moderationQueueTable.aiScores} ->> 'harassment')::real, 0),
+      COALESCE((${moderationQueueTable.aiScores} ->> 'hate_speech')::real, 0)
+    )`;
+
+    const conditions: SQL[] = [
+      // Only rows where the AI classifier actually weighed in. "wordlist_hard"
+      // / "wordlist_soft" rows are pure wordlist flags and have nothing to
+      // teach the admin about the threshold setting.
+      inArray(moderationQueueTable.triggeredBy, ["ai_classifier", "combined"]),
+    ];
+
+    if (status && ["pending", "approved", "rejected"].includes(status)) {
+      conditions.push(eq(moderationQueueTable.status, status));
+    }
+    if (from) {
+      const d = new Date(from);
+      if (!isNaN(d.getTime())) conditions.push(gte(moderationQueueTable.createdAt, d));
+    }
+    if (to) {
+      const d = new Date(to);
+      if (!isNaN(d.getTime())) conditions.push(lte(moderationQueueTable.createdAt, d));
+    }
+    if (minScoreRaw !== undefined) {
+      const v = parseFloat(minScoreRaw);
+      if (!isNaN(v)) conditions.push(sql`${maxScoreSql} >= ${v}`);
+    }
+    if (maxScoreRaw !== undefined) {
+      const v = parseFloat(maxScoreRaw);
+      if (!isNaN(v)) conditions.push(sql`${maxScoreSql} <= ${v}`);
+    }
+    if (cursor) {
+      const cursorId = parseInt(cursor, 10);
+      if (!isNaN(cursorId)) conditions.push(lt(moderationQueueTable.id, cursorId));
+    }
+
+    const rows = await db
+      .select({
+        id: moderationQueueTable.id,
+        targetType: moderationQueueTable.targetType,
+        targetId: moderationQueueTable.targetId,
+        authorId: moderationQueueTable.authorId,
+        body: moderationQueueTable.body,
+        status: moderationQueueTable.status,
+        triggeredBy: moderationQueueTable.triggeredBy,
+        wordlistMatches: moderationQueueTable.wordlistMatches,
+        aiScores: moderationQueueTable.aiScores,
+        flagThreshold: moderationQueueTable.flagThreshold,
+        maxScore: maxScoreSql,
+        reviewedBy: moderationQueueTable.reviewedBy,
+        reviewedAt: moderationQueueTable.reviewedAt,
+        createdAt: moderationQueueTable.createdAt,
+        authorName: usersTable.name,
+        authorEmail: usersTable.email,
+      })
+      .from(moderationQueueTable)
+      .leftJoin(usersTable, eq(moderationQueueTable.authorId, usersTable.id))
+      .where(and(...conditions))
+      .orderBy(desc(moderationQueueTable.id))
+      .limit(limit + 1);
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? String(items[items.length - 1].id) : null;
+
+    res.json({ items, nextCursor, hasMore });
+  } catch (err) {
+    console.error("[Admin/Moderation] AI-flagged list error:", err);
+    res.status(500).json({ error: "Failed to fetch AI-flagged items" });
+  }
+});
+
 router.get("/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
@@ -76,6 +182,7 @@ router.get("/:id", requirePermission("community:moderate"), async (req: Request,
         triggeredBy: moderationQueueTable.triggeredBy,
         wordlistMatches: moderationQueueTable.wordlistMatches,
         aiScores: moderationQueueTable.aiScores,
+        flagThreshold: moderationQueueTable.flagThreshold,
         reviewedBy: moderationQueueTable.reviewedBy,
         reviewedAt: moderationQueueTable.reviewedAt,
         createdAt: moderationQueueTable.createdAt,
