@@ -10,7 +10,9 @@ export const appGlobalSettingsTable = pgTable(
     enabled: boolean("enabled").notNull().default(true),
     visible: boolean("visible").notNull().default(true),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedById: integer("updated_by_id").references(() => usersTable.id),
+    updatedById: integer("updated_by_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
     updatedByEmail: text("updated_by_email"),
   },
   (table) => [
