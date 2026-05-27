@@ -66,6 +66,19 @@ export function useAdminModerationQueue(status: ModerationStatus) {
   });
 }
 
+export function useAdminModerationPendingCount(opts?: { refetchInterval?: number }) {
+  return useQuery({
+    queryKey: ["admin", "moderation", "pending-count"],
+    queryFn: async () => {
+      const data = await adminFetch<ModerationQueuePage>(
+        `/admin/moderation/queue?status=pending&limit=100`
+      );
+      return { count: data.items.length, hasMore: data.hasMore };
+    },
+    refetchInterval: opts?.refetchInterval,
+  });
+}
+
 export function useAdminModerationItem(id: number) {
   return useQuery({
     queryKey: ["admin", "moderation", "item", id],

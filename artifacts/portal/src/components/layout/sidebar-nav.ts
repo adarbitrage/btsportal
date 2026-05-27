@@ -11,6 +11,7 @@ export interface NavLeaf {
   requiredEntitlement?: string;
   requiredPermission?: Permission;
   showNotificationBadge?: boolean;
+  showModerationBadge?: boolean;
 }
 
 export interface NavFolder {

@@ -133,6 +133,8 @@ import RevenueForecast from "@/pages/admin/RevenueForecast";
 import AppsManager from "@/pages/admin/AppsManager";
 import StrikesList from "@/pages/admin/moderation/strikes";
 import UserStrikesDetail from "@/pages/admin/moderation/user-strikes";
+import ModerationQueue from "@/pages/admin/moderation/queue";
+import ModerationWordlist from "@/pages/admin/moderation/wordlist";
 import YseOrders from "@/pages/admin/YseOrders";
 import YseGrantFailures from "@/pages/admin/YseGrantFailures";
 import Account from "@/pages/Account";
@@ -445,6 +447,8 @@ function Router() {
       <Route path="/admin/revenue/ltv">{() => <AdminRoute component={LtvAnalysis} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/forecast">{() => <AdminRoute component={RevenueForecast} permission="revenue:view" />}</Route>
       <Route path="/admin/apps-manager">{() => <AdminRoute component={AppsManager} permission="apps:manage" />}</Route>
+      <Route path="/admin/moderation/queue">{() => <AdminRoute component={ModerationQueue} permission="community:moderate" />}</Route>
+      <Route path="/admin/moderation/wordlist">{() => <AdminRoute component={ModerationWordlist} permission="community:moderate" />}</Route>
       <Route path="/admin/moderation/strikes/:userId">{() => <AdminRoute component={UserStrikesDetail} permission="community:moderate" />}</Route>
       <Route path="/admin/moderation/strikes">{() => <AdminRoute component={StrikesList} permission="community:moderate" />}</Route>
       <Route path="/admin/integrations/yse">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>

@@ -59,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
+import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
 import {
   filterNavByEntitlements,
   filterNavByRole,
@@ -72,6 +73,18 @@ import {
   type NavNode,
 } from "./sidebar-nav";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
+
+function ModerationPendingBadge() {
+  const { data } = useAdminModerationPendingCount({ refetchInterval: 30_000 });
+  const count = data?.count ?? 0;
+  const hasMore = data?.hasMore ?? false;
+  if (count === 0) return null;
+  return (
+    <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center leading-none">
+      {hasMore ? `${count}+` : count}
+    </span>
+  );
+}
 
 const MEMBER_NAV: NavNode[] = [
   {
@@ -213,6 +226,18 @@ const ADMIN_CHILDREN: NavNode[] = [
   },
   {
     kind: "folder",
+    storageKey: "admin-moderation",
+    label: "Moderation",
+    icon: ShieldCheck,
+    defaultOpen: false,
+    children: [
+      { kind: "leaf", href: "/admin/moderation/queue", label: "Queue", icon: Eye, requiredPermission: "community:moderate", showModerationBadge: true },
+      { kind: "leaf", href: "/admin/moderation/wordlist", label: "Wordlist", icon: ScrollText, requiredPermission: "community:moderate" },
+      { kind: "leaf", href: "/admin/moderation/strikes", label: "Strikes", icon: Shield, requiredPermission: "community:moderate" },
+    ],
+  },
+  {
+    kind: "folder",
     storageKey: "admin-commissions",
     label: "Commissions",
     icon: DollarSign,
@@ -343,6 +368,7 @@ function LeafRow({ leaf, location, onNavClick, indent = 0 }: LeafRowProps) {
         />
         <span className="truncate">{leaf.label}</span>
         {leaf.showNotificationBadge && <NotificationBadgeCount />}
+        {leaf.showModerationBadge && <ModerationPendingBadge />}
       </div>
     </Link>
   );
