@@ -75,3 +75,4 @@ export * from "./machine-product-key-mappings";
 export * from "./machine-unknown-product-keys";
 export * from "./dm";
 export * from "./moderation";
+export * from "./assistant-cards";

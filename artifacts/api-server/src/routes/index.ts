@@ -65,6 +65,8 @@ import mediaMavensProductsRouter from "./admin-media-mavens-products";
 import mediaMavensCategoriesRouter from "./admin-media-mavens-categories";
 import dmRouter from "./dm";
 import adminAssistantGeneratorRouter from "./admin/assistant-generator.js";
+import assistantCardsRouter from "./assistant-cards";
+import adminAssistantCardsRouter from "./admin-assistant-cards";
 
 const router: IRouter = Router();
 
@@ -134,5 +136,7 @@ router.use(mediaMavensProductsRouter);
 router.use(mediaMavensCategoriesRouter);
 router.use("/dm", dmRouter);
 router.use(adminAssistantGeneratorRouter);
+router.use(assistantCardsRouter);
+router.use(adminAssistantCardsRouter);
 
 export default router;
