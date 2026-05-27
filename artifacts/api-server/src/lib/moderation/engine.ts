@@ -1,5 +1,6 @@
 import { scanContent, type WordlistMatch } from "./wordlist";
 import { classifyContent, type ClassifierScores } from "./classifier";
+import { getAiModerationThresholdConfig } from "./ai-threshold-settings";
 
 export interface EvaluateInput {
   body: string;
@@ -31,8 +32,10 @@ export async function evaluate(input: EvaluateInput): Promise<EvaluateResult> {
 
   const aiScores = await classifyContent(body);
 
+  const { flagThreshold } = await getAiModerationThresholdConfig();
+
   const softMatches = wordlistMatches.filter((m) => m.severity === "SOFT");
-  const aiTriggered = Object.values(aiScores).some((score) => score > 0.5);
+  const aiTriggered = Object.values(aiScores).some((score) => score > flagThreshold);
   const softTriggered = softMatches.length > 0;
 
   const flagged = aiTriggered || softTriggered;

@@ -67,6 +67,12 @@ import {
   isModerationFailureAlertSettingKey,
 } from "../lib/moderation/failure-alert-settings";
 import {
+  getAiModerationThresholdConfigStatus,
+  applyAiModerationThresholdConfigUpdate,
+  validateUpdate as validateAiModerationThresholdUpdate,
+  isAiModerationThresholdSettingKey,
+} from "../lib/moderation/ai-threshold-settings";
+import {
   getModerationFailuresInWindowAggregated,
   getModerationFailureCumulativeStats,
 } from "../lib/moderation/failure-tracker";
@@ -3275,7 +3281,8 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
         !isAuthRateLimitAlertSettingKey(s.key) &&
         !isMachineMismatchAlertSettingKey(s.key) &&
         !isChangeHistoryRetentionSettingKey(s.key) &&
-        !isPortalUrlSettingKey(s.key),
+        !isPortalUrlSettingKey(s.key) &&
+        !isAiModerationThresholdSettingKey(s.key),
     );
     res.json(filtered);
   } catch (error) {
@@ -3321,6 +3328,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
       // must include a host, no `javascript:`/`data:` payloads). Routing
       // updates through it keeps that validation in one place.
       res.status(400).json({ error: "Use /admin/portal-url to manage the per-tenant portal URL" });
+      return;
+    }
+    if (isAiModerationThresholdSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/ai-moderation-threshold-config to manage the AI moderation flag threshold" });
       return;
     }
 
@@ -3946,6 +3957,61 @@ router.put("/admin/moderation-failure-alert-config", requirePermission("settings
   } catch (error) {
     console.error("[Admin] Update moderation failure alert config error:", error);
     res.status(500).json({ error: "Failed to update moderation failure alert config" });
+  }
+});
+
+/**
+ * Read the current AI moderation flag threshold plus default + bounds.
+ * Bounds are returned alongside the value so the admin Settings card can
+ * mirror the server's validation without hard-coding it.
+ */
+router.get("/admin/ai-moderation-threshold-config", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const status = await getAiModerationThresholdConfigStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("[Admin] Get AI moderation threshold config error:", error);
+    res.status(500).json({ error: "Failed to fetch AI moderation threshold config" });
+  }
+});
+
+/**
+ * Update the AI moderation flag threshold. Body is `{ flagThreshold }`
+ * (number in 0..1, or `null` to reset to the shipped default). Successful
+ * changes write an audit row with the before/after values and invalidate
+ * the in-process cache so the engine picks the new threshold up on the
+ * very next evaluate() call.
+ */
+router.put("/admin/ai-moderation-threshold-config", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const validation = validateAiModerationThresholdUpdate(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ error: "Invalid AI moderation threshold config", fieldErrors: validation.errors });
+      return;
+    }
+    const { before, after, changedFields } = await applyAiModerationThresholdConfigUpdate(
+      validation.update,
+      req.userEmail || (req.userId ? String(req.userId) : null),
+    );
+    if (changedFields.length > 0) {
+      const diff: Record<string, { from: number; to: number }> = {};
+      for (const field of changedFields) {
+        diff[field] = { from: before[field], to: after[field] };
+      }
+      await logAdminAction(
+        req,
+        "update_setting",
+        "ai_moderation_threshold_config",
+        "ai_moderation_threshold",
+        `Updated AI moderation threshold: ${changedFields.join(", ")}`,
+        { changedFields, diff },
+      );
+    }
+    const status = await getAiModerationThresholdConfigStatus();
+    res.json({ ...status, changedFields });
+  } catch (error) {
+    console.error("[Admin] Update AI moderation threshold config error:", error);
+    res.status(500).json({ error: "Failed to update AI moderation threshold config" });
   }
 });
 

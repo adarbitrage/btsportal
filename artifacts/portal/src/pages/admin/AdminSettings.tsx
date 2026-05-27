@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 import {
   adminPanelApi,
+  type AiModerationThresholdConfigStatus,
   type AuthRateLimitAlertConfigStatus,
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
@@ -86,6 +87,8 @@ export default function AdminSettings() {
         <MachineMismatchAlertConfigCard />
 
         <ModerationFailureAlertConfigCard />
+
+        <AiModerationThresholdConfigCard />
 
         <ChangeHistoryRetentionConfigCard />
 
@@ -2442,6 +2445,172 @@ function RetentionConfigRow({
         <p className="text-xs text-destructive" data-testid={`retention-${field}-error`}>{error}</p>
       )}
     </div>
+  );
+}
+
+function AiModerationThresholdConfigCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<AiModerationThresholdConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<string>("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  const hydrate = (s: AiModerationThresholdConfigStatus) => {
+    setStatus(s);
+    setDraft(String(s.config.flagThreshold));
+    setFieldError(null);
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getAiModerationThresholdConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const validateLocal = (): { ok: boolean; value: number } => {
+    if (!status) return { ok: false, value: 0 };
+    const n = Number(draft);
+    if (!Number.isFinite(n)) {
+      setFieldError("Must be a number between 0 and 1");
+      return { ok: false, value: 0 };
+    }
+    const { min, max } = status.bounds.flagThreshold;
+    if (n < min || n > max) {
+      setFieldError(`Must be between ${min} and ${max}`);
+      return { ok: false, value: n };
+    }
+    setFieldError(null);
+    return { ok: true, value: n };
+  };
+
+  const isDirty = !!status && Number(draft) !== status.config.flagThreshold;
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted field and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateAiModerationThresholdConfig({ flagThreshold: v.value });
+      hydrate(data);
+      toast({ title: data.changedFields.length === 0 ? "No changes to save" : "AI moderation threshold saved" });
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const ft = err.fieldErrors.find((e: any) => e.field === "flagThreshold");
+        if (ft) setFieldError(ft.message);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    if (status.sources.flagThreshold !== "db") {
+      setDraft(String(status.defaults.flagThreshold));
+      setFieldError(null);
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateAiModerationThresholdConfig({ flagThreshold: null });
+      hydrate(data);
+      toast({ title: "Reset to default" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> AI moderation flag threshold
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          The minimum AI classifier score (0–1) at which a post or comment gets sent to the moderation queue. Lower it to catch more borderline content; raise it to cut down on false positives. Takes effect on the next new post or comment — no redeploy needed.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading threshold...</div>
+        ) : (
+          <>
+            <div className="border rounded-md p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Flag threshold</p>
+                  <p className="text-xs text-muted-foreground">Content is flagged when any classifier score (toxicity, spam, harassment, hate speech) exceeds this value.</p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${
+                    status.sources.flagThreshold === "db"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {status.sources.flagThreshold === "db" ? "Customized" : "Using default"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step={0.05}
+                  min={status.bounds.flagThreshold.min}
+                  max={status.bounds.flagThreshold.max}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  className="w-40"
+                  data-testid="ai-moderation-flag-threshold-input"
+                  aria-invalid={!!fieldError}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Range {status.bounds.flagThreshold.min}–{status.bounds.flagThreshold.max}. Current: {status.config.flagThreshold}. Default: {status.defaults.flagThreshold}.
+                </span>
+              </div>
+              {fieldError && (
+                <p className="text-xs text-destructive" data-testid="ai-moderation-flag-threshold-error">{fieldError}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetDefaults}
+                disabled={saving || status.sources.flagThreshold !== "db"}
+                data-testid="ai-moderation-flag-threshold-reset"
+              >
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to default
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving || !isDirty}
+                data-testid="ai-moderation-flag-threshold-save"
+              >
+                <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
