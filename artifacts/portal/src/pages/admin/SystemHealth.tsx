@@ -1065,6 +1065,37 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {(health.services?.moderationFailures as { alerter?: { alerting?: boolean } } | undefined)?.alerter?.alerting && (() => {
+              const mf = health.services.moderationFailures as {
+                window: { totalCount: number; byKind: { engine: number; persist: number }; windowMs: number; lastError: string | null; lastKind: "engine" | "persist" | null };
+                cumulative: { totalCount: number };
+              };
+              const minutes = Math.max(1, Math.round((mf.window.windowMs ?? 0) / 60000));
+              return (
+                <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="moderation-failures-banner">
+                  <CardContent className="py-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-red-900 dark:text-red-200">
+                        Background moderation jobs are failing
+                      </p>
+                      <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                        {mf.window.totalCount} failure{mf.window.totalCount === 1 ? "" : "s"} in
+                        the last {minutes}m
+                        {mf.window.byKind.persist > 0
+                          ? ` (${mf.window.byKind.persist} persist — flagged content may still be publicly active)`
+                          : mf.window.byKind.engine > 0
+                            ? ` (${mf.window.byKind.engine} engine — content may have slipped through unevaluated)`
+                            : ""}.
+                        On-call has been paged. See the "Background moderation failures" card
+                        below and search logs for <code>[Moderation][Failure]</code>.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {Array.isArray(health.services?.missingCriticalSecrets) && health.services.missingCriticalSecrets.length > 0 && (
               <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="missing-critical-secrets-banner">
                 <CardContent className="py-4 flex items-start gap-3">
@@ -2149,6 +2180,133 @@ export default function SystemHealth() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.moderationFailures && (() => {
+                const mf = health.services.moderationFailures as {
+                  window: {
+                    totalCount: number;
+                    byKind: { engine: number; persist: number };
+                    lastAt: string | null;
+                    lastError: string | null;
+                    lastKind: "engine" | "persist" | null;
+                    windowMs: number;
+                  };
+                  cumulative: {
+                    totalCount: number;
+                    byKind: { engine: number; persist: number };
+                    lastAt: string | null;
+                  };
+                  alerter: {
+                    alerting: boolean;
+                    lastSeenWindowTotal: number;
+                    lastInWindowFailureAt: string | null;
+                  };
+                };
+                const minutes = Math.max(1, Math.round((mf.window.windowMs ?? 0) / 60000));
+                return (
+                  <Card data-testid="card-moderation-failures">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Background moderation failures
+                        <Badge
+                          variant={mf.alerter.alerting ? "destructive" : "outline"}
+                          className="ml-2 font-normal"
+                          data-testid="moderation-failures-alerting-badge"
+                          title={
+                            mf.alerter.alerting
+                              ? "Rolling window is above the configured alert threshold — on-call has been paged."
+                              : "Rolling window is below the configured alert threshold."
+                          }
+                        >
+                          {mf.alerter.alerting ? "alerting" : "ok"}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            In-window failures (last {minutes}m)
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${mf.window.totalCount > 0 ? "text-red-600" : ""}`}
+                            data-testid="moderation-failures-window-total"
+                          >
+                            {mf.window.totalCount ?? 0}
+                          </span>
+                        </div>
+                        <div className="space-y-1 pt-2 border-t">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">engine (evaluator threw)</span>
+                            <span
+                              className="font-medium"
+                              data-testid="moderation-failures-window-engine"
+                            >
+                              {mf.window.byKind?.engine ?? 0}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">persist (DB write threw)</span>
+                            <span
+                              className={`font-medium ${(mf.window.byKind?.persist ?? 0) > 0 ? "text-red-600" : ""}`}
+                              data-testid="moderation-failures-window-persist"
+                              title={
+                                (mf.window.byKind?.persist ?? 0) > 0
+                                  ? "Known flag-worthy posts are still publicly active because the shadow-hide DB write threw."
+                                  : undefined
+                              }
+                            >
+                              {mf.window.byKind?.persist ?? 0}
+                            </span>
+                          </div>
+                        </div>
+                        {mf.window.lastAt && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Last failure</span>
+                            <span className="text-sm font-medium">
+                              {new Date(mf.window.lastAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {mf.window.lastError && (
+                          <div
+                            className="text-xs text-muted-foreground pt-2 border-t"
+                            data-testid="moderation-failures-last-error"
+                          >
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Last error{mf.window.lastKind ? ` (${mf.window.lastKind})` : ""}
+                            </span>
+                            <code className="break-all">{mf.window.lastError}</code>
+                          </div>
+                        )}
+                        <div className="pt-2 border-t">
+                          <p className="text-[11px] uppercase text-muted-foreground mb-1">
+                            Cumulative (since process start)
+                          </p>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">total</span>
+                            <span
+                              className="font-medium"
+                              data-testid="moderation-failures-cumulative-total"
+                            >
+                              {mf.cumulative.totalCount ?? 0}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">engine / persist</span>
+                            <span className="font-medium">
+                              {mf.cumulative.byKind?.engine ?? 0}
+                              {" / "}
+                              {mf.cumulative.byKind?.persist ?? 0}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
