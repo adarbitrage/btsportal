@@ -3,13 +3,13 @@ import {
   db, usersTable,
   communityPostsTable, communityCommentsTable, communityReactionsTable,
   communityCategoriesTable, communityBadgesTable, communityNotificationsTable,
-  userProductsTable, productsTable, moderationQueueTable,
+  userProductsTable, productsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, or, isNull, gte, ilike } from "drizzle-orm";
 import { hasEntitlement, getHighestProductLabel, getUserEntitlements } from "../lib/entitlements";
 import { isAdminRole } from "../middleware/rbac";
 import { requireNotBanned } from "../middleware/postingBan";
-import { evaluate } from "../lib/moderation/engine";
+import { enqueueModerationJob } from "../lib/moderation/queue";
 import {
   listPosts,
   parseCursor,
@@ -171,30 +171,12 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
 
   const post = await createPostInCategory(userId, body, resolvedCategoryId, media_urls ?? []);
 
-  let postEvalResult;
-  try {
-    postEvalResult = await evaluate({ body, targetType: "post", authorId: userId });
-  } catch (err) {
-    console.error("[Moderation] Engine error on post create, failing open:", err);
-  }
-
-  if (postEvalResult?.flagged) {
-    await db
-      .update(communityPostsTable)
-      .set({ status: "shadow_hidden" })
-      .where(eq(communityPostsTable.id, post.id));
-    post.status = "shadow_hidden";
-
-    await db.insert(moderationQueueTable).values({
-      targetType: "post",
-      targetId: post.id,
-      authorId: userId,
-      body,
-      triggeredBy: postEvalResult.triggeredBy,
-      wordlistMatches: postEvalResult.wordlistMatches,
-      aiScores: postEvalResult.aiScores,
-    });
-  }
+  enqueueModerationJob({
+    targetType: "post",
+    targetId: post.id,
+    authorId: userId,
+    body,
+  });
 
   await db
     .update(communityCategoriesTable)
@@ -421,30 +403,12 @@ router.post("/community/posts/:id/comments", requireNotBanned, async (req, res):
 
   const comment = await createComment(postId, userId, body);
 
-  let commentEvalResult;
-  try {
-    commentEvalResult = await evaluate({ body, targetType: "comment", authorId: userId });
-  } catch (err) {
-    console.error("[Moderation] Engine error on comment create, failing open:", err);
-  }
-
-  if (commentEvalResult?.flagged) {
-    await db
-      .update(communityCommentsTable)
-      .set({ status: "shadow_hidden" })
-      .where(eq(communityCommentsTable.id, comment.id));
-    comment.status = "shadow_hidden";
-
-    await db.insert(moderationQueueTable).values({
-      targetType: "comment",
-      targetId: comment.id,
-      authorId: userId,
-      body,
-      triggeredBy: commentEvalResult.triggeredBy,
-      wordlistMatches: commentEvalResult.wordlistMatches,
-      aiScores: commentEvalResult.aiScores,
-    });
-  }
+  enqueueModerationJob({
+    targetType: "comment",
+    targetId: comment.id,
+    authorId: userId,
+    body,
+  });
 
   const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
