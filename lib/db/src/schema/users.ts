@@ -33,6 +33,7 @@ export const usersTable = pgTable("users", {
   ghlContactId: text("ghl_contact_id"),
   marketingOptIn: boolean("marketing_opt_in").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  postingBannedAt: timestamp("posting_banned_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

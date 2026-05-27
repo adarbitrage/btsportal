@@ -29,6 +29,7 @@ import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
+import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
 // endpoint hard-depends on the `yse_front_end` product row existing). It is
@@ -93,6 +94,7 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
+seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moderation wordlist:", err));
 
 (async () => {
   try {
