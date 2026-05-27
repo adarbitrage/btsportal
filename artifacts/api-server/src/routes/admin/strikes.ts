@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, userStrikesTable, moderationQueueTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { db, usersTable, userStrikesTable, moderationQueueTable, auditLogTable } from "@workspace/db";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
 
 const router = Router();
@@ -80,6 +80,32 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       .where(eq(userStrikesTable.userId, userId))
       .orderBy(desc(userStrikesTable.createdAt));
 
+    // Surface the audit row written by the moderation reject endpoint when
+    // it auto-bans a user, so admins can see whether the ban was an explicit
+    // admin action or an automatic threshold trip, who reviewed the strike
+    // that caused it, and which queue/strike id tripped it. We return the
+    // most recent matching row — re-bans (after an unban) are rare but if
+    // they happen the newest one is the relevant context.
+    const [autoBan] = await db
+      .select({
+        id: auditLogTable.id,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        description: auditLogTable.description,
+        metadata: auditLogTable.metadata,
+        createdAt: auditLogTable.createdAt,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "auto_ban_posting"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(userId)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(1);
+
     res.json({
       user: {
         id: user.id,
@@ -90,6 +116,7 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       },
       strikes,
       strikeCount: strikes.length,
+      autoBan: autoBan ?? null,
     });
   } catch (err) {
     console.error("[Admin/Strikes] Get user strikes error:", err);

@@ -11,8 +11,9 @@ import {
   communityCommentsTable,
   moderationQueueTable,
   userStrikesTable,
+  auditLogTable,
 } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
@@ -160,6 +161,14 @@ afterAll(async () => {
     await db.delete(moderationQueueTable).where(inArray(moderationQueueTable.authorId, seededUserIds));
     await db.delete(communityCommentsTable).where(inArray(communityCommentsTable.authorId, seededUserIds));
     await db.delete(communityPostsTable).where(inArray(communityPostsTable.authorId, seededUserIds));
+    await db
+      .delete(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "auto_ban_posting"),
+          inArray(auditLogTable.entityId, seededUserIds.map((id) => String(id))),
+        ),
+      );
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
   if (categoryId) {
@@ -304,6 +313,45 @@ describe("Admin moderation queue review actions", () => {
         .from(usersTable)
         .where(eq(usersTable.id, author.id));
       expect(afterBan?.postingBannedAt).toBeInstanceOf(Date);
+
+      // An auto-ban audit row must be written so admins can see this was an
+      // automatic threshold trip (not an explicit ban), which queue/strike
+      // tripped it, and who reviewed that final strike.
+      const [auditRow] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.actionType, "auto_ban_posting"),
+            eq(auditLogTable.entityType, "user"),
+            eq(auditLogTable.entityId, String(author.id)),
+          ),
+        );
+      expect(auditRow).toBeDefined();
+      expect(auditRow.actorId).toBe(admin.id);
+      const meta = auditRow.metadata as {
+        userId: number;
+        reviewerId: number;
+        triggeringQueueId: number;
+        triggeringStrikeId: number;
+        strikeCount: number;
+      };
+      expect(meta.userId).toBe(author.id);
+      expect(meta.reviewerId).toBe(admin.id);
+      expect(meta.triggeringQueueId).toBe(queueIds[2]);
+      expect(meta.strikeCount).toBe(3);
+      expect(typeof meta.triggeringStrikeId).toBe("number");
+
+      // GET /admin/strikes/users/:userId surfaces the auto-ban reason
+      // alongside strikes.
+      const strikesRes = await request(app)
+        .get(`/api/admin/strikes/users/${author.id}`)
+        .set("Cookie", admin.cookie);
+      expect(strikesRes.status).toBe(200);
+      expect(strikesRes.body.autoBan).toBeTruthy();
+      expect(strikesRes.body.autoBan.actorId).toBe(admin.id);
+      expect(strikesRes.body.autoBan.metadata.triggeringQueueId).toBe(queueIds[2]);
+      expect(strikesRes.body.autoBan.metadata.strikeCount).toBe(3);
     });
   });
 

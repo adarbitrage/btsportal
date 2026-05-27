@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, moderationQueueTable, usersTable, communityPostsTable, communityCommentsTable, userStrikesTable } from "@workspace/db";
 import { eq, and, lt, desc, sql } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
+import { logAuditEvent } from "../../lib/audit-log";
 
 const router = Router();
 
@@ -175,13 +176,16 @@ router.post("/:id/reject", requirePermission("community:moderate"), async (req: 
       .set({ status: "rejected", reviewedBy: req.userId, reviewedAt: new Date() })
       .where(eq(moderationQueueTable.id, id));
 
-    await db.insert(userStrikesTable).values({
-      userId: item.authorId,
-      reason: reason || "Content violated community guidelines",
-      queueId: id,
-      targetType: item.targetType,
-      targetId: item.targetId,
-    });
+    const [insertedStrike] = await db
+      .insert(userStrikesTable)
+      .values({
+        userId: item.authorId,
+        reason: reason || "Content violated community guidelines",
+        queueId: id,
+        targetType: item.targetType,
+        targetId: item.targetId,
+      })
+      .returning({ id: userStrikesTable.id });
 
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -201,6 +205,29 @@ router.post("/:id/reject", requirePermission("community:moderate"), async (req: 
           .set({ postingBannedAt: new Date() })
           .where(eq(usersTable.id, item.authorId));
         console.log(`[Moderation] Auto-banned user ${item.authorId} after ${count} strikes`);
+
+        // Record an audit row so admins reviewing the banned member later can
+        // see this was an automatic threshold trip (not an explicit ban), who
+        // reviewed the strike that tripped it, and which queue/strike caused
+        // it. Surfaced by GET /admin/strikes/users/:userId.
+        await logAuditEvent({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          actionType: "auto_ban_posting",
+          entityType: "user",
+          entityId: String(item.authorId),
+          description: `Auto-banned member ${item.authorId} from posting after ${count} strikes (triggered by moderation queue #${id})`,
+          metadata: {
+            userId: item.authorId,
+            reviewerId: req.userId,
+            triggeringQueueId: id,
+            triggeringStrikeId: insertedStrike?.id,
+            strikeCount: count,
+            targetType: item.targetType,
+            targetId: item.targetId,
+          },
+          req,
+        });
       }
     }
 
