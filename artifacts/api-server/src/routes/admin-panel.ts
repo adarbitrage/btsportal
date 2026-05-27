@@ -67,7 +67,7 @@ import {
   isModerationFailureAlertSettingKey,
 } from "../lib/moderation/failure-alert-settings";
 import {
-  getModerationFailuresInWindow,
+  getModerationFailuresInWindowAggregated,
   getModerationFailureCumulativeStats,
 } from "../lib/moderation/failure-tracker";
 import {
@@ -2654,7 +2654,9 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       console.error("[Admin] system/health: failed to read moderation failure config:", err);
     }
     const moderationFailures = {
-      window: getModerationFailuresInWindow(moderationFailureWindowMinutes * 60 * 1000),
+      window: await getModerationFailuresInWindowAggregated(
+        moderationFailureWindowMinutes * 60 * 1000,
+      ),
       cumulative: getModerationFailureCumulativeStats(),
       alerter: getModerationFailureAlertingState(),
     };

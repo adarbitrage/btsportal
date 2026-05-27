@@ -36,7 +36,7 @@
 
 import sgMail from "@sendgrid/mail";
 import {
-  getModerationFailuresInWindow,
+  getModerationFailuresInWindowAggregated,
   getModerationFailureCumulativeStats,
   type ModerationFailureWindowStats,
   type ModerationFailureCumulativeStats,
@@ -318,7 +318,11 @@ export async function evaluateModerationFailureAlert(
     console.error("[ModerationFailureAlerter] Failed to load config, using defaults:", err);
   }
   const windowMs = windowMinutes * 60 * 1000;
-  const window = getModerationFailuresInWindow(windowMs, now);
+  // Read the cluster-wide aggregate so a slow-burn outage that spreads
+  // failures across replicas still crosses threshold on any single pod's
+  // evaluation. Falls back to the local in-memory snapshot if Redis is
+  // unavailable (handled inside the aggregator).
+  const window = await getModerationFailuresInWindowAggregated(windowMs, now);
   const cumulative = getModerationFailureCumulativeStats();
 
   if (window.totalCount > alertState.lastSeenWindowTotal) {
