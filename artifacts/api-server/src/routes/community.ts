@@ -3,11 +3,13 @@ import {
   db, usersTable,
   communityPostsTable, communityCommentsTable, communityReactionsTable,
   communityCategoriesTable, communityBadgesTable, communityNotificationsTable,
-  userProductsTable, productsTable,
+  userProductsTable, productsTable, moderationQueueTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, or, isNull, gte, ilike } from "drizzle-orm";
 import { hasEntitlement, getHighestProductLabel, getUserEntitlements } from "../lib/entitlements";
 import { isAdminRole } from "../middleware/rbac";
+import { requireNotBanned } from "../middleware/postingBan";
+import { evaluate } from "../lib/moderation/engine";
 import {
   listPosts,
   parseCursor,
@@ -132,7 +134,7 @@ router.get("/community/posts", async (req, res): Promise<void> => {
   res.json({ posts, nextCursor });
 });
 
-router.post("/community/posts", async (req, res): Promise<void> => {
+router.post("/community/posts", requireNotBanned, async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
 
@@ -168,6 +170,31 @@ router.post("/community/posts", async (req, res): Promise<void> => {
   }
 
   const post = await createPostInCategory(userId, body, resolvedCategoryId, media_urls ?? []);
+
+  let postEvalResult;
+  try {
+    postEvalResult = await evaluate({ body, targetType: "post", authorId: userId });
+  } catch (err) {
+    console.error("[Moderation] Engine error on post create, failing open:", err);
+  }
+
+  if (postEvalResult?.flagged) {
+    await db
+      .update(communityPostsTable)
+      .set({ status: "shadow_hidden" })
+      .where(eq(communityPostsTable.id, post.id));
+    post.status = "shadow_hidden";
+
+    await db.insert(moderationQueueTable).values({
+      targetType: "post",
+      targetId: post.id,
+      authorId: userId,
+      body,
+      triggeredBy: postEvalResult.triggeredBy,
+      wordlistMatches: postEvalResult.wordlistMatches,
+      aiScores: postEvalResult.aiScores,
+    });
+  }
 
   await db
     .update(communityCategoriesTable)
@@ -313,6 +340,14 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
+  if (post.status === "shadow_hidden" && !isAdmin && post.authorId !== userId) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  const commentStatusCondition = isAdmin
+    ? sql`${communityCommentsTable.status} != 'deleted'`
+    : sql`(${communityCommentsTable.status} = 'active' OR (${communityCommentsTable.status} = 'shadow_hidden' AND ${communityCommentsTable.authorId} = ${userId}))`;
 
   const comments = await db
     .select({
@@ -329,7 +364,7 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
     })
     .from(communityCommentsTable)
     .innerJoin(usersTable, eq(communityCommentsTable.authorId, usersTable.id))
-    .where(and(eq(communityCommentsTable.postId, postId), eq(communityCommentsTable.status, "active")))
+    .where(and(eq(communityCommentsTable.postId, postId), commentStatusCondition))
     .orderBy(asc(communityCommentsTable.createdAt));
 
   const commentIds = comments.map(c => c.id);
@@ -353,7 +388,7 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
   res.json(commentsWithReacted);
 });
 
-router.post("/community/posts/:id/comments", async (req, res): Promise<void> => {
+router.post("/community/posts/:id/comments", requireNotBanned, async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
   const postId = parseInt(req.params.id);
@@ -378,8 +413,38 @@ router.post("/community/posts/:id/comments", async (req, res): Promise<void> => 
     res.status(404).json({ error: "Post not found" });
     return;
   }
+  const commentingIsAdmin = await getIsAdmin(userId);
+  if (existing.status === "shadow_hidden" && !commentingIsAdmin && existing.authorId !== userId) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
 
   const comment = await createComment(postId, userId, body);
+
+  let commentEvalResult;
+  try {
+    commentEvalResult = await evaluate({ body, targetType: "comment", authorId: userId });
+  } catch (err) {
+    console.error("[Moderation] Engine error on comment create, failing open:", err);
+  }
+
+  if (commentEvalResult?.flagged) {
+    await db
+      .update(communityCommentsTable)
+      .set({ status: "shadow_hidden" })
+      .where(eq(communityCommentsTable.id, comment.id));
+    comment.status = "shadow_hidden";
+
+    await db.insert(moderationQueueTable).values({
+      targetType: "comment",
+      targetId: comment.id,
+      authorId: userId,
+      body,
+      triggeredBy: commentEvalResult.triggeredBy,
+      wordlistMatches: commentEvalResult.wordlistMatches,
+      aiScores: commentEvalResult.aiScores,
+    });
+  }
 
   const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
@@ -499,7 +564,7 @@ router.delete("/community/comments/:id", async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
-router.post("/community/reactions", async (req, res): Promise<void> => {
+router.post("/community/reactions", requireNotBanned, async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
 
@@ -518,9 +583,16 @@ router.post("/community/reactions", async (req, res): Promise<void> => {
     return;
   }
 
+  const [userRow] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  const userIsAdmin = userRow && isAdminRole(userRow.role);
+
   if (target_type === "post") {
     const post = await getRawPost(target_id);
     if (!post || post.status === "deleted" || post.status === "hidden") {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+    if (post.status === "shadow_hidden" && !userIsAdmin && post.authorId !== userId) {
       res.status(404).json({ error: "Post not found" });
       return;
     }
@@ -530,10 +602,17 @@ router.post("/community/reactions", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Comment not found" });
       return;
     }
+    if (comment.status === "shadow_hidden" && !userIsAdmin && comment.authorId !== userId) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
     const parentPost = await getRawPost(comment.postId);
-    const [userRow] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    const userIsAdmin = userRow && isAdminRole(userRow.role);
-    if (!parentPost || parentPost.status === "deleted" || (parentPost.status === "hidden" && !userIsAdmin)) {
+    if (
+      !parentPost ||
+      parentPost.status === "deleted" ||
+      (parentPost.status === "hidden" && !userIsAdmin) ||
+      (parentPost.status === "shadow_hidden" && !userIsAdmin && parentPost.authorId !== userId)
+    ) {
       res.status(404).json({ error: "Post not found" });
       return;
     }

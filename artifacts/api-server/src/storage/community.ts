@@ -63,7 +63,7 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
 
   const statusCondition = isAdmin
     ? sql`${communityPostsTable.status} != 'deleted'`
-    : eq(communityPostsTable.status, "active");
+    : sql`(${communityPostsTable.status} = 'active' OR (${communityPostsTable.status} = 'shadow_hidden' AND ${communityPostsTable.authorId} = ${userId}))`;
 
   const cursorCondition = cursor
     ? or(
@@ -165,6 +165,7 @@ export async function getPostById(
   if (!row) return null;
   if (row.status === "deleted") return null;
   if (row.status === "hidden" && !isAdmin) return null;
+  if (row.status === "shadow_hidden" && !isAdmin && row.authorId !== userId) return null;
 
   const [reaction] = await db
     .select({ id: communityReactionsTable.id })
@@ -181,7 +182,7 @@ export async function getPostById(
 
   const commentStatusCondition = isAdmin
     ? sql`${communityCommentsTable.status} != 'deleted'`
-    : eq(communityCommentsTable.status, "active");
+    : sql`(${communityCommentsTable.status} = 'active' OR (${communityCommentsTable.status} = 'shadow_hidden' AND ${communityCommentsTable.authorId} = ${userId}))`;
 
   const commentRows = await db
     .select({
