@@ -75,38 +75,14 @@ const TOLERATED_REPLAY_ERROR_CODES = new Set<string>([
   "42701", // duplicate_column
   "42P06", // duplicate_schema
   "42723", // duplicate_function
-  // "Doesn't exist" — old migrations reference columns / tables that
-  // have since been renamed or dropped from the current schema. Skipping
-  // these dependent statements doesn't compromise drift detection: any
-  // *new* SQL migration that adds a UNIQUE / CHECK / FK / index on a
-  // table that's still in the schema will succeed and show up in the
-  // snapshot diff if the schema doesn't also declare it.
-  "42703", // undefined_column
-  "42P01", // undefined_table
-  "42704", // undefined_object
 ]);
-
-function preprocessSql(sql: string): string {
-  // Some historical drizzle-generated migrations issue
-  //   ALTER COLUMN "x" SET DATA TYPE jsonb;
-  // without a USING clause, which Postgres rejects when there is no
-  // implicit cast between the old and new types (text -> jsonb, etc.).
-  // The column already has the target type after `drizzle-kit push`, so
-  // this ALTER is a no-op in practice — we just need it to not error
-  // when the planner can't find an implicit cast.
-  return sql.replace(
-    /ALTER COLUMN\s+("?\w+"?)\s+SET DATA TYPE\s+(\w+)(?!\s+USING\b)/gi,
-    "ALTER COLUMN $1 SET DATA TYPE $2 USING $1::$2",
-  );
-}
 
 async function applyRawMigrations(dbUrl: string): Promise<void> {
   const entries = await fs.readdir(MIGRATIONS_DIR);
   const files = entries.filter((f) => f.endsWith(".sql")).sort();
   await withClient(dbUrl, async (client) => {
     for (const file of files) {
-      const raw = await fs.readFile(path.join(MIGRATIONS_DIR, file), "utf8");
-      const cleaned = preprocessSql(raw);
+      const cleaned = await fs.readFile(path.join(MIGRATIONS_DIR, file), "utf8");
 
       // Drizzle-generated files use `--> statement-breakpoint` between
       // statements. Hand-written SQL files don't and may use transaction
@@ -215,14 +191,16 @@ function diff(a: string[], b: string[]): { onlyInA: string[]; onlyInB: string[] 
 const skipReason = ADMIN_URL ? null : "DATABASE_URL is not set; skipping drift check";
 
 // Path to the stored expected-drift baseline. Anything in this file is
-// "known historical drift" — the SQL migration history in
-// `lib/db/drizzle/` is NOT a faithful replayable database log (early
-// files re-issue CREATE TABLEs and reference long-renamed columns), so
-// there is real, pre-existing divergence between "run every migration on
-// an empty DB" and "drizzle-kit push the schema." This baseline records
-// exactly that divergence so the test still catches NEW drift the day it
-// lands. Regenerate with `UPDATE_DRIFT_BASELINE=1 pnpm --filter
-// @workspace/db test`.
+// "known historical drift" between "run every migration on an empty DB"
+// and "drizzle-kit push the schema." The early files (0001-0003) were
+// reconciled in task #526 so they replay cleanly, but several later
+// duplicate-numbered files and hand-written transactional .sql files
+// still skip on this DB (see the [drift] warnings) and the divergent
+// historical sequences / communication_log shapes are preserved through
+// IF NOT EXISTS, so a non-trivial baseline diff is still expected. This
+// file records that diff so the test catches NEW drift the day it lands.
+// Regenerate with `UPDATE_DRIFT_BASELINE=1 pnpm --filter @workspace/db
+// test`.
 const BASELINE_PATH = path.join(__dirname, "__fixtures__", "expected-drift.json");
 
 interface DriftBaseline {

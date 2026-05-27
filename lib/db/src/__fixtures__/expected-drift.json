@@ -4,7 +4,6 @@
       "admin_notes | f | FOREIGN KEY (author_id) REFERENCES users(id)",
       "admin_notes | f | FOREIGN KEY (user_id) REFERENCES users(id)",
       "admin_notes | p | PRIMARY KEY (id)",
-      "api_keys | c | CHECK ((jsonb_typeof(permissions) = 'array'::text))",
       "app_global_settings | f | FOREIGN KEY (updated_by_id) REFERENCES users(id)",
       "audit_log | f | FOREIGN KEY (actor_id) REFERENCES users(id)",
       "audit_log | p | PRIMARY KEY (id)",
@@ -25,8 +24,6 @@
       "coaching_sessions | f | FOREIGN KEY (coach_id) REFERENCES coaches(id)",
       "coaching_sessions | f | FOREIGN KEY (member_id) REFERENCES users(id)",
       "coaching_sessions | p | PRIMARY KEY (id)",
-      "communication_log | f | FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id)",
-      "communication_log | f | FOREIGN KEY (sequence_id) REFERENCES sequences(id)",
       "conversations | p | PRIMARY KEY (id)",
       "course_progress | f | FOREIGN KEY (user_id) REFERENCES users(id)",
       "course_progress | p | PRIMARY KEY (id)",
@@ -97,7 +94,8 @@
       "app_global_settings | f | FOREIGN KEY (updated_by_id) REFERENCES users(id) ON DELETE SET NULL",
       "chat_system_prompts | u | UNIQUE (name)",
       "dm_messages | c | CHECK (((char_length(body) >= 1) AND (char_length(body) <= 5000)))",
-      "dm_threads | u | UNIQUE (member_id, admin_id)"
+      "dm_threads | u | UNIQUE (member_id, admin_id)",
+      "sequence_enrollments | f | FOREIGN KEY (current_step_id) REFERENCES sequence_steps(id)"
     ]
   },
   "indexes": {
@@ -120,8 +118,6 @@
       "coaching_sessions | CREATE INDEX <name> ON public.coaching_sessions USING btree (scheduled_at)",
       "coaching_sessions | CREATE INDEX <name> ON public.coaching_sessions USING btree (status)",
       "coaching_sessions | CREATE UNIQUE INDEX <name> ON public.coaching_sessions USING btree (id)",
-      "communication_log | CREATE INDEX <name> ON public.communication_log USING btree (broadcast_id)",
-      "communication_log | CREATE INDEX <name> ON public.communication_log USING btree (sequence_id)",
       "conversations | CREATE UNIQUE INDEX <name> ON public.conversations USING btree (id)",
       "course_progress | CREATE UNIQUE INDEX <name> ON public.course_progress USING btree (id)",
       "course_progress | CREATE UNIQUE INDEX <name> ON public.course_progress USING btree (user_id, course_id)",
