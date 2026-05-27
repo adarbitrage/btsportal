@@ -1381,6 +1381,23 @@ export interface StrikeRecord {
   createdAt: string;
 }
 
+export interface AutoBanRecord {
+  id: number;
+  actorId: number | null;
+  actorEmail: string | null;
+  description: string | null;
+  metadata: {
+    userId?: number;
+    reviewerId?: number | null;
+    triggeringQueueId?: number;
+    triggeringStrikeId?: number;
+    strikeCount?: number;
+    targetType?: string;
+    targetId?: number;
+  } | null;
+  createdAt: string;
+}
+
 export interface UserStrikesDetail {
   user: {
     id: number;
@@ -1391,6 +1408,7 @@ export interface UserStrikesDetail {
   };
   strikes: StrikeRecord[];
   strikeCount: number;
+  autoBan: AutoBanRecord | null;
 }
 
 export function useAdminStrikesList() {

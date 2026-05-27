@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShieldAlert, ExternalLink } from "lucide-react";
+import { ArrowLeft, ShieldAlert, ExternalLink, Bot, UserCog } from "lucide-react";
 import { format } from "date-fns";
 import { useAdminUserStrikes } from "@/lib/admin-api";
 import { BanControls } from "@/components/admin/moderation/ban-controls";
@@ -71,6 +71,79 @@ export default function UserStrikesDetail() {
                 />
               </div>
             </div>
+
+            {data.user.isBanned && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Ban Details</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {data.autoBan ? (
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-red-200 bg-red-50/50">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          Auto-banned on{" "}
+                          {format(new Date(data.autoBan.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                          {data.autoBan.actorEmail && (
+                            <>
+                              {" "}by{" "}
+                              <span className="font-semibold">{data.autoBan.actorEmail}</span>
+                            </>
+                          )}
+                          {data.autoBan.metadata?.triggeringQueueId != null && (
+                            <>
+                              {" "}via queue #{data.autoBan.metadata.triggeringQueueId}
+                            </>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                          {data.autoBan.metadata?.strikeCount != null && (
+                            <Badge variant="outline" className="text-xs bg-white">
+                              {data.autoBan.metadata.strikeCount} strikes at ban
+                            </Badge>
+                          )}
+                          {data.autoBan.metadata?.triggeringStrikeId != null && (
+                            <Badge variant="outline" className="text-xs bg-white">
+                              Strike #{data.autoBan.metadata.triggeringStrikeId}
+                            </Badge>
+                          )}
+                          {data.autoBan.metadata?.triggeringQueueId != null && (
+                            <Link
+                              href={`/admin/moderation/queue/${data.autoBan.metadata.triggeringQueueId}`}
+                            >
+                              <span className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer">
+                                View triggering queue item
+                                <ExternalLink className="w-3 h-3" />
+                              </span>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center">
+                        <UserCog className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">Banned by admin</p>
+                        {data.user.postingBannedAt && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {format(
+                              new Date(data.user.postingBannedAt),
+                              "MMM d, yyyy 'at' h:mm a",
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-3">
