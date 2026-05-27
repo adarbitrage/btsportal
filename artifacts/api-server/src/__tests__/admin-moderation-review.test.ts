@@ -165,7 +165,7 @@ afterAll(async () => {
       .delete(auditLogTable)
       .where(
         and(
-          eq(auditLogTable.actionType, "auto_ban_posting"),
+          inArray(auditLogTable.actionType, ["auto_ban_posting", "ban_posting", "unban_posting"]),
           inArray(auditLogTable.entityId, seededUserIds.map((id) => String(id))),
         ),
       );
@@ -352,6 +352,92 @@ describe("Admin moderation queue review actions", () => {
       expect(strikesRes.body.autoBan.actorId).toBe(admin.id);
       expect(strikesRes.body.autoBan.metadata.triggeringQueueId).toBe(queueIds[2]);
       expect(strikesRes.body.autoBan.metadata.strikeCount).toBe(3);
+    });
+  });
+
+  describe("POST /admin/strikes/users/:userId/ban + /unban (manual admin action)", () => {
+    it("writes a ban_posting audit row with the admin as actor and surfaces it on GET /admin/strikes/users/:userId", async () => {
+      const banRes = await request(app)
+        .post(`/api/admin/strikes/users/${author.id}/ban`)
+        .set("Cookie", admin.cookie);
+      expect(banRes.status).toBe(200);
+
+      const [auditRow] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.actionType, "ban_posting"),
+            eq(auditLogTable.entityType, "user"),
+            eq(auditLogTable.entityId, String(author.id)),
+          ),
+        );
+      expect(auditRow).toBeDefined();
+      expect(auditRow.actorId).toBe(admin.id);
+      const meta = auditRow.metadata as { userId: number; bannedAt: string };
+      expect(meta.userId).toBe(author.id);
+      expect(typeof meta.bannedAt).toBe("string");
+
+      const strikesRes = await request(app)
+        .get(`/api/admin/strikes/users/${author.id}`)
+        .set("Cookie", admin.cookie);
+      expect(strikesRes.status).toBe(200);
+      expect(strikesRes.body.autoBan).toBeNull();
+      expect(strikesRes.body.manualBan).toBeTruthy();
+      expect(strikesRes.body.manualBan.actionType).toBe("ban_posting");
+      expect(strikesRes.body.manualBan.actorId).toBe(admin.id);
+    });
+
+    it("writes an unban_posting audit row that records whether strikes were cleared", async () => {
+      // Seed a ban directly so the unban path has something to lift, and add
+      // a strike so we can verify clearStrikes=true is recorded.
+      await db.update(usersTable).set({ postingBannedAt: new Date() }).where(eq(usersTable.id, author.id));
+      const postId = await insertShadowHiddenPost(author.id);
+      const queueId = await insertQueueRow({ targetType: "post", targetId: postId, authorId: author.id });
+      await db.insert(userStrikesTable).values({
+        userId: author.id,
+        reason: "seed",
+        queueId,
+        targetType: "post",
+        targetId: postId,
+      });
+
+      const unbanRes = await request(app)
+        .post(`/api/admin/strikes/users/${author.id}/unban?clearStrikes=true`)
+        .set("Cookie", admin.cookie);
+      expect(unbanRes.status).toBe(200);
+      expect(unbanRes.body.strikesCleared).toBe(true);
+
+      const [auditRow] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.actionType, "unban_posting"),
+            eq(auditLogTable.entityType, "user"),
+            eq(auditLogTable.entityId, String(author.id)),
+          ),
+        );
+      expect(auditRow).toBeDefined();
+      expect(auditRow.actorId).toBe(admin.id);
+      const meta = auditRow.metadata as {
+        userId: number;
+        strikesCleared: boolean;
+        previousBannedAt: string | null;
+      };
+      expect(meta.userId).toBe(author.id);
+      expect(meta.strikesCleared).toBe(true);
+      expect(typeof meta.previousBannedAt).toBe("string");
+
+      // The most recent manualBan surfaced on GET should be the unban (newer
+      // than any prior ban row).
+      const strikesRes = await request(app)
+        .get(`/api/admin/strikes/users/${author.id}`)
+        .set("Cookie", admin.cookie);
+      expect(strikesRes.status).toBe(200);
+      expect(strikesRes.body.manualBan).toBeTruthy();
+      expect(strikesRes.body.manualBan.actionType).toBe("unban_posting");
+      expect(strikesRes.body.manualBan.metadata.strikesCleared).toBe(true);
     });
   });
 

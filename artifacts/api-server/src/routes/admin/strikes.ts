@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, usersTable, userStrikesTable, moderationQueueTable, auditLogTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
+import { logAuditEvent } from "../../lib/audit-log";
 
 const router = Router();
 
@@ -106,6 +107,31 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       .orderBy(desc(auditLogTable.createdAt))
       .limit(1);
 
+    // Also surface the most recent manual ban/unban audit row so the UI can
+    // show who pressed the button and why (auto bans have an `autoBan` row,
+    // manual ones don't — without this admins can't tell who manually banned
+    // or unbanned the member).
+    const [manualBan] = await db
+      .select({
+        id: auditLogTable.id,
+        actionType: auditLogTable.actionType,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        description: auditLogTable.description,
+        metadata: auditLogTable.metadata,
+        createdAt: auditLogTable.createdAt,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          sql`${auditLogTable.actionType} in ('ban_posting', 'unban_posting')`,
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(userId)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(1);
+
     res.json({
       user: {
         id: user.id,
@@ -117,6 +143,7 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       strikes,
       strikeCount: strikes.length,
       autoBan: autoBan ?? null,
+      manualBan: manualBan ?? null,
     });
   } catch (err) {
     console.error("[Admin/Strikes] Get user strikes error:", err);
@@ -148,12 +175,31 @@ router.post("/users/:userId/ban", requirePermission("community:moderate"), async
       return;
     }
 
+    const bannedAt = new Date();
     await db
       .update(usersTable)
-      .set({ postingBannedAt: new Date() })
+      .set({ postingBannedAt: bannedAt })
       .where(eq(usersTable.id, userId));
 
-    res.json({ success: true, bannedAt: new Date() });
+    // Record who manually pressed the ban button so admins reviewing the
+    // member later can tell auto-bans (auto_ban_posting) apart from explicit
+    // admin actions, and see who did it. Surfaced by
+    // GET /admin/strikes/users/:userId as `manualBan`.
+    await logAuditEvent({
+      actorId: req.userId,
+      actorEmail: req.userEmail,
+      actionType: "ban_posting",
+      entityType: "user",
+      entityId: String(userId),
+      description: `Banned member ${userId} from posting`,
+      metadata: {
+        userId,
+        bannedAt: bannedAt.toISOString(),
+      },
+      req,
+    });
+
+    res.json({ success: true, bannedAt });
   } catch (err) {
     console.error("[Admin/Strikes] Ban user error:", err);
     res.status(500).json({ error: "Failed to ban user" });
@@ -196,6 +242,27 @@ router.post("/users/:userId/unban", requirePermission("community:moderate"), asy
         .delete(userStrikesTable)
         .where(eq(userStrikesTable.userId, userId));
     }
+
+    // Mirror of the ban audit row so admins can see who lifted the ban and
+    // whether the lift also wiped the member's strike history (which resets
+    // them well below the auto-ban threshold). Surfaced by
+    // GET /admin/strikes/users/:userId as `manualBan`.
+    await logAuditEvent({
+      actorId: req.userId,
+      actorEmail: req.userEmail,
+      actionType: "unban_posting",
+      entityType: "user",
+      entityId: String(userId),
+      description: clearStrikes
+        ? `Unbanned member ${userId} from posting and cleared all strikes`
+        : `Unbanned member ${userId} from posting`,
+      metadata: {
+        userId,
+        strikesCleared: clearStrikes,
+        previousBannedAt: user.postingBannedAt?.toISOString() ?? null,
+      },
+      req,
+    });
 
     res.json({ success: true, strikesCleared: clearStrikes });
   } catch (err) {
