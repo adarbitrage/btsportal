@@ -280,6 +280,13 @@ describe("Engine reads the configured threshold at evaluate-time", () => {
       .set("Cookie", adminCookie)
       .send({ flagThreshold: 0.3 });
     __invalidateAiModerationThresholdConfigCacheForTests();
+    // The engine + ai-threshold-settings imported above came from the
+    // module graph created by the first `vi.resetModules()` call, which is
+    // a *different* instance than the one the top-of-file static imports
+    // (and the admin-panel router) hold. Invalidate the engine's instance
+    // directly via dynamic import so the next evaluate() re-reads from DB.
+    const settingsModule = await import("../lib/moderation/ai-threshold-settings");
+    settingsModule.__invalidateAiModerationThresholdConfigCacheForTests();
     {
       const { evaluate } = await import("../lib/moderation/engine");
       const result = await evaluate({ body: "x", targetType: "post", authorId: 1 });

@@ -10,6 +10,7 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "sync-dev": "bash ./scripts/sync-dev-db.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },
