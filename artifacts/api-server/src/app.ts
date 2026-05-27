@@ -30,6 +30,7 @@ import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
+import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
 // endpoint hard-depends on the `yse_front_end` product row existing). It is
@@ -95,6 +96,7 @@ ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensu
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
 seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moderation wordlist:", err));
+subscribeWordlistInvalidations();
 
 (async () => {
   try {
