@@ -64,6 +64,7 @@ import affiliateNetworksRouter from "./admin-affiliate-networks";
 import mediaMavensProductsRouter from "./admin-media-mavens-products";
 import mediaMavensCategoriesRouter from "./admin-media-mavens-categories";
 import dmRouter from "./dm";
+import adminAssistantGeneratorRouter from "./admin/assistant-generator.js";
 
 const router: IRouter = Router();
 
@@ -132,5 +133,6 @@ router.use(affiliateNetworksRouter);
 router.use(mediaMavensProductsRouter);
 router.use(mediaMavensCategoriesRouter);
 router.use("/dm", dmRouter);
+router.use(adminAssistantGeneratorRouter);
 
 export default router;
