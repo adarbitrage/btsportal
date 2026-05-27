@@ -320,10 +320,13 @@ router.get("/admin/assistant/questions", requirePermission(PERM), async (req: Re
 
 router.post("/admin/assistant/questions", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { cardId, body, sortOrder } = req.body as {
+    const { cardId, body, sortOrder, generatedBy, retrievalConfidence, sourceKbDocIds } = req.body as {
       cardId: number;
       body: string;
       sortOrder?: number;
+      generatedBy?: string;
+      retrievalConfidence?: number | null;
+      sourceKbDocIds?: number[];
     };
 
     if (!cardId || !body) {
@@ -342,7 +345,14 @@ router.post("/admin/assistant/questions", requirePermission(PERM), async (req: R
 
     const [question] = await db
       .insert(assistantCardQuestionsTable)
-      .values({ cardId, body, sortOrder: order })
+      .values({
+        cardId,
+        body,
+        sortOrder: order,
+        generatedBy: generatedBy ?? "manual",
+        retrievalConfidence: retrievalConfidence ?? null,
+        sourceKbDocIds: sourceKbDocIds ?? [],
+      })
       .returning();
 
     res.status(201).json(question);
@@ -357,11 +367,14 @@ router.put("/admin/assistant/questions/:id", requirePermission(PERM), async (req
     const id = parseId(req.params.id);
     if (id === null) { res.status(400).json({ error: "Invalid question ID" }); return; }
 
-    const { cardId, body, sortOrder, isActive } = req.body as {
+    const { cardId, body, sortOrder, isActive, generatedBy, retrievalConfidence, sourceKbDocIds } = req.body as {
       cardId?: number;
       body?: string;
       sortOrder?: number;
       isActive?: boolean;
+      generatedBy?: string;
+      retrievalConfidence?: number | null;
+      sourceKbDocIds?: number[];
     };
 
     const updates: Partial<typeof assistantCardQuestionsTable.$inferInsert> = {};
@@ -369,6 +382,9 @@ router.put("/admin/assistant/questions/:id", requirePermission(PERM), async (req
     if (body !== undefined) updates.body = body;
     if (sortOrder !== undefined) updates.sortOrder = sortOrder;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (generatedBy !== undefined) updates.generatedBy = generatedBy;
+    if (retrievalConfidence !== undefined) updates.retrievalConfidence = retrievalConfidence;
+    if (sourceKbDocIds !== undefined) updates.sourceKbDocIds = sourceKbDocIds;
 
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
 

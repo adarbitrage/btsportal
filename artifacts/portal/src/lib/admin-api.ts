@@ -1436,3 +1436,231 @@ export function useAdminUnbanUser() {
     },
   });
 }
+
+// ─── Assistant Cards ──────────────────────────────────────────────────────────
+
+export interface AssistantCardGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssistantCard {
+  id: number;
+  groupId: number;
+  title: string;
+  description: string | null;
+  icon: string | null;
+  entitlementKey: string | null;
+  upgradeProductId: number | null;
+  upgradeProductName: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssistantCardQuestion {
+  id: number;
+  cardId: number;
+  body: string;
+  sortOrder: number;
+  isActive: boolean;
+  generatedBy: string;
+  retrievalConfidence: number | null;
+  sourceKbDocIds: number[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUpgradeProduct {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+// Groups
+export function useAdminAssistantGroups() {
+  return useQuery({
+    queryKey: ["/api/admin/assistant/groups"],
+    queryFn: () => adminFetch<AssistantCardGroup[]>("/admin/assistant/groups"),
+  });
+}
+
+export function useAdminCreateAssistantGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description?: string; icon?: string }) =>
+      adminFetch<AssistantCardGroup>("/admin/assistant/groups", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/groups"] }),
+  });
+}
+
+export function useAdminUpdateAssistantGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<{ name: string; description: string | null; icon: string | null; isActive: boolean }> }) =>
+      adminFetch<AssistantCardGroup>(`/admin/assistant/groups/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/groups"] }),
+  });
+}
+
+export function useAdminReorderAssistantGroups() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ordered_ids: number[]) =>
+      adminFetch<{ message: string }>("/admin/assistant/groups/reorder", {
+        method: "POST",
+        body: JSON.stringify({ ordered_ids }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/groups"] }),
+  });
+}
+
+// Cards
+export function useAdminAssistantCards() {
+  return useQuery({
+    queryKey: ["/api/admin/assistant/cards"],
+    queryFn: () => adminFetch<AssistantCard[]>("/admin/assistant/cards"),
+  });
+}
+
+export function useAdminCreateAssistantCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      groupId: number;
+      title: string;
+      description?: string | null;
+      icon?: string | null;
+      entitlementKey?: string | null;
+      upgradeProductId?: number | null;
+    }) =>
+      adminFetch<AssistantCard>("/admin/assistant/cards", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/cards"] }),
+  });
+}
+
+export function useAdminUpdateAssistantCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<{
+        groupId: number;
+        title: string;
+        description: string | null;
+        icon: string | null;
+        entitlementKey: string | null;
+        upgradeProductId: number | null;
+        isActive: boolean;
+      }>;
+    }) =>
+      adminFetch<AssistantCard>(`/admin/assistant/cards/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/cards"] }),
+  });
+}
+
+export function useAdminReorderAssistantCards() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ordered_ids: number[]) =>
+      adminFetch<{ message: string }>("/admin/assistant/cards/reorder", {
+        method: "POST",
+        body: JSON.stringify({ ordered_ids }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/assistant/cards"] }),
+  });
+}
+
+// Questions
+export function useAdminAssistantQuestions(cardId: number) {
+  return useQuery({
+    queryKey: ["/api/admin/assistant/questions", cardId],
+    queryFn: () => adminFetch<AssistantCardQuestion[]>(`/admin/assistant/questions?cardId=${cardId}`),
+    enabled: cardId > 0,
+  });
+}
+
+export function useAdminCreateAssistantQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      cardId: number;
+      body: string;
+      generatedBy?: string;
+      retrievalConfidence?: number | null;
+      sourceKbDocIds?: number[];
+    }) =>
+      adminFetch<AssistantCardQuestion>("/admin/assistant/questions", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/assistant/questions", vars.cardId] });
+    },
+  });
+}
+
+export function useAdminUpdateAssistantQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      cardId,
+      data,
+    }: {
+      id: number;
+      cardId: number;
+      data: Partial<{ body: string; isActive: boolean }>;
+    }) =>
+      adminFetch<AssistantCardQuestion>(`/admin/assistant/questions/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/assistant/questions", vars.cardId] });
+    },
+  });
+}
+
+export function useAdminReorderAssistantQuestions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, ordered_ids }: { cardId: number; ordered_ids: number[] }) =>
+      adminFetch<{ message: string }>("/admin/assistant/questions/reorder", {
+        method: "POST",
+        body: JSON.stringify({ ordered_ids }),
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/assistant/questions", vars.cardId] });
+    },
+  });
+}
+
+export function useAdminUpgradeProducts() {
+  return useQuery({
+    queryKey: ["/api/admin/products"],
+    queryFn: () => adminFetch<AdminUpgradeProduct[]>("/admin/products"),
+  });
+}

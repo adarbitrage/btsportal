@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, index, real, jsonb } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { productsTable } from "./products";
@@ -41,6 +42,9 @@ export const assistantCardQuestionsTable = pgTable("assistant_card_questions", {
   body: text("body").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  generatedBy: text("generated_by").notNull().default("manual"),
+  retrievalConfidence: real("retrieval_confidence"),
+  sourceKbDocIds: jsonb("source_kb_doc_ids").notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
