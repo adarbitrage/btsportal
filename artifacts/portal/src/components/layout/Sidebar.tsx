@@ -88,7 +88,7 @@ function ModerationPendingBadge() {
   );
 }
 
-const MEMBER_NAV: NavNode[] = [
+export const MEMBER_NAV: NavNode[] = [
   {
     kind: "leaf",
     href: "/dashboard",
