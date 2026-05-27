@@ -44,6 +44,13 @@ vi.mock("@/hooks/use-toast", () => ({
 
 import SystemHealth from "@/pages/admin/SystemHealth";
 
+type PodFixture = {
+  instanceId: string;
+  totalCount: number;
+  byKind: { engine: number; persist: number };
+  lastAt: string | null;
+};
+
 function buildHealth(overrides: {
   alerting: boolean;
   windowTotal?: number;
@@ -51,6 +58,8 @@ function buildHealth(overrides: {
   persist?: number;
   lastError?: string | null;
   lastKind?: "engine" | "persist" | null;
+  source?: "redis" | "memory";
+  pods?: PodFixture[];
 }) {
   const {
     alerting,
@@ -59,6 +68,8 @@ function buildHealth(overrides: {
     persist = 2,
     lastError = "RangeError: persist write failed for post 42",
     lastKind = "persist",
+    source,
+    pods,
   } = overrides;
   return {
     status: alerting ? "degraded" : "healthy",
@@ -77,6 +88,8 @@ function buildHealth(overrides: {
           lastError,
           lastKind,
           windowMs: 15 * 60 * 1000,
+          ...(source ? { source } : {}),
+          ...(pods ? { pods } : {}),
         },
         cumulative: {
           totalCount: 10,
@@ -186,5 +199,84 @@ describe("SystemHealth — Background moderation failures card", () => {
     expect(
       screen.queryByTestId("moderation-failures-banner"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("SystemHealth — Background moderation failures per-pod breakdown", () => {
+  it("renders the redis source badge and per-pod rows in totalCount-descending order", async () => {
+    const pods: PodFixture[] = [
+      {
+        instanceId: "pod-alpha",
+        totalCount: 2,
+        byKind: { engine: 1, persist: 1 },
+        lastAt: "2025-05-27T11:55:00.000Z",
+      },
+      {
+        instanceId: "pod-bravo",
+        totalCount: 5,
+        byKind: { engine: 2, persist: 3 },
+        lastAt: "2025-05-27T12:00:00.000Z",
+      },
+    ];
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        alerting: false,
+        windowTotal: 7,
+        engine: 3,
+        persist: 4,
+        source: "redis",
+        pods,
+      }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-moderation-failures");
+
+    const sourceBadge = within(card).getByTestId("moderation-failures-source");
+    expect(sourceBadge).toHaveTextContent(/2 pods reporting/i);
+
+    const podsContainer = within(card).getByTestId("moderation-failures-pods");
+    const podAlpha = within(podsContainer).getByTestId(
+      "moderation-failures-pod-pod-alpha",
+    );
+    const podBravo = within(podsContainer).getByTestId(
+      "moderation-failures-pod-pod-bravo",
+    );
+    expect(podAlpha).toBeInTheDocument();
+    expect(podBravo).toBeInTheDocument();
+    expect(podAlpha).toHaveTextContent("pod-alpha");
+    expect(podBravo).toHaveTextContent("pod-bravo");
+
+    const rows = within(podsContainer).getAllByTestId(
+      /^moderation-failures-pod-/,
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toBe(podBravo);
+    expect(rows[1]).toBe(podAlpha);
+  });
+
+  it("renders the in-memory-only badge when source is memory", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        alerting: false,
+        source: "memory",
+        pods: [
+          {
+            instanceId: "pod-solo",
+            totalCount: 1,
+            byKind: { engine: 1, persist: 0 },
+            lastAt: "2025-05-27T12:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-moderation-failures");
+    const sourceBadge = within(card).getByTestId("moderation-failures-source");
+    expect(sourceBadge).toHaveTextContent(/in-memory only/i);
+    expect(sourceBadge).not.toHaveTextContent(/reporting/i);
   });
 });
