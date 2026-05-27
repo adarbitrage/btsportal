@@ -10,7 +10,23 @@ import {
   productsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, gte } from "drizzle-orm";
-import { requirePermission } from "../middleware/rbac";
+import { requirePermission, isAdminRole } from "../middleware/rbac";
+import { hasEntitlement } from "../lib/entitlements";
+
+async function requireCommunityAccessOrAdmin(req: Request, res: Response): Promise<boolean> {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return false;
+  }
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
+  if (user && isAdminRole(user.role)) return true;
+  const hasAccess = await hasEntitlement(req.userId, "community:access");
+  if (!hasAccess) {
+    res.status(403).json({ error: "Community access required. Upgrade to a mentorship tier." });
+    return false;
+  }
+  return true;
+}
 
 const router = Router();
 
@@ -336,6 +352,130 @@ router.delete("/admin/community/comments/:id", requirePermission("community:mode
     res.json(updated);
   } catch {
     res.status(500).json({ error: "Failed to delete comment" });
+  }
+});
+
+router.post("/admin/community/posts/:id/hide", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  if (!(await requireCommunityAccessOrAdmin(req, res))) return;
+  try {
+    const id = parseInt(req.params.id as string);
+
+    const [post] = await db
+      .select({ id: communityPostsTable.id, status: communityPostsTable.status })
+      .from(communityPostsTable)
+      .where(eq(communityPostsTable.id, id));
+
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+    if (post.status === "deleted") {
+      res.status(409).json({ error: "Post is already deleted and cannot be hidden" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(communityPostsTable)
+      .set({ status: "hidden" })
+      .where(eq(communityPostsTable.id, id))
+      .returning();
+
+    res.json({ id: updated.id, status: updated.status });
+  } catch {
+    res.status(500).json({ error: "Failed to hide post" });
+  }
+});
+
+router.post("/admin/community/posts/:id/unhide", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  if (!(await requireCommunityAccessOrAdmin(req, res))) return;
+  try {
+    const id = parseInt(req.params.id as string);
+
+    const [post] = await db
+      .select({ id: communityPostsTable.id, status: communityPostsTable.status })
+      .from(communityPostsTable)
+      .where(eq(communityPostsTable.id, id));
+
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+    if (post.status !== "hidden") {
+      res.status(409).json({ error: "Post is not hidden" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(communityPostsTable)
+      .set({ status: "active" })
+      .where(eq(communityPostsTable.id, id))
+      .returning();
+
+    res.json({ id: updated.id, status: updated.status });
+  } catch {
+    res.status(500).json({ error: "Failed to unhide post" });
+  }
+});
+
+router.post("/admin/community/comments/:id/hide", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  if (!(await requireCommunityAccessOrAdmin(req, res))) return;
+  try {
+    const id = parseInt(req.params.id as string);
+
+    const [comment] = await db
+      .select({ id: communityCommentsTable.id, status: communityCommentsTable.status })
+      .from(communityCommentsTable)
+      .where(eq(communityCommentsTable.id, id));
+
+    if (!comment) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+    if (comment.status === "deleted") {
+      res.status(409).json({ error: "Comment is already deleted and cannot be hidden" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(communityCommentsTable)
+      .set({ status: "hidden" })
+      .where(eq(communityCommentsTable.id, id))
+      .returning();
+
+    res.json({ id: updated.id, status: updated.status });
+  } catch {
+    res.status(500).json({ error: "Failed to hide comment" });
+  }
+});
+
+router.post("/admin/community/comments/:id/unhide", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  if (!(await requireCommunityAccessOrAdmin(req, res))) return;
+  try {
+    const id = parseInt(req.params.id as string);
+
+    const [comment] = await db
+      .select({ id: communityCommentsTable.id, status: communityCommentsTable.status })
+      .from(communityCommentsTable)
+      .where(eq(communityCommentsTable.id, id));
+
+    if (!comment) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+    if (comment.status !== "hidden") {
+      res.status(409).json({ error: "Comment is not hidden" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(communityCommentsTable)
+      .set({ status: "active" })
+      .where(eq(communityCommentsTable.id, id))
+      .returning();
+
+    res.json({ id: updated.id, status: updated.status });
+  } catch {
+    res.status(500).json({ error: "Failed to unhide comment" });
   }
 });
 

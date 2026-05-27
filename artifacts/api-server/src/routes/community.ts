@@ -5,11 +5,27 @@ import {
   communityCategoriesTable, communityBadgesTable, communityNotificationsTable,
   userProductsTable, productsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, sql, or, isNull, gte, ilike, count, ne } from "drizzle-orm";
-import { hasEntitlement, getHighestProductLabel, getUserEntitlements, getEditWindowMinutes } from "../lib/entitlements";
-import { emitWebhookEvent } from "../lib/webhook-events";
+import { eq, and, desc, asc, sql, or, isNull, gte, ilike } from "drizzle-orm";
+import { hasEntitlement, getHighestProductLabel, getUserEntitlements } from "../lib/entitlements";
+import { isAdminRole } from "../middleware/rbac";
+import {
+  listPosts,
+  parseCursor,
+  getPostById,
+  createPostInCategory,
+  updatePost,
+  softDeletePost,
+  getRawPost,
+  createComment,
+  getRawComment,
+  updateComment,
+  softDeleteComment,
+  toggleReaction,
+} from "../storage/community";
 
 const router: IRouter = Router();
+
+const EDIT_WINDOW_MS = 30 * 60 * 1000;
 
 async function requireCommunityAccess(req: any, res: any): Promise<boolean> {
   const userId = req.userId;
@@ -25,17 +41,22 @@ async function requireCommunityAccess(req: any, res: any): Promise<boolean> {
   return true;
 }
 
+async function getIsAdmin(userId: number): Promise<boolean> {
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  return !!(user && isAdminRole(user.role));
+}
+
 async function checkAndAwardBadges(userId: number) {
   const postCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.authorId, userId), eq(communityPostsTable.isDeleted, false)));
+    .where(and(eq(communityPostsTable.authorId, userId), eq(communityPostsTable.status, "active")));
   const totalPosts = postCountResult[0]?.count ?? 0;
 
   const commentCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(communityCommentsTable)
-    .where(and(eq(communityCommentsTable.authorId, userId), eq(communityCommentsTable.isDeleted, false)));
+    .where(and(eq(communityCommentsTable.authorId, userId), eq(communityCommentsTable.status, "active")));
   const totalComments = commentCountResult[0]?.count ?? 0;
 
   const badgesToAward: string[] = [];
@@ -46,25 +67,6 @@ async function checkAndAwardBadges(userId: number) {
 
   if (totalPosts >= 10 || totalComments >= 20) {
     badgesToAward.push("contributor");
-  }
-
-  const winsCategory = await db
-    .select({ id: communityCategoriesTable.id })
-    .from(communityCategoriesTable)
-    .where(eq(communityCategoriesTable.slug, "wins"))
-    .limit(1);
-  if (winsCategory.length > 0) {
-    const winPosts = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(communityPostsTable)
-      .where(and(
-        eq(communityPostsTable.authorId, userId),
-        eq(communityPostsTable.categoryId, winsCategory[0].id),
-        eq(communityPostsTable.isDeleted, false),
-      ));
-    if ((winPosts[0]?.count ?? 0) >= 1) {
-      badgesToAward.push("first_win");
-    }
   }
 
   const entitlements = await getUserEntitlements(userId);
@@ -119,253 +121,198 @@ router.get("/community/categories", async (req, res): Promise<void> => {
 router.get("/community/posts", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
-  const page = Math.max(1, parseInt(req.query.page as string) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
-  const offset = (page - 1) * limit;
-  let categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
-  const categorySlug = req.query.categorySlug as string | undefined;
-
-  if (!categoryId && categorySlug) {
-    const [cat] = await db.select({ id: communityCategoriesTable.id }).from(communityCategoriesTable).where(eq(communityCategoriesTable.slug, categorySlug)).limit(1);
-    if (cat) categoryId = cat.id;
-  }
-
-  const conditions = [eq(communityPostsTable.isDeleted, false)];
-  if (categoryId) {
-    conditions.push(eq(communityPostsTable.categoryId, categoryId));
-  }
-
-  const totalResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(communityPostsTable)
-    .where(and(...conditions));
-  const total = totalResult[0]?.count ?? 0;
-
-  const posts = await db
-    .select({
-      id: communityPostsTable.id,
-      authorId: communityPostsTable.authorId,
-      authorName: usersTable.name,
-      categoryId: communityPostsTable.categoryId,
-      categoryName: communityCategoriesTable.name,
-      categorySlug: communityCategoriesTable.slug,
-      content: communityPostsTable.content,
-      imageUrl: communityPostsTable.imageUrl,
-      isPinned: communityPostsTable.isPinned,
-      isFeatured: communityPostsTable.isFeatured,
-      commentCount: communityPostsTable.commentCount,
-      reactionCount: communityPostsTable.reactionCount,
-      createdAt: communityPostsTable.createdAt,
-      updatedAt: communityPostsTable.updatedAt,
-    })
-    .from(communityPostsTable)
-    .innerJoin(usersTable, eq(communityPostsTable.authorId, usersTable.id))
-    .innerJoin(communityCategoriesTable, eq(communityPostsTable.categoryId, communityCategoriesTable.id))
-    .where(and(...conditions))
-    .orderBy(desc(communityPostsTable.isPinned), desc(communityPostsTable.createdAt))
-    .limit(limit)
-    .offset(offset);
-
   const userId = req.userId!;
-  const postIds = posts.map(p => p.id);
-  let userReactions: Set<number> = new Set();
-  if (postIds.length > 0) {
-    const reactions = await db
-      .select({ postId: communityReactionsTable.postId })
-      .from(communityReactionsTable)
-      .where(and(
-        eq(communityReactionsTable.userId, userId),
-        sql`${communityReactionsTable.postId} IN (${sql.join(postIds.map(id => sql`${id}`), sql`, `)})`
-      ));
-    userReactions = new Set(reactions.map(r => r.postId!).filter(Boolean));
-  }
+  const isAdmin = await getIsAdmin(userId);
+  const limitParam = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const rawCursor = req.query.cursor as string | undefined;
+  const cursor = rawCursor ? parseCursor(rawCursor) : null;
 
-  const postsWithReacted = posts.map(p => ({
-    ...p,
-    hasReacted: userReactions.has(p.id),
-  }));
+  const { posts, nextCursor } = await listPosts({ userId, cursor, limit: limitParam, isAdmin });
 
-  res.json({
-    posts: postsWithReacted,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  });
+  res.json({ posts, nextCursor });
 });
 
 router.post("/community/posts", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
 
-  const { content, categoryId, imageUrl } = req.body;
+  const { body, media_urls, categoryId } = req.body;
 
-  if (!content || typeof content !== "string" || content.length < 10 || content.length > 5000) {
-    res.status(400).json({ error: "Post content must be between 10 and 5000 characters" });
-    return;
-  }
-  if (!categoryId || typeof categoryId !== "number") {
-    res.status(400).json({ error: "categoryId is required" });
+  if (!body || typeof body !== "string" || body.length < 1 || body.length > 5000) {
+    res.status(400).json({ error: "Post body must be between 1 and 5000 characters" });
     return;
   }
 
-  if (imageUrl && typeof imageUrl === "string") {
-    const allowedExts = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-    const lowerUrl = imageUrl.toLowerCase();
-    if (!allowedExts.some(ext => lowerUrl.includes(ext))) {
-      res.status(400).json({ error: "Image must be JPEG, PNG, GIF, or WebP" });
+  if (media_urls !== undefined) {
+    if (!Array.isArray(media_urls)) {
+      res.status(400).json({ error: "media_urls must be an array" });
       return;
+    }
+    for (const url of media_urls) {
+      if (typeof url !== "string") {
+        res.status(400).json({ error: "media_urls must be an array of strings" });
+        return;
+      }
     }
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const postsToday = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(communityPostsTable)
-    .where(and(
-      eq(communityPostsTable.authorId, userId),
-      gte(communityPostsTable.createdAt, today),
-    ));
-  if ((postsToday[0]?.count ?? 0) >= 10) {
-    res.status(429).json({ error: "Rate limit: maximum 10 posts per day" });
-    return;
-  }
+  const resolvedCategoryId = categoryId ?? 1;
 
   const [category] = await db
     .select()
     .from(communityCategoriesTable)
-    .where(and(eq(communityCategoriesTable.id, categoryId), eq(communityCategoriesTable.isActive, true)));
+    .where(and(eq(communityCategoriesTable.id, resolvedCategoryId), eq(communityCategoriesTable.isActive, true)));
   if (!category) {
-    res.status(400).json({ error: "Invalid category" });
+    res.status(400).json({ error: "Invalid or inactive category" });
     return;
   }
 
-  const [post] = await db
-    .insert(communityPostsTable)
-    .values({
-      authorId: userId,
-      categoryId,
-      content,
-      imageUrl: imageUrl || null,
-    })
-    .returning();
+  const post = await createPostInCategory(userId, body, resolvedCategoryId, media_urls ?? []);
 
   await db
     .update(communityCategoriesTable)
     .set({ postsCount: sql`${communityCategoriesTable.postsCount} + 1` })
-    .where(eq(communityCategoriesTable.id, categoryId));
+    .where(eq(communityCategoriesTable.id, resolvedCategoryId));
 
   await checkAndAwardBadges(userId);
 
-  const mentionRegex = /@(\w+)/g;
-  let match;
-  while ((match = mentionRegex.exec(content)) !== null) {
-    const mentionedName = match[1];
-    const [mentionedUser] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(ilike(usersTable.name, `%${mentionedName}%`))
-      .limit(1);
-    if (mentionedUser) {
-      const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
-      await createNotification({
-        userId: mentionedUser.id,
-        actorId: userId,
-        type: "mention",
-        postId: post.id,
-        message: `${author?.name ?? "Someone"} mentioned you in a post`,
-      });
-    }
-  }
-
-  emitWebhookEvent("community.post_created", {
-    post_id: post.id,
-    author_id: userId,
-    category_id: categoryId,
-  }).catch(() => {});
-
-  res.status(201).json(post);
+  res.status(201).json({
+    id: post.id,
+    authorId: post.authorId,
+    body: post.content,
+    mediaUrls: post.mediaUrls,
+    status: post.status,
+    commentCount: post.commentCount,
+    reactionCount: post.reactionCount,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+  });
 });
 
-router.patch("/community/posts/:postId", async (req, res): Promise<void> => {
+router.get("/community/posts/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
-  const userId = req.userId!;
-  const postId = parseInt(req.params.postId);
 
-  const [post] = await db
-    .select()
-    .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.id, postId), eq(communityPostsTable.isDeleted, false)));
+  const userId = req.userId!;
+  const postId = parseInt(req.params.id);
+  if (isNaN(postId)) {
+    res.status(400).json({ error: "Invalid post id" });
+    return;
+  }
+
+  const isAdmin = await getIsAdmin(userId);
+  const post = await getPostById(postId, userId, isAdmin);
 
   if (!post) {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-  if (post.authorId !== userId) {
+
+  res.json(post);
+});
+
+router.patch("/community/posts/:id", async (req, res): Promise<void> => {
+  if (!(await requireCommunityAccess(req, res))) return;
+
+  const userId = req.userId!;
+  const postId = parseInt(req.params.id);
+  if (isNaN(postId)) {
+    res.status(400).json({ error: "Invalid post id" });
+    return;
+  }
+
+  const existing = await getRawPost(postId);
+
+  if (!existing || existing.status === "deleted") {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  if (existing.status === "hidden") {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  const isAdmin = await getIsAdmin(userId);
+
+  if (existing.authorId !== userId && !isAdmin) {
     res.status(403).json({ error: "You can only edit your own posts" });
     return;
   }
 
-  const editWindow = await getEditWindowMinutes(userId);
-  const minutesSinceCreation = (Date.now() - post.createdAt.getTime()) / (1000 * 60);
-  if (minutesSinceCreation > editWindow) {
-    res.status(403).json({ error: `Posts can only be edited within ${editWindow} minutes of creation` });
+  if (!isAdmin && existing.authorId === userId) {
+    const elapsed = Date.now() - existing.createdAt.getTime();
+    if (elapsed > EDIT_WINDOW_MS) {
+      res.status(403).json({ error: "Posts can only be edited within 30 minutes of creation" });
+      return;
+    }
+  }
+
+  const { body } = req.body;
+  if (!body || typeof body !== "string" || body.length < 1 || body.length > 5000) {
+    res.status(400).json({ error: "Post body must be between 1 and 5000 characters" });
     return;
   }
 
-  const { content } = req.body;
-  if (!content || typeof content !== "string" || content.length < 10 || content.length > 5000) {
-    res.status(400).json({ error: "Post content must be between 10 and 5000 characters" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(communityPostsTable)
-    .set({ content })
-    .where(eq(communityPostsTable.id, postId))
-    .returning();
-
-  res.json(updated);
-});
-
-router.delete("/community/posts/:postId", async (req, res): Promise<void> => {
-  if (!(await requireCommunityAccess(req, res))) return;
-  const userId = req.userId!;
-  const postId = parseInt(req.params.postId);
-
-  const [post] = await db
-    .select()
-    .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.id, postId), eq(communityPostsTable.isDeleted, false)));
-
-  if (!post) {
+  const updated = await updatePost(postId, body);
+  if (!updated) {
     res.status(404).json({ error: "Post not found" });
     return;
   }
 
-  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
-  const isAdmin = user?.role === "admin";
+  res.json({
+    id: updated.id,
+    authorId: updated.authorId,
+    body: updated.content,
+    mediaUrls: updated.mediaUrls,
+    status: updated.status,
+    commentCount: updated.commentCount,
+    reactionCount: updated.reactionCount,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+  });
+});
 
-  if (post.authorId !== userId && !isAdmin) {
+router.delete("/community/posts/:id", async (req, res): Promise<void> => {
+  if (!(await requireCommunityAccess(req, res))) return;
+
+  const userId = req.userId!;
+  const postId = parseInt(req.params.id);
+  if (isNaN(postId)) {
+    res.status(400).json({ error: "Invalid post id" });
+    return;
+  }
+
+  const existing = await getRawPost(postId);
+
+  if (!existing || existing.status === "deleted") {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  const isAdmin = await getIsAdmin(userId);
+
+  if (existing.authorId !== userId && !isAdmin) {
     res.status(403).json({ error: "You can only delete your own posts" });
     return;
   }
 
-  await db
-    .update(communityPostsTable)
-    .set({ isDeleted: true, deletedBy: isAdmin && post.authorId !== userId ? "admin" : "author" })
-    .where(eq(communityPostsTable.id, postId));
-
-  await db
-    .update(communityCategoriesTable)
-    .set({ postsCount: sql`GREATEST(${communityCategoriesTable.postsCount} - 1, 0)` })
-    .where(eq(communityCategoriesTable.id, post.categoryId));
+  const deletedBy = isAdmin && existing.authorId !== userId ? "admin" : "author";
+  await softDeletePost(postId, deletedBy);
 
   res.json({ success: true });
 });
 
-router.get("/community/posts/:postId/comments", async (req, res): Promise<void> => {
+router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.id);
   const userId = req.userId!;
+
+  const post = await getRawPost(postId);
+  const isAdmin = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1).then(rows => rows[0] && isAdminRole(rows[0].role));
+  if (!post || post.status === "deleted" || (post.status === "hidden" && !isAdmin)) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
 
   const comments = await db
     .select({
@@ -374,14 +321,15 @@ router.get("/community/posts/:postId/comments", async (req, res): Promise<void> 
       authorId: communityCommentsTable.authorId,
       authorName: usersTable.name,
       parentId: communityCommentsTable.parentId,
-      content: communityCommentsTable.content,
+      body: communityCommentsTable.content,
+      status: communityCommentsTable.status,
       reactionCount: communityCommentsTable.reactionCount,
       createdAt: communityCommentsTable.createdAt,
       updatedAt: communityCommentsTable.updatedAt,
     })
     .from(communityCommentsTable)
     .innerJoin(usersTable, eq(communityCommentsTable.authorId, usersTable.id))
-    .where(and(eq(communityCommentsTable.postId, postId), eq(communityCommentsTable.isDeleted, false)))
+    .where(and(eq(communityCommentsTable.postId, postId), eq(communityCommentsTable.status, "active")))
     .orderBy(asc(communityCommentsTable.createdAt));
 
   const commentIds = comments.map(c => c.id);
@@ -399,220 +347,154 @@ router.get("/community/posts/:postId/comments", async (req, res): Promise<void> 
 
   const commentsWithReacted = comments.map(c => ({
     ...c,
-    hasReacted: userReactions.has(c.id),
+    viewerHasReacted: userReactions.has(c.id),
   }));
 
   res.json(commentsWithReacted);
 });
 
-router.post("/community/posts/:postId/comments", async (req, res): Promise<void> => {
+router.post("/community/posts/:id/comments", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
-  const postId = parseInt(req.params.postId);
-
-  const { content, parentId } = req.body;
-
-  if (!content || typeof content !== "string" || content.length > 2000) {
-    res.status(400).json({ error: "Comment content must be at most 2000 characters" });
-    return;
-  }
-  if (content.length < 1) {
-    res.status(400).json({ error: "Comment content is required" });
+  const postId = parseInt(req.params.id);
+  if (isNaN(postId)) {
+    res.status(400).json({ error: "Invalid post id" });
     return;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const commentsToday = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(communityCommentsTable)
-    .where(and(
-      eq(communityCommentsTable.authorId, userId),
-      gte(communityCommentsTable.createdAt, today),
-    ));
-  if ((commentsToday[0]?.count ?? 0) >= 30) {
-    res.status(429).json({ error: "Rate limit: maximum 30 comments per day" });
+  const { body } = req.body;
+
+  if (!body || typeof body !== "string" || body.length < 1 || body.length > 2000) {
+    res.status(400).json({ error: "Comment body must be between 1 and 2000 characters" });
     return;
   }
 
-  const [post] = await db
-    .select()
-    .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.id, postId), eq(communityPostsTable.isDeleted, false)));
-  if (!post) {
+  const existing = await getRawPost(postId);
+  if (!existing || existing.status === "deleted") {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  if (existing.status === "hidden") {
     res.status(404).json({ error: "Post not found" });
     return;
   }
 
-  if (parentId) {
-    const [parent] = await db
-      .select()
-      .from(communityCommentsTable)
-      .where(and(
-        eq(communityCommentsTable.id, parentId),
-        eq(communityCommentsTable.postId, postId),
-        eq(communityCommentsTable.isDeleted, false),
-      ));
-    if (!parent) {
-      res.status(400).json({ error: "Parent comment not found" });
-      return;
-    }
-    if (parent.parentId !== null) {
-      res.status(400).json({ error: "Only one level of replies is allowed" });
-      return;
-    }
-  }
-
-  const [comment] = await db
-    .insert(communityCommentsTable)
-    .values({
-      postId,
-      authorId: userId,
-      parentId: parentId || null,
-      content,
-    })
-    .returning();
-
-  await db
-    .update(communityPostsTable)
-    .set({ commentCount: sql`${communityPostsTable.commentCount} + 1` })
-    .where(eq(communityPostsTable.id, postId));
+  const comment = await createComment(postId, userId, body);
 
   const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  if (post.authorId !== userId) {
+  if (existing.authorId !== userId) {
     await createNotification({
-      userId: post.authorId,
+      userId: existing.authorId,
       actorId: userId,
       type: "comment",
-      postId: post.id,
+      postId: existing.id,
       commentId: comment.id,
       message: `${author?.name ?? "Someone"} commented on your post`,
     });
   }
 
-  if (parentId) {
-    const [parentComment] = await db
-      .select({ authorId: communityCommentsTable.authorId })
-      .from(communityCommentsTable)
-      .where(eq(communityCommentsTable.id, parentId));
-    if (parentComment && parentComment.authorId !== userId) {
-      await createNotification({
-        userId: parentComment.authorId,
-        actorId: userId,
-        type: "reply",
-        postId: post.id,
-        commentId: comment.id,
-        message: `${author?.name ?? "Someone"} replied to your comment`,
-      });
-    }
-  }
-
-  const mentionRegex = /@(\w+)/g;
-  let match;
-  while ((match = mentionRegex.exec(content)) !== null) {
-    const mentionedName = match[1];
-    const [mentionedUser] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(ilike(usersTable.name, `%${mentionedName}%`))
-      .limit(1);
-    if (mentionedUser && mentionedUser.id !== userId) {
-      await createNotification({
-        userId: mentionedUser.id,
-        actorId: userId,
-        type: "mention",
-        postId: post.id,
-        commentId: comment.id,
-        message: `${author?.name ?? "Someone"} mentioned you in a comment`,
-      });
-    }
-  }
-
   await checkAndAwardBadges(userId);
 
-  emitWebhookEvent("community.comment_created", {
-    comment_id: comment.id,
-    post_id: postId,
-    author_id: userId,
-    parent_id: parentId || null,
-  }).catch(() => {});
-
-  res.status(201).json(comment);
+  res.status(201).json({
+    id: comment.id,
+    postId: comment.postId,
+    authorId: comment.authorId,
+    body: comment.content,
+    status: comment.status,
+    reactionCount: comment.reactionCount,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+  });
 });
 
-router.patch("/community/comments/:commentId", async (req, res): Promise<void> => {
+router.patch("/community/comments/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
+
   const userId = req.userId!;
-  const commentId = parseInt(req.params.commentId);
+  const commentId = parseInt(req.params.id);
+  if (isNaN(commentId)) {
+    res.status(400).json({ error: "Invalid comment id" });
+    return;
+  }
 
-  const [comment] = await db
-    .select()
-    .from(communityCommentsTable)
-    .where(and(eq(communityCommentsTable.id, commentId), eq(communityCommentsTable.isDeleted, false)));
+  const existing = await getRawComment(commentId);
 
-  if (!comment) {
+  if (!existing || existing.status === "deleted") {
     res.status(404).json({ error: "Comment not found" });
     return;
   }
-  if (comment.authorId !== userId) {
+
+  if (existing.status === "hidden") {
+    res.status(404).json({ error: "Comment not found" });
+    return;
+  }
+
+  const isAdmin = await getIsAdmin(userId);
+
+  if (existing.authorId !== userId && !isAdmin) {
     res.status(403).json({ error: "You can only edit your own comments" });
     return;
   }
 
-  const minutesSinceCreation = (Date.now() - comment.createdAt.getTime()) / (1000 * 60);
-  if (minutesSinceCreation > 5) {
-    res.status(403).json({ error: "Comments can only be edited within 5 minutes of creation" });
+  if (!isAdmin && existing.authorId === userId) {
+    const elapsed = Date.now() - existing.createdAt.getTime();
+    if (elapsed > EDIT_WINDOW_MS) {
+      res.status(403).json({ error: "Comments can only be edited within 30 minutes of creation" });
+      return;
+    }
+  }
+
+  const { body } = req.body;
+  if (!body || typeof body !== "string" || body.length < 1 || body.length > 2000) {
+    res.status(400).json({ error: "Comment body must be between 1 and 2000 characters" });
     return;
   }
 
-  const { content } = req.body;
-  if (!content || typeof content !== "string" || content.length > 2000) {
-    res.status(400).json({ error: "Comment content must be at most 2000 characters" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(communityCommentsTable)
-    .set({ content })
-    .where(eq(communityCommentsTable.id, commentId))
-    .returning();
-
-  res.json(updated);
-});
-
-router.delete("/community/comments/:commentId", async (req, res): Promise<void> => {
-  if (!(await requireCommunityAccess(req, res))) return;
-  const userId = req.userId!;
-  const commentId = parseInt(req.params.commentId);
-
-  const [comment] = await db
-    .select()
-    .from(communityCommentsTable)
-    .where(and(eq(communityCommentsTable.id, commentId), eq(communityCommentsTable.isDeleted, false)));
-
-  if (!comment) {
+  const updated = await updateComment(commentId, body);
+  if (!updated) {
     res.status(404).json({ error: "Comment not found" });
     return;
   }
 
-  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
-  const isAdmin = user?.role === "admin";
+  res.json({
+    id: updated.id,
+    postId: updated.postId,
+    authorId: updated.authorId,
+    body: updated.content,
+    status: updated.status,
+    reactionCount: updated.reactionCount,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+  });
+});
 
-  if (comment.authorId !== userId && !isAdmin) {
+router.delete("/community/comments/:id", async (req, res): Promise<void> => {
+  if (!(await requireCommunityAccess(req, res))) return;
+
+  const userId = req.userId!;
+  const commentId = parseInt(req.params.id);
+  if (isNaN(commentId)) {
+    res.status(400).json({ error: "Invalid comment id" });
+    return;
+  }
+
+  const existing = await getRawComment(commentId);
+
+  if (!existing || existing.status === "deleted") {
+    res.status(404).json({ error: "Comment not found" });
+    return;
+  }
+
+  const isAdmin = await getIsAdmin(userId);
+
+  if (existing.authorId !== userId && !isAdmin) {
     res.status(403).json({ error: "You can only delete your own comments" });
     return;
   }
 
-  await db
-    .update(communityCommentsTable)
-    .set({ isDeleted: true, deletedBy: isAdmin && comment.authorId !== userId ? "admin" : "author" })
-    .where(eq(communityCommentsTable.id, commentId));
-
-  await db
-    .update(communityPostsTable)
-    .set({ commentCount: sql`GREATEST(${communityPostsTable.commentCount} - 1, 0)` })
-    .where(eq(communityPostsTable.id, comment.postId));
+  const deletedBy = isAdmin && existing.authorId !== userId ? "admin" : "author";
+  await softDeleteComment(commentId, existing.postId, deletedBy);
 
   res.json({ success: true });
 });
@@ -621,100 +503,44 @@ router.post("/community/reactions", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
 
-  const { postId, commentId } = req.body;
+  const { target_type, target_id, type } = req.body;
 
-  if (!postId && !commentId) {
-    res.status(400).json({ error: "Either postId or commentId is required" });
+  if (!target_type || !["post", "comment"].includes(target_type)) {
+    res.status(400).json({ error: "target_type must be 'post' or 'comment'" });
     return;
   }
-  if (postId && commentId) {
-    res.status(400).json({ error: "Provide either postId or commentId, not both" });
+  if (!target_id || typeof target_id !== "number") {
+    res.status(400).json({ error: "target_id must be a number" });
+    return;
+  }
+  if (type !== undefined && type !== "like") {
+    res.status(400).json({ error: "type must be 'like'" });
     return;
   }
 
-  if (postId) {
-    const [post] = await db
-      .select()
-      .from(communityPostsTable)
-      .where(and(eq(communityPostsTable.id, postId), eq(communityPostsTable.isDeleted, false)));
-    if (!post) {
+  if (target_type === "post") {
+    const post = await getRawPost(target_id);
+    if (!post || post.status === "deleted" || post.status === "hidden") {
       res.status(404).json({ error: "Post not found" });
       return;
     }
-
-    const [existing] = await db
-      .select()
-      .from(communityReactionsTable)
-      .where(and(
-        eq(communityReactionsTable.userId, userId),
-        eq(communityReactionsTable.postId, postId),
-      ));
-
-    if (existing) {
-      await db.delete(communityReactionsTable).where(eq(communityReactionsTable.id, existing.id));
-      await db
-        .update(communityPostsTable)
-        .set({ reactionCount: sql`GREATEST(${communityPostsTable.reactionCount} - 1, 0)` })
-        .where(eq(communityPostsTable.id, postId));
-      const [updated] = await db.select({ reactionCount: communityPostsTable.reactionCount }).from(communityPostsTable).where(eq(communityPostsTable.id, postId));
-      res.json({ toggled: "removed", reactionCount: updated?.reactionCount ?? 0 });
-    } else {
-      await db.insert(communityReactionsTable).values({ userId, postId, reactionType: "fire" });
-      await db
-        .update(communityPostsTable)
-        .set({ reactionCount: sql`${communityPostsTable.reactionCount} + 1` })
-        .where(eq(communityPostsTable.id, postId));
-      const [updated] = await db.select({ reactionCount: communityPostsTable.reactionCount }).from(communityPostsTable).where(eq(communityPostsTable.id, postId));
-
-      if (post.authorId !== userId) {
-        const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
-        await createNotification({
-          userId: post.authorId,
-          actorId: userId,
-          type: "reaction",
-          postId,
-          message: `${author?.name ?? "Someone"} reacted to your post`,
-        });
-      }
-
-      res.json({ toggled: "added", reactionCount: updated?.reactionCount ?? 0 });
-    }
   } else {
-    const [comment] = await db
-      .select()
-      .from(communityCommentsTable)
-      .where(and(eq(communityCommentsTable.id, commentId), eq(communityCommentsTable.isDeleted, false)));
-    if (!comment) {
+    const comment = await getRawComment(target_id);
+    if (!comment || comment.status === "deleted" || comment.status === "hidden") {
       res.status(404).json({ error: "Comment not found" });
       return;
     }
-
-    const [existing] = await db
-      .select()
-      .from(communityReactionsTable)
-      .where(and(
-        eq(communityReactionsTable.userId, userId),
-        eq(communityReactionsTable.commentId, commentId),
-      ));
-
-    if (existing) {
-      await db.delete(communityReactionsTable).where(eq(communityReactionsTable.id, existing.id));
-      await db
-        .update(communityCommentsTable)
-        .set({ reactionCount: sql`GREATEST(${communityCommentsTable.reactionCount} - 1, 0)` })
-        .where(eq(communityCommentsTable.id, commentId));
-      const [updated] = await db.select({ reactionCount: communityCommentsTable.reactionCount }).from(communityCommentsTable).where(eq(communityCommentsTable.id, commentId));
-      res.json({ toggled: "removed", reactionCount: updated?.reactionCount ?? 0 });
-    } else {
-      await db.insert(communityReactionsTable).values({ userId, commentId, reactionType: "fire" });
-      await db
-        .update(communityCommentsTable)
-        .set({ reactionCount: sql`${communityCommentsTable.reactionCount} + 1` })
-        .where(eq(communityCommentsTable.id, commentId));
-      const [updated] = await db.select({ reactionCount: communityCommentsTable.reactionCount }).from(communityCommentsTable).where(eq(communityCommentsTable.id, commentId));
-      res.json({ toggled: "added", reactionCount: updated?.reactionCount ?? 0 });
+    const parentPost = await getRawPost(comment.postId);
+    const [userRow] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const userIsAdmin = userRow && isAdminRole(userRow.role);
+    if (!parentPost || parentPost.status === "deleted" || (parentPost.status === "hidden" && !userIsAdmin)) {
+      res.status(404).json({ error: "Post not found" });
+      return;
     }
   }
+
+  const result = await toggleReaction(userId, target_type, target_id, "like");
+  res.json(result);
 });
 
 router.get("/community/members", async (req, res): Promise<void> => {
@@ -739,27 +565,6 @@ router.get("/community/members", async (req, res): Promise<void> => {
         gte(userProductsTable.expiresAt, new Date()),
       ),
     ));
-
-  let query = db
-    .select({
-      id: usersTable.id,
-      name: usersTable.name,
-      communityBio: usersTable.communityBio,
-      memberSince: usersTable.memberSince,
-      currentStreak: usersTable.currentStreak,
-    })
-    .from(usersTable)
-    .where(and(
-      sql`${usersTable.id} IN (${communityUserIds})`,
-      ...(search ? [ilike(usersTable.name, `%${search}%`)] : []),
-    ))
-    .$dynamic();
-
-  if (badge) {
-    query = query.where(
-      sql`${usersTable.id} IN (SELECT user_id FROM community_badges WHERE badge_type = ${badge})`
-    );
-  }
 
   const countResult = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -861,12 +666,12 @@ router.get("/community/members/:userId", async (req, res): Promise<void> => {
   const postCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.authorId, targetUserId), eq(communityPostsTable.isDeleted, false)));
+    .where(and(eq(communityPostsTable.authorId, targetUserId), eq(communityPostsTable.status, "active")));
 
   const commentCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(communityCommentsTable)
-    .where(and(eq(communityCommentsTable.authorId, targetUserId), eq(communityCommentsTable.isDeleted, false)));
+    .where(and(eq(communityCommentsTable.authorId, targetUserId), eq(communityCommentsTable.status, "active")));
 
   const reactionCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -876,7 +681,7 @@ router.get("/community/members/:userId", async (req, res): Promise<void> => {
   const recentPosts = await db
     .select({
       id: communityPostsTable.id,
-      content: communityPostsTable.content,
+      body: communityPostsTable.content,
       categoryName: communityCategoriesTable.name,
       commentCount: communityPostsTable.commentCount,
       reactionCount: communityPostsTable.reactionCount,
@@ -884,7 +689,7 @@ router.get("/community/members/:userId", async (req, res): Promise<void> => {
     })
     .from(communityPostsTable)
     .innerJoin(communityCategoriesTable, eq(communityPostsTable.categoryId, communityCategoriesTable.id))
-    .where(and(eq(communityPostsTable.authorId, targetUserId), eq(communityPostsTable.isDeleted, false)))
+    .where(and(eq(communityPostsTable.authorId, targetUserId), eq(communityPostsTable.status, "active")))
     .orderBy(desc(communityPostsTable.createdAt))
     .limit(5);
 

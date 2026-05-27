@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -21,11 +21,13 @@ export const communityPostsTable = pgTable("community_posts", {
   authorId: integer("author_id").notNull().references(() => usersTable.id),
   categoryId: integer("category_id").notNull().references(() => communityCategoriesTable.id),
   content: text("content").notNull(),
+  mediaUrls: jsonb("media_urls").notNull().default([]),
   imageUrl: text("image_url"),
   isPinned: boolean("is_pinned").notNull().default(false),
   isFeatured: boolean("is_featured").notNull().default(false),
   isDeleted: boolean("is_deleted").notNull().default(false),
   deletedBy: text("deleted_by"),
+  status: text("status").notNull().default("active"),
   commentCount: integer("comment_count").notNull().default(0),
   reactionCount: integer("reaction_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -34,6 +36,7 @@ export const communityPostsTable = pgTable("community_posts", {
   index("community_posts_author_idx").on(table.authorId),
   index("community_posts_category_idx").on(table.categoryId),
   index("community_posts_created_idx").on(table.createdAt),
+  index("community_posts_status_idx").on(table.status),
 ]);
 
 export type CommunityPost = typeof communityPostsTable.$inferSelect;
@@ -46,6 +49,7 @@ export const communityCommentsTable = pgTable("community_comments", {
   content: text("content").notNull(),
   isDeleted: boolean("is_deleted").notNull().default(false),
   deletedBy: text("deleted_by"),
+  status: text("status").notNull().default("active"),
   reactionCount: integer("reaction_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -60,13 +64,15 @@ export type CommunityComment = typeof communityCommentsTable.$inferSelect;
 export const communityReactionsTable = pgTable("community_reactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
+  targetType: text("target_type").notNull(),
+  targetId: integer("target_id").notNull(),
+  type: text("type").notNull().default("like"),
   postId: integer("post_id").references(() => communityPostsTable.id),
   commentId: integer("comment_id").references(() => communityCommentsTable.id),
-  reactionType: text("reaction_type").notNull().default("fire"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex("community_reactions_user_post_idx").on(table.userId, table.postId),
-  uniqueIndex("community_reactions_user_comment_idx").on(table.userId, table.commentId),
+  uniqueIndex("community_reactions_target_user_type_idx").on(table.targetType, table.targetId, table.userId, table.type),
+  index("community_reactions_user_idx").on(table.userId),
 ]);
 
 export type CommunityReaction = typeof communityReactionsTable.$inferSelect;
