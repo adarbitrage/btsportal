@@ -34,6 +34,7 @@ import TicketDetail from "@/pages/TicketDetail";
 import CommunityFeed from "@/pages/community/CommunityFeed";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
+import PostDetail from "@/pages/community/PostDetail";
 import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
@@ -351,9 +352,10 @@ function Router() {
       <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
-      <Route path="/community">{() => <EntitlementRoute component={CommunityFeed} entitlement="community:access" />}</Route>
+      <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
+      <Route path="/community/:postId">{() => <ProtectedRoute component={PostDetail} />}</Route>
       <Route path="/wins">{() => <ProtectedRoute component={WinsWall} />}</Route>
       <Route path="/wins/submit">{() => <ProtectedRoute component={WinSubmit} />}</Route>
       <Route path="/wins/mine">{() => <ProtectedRoute component={MyWins} />}</Route>

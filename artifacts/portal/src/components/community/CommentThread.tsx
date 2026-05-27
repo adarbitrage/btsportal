@@ -8,16 +8,22 @@ import { useAuth } from "@/lib/auth";
 import { useCreateComment, useUpdateComment, useDeleteComment, useToggleReaction, usePostComments } from "@/hooks/use-community";
 import { TierBadge } from "./TierBadge";
 import { AuthorAvatar, ProfilePopover } from "./ProfilePopover";
+import { ReactionButton } from "./reaction-button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
-import { MoreHorizontal, Pencil, Trash2, Flame, Reply, MessageSquare, Send } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Reply, MessageSquare, Send } from "lucide-react";
 import type { CommunityComment, CommunityPost } from "@/lib/community-api";
+
+const EDIT_WINDOW_MS = 30 * 60 * 1000;
 
 interface CommentThreadProps {
   post: CommunityPost;
+  showAll?: boolean;
 }
 
-export function CommentThread({ post }: CommentThreadProps) {
-  const [showAll, setShowAll] = useState(false);
+export function CommentThread({ post, showAll: forceShowAll }: CommentThreadProps) {
+  const [showAll, setShowAll] = useState(forceShowAll ?? false);
   const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<{ commentId: number; name: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -36,13 +42,8 @@ export function CommentThread({ post }: CommentThreadProps) {
   const handleSubmit = () => {
     const body = newComment.trim();
     if (!body) return;
-
     createComment.mutate(
-      {
-        postId: post.id,
-        body,
-        parentCommentId: replyTo?.commentId,
-      },
+      { postId: post.id, body, parentCommentId: replyTo?.commentId },
       {
         onSuccess: () => {
           setNewComment("");
@@ -71,8 +72,7 @@ export function CommentThread({ post }: CommentThreadProps) {
 
   const canEditComment = (comment: CommunityComment) => {
     if (comment.author.id !== user?.id) return false;
-    const createdAt = new Date(comment.createdAt).getTime();
-    return Date.now() - createdAt < 5 * 60 * 1000;
+    return Date.now() - new Date(comment.createdAt).getTime() < EDIT_WINDOW_MS;
   };
 
   const canDeleteComment = (comment: CommunityComment) => comment.author.id === user?.id;
@@ -95,6 +95,7 @@ export function CommentThread({ post }: CommentThreadProps) {
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   className="text-sm min-h-[60px]"
+                  maxLength={2000}
                 />
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
@@ -118,18 +119,16 @@ export function CommentThread({ post }: CommentThreadProps) {
                 {comment.replyToName && (
                   <p className="text-[11px] text-primary/70 mb-0.5">Replying to @{comment.replyToName}</p>
                 )}
-                <p className="text-sm text-foreground/90 mt-0.5 break-words">{comment.body}</p>
+                <div className="text-sm text-foreground/90 mt-0.5 break-words prose prose-sm max-w-none [&_p]:mb-1 [&_p:last-child]:mb-0 [&_p]:leading-snug">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.body}</ReactMarkdown>
+                </div>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <button
-                    onClick={() => toggleReaction.mutate({ targetType: "comment", targetId: comment.id })}
-                    className={cn(
-                      "flex items-center gap-1 text-xs transition-colors",
-                      comment.hasReacted ? "text-orange-500" : "text-muted-foreground hover:text-orange-500"
-                    )}
-                  >
-                    <Flame className="w-3 h-3" />
-                    {comment.reactionCount > 0 && comment.reactionCount}
-                  </button>
+                  <ReactionButton
+                    hasReacted={comment.hasReacted}
+                    reactionCount={comment.reactionCount}
+                    onToggle={() => toggleReaction.mutate({ targetType: "comment", targetId: comment.id })}
+                    size="sm"
+                  />
                   <button
                     onClick={() => setReplyTo({ commentId: comment.id, name: comment.author.name })}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -197,6 +196,7 @@ export function CommentThread({ post }: CommentThreadProps) {
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment..."
               className="text-sm h-8"
+              maxLength={2000}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

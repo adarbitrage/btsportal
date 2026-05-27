@@ -1,5 +1,14 @@
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
+export class CommunityApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "CommunityApiError";
+    this.status = status;
+  }
+}
+
 async function communityFetch(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -11,9 +20,27 @@ async function communityFetch(path: string, options?: RequestInit) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+    throw new CommunityApiError(data.error || `Request failed with status ${res.status}`, res.status);
   }
   return res.json();
+}
+
+function normalizePost(p: any): CommunityPost {
+  return {
+    ...p,
+    body: p.body ?? p.content ?? "",
+    title: p.title ?? "",
+    author: p.author ?? {
+      id: p.authorId ?? 0,
+      name: p.authorName ?? "Unknown",
+      avatarUrl: p.avatarUrl ?? null,
+      highestProductSlug: p.highestProductSlug ?? null,
+      badges: p.badges ?? [],
+    },
+    isEdited: p.isEdited ?? false,
+    isDeleted: p.isDeleted ?? false,
+    comments: p.comments ?? [],
+  };
 }
 
 export interface CommunityCategory {
@@ -125,20 +152,7 @@ export async function fetchPosts(params: {
   if (params.limit) searchParams.set("limit", params.limit.toString());
   const data = await communityFetch(`/community/posts?${searchParams.toString()}`);
   const rawPosts: any[] = data.posts ?? [];
-  const posts: CommunityPost[] = rawPosts.map((p: any) => ({
-    ...p,
-    body: p.body ?? p.content ?? "",
-    title: p.title ?? "",
-    author: p.author ?? {
-      id: p.authorId ?? 0,
-      name: p.authorName ?? "Unknown",
-      avatarUrl: p.avatarUrl ?? null,
-      highestProductSlug: p.highestProductSlug ?? null,
-      badges: p.badges ?? [],
-    },
-    isEdited: p.isEdited ?? false,
-    isDeleted: p.isDeleted ?? false,
-  }));
+  const posts: CommunityPost[] = rawPosts.map(normalizePost);
   const pagination = data.pagination ?? {};
   const currentPage = pagination.page ?? 1;
   const totalPages = pagination.totalPages ?? 1;
@@ -149,17 +163,18 @@ export async function fetchPosts(params: {
   };
 }
 
-export function fetchPost(postId: number): Promise<CommunityPost> {
-  return communityFetch(`/community/posts/${postId}`);
+export async function fetchPost(postId: number): Promise<CommunityPost> {
+  const data = await communityFetch(`/community/posts/${postId}`);
+  return normalizePost(data);
 }
 
-export function createPost(data: {
+export async function createPost(data: {
   categoryId: number;
   title?: string;
   body: string;
   imageUrl?: string;
 }): Promise<CommunityPost> {
-  return communityFetch("/community/posts", {
+  const res = await communityFetch("/community/posts", {
     method: "POST",
     body: JSON.stringify({
       categoryId: data.categoryId,
@@ -167,6 +182,7 @@ export function createPost(data: {
       imageUrl: data.imageUrl,
     }),
   });
+  return normalizePost(res);
 }
 
 export function updatePost(postId: number, data: { body: string }): Promise<CommunityPost> {

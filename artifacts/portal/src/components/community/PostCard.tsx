@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,24 +11,25 @@ import { useToggleReaction, useUpdatePost, useDeletePost } from "@/hooks/use-com
 import { TierBadge } from "./TierBadge";
 import { AuthorAvatar, ProfilePopover } from "./ProfilePopover";
 import { CommentThread } from "./CommentThread";
+import { ReactionButton } from "./reaction-button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
-import { Pin, MoreHorizontal, Pencil, Trash2, Flame, MessageSquare } from "lucide-react";
+import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare } from "lucide-react";
 import type { CommunityPost } from "@/lib/community-api";
 
 const TRUNCATE_LENGTH = 400;
+const EDIT_WINDOW_MS = 30 * 60 * 1000;
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
-    .replace(/\n/g, "<br />");
+function PostBody({ body }: { body: string }) {
+  return (
+    <div className="prose prose-sm max-w-none text-foreground/90 [&_p]:leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+    </div>
+  );
 }
 
-export function PostCard({ post }: { post: CommunityPost }) {
+export function PostCard({ post, showFullComments }: { post: CommunityPost; showFullComments?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const body = post.body ?? "";
@@ -41,14 +43,12 @@ export function PostCard({ post }: { post: CommunityPost }) {
   const isLong = body.length > TRUNCATE_LENGTH;
   const displayBody = expanded || !isLong ? body : body.slice(0, TRUNCATE_LENGTH) + "...";
   const isOwnPost = author.id === user?.id;
-  const canEdit = isOwnPost && Date.now() - new Date(post.createdAt).getTime() < 15 * 60 * 1000;
+  const canEdit = isOwnPost && Date.now() - new Date(post.createdAt).getTime() < EDIT_WINDOW_MS;
 
   const handleSaveEdit = () => {
     updatePost.mutate(
       { postId: post.id, body: editBody },
-      {
-        onSuccess: () => setEditing(false),
-      }
+      { onSuccess: () => setEditing(false) }
     );
   };
 
@@ -87,7 +87,11 @@ export function PostCard({ post }: { post: CommunityPost }) {
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">{post.categoryName}</Badge>
+                <Link href={`/community/${post.id}`}>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal cursor-pointer hover:bg-secondary/80">
+                    {post.categoryName}
+                  </Badge>
+                </Link>
                 <span className="text-[11px] text-muted-foreground">
                   {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
                 </span>
@@ -135,10 +139,7 @@ export function PostCard({ post }: { post: CommunityPost }) {
             </div>
           ) : (
             <>
-              <div
-                className="text-sm text-foreground/90 leading-relaxed prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(displayBody) }}
-              />
+              <PostBody body={displayBody} />
               {isLong && !expanded && (
                 <button
                   onClick={() => setExpanded(true)}
@@ -163,27 +164,22 @@ export function PostCard({ post }: { post: CommunityPost }) {
         )}
 
         <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border/30">
-          <button
-            onClick={() => toggleReaction.mutate({ targetType: "post", targetId: post.id })}
-            className={cn(
-              "flex items-center gap-1.5 text-sm font-medium transition-all",
-              post.hasReacted
-                ? "text-orange-500 hover:text-orange-600"
-                : "text-muted-foreground hover:text-orange-500"
-            )}
-          >
-            <Flame className={cn("w-4 h-4 transition-transform", post.hasReacted && "scale-110")} />
-            {post.reactionCount > 0 && <span>{post.reactionCount}</span>}
-            🔥
-          </button>
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MessageSquare className="w-4 h-4" />
-            {post.commentCount}
-          </span>
+          <ReactionButton
+            hasReacted={post.hasReacted}
+            reactionCount={post.reactionCount}
+            onToggle={() => toggleReaction.mutate({ targetType: "post", targetId: post.id })}
+            disabled={toggleReaction.isPending}
+          />
+          <Link href={`/community/${post.id}`}>
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <MessageSquare className="w-4 h-4" />
+              {post.commentCount}
+            </span>
+          </Link>
         </div>
 
         <div className="mt-3">
-          <CommentThread post={post} />
+          <CommentThread post={post} showAll={showFullComments} />
         </div>
       </CardContent>
     </Card>

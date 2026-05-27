@@ -48,8 +48,29 @@ export function useCreatePost() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createPost,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+    onSuccess: (newPost) => {
+      queryClient.setQueryData<{ pages: { posts: CommunityPost[]; nextCursor: string | null; totalCount: number }[]; pageParams: (string | undefined)[] }>(
+        ["community", "posts", "all"],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page, i) =>
+              i === 0
+                ? { ...page, posts: [newPost, ...page.posts], totalCount: (page.totalCount ?? 0) + 1 }
+                : page
+            ),
+          };
+        }
+      );
+      queryClient.invalidateQueries({
+        queryKey: ["community", "posts"],
+        predicate: (query) => {
+          const key = query.queryKey as unknown[];
+          return key.length >= 3 && key[2] !== "all";
+        },
+        refetchType: "none",
+      });
       queryClient.invalidateQueries({ queryKey: ["community", "categories"] });
     },
   });
@@ -59,8 +80,9 @@ export function useUpdatePost() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ postId, body }: { postId: number; body: string }) => updatePost(postId, { body }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+      queryClient.invalidateQueries({ queryKey: ["community", "post", variables.postId] });
     },
   });
 }
@@ -69,8 +91,9 @@ export function useDeletePost() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deletePost,
-    onSuccess: () => {
+    onSuccess: (_data, postId) => {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+      queryClient.invalidateQueries({ queryKey: ["community", "post", postId] });
     },
   });
 }
@@ -90,6 +113,7 @@ export function useCreateComment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["community", "comments", variables.postId] });
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+      queryClient.invalidateQueries({ queryKey: ["community", "post", variables.postId] });
     },
   });
 }
@@ -98,9 +122,10 @@ export function useUpdateComment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ commentId, body }: { commentId: number; body: string }) => updateComment(commentId, { body }),
-    onSuccess: () => {
+    onSuccess: (updatedComment) => {
       queryClient.invalidateQueries({ queryKey: ["community", "comments"] });
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+      queryClient.invalidateQueries({ queryKey: ["community", "post", updatedComment.postId] });
     },
   });
 }
@@ -112,6 +137,7 @@ export function useDeleteComment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["community", "comments"] });
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
+      queryClient.invalidateQueries({ queryKey: ["community", "post"] });
     },
   });
 }
@@ -121,14 +147,19 @@ export function useToggleReaction() {
   return useMutation({
     mutationFn: toggleReaction,
     onMutate: async (variables) => {
+      const snapshots: Array<[readonly unknown[], unknown]> = [];
+
       if (variables.targetType === "post") {
         await queryClient.cancelQueries({ queryKey: ["community", "posts"] });
+        await queryClient.cancelQueries({ queryKey: ["community", "post", variables.targetId] });
+
         const allPostQueries = queryClient.getQueriesData<{ pages: { posts: CommunityPost[] }[] }>({
           queryKey: ["community", "posts"],
         });
         allPostQueries.forEach(([queryKey, data]) => {
+          snapshots.push([queryKey, data]);
           if (data?.pages) {
-            const updated = {
+            queryClient.setQueryData(queryKey, {
               ...data,
               pages: data.pages.map((page) => ({
                 ...page,
@@ -142,18 +173,30 @@ export function useToggleReaction() {
                     : post
                 ),
               })),
-            };
-            queryClient.setQueryData(queryKey, updated);
+            });
           }
         });
+
+        const singlePostKey = ["community", "post", variables.targetId];
+        const singlePost = queryClient.getQueryData<CommunityPost>(singlePostKey);
+        if (singlePost) {
+          snapshots.push([singlePostKey, singlePost]);
+          queryClient.setQueryData(singlePostKey, {
+            ...singlePost,
+            hasReacted: !singlePost.hasReacted,
+            reactionCount: singlePost.hasReacted ? singlePost.reactionCount - 1 : singlePost.reactionCount + 1,
+          });
+        }
       }
+
       if (variables.targetType === "comment") {
         const commentQueries = queryClient.getQueriesData<CommunityComment[]>({
           queryKey: ["community", "comments"],
         });
         commentQueries.forEach(([queryKey, data]) => {
+          snapshots.push([queryKey, data]);
           if (Array.isArray(data)) {
-            const updated = data.map((comment: CommunityComment) =>
+            queryClient.setQueryData(queryKey, data.map((comment: CommunityComment) =>
               comment.id === variables.targetId
                 ? {
                     ...comment,
@@ -161,8 +204,7 @@ export function useToggleReaction() {
                     reactionCount: comment.hasReacted ? comment.reactionCount - 1 : comment.reactionCount + 1,
                   }
                 : comment
-            );
-            queryClient.setQueryData(queryKey, updated);
+            ));
           }
         });
 
@@ -170,8 +212,9 @@ export function useToggleReaction() {
           queryKey: ["community", "posts"],
         });
         allPostQueries.forEach(([queryKey, data]) => {
+          snapshots.push([queryKey, data]);
           if (data?.pages) {
-            const updated = {
+            queryClient.setQueryData(queryKey, {
               ...data,
               pages: data.pages.map((page) => ({
                 ...page,
@@ -188,15 +231,24 @@ export function useToggleReaction() {
                   ),
                 })),
               })),
-            };
-            queryClient.setQueryData(queryKey, updated);
+            });
           }
         });
       }
+
+      return { snapshots };
     },
-    onSettled: () => {
+    onError: (_err, _variables, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
+    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "comments"] });
+      if (variables?.targetType === "post") {
+        queryClient.invalidateQueries({ queryKey: ["community", "post", variables.targetId] });
+      }
     },
   });
 }
