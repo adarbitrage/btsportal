@@ -2,24 +2,36 @@ const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 export interface AssistantQuestion {
   id: number;
-  text: string;
+  cardId?: number;
+  body: string;
+  sortOrder?: number;
+}
+
+export interface AssistantUpgradeProduct {
+  id: number | string;
+  name: string;
+  priceDisplay: string;
 }
 
 export interface AssistantCard {
   id: number;
-  label: string;
+  groupId?: number;
+  title: string;
   icon: string;
   description: string;
   locked: boolean;
-  upgrade_product_id?: string;
-  upgrade_product_name?: string;
-  upgrade_price?: string;
-  upgrade_checkout_url?: string;
+  entitlementKey?: string | null;
+  sortOrder?: number;
+  upgradeProduct: AssistantUpgradeProduct | null;
   questions: AssistantQuestion[];
 }
 
 export interface AssistantCardGroup {
-  group: string;
+  id: number;
+  name: string;
+  description?: string;
+  icon?: string;
+  sortOrder?: number;
   cards: AssistantCard[];
 }
 
@@ -30,5 +42,6 @@ export async function fetchAssistantCards(): Promise<AssistantCardGroup[]> {
   if (!res.ok) {
     throw new Error(`Failed to fetch assistant cards: ${res.status}`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.groups;
 }

@@ -44,6 +44,9 @@ interface UpgradeModalProps {
 }
 
 function UpgradeModal({ card, onClose }: UpgradeModalProps) {
+  const productName = card.upgradeProduct?.name ?? "an upgrade";
+  const priceDisplay = card.upgradeProduct?.priceDisplay;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -60,7 +63,7 @@ function UpgradeModal({ card, onClose }: UpgradeModalProps) {
           </div>
           <div>
             <h3 className="font-semibold text-stone-900 dark:text-stone-100 text-base leading-tight">
-              {card.label} requires {card.upgrade_product_name ?? "an upgrade"}
+              {card.title} requires {productName}
             </h3>
           </div>
         </div>
@@ -68,39 +71,26 @@ function UpgradeModal({ card, onClose }: UpgradeModalProps) {
         <p className="text-[14px] text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
           {card.description} Unlock this category and more with{" "}
           <span className="font-medium text-stone-900 dark:text-stone-100">
-            {card.upgrade_product_name ?? "an upgrade"}
+            {productName}
           </span>
           .
         </p>
 
-        {card.upgrade_price && (
+        {priceDisplay && (
           <p className="text-2xl font-bold text-stone-900 dark:text-stone-100 mb-4">
-            {card.upgrade_price}
+            {priceDisplay}
           </p>
         )}
 
         <div className="flex gap-2">
-          {card.upgrade_checkout_url ? (
-            <a
-              href={card.upgrade_checkout_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1"
-              data-testid={`button-upgrade-${card.id}`}
-            >
-              <Button className="w-full gap-1.5 bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900">
-                Upgrade
-                <ExternalLink className="w-3.5 h-3.5" />
-              </Button>
-            </a>
-          ) : (
-            <Button
-              className="flex-1 bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900"
-              disabled
-            >
-              Upgrade
-            </Button>
-          )}
+          <Button
+            className="flex-1 bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900"
+            disabled
+            data-testid={`button-upgrade-${card.id}`}
+          >
+            Upgrade
+            <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+          </Button>
           <Button
             variant="outline"
             onClick={onClose}
@@ -141,7 +131,7 @@ function QuestionList({ card, onBack, onSelectQuestion }: QuestionListProps) {
           {card.icon}
         </div>
         <div>
-          <h4 className="font-semibold text-stone-900 dark:text-stone-100 leading-tight">{card.label}</h4>
+          <h4 className="font-semibold text-stone-900 dark:text-stone-100 leading-tight">{card.title}</h4>
           <p className="text-[13px] text-stone-500">{card.description}</p>
         </div>
       </div>
@@ -150,11 +140,11 @@ function QuestionList({ card, onBack, onSelectQuestion }: QuestionListProps) {
         {card.questions.map((q) => (
           <button
             key={q.id}
-            onClick={() => onSelectQuestion(q.text)}
+            onClick={() => onSelectQuestion(q.body)}
             className="w-full text-left px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:shadow-sm text-[14px] text-stone-700 dark:text-stone-200 transition-all"
             data-testid={`button-question-${q.id}`}
           >
-            {q.text}
+            {q.body}
           </button>
         ))}
         {card.questions.length === 0 && (
@@ -187,7 +177,7 @@ function CardTile({ card, onClickEntitled, onClickLocked }: CardTileProps) {
       <div className="flex items-start gap-2 mb-2">
         <span className="text-xl leading-none shrink-0 mt-0.5">{card.icon}</span>
         <span className="font-medium text-stone-900 dark:text-stone-100 text-[13px] leading-tight flex-1">
-          {card.label}
+          {card.title}
         </span>
         {isLocked && (
           <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
@@ -284,9 +274,9 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
             ) : (
               <div className="space-y-6">
                 {groups.map((grp) => (
-                  <div key={grp.group}>
+                  <div key={grp.id}>
                     <p className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-3 text-left">
-                      {grp.group}
+                      {grp.name}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                       {grp.cards.map((card) => (
