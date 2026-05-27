@@ -2195,6 +2195,13 @@ export default function SystemHealth() {
                     lastError: string | null;
                     lastKind: "engine" | "persist" | null;
                     windowMs: number;
+                    source?: "redis" | "memory";
+                    pods?: Array<{
+                      instanceId: string;
+                      totalCount: number;
+                      byKind: { engine: number; persist: number };
+                      lastAt: string | null;
+                    }>;
                   };
                   cumulative: {
                     totalCount: number;
@@ -2208,6 +2215,12 @@ export default function SystemHealth() {
                   };
                 };
                 const minutes = Math.max(1, Math.round((mf.window.windowMs ?? 0) / 60000));
+                const reportingPods = Array.isArray(mf.window.pods) ? mf.window.pods : [];
+                const podsWithFailures = reportingPods
+                  .filter((p) => p.totalCount > 0)
+                  .slice()
+                  .sort((a, b) => b.totalCount - a.totalCount);
+                const source = mf.window.source ?? "memory";
                 return (
                   <Card data-testid="card-moderation-failures">
                     <CardHeader>
@@ -2225,6 +2238,20 @@ export default function SystemHealth() {
                           }
                         >
                           {mf.alerter.alerting ? "alerting" : "ok"}
+                        </Badge>
+                        <Badge
+                          variant={source === "redis" ? "outline" : "warning"}
+                          className="font-normal"
+                          data-testid="moderation-failures-source"
+                          title={
+                            source === "redis"
+                              ? "Counts aggregated across every reporting pod via Redis."
+                              : "Redis unavailable on this pod — showing per-instance fallback view only."
+                          }
+                        >
+                          {source === "redis"
+                            ? `${podsWithFailures.length} pod${podsWithFailures.length === 1 ? "" : "s"} reporting`
+                            : "in-memory only"}
                         </Badge>
                       </CardTitle>
                     </CardHeader>
@@ -2307,6 +2334,49 @@ export default function SystemHealth() {
                             </span>
                           </div>
                         </div>
+                        {podsWithFailures.length > 0 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-[11px] uppercase text-muted-foreground mb-1">
+                              Per-pod breakdown (last {minutes}m)
+                            </p>
+                            <div
+                              className="space-y-1"
+                              data-testid="moderation-failures-pods"
+                            >
+                              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 text-[10px] uppercase text-muted-foreground tracking-wide">
+                                <span>pod</span>
+                                <span className="text-right">engine</span>
+                                <span className="text-right">persist</span>
+                                <span className="text-right">last</span>
+                              </div>
+                              {podsWithFailures.map((pod) => (
+                                <div
+                                  key={pod.instanceId}
+                                  className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 text-xs items-baseline"
+                                  data-testid={`moderation-failures-pod-${pod.instanceId}`}
+                                  title={pod.instanceId}
+                                >
+                                  <span className="text-muted-foreground truncate font-mono">
+                                    {pod.instanceId}
+                                  </span>
+                                  <span className="font-medium text-right">
+                                    {pod.byKind?.engine ?? 0}
+                                  </span>
+                                  <span
+                                    className={`font-medium text-right ${(pod.byKind?.persist ?? 0) > 0 ? "text-red-600" : ""}`}
+                                  >
+                                    {pod.byKind?.persist ?? 0}
+                                  </span>
+                                  <span className="text-muted-foreground text-right">
+                                    {pod.lastAt
+                                      ? new Date(pod.lastAt).toLocaleTimeString()
+                                      : "—"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
