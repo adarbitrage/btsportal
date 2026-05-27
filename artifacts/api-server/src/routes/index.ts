@@ -60,6 +60,7 @@ import integrationsRouter from "./integrations";
 import affiliateNetworksRouter from "./admin-affiliate-networks";
 import mediaMavensProductsRouter from "./admin-media-mavens-products";
 import mediaMavensCategoriesRouter from "./admin-media-mavens-categories";
+import dmRouter from "./dm";
 
 const router: IRouter = Router();
 
@@ -124,5 +125,6 @@ router.use(integrationsRouter);
 router.use(affiliateNetworksRouter);
 router.use(mediaMavensProductsRouter);
 router.use(mediaMavensCategoriesRouter);
+router.use("/dm", dmRouter);
 
 export default router;
