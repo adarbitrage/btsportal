@@ -1341,6 +1341,8 @@ function ModerationFailureAlertConfigCard() {
     windowMinutes: "",
   });
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ModerationFailureAlertField, string>>>({});
+  const [history, setHistory] = useState<AlertConfigHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const hydrate = (s: ModerationFailureAlertConfigStatus) => {
     setStatus(s);
@@ -1363,7 +1365,19 @@ function ModerationFailureAlertConfigCard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const data = await adminPanelApi.getModerationFailureAlertConfigHistory();
+      setHistory(data.events);
+    } catch (err: any) {
+      toast({ title: "Couldn't load recent threshold edits", description: err.message, variant: "destructive" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); loadHistory(); }, []);
 
   const validateLocal = (): { ok: boolean; payload: { threshold: number; windowMinutes: number } } => {
     if (!status) return { ok: false, payload: { threshold: 0, windowMinutes: 0 } };
@@ -1396,6 +1410,7 @@ function ModerationFailureAlertConfigCard() {
       setSaving(true);
       const data = await adminPanelApi.updateModerationFailureAlertConfig(v.payload);
       hydrate(data);
+      await loadHistory();
       toast({ title: data.changedFields.length === 0 ? "No changes to save" : "Alert thresholds saved" });
     } catch (err: any) {
       if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
@@ -1429,6 +1444,7 @@ function ModerationFailureAlertConfigCard() {
         windowMinutes: null,
       });
       hydrate(data);
+      await loadHistory();
       toast({ title: "Reset to defaults" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -1508,6 +1524,12 @@ function ModerationFailureAlertConfigCard() {
                 <Save className="w-4 h-4 mr-1" />{saving ? "Saving..." : "Save thresholds"}
               </Button>
             </div>
+
+            <AlertConfigHistorySection
+              events={history}
+              loading={historyLoading}
+              auditEntityType="moderation_failure_alert_config"
+            />
           </>
         )}
       </CardContent>
@@ -1773,7 +1795,11 @@ function AuthRateLimitAlertConfigCard() {
               </Button>
             </div>
 
-            <AlertConfigHistorySection events={history} loading={historyLoading} />
+            <AlertConfigHistorySection
+              events={history}
+              loading={historyLoading}
+              auditEntityType="auth_rate_limit_alert_config"
+            />
           </>
         )}
       </CardContent>
@@ -1791,9 +1817,11 @@ function AuthRateLimitAlertConfigCard() {
 function AlertConfigHistorySection({
   events,
   loading,
+  auditEntityType,
 }: {
   events: AlertConfigHistoryEvent[];
   loading: boolean;
+  auditEntityType: string;
 }) {
   return (
     <div className="border-t pt-4 space-y-2">
@@ -1826,7 +1854,7 @@ function AlertConfigHistorySection({
       {!loading && (
         <div className="flex justify-end pt-1">
           <a
-            href="/admin/audit-log?entityType=auth_rate_limit_alert_config"
+            href={`/admin/audit-log?entityType=${encodeURIComponent(auditEntityType)}`}
             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             data-testid="link-alert-config-view-all-audit"
           >
