@@ -107,6 +107,8 @@ vi.mock("../lib/external-order-mismatch", () => ({
 import {
   runMachineMismatchDigest,
   __setMachineMismatchDigestSenderForTests,
+  __resetMachineMismatchDigestStateForTests,
+  getMachineMismatchDigestStatus,
   MACHINE_MISMATCH_DIGEST_ACTION_TYPE,
   MACHINE_MISMATCH_DIGEST_ENTITY_TYPE,
   MACHINE_MISMATCH_DIGEST_ENTITY_ID,
@@ -128,6 +130,7 @@ beforeEach(() => {
   flaggedQueryShouldThrow = false;
   mockOpsAlertEmail.value = null;
   __setMachineMismatchDigestSenderForTests(null);
+  __resetMachineMismatchDigestStateForTests();
 });
 
 afterEach(() => {
@@ -224,6 +227,51 @@ describe("runMachineMismatchDigest", () => {
     const meta = auditRows[0].metadata as Record<string, unknown>;
     expect(meta.outcome).toBe("failed");
     expect(meta.reason).toContain("simulated DB outage");
+  });
+
+  it("exposes a heartbeat for the System Health page that advances on every run", async () => {
+    // Before any run, the status carries the cadence but no last-run info so
+    // the System Health card can render a "Pending" placeholder.
+    const before = getMachineMismatchDigestStatus();
+    expect(before.intervalMs).toBeGreaterThan(0);
+    expect(before.lastRanAt).toBeNull();
+    expect(before.lastOutcome).toBeNull();
+    expect(before.lastFlaggedCount).toBeNull();
+    expect(before.lastRecipient).toBeNull();
+    expect(before.lastReason).toBeNull();
+
+    // Successful "sent" run populates outcome, count, and recipient.
+    mockOpsAlertEmail.value = "ops@example.com";
+    flaggedQueryRows = [buildFlaggedRow(1), buildFlaggedRow(2)];
+    __setMachineMismatchDigestSenderForTests(async () => {});
+    await runMachineMismatchDigest();
+    const afterSent = getMachineMismatchDigestStatus();
+    expect(afterSent.lastOutcome).toBe("sent");
+    expect(afterSent.lastFlaggedCount).toBe(2);
+    expect(afterSent.lastRecipient).toBe("ops@example.com");
+    expect(afterSent.lastReason).toBeNull();
+    expect(afterSent.lastRanAt).not.toBeNull();
+    const sentAt = new Date(afterSent.lastRanAt as string).getTime();
+    expect(Number.isFinite(sentAt)).toBe(true);
+
+    // A subsequent "skipped_no_mismatches" run rewrites the snapshot — admins
+    // should always see the *most recent* run, never the last successful send.
+    flaggedQueryRows = [];
+    await runMachineMismatchDigest();
+    const afterSkip = getMachineMismatchDigestStatus();
+    expect(afterSkip.lastOutcome).toBe("skipped_no_mismatches");
+    expect(afterSkip.lastFlaggedCount).toBe(0);
+    expect(afterSkip.lastRecipient).toBeNull();
+
+    // A failing run also advances the heartbeat (and surfaces the reason)
+    // — exactly the signal an on-call needs for a sweep that started
+    // silently throwing.
+    flaggedQueryShouldThrow = true;
+    await runMachineMismatchDigest();
+    const afterFail = getMachineMismatchDigestStatus();
+    expect(afterFail.lastOutcome).toBe("failed");
+    expect(afterFail.lastReason).toContain("simulated DB outage");
+    expect(afterFail.lastRanAt).not.toBeNull();
   });
 
   it("records a failed outcome when the email send throws", async () => {

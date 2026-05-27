@@ -28,6 +28,7 @@ import {
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
+import { getMachineMismatchDigestStatus } from "../lib/machine-mismatch-daily-digest";
 import {
   evaluateRateLimitAuditFailureAlert,
   getRateLimitAuditFailureAlertingState,
@@ -2657,6 +2658,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
         emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
         auditLogRetention,
+        machineMismatchDigest: getMachineMismatchDigestStatus(),
         rateLimitAuditFailures,
         missingCriticalSecrets,
         portalUrl,

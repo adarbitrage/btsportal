@@ -256,7 +256,67 @@ async function findFlaggedOrders(
   return flagged;
 }
 
+/**
+ * Per-job heartbeat tracking surfaced on the admin System Health page so
+ * on-call can confirm the digest is firing and see whether the most recent
+ * attempt sent, was suppressed, or failed — without having to grep the
+ * audit log. Updated unconditionally at the end of every `runMachineMismatchDigest`
+ * call (success or failure) so a job that started silently throwing still
+ * shows up here via a stale `lastRanAt`.
+ */
+interface DigestRunState {
+  lastRanAt: Date;
+  lastOutcome: DigestOutcome;
+  lastFlaggedCount: number;
+  lastRecipient: string | null;
+  lastReason: string | null;
+}
+
+let lastRun: DigestRunState | null = null;
+
+function recordHeartbeat(result: DigestRunResult): void {
+  lastRun = {
+    lastRanAt: new Date(),
+    lastOutcome: result.outcome,
+    lastFlaggedCount: result.flagged.length,
+    lastRecipient: result.recipient,
+    lastReason: result.reason ?? null,
+  };
+}
+
+export interface MachineMismatchDigestStatus {
+  /** Run cadence in ms — UI uses this to flag a stale heartbeat (> 2× interval). */
+  intervalMs: number;
+  lastRanAt: string | null;
+  lastOutcome: DigestOutcome | null;
+  lastFlaggedCount: number | null;
+  lastRecipient: string | null;
+  lastReason: string | null;
+}
+
+/**
+ * Snapshot of the most recent digest run for the admin System Health page.
+ * Returns nulls (with the cadence still populated) when the job has not yet
+ * fired in this process so the UI can render a "Pending" placeholder.
+ */
+export function getMachineMismatchDigestStatus(): MachineMismatchDigestStatus {
+  return {
+    intervalMs: getRunIntervalMs(),
+    lastRanAt: lastRun ? lastRun.lastRanAt.toISOString() : null,
+    lastOutcome: lastRun ? lastRun.lastOutcome : null,
+    lastFlaggedCount: lastRun ? lastRun.lastFlaggedCount : null,
+    lastRecipient: lastRun ? lastRun.lastRecipient : null,
+    lastReason: lastRun ? lastRun.lastReason : null,
+  };
+}
+
+/** Test hook: reset the heartbeat state. Not intended for production use. */
+export function __resetMachineMismatchDigestStateForTests(): void {
+  lastRun = null;
+}
+
 async function recordRun(result: DigestRunResult): Promise<void> {
+  recordHeartbeat(result);
   try {
     await logAuditEvent({
       actionType: MACHINE_MISMATCH_DIGEST_ACTION_TYPE,

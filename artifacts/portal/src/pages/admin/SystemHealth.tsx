@@ -1878,6 +1878,175 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {health.services?.machineMismatchDigest && (() => {
+                interface MachineMismatchDigestStatus {
+                  intervalMs: number;
+                  lastRanAt: string | null;
+                  lastOutcome:
+                    | "sent"
+                    | "skipped_no_mismatches"
+                    | "skipped_no_recipient"
+                    | "skipped_sendgrid_not_configured"
+                    | "failed"
+                    | null;
+                  lastFlaggedCount: number | null;
+                  lastRecipient: string | null;
+                  lastReason: string | null;
+                }
+                const mmd = health.services.machineMismatchDigest as MachineMismatchDigestStatus;
+                const now = Date.now();
+                const lastRunMs = mmd.lastRanAt ? new Date(mmd.lastRanAt).getTime() : null;
+                // Flag a stale heartbeat: no row in > 2× the run interval.
+                // Mirrors the retention-sweep card's freshness check so on-call
+                // gets a consistent signal across every background job.
+                const staleThresholdMs = Math.max(mmd.intervalMs * 2, 1);
+                const isStale =
+                  lastRunMs === null
+                    ? false
+                    : now - lastRunMs > staleThresholdMs;
+                const isFailed = mmd.lastOutcome === "failed";
+                const flagged = isStale || isFailed;
+                const intervalHours = Math.max(1, Math.round(mmd.intervalMs / (60 * 60 * 1000)));
+                const intervalLabel = `${intervalHours}h`;
+                const outcomeLabels: Record<NonNullable<MachineMismatchDigestStatus["lastOutcome"]>, string> = {
+                  sent: "Sent",
+                  skipped_no_mismatches: "Skipped — no mismatches",
+                  skipped_no_recipient: "Skipped — no ops recipient",
+                  skipped_sendgrid_not_configured: "Skipped — SendGrid not configured",
+                  failed: "Failed",
+                };
+                const outcomeVariant: Record<NonNullable<MachineMismatchDigestStatus["lastOutcome"]>, "success" | "warning" | "outline"> = {
+                  sent: "success",
+                  skipped_no_mismatches: "outline",
+                  skipped_no_recipient: "warning",
+                  skipped_sendgrid_not_configured: "warning",
+                  failed: "warning",
+                };
+                const fmtRunLabel = (iso: string | null) => {
+                  if (!iso) return "Pending — digest has not reported a run yet";
+                  const rel = formatRelativeTime(iso);
+                  const abs = new Date(iso).toLocaleString();
+                  return rel ? `${rel} (${abs})` : abs;
+                };
+                return (
+                  <Card data-testid="card-machine-mismatch-digest">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Send className="w-4 h-4" />
+                        Machine mismatch daily digest
+                        <Badge variant="outline" className="ml-2 font-normal">
+                          every {intervalLabel}
+                        </Badge>
+                        {isStale && (
+                          <Badge
+                            variant="warning"
+                            className="ml-1"
+                            data-testid="machine-mismatch-digest-stale-badge"
+                          >
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Stale — no run in 2× interval
+                          </Badge>
+                        )}
+                        {isFailed && (
+                          <Badge
+                            variant="warning"
+                            className="ml-1"
+                            data-testid="machine-mismatch-digest-failed-badge"
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Last run failed
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Once per day, ops are emailed every Machine order whose granted
+                        product slugs disagree with the portal_product_keys The Machine sent.
+                        The heartbeat advances on every run — sent, suppressed, or failed —
+                        so a job that stops firing surfaces here.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div
+                        className={`rounded-md border p-3 ${
+                          flagged
+                            ? isFailed
+                              ? "border-red-500/40 bg-red-50 dark:bg-red-950/30"
+                              : "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30"
+                            : "border-border"
+                        }`}
+                        data-testid="machine-mismatch-digest-summary"
+                      >
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Last run</span>
+                            <span
+                              className={`font-medium text-right ${mmd.lastRanAt ? "" : "text-muted-foreground italic"}`}
+                              data-testid="machine-mismatch-digest-last-run"
+                              title={mmd.lastRanAt ? new Date(mmd.lastRanAt).toLocaleString() : undefined}
+                            >
+                              {fmtRunLabel(mmd.lastRanAt)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Outcome</span>
+                            <span
+                              className="font-medium text-right"
+                              data-testid="machine-mismatch-digest-outcome"
+                            >
+                              {mmd.lastOutcome ? (
+                                <Badge variant={outcomeVariant[mmd.lastOutcome]}>
+                                  {outcomeLabels[mmd.lastOutcome]}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground italic">—</span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Flagged orders</span>
+                            <span
+                              className="font-medium text-right"
+                              data-testid="machine-mismatch-digest-flagged-count"
+                            >
+                              {mmd.lastFlaggedCount === null
+                                ? "—"
+                                : `${mmd.lastFlaggedCount} order${mmd.lastFlaggedCount === 1 ? "" : "s"}`}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Recipient</span>
+                            <span
+                              className="font-medium text-right break-all"
+                              data-testid="machine-mismatch-digest-recipient"
+                            >
+                              {mmd.lastRecipient ?? <span className="text-muted-foreground italic">—</span>}
+                            </span>
+                          </div>
+                        </div>
+                        {mmd.lastReason && (
+                          <p
+                            className={`mt-2 text-xs ${
+                              isFailed ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
+                            }`}
+                            data-testid="machine-mismatch-digest-reason"
+                          >
+                            Reason: {mmd.lastReason}
+                          </p>
+                        )}
+                        {isStale && (
+                          <p
+                            className="mt-2 text-xs text-amber-700 dark:text-amber-300"
+                            data-testid="machine-mismatch-digest-stale-detail"
+                          >
+                            Digest hasn't reported in over 2× its {intervalLabel} interval — the daily job may have stopped. Check the API server logs.
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.rateLimitAuditFailures && (() => {
                 const ralf = health.services.rateLimitAuditFailures as {
                   totalCount: number;
