@@ -389,18 +389,6 @@ function AppCard({
               {app.description}
             </p>
 
-            {app.overviewVideoUrl && (
-              <div className="mb-3">
-                <VidalyticsDialog
-                  videoUrl={app.overviewVideoUrl}
-                  posterUrl={app.overviewVideoPoster}
-                  title={`${app.title} — Overview`}
-                  triggerLabel={`Watch ${app.title} overview`}
-                  variant="thumbnail"
-                />
-              </div>
-            )}
-
             {showHighlights && (
               <ul className="space-y-1 mb-3">
                 {app.highlights.map((h, i) => (
@@ -447,6 +435,16 @@ function AppCard({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {app.overviewVideoUrl && (
+                    <VidalyticsDialog
+                      videoUrl={app.overviewVideoUrl}
+                      posterUrl={app.overviewVideoPoster}
+                      title={`${app.title} — Overview`}
+                      triggerLabel={`Watch ${app.title} overview`}
+                      variant="button"
+                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:text-white"
+                    />
+                  )}
                   {app.appType === "chrome-extension" && app.externalUrl ? (
                     <Button
                       asChild

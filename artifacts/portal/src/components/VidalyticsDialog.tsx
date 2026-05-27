@@ -9,6 +9,7 @@ type VidalyticsDialogProps = {
   triggerLabel?: string;
   posterUrl?: string;
   variant?: "button" | "thumbnail";
+  className?: string;
 };
 
 export function VidalyticsDialog({
@@ -17,6 +18,7 @@ export function VidalyticsDialog({
   triggerLabel = "Watch overview",
   posterUrl,
   variant = "button",
+  className,
 }: VidalyticsDialogProps) {
   const [open, setOpen] = useState(false);
 
@@ -52,7 +54,7 @@ export function VidalyticsDialog({
           type="button"
           variant="outline"
           size="sm"
-          className="gap-1.5"
+          className={className ?? "gap-1.5"}
           onClick={() => setOpen(true)}
           data-testid={`button-overview-video-${encodeURIComponent(videoUrl)}`}
         >
