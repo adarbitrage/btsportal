@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import type { AppInstance, AppInstanceAppName } from "@workspace/api-client-react";
 import type { UseQueryOptions } from "@tanstack/react-query";
+import { TOOLS_VALUE } from "@/constants";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -634,7 +635,7 @@ export default function Apps() {
             <h1 className="text-3xl font-bold">Apps</h1>
           </div>
           <p className="text-muted-foreground">
-            Over $4,700,000 in proprietary tools, built in-house for the Build
+            Over {TOOLS_VALUE} in proprietary tools, built in-house for the Build
             Test Scale system and not available anywhere else. Each app removes a
             specific bottleneck in the workflow — from launching landing pages, to
             bulk-creating banner ads, to split testing at scale. Install the ones
