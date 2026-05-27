@@ -66,10 +66,213 @@
       "breakpoints": true
     },
     {
-      "idx": 35,
+      "idx": 9,
       "version": "7",
       "when": 1747872000000,
+      "tag": "0009_email_change_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1747958400000,
+      "tag": "0010_dedupe_member_app_instances",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1748044800000,
+      "tag": "0011_password_reset_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1748131200000,
+      "tag": "0012_email_change_attempts_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1748217600000,
+      "tag": "0013_audit_log_keyset_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1748304000000,
+      "tag": "0014_sessions_user_fk_cascade",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1748390400000,
+      "tag": "0015_email_change_attempts_admin_cancellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1748476800000,
+      "tag": "0016_phone_change_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1748563200000,
+      "tag": "0017_upgrade_prompt_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1748649600000,
+      "tag": "0018_email_change_attempts_member_dismissed",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1748736000000,
+      "tag": "0019_email_templates_starter_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1748822400000,
+      "tag": "0020_email_change_attempts_member_cancellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1748908800000,
+      "tag": "0021_normalize_products_entitlement_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1748995200000,
+      "tag": "0022_products_entitlement_keys_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1749081600000,
+      "tag": "0023_backfill_pushed_staging_to_knowledgebase_docs",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1749168000000,
+      "tag": "0024_api_keys_permissions_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1749254400000,
+      "tag": "0025_webhook_subscriptions_event_types_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1749340800000,
+      "tag": "0026_upgrade_prompt_events_locked_feature_keys_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1749427200000,
+      "tag": "0027_vault_resources_tags_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1749513600000,
+      "tag": "0028_coaching_sessions_action_items_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1749600000000,
+      "tag": "0029_communications_variables_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1749686400000,
+      "tag": "0030_lessons_action_items_array_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1749772800000,
+      "tag": "0031_user_products_external_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1749859200000,
+      "tag": "0032_webhook_logs_external_id_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1749945600000,
+      "tag": "0033_abuse_rate_limit_cleanup_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1750032000000,
+      "tag": "0034_webhook_logs_alert_sent_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1750118400000,
       "tag": "0035_media_mavens_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1750204800000,
+      "tag": "0036_machine_product_key_mappings",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1750291200000,
+      "tag": "0037_community_status_media_urls",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1750377600000,
+      "tag": "0038_community_reactions_target_type",
       "breakpoints": true
     }
   ]

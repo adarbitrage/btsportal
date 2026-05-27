@@ -82,8 +82,12 @@ WHERE "slug" = 'lifetime'
 ALTER TABLE "products"
   DROP CONSTRAINT IF EXISTS "products_highlights_is_array";
 
-ALTER TABLE "products"
-  ADD CONSTRAINT "products_highlights_is_array"
-  CHECK (jsonb_typeof("highlights") = 'array');
+DO $$ BEGIN
+  ALTER TABLE "products"
+    ADD CONSTRAINT "products_highlights_is_array"
+    CHECK (jsonb_typeof("highlights") = 'array');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 COMMIT;

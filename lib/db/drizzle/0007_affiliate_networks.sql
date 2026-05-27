@@ -1,4 +1,14 @@
-CREATE TABLE "affiliate_networks" (
+-- Companion migration for `affiliate_networks`. The project syncs schema via
+-- `drizzle-kit push`; this file exists to record the exact statements that
+-- were applied for audit and to give operators a transactional script.
+--
+-- Idempotent: every CREATE has an IF NOT EXISTS guard, the UNIQUE constraint
+-- is wrapped in a DO block, and the seed INSERT uses ON CONFLICT DO NOTHING,
+-- so the file is safe to re-run against a DB created via `drizzle-kit push`
+-- or against one that already has prior seed rows. Shares idx 0007 with
+-- 0007_flexy_ghl_oauth.sql, which is independently idempotent.
+
+CREATE TABLE IF NOT EXISTS "affiliate_networks" (
         "id" serial PRIMARY KEY NOT NULL,
         "slug" text NOT NULL,
         "name" text NOT NULL,
@@ -23,13 +33,20 @@ CREATE TABLE "affiliate_networks" (
         "display_order" integer DEFAULT 0 NOT NULL,
         "is_active" boolean DEFAULT true NOT NULL,
         "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-        CONSTRAINT "affiliate_networks_slug_unique" UNIQUE("slug")
+        "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX "affiliate_networks_display_order_idx" ON "affiliate_networks" USING btree ("display_order");
+DO $$ BEGIN
+        ALTER TABLE "affiliate_networks"
+                ADD CONSTRAINT "affiliate_networks_slug_unique" UNIQUE ("slug");
+EXCEPTION
+        WHEN duplicate_object THEN NULL;
+        WHEN duplicate_table  THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE INDEX "affiliate_networks_is_active_idx" ON "affiliate_networks" USING btree ("is_active");
+CREATE INDEX IF NOT EXISTS "affiliate_networks_display_order_idx" ON "affiliate_networks" USING btree ("display_order");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "affiliate_networks_is_active_idx" ON "affiliate_networks" USING btree ("is_active");
 --> statement-breakpoint
 INSERT INTO "affiliate_networks" ("slug","name","tagline","description","logo_url","logo_bg","highlights","publishers","approval_label","recommended_for_beginners","accent_preset","accent_border","accent_badge_bg","accent_badge_text","accent_badge_border","extra_cta_label","extra_cta_href","extra_cta_style","display_order","is_active") VALUES
   ('media-mavens','Media Mavens','Our own in-house curated network — designed specifically for this system.','If you''re brand new, start here. Media Mavens is our in-house network, built specifically for the Build Test Scale system, which gives you several real advantages over public marketplaces right from the start. Simple to sign up — no approval required.','/logos/media-mavens.png','bg-white','["Higher commissions than comparable products on other networks","No chargebacks — if a customer returns a product, you keep your commission","Pre-made advertorials (landing pages) for many products — meaning less work to get started","Works with all three ad publishers (Caterpillar, Grasshopper, Crane)"]','Caterpillar, Grasshopper, Crane','Instant signup',true,'emerald','border-emerald-300','bg-emerald-50','text-emerald-800','border-emerald-200','View Products','/media-mavens','emerald',0,true),
