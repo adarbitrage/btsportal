@@ -60,6 +60,9 @@ function buildHealth(overrides: {
   lastKind?: "engine" | "persist" | null;
   source?: "redis" | "memory";
   pods?: PodFixture[];
+  cumulativeTotal?: number;
+  cumulativeEngine?: number;
+  cumulativePersist?: number;
 }) {
   const {
     alerting,
@@ -70,6 +73,9 @@ function buildHealth(overrides: {
     lastKind = "persist",
     source,
     pods,
+    cumulativeTotal = 10,
+    cumulativeEngine = 4,
+    cumulativePersist = 6,
   } = overrides;
   return {
     status: alerting ? "degraded" : "healthy",
@@ -92,8 +98,8 @@ function buildHealth(overrides: {
           ...(pods ? { pods } : {}),
         },
         cumulative: {
-          totalCount: 10,
-          byKind: { engine: 4, persist: 6 },
+          totalCount: cumulativeTotal,
+          byKind: { engine: cumulativeEngine, persist: cumulativePersist },
           lastAt: "2025-05-27T12:00:00.000Z",
         },
         alerter: {
@@ -181,6 +187,29 @@ describe("SystemHealth — Background moderation failures card", () => {
     expect(
       screen.getByTestId("moderation-failures-banner"),
     ).toBeInTheDocument();
+  });
+
+  it("renders cumulative total and engine/persist counts from cumulative.byKind", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        alerting: false,
+        cumulativeTotal: 42,
+        cumulativeEngine: 17,
+        cumulativePersist: 25,
+      }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-moderation-failures");
+    expect(
+      within(card).getByTestId("moderation-failures-cumulative-total"),
+    ).toHaveTextContent("42");
+
+    const enginePersistLabel = within(card).getByText("engine / persist");
+    const enginePersistRow = enginePersistLabel.parentElement;
+    expect(enginePersistRow).not.toBeNull();
+    expect(enginePersistRow).toHaveTextContent(/17\s*\/\s*25/);
   });
 
   it("reads 'ok' on the badge and hides the banner when alerter.alerting is false", async () => {
