@@ -21,6 +21,7 @@ import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { seedCommunicationTemplates } from "./lib/seed-templates";
 import { seedVaultData } from "./lib/seed-vault";
+import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { affiliateNetworksTable } from "@workspace/db/schema";
 
 async function seed() {
@@ -1347,6 +1348,8 @@ async function seed() {
       extraCtaStyle: "default", logoUrl: "/logos/maxweb.jpg", displayOrder: 3, isActive: true,
     },
   ]).onConflictDoNothing({ target: affiliateNetworksTable.slug });
+
+  await seedAssistantCards();
 
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));

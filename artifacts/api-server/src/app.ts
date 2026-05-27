@@ -30,6 +30,7 @@ import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
+import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
@@ -96,6 +97,7 @@ ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensu
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
 seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moderation wordlist:", err));
+seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant cards:", err));
 subscribeWordlistInvalidations();
 
 (async () => {

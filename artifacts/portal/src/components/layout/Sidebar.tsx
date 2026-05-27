@@ -289,6 +289,16 @@ export const ADMIN_CHILDREN: NavNode[] = [
   },
   {
     kind: "folder",
+    storageKey: "admin-ai-assistant",
+    label: "AI Assistant",
+    icon: MessageCircle,
+    defaultOpen: false,
+    children: [
+      { kind: "leaf", href: "/admin/assistant/groups", label: "Card Library", icon: Library, requiredPermission: "content:manage" },
+    ],
+  },
+  {
+    kind: "folder",
     storageKey: "admin-tools-mgmt",
     label: "Tools Management",
     icon: Hammer,

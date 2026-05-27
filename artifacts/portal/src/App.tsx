@@ -139,6 +139,9 @@ import ModerationQueue from "@/pages/admin/moderation/queue";
 import ModerationWordlist from "@/pages/admin/moderation/wordlist";
 import YseOrders from "@/pages/admin/YseOrders";
 import YseGrantFailures from "@/pages/admin/YseGrantFailures";
+import AdminAssistantGroups from "@/pages/admin/AdminAssistantGroups";
+import AdminAssistantCards from "@/pages/admin/AdminAssistantCards";
+import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import MyProducts from "@/pages/MyProducts";
@@ -458,6 +461,9 @@ function Router() {
       <Route path="/admin/integrations/yse">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/machine">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/yse/failures">{() => <AdminRoute component={YseGrantFailures} permission="system:view" />}</Route>
+      <Route path="/admin/assistant/groups">{() => <AdminRoute component={AdminAssistantGroups} permission="content:manage" />}</Route>
+      <Route path="/admin/assistant/groups/:groupId/cards">{() => <AdminRoute component={AdminAssistantCards} permission="content:manage" />}</Route>
+      <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
