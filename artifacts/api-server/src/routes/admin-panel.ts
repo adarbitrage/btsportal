@@ -71,6 +71,8 @@ import {
   applyAiModerationThresholdConfigUpdate,
   validateUpdate as validateAiModerationThresholdUpdate,
   isAiModerationThresholdSettingKey,
+  computeAiThresholdPreview,
+  AI_MODERATION_THRESHOLD_BOUNDS,
 } from "../lib/moderation/ai-threshold-settings";
 import {
   getModerationFailuresInWindowAggregated,
@@ -3972,6 +3974,29 @@ router.get("/admin/ai-moderation-threshold-config", requirePermission("settings:
   } catch (error) {
     console.error("[Admin] Get AI moderation threshold config error:", error);
     res.status(500).json({ error: "Failed to fetch AI moderation threshold config" });
+  }
+});
+
+/**
+ * "What-if" preview for a proposed AI moderation flag threshold. Returns
+ * how many recent moderation_queue rows would have been flagged by the AI
+ * classifier at the proposed value vs the currently-saved one, so the
+ * Settings UI can warn admins before they apply an extreme value.
+ */
+router.get("/admin/ai-moderation-threshold-config/preview", requirePermission("settings:view"), async (req: Request, res: Response) => {
+  try {
+    const raw = req.query.threshold;
+    const parsed = Number(raw);
+    const { min, max } = AI_MODERATION_THRESHOLD_BOUNDS.flagThreshold;
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+      res.status(400).json({ error: `threshold must be a number between ${min} and ${max}` });
+      return;
+    }
+    const preview = await computeAiThresholdPreview(parsed);
+    res.json(preview);
+  } catch (error) {
+    console.error("[Admin] Preview AI moderation threshold error:", error);
+    res.status(500).json({ error: "Failed to compute AI moderation threshold preview" });
   }
 });
 

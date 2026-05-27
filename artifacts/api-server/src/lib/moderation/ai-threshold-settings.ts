@@ -15,8 +15,8 @@
  * path of every new post/comment.
  */
 
-import { db, systemSettingsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { db, systemSettingsTable, moderationQueueTable } from "@workspace/db";
+import { eq, inArray, gte, desc } from "drizzle-orm";
 
 export interface AiModerationThresholdConfig {
   /** Minimum classifier score (0..1) at which content is flagged. */
@@ -209,6 +209,86 @@ async function upsertSetting(
 
 async function deleteSetting(key: string): Promise<void> {
   await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, key));
+}
+
+export interface AiModerationThresholdPreview {
+  /** The proposed threshold the preview was computed against. */
+  threshold: number;
+  /** The currently-saved threshold (for side-by-side comparison). */
+  currentThreshold: number;
+  /** How many days of moderation_queue history were considered. */
+  sampleWindowDays: number;
+  /** Total queue rows scanned (capped). */
+  sampleSize: number;
+  /**
+   * Of those rows, how many have at least one AI classifier score that
+   * exceeds the proposed threshold (i.e. would be AI-flagged at that
+   * setting). Wordlist-only flags are unaffected by the threshold and
+   * are excluded from this count.
+   */
+  wouldBeFlaggedByAi: number;
+  /** Same count, but at the currently-saved threshold, for comparison. */
+  currentlyFlaggedByAi: number;
+}
+
+const PREVIEW_WINDOW_DAYS = 30;
+const PREVIEW_MAX_ROWS = 500;
+
+function maxAiScore(raw: unknown): number {
+  if (!raw || typeof raw !== "object") return 0;
+  let best = 0;
+  for (const v of Object.values(raw as Record<string, unknown>)) {
+    if (typeof v === "number" && Number.isFinite(v) && v > best) best = v;
+  }
+  return best;
+}
+
+/**
+ * Compute a "what-if" preview for the AI moderation flag threshold.
+ *
+ * We use the last `PREVIEW_WINDOW_DAYS` of `moderation_queue` rows (capped
+ * at `PREVIEW_MAX_ROWS`) as a representative sample of recently-scored
+ * content. For each row we look at the largest classifier score and check
+ * whether it exceeds the proposed threshold. That mirrors the engine's
+ * `Object.values(aiScores).some((s) => s > flagThreshold)` rule.
+ *
+ * Caveats surfaced to the UI:
+ * - The sample is biased toward content that was already flagged by *some*
+ *   rule, so the absolute count is a lower bound for low thresholds.
+ *   Still, the *direction* (more vs fewer than today) and the comparison
+ *   against the current threshold are the useful signals for an admin
+ *   sanity-checking a proposed change.
+ */
+export async function computeAiThresholdPreview(
+  proposedThreshold: number,
+): Promise<AiModerationThresholdPreview> {
+  const status = await getAiModerationThresholdConfigStatus();
+  const currentThreshold = status.config.flagThreshold;
+  const since = new Date(Date.now() - PREVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({ aiScores: moderationQueueTable.aiScores })
+    .from(moderationQueueTable)
+    .where(gte(moderationQueueTable.createdAt, since))
+    .orderBy(desc(moderationQueueTable.createdAt))
+    .limit(PREVIEW_MAX_ROWS);
+
+  let wouldBeFlaggedByAi = 0;
+  let currentlyFlaggedByAi = 0;
+  for (const row of rows) {
+    const score = maxAiScore(row.aiScores);
+    if (score > proposedThreshold) wouldBeFlaggedByAi += 1;
+    if (score > currentThreshold) currentlyFlaggedByAi += 1;
+  }
+
+  return {
+    threshold: proposedThreshold,
+    currentThreshold,
+    sampleWindowDays: PREVIEW_WINDOW_DAYS,
+    sampleSize: rows.length,
+    wouldBeFlaggedByAi,
+    currentlyFlaggedByAi,
+  };
 }
 
 export async function applyAiModerationThresholdConfigUpdate(

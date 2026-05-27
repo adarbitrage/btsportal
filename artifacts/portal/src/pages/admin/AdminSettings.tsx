@@ -8,12 +8,23 @@ import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, H
 import {
   adminPanelApi,
   type AiModerationThresholdConfigStatus,
+  type AiModerationThresholdPreview,
   type AuthRateLimitAlertConfigStatus,
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
   type MachineMismatchAlertConfigStatus,
   type ModerationFailureAlertConfigStatus,
 } from "@/lib/admin-panel-api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSettings() {
@@ -2448,6 +2459,26 @@ function RetentionConfigRow({
   );
 }
 
+const EXTREME_LOW_THRESHOLD = 0.1;
+const EXTREME_HIGH_THRESHOLD = 0.9;
+
+function isExtremeThreshold(value: number): boolean {
+  return value < EXTREME_LOW_THRESHOLD || value > EXTREME_HIGH_THRESHOLD;
+}
+
+function describeExtreme(value: number): string {
+  if (value <= 0) {
+    return "A threshold of 0 will flag every post and comment, drowning moderators in noise.";
+  }
+  if (value >= 1) {
+    return "A threshold of 1 effectively disables AI moderation — nothing will be auto-flagged for review.";
+  }
+  if (value < EXTREME_LOW_THRESHOLD) {
+    return "Very low thresholds flag almost everything the classifier sees, which can overwhelm the moderation queue.";
+  }
+  return "Very high thresholds let almost everything through, so the AI classifier will rarely catch borderline content.";
+}
+
 function AiModerationThresholdConfigCard() {
   const { toast } = useToast();
   const [status, setStatus] = useState<AiModerationThresholdConfigStatus | null>(null);
@@ -2455,6 +2486,11 @@ function AiModerationThresholdConfigCard() {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<string>("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<AiModerationThresholdPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValue, setPendingValue] = useState<number | null>(null);
 
   const hydrate = (s: AiModerationThresholdConfigStatus) => {
     setStatus(s);
@@ -2476,6 +2512,38 @@ function AiModerationThresholdConfigCard() {
 
   useEffect(() => { load(); }, []);
 
+  // Debounced preview: whenever the draft is a valid in-range number,
+  // ask the server how many recent items would have been AI-flagged at
+  // that value. Skip while we're still loading the base status.
+  useEffect(() => {
+    if (!status) return;
+    const n = Number(draft);
+    const { min, max } = status.bounds.flagThreshold;
+    if (!Number.isFinite(n) || n < min || n > max) {
+      setPreview(null);
+      setPreviewError(null);
+      setPreviewLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    const handle = window.setTimeout(async () => {
+      try {
+        const data = await adminPanelApi.getAiModerationThresholdPreview(n);
+        if (!cancelled) setPreview(data);
+      } catch (err: any) {
+        if (!cancelled) setPreviewError(err?.message || "Failed to load preview");
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [draft, status]);
+
   const validateLocal = (): { ok: boolean; value: number } => {
     if (!status) return { ok: false, value: 0 };
     const n = Number(draft);
@@ -2493,17 +2561,13 @@ function AiModerationThresholdConfigCard() {
   };
 
   const isDirty = !!status && Number(draft) !== status.config.flagThreshold;
+  const draftNum = Number(draft);
+  const draftIsExtreme = Number.isFinite(draftNum) && isExtremeThreshold(draftNum);
 
-  const handleSave = async () => {
-    if (!status) return;
-    const v = validateLocal();
-    if (!v.ok) {
-      toast({ title: "Fix the highlighted field and try again", variant: "destructive" });
-      return;
-    }
+  const persistValue = async (value: number) => {
     try {
       setSaving(true);
-      const data = await adminPanelApi.updateAiModerationThresholdConfig({ flagThreshold: v.value });
+      const data = await adminPanelApi.updateAiModerationThresholdConfig({ flagThreshold: value });
       hydrate(data);
       toast({ title: data.changedFields.length === 0 ? "No changes to save" : "AI moderation threshold saved" });
     } catch (err: any) {
@@ -2515,6 +2579,29 @@ function AiModerationThresholdConfigCard() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted field and try again", variant: "destructive" });
+      return;
+    }
+    if (isExtremeThreshold(v.value)) {
+      setPendingValue(v.value);
+      setConfirmOpen(true);
+      return;
+    }
+    await persistValue(v.value);
+  };
+
+  const handleConfirmSave = async () => {
+    if (pendingValue === null) return;
+    const value = pendingValue;
+    setConfirmOpen(false);
+    setPendingValue(null);
+    await persistValue(value);
   };
 
   const handleResetDefaults = async () => {
@@ -2581,11 +2668,69 @@ function AiModerationThresholdConfigCard() {
                   aria-invalid={!!fieldError}
                 />
                 <span className="text-xs text-muted-foreground">
-                  Range {status.bounds.flagThreshold.min}–{status.bounds.flagThreshold.max}. Current: {status.config.flagThreshold}. Default: {status.defaults.flagThreshold}.
+                  Range {status.bounds.flagThreshold.min}–{status.bounds.flagThreshold.max}.
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span data-testid="ai-moderation-flag-threshold-current">
+                  <span className="text-muted-foreground">Currently saved: </span>
+                  <span className="font-semibold tabular-nums">{status.config.flagThreshold}</span>
+                </span>
+                <span data-testid="ai-moderation-flag-threshold-default">
+                  <span className="text-muted-foreground">Shipped default: </span>
+                  <span className="font-semibold tabular-nums">{status.defaults.flagThreshold}</span>
                 </span>
               </div>
               {fieldError && (
                 <p className="text-xs text-destructive" data-testid="ai-moderation-flag-threshold-error">{fieldError}</p>
+              )}
+              <div
+                className="rounded-md border bg-muted/40 px-3 py-2 text-xs"
+                data-testid="ai-moderation-flag-threshold-preview"
+              >
+                {previewError ? (
+                  <span className="text-destructive">{previewError}</span>
+                ) : previewLoading && !preview ? (
+                  <span className="text-muted-foreground">Calculating preview…</span>
+                ) : preview ? (
+                  preview.sampleSize === 0 ? (
+                    <span className="text-muted-foreground">
+                      No moderation activity in the last {preview.sampleWindowDays} days to preview against.
+                    </span>
+                  ) : (
+                    <>
+                      <span>
+                        At <span className="font-semibold tabular-nums">{preview.threshold}</span>,{" "}
+                        <span className="font-semibold tabular-nums" data-testid="ai-moderation-flag-threshold-preview-would">
+                          {preview.wouldBeFlaggedByAi}
+                        </span>{" "}
+                        of the last <span className="tabular-nums">{preview.sampleSize}</span> reviewed items would have been
+                        AI-flagged (current threshold <span className="tabular-nums">{preview.currentThreshold}</span> flags{" "}
+                        <span
+                          className="font-semibold tabular-nums"
+                          data-testid="ai-moderation-flag-threshold-preview-current"
+                        >
+                          {preview.currentlyFlaggedByAi}
+                        </span>
+                        ).
+                      </span>
+                      <span className="block text-muted-foreground mt-1">
+                        Sample: moderation queue entries from the last {preview.sampleWindowDays} days. Wordlist hits are unaffected by this threshold.
+                      </span>
+                    </>
+                  )
+                ) : (
+                  <span className="text-muted-foreground">Enter a value between {status.bounds.flagThreshold.min} and {status.bounds.flagThreshold.max} to preview impact.</span>
+                )}
+              </div>
+              {draftIsExtreme && !fieldError && (
+                <p
+                  className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1"
+                  data-testid="ai-moderation-flag-threshold-extreme-warning"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>{describeExtreme(draftNum)} You'll be asked to confirm before saving.</span>
+                </p>
               )}
             </div>
 
@@ -2610,6 +2755,51 @@ function AiModerationThresholdConfigCard() {
           </>
         )}
       </CardContent>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (!open) setPendingValue(null);
+        }}
+      >
+        <AlertDialogContent data-testid="ai-moderation-flag-threshold-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save an extreme threshold?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  You're about to set the AI moderation flag threshold to{" "}
+                  <span className="font-semibold tabular-nums">
+                    {pendingValue ?? ""}
+                  </span>
+                  .
+                </p>
+                <p>{pendingValue !== null ? describeExtreme(pendingValue) : ""}</p>
+                {preview && pendingValue !== null && preview.threshold === pendingValue && preview.sampleSize > 0 && (
+                  <p className="text-muted-foreground">
+                    Based on the last {preview.sampleWindowDays} days,{" "}
+                    <span className="font-semibold tabular-nums">{preview.wouldBeFlaggedByAi}</span> of{" "}
+                    <span className="tabular-nums">{preview.sampleSize}</span> reviewed items would have been AI-flagged
+                    (vs <span className="tabular-nums">{preview.currentlyFlaggedByAi}</span> at the current threshold of{" "}
+                    <span className="tabular-nums">{preview.currentThreshold}</span>).
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="ai-moderation-flag-threshold-confirm-cancel">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              data-testid="ai-moderation-flag-threshold-confirm-save"
+            >
+              Yes, save anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

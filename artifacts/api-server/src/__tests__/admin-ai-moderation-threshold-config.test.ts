@@ -3,7 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, systemSettingsTable, auditLogTable } from "@workspace/db";
+import { db, usersTable, systemSettingsTable, auditLogTable, moderationQueueTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 vi.mock("../lib/redis", () => ({
@@ -65,6 +65,32 @@ async function clearAuditRows() {
     .where(eq(auditLogTable.entityType, "ai_moderation_threshold_config"));
 }
 
+const seededQueueIds: number[] = [];
+
+async function clearQueueRows() {
+  if (seededQueueIds.length === 0) return;
+  await db.delete(moderationQueueTable).where(inArray(moderationQueueTable.id, seededQueueIds));
+  seededQueueIds.length = 0;
+}
+
+async function seedQueueRow(authorId: number, aiScores: Record<string, number>, triggeredBy = "ai_classifier") {
+  const [row] = await db
+    .insert(moderationQueueTable)
+    .values({
+      targetType: "post",
+      targetId: Math.floor(Math.random() * 1_000_000),
+      authorId,
+      body: `preview-test-${randomUUID().slice(0, 6)}`,
+      status: "pending",
+      triggeredBy,
+      wordlistMatches: [],
+      aiScores,
+    })
+    .returning({ id: moderationQueueTable.id });
+  seededQueueIds.push(row.id);
+  return row.id;
+}
+
 beforeAll(async () => {
   app = buildTestAppWithRouters([adminPanelRouter]);
   const admin = await insertUser("super_admin", "admin");
@@ -75,15 +101,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await clearQueueRows();
   await clearConfigRows();
   await clearAuditRows();
   if (seededUserIds.length > 0) {
+    await db.delete(moderationQueueTable).where(inArray(moderationQueueTable.authorId, seededUserIds));
     await db.delete(auditLogTable).where(inArray(auditLogTable.actorId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
 
 beforeEach(async () => {
+  await clearQueueRows();
   await clearConfigRows();
   await clearAuditRows();
 });
@@ -297,5 +326,73 @@ describe("Engine reads the configured threshold at evaluate-time", () => {
     vi.doUnmock("../lib/moderation/wordlist");
     vi.doUnmock("../lib/moderation/classifier");
     vi.resetModules();
+  });
+});
+
+describe("GET /admin/ai-moderation-threshold-config/preview", () => {
+  it("requires admin auth", async () => {
+    const res = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=0.5");
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects non-admin users", async () => {
+    const res = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=0.5")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects out-of-range thresholds", async () => {
+    const tooHigh = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=1.5")
+      .set("Cookie", adminCookie);
+    expect(tooHigh.status).toBe(400);
+
+    const notANumber = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=banana")
+      .set("Cookie", adminCookie);
+    expect(notANumber.status).toBe(400);
+  });
+
+  it("returns zero counts and zero sample when there's no recent queue activity", async () => {
+    const res = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=0.5")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.threshold).toBe(0.5);
+    expect(res.body.currentThreshold).toBe(AI_MODERATION_THRESHOLD_DEFAULTS.flagThreshold);
+    expect(res.body.sampleSize).toBe(0);
+    expect(res.body.wouldBeFlaggedByAi).toBe(0);
+    expect(res.body.currentlyFlaggedByAi).toBe(0);
+    expect(typeof res.body.sampleWindowDays).toBe("number");
+  });
+
+  it("counts queue rows whose max AI score exceeds the proposed and current thresholds", async () => {
+    // Three rows: max scores 0.8, 0.6, 0.2.
+    await seedQueueRow(adminId, { toxicity: 0.8, spam: 0.1, harassment: 0, hate_speech: 0 });
+    await seedQueueRow(adminId, { toxicity: 0.2, spam: 0.6, harassment: 0.1, hate_speech: 0 });
+    await seedQueueRow(adminId, { toxicity: 0.2, spam: 0, harassment: 0, hate_speech: 0 }, "wordlist_soft");
+
+    // Default current threshold is 0.5 → rows with max 0.8 and 0.6 exceed it = 2.
+    // Proposed 0.7 → only the 0.8 row exceeds = 1.
+    const res = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=0.7")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.sampleSize).toBe(3);
+    expect(res.body.wouldBeFlaggedByAi).toBe(1);
+    expect(res.body.currentlyFlaggedByAi).toBe(2);
+    expect(res.body.currentThreshold).toBe(AI_MODERATION_THRESHOLD_DEFAULTS.flagThreshold);
+  });
+
+  it("reports zero would-be-flagged at the max threshold (effectively disabling AI moderation)", async () => {
+    await seedQueueRow(adminId, { toxicity: 0.99, spam: 0, harassment: 0, hate_speech: 0 });
+    const res = await request(app)
+      .get("/api/admin/ai-moderation-threshold-config/preview?threshold=1")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.wouldBeFlaggedByAi).toBe(0);
+    expect(res.body.currentlyFlaggedByAi).toBe(1);
   });
 });

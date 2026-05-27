@@ -318,6 +318,15 @@ export type AiModerationThresholdConfigStatus = {
   };
 };
 
+export type AiModerationThresholdPreview = {
+  threshold: number;
+  currentThreshold: number;
+  sampleWindowDays: number;
+  sampleSize: number;
+  wouldBeFlaggedByAi: number;
+  currentlyFlaggedByAi: number;
+};
+
 export type ChangeHistoryRetentionConfig = {
   emailRetentionDays: number;
   phoneRetentionDays: number;
@@ -1359,6 +1368,13 @@ export const adminPanelApi = {
     const res = await authFetch("/admin/ai-moderation-threshold-config");
     if (!res.ok) throw new Error("Failed to fetch AI moderation threshold config");
     return res.json() as Promise<AiModerationThresholdConfigStatus>;
+  },
+
+  async getAiModerationThresholdPreview(threshold: number) {
+    const qs = new URLSearchParams({ threshold: String(threshold) });
+    const res = await authFetch(`/admin/ai-moderation-threshold-config/preview?${qs.toString()}`);
+    if (!res.ok) throw new Error("Failed to fetch AI moderation threshold preview");
+    return res.json() as Promise<AiModerationThresholdPreview>;
   },
 
   async updateAiModerationThresholdConfig(payload: { flagThreshold?: number | null }) {
