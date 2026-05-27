@@ -25,6 +25,7 @@ import {
   GripVertical,
   Bot,
   User,
+  Sparkles,
 } from "lucide-react";
 import {
   DndContext,
@@ -52,6 +53,7 @@ import {
   useAdminReorderAssistantQuestions,
   type AssistantCardQuestion,
 } from "@/lib/admin-api";
+import { GenerateQuestionsModal } from "@/components/admin/GenerateQuestionsModal";
 
 function GeneratedByBadge({ question }: { question: AssistantCardQuestion }) {
   if (question.generatedBy === "ai") {
@@ -269,6 +271,7 @@ export default function AdminAssistantQuestions() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<AssistantCardQuestion | null>(null);
   const [localQuestions, setLocalQuestions] = useState<AssistantCardQuestion[] | null>(null);
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   const group = groups.find((g) => g.id === groupId);
   const card = allCards.find((c) => c.id === cardId);
@@ -374,7 +377,9 @@ export default function AdminAssistantQuestions() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Task 5 slot: "Generate Questions with AI" button will be added here */}
+              <Button variant="outline" onClick={() => setGenerateOpen(true)}>
+                <Sparkles className="w-4 h-4 mr-1" /> Generate with AI
+              </Button>
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4 mr-1" /> Add Question
               </Button>
@@ -431,6 +436,12 @@ export default function AdminAssistantQuestions() {
           open={dialogOpen}
           onClose={closeDialog}
           question={editingQuestion}
+          cardId={cardId}
+        />
+
+        <GenerateQuestionsModal
+          open={generateOpen}
+          onClose={() => setGenerateOpen(false)}
           cardId={cardId}
         />
       </div>

@@ -1664,3 +1664,60 @@ export function useAdminUpgradeProducts() {
     queryFn: () => adminFetch<AdminUpgradeProduct[]>("/admin/products"),
   });
 }
+
+// ─── KB Docs (for the Generate Questions picker) ──────────────────────────────
+
+export interface KbDoc {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useAdminKbDocs(search?: string) {
+  return useQuery({
+    queryKey: ["/api/admin/chat/knowledgebase", search ?? ""],
+    queryFn: () =>
+      adminFetch<KbDoc[]>(
+        `/admin/chat/knowledgebase${search ? `?search=${encodeURIComponent(search)}` : ""}`,
+      ),
+  });
+}
+
+// ─── Generate Questions ────────────────────────────────────────────────────────
+
+export interface GenerateQuestionsCandidate {
+  question_text: string;
+  source_kb_doc_ids: number[];
+  retrieval_confidence: number;
+}
+
+export interface GenerateQuestionsResult {
+  candidates: GenerateQuestionsCandidate[];
+  discarded_count: number;
+  warning?: string;
+}
+
+export function useAdminGenerateQuestions() {
+  return useMutation({
+    mutationFn: (data: {
+      cardId: number;
+      kbDocIds: number[];
+      kbTags: string[];
+      targetCount: number;
+    }) =>
+      adminFetch<GenerateQuestionsResult>(
+        `/admin/assistant/cards/${data.cardId}/generate-questions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            kb_doc_ids: data.kbDocIds,
+            kb_tags: data.kbTags,
+            target_count: data.targetCount,
+          }),
+        },
+      ),
+  });
+}
