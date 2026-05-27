@@ -177,7 +177,7 @@ const MEMBER_NAV: NavNode[] = [
   { kind: "leaf", href: "/account/products", label: "My Products", icon: Package },
 ];
 
-const ADMIN_CHILDREN: NavNode[] = [
+export const ADMIN_CHILDREN: NavNode[] = [
   { kind: "leaf", href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, requiredPermission: "dashboard:view" },
   { kind: "leaf", href: "/admin/members", label: "Members", icon: Users, requiredPermission: "members:view" },
   { kind: "leaf", href: "/admin/settings", label: "Products & Entitlements", icon: Layers, requiredPermission: "settings:view" },
