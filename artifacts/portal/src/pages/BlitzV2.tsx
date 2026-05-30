@@ -86,12 +86,13 @@ const PHASE_PAGER_CLASSES: Record<LessonPhase, { card: string; eyebrow: string; 
   scale: { card: "border-[#641f9e] bg-[#7f2ac9] hover:bg-[#641f9e]", eyebrow: "text-white/90", title: "text-white" },
 };
 
-// Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
-// + steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section attribute.
-// To deep-link cleanly we override visibility of those inner divs at runtime
-// per lesson-section. Keys are LESSON_LOOKUP section values that should render
-// part (or all) of module1; sections not listed here let module1 fall through
-// to the default data-section filter (which will hide it).
+// The Phase 1 overview (#module1-overview, section s3) is its own top-level
+// module and is filtered by the generic data-section pass. Module1 now wraps
+// only steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section
+// attribute. To deep-link cleanly we override visibility of those inner divs
+// at runtime per lesson-section. Keys are LESSON_LOOKUP section values that
+// should render part (or all) of module1; sections not listed here let module1
+// fall through to the default data-section filter (which will hide it).
 // Step 2 (Creative Assets) is split into four lessons. Each sub-block of
 // #blitz-step2 (#step2-overview, #step2-native, #step2-mm, #step2-cb) is
 // shown for its corresponding lesson section.
@@ -107,23 +108,21 @@ const MODULE1_OVERRIDES: Record<
   string,
   {
     showModule1: boolean;
-    showOverview: boolean;
     showStep1: boolean;
     showStep2: boolean;
     step2Parts: Step2Parts;
   }
 > = {
-  s3: { showModule1: true, showOverview: true, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s5: { showModule1: true, showOverview: false, showStep1: true, showStep2: false, step2Parts: NO_STEP2 },
-  s6: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: true, native: false, mm: false, cb: false } },
-  s6b: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: true, mm: false, cb: false } },
-  s6c: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: true, cb: false } },
-  s6d: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
-  s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s8b: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s10: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s5: { showModule1: true, showStep1: true, showStep2: false, step2Parts: NO_STEP2 },
+  s6: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: true, native: false, mm: false, cb: false } },
+  s6b: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: true, mm: false, cb: false } },
+  s6c: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: true, cb: false } },
+  s6d: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
+  s7: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8b: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s9: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s10: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
 };
 void ALL_STEP2;
 
@@ -725,69 +724,8 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 </div>
 
-<!-- CHOOSE YOUR PATH -->
-<span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
-  <div class="module-header"><span class="mod-badge build">4 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
-  <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
-
-  <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
-
-  <div class="network-grid">
-    <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
-      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
-      <div class="net-desc">Our own in-house curated network — built for this system.
-        <ul>
-          <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
-          <li><strong>No chargebacks</strong> — you keep your commission on returns</li>
-          <li><strong>Pre-made advertorials</strong> for many products — start testing faster</li>
-          <li>Works with Caterpillar, Grasshopper, and Crane</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--cb-border);background:var(--cb-bg);">
-      <div class="net-name"><span class="path-tag tag-cb">ClickBank</span></div>
-      <div class="net-desc">A large public marketplace with thousands of products. Simple to sign up — no approval required.
-        <ul>
-          <li>You'll build your own jump pages from the product's VSL</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--af-border);background:var(--af-bg);">
-      <div class="net-name"><span class="path-tag tag-af">Affiliati</span></div>
-      <div class="net-desc">A curated network with many strong offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
-        <ul>
-          <li>You'll build your own jump pages from the product's VSL</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--mw-border);background:var(--mw-bg);">
-      <div class="net-name"><span class="path-tag tag-mw">MaxWeb</span></div>
-      <div class="net-desc">A curated network with quality offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
-        <ul>
-          <li>You'll build your own landing pages</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <h3>Your Path in This Guide</h3>
-  <div class="card">
-    <p>Your path is your network choice + Caterpillar. Steps labeled <span class="path-tag tag-all">Everyone</span> always apply regardless of network. Look for your network's colored label for steps that are specific to you.</p>
-    <div class="path-grid">
-      <div class="path-cell" style="background:var(--mm-bg);border:1px solid var(--mm-border);"><span class="path-tag tag-mm">Media Mavens</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar &nbsp;⭐</span></div>
-      <div class="path-cell" style="background:var(--cb-bg);border:1px solid var(--cb-border);"><span class="path-tag tag-cb">ClickBank</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-      <div class="path-cell" style="background:var(--af-bg);border:1px solid var(--af-border);"><span class="path-tag tag-af">Affiliati</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-      <div class="path-cell" style="background:var(--mw-bg);border:1px solid var(--mw-border);"><span class="path-tag tag-mw">MaxWeb</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- MODULE 1: BUILD -->
-<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
-  <div id="module1-overview">
+<!-- MODULE 1: BUILD — OVERVIEW -->
+<span id="s3" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1-overview" data-section="s3">
   <div class="module-header"><span class="mod-badge build">3 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in the Creative Assets foundation lesson — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
@@ -910,7 +848,70 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Your network determines your path. If you're between networks, your coach can help you choose.</p>
   </div>
 
-  </div><!-- end module1-overview -->
+</div>
+
+<!-- CHOOSE YOUR PATH -->
+<span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
+  <div class="module-header"><span class="mod-badge build">4 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
+  <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
+
+  <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
+
+  <div class="network-grid">
+    <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
+      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
+      <div class="net-desc">Our own in-house curated network — built for this system.
+        <ul>
+          <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
+          <li><strong>No chargebacks</strong> — you keep your commission on returns</li>
+          <li><strong>Pre-made advertorials</strong> for many products — start testing faster</li>
+          <li>Works with Caterpillar, Grasshopper, and Crane</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--cb-border);background:var(--cb-bg);">
+      <div class="net-name"><span class="path-tag tag-cb">ClickBank</span></div>
+      <div class="net-desc">A large public marketplace with thousands of products. Simple to sign up — no approval required.
+        <ul>
+          <li>You'll build your own jump pages from the product's VSL</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--af-border);background:var(--af-bg);">
+      <div class="net-name"><span class="path-tag tag-af">Affiliati</span></div>
+      <div class="net-desc">A curated network with many strong offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
+        <ul>
+          <li>You'll build your own jump pages from the product's VSL</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--mw-border);background:var(--mw-bg);">
+      <div class="net-name"><span class="path-tag tag-mw">MaxWeb</span></div>
+      <div class="net-desc">A curated network with quality offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
+        <ul>
+          <li>You'll build your own landing pages</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>Your Path in This Guide</h3>
+  <div class="card">
+    <p>Your path is your network choice + Caterpillar. Steps labeled <span class="path-tag tag-all">Everyone</span> always apply regardless of network. Look for your network's colored label for steps that are specific to you.</p>
+    <div class="path-grid">
+      <div class="path-cell" style="background:var(--mm-bg);border:1px solid var(--mm-border);"><span class="path-tag tag-mm">Media Mavens</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar &nbsp;⭐</span></div>
+      <div class="path-cell" style="background:var(--cb-bg);border:1px solid var(--cb-border);"><span class="path-tag tag-cb">ClickBank</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+      <div class="path-cell" style="background:var(--af-bg);border:1px solid var(--af-border);"><span class="path-tag tag-af">Affiliati</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+      <div class="path-cell" style="background:var(--mw-bg);border:1px solid var(--mw-border);"><span class="path-tag tag-mw">MaxWeb</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODULE 1: BUILD -->
+<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
   <div id="module1-steps">
   <div id="blitz-step1">
   <div class="module-header"><span class="mod-badge build">5 — Build — Product Selection</span><h2 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h2></div>
@@ -1907,11 +1908,11 @@ export default function BlitzV2() {
       m.style.display = sections.includes(wanted) ? "" : "none";
     });
 
-    // Module1 wraps three logical sub-sections (overview + step 1 + step 2)
-    // under a single data-section, so apply explicit per-section overrides
-    // to control its outer + inner visibility.
+    // Module1 wraps two logical sub-sections (step 1 + step 2) under a single
+    // data-section, so apply explicit per-section overrides to control its
+    // outer + inner visibility. (The overview is now its own top-level module
+    // and is handled by the generic data-section pass above.)
     const m1 = contentEl.querySelector<HTMLElement>("#module1");
-    const m1Overview = contentEl.querySelector<HTMLElement>("#module1-overview");
     const m1Steps = contentEl.querySelector<HTMLElement>("#module1-steps");
     const m1Step1 = contentEl.querySelector<HTMLElement>("#blitz-step1");
     const m1Step2 = contentEl.querySelector<HTMLElement>("#blitz-step2");
@@ -1922,7 +1923,6 @@ export default function BlitzV2() {
     const ovr = MODULE1_OVERRIDES[wanted];
     if (ovr) {
       if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
-      if (m1Overview) m1Overview.style.display = ovr.showOverview ? "" : "none";
       if (m1Steps) {
         m1Steps.style.display = ovr.showStep1 || ovr.showStep2 ? "" : "none";
       }
@@ -1935,7 +1935,6 @@ export default function BlitzV2() {
     } else {
       // Lesson section unrelated to module1 — restore inner defaults so a
       // later switch back into module1 starts from a clean slate.
-      if (m1Overview) m1Overview.style.display = "";
       if (m1Steps) m1Steps.style.display = "";
       if (m1Step1) m1Step1.style.display = "";
       if (m1Step2) m1Step2.style.display = "";
