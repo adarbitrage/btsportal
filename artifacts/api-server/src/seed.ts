@@ -22,6 +22,8 @@ import bcrypt from "bcryptjs";
 import { seedCommunicationTemplates } from "./lib/seed-templates";
 import { seedVaultData } from "./lib/seed-vault";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
+import { seedKnowledgebaseFromFiles } from "./lib/seed-kb";
+import { ANTI_HALLUCINATION_SYSTEM_PROMPT } from "./lib/chat-system-prompt";
 import { affiliateNetworksTable } from "@workspace/db/schema";
 
 async function seed() {
@@ -591,88 +593,9 @@ async function seed() {
 
   await db.insert(chatSystemPromptsTable).values({
     name: "default",
-    content: `You are the BTS (Build Test Scale) AI Chat Assistant — a knowledgeable, encouraging mentor for affiliate marketing members.
-
-## Your Role
-- Help members with affiliate marketing strategy, campaign optimization, and platform navigation
-- Answer questions about BTS training content, tools, and best practices
-- Provide actionable, step-by-step guidance tailored to the member's level
-- Be encouraging but honest — celebrate wins and give constructive feedback
-
-## Member Context
-- Member name: {{member_name}}
-- Chat tier: {{chat_tier}}
-- Daily message limit: {{daily_limit}}
-
-## Guidelines
-1. Always be professional, friendly, and supportive
-2. Give specific, actionable advice rather than vague suggestions
-3. Reference BTS training modules and resources when relevant
-4. If a question is about billing, account issues, or technical problems you cannot solve, suggest creating a support ticket by saying [SUGGEST_TICKET]
-5. Never provide financial guarantees or income claims
-6. Stay focused on affiliate marketing and BTS platform topics
-7. If you don't know something, say so honestly rather than guessing
-
-## Response Style
-- Use clear formatting with headers, bullet points, and numbered lists
-- Keep responses focused and concise
-- Include examples when helpful
-- End with a follow-up question or next step when appropriate`,
+    content: ANTI_HALLUCINATION_SYSTEM_PROMPT,
     isActive: true,
   });
-
-  await db.insert(knowledgebaseDocsTable).values([
-    {
-      title: "Getting Started with BTS",
-      category: "faq",
-      content: "Welcome to Build Test Scale! BTS is a comprehensive affiliate marketing training platform. To get started: 1) Complete your onboarding checklist, 2) Watch the Welcome video in Track 1, 3) Choose your niche using our research methods, 4) Set up your accounts following the Foundation module. Your dashboard shows your progress, upcoming coaching calls, and quick links to continue learning.",
-    },
-    {
-      title: "How to Choose a Profitable Niche",
-      category: "platform_guide",
-      content: "Choosing a niche is one of the most important decisions in affiliate marketing. Key criteria: 1) Passion or interest in the topic, 2) Market demand (use Google Trends, keyword research), 3) Monetization potential (check affiliate programs in the space), 4) Competition level (aim for niches with competition but not oversaturated). Popular niches for beginners include health & wellness, personal finance, and technology. The BTS Niche Research Methods lesson in Module 2 covers this in detail.",
-    },
-    {
-      title: "Understanding Affiliate Commissions",
-      category: "faq",
-      content: "Affiliate commissions vary by program and product type. Common commission structures: 1) Pay-per-sale (CPS): earn a percentage of each sale, typically 5-50%, 2) Pay-per-lead (CPL): earn for each qualified lead, usually $1-$50, 3) Pay-per-click (CPC): earn per click, usually $0.01-$0.50. Recurring commissions are available for subscription products. BTS members can earn commissions through the BTS affiliate program at entry, mid, premium, or top tier based on their membership level.",
-    },
-    {
-      title: "Campaign Tracking Setup Guide",
-      category: "platform_guide",
-      content: "Proper tracking is essential for profitable campaigns. Steps to set up tracking: 1) Choose a tracking platform (recommended: Voluum, RedTrack, or free alternatives), 2) Set up your tracking domain, 3) Create tracking links for each traffic source, 4) Set up postback URLs with your affiliate networks, 5) Test your tracking flow end-to-end before spending on ads. The Basic Tracking Setup lesson in Module 3 walks through this process step by step.",
-    },
-    {
-      title: "Facebook Ads Best Practices for Affiliates",
-      category: "marketing",
-      content: "Facebook Ads can be highly profitable for affiliate marketing when done right. Best practices: 1) Start with a small daily budget ($20-50), 2) Use broad targeting initially and let Facebook's algorithm optimize, 3) Create multiple ad variations for testing, 4) Use advertorial/bridge pages instead of direct linking, 5) Monitor metrics: CTR > 1%, CPC reasonable for your niche, positive ROAS within 3-5 days. Common mistakes: scaling too fast, not testing creatives, ignoring compliance rules. See the Scaling Facebook Ads module for advanced strategies.",
-    },
-    {
-      title: "Compliance and FTC Guidelines",
-      category: "compliance",
-      content: "Compliance is critical in affiliate marketing. Key FTC guidelines: 1) Always disclose your affiliate relationship clearly, 2) Don't make false or misleading claims, 3) Only promote products you genuinely believe in, 4) Include proper disclaimers on landing pages, 5) Follow platform-specific rules (Facebook, Google, etc.). Consequences of non-compliance include account bans, legal action, and loss of affiliate partnerships. The Compliance Basics lesson covers everything you need to know.",
-    },
-    {
-      title: "Scaling Your Campaigns Profitably",
-      category: "advanced_strategy",
-      content: "Scaling is about increasing your ad spend while maintaining profitability. Two approaches: 1) Vertical scaling: increase budget on winning campaigns gradually (20-30% per day), 2) Horizontal scaling: duplicate winning campaigns to new audiences, placements, or platforms. Key metrics to watch: ROAS (should stay above your break-even), frequency (keep below 3-4), CPM trends. When to scale: 3+ consecutive profitable days, stable CPA, proven creative. See the Scaling module in Track 4 for detailed strategies.",
-    },
-    {
-      title: "Common Troubleshooting Issues",
-      category: "troubleshooting",
-      content: "Common issues and solutions: 1) Videos not loading: clear browser cache, try a different browser, check internet connection. 2) Progress not saving: ensure you click the 'Mark Complete' button, refresh the page. 3) Can't access a module: check that your membership tier includes the required entitlement. 4) Coaching call link not working: links become active 5 minutes before the scheduled time. 5) Account locked: after 5 failed login attempts, wait 15 minutes or reset your password. For other issues, create a support ticket.",
-    },
-    {
-      title: "BTS Membership Tiers Explained",
-      category: "faq",
-      content: "BTS offers several membership tiers: 1) Frontend Products (Reserve Income, Backroad, Off-Market): foundational training and basic support. 2) LaunchPad: advanced content + software tools. 3) 3-Month Mentorship: adds group coaching and community access. 4) 6-Month Mentorship: adds mastermind sessions and expanded tools. 5) 1-Year Mentorship: includes monthly 1-on-1 coaching. 6) Lifetime Mentorship: full access forever with weekly 1-on-1 coaching and VIP support. Each tier builds on the previous, unlocking more resources and support.",
-    },
-    {
-      title: "Writing High-Converting Ad Copy",
-      category: "marketing",
-      content: "Great ad copy follows proven frameworks: 1) AIDA: Attention, Interest, Desire, Action. 2) PAS: Problem, Agitate, Solution. 3) Hook-Story-Offer: grab attention, tell a relatable story, present your offer. Tips for affiliate ad copy: use emotional triggers, focus on benefits not features, include social proof when possible, create urgency without being pushy, test multiple angles. The Advanced Copywriting module covers headline formulas, emotional triggers, and data-driven optimization.",
-    },
-  ]);
 
   const [chatSession1] = await db.insert(chatSessionsTable).values({
     userId: marcus.id,
@@ -1350,6 +1273,8 @@ async function seed() {
   ]).onConflictDoNothing({ target: affiliateNetworksTable.slug });
 
   await seedAssistantCards();
+
+  await seedKnowledgebaseFromFiles();
 
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));

@@ -1,7 +1,13 @@
-import { db, productsTable } from "@workspace/db";
+import { db, productsTable, chatSystemPromptsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
+import { seedKnowledgebaseFromFiles } from "./seed-kb";
+import {
+  ANTI_HALLUCINATION_SYSTEM_PROMPT,
+  ANTI_HALLUCINATION_SENTINEL,
+  LEGACY_GENERIC_KB_TITLES,
+} from "./chat-system-prompt";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -85,9 +91,57 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("webhook_logs.external_id UNIQUE constraint");
   }
 
+  // 4. Remove legacy generic KB docs and ensure the anti-hallucination system
+  //    prompt is active. Idempotent: safe to run on every startup.
+  try {
+    await ensureKBGrounding();
+  } catch (err) {
+    console.error("[Bootstrap] ensureKBGrounding() threw:", err);
+    missing.push("ensureKBGrounding");
+  }
+
   if (missing.length === 0) {
     console.log("[Bootstrap] All critical prerequisites OK");
   }
 
   return { ok: missing.length === 0, missing };
+}
+
+async function ensureKBGrounding(): Promise<void> {
+  // 1. Remove legacy generic KB docs that can bias retrieval toward non-BTS facts.
+  //    These were the original 10 placeholder rows seeded before real BTS content
+  //    was ingested. The real BTS corpus (curriculum, faq, glossary, coaching, etc.)
+  //    now covers these topics with authoritative content.
+  const placeholders = LEGACY_GENERIC_KB_TITLES.map((t) => `'${t.replace(/'/g, "''")}'`).join(", ");
+  const deleteResult = await db.execute(
+    sql.raw(`DELETE FROM knowledgebase_docs WHERE title IN (${placeholders}) RETURNING id`),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deletedCount = ((deleteResult as any).rows ?? deleteResult).length;
+  if (deletedCount > 0) {
+    console.log(`[Bootstrap] Removed ${deletedCount} legacy generic KB doc(s).`);
+  }
+
+  // 2. Ensure the active system prompt has the anti-hallucination grounding rules.
+  //    If it's missing the sentinel (e.g. an old deploy still has the original prompt),
+  //    overwrite it. The check is a substring test so it's safe to run every startup.
+  const [activePrompt] = await db
+    .select({ id: chatSystemPromptsTable.id, content: chatSystemPromptsTable.content })
+    .from(chatSystemPromptsTable)
+    .where(eq(chatSystemPromptsTable.isActive, true))
+    .limit(1);
+
+  if (activePrompt && !activePrompt.content.includes(ANTI_HALLUCINATION_SENTINEL)) {
+    await db
+      .update(chatSystemPromptsTable)
+      .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
+      .where(eq(chatSystemPromptsTable.id, activePrompt.id));
+    console.log("[Bootstrap] Updated active system prompt with anti-hallucination grounding rules.");
+  }
+
+  // 3. Ingest BTS knowledge base files (idempotent via ON CONFLICT DO NOTHING).
+  //    Runs in the background after startup so it doesn't block the HTTP server.
+  seedKnowledgebaseFromFiles().catch((err) => {
+    console.error("[Bootstrap] KB file ingestion failed:", err);
+  });
 }

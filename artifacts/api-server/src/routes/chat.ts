@@ -39,21 +39,21 @@ const TIER_DEFAULTS: Record<string, ChatTierConfig> = {
     maxOutputTokens: 4000,
     historyDepth: 30,
     sessionRetentionDays: null,
-    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
+    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching"],
   },
   "chat:full": {
     dailyLimit: 50,
     maxOutputTokens: 2000,
     historyDepth: 20,
     sessionRetentionDays: 30,
-    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting"],
+    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching"],
   },
   "chat:basic": {
     dailyLimit: 20,
     maxOutputTokens: 1000,
     historyDepth: 10,
     sessionRetentionDays: 7,
-    knowledgebaseCategories: ["faq", "platform_guide"],
+    knowledgebaseCategories: ["faq", "platform_guide", "strategy", "curriculum", "sop", "glossary"],
   },
 };
 
@@ -119,17 +119,46 @@ async function searchKnowledgebase(query: string, categories: string[]): Promise
   if (categories.length === 0) return [];
 
   const categoriesArray = `{${categories.join(",")}}`;
-  const results = await db.execute(
+
+  const primaryResults = await db.execute(
     sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
+        ts_rank(to_tsvector('english', title || ' ' || content), websearch_to_tsquery('english', ${query})) as rank
       FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
+      WHERE to_tsvector('english', title || ' ' || content) @@ websearch_to_tsquery('english', ${query})
         AND category = ANY(${categoriesArray}::text[])
       ORDER BY rank DESC
-      LIMIT 3`
+      LIMIT 6`
   );
 
-  return (results.rows as any[]).map((r) => ({
+  if ((primaryResults.rows as any[]).length >= 3) {
+    return (primaryResults.rows as any[]).map((r) => ({
+      title: r.title,
+      content: r.content,
+      category: r.category,
+    }));
+  }
+
+  const orQuery = query.trim().split(/\s+/).filter(Boolean).join(" | ");
+  const fallbackResults = await db.execute(
+    sql`SELECT title, content, category,
+        ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${orQuery})) as rank
+      FROM knowledgebase_docs
+      WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
+        AND category = ANY(${categoriesArray}::text[])
+      ORDER BY rank DESC
+      LIMIT 6`
+  );
+
+  const seen = new Set((primaryResults.rows as any[]).map((r: any) => r.title));
+  const merged = [...(primaryResults.rows as any[])];
+  for (const r of fallbackResults.rows as any[]) {
+    if (!seen.has(r.title)) {
+      merged.push(r);
+      seen.add(r.title);
+    }
+  }
+
+  return merged.slice(0, 6).map((r) => ({
     title: r.title,
     content: r.content,
     category: r.category,
@@ -226,6 +255,8 @@ router.post("/chat", async (req, res): Promise<void> => {
       .map((r) => `[${r.category}] ${r.title}:\n${r.content}`)
       .join("\n\n---\n\n");
     systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${ragContext}`;
+  } else {
+    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo BTS knowledge base articles matched this query. You must not fabricate an answer based on general affiliate marketing knowledge. If the member is asking about anything BTS-specific (which traffic sources BTS uses, which tools BTS provides, specific BTS processes, policies, or team members), clearly state that you don't have that information in the knowledge base right now and direct them to a live coaching call or contact support at support@buildtestscale.com.`;
   }
 
   const chatMessages = orderedHistory.map((m) => ({
