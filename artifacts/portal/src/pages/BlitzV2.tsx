@@ -1860,6 +1860,7 @@ const SECTION_BAR_CSS = `
 .blitz-content.section-filtered nav.toc,
 .blitz-content.section-filtered .version-banner,
 .blitz-content.section-filtered #lesson-library { display: none !important; }
+.blitz-content.section-filtered .module { margin-bottom: 16px; }
 .blitz-content.full-guide .page-header,
 .blitz-content.full-guide .version-banner { display: none !important; }
 `;
@@ -1902,6 +1903,9 @@ export default function BlitzV2() {
     const modules = contentEl.querySelectorAll<HTMLElement>(".module[data-section]");
     if (!isSectionView || !lesson) {
       modules.forEach((m) => { m.style.display = ""; });
+      contentEl
+        .querySelectorAll<HTMLElement>("hr.divider")
+        .forEach((d) => { d.style.display = ""; });
       return;
     }
     const wanted = lesson.section;
@@ -1947,6 +1951,32 @@ export default function BlitzV2() {
       if (s2MM) s2MM.style.display = "";
       if (s2CB) s2CB.style.display = "";
     }
+
+    // Trailing dividers: an <hr class="divider"> with no visible content
+    // after it renders as a redundant grey bar stacked on top of the
+    // pager's own top border. Reset all, then hide only the trailing ones.
+    const dividers = Array.from(
+      contentEl.querySelectorAll<HTMLElement>("hr.divider"),
+    );
+    dividers.forEach((d) => {
+      d.style.display = "";
+    });
+    const isShown = (el: HTMLElement) =>
+      !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const contentEls = Array.from(
+      contentEl.querySelectorAll<HTMLElement>(
+        "p,h1,h2,h3,h4,h5,h6,ul,ol,table,figure,blockquote,img,.card,.callout-box,.why-box,.alert,.path-block,.video-slot,.checklist,.module-intro",
+      ),
+    );
+    dividers.forEach((d) => {
+      const hasVisibleAfter = contentEls.some(
+        (el) =>
+          Boolean(
+            d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+          ) && isShown(el),
+      );
+      if (!hasVisibleAfter) d.style.display = "none";
+    });
 
     // Scroll to top on section switch.
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -2284,7 +2314,7 @@ export default function BlitzV2() {
       {isSectionView && (
         <nav
           aria-label="Lesson navigation"
-          className="mt-10 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row"
+          className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row"
         >
           {prevId && prevPager ? (
             <Link
