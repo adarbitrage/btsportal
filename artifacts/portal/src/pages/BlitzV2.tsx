@@ -473,7 +473,18 @@ const blitzCSS = `.blitz-content{
   .blitz-content .section-nav-bar .snb-title{color:var(--text);}
 
   .blitz-content .version-banner{background:hsl(40 15% 94%);color:var(--muted);border-bottom:1px solid var(--border);}
-  .blitz-content .version-banner a{color:var(--accent);}`;
+  .blitz-content .version-banner a{color:var(--accent);}
+
+  /* Layout: fill width + left-align to match portal (AppLayout already centers/pads) */
+  .blitz-content{background:transparent;font-size:1rem;line-height:1.7;}
+  .blitz-content .container{max-width:none;margin:0;padding:0 0 48px;}
+  .blitz-content .module{max-width:none;margin-left:0;margin-right:0;padding-left:0;padding-right:0;}
+  .blitz-content .page-header{text-align:left;padding:0 0 20px;border-bottom:none;}
+  .blitz-content .page-header h1{font-size:1.875rem;margin-bottom:6px;}
+  .blitz-content .page-header .tagline{margin:0 0 12px;max-width:48rem;}
+  .blitz-content .pub-badge{margin-bottom:12px;}
+  .blitz-content nav.toc{justify-content:flex-start;padding:8px 0;border-left:none;border-right:none;border-radius:0;}
+  .blitz-content .version-banner{padding:5px 0;}`;
 
 const blitzBodyHTML = `<div class="version-banner">
   <div class="vb-left">
