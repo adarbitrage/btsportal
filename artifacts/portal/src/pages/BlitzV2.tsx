@@ -39,6 +39,56 @@ const TOTAL_LESSONS = Object.keys(LESSON_LOOKUP).length;
 // previewed on these first; Phase 2/3 (15–23) keep the old chip for comparison.
 const LAST_PHASE1_LESSON = 14;
 
+// Short titles for the large prev/next pager buttons — the full LESSON_LOOKUP
+// labels are too long to fit. Indexed by lesson id (all 23 so this scales when
+// the pager rolls out beyond the lesson-3 testbed).
+const LESSON_SHORT_TITLES: Record<number, string> = {
+  1: "Introduction",
+  2: "Before You Start",
+  3: "Phase 1 Overview",
+  4: "Network Selection",
+  5: "Product Selection",
+  6: "Creative Assets",
+  7: "Native Ad Assets",
+  8: "Landing Pages · Media Mavens",
+  9: "Landing Pages · ClickBank/MaxWeb",
+  10: "Compliance Review",
+  11: "Website Setup (Flexy™)",
+  12: "Using MetricMover™",
+  13: "DIYTrax Setup",
+  14: "Go Live",
+  15: "Phase 2 Overview",
+  16: "Round 1",
+  17: "Between Rounds 1 & 2",
+  18: "Round 2",
+  19: "Between Rounds 2 & 3",
+  20: "Round 3",
+  21: "Scale Budget",
+  22: "New Placements",
+  23: "Master Publisher",
+};
+
+// Phase of a lesson, used to color the pager by its DESTINATION phase so the
+// color shifts at phase transitions. Lessons 1–2 are the intro (neutral),
+// 3–14 Phase 1 (build), 15–20 Phase 2 (test), 21–23 Phase 3 (scale).
+type LessonPhase = "intro" | "build" | "test" | "scale";
+function lessonPhase(id: number): LessonPhase {
+  if (id <= 2) return "intro";
+  if (id <= 14) return "build";
+  if (id <= 20) return "test";
+  return "scale";
+}
+
+// Light-themed pager button styling per phase: tinted background + accent
+// border + colored eyebrow/arrow, matching the lesson-hub phase colors.
+// Full literal class strings so Tailwind's JIT detects them.
+const PHASE_PAGER_CLASSES: Record<LessonPhase, { card: string; eyebrow: string }> = {
+  intro: { card: "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100", eyebrow: "text-slate-600" },
+  build: { card: "border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100", eyebrow: "text-emerald-700" },
+  test: { card: "border-amber-200 bg-amber-50 hover:border-amber-300 hover:bg-amber-100", eyebrow: "text-amber-700" },
+  scale: { card: "border-purple-200 bg-purple-50 hover:border-purple-300 hover:bg-purple-100", eyebrow: "text-purple-700" },
+};
+
 // Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
 // + steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section attribute.
 // To deep-link cleanly we override visibility of those inner divs at runtime
@@ -1839,6 +1889,9 @@ export default function BlitzV2() {
   const isTestbed = lessonId === 3;
   const prevId = lessonId != null && lessonId > 1 ? lessonId - 1 : null;
   const nextId = lessonId != null && lessonId < TOTAL_LESSONS ? lessonId + 1 : null;
+  // Large bottom pager data (color-coded by destination phase). Lesson-3 only for now.
+  const prevPager = prevId ? PHASE_PAGER_CLASSES[lessonPhase(prevId)] : null;
+  const nextPager = nextId ? PHASE_PAGER_CLASSES[lessonPhase(nextId)] : null;
 
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
@@ -2245,6 +2298,45 @@ export default function BlitzV2() {
         dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
       />
       {mountEl && createPortal(<LessonLibraryV2 />, mountEl)}
+      {isSectionView && isTestbed && (
+        <nav
+          aria-label="Lesson navigation"
+          className="mt-10 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row"
+        >
+          {prevId && prevPager ? (
+            <Link
+              href={`/blitzv2/guide/${prevId}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:flex-1 ${prevPager.card}`}
+            >
+              <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${prevPager.eyebrow}`}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Previous
+              </span>
+              <span className="mt-0.5 truncate text-base font-semibold text-foreground">
+                {LESSON_SHORT_TITLES[prevId]}
+              </span>
+            </Link>
+          ) : (
+            <div className="hidden sm:block sm:flex-1" aria-hidden="true" />
+          )}
+          {nextId && nextPager ? (
+            <Link
+              href={`/blitzv2/guide/${nextId}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:flex-1 ${nextPager.card}`}
+            >
+              <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${nextPager.eyebrow}`}>
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+              <span className="mt-0.5 truncate text-base font-semibold text-foreground">
+                {LESSON_SHORT_TITLES[nextId]}
+              </span>
+            </Link>
+          ) : (
+            <div className="hidden sm:block sm:flex-1" aria-hidden="true" />
+          )}
+        </nav>
+      )}
     </AppLayout>
   );
 }
