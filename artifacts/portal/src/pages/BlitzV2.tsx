@@ -1117,7 +1117,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Caterpillar is a native advertising platform. Your ads look like recommended articles rather than obvious advertisements. You upload three things <strong>separately</strong>: your headlines (as plain text), one description (as plain text), and one image file. The platform assembles the ad automatically. You do NOT design a complete banner image.
   </div>
 
-  <h4>Phase 2 — Test — Round 1 Targets</h4>
+  <h3>Phase 2 — Test — Round 1 Targets</h3>
   <div class="card">
     <ul>
       <li><strong>10 Headlines</strong> — each 90 characters or fewer (roughly the length of a tweet)</li>
@@ -1141,7 +1141,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </table>
   </div>
 
-  <h4>Ad Headlines</h4>
+  <h3>Ad Headlines</h3>
   <div class="why-box">
     <div class="why-label">💬 What makes a great ad headline?</div>
     Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
@@ -1156,7 +1156,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div style="font-family:monospace;font-size:.81rem;background:#1e2533;color:#93c5fd;border-radius:6px;padding:10px 14px;">{state} &nbsp;{city} &nbsp;{year} &nbsp;{month} &nbsp;{day_of_week} &nbsp;{date} &nbsp;{os}</div>
   </div>
 
-  <h4>Ad Image</h4>
+  <h3>Ad Image</h3>
   <div class="why-box">
     <div class="why-label">💬 What makes a great Caterpillar ad image?</div>
     Your ad image has one job: stop the scroll. A person browsing a news site sees dozens of content recommendations — your image needs to be the one that makes them pause. Here's what tends to work:
