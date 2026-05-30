@@ -588,7 +588,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- GLOSSARY -->
 <div class="module" id="glossary" data-section="s1">
-  <div class="module-header"><h2>Key Terms and Terminology — Affiliate Marketing Reference Guide</h2></div>
+  <div class="module-header"><h2>Key Terminology — Affiliate Marketing Reference Guide</h2></div>
   <p>This section is a reference resource for common terms and terminology used in affiliate marketing and throughout The Blitz™. You don't need to read this from top to bottom — bookmark it and come back whenever you encounter an unfamiliar term in the guide or in a video.</p>
   <div class="glossary">
     <div class="gloss-item"><div class="gloss-term">Affiliate Network</div><div class="gloss-def">A marketplace where companies list products they want promoted. You sign up, pick a product, and get a unique tracking link. When someone buys through your link, you get paid. In The Blitz™: Media Mavens, ClickBank, Affiliati, and MaxWeb.</div></div>
