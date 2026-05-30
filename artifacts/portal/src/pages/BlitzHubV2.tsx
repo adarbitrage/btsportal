@@ -249,10 +249,10 @@ const PHASE_TINT: Record<Phase, PhaseTint> = {
     numBg: "bg-background", numBorder: "border-slate-200", numText: "text-slate-600",
   },
   build: {
-    iconBg: "bg-[#1a7a4a]", iconBorder: "border-[#15623b]", iconText: "text-white",
-    accent: "bg-[#1a7a4a]", btn: "bg-[#1a7a4a] hover:bg-[#15623b]",
-    pillBg: "bg-[#1a7a4a]", pillBorder: "border-[#15623b]", pillText: "text-white",
-    numBg: "bg-white", numBorder: "border-[#15623b]", numText: "text-[#1a7a4a]",
+    iconBg: "bg-[#188f4a]", iconBorder: "border-[#136b38]", iconText: "text-white",
+    accent: "bg-[#188f4a]", btn: "bg-[#188f4a] hover:bg-[#136b38]",
+    pillBg: "bg-[#188f4a]", pillBorder: "border-[#136b38]", pillText: "text-white",
+    numBg: "bg-white", numBorder: "border-[#136b38]", numText: "text-[#188f4a]",
   },
   test: {
     iconBg: "bg-amber-50", iconBorder: "border-amber-200", iconText: "text-amber-700",
