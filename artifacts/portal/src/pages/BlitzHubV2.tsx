@@ -34,7 +34,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Read Section", section: "s2" }],
   },
   {
-    id: 3, phase: "build", step: "Phase 1 — Overview",
+    id: 3, phase: "build", step: "Overview",
     title: "How Phase 1 Works — Campaign Architecture and Your Path",
     desc: "Read this before starting Product Selection. Start here to understand how all the tools and pieces fit together — the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and an orientation to the Phase 1 build sections. Work through the sections in order — understanding angles and creative direction in the Creative Assets lessons directly shapes everything you build afterward.",
     tags: [
@@ -44,7 +44,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s3" }],
   },
   {
-    id: 4, phase: "build", step: "Phase 1 — Network Selection",
+    id: 4, phase: "build", step: "Network Selection",
     title: "Choose Your Affiliate Network",
     desc: "Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions. Affiliati and MaxWeb require proof of prior affiliate revenue — check with your coach before applying to either.",
     tags: [
@@ -54,7 +54,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s4" }],
   },
   {
-    id: 5, phase: "build", step: "Phase 1 — Product Selection",
+    id: 5, phase: "build", step: "Product Selection",
     title: "Select Your Offer and Get Your Affiliate Link",
     desc: "Choose the specific product you'll promote within your network. Save your unique affiliate tracking link. For ClickBank and MaxWeb, confirm the product's sales page URL — you'll refer to it when writing your jump page body copy.",
     tags: [
@@ -64,7 +64,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s5" }],
   },
   {
-    id: 6, phase: "build", step: "Phase 1 — Creative Assets",
+    id: 6, phase: "build", step: "Creative Assets",
     title: "Understanding Creative Assets — The Foundation of Your Campaign",
     desc: (
       <>
@@ -74,7 +74,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s6" }],
   },
   {
-    id: 7, phase: "build", step: "Phase 1 — Creative Assets",
+    id: 7, phase: "build", step: "Creative Assets",
     title: "Create Your Native Ad Assets",
     desc: "Create the three assets that make up your Caterpillar ad: 10 headlines (max 90 characters each), 1 description, and 1 static image (16:9, min 960×540px). Covers using FreeAdCopy™ to generate headlines, what makes a strong ad image, and the optional dynamic macro codes for personalization.",
     tags: [
@@ -83,7 +83,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s6b" }],
   },
   {
-    id: 8, phase: "build", step: "Phase 1 — Creative Assets",
+    id: 8, phase: "build", step: "Creative Assets",
     title: "Create Your Landing Page Assets — Media Mavens",
     desc: (
       <>
@@ -96,7 +96,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s6c" }],
   },
   {
-    id: 9, phase: "build", step: "Phase 1 — Creative Assets",
+    id: 9, phase: "build", step: "Creative Assets",
     title: "Create Your Landing Page Assets — ClickBank",
     desc: "For ClickBank, MaxWeb, and Affiliati (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
     tags: [
@@ -105,14 +105,14 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s6d" }],
   },
   {
-    id: 10, phase: "build", step: "Phase 1 — Compliance",
+    id: 10, phase: "build", step: "Compliance",
     title: "Submit Your Assets for Compliance Review",
     desc: "Before building any pages, submit your headlines, images, and landing page assets to BTS for compliance review. Typical turnaround is 24–48 hours. You may begin Flexy™ setup while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
     ctas: [{ label: "Go to Section", section: "s7" }],
   },
   {
-    id: 11, phase: "build", step: "Phase 1 — Flexy™ Setup",
+    id: 11, phase: "build", step: "Flexy™ Setup",
     title: "Setting Up Your Website in Flexy™",
     desc: "Clone the pre-built Flexy™ website template into your account, connect a custom domain, and learn how to duplicate individual pages within your site. This is the universal setup everyone completes before moving on to MetricMover™ — regardless of whether you're on the Media Mavens or ClickBank/MaxWeb path.",
     tags: [
@@ -122,7 +122,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s8" }],
   },
   {
-    id: 12, phase: "build", step: "Phase 1 — MetricMover™",
+    id: 12, phase: "build", step: "MetricMover™",
     title: "Using MetricMover™",
     desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank / MaxWeb jump page customization is handled earlier in the Landing Page Assets lesson.)",
     tags: [
@@ -132,7 +132,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s8b" }],
   },
   {
-    id: 13, phase: "build", step: "Phase 1 — DIYTrax Setup",
+    id: 13, phase: "build", step: "DIYTrax Setup",
     title: "Set Up DIYTrax",
     desc: "Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.",
     tags: [
@@ -142,7 +142,7 @@ const LESSONS: HubLesson[] = [
     ctas: [{ label: "Go to Section", section: "s9" }],
   },
   {
-    id: 14, phase: "build", step: "Phase 1 — Go Live",
+    id: 14, phase: "build", step: "Go Live",
     title: "Configure Caterpillar and Go Live",
     desc: "Create your campaign in Caterpillar, upload all 10 ad headlines across 2 sub-campaigns of 5 each, upload your ad image, fund your account with at least $500, and complete the pre-launch checklist before activating. Watch T1–T9 in order.",
     tags: [
