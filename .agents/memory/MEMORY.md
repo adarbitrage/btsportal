@@ -1,0 +1,2 @@
+- [Blitz branded design (archived)](blitz-branded-design.md) — original navy hero + display fonts + phase colors removed during restyle; how to restore.
+- [Blitz guide is generated HTML](blitz-guide-generated.md) — guide body is build-script output injected via dangerouslySetInnerHTML; hand-edits get overwritten on regen.
