@@ -25,29 +25,27 @@ const PHASE_META: Record<Phase, { label: string; badgeClass: string; description
   },
   test: {
     label: "Phase 2 — Test",
-    badgeClass: "bg-amber-700",
+    badgeClass: "bg-amber-600",
     description: "Run your campaigns and find your winners through data.",
   },
   scale: {
     label: "Phase 3 — Scale",
-    badgeClass: "bg-purple-800",
+    badgeClass: "bg-purple-700",
     description: "Multiply spend on what's already proven to work.",
   },
 };
 
-const NETWORK_TAG_CLS = "bg-slate-100 text-slate-700 border-slate-300";
-
 const NETWORK_LABEL: Record<string, { label: string; cls: string }> = {
-  universal: { label: "All Networks", cls: NETWORK_TAG_CLS },
-  "media-mavens": { label: "Media Mavens", cls: NETWORK_TAG_CLS },
-  clickbank: { label: "ClickBank", cls: NETWORK_TAG_CLS },
-  maxweb: { label: "MaxWeb", cls: NETWORK_TAG_CLS },
+  universal: { label: "All Networks", cls: "bg-slate-100 text-slate-700 border-slate-300" },
+  "media-mavens": { label: "Media Mavens", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
+  clickbank: { label: "ClickBank", cls: "bg-amber-50 text-amber-800 border-amber-300" },
+  maxweb: { label: "MaxWeb", cls: "bg-blue-50 text-blue-800 border-blue-300" },
 };
 
 const PUBLISHER_LABEL: Record<string, { label: string; cls: string }> = {
-  all: { label: "All Publishers", cls: NETWORK_TAG_CLS },
-  caterpillar: { label: "Caterpillar", cls: NETWORK_TAG_CLS },
-  "grasshopper-crane": { label: "Grasshopper / Crane", cls: NETWORK_TAG_CLS },
+  all: { label: "All Publishers", cls: "bg-slate-100 text-slate-700 border-slate-300" },
+  caterpillar: { label: "Caterpillar", cls: "bg-purple-50 text-purple-800 border-purple-300" },
+  "grasshopper-crane": { label: "Grasshopper / Crane", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
 };
 
 interface GroupedModule {

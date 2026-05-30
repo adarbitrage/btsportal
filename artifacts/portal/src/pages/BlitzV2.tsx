@@ -136,11 +136,11 @@ void ALL_STEP2;
 const blitzCSS = `.blitz-content{
     --primary:hsl(221 80% 48%); --accent:hsl(221 80% 48%); --success:#15803d; --warning:#b45309; --danger:#b91c1c;
     --bg:hsl(40 25% 97%); --card:hsl(0 0% 100%); --border:hsl(40 18% 88%); --text:hsl(0 0% 15%); --muted:hsl(0 0% 40%);
-    --mm-color:#334155; --mm-bg:#f8fafc; --mm-border:#cbd5e1;
-    --cb-color:#334155; --cb-bg:#f8fafc; --cb-border:#cbd5e1;
-    --mw-color:#334155; --mw-bg:#f8fafc; --mw-border:#cbd5e1;
-    --af-color:#334155; --af-bg:#f8fafc; --af-border:#cbd5e1;
-    --cat-color:#334155; --cat-bg:#f8fafc;
+    --mm-color:#166534; --mm-bg:#f0fdf4; --mm-border:#86efac;
+    --cb-color:#92400e; --cb-bg:#fff7ed; --cb-border:#fcd34d;
+    --mw-color:#1e40af; --mw-bg:#eff6ff; --mw-border:#93c5fd;
+    --af-color:#5b21b6; --af-bg:#f5f3ff; --af-border:#a78bfa;
+    --cat-color:#6b21a8; --cat-bg:#faf5ff;
   }
   .blitz-content h1, .blitz-content h2, .blitz-content h3, .blitz-content h4, .blitz-content h5, .blitz-content h6, .blitz-content p, .blitz-content ul, .blitz-content ol, .blitz-content li, .blitz-content figure, .blitz-content blockquote, .blitz-content dl, .blitz-content dd{box-sizing:border-box;margin:0;padding:0;}
   .blitz-content{font-family:'Roboto',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.8;font-size:17px;}
@@ -161,7 +161,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .module{margin-bottom:72px;margin-top:0;max-width:960px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px;}
   .blitz-content .module-header{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:16px;border-bottom:2px solid var(--border);}
   .blitz-content .mod-badge{background:var(--primary);color:white;font-size:.82rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:7px 18px;border-radius:20px;white-space:nowrap;}
-  .blitz-content .mod-badge.build{background:#047857;} .blitz-content .mod-badge.test{background:#b45309;} .blitz-content .mod-badge.scale{background:#6b21a8;}
+  .blitz-content .mod-badge.build{background:#1a7a4a;} .blitz-content .mod-badge.test{background:#b45309;} .blitz-content .mod-badge.scale{background:#6b21a8;}
   .blitz-content .module-header h2{font-size:1.9rem;color:var(--primary);letter-spacing:-0.3px;}
   .blitz-content .module-intro{background:#f0f4ff;border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:18px 22px;margin-bottom:28px;font-size:1.05rem;color:#1e3a6e;line-height:1.75;}
 
@@ -175,7 +175,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .tag-cb{background:var(--cb-bg);color:var(--cb-color);border:1px solid var(--cb-border);}
   .blitz-content .tag-mw{background:var(--mw-bg);color:var(--mw-color);border:1px solid var(--mw-border);}
   .blitz-content .tag-af{background:var(--af-bg);color:var(--af-color);border:1px solid var(--af-border);}
-  .blitz-content .tag-cat{background:var(--cat-bg);color:var(--cat-color);border:1px solid #cbd5e1;}
+  .blitz-content .tag-cat{background:var(--cat-bg);color:var(--cat-color);border:1px solid #d8b4fe;}
   .blitz-content .tag-all{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;}
 
   .blitz-content .path-block{border-left:4px solid;border-radius:0 8px 8px 0;padding:20px 24px;margin:20px 0;}
@@ -249,11 +249,11 @@ const blitzCSS = `.blitz-content{
   .blitz-content .roadmap-arrow{text-align:center;color:var(--muted);font-size:1.5rem;}
   .blitz-content .ph-num{font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
   .blitz-content .ph-title{font-weight:800;font-size:1.2rem;margin-bottom:8px;}
-  .blitz-content .roadmap-phase.p1 .ph-title{color:#047857;} .blitz-content .roadmap-phase.p2 .ph-title{color:var(--warning);} .blitz-content .roadmap-phase.p3 .ph-title{color:#6b21a8;}
+  .blitz-content .roadmap-phase.p1 .ph-title{color:var(--success);} .blitz-content .roadmap-phase.p2 .ph-title{color:var(--warning);} .blitz-content .roadmap-phase.p3 .ph-title{color:var(--cat-color);}
   .blitz-content .ph-desc{font-size:.9rem;color:var(--muted);line-height:1.55;}
 
   .blitz-content .gate{border:2px solid;border-radius:12px;padding:20px 24px;margin:16px 0;}
-  .blitz-content .gate.pass{border-color:#86efac;background:#f0fdf4;} .blitz-content .gate.fail{border-color:#fca5a5;background:#fef2f2;}
+  .blitz-content .gate.pass{border-color:#86efac;background:var(--mm-bg);} .blitz-content .gate.fail{border-color:#fca5a5;background:#fef2f2;}
   .blitz-content .gate-header{font-weight:800;font-size:1rem;margin-bottom:10px;}
   .blitz-content .gate.pass .gate-header{color:var(--success);} .blitz-content .gate.fail .gate-header{color:var(--danger);}
 
@@ -736,7 +736,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="network-grid">
     <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
-      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#334155;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
+      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
       <div class="net-desc">Our own in-house curated network — built for this system.
         <ul>
           <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
@@ -816,22 +816,22 @@ const blitzBodyHTML = `<div class="version-banner">
         <tbody>
           <!-- Flow content row -->
           <tr style="text-align:center;vertical-align:top;">
-            <td style="background:#f8fafc;padding:16px 10px;border:1px solid var(--border);">
+            <td style="background:#faf5ff;padding:16px 10px;border:1px solid var(--border);">
               <strong>Caterpillar</strong><br>
               <span style="font-size:.82rem;color:var(--muted);">Your native ad — headline and image shown to potential buyers</span>
             </td>
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
-            <td style="background:#f8fafc;padding:16px 10px;border:1px solid var(--border);">
+            <td style="background:#fff7ed;padding:16px 10px;border:1px solid var(--border);">
               <strong>Flexy™</strong><br>
               <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB/MW/AF)</span>
             </td>
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
-            <td style="background:#f8fafc;padding:16px 10px;border:1px solid var(--border);">
+            <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
               <strong>Affiliate Network</strong><br>
               <span style="font-size:.82rem;color:var(--muted);">The product's sales page — Media Mavens, ClickBank, MaxWeb, or Affiliati</span>
             </td>
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
-            <td style="background:#f8fafc;padding:16px 10px;border:1px solid var(--border);">
+            <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
               <strong>You Get Paid</strong><br>
               <span style="font-size:.82rem;color:var(--muted);">A sale triggers a commission payment to your account</span>
             </td>
@@ -1722,9 +1722,9 @@ const blitzBodyHTML = `<div class="version-banner">
     <table>
       <thead><tr><th>Publisher</th><th>Ad Type</th><th>Networks</th><th>Min. per New Placement</th><th>Guide</th></tr></thead>
       <tbody>
-        <tr style="background:#f8fafc;"><td><span class="path-tag tag-cat">Caterpillar</span></td><td>Native: image/GIF/video in 16:9 and 9:16</td><td>All</td><td>Already active — increase budget</td><td>This guide ✓</td></tr>
-        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;">Grasshopper</span></td><td>Banner ads — 970×250, 300×250, 970×550</td><td>MM, CB, Affiliati, MW</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
-        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;">Crane</span></td><td>Banner ads — 970×250, 1536×864, 900×750, 1242×699 (static only)</td><td>MM only</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
+        <tr style="background:#faf5ff;"><td><span class="path-tag tag-cat">Caterpillar</span></td><td>Native: image/GIF/video in 16:9 and 9:16</td><td>All</td><td>Already active — increase budget</td><td>This guide ✓</td></tr>
+        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;">Grasshopper</span></td><td>Banner ads — 970×250, 300×250, 970×550</td><td>MM, CB, Affiliati, MW</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
+        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#e8f0fe;color:#1e3a5f;border:1px solid #93c5fd;">Crane</span></td><td>Banner ads — 970×250, 1536×864, 900×750, 1242×699 (static only)</td><td>MM only</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
         <tr><td><strong>Master</strong></td><td>Dedicated email</td><td>All (with requirements)</td><td>Discuss with coach</td><td>Coaching call</td></tr>
       </tbody>
     </table>
@@ -2276,9 +2276,8 @@ export default function BlitzV2() {
             )}
             <Button
               size="sm"
-              variant="outline"
               onClick={() => window.print()}
-              className="gap-1.5"
+              className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
             >
               <Printer className="w-4 h-4" />
               Print / Save PDF

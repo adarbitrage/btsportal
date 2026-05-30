@@ -1,4 +1,3 @@
 - ⚠ [Blitz v2 restyle IN PROGRESS](blitz-v2-tracking.md) — building /blitzv2 as restyled duplicate; original /blitz stays live. Frozen content baseline in blitz-baseline/. Port content drift + flip progress prefix before promotion.
 - [Blitz branded design (archived)](blitz-branded-design.md) — original navy hero + display fonts + phase colors removed during restyle; how to restore.
-- [Blitz guide is generated HTML](blitz-guide-generated.md) — guide body is build-script output injected via dangerouslySetInnerHTML; hand-edits get overwritten on regen (v1 Blitz.tsx ONLY; BlitzV2.tsx is hand-maintained/safe).
-- [Blitz v2 color system](blitz-color-system.md) — green/amber/purple reserved for phase identity (one hex each); networks/publishers are neutral slate, differentiated by label.
+- [Blitz guide is generated HTML](blitz-guide-generated.md) — guide body is build-script output injected via dangerouslySetInnerHTML; hand-edits get overwritten on regen.
