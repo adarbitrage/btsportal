@@ -726,7 +726,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- CHOOSE YOUR PATH -->
 <span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
+  <div class="module-header"><span class="mod-badge build">4 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
   <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
 
   <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
@@ -787,7 +787,7 @@ const blitzBodyHTML = `<div class="version-banner">
 <!-- MODULE 1: BUILD -->
 <span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
   <div id="module1-overview">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
+  <div class="module-header"><span class="mod-badge build">3 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in the Creative Assets foundation lesson — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
@@ -912,7 +912,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end module1-overview -->
   <div id="module1-steps">
   <div id="blitz-step1">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Product Selection</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">5 — Build — Product Selection</span></div>
   <h3 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h3>
   <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
 
@@ -954,7 +954,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
   <div id="step2-overview">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">6 — Build — Creative Assets</span></div>
   <h3 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
@@ -1109,7 +1109,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-overview -->
   <div id="step2-native">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Native Ad Assets</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">7 — Build — Native Ad Assets</span></div>
   <h4 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h4>
 
   <p>Regardless of which affiliate network you're using, you'll need to create your native ad assets for Caterpillar. These are the headlines, description, and image that appear in your ads — their only job is to generate enough curiosity that someone clicks.</p>
@@ -1182,7 +1182,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-native -->
   <div id="step2-mm">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (Media Mavens)</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">8 — Build — Landing Page Assets (Media Mavens)</span></div>
   <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h4>
 
   <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
@@ -1267,7 +1267,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-mm -->
   <div id="step2-cb">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">9 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span></div>
   <h4>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h4>
 
   <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
@@ -1356,7 +1356,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- COMPLIANCE EXPLAINED -->
 <div class="module" id="compliance" data-section="s7">
-  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Compliance</span><h2>Submit Your Assets for Compliance Review</h2></div>
+  <div class="module-header"><span class="mod-badge build">10 — Build — Compliance</span><h2>Submit Your Assets for Compliance Review</h2></div>
   <div class="module-intro">Compliance is a required step before your campaign can go live. It is not optional and it cannot be skipped. This section explains what it is, how it works, and what to do if something is rejected — so you're not caught off guard when you reach that step.</div>
 
   <h3>What Is Compliance?</h3>
@@ -1393,7 +1393,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div>
 
 <div class="module" id="blitz-step3" data-section="s8">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Pages</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">11 — Build — Landing Pages</span></div>
   <h3 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h3>
 
   <div class="callout-box">
@@ -1424,7 +1424,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
 <div class="module" id="blitz-step3b" data-section="s8b">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Using MetricMover™</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">12 — Build — Using MetricMover™</span></div>
   <h3 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
@@ -1448,7 +1448,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — DIYTrax Setup</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">13 — Build — DIYTrax Setup</span></div>
   <h3 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
@@ -1476,7 +1476,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s10">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Go Live</span></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">14 — Build — Go Live</span></div>
   <h3 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
 
@@ -1532,7 +1532,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 2: TEST -->
 <span id="s11" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module2-overview" data-section="s11">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Getting Started</span><h2>Find Your Winners Through Data</h2></div>
+  <div class="module-header"><span class="mod-badge test">15 — Test — Getting Started</span><h2>Find Your Winners Through Data</h2></div>
   <div class="module-intro">The Test phase is where your campaign gets smarter. Almost all mentees go through <strong>multiple rounds of testing</strong> before reaching profitability — that's not failure, it's the process. Each round produces data that makes the next round better. Stay patient, follow the milestones, and trust the system.</div>
 
   <h3>Daily Monitoring Routine <span class="path-tag tag-all">Everyone</span></h3>
@@ -1547,7 +1547,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end module2-overview -->
 <span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
+  <div class="module-header"><span class="mod-badge test">16 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
   <p>Round 1 has one primary goal: identify the headline that your audience responds to most. Everything else — images, formats, placements — is tested in later rounds using your top performing headline as the foundation.</p>
 
   <div class="card">
@@ -1598,7 +1598,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-round1 -->
 <span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
+  <div class="module-header"><span class="mod-badge test">17 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
   <p>Start preparing Round 2 assets as soon as Round 1 is live — you don't need to wait for Round 1 to finish. Round 2 tests static images only, all in 16:9 format.</p>
 
   <div class="card">
@@ -1626,7 +1626,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-between-r1-r2 -->
 <span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
+  <div class="module-header"><span class="mod-badge test">18 — Test — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
   <p><strong>The question:</strong> Which specific image, GIF, or video converts best with your proven headline?</p>
   <p><strong>What's running:</strong> 10 ads — your original Round 1 image plus 9 new visual creatives — all in 16:9 format, all using your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $500</strong></p>
@@ -1654,7 +1654,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-round2 -->
 <span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
+  <div class="module-header"><span class="mod-badge test">19 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
   <p>Once your Round 2 winning visual creative is identified, prepare the 5 additional placement format versions before launching Round 3.</p>
 
   <div class="card">
@@ -1674,7 +1674,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-between-r2-r3 -->
 <span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
-  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
+  <div class="module-header"><span class="mod-badge test">20 — Test — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
   <p><strong>The question:</strong> Which of the 6 placement formats (shape and medium) performs best with your top performing headline and visual creative?</p>
   <p><strong>What's running:</strong> 6 ads — your Round 2 winning creative converted into all 6 formats — split into two sub-campaigns (16:9 formats in one, 9:16 formats in the other). All use your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $1,000</strong></p>
@@ -1701,7 +1701,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 3: SCALE -->
 <span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s17">
-  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
+  <div class="module-header"><span class="mod-badge scale">21 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
   <div class="module-intro">Scaling is about spending more on what's already proven to work. You are not introducing new ideas at this stage. Save experimentation for new campaigns — scaling is for proven winners only.</div>
 
   <div class="alert danger"><strong>Prerequisites — All Must Be Met Before Scaling (Phase 3)</strong>Phase 2 Rounds 1, 2, and 3 complete. Top performing visual creative identified (Round 2). Top performing placement format identified (Round 3). Campaign is profitable.</div>
@@ -1714,7 +1714,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end module3-overview -->
 <span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s18">
-  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
+  <div class="module-header"><span class="mod-badge scale">22 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
   <div class="card">
     <table>
       <thead><tr><th>Publisher</th><th>Ad Type</th><th>Networks</th><th>Min. per New Placement</th><th>Guide</th></tr></thead>
@@ -1729,7 +1729,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-scale-m2 -->
 <span id="s19" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s19">
-  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
+  <div class="module-header"><span class="mod-badge scale">23 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
   <ul class="checklist">
     <li>14+ consecutive days of profitable campaigns on Caterpillar, Grasshopper, or Crane</li>
     <li>Top performing headline + image combination clearly identified</li>
