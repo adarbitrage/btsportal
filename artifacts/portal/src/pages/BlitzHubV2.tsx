@@ -156,20 +156,20 @@ const LESSONS: HubLesson[] = [
     id: 15, phase: "test", step: "Testing — Getting Started",
     title: "Find Your Winners Through Data",
     desc: "Read this before launching Round 1. Phase 2 is where your campaign gets smarter — most mentees go through multiple rounds before reaching profitability, and that's the process working as designed. Learn the daily monitoring routine (conversions → ad CTR → landing page CTR) and set up your P&L Tracker so every round produces clean data for the next one.",
-    ctas: [{ label: "Go to Phase 2 Overview", section: "s11" }],
+    ctas: [{ label: "Go to Section", section: "s11" }],
   },
   {
     id: 16, phase: "test", step: "Round 1 · Min. $500",
     title: "Find Your Top Performing Headline",
     desc: "Run all 10 ads and monitor performance daily. At $25/ad: cut any ad with 33+ clicks but zero landing page clicks. At $500 total: identify the headline with the strongest metrics. Expect ~20% ROAS — you are buying data, not revenue.",
     tags: [{ kind: "all", label: "Target: ~$100 returned (20% ROAS)" }],
-    ctas: [{ label: "Go to Round 1", section: "s12" }],
+    ctas: [{ label: "Go to Section", section: "s12" }],
   },
   {
     id: 17, phase: "test", step: "Between Rounds 1 and 2",
     title: "Prepare Additional Static Images While Round 1 Runs",
     desc: "While Round 1 is running, prepare your Round 2 assets. Create 9 new static images in 16:9 format using AI tools. These will compete against your original Round 1 image in Round 2. MM/CB path: also prepare 5 new landing page headlines, 5 new hero shots, and set up a new MetricMover™ project.",
-    ctas: [{ label: "Go to Between Rounds", section: "s13" }],
+    ctas: [{ label: "Go to Section", section: "s13" }],
   },
   {
     id: 18, phase: "test", step: "Round 2 · Min. $500",
@@ -179,13 +179,13 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "Target: ~$375 returned (75% ROAS)" },
       { kind: "all", label: "All creatives 16:9 static format" },
     ],
-    ctas: [{ label: "Go to Round 2", section: "s14" }],
+    ctas: [{ label: "Go to Section", section: "s14" }],
   },
   {
     id: 19, phase: "test", step: "Between Rounds 2 and 3",
     title: "Prepare Your Round 3 Placement Format Assets",
     desc: "Take your Round 2 top performing creative and convert it into all 6 placement formats: 16:9 static image, 9:16 static image, 16:9 GIF, 9:16 GIF, 16:9 video, and 9:16 video. Use Cropbot, Adobe Express, and GIFSTER as needed.",
-    ctas: [{ label: "Go to Between Rounds", section: "s15" }],
+    ctas: [{ label: "Go to Section", section: "s15" }],
   },
   {
     id: 20, phase: "test", step: "Round 3 · Min. $1,000",
@@ -195,7 +195,7 @@ const LESSONS: HubLesson[] = [
       { kind: "all", label: "Target: ~$600 returned (60% ROAS)" },
       { kind: "warn", label: "1 placement format per sub-campaign — publisher requirement" },
     ],
-    ctas: [{ label: "Go to Round 3", section: "s16" }],
+    ctas: [{ label: "Go to Section", section: "s16" }],
   },
   {
     id: 21, phase: "scale", step: "Method 1",
