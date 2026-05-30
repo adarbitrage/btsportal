@@ -77,9 +77,10 @@ function lessonPhase(id: number): LessonPhase {
 
 // Pager button styling per phase: solid Av2 phase fill + darker border +
 // white eyebrow/arrow/title, matching the lesson-hub phase treatment. Intro
-// stays neutral/light. Full literal class strings so Tailwind's JIT detects them.
+// uses a unified dark slate (matches the hub intro tint). Full literal class
+// strings so Tailwind's JIT detects them.
 const PHASE_PAGER_CLASSES: Record<LessonPhase, { card: string; eyebrow: string; title: string }> = {
-  intro: { card: "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100", eyebrow: "text-slate-600", title: "text-foreground" },
+  intro: { card: "border-slate-700 bg-slate-600 hover:bg-slate-700", eyebrow: "text-white/90", title: "text-white" },
   build: { card: "border-[#136b38] bg-[#188f4a] hover:bg-[#136b38]", eyebrow: "text-white/90", title: "text-white" },
   test: { card: "border-[#a03f07] bg-[#cf550a] hover:bg-[#a03f07]", eyebrow: "text-white/90", title: "text-white" },
   scale: { card: "border-[#641f9e] bg-[#7f2ac9] hover:bg-[#641f9e]", eyebrow: "text-white/90", title: "text-white" },

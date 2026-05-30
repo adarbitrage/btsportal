@@ -240,10 +240,10 @@ type PhaseTint = {
 
 const PHASE_TINT: Record<Phase, PhaseTint> = {
   intro: {
-    iconBg: "bg-slate-50", iconBorder: "border-slate-200", iconText: "text-slate-600",
-    accent: "bg-slate-400", btn: "bg-slate-600 hover:bg-slate-700",
-    pillBg: "bg-slate-50", pillBorder: "border-slate-200", pillText: "text-slate-600",
-    numBg: "bg-background", numBorder: "border-slate-200", numText: "text-slate-600",
+    iconBg: "bg-slate-600", iconBorder: "border-slate-700", iconText: "text-white",
+    accent: "bg-slate-600", btn: "bg-slate-600 hover:bg-slate-700",
+    pillBg: "bg-slate-600", pillBorder: "border-slate-700", pillText: "text-white",
+    numBg: "bg-white", numBorder: "border-slate-700", numText: "text-slate-600",
   },
   build: {
     iconBg: "bg-[#188f4a]", iconBorder: "border-[#136b38]", iconText: "text-white",
