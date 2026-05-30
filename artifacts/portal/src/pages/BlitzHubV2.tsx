@@ -401,7 +401,7 @@ export default function BlitzHubV2() {
   }, []);
 
   const phaseGroups = [
-    { key: "intro" as const, label: "Introduction", num: "✦", items: grouped.intro },
+    { key: "intro" as const, label: "Introduction", items: grouped.intro },
     { key: "build" as const, label: "Phase 1 — Build", items: grouped.build },
     { key: "test" as const, label: "Phase 2 — Test", items: grouped.test },
     { key: "scale" as const, label: "Phase 3 — Scale", items: grouped.scale },
@@ -451,11 +451,7 @@ export default function BlitzHubV2() {
 
         {phaseGroups.map((group) => (
           <div key={group.key}>
-            <PhaseDivider
-              phase={group.key}
-              label={group.label}
-              num={"num" in group ? group.num : undefined}
-            />
+            <PhaseDivider phase={group.key} label={group.label} />
             <div className="space-y-3">
               {group.items.map((l) => (
                 <LessonCard
@@ -492,28 +488,17 @@ export default function BlitzHubV2() {
 function PhaseDivider({
   phase,
   label,
-  num,
 }: {
   phase: Phase;
   label: string;
-  num?: string;
 }) {
   const tint = PHASE_TINT[phase];
   return (
     <div className="flex items-center gap-3 mb-4">
       <div
-        className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 ${tint.pillBg} ${tint.pillBorder} ${tint.pillText}`}
+        className={`inline-flex items-center rounded-full border px-3.5 py-1.5 ${tint.pillBg} ${tint.pillBorder} ${tint.pillText}`}
       >
-        {num && (
-          <span
-            className={`flex items-center justify-center w-5 h-5 rounded-full border text-[0.7rem] font-bold ${tint.numBg} ${tint.numBorder} ${tint.numText}`}
-          >
-            {num}
-          </span>
-        )}
-        <span className={`text-sm font-semibold tracking-wide ${num ? "" : "uppercase"}`}>
-          {label}
-        </span>
+        <span className="text-sm font-semibold tracking-wide uppercase">{label}</span>
       </div>
       <div className="flex-1 h-px bg-border" />
     </div>
