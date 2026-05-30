@@ -35,13 +35,9 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
 
 // Total lessons, used for the header "Lesson X of Y" progress marker.
 const TOTAL_LESSONS = Object.keys(LESSON_LOOKUP).length;
-// Lessons 1–14 = Introduction + all of Phase 1. New header treatment is
-// previewed on these first; Phase 2/3 (15–23) keep the old chip for comparison.
-const LAST_PHASE1_LESSON = 14;
 
 // Short titles for the large prev/next pager buttons — the full LESSON_LOOKUP
-// labels are too long to fit. Indexed by lesson id (all 23 so this scales when
-// the pager rolls out beyond the lesson-3 testbed).
+// labels are too long to fit. Indexed by lesson id (all 23).
 const LESSON_SHORT_TITLES: Record<number, string> = {
   1: "Introduction",
   2: "Before You Start",
@@ -1884,12 +1880,9 @@ export default function BlitzV2() {
   const lessonId = match ? Number(params?.lessonId) : null;
   const lesson = lessonId && LESSON_LOOKUP[lessonId] ? LESSON_LOOKUP[lessonId] : null;
   const isSectionView = !!lesson;
-  const usePreviewHeader = lessonId != null && lessonId <= LAST_PHASE1_LESSON;
-  // Testbed: iterate new header treatments on lesson 3 before rolling out.
-  const isTestbed = lessonId === 3;
   const prevId = lessonId != null && lessonId > 1 ? lessonId - 1 : null;
   const nextId = lessonId != null && lessonId < TOTAL_LESSONS ? lessonId + 1 : null;
-  // Large bottom pager data (color-coded by destination phase). Lesson-3 only for now.
+  // Large bottom pager data, color-coded by destination phase.
   const prevPager = prevId ? PHASE_PAGER_CLASSES[lessonPhase(prevId)] : null;
   const nextPager = nextId ? PHASE_PAGER_CLASSES[lessonPhase(nextId)] : null;
 
@@ -2217,47 +2210,37 @@ export default function BlitzV2() {
               <h1 className="text-3xl font-bold">The Blitz™</h1>
             </div>
             {isSectionView && lesson && (
-              isTestbed ? (
-                <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
-                  {prevId ? (
-                    <Link
-                      href={`/blitzv2/guide/${prevId}`}
-                      aria-label="Previous lesson"
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Link>
-                  ) : (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
-                      <ChevronLeft className="h-4 w-4" />
-                    </span>
-                  )}
-                  <span className="px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Lesson {lessonId} of {TOTAL_LESSONS}
+              <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
+                {prevId ? (
+                  <Link
+                    href={`/blitzv2/guide/${prevId}`}
+                    aria-label="Previous lesson"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
+                    <ChevronLeft className="h-4 w-4" />
                   </span>
-                  {nextId ? (
-                    <Link
-                      href={`/blitzv2/guide/${nextId}`}
-                      aria-label="Next lesson"
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Link>
-                  ) : (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
-                      <ChevronRight className="h-4 w-4" />
-                    </span>
-                  )}
-                </div>
-              ) : usePreviewHeader ? (
-                <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                )}
+                <span className="px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Lesson {lessonId} of {TOTAL_LESSONS}
                 </span>
-              ) : (
-                <span className="text-2xl font-medium text-muted-foreground border-l border-border pl-3">
-                  {lessonId} — {lesson.label}
-                </span>
-              )
+                {nextId ? (
+                  <Link
+                    href={`/blitzv2/guide/${nextId}`}
+                    aria-label="Next lesson"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -2298,7 +2281,7 @@ export default function BlitzV2() {
         dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
       />
       {mountEl && createPortal(<LessonLibraryV2 />, mountEl)}
-      {isSectionView && isTestbed && (
+      {isSectionView && (
         <nav
           aria-label="Lesson navigation"
           className="mt-10 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row"
