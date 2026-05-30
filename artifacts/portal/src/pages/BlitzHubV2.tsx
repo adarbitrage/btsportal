@@ -409,7 +409,11 @@ export default function BlitzHubV2() {
             <h1 className="text-3xl font-bold">The Blitz™</h1>
           </div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-            Caterpillar Edition · Build · Test · Scale
+            Caterpillar Edition
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            Build · Test · Scale
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            V4.0 (Released April 21, 2026)
           </p>
           <p className="text-muted-foreground max-w-3xl leading-relaxed">
             A <strong className="text-foreground font-semibold">proven, step-by-step system</strong> for
