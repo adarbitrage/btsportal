@@ -2167,7 +2167,11 @@ export default function BlitzV2() {
                   View Full Guide
                 </a>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
+              >
                 <Printer className="w-4 h-4" />
                 Print / Save PDF
               </Button>
