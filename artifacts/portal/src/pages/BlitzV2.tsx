@@ -2163,9 +2163,9 @@ export default function BlitzV2() {
                 </Link>
               </Button>
               <Button size="sm" asChild>
-                <a href="/blitzv2/guide" target="_blank" rel="noopener noreferrer">
+                <Link href="/blitzv2/guide">
                   View Full Guide
-                </a>
+                </Link>
               </Button>
               <Button
                 size="sm"
