@@ -514,7 +514,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .supp-note{color:var(--muted);opacity:1;}
   .blitz-content .supp-note a{color:var(--accent);}
 
-  .blitz-content nav.toc{background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .blitz-content nav.toc{background:transparent;border:none;}
   .blitz-content nav.toc a{color:var(--muted);}
   .blitz-content nav.toc a:hover{color:var(--text);border-color:var(--accent);}
 
@@ -537,7 +537,12 @@ const blitzCSS = `.blitz-content{
   .blitz-content .page-header h1{font-size:1.875rem;margin-bottom:6px;}
   .blitz-content .page-header .tagline{margin:0 0 12px;max-width:48rem;}
   .blitz-content .pub-badge{margin-bottom:12px;}
-  .blitz-content nav.toc{justify-content:flex-start;padding:8px 0;border-left:none;border-right:none;border-radius:0;}
+  .blitz-content nav.toc{justify-content:center;gap:12px;padding:8px 0;margin-bottom:28px;border:none;border-radius:0;background:transparent;}
+  .blitz-content nav.toc a.phase-pill{display:inline-flex;align-items:center;border-radius:9999px;border:1px solid transparent;padding:6px 16px;font-size:.875rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#fff;}
+  .blitz-content nav.toc a.phase-pill:hover{color:#fff;opacity:.88;}
+  .blitz-content nav.toc a.phase-pill.build{background:#188f4a;border-color:#136b38;}
+  .blitz-content nav.toc a.phase-pill.test{background:#cf550a;border-color:#a03f07;}
+  .blitz-content nav.toc a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
   .blitz-content .version-banner{padding:5px 0;}`;
 
 const blitzBodyHTML = `<div class="version-banner">
@@ -557,10 +562,9 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
 <nav class="toc">
-  <a href="#path-select">Phase 1: Build</a>
-  <a href="#module2-overview">Phase 2: Test</a>
-  <a href="#module3-overview">Phase 3: Scale</a>
-  <a href="#support">Support</a>
+  <a class="phase-pill build" href="#module1-overview">Phase 1 — Build</a>
+  <a class="phase-pill test" href="#module2-overview">Phase 2 — Test</a>
+  <a class="phase-pill scale" href="#module3-overview">Phase 3 — Scale</a>
 </nav>
 
 <div class="container">
