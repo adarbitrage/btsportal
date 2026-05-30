@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
+import { Zap, Printer } from "lucide-react";
 import LessonLibraryV2 from "@/components/blitz/LessonLibraryV2";
 
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
@@ -1806,6 +1806,7 @@ const SECTION_BAR_CSS = `
 }
 .blitz-content.section-filtered .page-header,
 .blitz-content.section-filtered nav.toc,
+.blitz-content.section-filtered .version-banner,
 .blitz-content.section-filtered #lesson-library { display: none !important; }
 `;
 
@@ -2165,6 +2166,10 @@ export default function BlitzV2() {
                 <a href="/blitzv2/guide" target="_blank" rel="noopener noreferrer">
                   View Full Guide
                 </a>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="w-4 h-4" />
+                Print / Save PDF
               </Button>
             </div>
           </div>
