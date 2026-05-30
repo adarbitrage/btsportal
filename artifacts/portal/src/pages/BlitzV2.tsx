@@ -913,8 +913,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end module1-overview -->
   <div id="module1-steps">
   <div id="blitz-step1">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">5 — Build — Product Selection</span></div>
-  <h3 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">5 — Build — Product Selection</span><h2 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h2></div>
   <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
 
   <div class="path-block mm">
@@ -955,8 +954,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
   <div id="step2-overview">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">6 — Build — Creative Assets</span></div>
-  <h3 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">6 — Build — Creative Assets</span><h2 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h2></div>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
 
@@ -1110,8 +1108,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-overview -->
   <div id="step2-native">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">7 — Build — Native Ad Assets</span></div>
-  <h4 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h4>
+  <div class="module-header"><span class="mod-badge build">7 — Build — Native Ad Assets</span><h2 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h2></div>
 
   <p>Regardless of which affiliate network you're using, you'll need to create your native ad assets for Caterpillar. These are the headlines, description, and image that appear in your ads — their only job is to generate enough curiosity that someone clicks.</p>
 
@@ -1183,8 +1180,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-native -->
   <div id="step2-mm">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">8 — Build — Landing Page Assets (Media Mavens)</span></div>
-  <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h4>
+  <div class="module-header"><span class="mod-badge build">8 — Build — Landing Page Assets (Media Mavens)</span><h2 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h2></div>
 
   <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
     <strong>Promoting a ClickBank, MaxWeb, or Affiliati offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb / Affiliati</em> lesson instead.
@@ -1268,8 +1264,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   </div><!-- end step2-mm -->
   <div id="step2-cb">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">9 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span></div>
-  <h4>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h4>
+  <div class="module-header"><span class="mod-badge build">9 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span><h2>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h2></div>
 
   <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
 
@@ -1394,8 +1389,7 @@ const blitzBodyHTML = `<div class="version-banner">
 </div>
 
 <div class="module" id="blitz-step3" data-section="s8">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">11 — Build — Landing Pages</span></div>
-  <h3 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">11 — Build — Landing Pages</span><h2 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h2></div>
 
   <div class="callout-box">
     <div class="pe-label">💡 What is Flexy™?</div>
@@ -1425,8 +1419,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
 <div class="module" id="blitz-step3b" data-section="s8b">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">12 — Build — Using MetricMover™</span></div>
-  <h3 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">12 — Build — Using MetricMover™</span><h2 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h2></div>
 
   <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
 
@@ -1449,8 +1442,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">13 — Build — DIYTrax Setup</span></div>
-  <h3 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">13 — Build — DIYTrax Setup</span><h2 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h2></div>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
   <div class="card">
@@ -1477,8 +1469,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s10">
-  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">14 — Build — Go Live</span></div>
-  <h3 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="module-header"><span class="mod-badge build">14 — Build — Go Live</span><h2 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h2></div>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
 
   <div class="video-slot" data-vidalytics-id="FW_zSFg85RDWHUOf" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T1 — Caterpillar Campaign Basic Info</div><div class="vd">Setting up the basic campaign details in DIYTrax</div></div></div>
