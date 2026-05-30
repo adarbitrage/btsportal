@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Zap, Printer } from "lucide-react";
+import { Zap, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import LessonLibraryV2 from "@/components/blitz/LessonLibraryV2";
 
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
@@ -1835,6 +1835,10 @@ export default function BlitzV2() {
   const lesson = lessonId && LESSON_LOOKUP[lessonId] ? LESSON_LOOKUP[lessonId] : null;
   const isSectionView = !!lesson;
   const usePreviewHeader = lessonId != null && lessonId <= LAST_PHASE1_LESSON;
+  // Testbed: iterate new header treatments on lesson 3 before rolling out.
+  const isTestbed = lessonId === 3;
+  const prevId = lessonId != null && lessonId > 1 ? lessonId - 1 : null;
+  const nextId = lessonId != null && lessonId < TOTAL_LESSONS ? lessonId + 1 : null;
 
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
@@ -2160,7 +2164,39 @@ export default function BlitzV2() {
               <h1 className="text-3xl font-bold">The Blitz™</h1>
             </div>
             {isSectionView && lesson && (
-              usePreviewHeader ? (
+              isTestbed ? (
+                <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
+                  {prevId ? (
+                    <Link
+                      href={`/blitzv2/guide/${prevId}`}
+                      aria-label="Previous lesson"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
+                      <ChevronLeft className="h-4 w-4" />
+                    </span>
+                  )}
+                  <span className="px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Lesson {lessonId} of {TOTAL_LESSONS}
+                  </span>
+                  {nextId ? (
+                    <Link
+                      href={`/blitzv2/guide/${nextId}`}
+                      aria-label="Next lesson"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+              ) : usePreviewHeader ? (
                 <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Lesson {lessonId} of {TOTAL_LESSONS}
                 </span>
