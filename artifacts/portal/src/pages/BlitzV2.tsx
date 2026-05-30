@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Button } from "@/components/ui/button";
+import { Zap } from "lucide-react";
 import LessonLibraryV2 from "@/components/blitz/LessonLibraryV2";
 
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
@@ -2141,17 +2143,38 @@ export default function BlitzV2() {
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
       {isSectionView && lesson && (
-        <div className="blitz-section-bar">
-          <div className="bsb-title">{lessonId} — {lesson.label}</div>
-          <div className="bsb-actions">
-            <Link href="/blitzv2" className="bsb-btn">
-              <ArrowLeftIcon />
-              Back to Hub
-            </Link>
-            <a href="/blitzv2/guide" target="_blank" rel="noopener noreferrer" className="bsb-btn primary">
-              View Full Guide
-            </a>
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <Zap className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">The Blitz™</h1>
+              </div>
+              <span className="text-2xl font-medium text-muted-foreground border-l border-border pl-3">
+                {lessonId} — {lesson.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/blitzv2">
+                  <ArrowLeftIcon />
+                  Back to Hub
+                </Link>
+              </Button>
+              <Button size="sm" asChild>
+                <a href="/blitzv2/guide" target="_blank" rel="noopener noreferrer">
+                  View Full Guide
+                </a>
+              </Button>
+            </div>
           </div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Caterpillar Edition
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            Build · Test · Scale
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            V4.0 (Released April 21, 2026)
+          </p>
         </div>
       )}
       <div
