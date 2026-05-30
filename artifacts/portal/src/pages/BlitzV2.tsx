@@ -1404,7 +1404,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
   </div>
 
-  <h4>Universal Setup — Everyone Does This First</h4>
+  <h3>Universal Setup — Everyone Does This First</h3>
 
   <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
   <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs" data-status="ready"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
@@ -1548,7 +1548,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="margin:0;"><strong>Minimum spend before deciding:</strong> $500 total</p>
   </div>
 
-  <h4>When to Cut Underperforming Ads</h4>
+  <h3>When to Cut Underperforming Ads</h3>
   <div class="milestone">
     <div class="ms-item"><div class="ms-amount">$25 per ad</div><div class="ms-do">Cut any ad with 33+ ad clicks but zero landing page clicks — it's a clear loser with enough data</div></div>
     <div class="ms-item"><div class="ms-amount">$500 total</div><div class="ms-do">Enough data to decide. Identify your 1 best headline. Proceed to the Round 1 Exit Gate.</div></div>
@@ -1557,7 +1557,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="alert warning"><strong>The Patience Rule</strong>Do not cut ads or make landing page decisions before the spend milestones above. Data at $10 in spend is unreliable. A headline that looks weak at $10 may be your winner at $30. Wait for the thresholds.</div>
 
   <div class="video-slot" data-vidalytics-id="CcD81oUVcZ1KpyeL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Round 1: When to Make an Ad Inactive</div><div class="vd">Visual walkthrough of the decision-making process</div></div></div>
-  <h4>Phase 2 — Test — Round 1 Exit Gate</h4>
+  <h3>Phase 2 — Test — Round 1 Exit Gate</h3>
   <div class="gate pass"><div class="gate-header">✅ Pass: Spent $500+ and have 1 headline with metrics strong enough to move forward</div><p style="font-size:.9rem;margin:0;">Proceed to Round 2.</p></div>
   <div class="gate fail">
     <div class="gate-header">❌ Fail: No clear winner after $500 spent</div>
@@ -1569,7 +1569,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Unsure which to choose? Bring your data to a coaching call for a recommendation.</em></p>
   </div>
 
-  <h4>Phase 2 — Test — Round 1 Typical Outcome</h4>
+  <h3>Phase 2 — Test — Round 1 Typical Outcome</h3>
   <div class="card">
     <table>
       <thead><tr><th>Metric</th><th>Typical Result</th></tr></thead>
@@ -1583,7 +1583,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="alert success" style="margin-bottom:0;"><strong>Remember</strong>This loss is not a failure. It's the cost of identifying your top performing headline. Round 2, built on that data, will perform significantly better.</div>
   </div>
 
-  <h4>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h4>
+  <h3>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h3>
   <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@buildtestscale.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
 
   <hr class="divider">
@@ -1603,7 +1603,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p><strong>Tip:</strong> Use Grok Imagine, Midjourney, Claude, or other AI image tools to generate your new static images quickly. Save all images as 16:9 format (minimum 960×540px).</p>
   </div>
 
-  <h4>Phase 2 — Test — Round 2 Landing Page Prep</h4>
+  <h3>Phase 2 — Test — Round 2 Landing Page Prep</h3>
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens</div>
     <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">AffAngleArchitect</a> or FreeAdCopy™ to generate completely new angles.</p>
