@@ -236,6 +236,9 @@ type PhaseTint = {
   pillBg: string;
   pillBorder: string;
   pillText: string;
+  numBg: string;
+  numBorder: string;
+  numText: string;
 };
 
 const PHASE_TINT: Record<Phase, PhaseTint> = {
@@ -243,21 +246,25 @@ const PHASE_TINT: Record<Phase, PhaseTint> = {
     iconBg: "bg-slate-50", iconBorder: "border-slate-200", iconText: "text-slate-600",
     accent: "bg-slate-400", btn: "bg-slate-600 hover:bg-slate-700",
     pillBg: "bg-slate-50", pillBorder: "border-slate-200", pillText: "text-slate-600",
+    numBg: "bg-background", numBorder: "border-slate-200", numText: "text-slate-600",
   },
   build: {
-    iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconText: "text-emerald-700",
-    accent: "bg-emerald-500", btn: "bg-emerald-600 hover:bg-emerald-700",
-    pillBg: "bg-emerald-50", pillBorder: "border-emerald-200", pillText: "text-emerald-700",
+    iconBg: "bg-[#1a7a4a]", iconBorder: "border-[#15623b]", iconText: "text-white",
+    accent: "bg-[#1a7a4a]", btn: "bg-[#1a7a4a] hover:bg-[#15623b]",
+    pillBg: "bg-[#1a7a4a]", pillBorder: "border-[#15623b]", pillText: "text-white",
+    numBg: "bg-white", numBorder: "border-[#15623b]", numText: "text-[#1a7a4a]",
   },
   test: {
     iconBg: "bg-amber-50", iconBorder: "border-amber-200", iconText: "text-amber-700",
     accent: "bg-amber-500", btn: "bg-amber-600 hover:bg-amber-700",
     pillBg: "bg-amber-50", pillBorder: "border-amber-200", pillText: "text-amber-700",
+    numBg: "bg-background", numBorder: "border-amber-200", numText: "text-amber-700",
   },
   scale: {
     iconBg: "bg-violet-50", iconBorder: "border-violet-200", iconText: "text-violet-700",
     accent: "bg-violet-500", btn: "bg-violet-600 hover:bg-violet-700",
     pillBg: "bg-violet-50", pillBorder: "border-violet-200", pillText: "text-violet-700",
+    numBg: "bg-background", numBorder: "border-violet-200", numText: "text-violet-700",
   },
 };
 
@@ -494,7 +501,7 @@ function PhaseDivider({
         className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 ${tint.pillBg} ${tint.pillBorder} ${tint.pillText}`}
       >
         <span
-          className={`flex items-center justify-center w-5 h-5 rounded-full border bg-background text-[0.7rem] font-bold ${tint.pillBorder} ${tint.pillText}`}
+          className={`flex items-center justify-center w-5 h-5 rounded-full border text-[0.7rem] font-bold ${tint.numBg} ${tint.numBorder} ${tint.numText}`}
         >
           {num}
         </span>
