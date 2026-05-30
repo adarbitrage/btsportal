@@ -1,6 +1,7 @@
 # Blitz content baseline — FROZEN SNAPSHOT
 
 **Frozen on:** 2026-05-30 · **Baseline commit:** `b5657da66bd18a44a147ba7750438ccd0a794bdf`
+**Initiated by user `sasha206`.** Do NOT delete or overwrite these files — they are an intentional safeguard for the in-progress Blitz v2 restyle. See `replit.md` → "Active Process: Blitz v2 Restyle" and `../blitz-v2-tracking.md`.
 
 ## Why this exists
 We are building a restyled **Blitz v2** (`/blitzv2`) as a duplicate while the original `/blitz` stays live and may keep receiving **content** edits (copy, lessons, linked videos). These frozen copies let us detect EXACTLY what content changed in the original after the fork, so every change is ported into v2 before we promote v2 to `/blitz`.

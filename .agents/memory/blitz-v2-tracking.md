@@ -5,6 +5,8 @@ description: ACTIVE PROJECT. A restyled /blitzv2 is being built as a duplicate o
 
 # ⚠ ACTIVE: Blitz v2 restyle in progress
 
+**Initiated by user `sasha206`.** This is a deliberate, coordinated process — not stray scratch work. If you are another agent/contributor: do not delete `/blitzv2`, the `blitz-baseline/` snapshot, or this file, and do not promote/remove either Blitz version without coordinating with sasha206. A human-readable version of this notice is in `replit.md` under "Active Process: Blitz v2 Restyle".
+
 We are building **`/blitzv2`** — a visually restyled (site-style: AppLayout/Card, Inter/Roboto, 7-Pillars tints) duplicate of the Blitz feature. The original **`/blitz` stays live and untouched** so the two can be compared side-by-side, then `/blitzv2` is promoted to `/blitz` and the old one deleted.
 
 **This is purely a restyle — ALL functionality must stay identical** (deep-links, Media-Mavens-vs-ClickBank path switching, video lightbox, lesson library, progress tracking).
