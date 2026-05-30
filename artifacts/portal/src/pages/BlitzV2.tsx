@@ -1,10 +1,8 @@
 import { useState, useCallback, useEffect, useLayoutEffect } from "react";
-import { createPortal } from "react-dom";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Zap, Printer, ChevronLeft, ChevronRight } from "lucide-react";
-import LessonLibraryV2 from "@/components/blitz/LessonLibraryV2";
 
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
 const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
@@ -577,13 +575,6 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 </div>
 
-
-<!-- LESSON LIBRARY -->
-<div class="module" id="lesson-library">
-  <div class="module-header"><span class="mod-badge">Library</span><h2>Step-by-Step Lesson Library</h2></div>
-  <div class="module-intro">Every video lesson in The Blitz™, organized by phase and module in the order you should follow them. Click any lesson to read the full walkthrough — these are the same step-by-step instructions you'd see in the videos, written out so you can scan, search, and reference them at any time.</div>
-  <div id="lesson-library-mount"></div>
-</div>
 
 <!-- GLOSSARY -->
 <div class="module" id="glossary" data-section="s1">
@@ -1852,8 +1843,7 @@ const SECTION_BAR_CSS = `
 }
 .blitz-content.section-filtered .page-header,
 .blitz-content.section-filtered nav.toc,
-.blitz-content.section-filtered .version-banner,
-.blitz-content.section-filtered #lesson-library { display: none !important; }
+.blitz-content.section-filtered .version-banner { display: none !important; }
 .blitz-content.section-filtered .module { margin-bottom: 16px; }
 .blitz-content.full-guide .page-header,
 .blitz-content.full-guide .version-banner { display: none !important; }
@@ -1868,7 +1858,6 @@ function ArrowLeftIcon() {
 }
 
 export default function BlitzV2() {
-  const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
   const [match, params] = useRoute<{ lessonId: string }>("/blitzv2/guide/:lessonId");
 
@@ -1883,12 +1872,6 @@ export default function BlitzV2() {
 
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
-    if (!el) {
-      setMountEl(null);
-      return;
-    }
-    const target = el.querySelector("#lesson-library-mount");
-    if (target instanceof HTMLElement) setMountEl(target);
   }, []);
 
   // Filter modules by section. Runs synchronously before paint to avoid flash of full content.
@@ -2302,7 +2285,6 @@ export default function BlitzV2() {
         ref={setRef}
         dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
       />
-      {mountEl && createPortal(<LessonLibraryV2 />, mountEl)}
       {isSectionView && (
         <nav
           aria-label="Lesson navigation"
