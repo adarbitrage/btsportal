@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -222,7 +223,6 @@ const LESSONS: HubLesson[] = [
 const TOTAL = LESSONS.length;
 const STEP_COURSE_PREFIX = "blitzv2-hub-step-v2-";
 const API_BASE = `${import.meta.env.BASE_URL}api`;
-const GUIDE_BASE = `${import.meta.env.BASE_URL}blitzv2/guide`;
 
 type PhaseTint = {
   iconBg: string;
@@ -558,10 +558,10 @@ function LessonCard({
                   size="sm"
                   className={`text-white ${cta.secondary ? "bg-slate-600 hover:bg-slate-700" : tint.btn}`}
                 >
-                  <a href={`${GUIDE_BASE}/${lesson.id}${i > 0 ? `#${cta.section}` : ""}`}>
+                  <Link href={`/blitzv2/guide/${lesson.id}${i > 0 ? `#${cta.section}` : ""}`}>
                     {cta.label}
                     <ArrowUpRight className="w-4 h-4 ml-1.5" />
-                  </a>
+                  </Link>
                 </Button>
               ))}
               <Button
