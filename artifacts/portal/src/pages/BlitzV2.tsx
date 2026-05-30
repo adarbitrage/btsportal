@@ -153,6 +153,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .container{max-width:960px;margin:0 auto;padding:8px 28px 100px;}
 
   .blitz-content .module{margin-bottom:72px;margin-top:0;max-width:960px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px;}
+  .blitz-content.full-guide #blitz-step1,.blitz-content.full-guide #step2-overview,.blitz-content.full-guide #step2-native,.blitz-content.full-guide #step2-mm{margin-bottom:72px;}
   .blitz-content .module-header{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:16px;border-bottom:2px solid var(--border);}
   .blitz-content .mod-badge{background:var(--primary);color:white;font-size:.82rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:7px 18px;border-radius:20px;white-space:nowrap;}
   .blitz-content .mod-badge.build{background:#188f4a;} .blitz-content .mod-badge.test{background:#cf550a;} .blitz-content .mod-badge.scale{background:#7f2ac9;}
@@ -941,8 +942,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>To browse products: click "Campaigns" in the left-hand menu → click any product image for details → click "Promote" to apply. Your Account Representative's contact info is on your MaxWeb Dashboard.</p>
   </div>
 
-  <hr class="divider">
-
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
   <div id="step2-overview">
@@ -1096,8 +1095,6 @@ const blitzBodyHTML = `<div class="version-banner">
     Your ad headline and your landing page headline must feel like they belong together — they should be two parts of the same conversation, not two separate messages. A visitor who clicks your ad based on a "busy lifestyle" angle and lands on a page leading with a "scientific breakthrough" angle will feel confused and leave. Matching your angle from ad to landing page — what marketers call "message match" — is one of the most important factors in campaign performance. As you write your headlines and select your images in Parts 2 and 3, always ask: does this ad angle connect naturally to this landing page angle?
   </div>
 
-  <hr class="divider">
-
   </div><!-- end step2-overview -->
   <div id="step2-native">
   <div class="module-header"><span class="mod-badge build">7 — Build — Native Ad Assets</span><h2 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h2></div>
@@ -1167,8 +1164,6 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to use Mid-Journey to create images</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
   <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
-
-  <hr class="divider">
 
   </div><!-- end step2-native -->
   <div id="step2-mm">
@@ -1334,8 +1329,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Affiliati products do not come with pre-built advertorials, so you'll build your own jump page just like ClickBank and MaxWeb. Follow the ClickBank path above: get the product's VSL transcript, write your jump page body copy using the Bridge Page Copy Bot, then generate 5 landing page headlines and 5 hero shots for MetricMover™. If you need product-specific guidance, reach out to your Affiliati Account Manager.</p>
   </div>
 
-  <hr class="divider">
-
   </div><!-- end step2-cb -->
   </div><!-- end blitz-step2 -->
   </div><!-- end module1-steps -->
@@ -1405,8 +1398,6 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="alert info"><strong>Stuck on Flexy™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
-  <hr class="divider">
-
 </div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
 
 <span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
@@ -1429,8 +1420,6 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="alert info"><strong>ClickBank / MaxWeb / Affiliati path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati</strong>, which you'll complete before reaching this section.</div>
 
   <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
-
-  <hr class="divider">
 
 </div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
@@ -1456,8 +1445,6 @@ const blitzBodyHTML = `<div class="version-banner">
       </div></li>
     </ol>
   </div>
-
-  <hr class="divider">
 
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s10">
@@ -1527,8 +1514,6 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
   <div class="video-slot" data-vidalytics-id="VIDEO_ID_063" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How to Set Up Your P&amp;L Tracker</div><div class="vd">Set this up right after Round 1 launches so you have a clean record from the start</div></div></div>
 
-  <hr class="divider">
-
 </div><!-- end module2-overview -->
 <span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
   <div class="module-header"><span class="mod-badge test">16 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
@@ -1578,8 +1563,6 @@ const blitzBodyHTML = `<div class="version-banner">
   <h3>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h3>
   <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@buildtestscale.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
 
-  <hr class="divider">
-
 </div><!-- end blitz-round1 -->
 <span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
   <div class="module-header"><span class="mod-badge test">17 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
@@ -1605,8 +1588,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="path-block-label">✦ ClickBank / MaxWeb / Affiliati</div>
     <p>Review Round 1 landing page data. Which pages generated the most sales? Which had the highest LP CTR? Build your next set of variants based on what worked — improve winners, drop losers.</p>
   </div>
-
-  <hr class="divider">
 
 </div><!-- end blitz-between-r1-r2 -->
 <span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
@@ -1634,8 +1615,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Attend a coaching call if you're unsure where your weakness is.</em></p>
   </div>
 
-  <hr class="divider">
-
 </div><!-- end blitz-round2 -->
 <span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
   <div class="module-header"><span class="mod-badge test">19 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
@@ -1653,8 +1632,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="mQzZ7M9qOS6CNRmn"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
     <div class="video-slot" data-vidalytics-id="ezlIzQmdshnlKwkE"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using GIFSTER</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
   </div>
-
-  <hr class="divider">
 
 </div><!-- end blitz-between-r2-r3 -->
 <span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
