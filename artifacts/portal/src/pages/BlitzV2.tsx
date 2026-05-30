@@ -33,6 +33,12 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   23: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
 };
 
+// Total lessons, used for the header "Lesson X of Y" progress marker.
+const TOTAL_LESSONS = Object.keys(LESSON_LOOKUP).length;
+// Lessons 1–14 = Introduction + all of Phase 1. New header treatment is
+// previewed on these first; Phase 2/3 (15–23) keep the old chip for comparison.
+const LAST_PHASE1_LESSON = 14;
+
 // Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
 // + steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section attribute.
 // To deep-link cleanly we override visibility of those inner divs at runtime
@@ -1828,6 +1834,7 @@ export default function BlitzV2() {
   const lessonId = match ? Number(params?.lessonId) : null;
   const lesson = lessonId && LESSON_LOOKUP[lessonId] ? LESSON_LOOKUP[lessonId] : null;
   const isSectionView = !!lesson;
+  const usePreviewHeader = lessonId != null && lessonId <= LAST_PHASE1_LESSON;
 
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
@@ -2153,9 +2160,15 @@ export default function BlitzV2() {
               <h1 className="text-3xl font-bold">The Blitz™</h1>
             </div>
             {isSectionView && lesson && (
-              <span className="text-2xl font-medium text-muted-foreground border-l border-border pl-3">
-                {lessonId} — {lesson.label}
-              </span>
+              usePreviewHeader ? (
+                <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Lesson {lessonId} of {TOTAL_LESSONS}
+                </span>
+              ) : (
+                <span className="text-2xl font-medium text-muted-foreground border-l border-border pl-3">
+                  {lessonId} — {lesson.label}
+                </span>
+              )
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
