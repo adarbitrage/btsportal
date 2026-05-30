@@ -1808,6 +1808,8 @@ const SECTION_BAR_CSS = `
 .blitz-content.section-filtered nav.toc,
 .blitz-content.section-filtered .version-banner,
 .blitz-content.section-filtered #lesson-library { display: none !important; }
+.blitz-content.full-guide .page-header,
+.blitz-content.full-guide .version-banner { display: none !important; }
 `;
 
 function ArrowLeftIcon() {
@@ -2143,51 +2145,53 @@ export default function BlitzV2() {
   return (
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
-      {isSectionView && lesson && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 shrink-0">
-                <Zap className="w-6 h-6 text-primary" />
-                <h1 className="text-3xl font-bold">The Blitz™</h1>
-              </div>
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
+              <Zap className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold">The Blitz™</h1>
+            </div>
+            {isSectionView && lesson && (
               <span className="text-2xl font-medium text-muted-foreground border-l border-border pl-3">
                 {lessonId} — {lesson.label}
               </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/blitzv2">
-                  <ArrowLeftIcon />
-                  Back to Hub
-                </Link>
-              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/blitzv2">
+                <ArrowLeftIcon />
+                Back to Hub
+              </Link>
+            </Button>
+            {isSectionView && (
               <Button size="sm" asChild>
                 <Link href="/blitzv2/guide">
                   View Full Guide
                 </Link>
               </Button>
-              <Button
-                size="sm"
-                onClick={() => window.print()}
-                className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
-              >
-                <Printer className="w-4 h-4" />
-                Print / Save PDF
-              </Button>
-            </div>
+            )}
+            <Button
+              size="sm"
+              onClick={() => window.print()}
+              className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
+            >
+              <Printer className="w-4 h-4" />
+              Print / Save PDF
+            </Button>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Caterpillar Edition
-            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-            Build · Test · Scale
-            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-            V4.0 (Released April 21, 2026)
-          </p>
         </div>
-      )}
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Caterpillar Edition
+          <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+          Build · Test · Scale
+          <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+          V4.0 (Released April 21, 2026)
+        </p>
+      </div>
       <div
-        className={`blitz-content${isSectionView ? " section-filtered" : ""}`}
+        className={`blitz-content${isSectionView ? " section-filtered" : " full-guide"}`}
         ref={setRef}
         dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
       />
