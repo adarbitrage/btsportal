@@ -990,7 +990,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-  <h4>The Foundation: Why People Click and Buy <span class="path-tag tag-all">Everyone</span></h4>
+  <h3>The Foundation: Why People Click and Buy <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before writing a single headline or choosing a single image, you need to understand the psychology behind what makes someone click an ad and then stay engaged long enough to buy. This is the foundation everything else is built on.</p>
 
@@ -1019,7 +1019,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-  <h4>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h4>
+  <h3>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h3>
 
   <p>Before you write a single headline or choose a single image, you need to understand what you're actually testing — and why. The answer is <strong>angles</strong>.</p>
 
