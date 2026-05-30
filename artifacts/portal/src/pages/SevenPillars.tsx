@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { VidalyticsEmbed } from "@/components/VidalyticsEmbed";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -145,6 +146,12 @@ export default function SevenPillars() {
             business — the seven elements that turn paid traffic into a profitable
             digital business.
           </p>
+          <div className="mt-6 max-w-4xl overflow-hidden rounded-xl border border-border/60 shadow-sm">
+            <VidalyticsEmbed
+              embedId="CsHMvOhZEPEm1Dpp"
+              loaderUrl="https://fast.vidalytics.com/embeds/trR5xdVa/CsHMvOhZEPEm1Dpp/"
+            />
+          </div>
         </div>
 
         <Card className="border-border/60 shadow-sm">
