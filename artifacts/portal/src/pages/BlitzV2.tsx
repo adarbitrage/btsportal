@@ -161,7 +161,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .module{margin-bottom:72px;margin-top:0;max-width:960px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px;}
   .blitz-content .module-header{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:16px;border-bottom:2px solid var(--border);}
   .blitz-content .mod-badge{background:var(--primary);color:white;font-size:.82rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:7px 18px;border-radius:20px;white-space:nowrap;}
-  .blitz-content .mod-badge.build{background:#188f4a;} .blitz-content .mod-badge.test{background:#b45309;} .blitz-content .mod-badge.scale{background:#6b21a8;}
+  .blitz-content .mod-badge.build{background:#188f4a;} .blitz-content .mod-badge.test{background:#cf550a;} .blitz-content .mod-badge.scale{background:#7f2ac9;}
   .blitz-content .module-header h2{font-size:1.9rem;color:var(--primary);letter-spacing:-0.3px;}
   .blitz-content .module-intro{background:#f0f4ff;border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:18px 22px;margin-bottom:28px;font-size:1.05rem;color:#1e3a6e;line-height:1.75;}
 

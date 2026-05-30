@@ -255,16 +255,16 @@ const PHASE_TINT: Record<Phase, PhaseTint> = {
     numBg: "bg-white", numBorder: "border-[#136b38]", numText: "text-[#188f4a]",
   },
   test: {
-    iconBg: "bg-amber-50", iconBorder: "border-amber-200", iconText: "text-amber-700",
-    accent: "bg-amber-500", btn: "bg-amber-600 hover:bg-amber-700",
-    pillBg: "bg-amber-50", pillBorder: "border-amber-200", pillText: "text-amber-700",
-    numBg: "bg-background", numBorder: "border-amber-200", numText: "text-amber-700",
+    iconBg: "bg-[#cf550a]", iconBorder: "border-[#a03f07]", iconText: "text-white",
+    accent: "bg-[#cf550a]", btn: "bg-[#cf550a] hover:bg-[#a03f07]",
+    pillBg: "bg-[#cf550a]", pillBorder: "border-[#a03f07]", pillText: "text-white",
+    numBg: "bg-white", numBorder: "border-[#a03f07]", numText: "text-[#cf550a]",
   },
   scale: {
-    iconBg: "bg-violet-50", iconBorder: "border-violet-200", iconText: "text-violet-700",
-    accent: "bg-violet-500", btn: "bg-violet-600 hover:bg-violet-700",
-    pillBg: "bg-violet-50", pillBorder: "border-violet-200", pillText: "text-violet-700",
-    numBg: "bg-background", numBorder: "border-violet-200", numText: "text-violet-700",
+    iconBg: "bg-[#7f2ac9]", iconBorder: "border-[#641f9e]", iconText: "text-white",
+    accent: "bg-[#7f2ac9]", btn: "bg-[#7f2ac9] hover:bg-[#641f9e]",
+    pillBg: "bg-[#7f2ac9]", pillBorder: "border-[#641f9e]", pillText: "text-white",
+    numBg: "bg-white", numBorder: "border-[#641f9e]", numText: "text-[#7f2ac9]",
   },
 };
 
