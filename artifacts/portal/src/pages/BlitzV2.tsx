@@ -159,6 +159,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .module-header{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:16px;border-bottom:2px solid var(--border);}
   .blitz-content .mod-badge{background:var(--primary);color:white;font-size:.82rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:7px 18px;border-radius:20px;white-space:nowrap;}
   .blitz-content .mod-badge.build{background:#188f4a;} .blitz-content .mod-badge.test{background:#cf550a;} .blitz-content .mod-badge.scale{background:#7f2ac9;}
+  .blitz-content .mod-badge.intro{background:#475569;}
   .blitz-content .module-header h2{font-size:1.9rem;color:var(--primary);letter-spacing:-0.3px;}
   .blitz-content .module-intro{background:#f0f4ff;border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:18px 22px;margin-bottom:28px;font-size:1.05rem;color:#1e3a6e;line-height:1.75;}
 
@@ -568,7 +569,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- WELCOME -->
 <span id="s1" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="welcome" data-section="s1">
-  <div class="module-header"><h2>Welcome to The Blitz™</h2></div>
+  <div class="module-header"><span class="mod-badge intro">1 — Introduction</span><h2>Welcome to The Blitz™</h2></div>
   <div class="module-intro">The Blitz™ is a proven, step-by-step system for launching profitable affiliate marketing campaigns. This guide walks you through everything — from choosing your offer and building your creative assets, to launching your campaign and testing until you find a profitable combination worth scaling. Follow the process, trust the data, and the results will follow.</div>
   <div class="video-slot" data-vidalytics-id="x_8mSUUqDIhXNyQP" data-status="ready"><div class="play-icon"></div><div><div class="vt">Watch This First: What Is Affiliate Arbitrage?</div><div class="vd">A short overview of how this business model works — start here before anything else</div></div></div>
   <div class="callout-box">
@@ -621,7 +622,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 0 -->
 <span id="s2" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module0" data-section="s2">
-  <div class="module-header"><h2>Before You Start — What You Need to Know</h2></div>
+  <div class="module-header"><span class="mod-badge intro">2 — Before You Start</span><h2>Before You Start — What You Need to Know</h2></div>
   <div class="module-intro">Understanding how the system works before building it makes every step that follows clearer and faster. The three-phase structure, how your testing budget translates into data and eventually profit, the exit gates, and the support resources available to you are all covered here.</div>
 
   <h3>The Three Phases</h3>
