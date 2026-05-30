@@ -622,7 +622,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 0 -->
 <span id="s2" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module0" data-section="s2">
-  <div class="module-header"><span class="mod-badge intro">2 — Before You Start</span><h2>Before You Start — What You Need to Know</h2></div>
+  <div class="module-header"><span class="mod-badge intro">2 — Before You Start</span><h2>What You Need to Know — The Three Phases, Your Budget, and the Phase Gates</h2></div>
   <div class="module-intro">Understanding how the system works before building it makes every step that follows clearer and faster. The three-phase structure, how your testing budget translates into data and eventually profit, the exit gates, and the support resources available to you are all covered here.</div>
 
   <h3>The Three Phases</h3>
