@@ -22,16 +22,13 @@ const LESSONS: HubLesson[] = [
     id: 1, phase: "intro", step: "Introduction",
     title: "What Is Affiliate Arbitrage?",
     desc: "Start here before anything else. This short video explains the business model behind The Blitz™ — how affiliate arbitrage works, and why the Build → Test → Scale framework makes it predictable and scalable. The Key Terms reference guide is also available for any unfamiliar affiliate marketing terms you encounter throughout the guide — bookmark it and use it as needed.",
-    ctas: [
-      { label: "Watch Video", section: "s1" },
-      { label: "Key Terms Reference", section: "s1", secondary: true },
-    ],
+    ctas: [{ label: "Go to Section", section: "s1" }],
   },
   {
     id: 2, phase: "intro", step: "Before You Start",
     title: "Understand the System — The Three Phases, Your Budget, and the Phase Gates",
     desc: "Read this entire section before touching any technical setup. It covers how the three phases work, what your money is actually buying in the early rounds, realistic budget expectations including net cost after commissions, and the gates you must pass before advancing to the next phase.",
-    ctas: [{ label: "Read Section", section: "s2" }],
+    ctas: [{ label: "Go to Section", section: "s2" }],
   },
   {
     id: 3, phase: "build", step: "Overview",
@@ -202,13 +199,13 @@ const LESSONS: HubLesson[] = [
     title: "Increase Budget on Your Top Performing Placement",
     desc: "Remove non-profitable ads and increase your daily budget 2× on your top performing placement. If ROAS stays stable after 3–5 days, increase to 5×, then 10×. Monitor daily — stop scaling a placement if ROAS declines for 5+ consecutive days.",
     tags: [{ kind: "warn", label: "Only enter Phase 3 once Phase 2 is profitable" }],
-    ctas: [{ label: "Go to Scale Module", section: "s17" }],
+    ctas: [{ label: "Go to Section", section: "s17" }],
   },
   {
     id: 22, phase: "scale", step: "Method 2",
     title: "Test New Placements and Publishers",
     desc: "Use your proven ads and landing pages on Grasshopper or Crane publishers — no new creative required. Minimum $1,500 per new placement. See the Grasshopper and Crane Supplemental Guides for setup instructions.",
-    ctas: [{ label: "Go to Scale Module", section: "s18" }],
+    ctas: [{ label: "Go to Section", section: "s18" }],
   },
   {
     id: 23, phase: "scale", step: "Method 3",
@@ -218,7 +215,7 @@ const LESSONS: HubLesson[] = [
       { kind: "warn", label: "14+ consecutive profitable days required" },
       { kind: "warn", label: "Coach approval required" },
     ],
-    ctas: [{ label: "Go to Scale Module", section: "s19" }],
+    ctas: [{ label: "Go to Section", section: "s19" }],
   },
 ];
 
