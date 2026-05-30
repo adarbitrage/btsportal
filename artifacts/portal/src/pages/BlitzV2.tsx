@@ -567,7 +567,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- WELCOME -->
 <span id="s1" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="welcome" data-section="s1">
-  <div class="module-header"><span class="mod-badge">Start Here</span><h2>Welcome to The Blitz™</h2></div>
+  <div class="module-header"><h2>Welcome to The Blitz™</h2></div>
   <div class="module-intro">The Blitz™ is a proven, step-by-step system for launching profitable affiliate marketing campaigns. This guide walks you through everything — from choosing your offer and building your creative assets, to launching your campaign and testing until you find a profitable combination worth scaling. Follow the process, trust the data, and the results will follow.</div>
   <div class="video-slot" data-vidalytics-id="x_8mSUUqDIhXNyQP" data-status="ready"><div class="play-icon"></div><div><div class="vt">Watch This First: What Is Affiliate Arbitrage?</div><div class="vd">A short overview of how this business model works — start here before anything else</div></div></div>
   <div class="callout-box">
@@ -586,7 +586,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- GLOSSARY -->
 <div class="module" id="glossary" data-section="s1">
-  <div class="module-header"><span class="mod-badge">Reference</span><h2>Key Terms and Terminology — Affiliate Marketing Reference Guide</h2></div>
+  <div class="module-header"><h2>Key Terms and Terminology — Affiliate Marketing Reference Guide</h2></div>
   <p>This section is a reference resource for common terms and terminology used in affiliate marketing and throughout The Blitz™. You don't need to read this from top to bottom — bookmark it and come back whenever you encounter an unfamiliar term in the guide or in a video.</p>
   <div class="glossary">
     <div class="gloss-item"><div class="gloss-term">Affiliate Network</div><div class="gloss-def">A marketplace where companies list products they want promoted. You sign up, pick a product, and get a unique tracking link. When someone buys through your link, you get paid. In The Blitz™: Media Mavens, ClickBank, Affiliati, and MaxWeb.</div></div>
