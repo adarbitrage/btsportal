@@ -166,7 +166,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content p{margin-bottom:16px;}
   .blitz-content ul, .blitz-content ol{margin:10px 0 18px 24px;} .blitz-content li{margin-bottom:9px;font-size:1rem;}
 
-  .blitz-content .path-tag{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-right:4px;}
+  .blitz-content .path-tag{display:inline-block;vertical-align:middle;font-size:.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-right:4px;}
   .blitz-content .tag-mm{background:var(--mm-bg);color:var(--mm-color);border:1px solid var(--mm-border);}
   .blitz-content .tag-cb{background:var(--cb-bg);color:var(--cb-color);border:1px solid var(--cb-border);}
   .blitz-content .tag-mw{background:var(--mw-bg);color:var(--mw-color);border:1px solid var(--mw-border);}
