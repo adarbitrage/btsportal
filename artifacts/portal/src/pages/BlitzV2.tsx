@@ -1248,7 +1248,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Flexy™ setup.</div>
-    <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
     <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
   </div>
 
@@ -1316,7 +1315,6 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Flexy™ setup. Wait for approval before building pages in Flexy™.</div>
-    <div class="video-slot" data-vidalytics-id="qRq5oQk59skK_zBL"><div class="play-icon"></div><div><div class="vt">Submit Landing Page Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
     <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
   </div>
 
