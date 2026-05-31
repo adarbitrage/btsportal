@@ -424,8 +424,8 @@ export default function BlitzHubV2() {
             </div>
 
             <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64">
-              <CardContent className="p-4 h-full flex flex-col justify-center">
-                <div className="flex items-baseline justify-between mb-2">
+              <CardContent className="px-4 py-2 h-full flex flex-col justify-center">
+                <div className="flex items-baseline justify-between mb-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Your Progress
                   </span>
@@ -439,7 +439,7 @@ export default function BlitzHubV2() {
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-1.5 text-right text-[11px] text-muted-foreground">{pct}% complete</div>
+                <div className="mt-1 text-right text-[11px] text-muted-foreground">{pct}% complete</div>
               </CardContent>
             </Card>
           </div>
