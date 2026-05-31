@@ -407,45 +407,48 @@ export default function BlitzHubV2() {
   return (
     <AppLayout>
       <div className="space-y-6 max-w-6xl">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">The Blitz™</h1>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-6 h-6 text-primary" />
+                <h1 className="text-3xl font-bold">The Blitz™</h1>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Caterpillar Edition
+                <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+                Build · Test · Scale
+                <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+                V4.0 (Released April 21, 2026)
+              </p>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              Caterpillar Edition
-              <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-              Build · Test · Scale
-              <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-              V4.0 (Released April 21, 2026)
-            </p>
-            <p className="text-muted-foreground max-w-3xl leading-relaxed">
-              A <strong className="text-foreground font-semibold">proven, step-by-step system</strong> for
-              launching profitable affiliate marketing campaigns. Work through each module in order, make
-              decisions based on data, and the results will follow.
-            </p>
+
+            <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64">
+              <CardContent className="p-4 h-full flex flex-col justify-center">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Your Progress
+                  </span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {doneCount} / {TOTAL}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="mt-1.5 text-right text-[11px] text-muted-foreground">{pct}% complete</div>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64">
-            <CardContent className="p-4">
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Your Progress
-                </span>
-                <span className="text-xs font-semibold text-foreground">
-                  {doneCount} / {TOTAL}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <div className="mt-1.5 text-right text-[11px] text-muted-foreground">{pct}% complete</div>
-            </CardContent>
-          </Card>
+          <p className="text-muted-foreground leading-relaxed">
+            A <strong className="text-foreground font-semibold">proven, step-by-step system</strong> for
+            launching profitable affiliate marketing campaigns. Work through each module in order, make
+            decisions based on data, and the results will follow.
+          </p>
         </div>
 
         {phaseGroups.map((group) => (
