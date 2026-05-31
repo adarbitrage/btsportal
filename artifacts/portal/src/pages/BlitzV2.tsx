@@ -537,12 +537,15 @@ const blitzCSS = `.blitz-content{
   .blitz-content .page-header h1{font-size:1.875rem;margin-bottom:6px;}
   .blitz-content .page-header .tagline{margin:0 0 12px;max-width:48rem;}
   .blitz-content .pub-badge{margin-bottom:12px;}
-  .blitz-content nav.toc{justify-content:center;gap:12px;padding:8px 0;margin-bottom:28px;border:none;border-radius:0;background:transparent;}
-  .blitz-content nav.toc a.phase-pill{display:inline-flex;align-items:center;border-radius:9999px;border:1px solid transparent;padding:6px 16px;font-size:.875rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#fff;}
-  .blitz-content nav.toc a.phase-pill:hover{color:#fff;opacity:.88;}
-  .blitz-content nav.toc a.phase-pill.build{background:#188f4a;border-color:#136b38;}
-  .blitz-content nav.toc a.phase-pill.test{background:#cf550a;border-color:#a03f07;}
-  .blitz-content nav.toc a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
+  .blitz-content .module-header.welcome-header{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .blitz-content .module-header.welcome-header .wh-left{display:flex;flex-direction:column;align-items:flex-start;gap:8px;}
+  .blitz-content .phase-jump{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .blitz-content .phase-jump a.phase-pill{display:inline-flex;align-items:center;border-radius:9999px;border:1px solid transparent;padding:6px 16px;font-size:.8rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#fff;text-decoration:none;white-space:nowrap;}
+  .blitz-content .phase-jump a.phase-pill:hover{color:#fff;opacity:.88;}
+  .blitz-content .phase-jump a.phase-pill .pp-arrow{width:14px;height:14px;margin-left:6px;flex-shrink:0;}
+  .blitz-content .phase-jump a.phase-pill.build{background:#188f4a;border-color:#136b38;}
+  .blitz-content .phase-jump a.phase-pill.test{background:#cf550a;border-color:#a03f07;}
+  .blitz-content .phase-jump a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
   .blitz-content .version-banner{padding:5px 0;}`;
 
 const blitzBodyHTML = `<div class="version-banner">
@@ -561,17 +564,11 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="pub-badge">📡 &nbsp;<strong>Traffic Source: Caterpillar</strong> &nbsp;·&nbsp; Native Advertising Platform</div>
   </div>
 
-<nav class="toc">
-  <a class="phase-pill build" href="#module1-overview">Phase 1 — Build</a>
-  <a class="phase-pill test" href="#module2-overview">Phase 2 — Test</a>
-  <a class="phase-pill scale" href="#module3-overview">Phase 3 — Scale</a>
-</nav>
-
 <div class="container">
 
 <!-- WELCOME -->
 <span id="s1" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="welcome" data-section="s1">
-  <div class="module-header"><span class="mod-badge intro">1 — Introduction</span><h2>Welcome to The Blitz™</h2></div>
+  <div class="module-header welcome-header"><div class="wh-left"><span class="mod-badge intro">1 — Introduction</span><h2>Welcome to The Blitz™</h2></div><div class="phase-jump"><a class="phase-pill build" href="#module1-overview">Phase 1 — Build<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill test" href="#module2-overview">Phase 2 — Test<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill scale" href="#module3-overview">Phase 3 — Scale<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a></div></div>
   <div class="module-intro">The Blitz™ is a proven, step-by-step system for launching profitable affiliate marketing campaigns. This guide walks you through everything — from choosing your offer and building your creative assets, to launching your campaign and testing until you find a profitable combination worth scaling. Follow the process, trust the data, and the results will follow.</div>
   <div class="video-slot" data-vidalytics-id="x_8mSUUqDIhXNyQP" data-status="ready"><div class="play-icon"></div><div><div class="vt">Watch This First: What Is Affiliate Arbitrage?</div><div class="vd">A short overview of how this business model works — start here before anything else</div></div></div>
   <div class="callout-box">
@@ -1824,6 +1821,7 @@ const SECTION_BAR_CSS = `
 }
 .blitz-content.section-filtered .page-header,
 .blitz-content.section-filtered nav.toc,
+.blitz-content.section-filtered .phase-jump,
 .blitz-content.section-filtered .version-banner { display: none !important; }
 .blitz-content.section-filtered .module { margin-bottom: 16px; }
 .blitz-content.full-guide .page-header,
