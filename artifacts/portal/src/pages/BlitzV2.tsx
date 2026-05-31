@@ -2273,8 +2273,8 @@ export default function BlitzV2() {
               href={`/blitzv2/guide/${prevId}`}
               className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:w-64 ${prevPager.card}`}
             >
-              <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${prevPager.eyebrow}`}>
-                <ChevronLeft className="h-3.5 w-3.5" />
+              <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${prevPager.eyebrow}`}>
+                <ChevronLeft className="h-3.5 w-3.5 shrink-0 -ml-1" />
                 Previous
               </span>
               <span className={`mt-0.5 truncate text-base font-semibold ${prevPager.title}`}>
@@ -2289,9 +2289,9 @@ export default function BlitzV2() {
               href={`/blitzv2/guide/${nextId}`}
               className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:w-64 ${nextPager.card}`}
             >
-              <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${nextPager.eyebrow}`}>
+              <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${nextPager.eyebrow}`}>
                 Next
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 -mr-1" />
               </span>
               <span className={`mt-0.5 truncate text-base font-semibold ${nextPager.title}`}>
                 {LESSON_SHORT_TITLES[nextId]}
