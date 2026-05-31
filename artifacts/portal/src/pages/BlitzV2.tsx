@@ -2271,7 +2271,7 @@ export default function BlitzV2() {
           {prevId && prevPager ? (
             <Link
               href={`/blitzv2/guide/${prevId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:w-64 ${prevPager.card}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:w-[20.8rem] ${prevPager.card}`}
             >
               <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${prevPager.eyebrow}`}>
                 <ChevronLeft className="relative -top-px h-3.5 w-3.5 shrink-0 -ml-1" />
@@ -2282,12 +2282,12 @@ export default function BlitzV2() {
               </span>
             </Link>
           ) : (
-            <div className="hidden sm:block sm:w-64" aria-hidden="true" />
+            <div className="hidden sm:block sm:w-[20.8rem]" aria-hidden="true" />
           )}
           {nextId && nextPager ? (
             <Link
               href={`/blitzv2/guide/${nextId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:w-64 ${nextPager.card}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:w-[20.8rem] ${nextPager.card}`}
             >
               <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${nextPager.eyebrow}`}>
                 Next
@@ -2298,7 +2298,7 @@ export default function BlitzV2() {
               </span>
             </Link>
           ) : (
-            <div className="hidden sm:block sm:w-64" aria-hidden="true" />
+            <div className="hidden sm:block sm:w-[20.8rem]" aria-hidden="true" />
           )}
         </nav>
       )}
