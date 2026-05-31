@@ -238,14 +238,14 @@ const blitzCSS = `.blitz-content{
     content:"⏳ AWAITING LINK"; color:#fff; background:#3b82f6; border-color:#2563eb;
   }
 
-  .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:28px 0;}
+  .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:stretch;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
   .blitz-content .roadmap-phase{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:24px;text-align:center;}
-  .blitz-content .roadmap-phase.p1{border-color:#86efac;} .blitz-content .roadmap-phase.p2{border-color:#fcd34d;} .blitz-content .roadmap-phase.p3{border-color:#d8b4fe;}
-  .blitz-content .roadmap-arrow{text-align:center;color:var(--muted);font-size:1.5rem;}
+  .blitz-content .roadmap-phase.p1{border-color:#188f4a;} .blitz-content .roadmap-phase.p2{border-color:#cf550a;} .blitz-content .roadmap-phase.p3{border-color:#7f2ac9;}
+  .blitz-content .roadmap-arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.5rem;}
   .blitz-content .ph-num{font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
   .blitz-content .ph-title{font-weight:800;font-size:1.2rem;margin-bottom:8px;}
-  .blitz-content .roadmap-phase.p1 .ph-title{color:var(--success);} .blitz-content .roadmap-phase.p2 .ph-title{color:var(--warning);} .blitz-content .roadmap-phase.p3 .ph-title{color:var(--cat-color);}
+  .blitz-content .roadmap-phase.p1 .ph-title{color:#188f4a;} .blitz-content .roadmap-phase.p2 .ph-title{color:#cf550a;} .blitz-content .roadmap-phase.p3 .ph-title{color:#7f2ac9;}
   .blitz-content .ph-desc{font-size:.9rem;color:var(--muted);line-height:1.55;}
 
   .blitz-content .gate{border:2px solid;border-radius:12px;padding:20px 24px;margin:16px 0;}
