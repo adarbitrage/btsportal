@@ -1373,6 +1373,8 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <div class="alert info"><strong>When to Submit</strong>Submit your assets for compliance as early as possible — ideally as soon as they're ready, while you continue working on other setup steps. That way, approval arrives by the time you're ready to go live and doesn't delay your launch.</div>
+
+  <div class="video-slot" data-vidalytics-id="GKjF_nobrZchpjrX" data-status="ready"><div class="play-icon"></div><div><div class="vt">Submit Headlines and Images to Compliance</div><div class="vd">Watch how to submit your headlines and images for compliance review</div></div></div>
 </div>
 
 <div class="module" id="blitz-step3" data-section="s8">
