@@ -1,4 +1,4 @@
-- ⚠ [Blitz v2 restyle IN PROGRESS](blitz-v2-tracking.md) — building /blitzv2 as restyled duplicate; original /blitz stays live. Frozen content baseline in blitz-baseline/. Port content drift + flip progress prefix before promotion.
+- [Blitz v2 restyle DONE](blitz-v2-tracking.md) — v2 promoted to canonical /blitz; old Blitz archived admin-only at /blitz-archive (frozen JSON library). Live guide lacks a Lesson Library (open decision).
 - [Blitz branded design (archived)](blitz-branded-design.md) — original navy hero + display fonts + phase colors removed during restyle; how to restore.
-- [Blitz guide is generated HTML](blitz-guide-generated.md) — guide body is build-script output injected via dangerouslySetInnerHTML; hand-edits get overwritten on regen.
+- [Blitz guide — live hand-maintained, archive frozen](blitz-guide-generated.md) — canonical /blitz (was v2) is edited directly; regenerator disabled (ALLOW_BLITZ_REGEN); old guide archived at admin-only /blitz-archive with JSON-snapshot library.
 - [Blitz SPA navigation](blitz-spa-navigation.md) — internal nav must use wouter <Link> (base-relative), never plain <a>; full reloads corrupt the iframe back-stack -> Back lands on full guide.

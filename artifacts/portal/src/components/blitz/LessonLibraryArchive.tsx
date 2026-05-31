@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  fetchBlitzLesson,
-  fetchBlitzLessons,
   type BlitzLessonDetail,
   type BlitzLessonSummary,
 } from "@/lib/blitz-api";
+import snapshot from "./blitz-archive-lessons.json";
 import {
   Dialog,
   DialogContent,
@@ -90,66 +89,31 @@ function groupLessons(lessons: BlitzLessonSummary[]): GroupedPhase[] {
     .filter((g) => g.modules.length > 0);
 }
 
-export default function LessonLibraryV2() {
-  const [lessons, setLessons] = useState<BlitzLessonSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const ARCHIVE_LESSONS = snapshot.lessons as BlitzLessonSummary[];
+const ARCHIVE_DETAILS = snapshot.details as unknown as Record<string, BlitzLessonDetail>;
+
+export default function LessonLibraryArchive() {
+  const [lessons] = useState<BlitzLessonSummary[]>(ARCHIVE_LESSONS);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [openLesson, setOpenLesson] = useState<BlitzLessonDetail | null>(null);
-  const [openLoading, setOpenLoading] = useState(false);
-  const [openError, setOpenError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchBlitzLessons()
-      .then((data) => {
-        if (!cancelled) {
-          setLessons(data.lessons);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message || "Failed to load lessons");
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [openLoading] = useState(false);
+  const [openError] = useState<string | null>(null);
 
   useEffect(() => {
     if (openId == null) {
       setOpenLesson(null);
-      setOpenError(null);
       return;
     }
-    let cancelled = false;
-    setOpenLoading(true);
-    setOpenError(null);
-    setOpenLesson(null);
-    fetchBlitzLesson(openId)
-      .then((data) => {
-        if (cancelled) return;
-        setOpenLesson(data.lesson);
-        setOpenLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setOpenError(err.message || "Failed to load lesson");
-        setOpenLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setOpenLesson(ARCHIVE_DETAILS[String(openId)] ?? null);
   }, [openId]);
 
   const grouped = useMemo(() => groupLessons(lessons), [lessons]);
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
         Loading the Blitz lesson library…
       </div>
     );
@@ -165,7 +129,7 @@ export default function LessonLibraryV2() {
 
   if (lessons.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
         No Blitz lessons available yet.
       </div>
     );
@@ -173,7 +137,7 @@ export default function LessonLibraryV2() {
 
   return (
     <div className="lesson-library">
-      <p className="mb-4 text-sm text-muted-foreground">
+      <p className="mb-4 text-sm text-slate-600">
         Every step-by-step lesson, in order. Click any lesson to read the full walkthrough.
       </p>
 
@@ -187,24 +151,24 @@ export default function LessonLibraryV2() {
               >
                 {meta.label}
               </span>
-              <span className="text-sm text-muted-foreground">{meta.description}</span>
+              <span className="text-sm text-slate-500">{meta.description}</span>
             </div>
 
             <div className="space-y-4">
               {modules.map((m) => (
                 <div
                   key={m.moduleName}
-                  className="overflow-hidden rounded-lg border border-border bg-card"
+                  className="overflow-hidden rounded-lg border border-slate-200 bg-white"
                 >
-                  <div className="border-b border-border bg-muted/40 px-4 py-2">
-                    <h4 className="text-sm font-semibold text-foreground">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-2">
+                    <h4 className="text-sm font-semibold text-slate-800">
                       {m.moduleName}{" "}
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      <span className="ml-2 text-xs font-normal text-slate-500">
                         {m.lessons.length} lesson{m.lessons.length === 1 ? "" : "s"}
                       </span>
                     </h4>
                   </div>
-                  <ul className="divide-y divide-border">
+                  <ul className="divide-y divide-slate-100">
                     {m.lessons.map((l) => {
                       const network = l.networkPath ? NETWORK_LABEL[l.networkPath] : undefined;
                       const publisher = l.publisherPath ? PUBLISHER_LABEL[l.publisherPath] : undefined;
@@ -213,13 +177,13 @@ export default function LessonLibraryV2() {
                           <button
                             type="button"
                             onClick={() => setOpenId(l.id)}
-                            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-muted/50"
+                            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-slate-50"
                           >
                             <div className="flex min-w-0 items-baseline gap-3">
-                              <span className="font-mono text-xs text-muted-foreground">
+                              <span className="font-mono text-xs text-slate-400">
                                 {l.lessonId || `#${l.blitzOrder ?? "—"}`}
                               </span>
-                              <span className="truncate text-sm font-medium text-foreground">
+                              <span className="truncate text-sm font-medium text-slate-800">
                                 {l.title}
                               </span>
                             </div>
@@ -268,14 +232,14 @@ export default function LessonLibraryV2() {
               )}
             </DialogDescription>
           </DialogHeader>
-          {openLoading && <p className="text-sm text-muted-foreground">Loading lesson…</p>}
+          {openLoading && <p className="text-sm text-slate-500">Loading lesson…</p>}
           {openError && (
             <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {openError}
             </p>
           )}
           {openLesson && (
-            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-pre:bg-slate-50 prose-pre:text-foreground">
+            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-pre:bg-slate-50 prose-pre:text-slate-800">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {openLesson.content}
               </ReactMarkdown>

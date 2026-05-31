@@ -24,8 +24,8 @@ import SelfPromoting from "@/pages/SelfPromoting";
 import AiAssistant from "@/pages/AiAssistant";
 import Blitz from "@/pages/Blitz";
 import BlitzHub from "@/pages/BlitzHub";
-import BlitzV2 from "@/pages/BlitzV2";
-import BlitzHubV2 from "@/pages/BlitzHubV2";
+import BlitzArchive from "@/pages/BlitzArchive";
+import BlitzHubArchive from "@/pages/BlitzHubArchive";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -355,9 +355,9 @@ function Router() {
       <Route path="/blitz">{() => <ProtectedRoute component={BlitzHub} />}</Route>
       <Route path="/blitz/guide">{() => <ProtectedRoute component={Blitz} />}</Route>
       <Route path="/blitz/guide/:lessonId">{() => <ProtectedRoute component={Blitz} />}</Route>
-      <Route path="/blitzv2">{() => <ProtectedRoute component={BlitzHubV2} />}</Route>
-      <Route path="/blitzv2/guide">{() => <ProtectedRoute component={BlitzV2} />}</Route>
-      <Route path="/blitzv2/guide/:lessonId">{() => <ProtectedRoute component={BlitzV2} />}</Route>
+      <Route path="/blitz-archive">{() => <AdminRoute component={BlitzHubArchive} permission="content:manage" />}</Route>
+      <Route path="/blitz-archive/guide">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
+      <Route path="/blitz-archive/guide/:lessonId">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>

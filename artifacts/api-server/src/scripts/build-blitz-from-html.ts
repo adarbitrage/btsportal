@@ -5,6 +5,17 @@ const ROOT = resolve(import.meta.dirname, "../../../..");
 const SRC = resolve(ROOT, "attached_assets/blitz_main_caterpillar_110_1778523623764.html");
 const OUT = resolve(ROOT, "artifacts/portal/src/pages/Blitz.tsx");
 
+// DISABLED: The live /blitz guide (formerly Blitz v2) is now hand-maintained as
+// the canonical page. This regenerator rebuilds Blitz.tsx from a stale
+// attached_assets HTML export and would clobber the live guide. It is gated off
+// by default. Only set ALLOW_BLITZ_REGEN=1 if you have intentionally restored an
+// HTML-driven workflow and understand it will overwrite the live guide.
+if (!process.env.ALLOW_BLITZ_REGEN) {
+  throw new Error(
+    "build-blitz-from-html is disabled: the live /blitz guide is hand-maintained and must not be regenerated from HTML. Set ALLOW_BLITZ_REGEN=1 to override.",
+  );
+}
+
 const html = readFileSync(SRC, "utf8");
 
 // Extract CSS

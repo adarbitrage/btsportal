@@ -8,15 +8,16 @@ This pnpm monorepo powers the "Build Test Scale" (BTS) affiliate marketing mento
 
 No specific user preferences were provided in the original document.
 
-## ⚠ Active Process: Blitz v2 Restyle (initiated by user sasha206)
+## Blitz: canonical `/blitz` + admin-only `/blitz-archive` (restyle completed by user sasha206)
 
-**Please read before modifying anything Blitz-related.** User **sasha206** initiated a deliberate, in-progress process to restyle the Blitz feature into the standard portal look. The work is being built as a **duplicate at `/blitzv2`** so the live `/blitz` stays untouched and the two can be compared before switching over. This is intentional and coordinated — do not undo it.
+**Read before modifying anything Blitz-related.** The Blitz v2 restyle is **done and promoted**. The restyled version is now the canonical **`/blitz`** ("the Blitz"). The original Blitz was retired to an admin-only **`/blitz-archive`** (gated by `AdminRoute` + `permission="content:manage"`), fully separated as a frozen backup. The old `/blitzv2` route no longer exists.
 
-**Safeguards that are there on purpose (do NOT delete or overwrite):**
-- `.agents/memory/blitz-baseline/` — a **frozen snapshot** of every Blitz content-bearing file (guide, hub, source HTML, generator, lesson seed) taken at the fork point. It exists so any content edits made to the original `/blitz` (copy, lessons, linked videos) after the fork can be diffed and ported into `/blitzv2` before promotion. See its `MANIFEST.md` for exact diff commands.
-- `.agents/memory/blitz-v2-tracking.md` and the ⚠ flag at the top of `.agents/memory/MEMORY.md` — the agent-facing record of this process and its locked-in decisions.
-
-**If you edit the original Blitz content** (`artifacts/portal/src/pages/Blitz.tsx`, `BlitzHub.tsx`, the `attached_assets/blitz_main_caterpillar_110_*.html` source, or `blitz-seed.json`): that's fine, but be aware those changes must also be carried into the `/blitzv2` version. Coordinate with sasha206 before deleting `/blitzv2`, the baseline snapshot, or promoting/removing either version.
+**Key facts to respect:**
+- The live `/blitz` guide (`artifacts/portal/src/pages/Blitz.tsx`) is **hand-maintained** — edit it directly. The HTML regenerator (`artifacts/api-server/src/scripts/build-blitz-from-html.ts`) is disabled (it would overwrite the live guide) and only runs if `ALLOW_BLITZ_REGEN` is set. Don't re-enable it to make edits.
+- `/blitz-archive` is **frozen**: its lesson library reads a static snapshot (`artifacts/portal/src/components/blitz/blitz-archive-lessons.json`), not the live DB. The user intends to **delete the archive** (files, JSON, routes) before launch.
+- The in-guide video review counter marked `TEMP: REMOVE BEFORE GO-LIVE` is intentionally **kept for now** — remove only when the user asks.
+- The live guide currently has **no Lesson Library feature** (only the archive does) — an open decision flagged to the user.
+- `.agents/memory/blitz-baseline/` is a frozen content snapshot from the fork point, kept for reference.
 
 ## System Architecture
 

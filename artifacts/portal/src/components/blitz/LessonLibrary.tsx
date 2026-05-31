@@ -149,7 +149,7 @@ export default function LessonLibrary() {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+      <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
         Loading the Blitz lesson library…
       </div>
     );
@@ -165,7 +165,7 @@ export default function LessonLibrary() {
 
   if (lessons.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+      <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
         No Blitz lessons available yet.
       </div>
     );
@@ -173,7 +173,7 @@ export default function LessonLibrary() {
 
   return (
     <div className="lesson-library">
-      <p className="mb-4 text-sm text-slate-600">
+      <p className="mb-4 text-sm text-muted-foreground">
         Every step-by-step lesson, in order. Click any lesson to read the full walkthrough.
       </p>
 
@@ -187,24 +187,24 @@ export default function LessonLibrary() {
               >
                 {meta.label}
               </span>
-              <span className="text-sm text-slate-500">{meta.description}</span>
+              <span className="text-sm text-muted-foreground">{meta.description}</span>
             </div>
 
             <div className="space-y-4">
               {modules.map((m) => (
                 <div
                   key={m.moduleName}
-                  className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+                  className="overflow-hidden rounded-lg border border-border bg-card"
                 >
-                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-2">
-                    <h4 className="text-sm font-semibold text-slate-800">
+                  <div className="border-b border-border bg-muted/40 px-4 py-2">
+                    <h4 className="text-sm font-semibold text-foreground">
                       {m.moduleName}{" "}
-                      <span className="ml-2 text-xs font-normal text-slate-500">
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
                         {m.lessons.length} lesson{m.lessons.length === 1 ? "" : "s"}
                       </span>
                     </h4>
                   </div>
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-border">
                     {m.lessons.map((l) => {
                       const network = l.networkPath ? NETWORK_LABEL[l.networkPath] : undefined;
                       const publisher = l.publisherPath ? PUBLISHER_LABEL[l.publisherPath] : undefined;
@@ -213,13 +213,13 @@ export default function LessonLibrary() {
                           <button
                             type="button"
                             onClick={() => setOpenId(l.id)}
-                            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-slate-50"
+                            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-muted/50"
                           >
                             <div className="flex min-w-0 items-baseline gap-3">
-                              <span className="font-mono text-xs text-slate-400">
+                              <span className="font-mono text-xs text-muted-foreground">
                                 {l.lessonId || `#${l.blitzOrder ?? "—"}`}
                               </span>
-                              <span className="truncate text-sm font-medium text-slate-800">
+                              <span className="truncate text-sm font-medium text-foreground">
                                 {l.title}
                               </span>
                             </div>
@@ -268,14 +268,14 @@ export default function LessonLibrary() {
               )}
             </DialogDescription>
           </DialogHeader>
-          {openLoading && <p className="text-sm text-slate-500">Loading lesson…</p>}
+          {openLoading && <p className="text-sm text-muted-foreground">Loading lesson…</p>}
           {openError && (
             <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {openError}
             </p>
           )}
           {openLesson && (
-            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-pre:bg-slate-50 prose-pre:text-slate-800">
+            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-pre:bg-slate-50 prose-pre:text-foreground">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {openLesson.content}
               </ReactMarkdown>

@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
-import { Zap, Printer, ChevronLeft, ChevronRight } from "lucide-react";
+import LessonLibrary from "@/components/blitz/LessonLibraryArchive";
 
 // Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
 const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
@@ -31,66 +31,12 @@ const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
   23: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
 };
 
-// Total lessons, used for the header "Lesson X of Y" progress marker.
-const TOTAL_LESSONS = Object.keys(LESSON_LOOKUP).length;
-
-// Short titles for the large prev/next pager buttons — the full LESSON_LOOKUP
-// labels are too long to fit. Indexed by lesson id (all 23).
-const LESSON_SHORT_TITLES: Record<number, string> = {
-  1: "Introduction",
-  2: "Before You Start",
-  3: "Phase 1 Overview",
-  4: "Network Selection",
-  5: "Product Selection",
-  6: "Creative Assets",
-  7: "Native Ad Assets",
-  8: "Landing Pages · Media Mavens",
-  9: "Landing Pages · ClickBank/MaxWeb",
-  10: "Compliance Review",
-  11: "Website Setup (Flexy™)",
-  12: "Using MetricMover™",
-  13: "DIYTrax Setup",
-  14: "Go Live",
-  15: "Phase 2 Overview",
-  16: "Round 1",
-  17: "Between Rounds 1 & 2",
-  18: "Round 2",
-  19: "Between Rounds 2 & 3",
-  20: "Round 3",
-  21: "Scale Budget",
-  22: "New Placements",
-  23: "Master Publisher",
-};
-
-// Phase of a lesson, used to color the pager by its DESTINATION phase so the
-// color shifts at phase transitions. Lessons 1–2 are the intro (neutral),
-// 3–14 Phase 1 (build), 15–20 Phase 2 (test), 21–23 Phase 3 (scale).
-type LessonPhase = "intro" | "build" | "test" | "scale";
-function lessonPhase(id: number): LessonPhase {
-  if (id <= 2) return "intro";
-  if (id <= 14) return "build";
-  if (id <= 20) return "test";
-  return "scale";
-}
-
-// Pager button styling per phase: solid Av2 phase fill + darker border +
-// white eyebrow/arrow/title, matching the lesson-hub phase treatment. Intro
-// uses a unified dark slate (matches the hub intro tint). Full literal class
-// strings so Tailwind's JIT detects them.
-const PHASE_PAGER_CLASSES: Record<LessonPhase, { card: string; eyebrow: string; title: string }> = {
-  intro: { card: "border-slate-700 bg-slate-600 hover:bg-slate-700", eyebrow: "text-white/90", title: "text-white" },
-  build: { card: "border-[#136b38] bg-[#188f4a] hover:bg-[#136b38]", eyebrow: "text-white/90", title: "text-white" },
-  test: { card: "border-[#a03f07] bg-[#cf550a] hover:bg-[#a03f07]", eyebrow: "text-white/90", title: "text-white" },
-  scale: { card: "border-[#641f9e] bg-[#7f2ac9] hover:bg-[#641f9e]", eyebrow: "text-white/90", title: "text-white" },
-};
-
-// The Phase 1 overview (#module1-overview, section s3) is its own top-level
-// module and is filtered by the generic data-section pass. Module1 now wraps
-// only steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section
-// attribute. To deep-link cleanly we override visibility of those inner divs
-// at runtime per lesson-section. Keys are LESSON_LOOKUP section values that
-// should render part (or all) of module1; sections not listed here let module1
-// fall through to the default data-section filter (which will hide it).
+// Module1 in the source HTML wraps the Phase 1 overview (#module1-overview)
+// + steps 1 & 2 (#blitz-step1, #blitz-step2) under one data-section attribute.
+// To deep-link cleanly we override visibility of those inner divs at runtime
+// per lesson-section. Keys are LESSON_LOOKUP section values that should render
+// part (or all) of module1; sections not listed here let module1 fall through
+// to the default data-section filter (which will hide it).
 // Step 2 (Creative Assets) is split into four lessons. Each sub-block of
 // #blitz-step2 (#step2-overview, #step2-native, #step2-mm, #step2-cb) is
 // shown for its corresponding lesson section.
@@ -106,21 +52,23 @@ const MODULE1_OVERRIDES: Record<
   string,
   {
     showModule1: boolean;
+    showOverview: boolean;
     showStep1: boolean;
     showStep2: boolean;
     step2Parts: Step2Parts;
   }
 > = {
-  s5: { showModule1: true, showStep1: true, showStep2: false, step2Parts: NO_STEP2 },
-  s6: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: true, native: false, mm: false, cb: false } },
-  s6b: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: true, mm: false, cb: false } },
-  s6c: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: true, cb: false } },
-  s6d: { showModule1: true, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
-  s7: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s8: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s8b: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s9: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
-  s10: { showModule1: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s3: { showModule1: true, showOverview: true, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s5: { showModule1: true, showOverview: false, showStep1: true, showStep2: false, step2Parts: NO_STEP2 },
+  s6: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: true, native: false, mm: false, cb: false } },
+  s6b: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: true, mm: false, cb: false } },
+  s6c: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: true, cb: false } },
+  s6d: { showModule1: true, showOverview: false, showStep1: false, showStep2: true, step2Parts: { overview: false, native: false, mm: false, cb: true } },
+  s7: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s8b: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s9: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
+  s10: { showModule1: false, showOverview: false, showStep1: false, showStep2: false, step2Parts: NO_STEP2 },
 };
 void ALL_STEP2;
 
@@ -128,8 +76,8 @@ void ALL_STEP2;
 // Generated by artifacts/api-server/src/scripts/build-blitz-from-html.ts
 
 const blitzCSS = `.blitz-content{
-    --primary:hsl(221 80% 48%); --accent:hsl(221 80% 48%); --success:#15803d; --warning:#b45309; --danger:#b91c1c;
-    --bg:hsl(40 25% 97%); --card:hsl(0 0% 100%); --border:hsl(40 18% 88%); --text:hsl(0 0% 15%); --muted:hsl(0 0% 40%);
+    --primary:#1a2e4a; --accent:#2e7de9; --success:#1a7a4a; --warning:#b45309; --danger:#b91c1c;
+    --bg:#f8f9fb; --card:#ffffff; --border:#dde2ea; --text:#1e2533; --muted:#6b7280;
     --mm-color:#166534; --mm-bg:#f0fdf4; --mm-border:#86efac;
     --cb-color:#92400e; --cb-bg:#fff7ed; --cb-border:#fcd34d;
     --mw-color:#1e40af; --mw-bg:#eff6ff; --mw-border:#93c5fd;
@@ -137,7 +85,7 @@ const blitzCSS = `.blitz-content{
     --cat-color:#6b21a8; --cat-bg:#faf5ff;
   }
   .blitz-content h1, .blitz-content h2, .blitz-content h3, .blitz-content h4, .blitz-content h5, .blitz-content h6, .blitz-content p, .blitz-content ul, .blitz-content ol, .blitz-content li, .blitz-content figure, .blitz-content blockquote, .blitz-content dl, .blitz-content dd{box-sizing:border-box;margin:0;padding:0;}
-  .blitz-content{font-family:'Roboto',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.8;font-size:17px;}
+  .blitz-content{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.8;font-size:17px;}
 
   .blitz-content .page-header{background:var(--primary);color:white;padding:0 32px 20px;text-align:center;}
   .blitz-content .page-header h1{font-size:3rem;margin-bottom:8px;letter-spacing:-0.5px;}
@@ -153,11 +101,9 @@ const blitzCSS = `.blitz-content{
   .blitz-content .container{max-width:960px;margin:0 auto;padding:8px 28px 100px;}
 
   .blitz-content .module{margin-bottom:72px;margin-top:0;max-width:960px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px;}
-  .blitz-content.full-guide #blitz-step1,.blitz-content.full-guide #step2-overview,.blitz-content.full-guide #step2-native,.blitz-content.full-guide #step2-mm{margin-bottom:72px;}
   .blitz-content .module-header{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:16px;border-bottom:2px solid var(--border);}
   .blitz-content .mod-badge{background:var(--primary);color:white;font-size:.82rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:7px 18px;border-radius:20px;white-space:nowrap;}
-  .blitz-content .mod-badge.build{background:#188f4a;} .blitz-content .mod-badge.test{background:#cf550a;} .blitz-content .mod-badge.scale{background:#7f2ac9;}
-  .blitz-content .mod-badge.intro{background:#475569;}
+  .blitz-content .mod-badge.build{background:#1a7a4a;} .blitz-content .mod-badge.test{background:#b45309;} .blitz-content .mod-badge.scale{background:#6b21a8;}
   .blitz-content .module-header h2{font-size:1.9rem;color:var(--primary);letter-spacing:-0.3px;}
   .blitz-content .module-intro{background:#f0f4ff;border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:18px 22px;margin-bottom:28px;font-size:1.05rem;color:#1e3a6e;line-height:1.75;}
 
@@ -166,7 +112,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content p{margin-bottom:16px;}
   .blitz-content ul, .blitz-content ol{margin:10px 0 18px 24px;} .blitz-content li{margin-bottom:9px;font-size:1rem;}
 
-  .blitz-content .path-tag{display:inline-block;vertical-align:middle;font-size:.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-right:4px;}
+  .blitz-content .path-tag{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-right:4px;}
   .blitz-content .tag-mm{background:var(--mm-bg);color:var(--mm-color);border:1px solid var(--mm-border);}
   .blitz-content .tag-cb{background:var(--cb-bg);color:var(--cb-color);border:1px solid var(--cb-border);}
   .blitz-content .tag-mw{background:var(--mw-bg);color:var(--mw-color);border:1px solid var(--mw-border);}
@@ -238,14 +184,14 @@ const blitzCSS = `.blitz-content{
     content:"⏳ AWAITING LINK"; color:#fff; background:#3b82f6; border-color:#2563eb;
   }
 
-  .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:stretch;margin:28px 0;}
+  .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
   .blitz-content .roadmap-phase{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:24px;text-align:center;}
-  .blitz-content .roadmap-phase.p1{border-color:#188f4a;} .blitz-content .roadmap-phase.p2{border-color:#cf550a;} .blitz-content .roadmap-phase.p3{border-color:#7f2ac9;}
-  .blitz-content .roadmap-arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.5rem;}
+  .blitz-content .roadmap-phase.p1{border-color:#86efac;} .blitz-content .roadmap-phase.p2{border-color:#fcd34d;} .blitz-content .roadmap-phase.p3{border-color:#d8b4fe;}
+  .blitz-content .roadmap-arrow{text-align:center;color:var(--muted);font-size:1.5rem;}
   .blitz-content .ph-num{font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
   .blitz-content .ph-title{font-weight:800;font-size:1.2rem;margin-bottom:8px;}
-  .blitz-content .roadmap-phase.p1 .ph-title{color:#188f4a;} .blitz-content .roadmap-phase.p2 .ph-title{color:#cf550a;} .blitz-content .roadmap-phase.p3 .ph-title{color:#7f2ac9;}
+  .blitz-content .roadmap-phase.p1 .ph-title{color:var(--success);} .blitz-content .roadmap-phase.p2 .ph-title{color:var(--warning);} .blitz-content .roadmap-phase.p3 .ph-title{color:var(--cat-color);}
   .blitz-content .ph-desc{font-size:.9rem;color:var(--muted);line-height:1.55;}
 
   .blitz-content .gate{border:2px solid;border-radius:12px;padding:20px 24px;margin:16px 0;}
@@ -504,48 +450,7 @@ const blitzCSS = `.blitz-content{
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  /* ===== Portal restyle overrides (light banners to match site) ===== */
-  .blitz-content .page-header{background:var(--card);color:var(--text);border-bottom:1px solid var(--border);}
-  .blitz-content .page-header h1{color:var(--text);}
-  .blitz-content .page-header .tagline{color:var(--muted);opacity:1;}
-  .blitz-content .pub-badge{background:var(--bg);border:1px solid var(--border);color:var(--muted);}
-  .blitz-content .supp-note{color:var(--muted);opacity:1;}
-  .blitz-content .supp-note a{color:var(--accent);}
-
-  .blitz-content nav.toc{background:transparent;border:none;}
-  .blitz-content nav.toc a{color:var(--muted);}
-  .blitz-content nav.toc a:hover{color:var(--text);border-color:var(--accent);}
-
-  .blitz-content th{background:hsl(40 15% 94%);color:var(--text);border-bottom:2px solid var(--border);}
-  .blitz-content tr:nth-child(even) td{background:var(--bg);}
-
-  .blitz-content .section-nav-bar{background:var(--card);border-bottom:1px solid var(--border);}
-  .blitz-content .section-nav-bar a{color:var(--muted);border:1px solid var(--border);}
-  .blitz-content .section-nav-bar a:hover{background:var(--bg);color:var(--text);}
-  .blitz-content .section-nav-bar .snb-title{color:var(--text);}
-
-  .blitz-content .version-banner{background:hsl(40 15% 94%);color:var(--muted);border-bottom:1px solid var(--border);}
-  .blitz-content .version-banner a{color:var(--accent);}
-
-  /* Layout: fill width + left-align to match portal (AppLayout already centers/pads) */
-  .blitz-content{background:transparent;font-size:1rem;line-height:1.7;}
-  .blitz-content .container{max-width:none;margin:0;padding:0 0 48px;}
-  .blitz-content .module{max-width:none;margin-left:0;margin-right:0;padding-left:0;padding-right:0;}
-  .blitz-content .page-header{text-align:left;padding:0 0 20px;border-bottom:none;}
-  .blitz-content .page-header h1{font-size:1.875rem;margin-bottom:6px;}
-  .blitz-content .page-header .tagline{margin:0 0 12px;max-width:48rem;}
-  .blitz-content .pub-badge{margin-bottom:12px;}
-  .blitz-content .module-header.welcome-header .wh-top{display:flex;align-items:center;flex-wrap:wrap;gap:12px;}
-  .blitz-content .phase-jump{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .blitz-content .phase-jump a.phase-pill{display:inline-flex;align-items:center;border-radius:9999px;border:1px solid transparent;padding:6px 16px;font-size:.8rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#fff;text-decoration:none;white-space:nowrap;}
-  .blitz-content .phase-jump a.phase-pill:hover{color:#fff;opacity:.88;}
-  .blitz-content .phase-jump a.phase-pill .pp-arrow{width:14px;height:14px;margin-left:6px;flex-shrink:0;}
-  .blitz-content .phase-jump a.phase-pill.build{background:#188f4a;border-color:#136b38;}
-  .blitz-content .phase-jump a.phase-pill.test{background:#cf550a;border-color:#a03f07;}
-  .blitz-content .phase-jump a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
-  .blitz-content .version-banner{padding:5px 0;}`;
+  }`;
 
 const blitzBodyHTML = `<div class="version-banner">
   <div class="vb-left">
@@ -563,11 +468,18 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="pub-badge">📡 &nbsp;<strong>Traffic Source: Caterpillar</strong> &nbsp;·&nbsp; Native Advertising Platform</div>
   </div>
 
+<nav class="toc">
+  <a href="#path-select">Phase 1: Build</a>
+  <a href="#module2-overview">Phase 2: Test</a>
+  <a href="#module3-overview">Phase 3: Scale</a>
+  <a href="#support">Support</a>
+</nav>
+
 <div class="container">
 
 <!-- WELCOME -->
 <span id="s1" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="welcome" data-section="s1">
-  <div class="module-header welcome-header"><div class="wh-top"><span class="mod-badge intro">1 — Introduction</span><div class="phase-jump"><a class="phase-pill build" href="#s3">Phase 1 — Build<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill test" href="#s11">Phase 2 — Test<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill scale" href="#s17">Phase 3 — Scale<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a></div></div><h2>Welcome to The Blitz™</h2></div>
+  <div class="module-header"><span class="mod-badge">Start Here</span><h2>Welcome to The Blitz™</h2></div>
   <div class="module-intro">The Blitz™ is a proven, step-by-step system for launching profitable affiliate marketing campaigns. This guide walks you through everything — from choosing your offer and building your creative assets, to launching your campaign and testing until you find a profitable combination worth scaling. Follow the process, trust the data, and the results will follow.</div>
   <div class="video-slot" data-vidalytics-id="x_8mSUUqDIhXNyQP" data-status="ready"><div class="play-icon"></div><div><div class="vt">Watch This First: What Is Affiliate Arbitrage?</div><div class="vd">A short overview of how this business model works — start here before anything else</div></div></div>
   <div class="callout-box">
@@ -577,9 +489,16 @@ const blitzBodyHTML = `<div class="version-banner">
 </div>
 
 
+<!-- LESSON LIBRARY -->
+<div class="module" id="lesson-library">
+  <div class="module-header"><span class="mod-badge">Library</span><h2>Step-by-Step Lesson Library</h2></div>
+  <div class="module-intro">Every video lesson in The Blitz™, organized by phase and module in the order you should follow them. Click any lesson to read the full walkthrough — these are the same step-by-step instructions you'd see in the videos, written out so you can scan, search, and reference them at any time.</div>
+  <div id="lesson-library-mount"></div>
+</div>
+
 <!-- GLOSSARY -->
 <div class="module" id="glossary" data-section="s1">
-  <div class="module-header"><h2>Key Terminology — Affiliate Marketing Reference Guide</h2></div>
+  <div class="module-header"><span class="mod-badge">Reference</span><h2>Key Terms and Terminology — Affiliate Marketing Reference Guide</h2></div>
   <p>This section is a reference resource for common terms and terminology used in affiliate marketing and throughout The Blitz™. You don't need to read this from top to bottom — bookmark it and come back whenever you encounter an unfamiliar term in the guide or in a video.</p>
   <div class="glossary">
     <div class="gloss-item"><div class="gloss-term">Affiliate Network</div><div class="gloss-def">A marketplace where companies list products they want promoted. You sign up, pick a product, and get a unique tracking link. When someone buys through your link, you get paid. In The Blitz™: Media Mavens, ClickBank, Affiliati, and MaxWeb.</div></div>
@@ -613,7 +532,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 0 -->
 <span id="s2" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module0" data-section="s2">
-  <div class="module-header"><span class="mod-badge intro">2 — Before You Start</span><h2>What You Need to Know — The Three Phases, Your Budget, and the Phase Gates</h2></div>
+  <div class="module-header"><h2>Before You Start — What You Need to Know</h2></div>
   <div class="module-intro">Understanding how the system works before building it makes every step that follows clearer and faster. The three-phase structure, how your testing budget translates into data and eventually profit, the exit gates, and the support resources available to you are all covered here.</div>
 
   <h3>The Three Phases</h3>
@@ -716,9 +635,70 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 </div>
 
-<!-- MODULE 1: BUILD — OVERVIEW -->
-<span id="s3" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1-overview" data-section="s3">
-  <div class="module-header"><span class="mod-badge build">3 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
+<!-- CHOOSE YOUR PATH -->
+<span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
+  <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
+
+  <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
+
+  <div class="network-grid">
+    <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
+      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
+      <div class="net-desc">Our own in-house curated network — built for this system.
+        <ul>
+          <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
+          <li><strong>No chargebacks</strong> — you keep your commission on returns</li>
+          <li><strong>Pre-made advertorials</strong> for many products — start testing faster</li>
+          <li>Works with Caterpillar, Grasshopper, and Crane</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--cb-border);background:var(--cb-bg);">
+      <div class="net-name"><span class="path-tag tag-cb">ClickBank</span></div>
+      <div class="net-desc">A large public marketplace with thousands of products. Simple to sign up — no approval required.
+        <ul>
+          <li>You'll build your own jump pages from the product's VSL</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--af-border);background:var(--af-bg);">
+      <div class="net-name"><span class="path-tag tag-af">Affiliati</span></div>
+      <div class="net-desc">A curated network with many strong offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
+        <ul>
+          <li>You'll build your own jump pages from the product's VSL</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--mw-border);background:var(--mw-bg);">
+      <div class="net-name"><span class="path-tag tag-mw">MaxWeb</span></div>
+      <div class="net-desc">A curated network with quality offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
+        <ul>
+          <li>You'll build your own landing pages</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>Your Path in This Guide</h3>
+  <div class="card">
+    <p>Your path is your network choice + Caterpillar. Steps labeled <span class="path-tag tag-all">Everyone</span> always apply regardless of network. Look for your network's colored label for steps that are specific to you.</p>
+    <div class="path-grid">
+      <div class="path-cell" style="background:var(--mm-bg);border:1px solid var(--mm-border);"><span class="path-tag tag-mm">Media Mavens</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar &nbsp;⭐</span></div>
+      <div class="path-cell" style="background:var(--cb-bg);border:1px solid var(--cb-border);"><span class="path-tag tag-cb">ClickBank</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+      <div class="path-cell" style="background:var(--af-bg);border:1px solid var(--af-border);"><span class="path-tag tag-af">Affiliati</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+      <div class="path-cell" style="background:var(--mw-bg);border:1px solid var(--mw-border);"><span class="path-tag tag-mw">MaxWeb</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODULE 1: BUILD -->
+<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
+  <div id="module1-overview">
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
   <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in the Creative Assets foundation lesson — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
 
   <h3>How The System Fits Together</h3>
@@ -840,73 +820,11 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Your network determines your path. If you're between networks, your coach can help you choose.</p>
   </div>
 
-</div>
-
-<!-- CHOOSE YOUR PATH -->
-<span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
-  <div class="module-header"><span class="mod-badge build">4 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
-  <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
-
-  <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point. Affiliati and MaxWeb both require an approval process <strong>and proof of revenue from previous affiliate campaigns</strong> — please check with a coach before attempting to get approval from either of these networks.</div>
-
-  <div class="network-grid">
-    <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
-      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
-      <div class="net-desc">Our own in-house curated network — built for this system.
-        <ul>
-          <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
-          <li><strong>No chargebacks</strong> — you keep your commission on returns</li>
-          <li><strong>Pre-made advertorials</strong> for many products — start testing faster</li>
-          <li>Works with Caterpillar, Grasshopper, and Crane</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--cb-border);background:var(--cb-bg);">
-      <div class="net-name"><span class="path-tag tag-cb">ClickBank</span></div>
-      <div class="net-desc">A large public marketplace with thousands of products. Simple to sign up — no approval required.
-        <ul>
-          <li>You'll build your own jump pages from the product's VSL</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--af-border);background:var(--af-bg);">
-      <div class="net-name"><span class="path-tag tag-af">Affiliati</span></div>
-      <div class="net-desc">A curated network with many strong offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
-        <ul>
-          <li>You'll build your own jump pages from the product's VSL</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-    <div class="net-card" style="border-color:var(--mw-border);background:var(--mw-bg);">
-      <div class="net-name"><span class="path-tag tag-mw">MaxWeb</span></div>
-      <div class="net-desc">A curated network with quality offers. Requires account approval and proof of revenue from previous affiliate campaigns. <strong>Please check with a coach before applying.</strong>
-        <ul>
-          <li>You'll build your own landing pages</li>
-          <li>Works with Caterpillar and Grasshopper</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <h3>Your Path in This Guide</h3>
-  <div class="card">
-    <p>Your path is your network choice + Caterpillar. Steps labeled <span class="path-tag tag-all">Everyone</span> always apply regardless of network. Look for your network's colored label for steps that are specific to you.</p>
-    <div class="path-grid">
-      <div class="path-cell" style="background:var(--mm-bg);border:1px solid var(--mm-border);"><span class="path-tag tag-mm">Media Mavens</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar &nbsp;⭐</span></div>
-      <div class="path-cell" style="background:var(--cb-bg);border:1px solid var(--cb-border);"><span class="path-tag tag-cb">ClickBank</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-      <div class="path-cell" style="background:var(--af-bg);border:1px solid var(--af-border);"><span class="path-tag tag-af">Affiliati</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-      <div class="path-cell" style="background:var(--mw-bg);border:1px solid var(--mw-border);"><span class="path-tag tag-mw">MaxWeb</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- MODULE 1: BUILD -->
-<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
+  </div><!-- end module1-overview -->
   <div id="module1-steps">
   <div id="blitz-step1">
-  <div class="module-header"><span class="mod-badge build">5 — Build — Product Selection</span><h2 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Product Selection</span></div>
+  <h3 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h3>
   <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
 
   <div class="path-block mm">
@@ -942,10 +860,13 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>To browse products: click "Campaigns" in the left-hand menu → click any product image for details → click "Promote" to apply. Your Account Representative's contact info is on your MaxWeb Dashboard.</p>
   </div>
 
+  <hr class="divider">
+
   </div><!-- end blitz-step1 -->
   <div id="blitz-step2">
   <div id="step2-overview">
-  <div class="module-header"><span class="mod-badge build">6 — Build — Creative Assets</span><h2 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Creative Assets</span></div>
+  <h3 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
 
@@ -981,7 +902,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-  <h3>The Foundation: Why People Click and Buy <span class="path-tag tag-all">Everyone</span></h3>
+  <h4>The Foundation: Why People Click and Buy <span class="path-tag tag-all">Everyone</span></h4>
 
   <p>Before writing a single headline or choosing a single image, you need to understand the psychology behind what makes someone click an ad and then stay engaged long enough to buy. This is the foundation everything else is built on.</p>
 
@@ -1010,7 +931,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <hr class="divider">
 
-  <h3>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h3>
+  <h4>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h4>
 
   <p>Before you write a single headline or choose a single image, you need to understand what you're actually testing — and why. The answer is <strong>angles</strong>.</p>
 
@@ -1095,9 +1016,12 @@ const blitzBodyHTML = `<div class="version-banner">
     Your ad headline and your landing page headline must feel like they belong together — they should be two parts of the same conversation, not two separate messages. A visitor who clicks your ad based on a "busy lifestyle" angle and lands on a page leading with a "scientific breakthrough" angle will feel confused and leave. Matching your angle from ad to landing page — what marketers call "message match" — is one of the most important factors in campaign performance. As you write your headlines and select your images in Parts 2 and 3, always ask: does this ad angle connect naturally to this landing page angle?
   </div>
 
+  <hr class="divider">
+
   </div><!-- end step2-overview -->
   <div id="step2-native">
-  <div class="module-header"><span class="mod-badge build">7 — Build — Native Ad Assets</span><h2 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Native Ad Assets</span></div>
+  <h4 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h4>
 
   <p>Regardless of which affiliate network you're using, you'll need to create your native ad assets for Caterpillar. These are the headlines, description, and image that appear in your ads — their only job is to generate enough curiosity that someone clicks.</p>
 
@@ -1106,7 +1030,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Caterpillar is a native advertising platform. Your ads look like recommended articles rather than obvious advertisements. You upload three things <strong>separately</strong>: your headlines (as plain text), one description (as plain text), and one image file. The platform assembles the ad automatically. You do NOT design a complete banner image.
   </div>
 
-  <h3>Phase 2 — Test — Round 1 Targets</h3>
+  <h4>Phase 2 — Test — Round 1 Targets</h4>
   <div class="card">
     <ul>
       <li><strong>10 Headlines</strong> — each 90 characters or fewer (roughly the length of a tweet)</li>
@@ -1130,7 +1054,7 @@ const blitzBodyHTML = `<div class="version-banner">
     </table>
   </div>
 
-  <h3>Ad Headlines</h3>
+  <h4>Ad Headlines</h4>
   <div class="why-box">
     <div class="why-label">💬 What makes a great ad headline?</div>
     Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
@@ -1145,7 +1069,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <div style="font-family:monospace;font-size:.81rem;background:#1e2533;color:#93c5fd;border-radius:6px;padding:10px 14px;">{state} &nbsp;{city} &nbsp;{year} &nbsp;{month} &nbsp;{day_of_week} &nbsp;{date} &nbsp;{os}</div>
   </div>
 
-  <h3>Ad Image</h3>
+  <h4>Ad Image</h4>
   <div class="why-box">
     <div class="why-label">💬 What makes a great Caterpillar ad image?</div>
     Your ad image has one job: stop the scroll. A person browsing a news site sees dozens of content recommendations — your image needs to be the one that makes them pause. Here's what tends to work:
@@ -1163,13 +1087,14 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to use Mid-Journey to create images</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
-  <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
-
   <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
+
+  <hr class="divider">
 
   </div><!-- end step2-native -->
   <div id="step2-mm">
-  <div class="module-header"><span class="mod-badge build">8 — Build — Landing Page Assets (Media Mavens)</span><h2 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (Media Mavens)</span></div>
+  <h4 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h4>
 
   <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
     <strong>Promoting a ClickBank, MaxWeb, or Affiliati offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank / MaxWeb / Affiliati</em> lesson instead.
@@ -1248,12 +1173,13 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Flexy™ setup.</div>
-    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+    <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
   </div><!-- end step2-mm -->
   <div id="step2-cb">
-  <div class="module-header"><span class="mod-badge build">9 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span><h2>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Page Assets (ClickBank / MaxWeb / Affiliati)</span></div>
+  <h4>Create Your Landing Page Assets — ClickBank / MaxWeb / Affiliati <span class="path-tag tag-cb">ClickBank / MaxWeb / Affiliati</span></h4>
 
   <p>This lesson covers the <strong>ClickBank, MaxWeb, and Affiliati</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
 
@@ -1315,7 +1241,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Flexy™ setup. Wait for approval before building pages in Flexy™.</div>
-    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+    <div class="video-slot" data-vidalytics-id="qRq5oQk59skK_zBL"><div class="play-icon"></div><div><div class="vt">Submit Landing Page Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
   </div>
 
 
@@ -1331,6 +1257,8 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Affiliati products do not come with pre-built advertorials, so you'll build your own jump page just like ClickBank and MaxWeb. Follow the ClickBank path above: get the product's VSL transcript, write your jump page body copy using the Bridge Page Copy Bot, then generate 5 landing page headlines and 5 hero shots for MetricMover™. If you need product-specific guidance, reach out to your Affiliati Account Manager.</p>
   </div>
 
+  <hr class="divider">
+
   </div><!-- end step2-cb -->
   </div><!-- end blitz-step2 -->
   </div><!-- end module1-steps -->
@@ -1339,7 +1267,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- COMPLIANCE EXPLAINED -->
 <div class="module" id="compliance" data-section="s7">
-  <div class="module-header"><span class="mod-badge build">10 — Build — Compliance</span><h2>Submit Your Assets for Compliance Review</h2></div>
+  <div class="module-header"><span class="mod-badge build">Phase 1 — Build — Compliance</span><h2>Submit Your Assets for Compliance Review</h2></div>
   <div class="module-intro">Compliance is a required step before your campaign can go live. It is not optional and it cannot be skipped. This section explains what it is, how it works, and what to do if something is rejected — so you're not caught off guard when you reach that step.</div>
 
   <h3>What Is Compliance?</h3>
@@ -1373,12 +1301,11 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <div class="alert info"><strong>When to Submit</strong>Submit your assets for compliance as early as possible — ideally as soon as they're ready, while you continue working on other setup steps. That way, approval arrives by the time you're ready to go live and doesn't delay your launch.</div>
-
-  <div class="video-slot" data-vidalytics-id="GKjF_nobrZchpjrX" data-status="ready"><div class="play-icon"></div><div><div class="vt">Submit Headlines and Images to Compliance</div><div class="vd">Watch how to submit your headlines and images for compliance review</div></div></div>
 </div>
 
 <div class="module" id="blitz-step3" data-section="s8">
-  <div class="module-header"><span class="mod-badge build">11 — Build — Landing Pages</span><h2 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Landing Pages</span></div>
+  <h3 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h3>
 
   <div class="callout-box">
     <div class="pe-label">💡 What is Flexy™?</div>
@@ -1393,7 +1320,7 @@ const blitzBodyHTML = `<div class="version-banner">
     Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
   </div>
 
-  <h3>Universal Setup — Everyone Does This First</h3>
+  <h4>Universal Setup — Everyone Does This First</h4>
 
   <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
   <div class="video-slot" data-vidalytics-id="F0m4KkexkOZumjKs" data-status="ready"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
@@ -1402,11 +1329,14 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="alert info"><strong>Stuck on Flexy™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
 
 <span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
 <div class="module" id="blitz-step3b" data-section="s8b">
-  <div class="module-header"><span class="mod-badge build">12 — Build — Using MetricMover™</span><h2 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Using MetricMover™</span></div>
+  <h3 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h3>
 
   <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
 
@@ -1425,9 +1355,12 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
-  <div class="module-header"><span class="mod-badge build">13 — Build — DIYTrax Setup</span><h2 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — DIYTrax Setup</span></div>
+  <h3 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h3>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
   <div class="card">
@@ -1450,9 +1383,12 @@ const blitzBodyHTML = `<div class="version-banner">
     </ol>
   </div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-step4 -->
 <div class="module" id="blitz-step5" data-section="s10">
-  <div class="module-header"><span class="mod-badge build">14 — Build — Go Live</span><h2 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div style="display:inline-flex;align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:4px;"><span class="mod-badge build">Phase 1 — Build — Go Live</span></div>
+  <h3 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h3>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
 
   <div class="video-slot" data-vidalytics-id="FW_zSFg85RDWHUOf" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T1 — Caterpillar Campaign Basic Info</div><div class="vd">Setting up the basic campaign details in DIYTrax</div></div></div>
@@ -1507,7 +1443,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 2: TEST -->
 <span id="s11" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module2-overview" data-section="s11">
-  <div class="module-header"><span class="mod-badge test">15 — Test — Getting Started</span><h2>Find Your Winners Through Data</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Getting Started</span><h2>Find Your Winners Through Data</h2></div>
   <div class="module-intro">The Test phase is where your campaign gets smarter. Almost all mentees go through <strong>multiple rounds of testing</strong> before reaching profitability — that's not failure, it's the process. Each round produces data that makes the next round better. Stay patient, follow the milestones, and trust the system.</div>
 
   <h3>Daily Monitoring Routine <span class="path-tag tag-all">Everyone</span></h3>
@@ -1518,9 +1454,11 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
   <div class="video-slot" data-vidalytics-id="VIDEO_ID_063" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How to Set Up Your P&amp;L Tracker</div><div class="vd">Set this up right after Round 1 launches so you have a clean record from the start</div></div></div>
 
+  <hr class="divider">
+
 </div><!-- end module2-overview -->
 <span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
-  <div class="module-header"><span class="mod-badge test">16 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
   <p>Round 1 has one primary goal: identify the headline that your audience responds to most. Everything else — images, formats, placements — is tested in later rounds using your top performing headline as the foundation.</p>
 
   <div class="card">
@@ -1529,7 +1467,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="margin:0;"><strong>Minimum spend before deciding:</strong> $500 total</p>
   </div>
 
-  <h3>When to Cut Underperforming Ads</h3>
+  <h4>When to Cut Underperforming Ads</h4>
   <div class="milestone">
     <div class="ms-item"><div class="ms-amount">$25 per ad</div><div class="ms-do">Cut any ad with 33+ ad clicks but zero landing page clicks — it's a clear loser with enough data</div></div>
     <div class="ms-item"><div class="ms-amount">$500 total</div><div class="ms-do">Enough data to decide. Identify your 1 best headline. Proceed to the Round 1 Exit Gate.</div></div>
@@ -1538,7 +1476,7 @@ const blitzBodyHTML = `<div class="version-banner">
   <div class="alert warning"><strong>The Patience Rule</strong>Do not cut ads or make landing page decisions before the spend milestones above. Data at $10 in spend is unreliable. A headline that looks weak at $10 may be your winner at $30. Wait for the thresholds.</div>
 
   <div class="video-slot" data-vidalytics-id="CcD81oUVcZ1KpyeL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Round 1: When to Make an Ad Inactive</div><div class="vd">Visual walkthrough of the decision-making process</div></div></div>
-  <h3>Phase 2 — Test — Round 1 Exit Gate</h3>
+  <h4>Phase 2 — Test — Round 1 Exit Gate</h4>
   <div class="gate pass"><div class="gate-header">✅ Pass: Spent $500+ and have 1 headline with metrics strong enough to move forward</div><p style="font-size:.9rem;margin:0;">Proceed to Round 2.</p></div>
   <div class="gate fail">
     <div class="gate-header">❌ Fail: No clear winner after $500 spent</div>
@@ -1550,7 +1488,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Unsure which to choose? Bring your data to a coaching call for a recommendation.</em></p>
   </div>
 
-  <h3>Phase 2 — Test — Round 1 Typical Outcome</h3>
+  <h4>Phase 2 — Test — Round 1 Typical Outcome</h4>
   <div class="card">
     <table>
       <thead><tr><th>Metric</th><th>Typical Result</th></tr></thead>
@@ -1564,12 +1502,14 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="alert success" style="margin-bottom:0;"><strong>Remember</strong>This loss is not a failure. It's the cost of identifying your top performing headline. Round 2, built on that data, will perform significantly better.</div>
   </div>
 
-  <h3>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h3>
+  <h4>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h4>
   <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@buildtestscale.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
+
+  <hr class="divider">
 
 </div><!-- end blitz-round1 -->
 <span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
-  <div class="module-header"><span class="mod-badge test">17 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
   <p>Start preparing Round 2 assets as soon as Round 1 is live — you don't need to wait for Round 1 to finish. Round 2 tests static images only, all in 16:9 format.</p>
 
   <div class="card">
@@ -1582,7 +1522,7 @@ const blitzBodyHTML = `<div class="version-banner">
     <p><strong>Tip:</strong> Use Grok Imagine, Midjourney, Claude, or other AI image tools to generate your new static images quickly. Save all images as 16:9 format (minimum 960×540px).</p>
   </div>
 
-  <h3>Phase 2 — Test — Round 2 Landing Page Prep</h3>
+  <h4>Phase 2 — Test — Round 2 Landing Page Prep</h4>
   <div class="path-block mm">
     <div class="path-block-label">✦ Media Mavens</div>
     <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">AffAngleArchitect</a> or FreeAdCopy™ to generate completely new angles.</p>
@@ -1593,9 +1533,11 @@ const blitzBodyHTML = `<div class="version-banner">
     <p>Review Round 1 landing page data. Which pages generated the most sales? Which had the highest LP CTR? Build your next set of variants based on what worked — improve winners, drop losers.</p>
   </div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-between-r1-r2 -->
 <span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
-  <div class="module-header"><span class="mod-badge test">18 — Test — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
   <p><strong>The question:</strong> Which specific image, GIF, or video converts best with your proven headline?</p>
   <p><strong>What's running:</strong> 10 ads — your original Round 1 image plus 9 new visual creatives — all in 16:9 format, all using your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $500</strong></p>
@@ -1619,9 +1561,11 @@ const blitzBodyHTML = `<div class="version-banner">
     <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Attend a coaching call if you're unsure where your weakness is.</em></p>
   </div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-round2 -->
 <span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
-  <div class="module-header"><span class="mod-badge test">19 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
   <p>Once your Round 2 winning visual creative is identified, prepare the 5 additional placement format versions before launching Round 3.</p>
 
   <div class="card">
@@ -1637,9 +1581,11 @@ const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="ezlIzQmdshnlKwkE"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using GIFSTER</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
   </div>
 
+  <hr class="divider">
+
 </div><!-- end blitz-between-r2-r3 -->
 <span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
-  <div class="module-header"><span class="mod-badge test">20 — Test — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
+  <div class="module-header"><span class="mod-badge test">Phase 2 — Test — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
   <p><strong>The question:</strong> Which of the 6 placement formats (shape and medium) performs best with your top performing headline and visual creative?</p>
   <p><strong>What's running:</strong> 6 ads — your Round 2 winning creative converted into all 6 formats — split into two sub-campaigns (16:9 formats in one, 9:16 formats in the other). All use your Round 1 winning headline + description.</p>
   <p><strong>Minimum spend: $1,000</strong></p>
@@ -1666,7 +1612,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 <!-- MODULE 3: SCALE -->
 <span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s17">
-  <div class="module-header"><span class="mod-badge scale">21 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
   <div class="module-intro">Scaling is about spending more on what's already proven to work. You are not introducing new ideas at this stage. Save experimentation for new campaigns — scaling is for proven winners only.</div>
 
   <div class="alert danger"><strong>Prerequisites — All Must Be Met Before Scaling (Phase 3)</strong>Phase 2 Rounds 1, 2, and 3 complete. Top performing visual creative identified (Round 2). Top performing placement format identified (Round 3). Campaign is profitable.</div>
@@ -1679,7 +1625,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end module3-overview -->
 <span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s18">
-  <div class="module-header"><span class="mod-badge scale">22 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
   <div class="card">
     <table>
       <thead><tr><th>Publisher</th><th>Ad Type</th><th>Networks</th><th>Min. per New Placement</th><th>Guide</th></tr></thead>
@@ -1694,7 +1640,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-scale-m2 -->
 <span id="s19" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s19">
-  <div class="module-header"><span class="mod-badge scale">23 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
+  <div class="module-header"><span class="mod-badge scale">Phase 3 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
   <ul class="checklist">
     <li>14+ consecutive days of profitable campaigns on Caterpillar, Grasshopper, or Crane</li>
     <li>Top performing headline + image combination clearly identified</li>
@@ -1799,24 +1745,24 @@ const blitzBodyHTML = `<div class="version-banner">
 const SECTION_BAR_CSS = `
 .blitz-section-bar {
   position: sticky; top: 0; z-index: 50;
-  background: hsl(0 0% 100%); color: hsl(0 0% 15%);
-  border-bottom: 1px solid hsl(40 18% 88%);
+  background: #1a2e4a; color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,.1);
   padding: 10px 24px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 .blitz-section-bar .bsb-title { font-size: .98rem; font-weight: 600; letter-spacing: .2px; }
 .blitz-section-bar .bsb-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .blitz-section-bar .bsb-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  background: hsl(40 25% 97%); color: hsl(0 0% 15%);
-  border: 1px solid hsl(40 18% 88%); border-radius: 6px;
+  background: rgba(255,255,255,.08); color: #fff;
+  border: 1px solid rgba(255,255,255,.2); border-radius: 6px;
   padding: 7px 14px; font-size: .85rem; font-weight: 500;
   text-decoration: none; cursor: pointer; transition: background .15s;
 }
-.blitz-section-bar .bsb-btn:hover { background: hsl(40 15% 94%); color: hsl(0 0% 15%); }
-.blitz-section-bar .bsb-btn.primary { background: hsl(221 80% 48%); border-color: hsl(221 80% 48%); color: #fff; }
-.blitz-section-bar .bsb-btn.primary:hover { background: hsl(221 80% 42%); color: #fff; }
+.blitz-section-bar .bsb-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
+.blitz-section-bar .bsb-btn.primary { background: #2e7de9; border-color: #2e7de9; }
+.blitz-section-bar .bsb-btn.primary:hover { background: #1e6dd9; }
 @media (max-width: 640px) {
   .blitz-section-bar { flex-direction: column; align-items: stretch; }
   .blitz-section-bar .bsb-title { text-align: center; }
@@ -1824,11 +1770,7 @@ const SECTION_BAR_CSS = `
 }
 .blitz-content.section-filtered .page-header,
 .blitz-content.section-filtered nav.toc,
-.blitz-content.section-filtered .phase-jump,
-.blitz-content.section-filtered .version-banner { display: none !important; }
-.blitz-content.section-filtered .module { margin-bottom: 16px; }
-.blitz-content.full-guide .page-header,
-.blitz-content.full-guide .version-banner { display: none !important; }
+.blitz-content.section-filtered #lesson-library { display: none !important; }
 `;
 
 function ArrowLeftIcon() {
@@ -1839,21 +1781,23 @@ function ArrowLeftIcon() {
   );
 }
 
-export default function BlitzV2() {
+export default function BlitzArchive() {
+  const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
-  const [match, params] = useRoute<{ lessonId: string }>("/blitzv2/guide/:lessonId");
+  const [match, params] = useRoute<{ lessonId: string }>("/blitz-archive/guide/:lessonId");
 
   const lessonId = match ? Number(params?.lessonId) : null;
   const lesson = lessonId && LESSON_LOOKUP[lessonId] ? LESSON_LOOKUP[lessonId] : null;
   const isSectionView = !!lesson;
-  const prevId = lessonId != null && lessonId > 1 ? lessonId - 1 : null;
-  const nextId = lessonId != null && lessonId < TOTAL_LESSONS ? lessonId + 1 : null;
-  // Large bottom pager data, color-coded by destination phase.
-  const prevPager = prevId ? PHASE_PAGER_CLASSES[lessonPhase(prevId)] : null;
-  const nextPager = nextId ? PHASE_PAGER_CLASSES[lessonPhase(nextId)] : null;
 
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
+    if (!el) {
+      setMountEl(null);
+      return;
+    }
+    const target = el.querySelector("#lesson-library-mount");
+    if (target instanceof HTMLElement) setMountEl(target);
   }, []);
 
   // Filter modules by section. Runs synchronously before paint to avoid flash of full content.
@@ -1862,9 +1806,6 @@ export default function BlitzV2() {
     const modules = contentEl.querySelectorAll<HTMLElement>(".module[data-section]");
     if (!isSectionView || !lesson) {
       modules.forEach((m) => { m.style.display = ""; });
-      contentEl
-        .querySelectorAll<HTMLElement>("hr.divider")
-        .forEach((d) => { d.style.display = ""; });
       return;
     }
     const wanted = lesson.section;
@@ -1873,11 +1814,11 @@ export default function BlitzV2() {
       m.style.display = sections.includes(wanted) ? "" : "none";
     });
 
-    // Module1 wraps two logical sub-sections (step 1 + step 2) under a single
-    // data-section, so apply explicit per-section overrides to control its
-    // outer + inner visibility. (The overview is now its own top-level module
-    // and is handled by the generic data-section pass above.)
+    // Module1 wraps three logical sub-sections (overview + step 1 + step 2)
+    // under a single data-section, so apply explicit per-section overrides
+    // to control its outer + inner visibility.
     const m1 = contentEl.querySelector<HTMLElement>("#module1");
+    const m1Overview = contentEl.querySelector<HTMLElement>("#module1-overview");
     const m1Steps = contentEl.querySelector<HTMLElement>("#module1-steps");
     const m1Step1 = contentEl.querySelector<HTMLElement>("#blitz-step1");
     const m1Step2 = contentEl.querySelector<HTMLElement>("#blitz-step2");
@@ -1888,6 +1829,7 @@ export default function BlitzV2() {
     const ovr = MODULE1_OVERRIDES[wanted];
     if (ovr) {
       if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
+      if (m1Overview) m1Overview.style.display = ovr.showOverview ? "" : "none";
       if (m1Steps) {
         m1Steps.style.display = ovr.showStep1 || ovr.showStep2 ? "" : "none";
       }
@@ -1900,6 +1842,7 @@ export default function BlitzV2() {
     } else {
       // Lesson section unrelated to module1 — restore inner defaults so a
       // later switch back into module1 starts from a clean slate.
+      if (m1Overview) m1Overview.style.display = "";
       if (m1Steps) m1Steps.style.display = "";
       if (m1Step1) m1Step1.style.display = "";
       if (m1Step2) m1Step2.style.display = "";
@@ -1908,32 +1851,6 @@ export default function BlitzV2() {
       if (s2MM) s2MM.style.display = "";
       if (s2CB) s2CB.style.display = "";
     }
-
-    // Trailing dividers: an <hr class="divider"> with no visible content
-    // after it renders as a redundant grey bar stacked on top of the
-    // pager's own top border. Reset all, then hide only the trailing ones.
-    const dividers = Array.from(
-      contentEl.querySelectorAll<HTMLElement>("hr.divider"),
-    );
-    dividers.forEach((d) => {
-      d.style.display = "";
-    });
-    const isShown = (el: HTMLElement) =>
-      !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    const contentEls = Array.from(
-      contentEl.querySelectorAll<HTMLElement>(
-        "p,h1,h2,h3,h4,h5,h6,ul,ol,table,figure,blockquote,img,.card,.callout-box,.why-box,.alert,.path-block,.video-slot,.checklist,.module-intro",
-      ),
-    );
-    dividers.forEach((d) => {
-      const hasVisibleAfter = contentEls.some(
-        (el) =>
-          Boolean(
-            d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
-          ) && isShown(el),
-      );
-      if (!hasVisibleAfter) d.style.display = "none";
-    });
 
     // Scroll to top on section switch.
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -2138,7 +2055,7 @@ export default function BlitzV2() {
     };
   }, [contentEl]);
 
-  // Trigger anchor scroll after filtering when a hash is present (e.g. /blitz/guide/3#s4 from secondary CTAs).
+  // Trigger anchor scroll after filtering when a hash is present (e.g. /blitz-archive/guide/3#s4 from secondary CTAs).
   useEffect(() => {
     if (!isSectionView) return;
     const hash = window.location.hash.replace("#", "");
@@ -2189,123 +2106,26 @@ export default function BlitzV2() {
   return (
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 shrink-0">
-              <Zap className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">The Blitz™</h1>
-            </div>
-            {isSectionView && lesson && (
-              <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
-                {prevId ? (
-                  <Link
-                    href={`/blitzv2/guide/${prevId}`}
-                    aria-label="Previous lesson"
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Link>
-                ) : (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
-                    <ChevronLeft className="h-4 w-4" />
-                  </span>
-                )}
-                <span className="px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Lesson {lessonId} of {TOTAL_LESSONS}
-                </span>
-                {nextId ? (
-                  <Link
-                    href={`/blitzv2/guide/${nextId}`}
-                    aria-label="Next lesson"
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                ) : (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/30" aria-hidden="true">
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/blitzv2">
-                <ArrowLeftIcon />
-                Back to Hub
-              </Link>
-            </Button>
-            {isSectionView && (
-              <Button size="sm" asChild>
-                <Link href="/blitzv2/guide">
-                  View Full Guide
-                </Link>
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={() => window.print()}
-              className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
-            >
-              <Printer className="w-4 h-4" />
-              Print / Save PDF
-            </Button>
+      {isSectionView && lesson && (
+        <div className="blitz-section-bar">
+          <div className="bsb-title">{lessonId} — {lesson.label}</div>
+          <div className="bsb-actions">
+            <Link href="/blitz-archive" className="bsb-btn">
+              <ArrowLeftIcon />
+              Back to Hub
+            </Link>
+            <a href="/blitz-archive/guide" target="_blank" rel="noopener noreferrer" className="bsb-btn primary">
+              View Full Guide
+            </a>
           </div>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Caterpillar Edition
-          <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-          Build · Test · Scale
-          <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-          V4.0 (Released April 21, 2026)
-        </p>
-      </div>
+      )}
       <div
-        className={`blitz-content${isSectionView ? " section-filtered" : " full-guide"}`}
+        className={`blitz-content${isSectionView ? " section-filtered" : ""}`}
         ref={setRef}
         dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
       />
-      {isSectionView && (
-        <nav
-          aria-label="Lesson navigation"
-          className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-between"
-        >
-          {prevId && prevPager ? (
-            <Link
-              href={`/blitzv2/guide/${prevId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:w-[20.8rem] ${prevPager.card}`}
-            >
-              <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${prevPager.eyebrow}`}>
-                <ChevronLeft className="relative -top-px h-3.5 w-3.5 shrink-0 -ml-1" />
-                Previous
-              </span>
-              <span className={`mt-0.5 truncate text-base font-semibold ${prevPager.title}`}>
-                {LESSON_SHORT_TITLES[prevId]}
-              </span>
-            </Link>
-          ) : (
-            <div className="hidden sm:block sm:w-[20.8rem]" aria-hidden="true" />
-          )}
-          {nextId && nextPager ? (
-            <Link
-              href={`/blitzv2/guide/${nextId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:w-[20.8rem] ${nextPager.card}`}
-            >
-              <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase leading-none tracking-wider ${nextPager.eyebrow}`}>
-                Next
-                <ChevronRight className="relative -top-px h-3.5 w-3.5 shrink-0 -mr-1" />
-              </span>
-              <span className={`mt-0.5 truncate text-base font-semibold ${nextPager.title}`}>
-                {LESSON_SHORT_TITLES[nextId]}
-              </span>
-            </Link>
-          ) : (
-            <div className="hidden sm:block sm:w-[20.8rem]" aria-hidden="true" />
-          )}
-        </nav>
-      )}
+      {mountEl && createPortal(<LessonLibrary />, mountEl)}
     </AppLayout>
   );
 }
