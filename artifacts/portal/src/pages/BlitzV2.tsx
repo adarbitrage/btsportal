@@ -1163,6 +1163,8 @@ const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to use Mid-Journey to create images</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
 
+  <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+
   <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
 
   </div><!-- end step2-native -->
@@ -1247,6 +1249,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Flexy™ setup.</div>
     <div class="video-slot" data-vidalytics-id="rNDSuAj06lg3ch0b" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Submit Advertorial Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
+    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
   </div>
 
   </div><!-- end step2-mm -->
@@ -1314,6 +1317,7 @@ const blitzBodyHTML = `<div class="version-banner">
 
     <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Flexy™ setup. Wait for approval before building pages in Flexy™.</div>
     <div class="video-slot" data-vidalytics-id="qRq5oQk59skK_zBL"><div class="play-icon"></div><div><div class="vt">Submit Landing Page Split Test Media to Compliance</div><div class="vd">Watch to learn how to submit your assets for compliance review</div></div></div>
+    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
   </div>
 
 
