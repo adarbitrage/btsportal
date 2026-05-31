@@ -2266,12 +2266,12 @@ export default function BlitzV2() {
       {isSectionView && (
         <nav
           aria-label="Lesson navigation"
-          className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row"
+          className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-between"
         >
           {prevId && prevPager ? (
             <Link
               href={`/blitzv2/guide/${prevId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:flex-1 ${prevPager.card}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-left transition sm:w-64 ${prevPager.card}`}
             >
               <span className={`flex items-center gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${prevPager.eyebrow}`}>
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -2282,12 +2282,12 @@ export default function BlitzV2() {
               </span>
             </Link>
           ) : (
-            <div className="hidden sm:block sm:flex-1" aria-hidden="true" />
+            <div className="hidden sm:block sm:w-64" aria-hidden="true" />
           )}
           {nextId && nextPager ? (
             <Link
               href={`/blitzv2/guide/${nextId}`}
-              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:flex-1 ${nextPager.card}`}
+              className={`flex min-h-[64px] flex-col justify-center rounded-xl border px-5 py-3 text-right transition sm:w-64 ${nextPager.card}`}
             >
               <span className={`flex items-center justify-end gap-1 text-[0.7rem] font-bold uppercase tracking-wider ${nextPager.eyebrow}`}>
                 Next
@@ -2298,7 +2298,7 @@ export default function BlitzV2() {
               </span>
             </Link>
           ) : (
-            <div className="hidden sm:block sm:flex-1" aria-hidden="true" />
+            <div className="hidden sm:block sm:w-64" aria-hidden="true" />
           )}
         </nav>
       )}
