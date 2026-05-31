@@ -13,11 +13,11 @@ No specific user preferences were provided in the original document.
 **Read before modifying anything Blitz-related.** The Blitz v2 restyle is **done and promoted**. The restyled version is now the canonical **`/blitz`** ("the Blitz"). The original Blitz was retired to an admin-only **`/blitz-archive`** (gated by `AdminRoute` + `permission="content:manage"`), fully separated as a frozen backup. The old `/blitzv2` route no longer exists.
 
 **Key facts to respect:**
+- **All Blitz content updates go into the live `/blitz` only.** It is the single source of truth. Do NOT reference, edit, or mention `/blitz-archive` in normal work unless the user specifically asks you to look into the archive.
 - The live `/blitz` guide (`artifacts/portal/src/pages/Blitz.tsx`) is **hand-maintained** — edit it directly. The HTML regenerator (`artifacts/api-server/src/scripts/build-blitz-from-html.ts`) is disabled (it would overwrite the live guide) and only runs if `ALLOW_BLITZ_REGEN` is set. Don't re-enable it to make edits.
-- `/blitz-archive` is **frozen**: its lesson library reads a static snapshot (`artifacts/portal/src/components/blitz/blitz-archive-lessons.json`), not the live DB. The user intends to **delete the archive** (files, JSON, routes) before launch.
+- The live guide has **no Lesson Library section by design** — it was intentionally removed. Do not add it back or treat its absence as a bug.
 - The in-guide video review counter marked `TEMP: REMOVE BEFORE GO-LIVE` is intentionally **kept for now** — remove only when the user asks.
-- The live guide currently has **no Lesson Library feature** (only the archive does) — an open decision flagged to the user.
-- `.agents/memory/blitz-baseline/` is a frozen content snapshot from the fork point, kept for reference.
+- `/blitz-archive` is a frozen, admin-only backup the user intends to delete before launch; its lesson library reads a static snapshot, not the live DB. Leave it alone unless asked.
 
 ## System Architecture
 

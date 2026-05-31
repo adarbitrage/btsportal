@@ -15,5 +15,8 @@ The restyled Blitz v2 (formerly `/blitzv2`) is now the canonical **`/blitz`**. T
 - **Temp review tools KEPT:** user chose to keep the in-guide video review-counter (`TEMP: REMOVE BEFORE GO-LIVE`) for now in both `Blitz.tsx` and `BlitzArchive.tsx`. Remove before go-live when the user says so.
 - **Archive deletion:** user intends to delete `/blitz-archive` (and its files/JSON/routes) before launch.
 
-## Known content-parity gap (open decision)
-The live v2 guide has **no Lesson Library feature** — only the archive guide does. This was flagged to the user. If wanted on live, add it intentionally in `Blitz.tsx` (the live-API `components/blitz/LessonLibrary.tsx` still exists), not by re-enabling the regenerator.
+## Lesson Library — removed on purpose
+The live `/blitz` guide has **no Lesson Library section by design** — the user (sasha206) deleted it deliberately from the new Blitz. Do NOT add it back or treat its absence as a content gap. (The archive still has one; ignore that.)
+
+## Single source of truth (user directive)
+All Blitz content updates go into the live `/blitz` only. Do **not** reference, edit, or mention `/blitz-archive` in normal workflow unless the user specifically asks you to look into the archive. The archive is a frozen admin-only backup slated for deletion before launch.
