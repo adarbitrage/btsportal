@@ -274,22 +274,6 @@ export default function Advantage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-foreground text-lg">MaxWeb</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                A performance-based CPA affiliate network that provides access to professionally built offers used across major paid traffic platforms. Sign up for reliable tracking, structured reporting, consistent payouts, and access to affiliate support.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm">
-                  <a href="https://affiliates-backoffice.maxweb.com/auth#signup" target="_blank" rel="noopener noreferrer">Sign Up</a>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="https://affiliates-backoffice.maxweb.com/auth" target="_blank" rel="noopener noreferrer">Log In</a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </section>
 
         <section id="traffic" className="space-y-4 scroll-mt-6">

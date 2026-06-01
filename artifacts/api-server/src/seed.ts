@@ -1246,30 +1246,6 @@ async function seed() {
       registerUrl: "https://www.clickbank.com/affiliates/", loginUrl: "https://accounts.clickbank.com/login.htm",
       extraCtaStyle: "default", logoUrl: "/logos/clickbank.jpg", displayOrder: 1, isActive: true,
     },
-    {
-      slug: "affiliati", name: "Affiliati",
-      tagline: "A curated network with many strong offers.",
-      description: "Affiliati is a curated network with many strong offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for an Affiliati account.",
-      highlights: ["Requires account approval and proof of revenue from previous affiliate campaigns", "Check with a coach before applying", "Pre-made advertorials available for select products", "Works with Caterpillar and Grasshopper publishers"],
-      publishers: "Caterpillar, Grasshopper", approvalLabel: "Approval + proof of revenue",
-      recommendedForBeginners: false, accentPreset: "violet", logoBg: "bg-white",
-      accentBorder: "border-violet-300", accentBadgeBg: "bg-violet-50",
-      accentBadgeText: "text-violet-800", accentBadgeBorder: "border-violet-200",
-      registerUrl: "https://affiliatinetwork.com/", loginUrl: "https://login.affiliatinetwork.com/?ReturnUrl=%2faffiliates%2f",
-      extraCtaStyle: "default", logoUrl: "/logos/affiliati.png", displayOrder: 2, isActive: true,
-    },
-    {
-      slug: "maxweb", name: "MaxWeb",
-      tagline: "A curated network with quality offers.",
-      description: "MaxWeb is a curated network with quality offers. It requires account approval and proof of revenue generated from previous affiliate campaigns before you can get started. Please check with a coach before attempting to apply for a MaxWeb account.",
-      highlights: ["Requires account approval and proof of revenue from previous affiliate campaigns", "Check with a coach before applying", "Dedicated Account Representative listed on your MaxWeb Dashboard once approved", "Works with Caterpillar and Grasshopper publishers"],
-      publishers: "Caterpillar, Grasshopper", approvalLabel: "Approval + proof of revenue",
-      recommendedForBeginners: false, accentPreset: "orange", logoBg: "bg-white",
-      accentBorder: "border-orange-300", accentBadgeBg: "bg-orange-50",
-      accentBadgeText: "text-orange-800", accentBadgeBorder: "border-orange-200",
-      registerUrl: "https://affiliates-backoffice.maxweb.com/auth#signup", loginUrl: "https://affiliates-backoffice.maxweb.com/auth",
-      extraCtaStyle: "default", logoUrl: "/logos/maxweb.jpg", displayOrder: 3, isActive: true,
-    },
   ]).onConflictDoNothing({ target: affiliateNetworksTable.slug });
 
   await seedAssistantCards();

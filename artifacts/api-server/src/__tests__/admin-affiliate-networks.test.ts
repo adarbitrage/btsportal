@@ -12,7 +12,7 @@ import { seedAffiliateNetworks } from "../lib/seed-affiliate-networks";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const TEST_TAG = `aff-net-${randomUUID().slice(0, 8)}`;
-const SEEDED_SLUGS = ["media-mavens", "clickbank", "affiliati", "maxweb"];
+const SEEDED_SLUGS = ["media-mavens", "clickbank"];
 const seededUserIds: number[] = [];
 const createdNetworkSlugs: string[] = [];
 
@@ -64,7 +64,7 @@ afterAll(async () => {
 });
 
 describe("GET /affiliate-networks — public list", () => {
-  it("returns the four seeded networks in display order", async () => {
+  it("returns the seeded networks in display order", async () => {
     const res = await request(app).get("/api/affiliate-networks");
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -72,11 +72,11 @@ describe("GET /affiliate-networks — public list", () => {
     const seededReturned = (res.body as Array<{ slug: string; displayOrder: number; isActive: boolean }>)
       .filter((n) => SEEDED_SLUGS.includes(n.slug));
 
-    expect(seededReturned).toHaveLength(4);
+    expect(seededReturned).toHaveLength(2);
     expect(seededReturned.every((n) => n.isActive)).toBe(true);
 
     const seededOrder = seededReturned.map((n) => n.slug);
-    expect(seededOrder).toEqual(["media-mavens", "clickbank", "affiliati", "maxweb"]);
+    expect(seededOrder).toEqual(["media-mavens", "clickbank"]);
 
     const orders = seededReturned.map((n) => n.displayOrder);
     for (let i = 1; i < orders.length; i++) {

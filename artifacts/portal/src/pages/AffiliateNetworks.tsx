@@ -42,7 +42,7 @@ export default function AffiliateNetworks() {
           <p className="text-muted-foreground">
             An affiliate network is where you'll find the product you promote and get
             your unique tracking link — think of it like choosing which store you're
-            going to sell products for. These are the four networks supported inside the
+            going to sell products for. These are the networks supported inside the
             Build Test Scale system.
           </p>
         </div>
@@ -53,19 +53,13 @@ export default function AffiliateNetworks() {
             <strong>Media Mavens</strong>. It's our own in-house network, built
             specifically for this system, and gives you several advantages out of the
             gate. If you want to explore other options, <strong>ClickBank</strong> is the
-            next easiest entry point. <strong>Affiliati</strong> and{" "}
-            <strong>MaxWeb</strong> both require an application and approval, so factor
-            in a short wait time and note that both also require proof of revenue from
-            previous affiliate campaigns — please check with a coach before applying to
-            either.
+            next easiest entry point — a large public marketplace with instant signup.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-5">
           {isLoading && (
             <>
-              <NetworkCardSkeleton />
-              <NetworkCardSkeleton />
               <NetworkCardSkeleton />
               <NetworkCardSkeleton />
             </>

@@ -19,7 +19,7 @@ export interface BlitzLessonSummary {
   module: string | null;
   lessonId: string | null;
   lessonType: "conceptual" | "technical" | "strategy" | null;
-  networkPath: "universal" | "media-mavens" | "clickbank" | "maxweb" | null;
+  networkPath: "universal" | "media-mavens" | "clickbank" | null;
   publisherPath: "all" | "caterpillar" | "grasshopper-crane" | null;
   blitzOrder: number | null;
 }
