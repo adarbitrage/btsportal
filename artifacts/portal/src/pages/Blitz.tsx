@@ -1137,7 +1137,7 @@ const blitzBodyHTML = `<div class="version-banner">
   </div>
 
   <div class="video-slot" data-vidalytics-id="E0BeXueyRE2hjvgc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
-  <div class="video-slot" data-vidalytics-id="aiwd_GzDby9pKMju" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate a Description for Your Ad Headlines</div><div class="vd">Write the supporting copy that pairs with each headline</div></div></div>
+  <div class="video-slot" data-vidalytics-id="1HySXYGJDBpvQPus" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate a Description for Your Ad Headlines</div><div class="vd">Write the supporting copy that pairs with each headline</div></div></div>
   <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Shorten Your Ad Headline Title and Insert Dynamic Macros</div><div class="vd">Trim long headlines to fit Caterpillar's character limits and use macros like {city} and {state} to personalize ads</div></div></div>
 
   <div class="card"><div class="card-title">Optional: Dynamic Macros — Make Ads Feel Personal</div>
