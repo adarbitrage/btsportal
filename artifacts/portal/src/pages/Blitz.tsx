@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -1771,6 +1771,9 @@ const SECTION_BAR_CSS = `
 .blitz-content.full-guide .version-banner { display: none !important; }
 `;
 
+const BLITZ_API_BASE = `${import.meta.env.BASE_URL}api`;
+const BLITZ_COURSE_PREFIX = "blitz-hub-step-v2-";
+
 function ArrowLeftIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -1795,6 +1798,90 @@ export default function Blitz() {
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
   }, []);
+
+  // ── VIEW TRACKING ─────────────────────────────────────────────────────────
+  // Rate-limit: max one viewed event per minute per lesson across navigations.
+  const lastViewedAt = useRef<Map<number, number>>(new Map());
+  const scrollPctRef = useRef(0);
+
+  // Fire a "viewed" event when a lesson section is opened.
+  useEffect(() => {
+    if (!lessonId || !lesson) return;
+    const now = Date.now();
+    const lastAt = lastViewedAt.current.get(lessonId) ?? 0;
+    if (now - lastAt < 60_000) return;
+    lastViewedAt.current.set(lessonId, now);
+    fetch(`${BLITZ_API_BASE}/blitz/events`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        courseId: `${BLITZ_COURSE_PREFIX}${lessonId}`,
+        eventType: "viewed",
+      }),
+    }).catch(() => {});
+  }, [lessonId, lesson]);
+
+  // Flush scroll position to the API (every ~10 s and on unmount).
+  useEffect(() => {
+    if (!lessonId || !lesson) return;
+    const courseId = `${BLITZ_COURSE_PREFIX}${lessonId}`;
+
+    const handleScroll = () => {
+      const total = document.body.scrollHeight - window.innerHeight;
+      if (total <= 0) return;
+      scrollPctRef.current = Math.min(
+        100,
+        Math.round((window.scrollY / total) * 100),
+      );
+    };
+
+    const flush = () => {
+      const pct = scrollPctRef.current;
+      if (pct <= 0) return;
+      fetch(`${BLITZ_API_BASE}/blitz/events`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId, eventType: "viewed", scrollPositionPct: pct }),
+      }).catch(() => {});
+      try {
+        sessionStorage.setItem(`blitz-scroll-${lessonId}`, String(pct));
+      } catch { /* storage unavailable */ }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    const interval = setInterval(flush, 10_000);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      clearInterval(interval);
+      flush();
+    };
+  }, [lessonId, lesson]);
+
+  // Restore saved scroll position when reopening a lesson.
+  // Runs after layout (useEffect, not useLayoutEffect) so the section filter's
+  // scroll-to-top has already executed, and this overrides it only when a saved
+  // position exists.
+  useEffect(() => {
+    if (!lessonId || !lesson || !contentEl) return;
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(`blitz-scroll-${lessonId}`);
+    } catch { /* storage unavailable */ }
+    if (!saved) return;
+    const pct = Number(saved);
+    if (isNaN(pct) || pct < 3) return; // Skip near-top positions.
+    const timer = setTimeout(() => {
+      const total = document.body.scrollHeight - window.innerHeight;
+      if (total > 0) {
+        window.scrollTo({ top: Math.round((pct / 100) * total), behavior: "smooth" });
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [lessonId, lesson, contentEl]);
+  // ── END VIEW TRACKING ─────────────────────────────────────────────────────
 
   // Filter modules by section. Runs synchronously before paint to avoid flash of full content.
   useLayoutEffect(() => {

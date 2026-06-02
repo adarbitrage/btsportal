@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Zap, ArrowUpRight, Check } from "lucide-react";
+import { Zap, ArrowUpRight, Check, Lock } from "lucide-react";
 
 type Phase = "intro" | "build" | "test" | "scale";
 type Tag = { kind: "mm" | "cb" | "all" | "warn"; label: string };
@@ -276,11 +276,28 @@ interface ProgressEntry {
   courseId: string;
 }
 
+interface PhaseStatusEntry {
+  slug: string;
+  name: string;
+  sortOrder: number;
+  color: string;
+  totalLessons: number;
+  completedLessons: number;
+  completionPct: number;
+  unlocked: boolean;
+}
+
 export default function BlitzHub() {
   const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [pending, setPending] = useState<Set<number>>(new Set());
+  const [phaseStatus, setPhaseStatus] = useState<PhaseStatusEntry[]>([]);
+  const [adminOverride, setAdminOverride] = useState(false);
+  const [phaseStatusLoaded, setPhaseStatusLoaded] = useState(false);
 
-  // Hydrate from server on mount.
+  // Tracks last time a viewed event was sent per lesson (rate-limit: 1/min).
+  const lastViewedAt = useRef<Map<number, number>>(new Map());
+
+  // Hydrate progress from server on mount.
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE}/course-progress`, { credentials: "include" })
@@ -300,6 +317,57 @@ export default function BlitzHub() {
     };
   }, []);
 
+  // Fetch phase-gate status.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/blitz/phase-status`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { phases: [], adminOverride: false }))
+      .then((data) => {
+        if (cancelled) return;
+        setPhaseStatus(data.phases ?? []);
+        setAdminOverride(data.adminOverride ?? false);
+        setPhaseStatusLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPhaseStatusLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Restore scroll to last-viewed lesson after both data sources are ready.
+  useEffect(() => {
+    if (!phaseStatusLoaded) return;
+    fetch(`${API_BASE}/blitz/continue`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.sectionId) return;
+        const el = document.getElementById(`lesson-card-${data.sectionId}`);
+        if (el) {
+          // Small delay so the layout has settled.
+          setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+        }
+      })
+      .catch(() => {});
+  }, [phaseStatusLoaded]);
+
+  // Derived: phase → locked status. Empty map = all unlocked (while loading).
+  const phaseLockedMap = useMemo(() => {
+    const map = new Map<Phase, boolean>();
+    for (const ps of phaseStatus) {
+      map.set(ps.slug as Phase, !ps.unlocked);
+    }
+    return map;
+  }, [phaseStatus]);
+
+  // Derived: phase → status entry for computing tooltip text.
+  const phaseStatusMap = useMemo(() => {
+    const map = new Map<string, PhaseStatusEntry>();
+    for (const ps of phaseStatus) map.set(ps.slug, ps);
+    return map;
+  }, [phaseStatus]);
+
   const setBusy = useCallback((id: number, busy: boolean) => {
     setPending((prev) => {
       const next = new Set(prev);
@@ -309,11 +377,25 @@ export default function BlitzHub() {
     });
   }, []);
 
+  // Send a viewed event for a lesson (rate-limited: once per minute per lesson).
+  const sendViewed = useCallback((id: number) => {
+    const now = Date.now();
+    const lastAt = lastViewedAt.current.get(id) ?? 0;
+    if (now - lastAt < 60_000) return;
+    lastViewedAt.current.set(id, now);
+    const courseId = `${STEP_COURSE_PREFIX}${id}`;
+    fetch(`${API_BASE}/blitz/events`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId, eventType: "viewed" }),
+    }).catch(() => {});
+  }, []);
+
   const toggleComplete = useCallback(
     async (id: number) => {
       const courseId = `${STEP_COURSE_PREFIX}${id}`;
       const wasCompleted = completed.has(id);
-      // Optimistic update
       setCompleted((prev) => {
         const next = new Set(prev);
         if (wasCompleted) next.delete(id);
@@ -338,7 +420,6 @@ export default function BlitzHub() {
           if (!res.ok) throw new Error("post failed");
         }
       } catch {
-        // Roll back on failure
         setCompleted((prev) => {
           const next = new Set(prev);
           if (wasCompleted) next.add(id);
@@ -365,7 +446,6 @@ export default function BlitzHub() {
         }).catch(() => null),
       ),
     );
-    // Reconcile with server in case any DELETE failed.
     try {
       const res = await fetch(`${API_BASE}/course-progress`, {
         credentials: "include",
@@ -397,11 +477,17 @@ export default function BlitzHub() {
     return { intro, build, test, scale };
   }, []);
 
-  const phaseGroups = [
-    { key: "intro" as const, label: "Introduction", items: grouped.intro },
-    { key: "build" as const, label: "Phase 1 — Build", items: grouped.build },
-    { key: "test" as const, label: "Phase 2 — Test", items: grouped.test },
-    { key: "scale" as const, label: "Phase 3 — Scale", items: grouped.scale },
+  const phaseGroups: {
+    key: Phase;
+    label: string;
+    items: HubLesson[];
+    prevKey: Phase | null;
+    prevLabel: string | null;
+  }[] = [
+    { key: "intro", label: "Introduction", items: grouped.intro, prevKey: null, prevLabel: null },
+    { key: "build", label: "Phase 1 — Build", items: grouped.build, prevKey: "intro", prevLabel: "Introduction" },
+    { key: "test", label: "Phase 2 — Test", items: grouped.test, prevKey: "build", prevLabel: "Phase 1 — Build" },
+    { key: "scale", label: "Phase 3 — Scale", items: grouped.scale, prevKey: "test", prevLabel: "Phase 2 — Test" },
   ];
 
   return (
@@ -451,22 +537,41 @@ export default function BlitzHub() {
           </p>
         </div>
 
-        {phaseGroups.map((group) => (
-          <div key={group.key}>
-            <PhaseDivider phase={group.key} label={group.label} />
-            <div className="space-y-3">
-              {group.items.map((l) => (
-                <LessonCard
-                  key={l.id}
-                  lesson={l}
-                  completed={completed.has(l.id)}
-                  busy={pending.has(l.id)}
-                  onToggle={() => toggleComplete(l.id)}
-                />
-              ))}
+        {phaseGroups.map((group) => {
+          const isLocked = !adminOverride && (phaseLockedMap.get(group.key) ?? false);
+          const prevStatus = group.prevKey ? phaseStatusMap.get(group.prevKey) : null;
+          // How many lessons in the previous phase still need to be done to hit 80%.
+          const neededToUnlock = prevStatus
+            ? Math.max(0, Math.ceil(prevStatus.totalLessons * 0.8) - prevStatus.completedLessons)
+            : 0;
+
+          return (
+            <div key={group.key}>
+              <PhaseDivider
+                phase={group.key}
+                label={group.label}
+                locked={isLocked}
+                prevLabel={group.prevLabel}
+                neededToUnlock={neededToUnlock}
+              />
+              <div className="space-y-3">
+                {group.items.map((l) => (
+                  <LessonCard
+                    key={l.id}
+                    lesson={l}
+                    completed={completed.has(l.id)}
+                    busy={pending.has(l.id)}
+                    locked={isLocked}
+                    neededToUnlock={neededToUnlock}
+                    prevLabel={group.prevLabel}
+                    onToggle={() => toggleComplete(l.id)}
+                    onView={() => sendViewed(l.id)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="text-center pt-2">
           <Button
@@ -490,19 +595,41 @@ export default function BlitzHub() {
 function PhaseDivider({
   phase,
   label,
+  locked,
+  prevLabel,
+  neededToUnlock,
 }: {
   phase: Phase;
   label: string;
+  locked: boolean;
+  prevLabel: string | null;
+  neededToUnlock: number;
 }) {
   const tint = PHASE_TINT[phase];
   return (
-    <div className="flex items-center gap-3 mb-4">
-      <div
-        className={`inline-flex items-center rounded-full border px-3.5 py-1.5 ${tint.pillBg} ${tint.pillBorder} ${tint.pillText}`}
-      >
-        <span className="text-sm font-semibold tracking-wide uppercase">{label}</span>
+    <div className="mb-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 ${
+            locked ? "bg-slate-200 border-slate-300 text-slate-500" : `${tint.pillBg} ${tint.pillBorder} ${tint.pillText}`
+          }`}
+        >
+          {locked && <Lock className="w-3.5 h-3.5" />}
+          <span className="text-sm font-semibold tracking-wide uppercase">{label}</span>
+        </div>
+        <div className="flex-1 h-px bg-border" />
       </div>
-      <div className="flex-1 h-px bg-border" />
+      {locked && prevLabel && (
+        <p className="mt-1.5 ml-1 text-xs text-muted-foreground flex items-center gap-1">
+          <Lock className="w-3 h-3 shrink-0" />
+          Complete 80% of {prevLabel} to unlock
+          {neededToUnlock > 0 && (
+            <span className="text-foreground font-medium">
+              &nbsp;({neededToUnlock} lesson{neededToUnlock !== 1 ? "s" : ""} remaining)
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -511,78 +638,153 @@ function LessonCard({
   lesson,
   completed,
   busy,
+  locked,
+  neededToUnlock,
+  prevLabel,
   onToggle,
+  onView,
 }: {
   lesson: HubLesson;
   completed: boolean;
   busy: boolean;
+  locked: boolean;
+  neededToUnlock: number;
+  prevLabel: string | null;
   onToggle: () => void;
+  onView: () => void;
 }) {
   const tint = PHASE_TINT[lesson.phase];
+
+  const tooltipText = locked && prevLabel
+    ? neededToUnlock > 0
+      ? `Complete ${neededToUnlock} more lesson${neededToUnlock !== 1 ? "s" : ""} in ${prevLabel} to unlock this phase.`
+      : `Complete 80% of ${prevLabel} to unlock this phase.`
+    : undefined;
+
   return (
-    <Card
-      className={`overflow-hidden border shadow-sm transition-shadow hover:shadow-md ${
-        completed ? "border-emerald-200 bg-emerald-50/40" : "border-border/60"
-      }`}
-    >
-      <div className="flex">
-        <div className={`w-1 shrink-0 ${completed ? "bg-emerald-500" : tint.accent}`} />
-        <CardContent className="flex items-start gap-4 p-5 flex-1 min-w-0">
+    <div id={`lesson-card-${lesson.id}`}>
+      <Card
+        className={`overflow-hidden border shadow-sm transition-all duration-200 ${
+          locked
+            ? "border-slate-200 bg-slate-50/60 opacity-60"
+            : completed
+            ? "border-emerald-200 bg-emerald-50/40 hover:shadow-md"
+            : "border-border/60 hover:shadow-md"
+        }`}
+      >
+        <div className="flex">
           <div
-            className={`flex items-center justify-center w-10 h-10 rounded-xl border shrink-0 text-base font-bold ${
-              completed
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : `${tint.iconBg} ${tint.iconBorder} ${tint.iconText}`
+            className={`w-1 shrink-0 ${
+              locked ? "bg-slate-300" : completed ? "bg-emerald-500" : tint.accent
             }`}
-          >
-            {completed ? <Check className="w-5 h-5" /> : lesson.id}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-              {lesson.step}
-            </p>
-            <h3 className="font-bold text-foreground leading-snug mb-1.5">{lesson.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{lesson.desc}</p>
-            {lesson.tags && lesson.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {lesson.tags.map((t, i) => (
-                  <span
-                    key={i}
-                    className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${TAG_TINT[t.kind]}`}
-                  >
-                    {t.label}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              {lesson.ctas.map((cta, i) => (
-                <Button
-                  key={i}
-                  asChild
-                  size="sm"
-                  className={`text-white ${cta.secondary ? "bg-slate-600 hover:bg-slate-700" : tint.btn}`}
-                >
-                  <Link href={`/blitz/guide/${lesson.id}${i > 0 ? `#${cta.section}` : ""}`}>
-                    {cta.label}
-                    <ArrowUpRight className="w-4 h-4 ml-1.5" />
-                  </Link>
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onToggle}
-                disabled={busy}
-                className={completed ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50" : ""}
-              >
-                <Check className="w-4 h-4 mr-1.5" />
-                {completed ? "Completed" : "Mark as Complete"}
-              </Button>
+          />
+          <CardContent className="flex items-start gap-4 p-5 flex-1 min-w-0">
+            <div
+              className={`flex items-center justify-center w-10 h-10 rounded-xl border shrink-0 text-base font-bold ${
+                locked
+                  ? "bg-slate-100 border-slate-300 text-slate-400"
+                  : completed
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : `${tint.iconBg} ${tint.iconBorder} ${tint.iconText}`
+              }`}
+            >
+              {locked ? (
+                <Lock className="w-4 h-4" />
+              ) : completed ? (
+                <Check className="w-5 h-5" />
+              ) : (
+                lesson.id
+              )}
             </div>
-          </div>
-        </CardContent>
-      </div>
-    </Card>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                {lesson.step}
+              </p>
+              <h3 className={`font-bold leading-snug mb-1.5 ${locked ? "text-muted-foreground" : "text-foreground"}`}>
+                {lesson.title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-3">{lesson.desc}</p>
+              {lesson.tags && lesson.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {lesson.tags.map((t, i) => (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
+                        locked ? "bg-slate-100 text-slate-400 border-slate-200" : TAG_TINT[t.kind]
+                      }`}
+                    >
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {lesson.ctas.map((cta, i) => (
+                  locked ? (
+                    <div key={i} className="relative group">
+                      <Button
+                        size="sm"
+                        disabled
+                        className="bg-slate-300 text-slate-500 cursor-not-allowed opacity-60"
+                      >
+                        <Lock className="w-3.5 h-3.5 mr-1.5" />
+                        {cta.label}
+                      </Button>
+                      {tooltipText && (
+                        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-md bg-slate-900 px-3 py-2 text-xs text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
+                          {tooltipText}
+                          <div className="absolute top-full left-4 border-4 border-transparent border-t-slate-900" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      key={i}
+                      asChild
+                      size="sm"
+                      className={`text-white ${cta.secondary ? "bg-slate-600 hover:bg-slate-700" : tint.btn}`}
+                      onClick={onView}
+                    >
+                      <Link href={`/blitz/guide/${lesson.id}${i > 0 ? `#${cta.section}` : ""}`}>
+                        {cta.label}
+                        <ArrowUpRight className="w-4 h-4 ml-1.5" />
+                      </Link>
+                    </Button>
+                  )
+                ))}
+                <div className="relative group">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={locked ? undefined : onToggle}
+                    disabled={busy || locked}
+                    className={
+                      locked
+                        ? "border-slate-200 text-slate-400 cursor-not-allowed"
+                        : completed
+                        ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                        : ""
+                    }
+                  >
+                    {locked ? (
+                      <Lock className="w-4 h-4 mr-1.5" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-1.5" />
+                    )}
+                    {locked ? "Locked" : completed ? "Completed" : "Mark as Complete"}
+                  </Button>
+                  {locked && tooltipText && (
+                    <div className="absolute bottom-full left-0 mb-2 w-56 rounded-md bg-slate-900 px-3 py-2 text-xs text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
+                      {tooltipText}
+                      <div className="absolute top-full left-4 border-4 border-transparent border-t-slate-900" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </div>
+      </Card>
+    </div>
   );
 }
