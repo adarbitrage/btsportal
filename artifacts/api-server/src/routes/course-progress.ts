@@ -13,13 +13,22 @@ const STATIC_VALID_COURSE_IDS = new Set([
   "direct-edge",
 ]);
 
+// Number of lessons in the canonical Blitz Caterpillar Edition hub (BlitzHub.tsx).
+const BLITZ_V2_LESSON_COUNT = 23;
+
 function isValidCourseId(id: unknown): id is string {
   if (typeof id !== "string") return false;
   if (STATIC_VALID_COURSE_IDS.has(id)) return true;
-  // Blitz Caterpillar Edition hub steps 1-18
-  const m = id.match(/^blitz-hub-step-(\d+)$/);
-  if (m) {
-    const n = Number(m[1]);
+  // Canonical Blitz Caterpillar Edition hub steps (v2): lessons 1-23.
+  const v2 = id.match(/^blitz-hub-step-v2-(\d+)$/);
+  if (v2) {
+    const n = Number(v2[1]);
+    return n >= 1 && n <= BLITZ_V2_LESSON_COUNT;
+  }
+  // Legacy hub steps 1-18 (pre-v2 ids; kept so older rows can still be removed).
+  const legacy = id.match(/^blitz-hub-step-(\d+)$/);
+  if (legacy) {
+    const n = Number(legacy[1]);
     return n >= 1 && n <= 18;
   }
   return false;

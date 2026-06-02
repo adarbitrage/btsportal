@@ -2,4 +2,5 @@
 - [Blitz branded design (archived)](blitz-branded-design.md) — original navy hero + display fonts + phase colors removed during restyle; how to restore.
 - [Blitz guide — live hand-maintained, archive frozen](blitz-guide-generated.md) — canonical /blitz (was v2) is edited directly; regenerator disabled (ALLOW_BLITZ_REGEN); old guide archived at admin-only /blitz-archive with JSON-snapshot library.
 - [Blitz SPA navigation](blitz-spa-navigation.md) — internal nav must use wouter <Link> (base-relative), never plain <a>; full reloads corrupt the iframe back-stack -> Back lands on full guide.
+- [Blitz course-id validator](blitz-courseid-validator.md) — Mark-Complete breaks (silent 400) unless API isValidCourseId accepts the exact blitz-hub-step-v2-{id} the UI sends; lesson count duplicated frontend+backend, keep in lockstep.
 - [Supported affiliate networks](affiliate-networks-supported.md) — only Media Mavens & ClickBank; MaxWeb/Affiliati removed by design. Don't "fix" the lingering maxweb label in dead LessonLibrary.tsx.
