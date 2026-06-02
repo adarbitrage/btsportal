@@ -32,6 +32,10 @@ import {
   startMachineMismatchDigestJob,
   stopMachineMismatchDigestJob,
 } from "./lib/machine-mismatch-daily-digest";
+import {
+  startMachineMismatchDigestAlerter,
+  stopMachineMismatchDigestAlerter,
+} from "./lib/machine-mismatch-digest-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
@@ -84,6 +88,7 @@ startAbuseRateLimitCleanupAlerter();
 startRateLimitAuditFailureAlerter();
 startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
+startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
@@ -127,6 +132,7 @@ async function gracefulShutdown(signal: string) {
   stopRateLimitAuditFailureAlerter();
   stopMachineMismatchAlerter();
   stopMachineMismatchDigestJob();
+  stopMachineMismatchDigestAlerter();
   stopModerationFailureAlerter();
   process.exit(0);
 }

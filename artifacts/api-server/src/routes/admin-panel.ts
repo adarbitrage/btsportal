@@ -83,6 +83,7 @@ import {
   getModerationFailureAlertingState,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
+import { MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-digest-alerter";
 import {
   getAuthRateLimitAlertTrafficPreview,
   coerceLookbackDays as coerceAlertTrafficPreviewLookbackDays,
@@ -2849,11 +2850,13 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
     // Include every alerter that writes audit rows with entityType="alert"
     // so the System Health timeline answers "did *any* on-call page go
     // out?" — not just queue-fallback ones. Today that's queue-fallback +
-    // machine-order-mismatch (task #494); future alerters add their
-    // action-type constant here without any UI changes.
+    // machine-order-mismatch (task #494) + the machine-mismatch daily-digest
+    // heartbeat watchdog; future alerters add their action-type constant here
+    // without any UI changes.
     const TIMELINE_ALERT_ACTION_TYPES = [
       QUEUE_FALLBACK_ALERT_ACTION_TYPE,
       MACHINE_MISMATCH_ALERT_ACTION_TYPE,
+      MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
     ];
 
     const baseFilter = and(
