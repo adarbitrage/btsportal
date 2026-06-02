@@ -2619,6 +2619,92 @@ export interface AppInstance {
   updatedAt?: string | null;
 }
 
+export type CoachDashboardSummaryByStatus = {
+  active: number;
+  stuck: number;
+  dormant: number;
+  new: number;
+  completed: number;
+};
+
+export interface CoachDashboardSummary {
+  total_mentees: number;
+  by_status: CoachDashboardSummaryByStatus;
+  median_completion_pct: number;
+  needs_attention_count: number;
+}
+
+export interface MenteeCurrentSection {
+  id: number;
+  courseId: string;
+  name: string;
+  step: string;
+  phase: string;
+}
+
+export type MenteeStatus = (typeof MenteeStatus)[keyof typeof MenteeStatus];
+
+export const MenteeStatus = {
+  active: "active",
+  stuck: "stuck",
+  dormant: "dormant",
+  new: "new",
+  completed: "completed",
+} as const;
+
+export interface CoachMenteeRow {
+  user_id: number;
+  name: string;
+  email: string;
+  tier: string;
+  tier_name: string;
+  joined_at: string;
+  last_active_at: string | null;
+  current_section: MenteeCurrentSection | null;
+  blitz_completion_pct: number;
+  daily_streak: number;
+  status: MenteeStatus;
+}
+
+export interface CoachMenteeListResponse {
+  mentees: CoachMenteeRow[];
+  total: number;
+  next_cursor: string | null;
+}
+
+export interface PhaseBreakdown {
+  key: string;
+  label: string;
+  total_sections: number;
+  completed_sections: number;
+  completion_pct: number;
+}
+
+export interface SectionCompletion {
+  section_id: number;
+  course_id: string;
+  name: string;
+  step: string;
+  phase: string;
+  completed: boolean;
+  completed_at: string | null;
+}
+
+export interface BlitzActivityEvent {
+  courseId: string;
+  sectionId: number | null;
+  name: string;
+  phase: string | null;
+  eventType: string;
+  occurredAt: string;
+}
+
+export type CoachMenteeDetail = CoachMenteeRow & {
+  phase_breakdown: PhaseBreakdown[];
+  section_completion: SectionCompletion[];
+  recent_events: BlitzActivityEvent[];
+};
+
 /**
  * Bad request — validation error
  */
@@ -2958,6 +3044,28 @@ export type AdminDeleteToolCategory200 = {
 export type AdminDeleteTool200 = {
   message?: string;
 };
+
+export type ListCoachMenteesParams = {
+  status?: ListCoachMenteesStatus;
+  search?: string;
+  sort?: string;
+  cursor?: string;
+  /**
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type ListCoachMenteesStatus =
+  (typeof ListCoachMenteesStatus)[keyof typeof ListCoachMenteesStatus];
+
+export const ListCoachMenteesStatus = {
+  active: "active",
+  stuck: "stuck",
+  dormant: "dormant",
+  new: "new",
+  completed: "completed",
+} as const;
 
 export type GetOneOnOneSlotsParams = {
   coachId: number;

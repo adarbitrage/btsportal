@@ -128,6 +128,9 @@ import type {
   ChatSessionWithMessages,
   ChatStatus,
   Coach,
+  CoachDashboardSummary,
+  CoachMenteeDetail,
+  CoachMenteeListResponse,
   CoachingCall,
   CoachingRating,
   CoachingSessionDetail,
@@ -197,6 +200,7 @@ import type {
   LessonVersion,
   ListAnnouncementsParams,
   ListChatSessionsParams,
+  ListCoachMenteesParams,
   ListCoachingCallsParams,
   ListCommunityMembersParams,
   ListCommunityNotificationsParams,
@@ -15404,6 +15408,268 @@ export function useAdminToolUsageDetail<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getAdminToolUsageDetailQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get coach dashboard summary counts
+ */
+export const getGetCoachDashboardSummaryUrl = () => {
+  return `/api/coach/dashboard/summary`;
+};
+
+export const getCoachDashboardSummary = async (
+  options?: RequestInit,
+): Promise<CoachDashboardSummary> => {
+  return customFetch<CoachDashboardSummary>(getGetCoachDashboardSummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCoachDashboardSummaryQueryKey = () => {
+  return [`/api/coach/dashboard/summary`] as const;
+};
+
+export const getGetCoachDashboardSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCoachDashboardSummary>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCoachDashboardSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCoachDashboardSummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCoachDashboardSummary>>
+  > = ({ signal }) => getCoachDashboardSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCoachDashboardSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCoachDashboardSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCoachDashboardSummary>>
+>;
+export type GetCoachDashboardSummaryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get coach dashboard summary counts
+ */
+
+export function useGetCoachDashboardSummary<
+  TData = Awaited<ReturnType<typeof getCoachDashboardSummary>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCoachDashboardSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCoachDashboardSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all mentees with Blitz progress
+ */
+export const getListCoachMenteesUrl = (params?: ListCoachMenteesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/coach/dashboard/mentees?${stringifiedParams}`
+    : `/api/coach/dashboard/mentees`;
+};
+
+export const listCoachMentees = async (
+  params?: ListCoachMenteesParams,
+  options?: RequestInit,
+): Promise<CoachMenteeListResponse> => {
+  return customFetch<CoachMenteeListResponse>(getListCoachMenteesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCoachMenteesQueryKey = (
+  params?: ListCoachMenteesParams,
+) => {
+  return [`/api/coach/dashboard/mentees`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCoachMenteesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCoachMentees>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListCoachMenteesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCoachMentees>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCoachMenteesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCoachMentees>>
+  > = ({ signal }) => listCoachMentees(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCoachMentees>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCoachMenteesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCoachMentees>>
+>;
+export type ListCoachMenteesQueryError = ErrorType<void>;
+
+/**
+ * @summary List all mentees with Blitz progress
+ */
+
+export function useListCoachMentees<
+  TData = Awaited<ReturnType<typeof listCoachMentees>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListCoachMenteesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCoachMentees>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCoachMenteesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get full Blitz progress detail for a single mentee
+ */
+export const getGetCoachMenteeDetailUrl = (userId: number) => {
+  return `/api/coach/dashboard/mentee/${userId}`;
+};
+
+export const getCoachMenteeDetail = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<CoachMenteeDetail> => {
+  return customFetch<CoachMenteeDetail>(getGetCoachMenteeDetailUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCoachMenteeDetailQueryKey = (userId: number) => {
+  return [`/api/coach/dashboard/mentee/${userId}`] as const;
+};
+
+export const getGetCoachMenteeDetailQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCoachMenteeDetail>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCoachMenteeDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCoachMenteeDetailQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCoachMenteeDetail>>
+  > = ({ signal }) =>
+    getCoachMenteeDetail(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCoachMenteeDetail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCoachMenteeDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCoachMenteeDetail>>
+>;
+export type GetCoachMenteeDetailQueryError = ErrorType<void>;
+
+/**
+ * @summary Get full Blitz progress detail for a single mentee
+ */
+
+export function useGetCoachMenteeDetail<
+  TData = Awaited<ReturnType<typeof getCoachMenteeDetail>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCoachMenteeDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCoachMenteeDetailQueryOptions(userId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

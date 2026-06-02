@@ -37,6 +37,7 @@ tags:
   - name: admin-communications
   - name: apps
   - name: admin-tools
+  - name: coach-dashboard
 paths:
   /healthz:
     get:
@@ -3773,6 +3774,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminToolUsageDetail"
+
+  /coach/dashboard/summary:
+    get:
+      operationId: getCoachDashboardSummary
+      tags: [coach-dashboard]
+      summary: Get coach dashboard summary counts
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Summary counts by mentee status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachDashboardSummary"
+        "403":
+          description: Forbidden
+
+  /coach/dashboard/mentees:
+    get:
+      operationId: listCoachMentees
+      tags: [coach-dashboard]
+      summary: List all mentees with Blitz progress
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, stuck, dormant, new, completed]
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            default: last_active
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated mentee list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachMenteeListResponse"
+        "403":
+          description: Forbidden
+
+  /coach/dashboard/mentee/{userId}:
+    get:
+      operationId: getCoachMenteeDetail
+      tags: [coach-dashboard]
+      summary: Get full Blitz progress detail for a single mentee
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Mentee detail with phase breakdown and activity timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachMenteeDetail"
+        "403":
+          description: Forbidden
+        "404":
+          description: Mentee not found
 
   /coaching/one-on-one/status:
     get:
@@ -10217,4 +10310,169 @@ components:
           format: date-time
           nullable: true
       required: [appName, status]
+
+    CoachDashboardSummary:
+      type: object
+      properties:
+        total_mentees:
+          type: integer
+        by_status:
+          type: object
+          properties:
+            active:
+              type: integer
+            stuck:
+              type: integer
+            dormant:
+              type: integer
+            new:
+              type: integer
+            completed:
+              type: integer
+          required: [active, stuck, dormant, new, completed]
+        median_completion_pct:
+          type: integer
+        needs_attention_count:
+          type: integer
+      required: [total_mentees, by_status, median_completion_pct, needs_attention_count]
+
+    MenteeCurrentSection:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: string
+        name:
+          type: string
+        step:
+          type: string
+        phase:
+          type: string
+      required: [id, courseId, name, step, phase]
+
+    MenteeStatus:
+      type: string
+      enum: [active, stuck, dormant, new, completed]
+
+    CoachMenteeRow:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        tier:
+          type: string
+        tier_name:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        last_active_at:
+          type: string
+          format: date-time
+          nullable: true
+        current_section:
+          oneOf:
+            - $ref: "#/components/schemas/MenteeCurrentSection"
+            - type: "null"
+        blitz_completion_pct:
+          type: integer
+        daily_streak:
+          type: integer
+        status:
+          $ref: "#/components/schemas/MenteeStatus"
+      required: [user_id, name, email, tier, tier_name, joined_at, last_active_at, current_section, blitz_completion_pct, daily_streak, status]
+
+    CoachMenteeListResponse:
+      type: object
+      properties:
+        mentees:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachMenteeRow"
+        total:
+          type: integer
+        next_cursor:
+          type: string
+          nullable: true
+      required: [mentees, total, next_cursor]
+
+    PhaseBreakdown:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        total_sections:
+          type: integer
+        completed_sections:
+          type: integer
+        completion_pct:
+          type: integer
+      required: [key, label, total_sections, completed_sections, completion_pct]
+
+    SectionCompletion:
+      type: object
+      properties:
+        section_id:
+          type: integer
+        course_id:
+          type: string
+        name:
+          type: string
+        step:
+          type: string
+        phase:
+          type: string
+        completed:
+          type: boolean
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [section_id, course_id, name, step, phase, completed, completed_at]
+
+    BlitzActivityEvent:
+      type: object
+      properties:
+        courseId:
+          type: string
+        sectionId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        phase:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+      required: [courseId, sectionId, name, phase, eventType, occurredAt]
+
+    CoachMenteeDetail:
+      allOf:
+        - $ref: "#/components/schemas/CoachMenteeRow"
+        - type: object
+          properties:
+            phase_breakdown:
+              type: array
+              items:
+                $ref: "#/components/schemas/PhaseBreakdown"
+            section_completion:
+              type: array
+              items:
+                $ref: "#/components/schemas/SectionCompletion"
+            recent_events:
+              type: array
+              items:
+                $ref: "#/components/schemas/BlitzActivityEvent"
+          required: [phase_breakdown, section_completion, recent_events]
 

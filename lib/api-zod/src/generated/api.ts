@@ -3350,6 +3350,136 @@ export const AdminToolUsageDetailResponse = zod.object({
 });
 
 /**
+ * @summary Get coach dashboard summary counts
+ */
+export const GetCoachDashboardSummaryResponse = zod.object({
+  total_mentees: zod.number(),
+  by_status: zod.object({
+    active: zod.number(),
+    stuck: zod.number(),
+    dormant: zod.number(),
+    new: zod.number(),
+    completed: zod.number(),
+  }),
+  median_completion_pct: zod.number(),
+  needs_attention_count: zod.number(),
+});
+
+/**
+ * @summary List all mentees with Blitz progress
+ */
+export const listCoachMenteesQuerySortDefault = `last_active`;
+export const listCoachMenteesQueryLimitDefault = 25;
+export const listCoachMenteesQueryLimitMax = 100;
+
+export const ListCoachMenteesQueryParams = zod.object({
+  status: zod
+    .enum(["active", "stuck", "dormant", "new", "completed"])
+    .optional(),
+  search: zod.coerce.string().optional(),
+  sort: zod.coerce.string().default(listCoachMenteesQuerySortDefault),
+  cursor: zod.coerce.string().optional(),
+  limit: zod.coerce
+    .number()
+    .max(listCoachMenteesQueryLimitMax)
+    .default(listCoachMenteesQueryLimitDefault),
+});
+
+export const ListCoachMenteesResponse = zod.object({
+  mentees: zod.array(
+    zod.object({
+      user_id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      tier: zod.string(),
+      tier_name: zod.string(),
+      joined_at: zod.date(),
+      last_active_at: zod.date().nullable(),
+      current_section: zod.union([
+        zod.object({
+          id: zod.number(),
+          courseId: zod.string(),
+          name: zod.string(),
+          step: zod.string(),
+          phase: zod.string(),
+        }),
+        zod.null(),
+      ]),
+      blitz_completion_pct: zod.number(),
+      daily_streak: zod.number(),
+      status: zod.enum(["active", "stuck", "dormant", "new", "completed"]),
+    }),
+  ),
+  total: zod.number(),
+  next_cursor: zod.string().nullable(),
+});
+
+/**
+ * @summary Get full Blitz progress detail for a single mentee
+ */
+export const GetCoachMenteeDetailParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetCoachMenteeDetailResponse = zod
+  .object({
+    user_id: zod.number(),
+    name: zod.string(),
+    email: zod.string(),
+    tier: zod.string(),
+    tier_name: zod.string(),
+    joined_at: zod.date(),
+    last_active_at: zod.date().nullable(),
+    current_section: zod.union([
+      zod.object({
+        id: zod.number(),
+        courseId: zod.string(),
+        name: zod.string(),
+        step: zod.string(),
+        phase: zod.string(),
+      }),
+      zod.null(),
+    ]),
+    blitz_completion_pct: zod.number(),
+    daily_streak: zod.number(),
+    status: zod.enum(["active", "stuck", "dormant", "new", "completed"]),
+  })
+  .and(
+    zod.object({
+      phase_breakdown: zod.array(
+        zod.object({
+          key: zod.string(),
+          label: zod.string(),
+          total_sections: zod.number(),
+          completed_sections: zod.number(),
+          completion_pct: zod.number(),
+        }),
+      ),
+      section_completion: zod.array(
+        zod.object({
+          section_id: zod.number(),
+          course_id: zod.string(),
+          name: zod.string(),
+          step: zod.string(),
+          phase: zod.string(),
+          completed: zod.boolean(),
+          completed_at: zod.date().nullable(),
+        }),
+      ),
+      recent_events: zod.array(
+        zod.object({
+          courseId: zod.string(),
+          sectionId: zod.number().nullable(),
+          name: zod.string(),
+          phase: zod.string().nullable(),
+          eventType: zod.string(),
+          occurredAt: zod.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
  * @summary Get 1-on-1 coaching status for current member
  */
 export const GetOneOnOneStatusResponse = zod.object({
