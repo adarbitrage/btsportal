@@ -1,0 +1,470 @@
+/**
+ * Coach dashboard — read-only endpoints for mentee progress visibility.
+ *
+ * All routes are gated to `coaching:view` (super_admin / admin).
+ * No per-coach ownership filtering in v1 — every coach sees every mentee.
+ *
+ * Depends on:
+ *  - lib/blitz/sections.ts         — canonical phase / section metadata
+ *  - lib/blitz/continue-resolver.ts — shared current-section resolution logic
+ *  - lib/blitz/activity.ts          — shared recent-activity fetcher
+ *
+ * When Task 2 ships its blitz_progress_events / user_daily_activity tables
+ * the three lib/blitz/* modules are the only things that need updating;
+ * this file's logic remains stable.
+ */
+
+import { Router, type IRouter } from "express";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { requirePermission } from "../middleware/rbac";
+import { sendError, ErrorCodes } from "../lib/api-errors";
+import {
+  BLITZ_PHASES,
+  BLITZ_SECTIONS,
+  BLITZ_SECTION_COUNT,
+  BLITZ_SECTION_BY_COURSE_ID,
+} from "../lib/blitz/sections";
+import { resolveCurrentSectionBulk, resolveCurrentSection } from "../lib/blitz/continue-resolver";
+import { fetchRecentActivity } from "../lib/blitz/activity";
+
+const router: IRouter = Router();
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type MenteeStatus = "active" | "stuck" | "dormant" | "new" | "completed";
+
+interface MenteeBaseRow {
+  id: number;
+  name: string;
+  email: string;
+  joined_at: Date;
+  last_login_at: Date | null;
+  current_streak: number;
+  tier: string;
+  tier_name: string;
+  blitz_count: number;
+  last_blitz_at: Date | null;
+  /** Whether the user had a blitz completion within the last 7 days. */
+  had_recent_blitz: boolean;
+  max_completed_section: number;
+}
+
+// ---------------------------------------------------------------------------
+// Status computation
+// ---------------------------------------------------------------------------
+
+const SEVEN_DAYS_MS   = 7  * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+function computeStatus(row: MenteeBaseRow): MenteeStatus {
+  const now = Date.now();
+  if (row.blitz_count >= BLITZ_SECTION_COUNT) return "completed";
+  if (now - new Date(row.joined_at).getTime() <= SEVEN_DAYS_MS && row.blitz_count === 0) return "new";
+  if (row.had_recent_blitz) return "active";
+  if (row.last_login_at && now - new Date(row.last_login_at).getTime() <= FOURTEEN_DAYS_MS) return "stuck";
+  return "dormant";
+}
+
+function completionPct(blitzCount: number): number {
+  return Math.min(Math.round((blitzCount / BLITZ_SECTION_COUNT) * 100), 100);
+}
+
+// ---------------------------------------------------------------------------
+// In-memory cache for /summary (60 s TTL)
+// ---------------------------------------------------------------------------
+
+let summaryCache: { data: object; expiresAt: number } | null = null;
+
+// ---------------------------------------------------------------------------
+// DB fetch helpers
+// ---------------------------------------------------------------------------
+
+/** Fetch all non-admin users with their aggregated blitz progress. */
+async function fetchAllMenteeRows(): Promise<MenteeBaseRow[]> {
+  const result = await db.execute(sql`
+    WITH latest_product AS (
+      SELECT DISTINCT ON (up.user_id)
+        up.user_id,
+        p.slug  AS product_slug,
+        p.name  AS product_name
+      FROM user_products up
+      JOIN products p ON up.product_id = p.id
+      WHERE up.status = 'active'
+        AND (up.expires_at IS NULL OR up.expires_at > NOW())
+      ORDER BY up.user_id, up.purchased_at DESC
+    ),
+    blitz_stats AS (
+      SELECT
+        cp.user_id,
+        COUNT(*) FILTER (
+          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+        )::int                                                              AS blitz_count,
+        MAX(cp.completed_at) FILTER (
+          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+        )                                                                   AS last_blitz_at,
+        (COUNT(*) FILTER (
+          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+            AND cp.completed_at > NOW() - INTERVAL '7 days'
+        ) > 0)                                                              AS had_recent_blitz,
+        MAX(
+          CASE
+            WHEN cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+            THEN SUBSTRING(cp.course_id FROM '[0-9]+$')::int
+            ELSE 0
+          END
+        )                                                                   AS max_completed_section
+      FROM course_progress cp
+      GROUP BY cp.user_id
+    )
+    SELECT
+      u.id,
+      u.name,
+      u.email,
+      u.member_since                                AS joined_at,
+      u.last_login_at,
+      u.current_streak,
+      COALESCE(lp.product_slug, 'member')           AS tier,
+      COALESCE(lp.product_name, 'Member')           AS tier_name,
+      COALESCE(bs.blitz_count, 0)                   AS blitz_count,
+      bs.last_blitz_at,
+      COALESCE(bs.had_recent_blitz, false)          AS had_recent_blitz,
+      COALESCE(bs.max_completed_section, 0)         AS max_completed_section
+    FROM users u
+    LEFT JOIN latest_product lp ON u.id = lp.user_id
+    LEFT JOIN blitz_stats    bs ON u.id = bs.user_id
+    WHERE u.role = 'member'
+  `);
+
+  return result.rows as unknown as MenteeBaseRow[];
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/coach/dashboard/summary
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/coach/dashboard/summary",
+  requirePermission("coaching:view"),
+  async (_req, res): Promise<void> => {
+    const now = Date.now();
+    if (summaryCache && summaryCache.expiresAt > now) {
+      res.json(summaryCache.data);
+      return;
+    }
+
+    try {
+      const rows = await fetchAllMenteeRows();
+
+      const counts: Record<MenteeStatus, number> = {
+        active: 0, stuck: 0, dormant: 0, new: 0, completed: 0,
+      };
+      for (const r of rows) counts[computeStatus(r)]++;
+
+      const pcts = rows.map(r => completionPct(r.blitz_count)).sort((a, b) => a - b);
+      const mid = Math.floor(pcts.length / 2);
+      const medianPct =
+        pcts.length === 0
+          ? 0
+          : pcts.length % 2 === 1
+            ? pcts[mid]
+            : Math.round((pcts[mid - 1] + pcts[mid]) / 2);
+
+      const data = {
+        total_mentees: rows.length,
+        by_status: counts,
+        median_completion_pct: medianPct,
+        needs_attention_count: counts.stuck,
+      };
+
+      summaryCache = { data, expiresAt: now + 60_000 };
+      res.json(data);
+    } catch (err) {
+      console.error("[CoachDashboard] summary error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load summary");
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/coach/dashboard/mentees
+//
+// Query params:
+//   status  — filter by MenteeStatus
+//   search  — name/email substring (case-insensitive)
+//   sort    — last_active | completion_pct | daily_streak | joined_at
+//             desc by default; prefix with - for asc (e.g. -joined_at)
+//   cursor  — opaque base64url pagination cursor
+//   limit   — page size, default 25, max 100
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/coach/dashboard/mentees",
+  requirePermission("coaching:view"),
+  async (req, res): Promise<void> => {
+    const {
+      status,
+      search,
+      sort = "last_active",
+      cursor,
+      limit: limitParam,
+    } = req.query as Record<string, string | undefined>;
+
+    const pageSize = Math.min(Math.max(parseInt(limitParam ?? "25", 10) || 25, 1), 100);
+
+    try {
+      const rows = await fetchAllMenteeRows();
+
+      // Enrich with derived fields needed for filtering / sorting
+      const enriched = rows.map(r => ({
+        ...r,
+        _status: computeStatus(r),
+        _pct: completionPct(r.blitz_count),
+      }));
+
+      // Status filter
+      let filtered = status ? enriched.filter(r => r._status === status) : enriched;
+
+      // Search filter (name or email, case-insensitive)
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter(
+          r => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q),
+        );
+      }
+
+      // Sort — desc by default; leading "-" flips to asc
+      const ascending = sort.startsWith("-");
+      const sortKey   = ascending ? sort.slice(1) : sort;
+      const dir       = ascending ? 1 : -1;
+
+      filtered.sort((a, b) => {
+        let av: number;
+        let bv: number;
+        switch (sortKey) {
+          case "completion_pct":
+            av = a._pct; bv = b._pct; break;
+          case "daily_streak":
+            av = a.current_streak; bv = b.current_streak; break;
+          case "joined_at":
+            av = new Date(a.joined_at).getTime();
+            bv = new Date(b.joined_at).getTime();
+            break;
+          case "last_active":
+          default:
+            av = a.last_blitz_at ? new Date(a.last_blitz_at).getTime() : 0;
+            bv = b.last_blitz_at ? new Date(b.last_blitz_at).getTime() : 0;
+            break;
+        }
+        if (av !== bv) return (av - bv) * dir;
+        return a.id - b.id; // stable tie-break
+      });
+
+      // Bulk-resolve current sections via the shared continue-resolver
+      const userIds = filtered.map(r => r.id);
+      const sectionMap = await resolveCurrentSectionBulk(userIds);
+
+      // Cursor decode (opaque base64url offset)
+      let offset = 0;
+      if (cursor) {
+        try {
+          const decoded = JSON.parse(
+            Buffer.from(cursor, "base64url").toString("utf8"),
+          ) as { offset: number };
+          offset = typeof decoded.offset === "number" ? decoded.offset : 0;
+        } catch {
+          // malformed cursor — start from beginning
+        }
+      }
+
+      const page      = filtered.slice(offset, offset + pageSize);
+      const nextOffset = offset + page.length;
+      const hasMore   = nextOffset < filtered.length;
+      const nextCursor = hasMore
+        ? Buffer.from(JSON.stringify({ offset: nextOffset }), "utf8").toString("base64url")
+        : null;
+
+      const mentees = page.map(r => {
+        const currentSection = sectionMap.get(r.id);
+        return {
+          user_id: r.id,
+          name: r.name,
+          email: r.email,
+          tier: r.tier,
+          tier_name: r.tier_name,
+          joined_at: new Date(r.joined_at).toISOString(),
+          last_active_at: r.last_blitz_at ? new Date(r.last_blitz_at).toISOString() : null,
+          current_section: currentSection?.section ?? null,
+          blitz_completion_pct: r._pct,
+          daily_streak: r.current_streak,
+          status: r._status,
+        };
+      });
+
+      res.json({
+        mentees,
+        total: filtered.length,
+        next_cursor: nextCursor,
+      });
+    } catch (err) {
+      console.error("[CoachDashboard] mentees error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load mentees");
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/coach/dashboard/mentee/:userId
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/coach/dashboard/mentee/:userId",
+  requirePermission("coaching:view"),
+  async (req, res): Promise<void> => {
+    const userId = parseInt(req.params["userId"] as string, 10);
+    if (isNaN(userId)) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid userId");
+      return;
+    }
+
+    try {
+      // Fetch the base row for this specific user
+      const baseResult = await db.execute(sql`
+        WITH latest_product AS (
+          SELECT DISTINCT ON (up.user_id)
+            up.user_id,
+            p.slug AS product_slug,
+            p.name AS product_name
+          FROM user_products up
+          JOIN products p ON up.product_id = p.id
+          WHERE up.status = 'active'
+            AND (up.expires_at IS NULL OR up.expires_at > NOW())
+          ORDER BY up.user_id, up.purchased_at DESC
+        ),
+        blitz_stats AS (
+          SELECT
+            cp.user_id,
+            COUNT(*) FILTER (
+              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+            )::int                                                             AS blitz_count,
+            MAX(cp.completed_at) FILTER (
+              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+            )                                                                  AS last_blitz_at,
+            (COUNT(*) FILTER (
+              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+                AND cp.completed_at > NOW() - INTERVAL '7 days'
+            ) > 0)                                                             AS had_recent_blitz,
+            MAX(
+              CASE
+                WHEN cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+                THEN SUBSTRING(cp.course_id FROM '[0-9]+$')::int
+                ELSE 0
+              END
+            )                                                                  AS max_completed_section
+          FROM course_progress cp
+          WHERE cp.user_id = ${userId}
+          GROUP BY cp.user_id
+        )
+        SELECT
+          u.id,
+          u.name,
+          u.email,
+          u.member_since                              AS joined_at,
+          u.last_login_at,
+          u.current_streak,
+          COALESCE(lp.product_slug, 'member')         AS tier,
+          COALESCE(lp.product_name, 'Member')         AS tier_name,
+          COALESCE(bs.blitz_count, 0)                 AS blitz_count,
+          bs.last_blitz_at,
+          COALESCE(bs.had_recent_blitz, false)        AS had_recent_blitz,
+          COALESCE(bs.max_completed_section, 0)       AS max_completed_section
+        FROM users u
+        LEFT JOIN latest_product lp ON u.id = lp.user_id
+        LEFT JOIN blitz_stats    bs ON u.id = bs.user_id
+        WHERE u.id = ${userId}
+          AND u.role = 'member'
+      `);
+
+      if (!baseResult.rows.length) {
+        sendError(res, 404, ErrorCodes.NOT_FOUND, "Mentee not found");
+        return;
+      }
+
+      const row = baseResult.rows[0] as unknown as MenteeBaseRow;
+
+      // Fetch all blitz-v2 completions for section-level breakdowns
+      const progressResult = await db.execute(sql`
+        SELECT course_id, completed_at
+        FROM course_progress
+        WHERE user_id = ${userId}
+          AND course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+        ORDER BY completed_at DESC
+      `);
+
+      const completions = progressResult.rows as Array<{ course_id: string; completed_at: Date }>;
+      const completedSet = new Set(completions.map(c => c.course_id));
+
+      // Resolve current section via the shared continue-resolver
+      const continueResult = await resolveCurrentSection(userId, completedSet);
+
+      // Section-by-section completion status (all 23 blitz sections)
+      const section_completion = BLITZ_SECTIONS.map(s => {
+        const found = completions.find(c => c.course_id === s.courseId);
+        return {
+          section_id: s.id,
+          course_id: s.courseId,
+          name: s.title,
+          step: s.step,
+          phase: s.phase,
+          completed: completedSet.has(s.courseId),
+          completed_at: found ? new Date(found.completed_at).toISOString() : null,
+        };
+      });
+
+      // Per-phase completion breakdown
+      const phase_breakdown = BLITZ_PHASES.map(phase => {
+        const phaseSections = BLITZ_SECTIONS.filter(s => s.phase === phase.key);
+        const completedCount = phaseSections.filter(s => completedSet.has(s.courseId)).length;
+        return {
+          key: phase.key,
+          label: phase.label,
+          total_sections: phaseSections.length,
+          completed_sections: completedCount,
+          completion_pct: phaseSections.length
+            ? Math.round((completedCount / phaseSections.length) * 100)
+            : 0,
+        };
+      });
+
+      // Recent activity timeline via the shared activity fetcher
+      const recent_events = await fetchRecentActivity(userId, 20);
+
+      const status = computeStatus(row);
+      const blitz_completion_pct = completionPct(row.blitz_count);
+
+      res.json({
+        user_id: row.id,
+        name: row.name,
+        email: row.email,
+        tier: row.tier,
+        tier_name: row.tier_name,
+        joined_at: new Date(row.joined_at).toISOString(),
+        last_active_at: row.last_blitz_at ? new Date(row.last_blitz_at).toISOString() : null,
+        current_section: continueResult.section,
+        blitz_completion_pct,
+        daily_streak: row.current_streak,
+        status,
+        phase_breakdown,
+        section_completion,
+        recent_events,
+      });
+    } catch (err) {
+      console.error("[CoachDashboard] mentee detail error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load mentee detail");
+    }
+  },
+);
+
+export default router;
