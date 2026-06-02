@@ -67,10 +67,12 @@ describe.skipIf(skipReason !== null)("live database schema drift", () => {
         missing.map((m) => `  - ${m}`).join("\n") +
         "\n\n" +
         "This is the exact failure mode from task #561: a column was added\n" +
-        "to the schema file but `drizzle-kit push` was never run, so the\n" +
+        "to the schema file but the dev database was never synced, so the\n" +
         "live database fell behind the code. Run\n" +
-        "  `pnpm --filter @workspace/db push`\n" +
-        "to sync the database, or revert the schema change.",
+        "  `pnpm --filter @workspace/db sync-dev`\n" +
+        "to apply the companion migrations and push the schema\n" +
+        "non-interactively (plain `drizzle-kit push` can hang on a rename\n" +
+        "prompt on a non-TTY shell), or revert the schema change.",
     ).toEqual([]);
   }, 30_000);
 });

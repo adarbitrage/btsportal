@@ -28,6 +28,15 @@
 # companion migrations + push-force inline, so merged checkouts are already
 # in sync before tests ever run.)
 #
+# Migrations-only mode: set SYNC_MIGRATIONS_ONLY=1 to apply the idempotent
+# companion `.sql` files but SKIP `drizzle-kit push --force`. This is used by
+# the lib/db drift-test global setup (lib/db/vitest.globalSetup.ts): it gets
+# the rename-companion columns (e.g. community_reactions.target_type,
+# users.posting_banned_at) into a drifted dev DB so the live-schema-drift
+# test stops failing for the rename foot-gun — WITHOUT push-force masking a
+# genuine schema change that was never migrated, which is the very drift
+# those tests exist to catch.
+#
 # Exit codes:
 #   0 - schema is in sync (push succeeded, or only failed on unrelated
 #       pre-existing data-integrity issues which we report and skip).
@@ -65,6 +74,20 @@ for sql in "${MIG_DIR}"/*.sql; do
     # is the canonical place to enforce agreement between push and SQL.
   fi
 done
+
+if [[ "${SYNC_MIGRATIONS_ONLY:-0}" == "1" ]]; then
+  # Migrations-only mode (drift-test global setup): the idempotent
+  # companion .sql files have been applied above. Deliberately stop here
+  # WITHOUT `drizzle-kit push --force`. The companion files only create
+  # the specific columns/objects they declare (all guarded with
+  # IF NOT EXISTS), so a genuinely new schema column that has no migration
+  # stays missing and the live-schema-drift test still catches it.
+  # push-force would silently bring the DB fully in sync and mask exactly
+  # that drift.
+  echo "sync-dev-db: SYNC_MIGRATIONS_ONLY=1 — companion migrations applied,"
+  echo "sync-dev-db: skipping drizzle-kit push --force. done"
+  exit 0
+fi
 
 echo "sync-dev-db: running drizzle-kit push --force"
 cd "$DB_DIR"
