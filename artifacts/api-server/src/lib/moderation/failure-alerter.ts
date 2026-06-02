@@ -40,6 +40,7 @@ import {
   getModerationFailureCumulativeStats,
   type ModerationFailureWindowStats,
   type ModerationFailureCumulativeStats,
+  type ModerationFailurePodStats,
 } from "./failure-tracker";
 import {
   getModerationFailureAlertConfig,
@@ -390,6 +391,344 @@ export function getModerationFailureAlertingState(): {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Pod-silent alerting
+// ---------------------------------------------------------------------------
+//
+// A pod that previously reported moderation activity but has since gone
+// silent for longer than the staleness threshold could have stopped running
+// moderation entirely — letting flag-worthy posts stay publicly live with no
+// one watching. The System Health page already flags these "stale" pods
+// visually, but that only helps an admin who happens to be looking. This path
+// pages on-call automatically when a previously-reporting pod goes silent,
+// and clears when the pod resumes reporting or its per-pod Redis key TTLs out
+// (so its instance disappears from the cluster-wide aggregate entirely).
+//
+// Staleness is computed exactly as the System Health card does
+// (`SystemHealth.tsx`): a pod is silent when it carries no in-window failures
+// (totalCount === 0) yet its most recent report (`lastAt`) is older than
+// twice the configured rolling window. The 2× factor matches the dashboard so
+// the page and the alert never disagree about which pods are stale.
+
+export interface ModerationPodSilentAlertPayload {
+  kind: AlertKind;
+  now: number;
+  /** Stable identifier of the pod that went silent. */
+  instanceId: string;
+  /** Staleness threshold (ms) in force at transition time (= 2 × windowMs). */
+  staleThresholdMs: number;
+  /** Rolling window length (ms) the staleness threshold derives from. */
+  windowMs: number;
+  /** ISO of the pod's most recent report at transition time, or null. */
+  lastAt: string | null;
+  /**
+   * Whether the pod is still present in the cluster-wide aggregate. On a
+   * "clear", `false` means the pod's Redis key TTL'd out (the instance is
+   * gone) rather than the pod resuming reporting.
+   */
+  present: boolean;
+}
+
+type PodSilentDeliveryFn = (
+  payload: ModerationPodSilentAlertPayload,
+) => Promise<DeliveryResult>;
+
+interface PodSilentState {
+  alerting: boolean;
+  lastFireAt: Partial<Record<DeliveryChannel, number>>;
+  lastClearAt: Partial<Record<DeliveryChannel, number>>;
+}
+
+const podSilentStates = new Map<string, PodSilentState>();
+
+let podSilentSgMailInitialized = false;
+
+const podSilentDefaultDeliveries: Record<DeliveryChannel, PodSilentDeliveryFn> = {
+  pagerduty: async (p) => {
+    const key = process.env.PAGERDUTY_INTEGRATION_KEY;
+    if (!key) {
+      return { channel: "pagerduty", ok: true, skipped: true, reason: "not_configured" };
+    }
+    // Per-pod dedup key so each silent pod is its own incident — a second
+    // pod going quiet shouldn't fold into (or auto-resolve) the first pod's
+    // page.
+    const dedupKey = `moderation-pod-silent:${p.instanceId}`;
+    const minutes = Math.round(p.staleThresholdMs / 60000);
+    const summary = `Moderation pod ${p.instanceId} has gone silent — no moderation report in over ${minutes}m (2× the rolling window). It may have stopped running moderation, leaving flag-worthy posts live.`;
+    const body =
+      p.kind === "fire"
+        ? {
+            routing_key: key,
+            event_action: "trigger",
+            dedup_key: dedupKey,
+            payload: {
+              summary,
+              severity: "error",
+              source: process.env.HOSTNAME ?? "api-server",
+              component: "moderation-queue",
+              class: "moderation_pod_silent",
+              custom_details: {
+                instanceId: p.instanceId,
+                staleThresholdMinutes: minutes,
+                windowMinutes: Math.round(p.windowMs / 60000),
+                lastReportAt: p.lastAt,
+                link: "/admin/system",
+              },
+            },
+          }
+        : {
+            routing_key: key,
+            event_action: "resolve",
+            dedup_key: dedupKey,
+          };
+    const res = await fetch("https://events.pagerduty.com/v2/enqueue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      return { channel: "pagerduty", ok: false, reason: `http_${res.status}` };
+    }
+    return { channel: "pagerduty", ok: true };
+  },
+
+  email: async (p) => {
+    const to = process.env.OPS_ALERT_EMAIL;
+    if (!to) {
+      return { channel: "email", ok: true, skipped: true, reason: "not_configured" };
+    }
+    if (!process.env.SENDGRID_API_KEY) {
+      return { channel: "email", ok: true, skipped: true, reason: "sendgrid_not_configured" };
+    }
+    if (!podSilentSgMailInitialized) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      podSilentSgMailInitialized = true;
+    }
+    const from =
+      process.env.OPS_ALERT_FROM_EMAIL ??
+      process.env.FROM_EMAIL ??
+      "noreply@buildtestscale.com";
+    const minutes = Math.round(p.staleThresholdMs / 60000);
+    const subject =
+      p.kind === "fire"
+        ? `[ALERT] Moderation pod ${p.instanceId} has gone silent`
+        : `[RESOLVED] Moderation pod ${p.instanceId} resumed reporting`;
+    const text =
+      p.kind === "fire"
+        ? [
+            `Moderation pod ${p.instanceId} previously reported moderation activity but has not reported in over ${minutes} minute(s) (2× the rolling window).`,
+            "A pod that silently stops running moderation lets flag-worthy posts stay publicly live with nobody watching.",
+            "",
+            `Last report: ${p.lastAt ?? "n/a"}.`,
+            "",
+            "Open /admin/system and check the 'Background moderation failures' panel — the pod will be flagged 'stale' in the per-pod breakdown.",
+          ].join("\n")
+        : [
+            p.present
+              ? `Moderation pod ${p.instanceId} has resumed reporting — the silence has cleared.`
+              : `Moderation pod ${p.instanceId} has dropped out of the cluster (its per-pod key TTL'd out of Redis); clearing the silence alert.`,
+            "",
+            "Confirm via /admin/system.",
+          ].join("\n");
+    await sgMail.send({ to, from, subject, text });
+    return { channel: "email", ok: true };
+  },
+
+  slack: async (p) => {
+    const url = process.env.OPS_ALERT_SLACK_WEBHOOK_URL;
+    if (!url) {
+      return { channel: "slack", ok: true, skipped: true, reason: "not_configured" };
+    }
+    const minutes = Math.round(p.staleThresholdMs / 60000);
+    const text =
+      p.kind === "fire"
+        ? `:rotating_light: *Moderation pod has gone silent* — \`${p.instanceId}\` hasn't reported in over ${minutes}m (2× the rolling window). It may have stopped running moderation. Check /admin/system.`
+        : p.present
+          ? `:white_check_mark: *Moderation pod resumed reporting* — \`${p.instanceId}\` is reporting again.`
+          : `:white_check_mark: *Moderation pod dropped out* — \`${p.instanceId}\` TTL'd out of the cluster; clearing the silence alert.`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      return { channel: "slack", ok: false, reason: `http_${res.status}` };
+    }
+    return { channel: "slack", ok: true };
+  },
+};
+
+let podSilentDeliveryOverrides: Partial<Record<DeliveryChannel, PodSilentDeliveryFn>> | null = null;
+
+export function __setModerationPodSilentAlerterDeliveriesForTests(
+  overrides: Partial<Record<DeliveryChannel, PodSilentDeliveryFn>> | null,
+): void {
+  podSilentDeliveryOverrides = overrides;
+}
+
+export function __resetModerationPodSilentAlerterForTests(): void {
+  podSilentStates.clear();
+  podSilentDeliveryOverrides = null;
+}
+
+/**
+ * Mirror of the System Health card's staleness test: a pod is "silent" when
+ * it has no in-window failures but its last report is older than 2× the
+ * rolling window. Kept byte-for-byte equivalent to `isPodStale` in
+ * `SystemHealth.tsx` so the page and the page-on-call never disagree.
+ */
+function isPodSilent(
+  pod: ModerationFailurePodStats,
+  nowMs: number,
+  staleThresholdMs: number,
+): boolean {
+  if (!(staleThresholdMs > 0) || !Number.isFinite(nowMs)) return false;
+  if (pod.totalCount > 0 || !pod.lastAt) return false;
+  const last = Date.parse(pod.lastAt);
+  if (!Number.isFinite(last)) return false;
+  return nowMs - last > staleThresholdMs;
+}
+
+async function dispatchPodSilentAll(
+  payload: ModerationPodSilentAlertPayload,
+  state: PodSilentState,
+): Promise<DeliveryResult[]> {
+  const lastMap = payload.kind === "fire" ? state.lastFireAt : state.lastClearAt;
+  const throttleMs = getNotificationThrottleMs();
+  const promises: Promise<DeliveryResult>[] = (
+    ["pagerduty", "email", "slack"] as const
+  ).map(async (dc) => {
+    const last = lastMap[dc] ?? 0;
+    if (last > 0 && payload.now - last < throttleMs) {
+      return { channel: dc, ok: true, skipped: true, reason: "throttled" };
+    }
+    const fn = podSilentDeliveryOverrides?.[dc] ?? podSilentDefaultDeliveries[dc];
+    try {
+      const result = await fn(payload);
+      if (result.ok && !result.skipped) {
+        lastMap[dc] = payload.now;
+      }
+      return result;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[ModerationPodSilentAlerter] ${dc} ${payload.kind} failed:`,
+        err,
+      );
+      return { channel: dc, ok: false, reason };
+    }
+  });
+  return Promise.all(promises);
+}
+
+/**
+ * Detect pods that have gone silent (or recovered) and dispatch per-pod
+ * on-call pages. Reads the cluster-wide aggregate so silence is judged
+ * across the whole cluster, not just the local pod.
+ *
+ * State machine (per pod):
+ *   - Fire once when a previously-reporting pod first crosses the staleness
+ *     threshold. Re-evaluations while still silent do NOT re-page (the
+ *     incident stays open via its stable PagerDuty dedup key); the
+ *     per-channel throttle additionally caps a flapping pod.
+ *   - Clear when the pod resumes reporting (a fresh report lands inside the
+ *     threshold or a new in-window failure arrives) OR its per-pod key TTLs
+ *     out of Redis so the instance disappears from the aggregate.
+ *
+ * The `alerting` flag is flipped before awaiting dispatch so a concurrent
+ * evaluation (poll + a notifications-bell kick) can't double-page the same
+ * transition.
+ */
+export async function evaluateModerationPodSilentAlert(
+  now: number = Date.now(),
+): Promise<DeliveryResult[]> {
+  let windowMinutes = MODERATION_FAILURE_ALERT_DEFAULTS.windowMinutes;
+  try {
+    const cfg = await getModerationFailureAlertConfig();
+    windowMinutes = cfg.windowMinutes;
+  } catch (err) {
+    console.error(
+      "[ModerationPodSilentAlerter] Failed to load config, using defaults:",
+      err,
+    );
+  }
+  const windowMs = windowMinutes * 60 * 1000;
+  const staleThresholdMs = windowMs * 2;
+  const window = await getModerationFailuresInWindowAggregated(windowMs, now);
+  const pods = window.pods;
+  const presentIds = new Set(pods.map((p) => p.instanceId));
+  const results: DeliveryResult[] = [];
+
+  // Fire for pods that have newly gone silent.
+  for (const pod of pods) {
+    if (!isPodSilent(pod, now, staleThresholdMs)) continue;
+    let state = podSilentStates.get(pod.instanceId);
+    if (!state) {
+      state = { alerting: false, lastFireAt: {}, lastClearAt: {} };
+      podSilentStates.set(pod.instanceId, state);
+    }
+    if (state.alerting) continue;
+    state.alerting = true;
+    const dispatched = await dispatchPodSilentAll(
+      {
+        kind: "fire",
+        now,
+        instanceId: pod.instanceId,
+        staleThresholdMs,
+        windowMs,
+        lastAt: pod.lastAt,
+        present: true,
+      },
+      state,
+    );
+    results.push(...dispatched);
+  }
+
+  // Clear for pods we're alerting on that have recovered or TTL'd out.
+  for (const [instanceId, state] of podSilentStates) {
+    if (!state.alerting) continue;
+    const pod = pods.find((p) => p.instanceId === instanceId);
+    const stillSilent = pod ? isPodSilent(pod, now, staleThresholdMs) : false;
+    if (stillSilent) continue;
+    state.alerting = false;
+    const present = presentIds.has(instanceId);
+    const dispatched = await dispatchPodSilentAll(
+      {
+        kind: "clear",
+        now,
+        instanceId,
+        staleThresholdMs,
+        windowMs,
+        lastAt: pod?.lastAt ?? null,
+        present,
+      },
+      state,
+    );
+    results.push(...dispatched);
+    // A pod that TTL'd out of the cluster will never return under the same
+    // (random-suffixed) instance id, so drop its state. A pod that merely
+    // resumed keeps its state so its per-channel throttle timestamps survive
+    // a future relapse.
+    if (!present) podSilentStates.delete(instanceId);
+  }
+
+  return results;
+}
+
+/**
+ * Read-only view of which pods the silence alerter is currently paging on.
+ * Exposed for tests and any future System Health surfacing.
+ */
+export function getModerationPodSilentAlertingState(): {
+  alertingPodIds: string[];
+} {
+  const alertingPodIds: string[] = [];
+  for (const [id, state] of podSilentStates) {
+    if (state.alerting) alertingPodIds.push(id);
+  }
+  return { alertingPodIds };
+}
+
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let started = false;
 
@@ -399,10 +738,16 @@ export function startModerationFailureAlerter(): void {
   evaluateModerationFailureAlert().catch((err) => {
     console.error("[ModerationFailureAlerter] startup error:", err);
   });
+  evaluateModerationPodSilentAlert().catch((err) => {
+    console.error("[ModerationPodSilentAlerter] startup error:", err);
+  });
   if (POLL_MS > 0) {
     pollHandle = setInterval(() => {
       evaluateModerationFailureAlert().catch((err) => {
         console.error("[ModerationFailureAlerter] poll error:", err);
+      });
+      evaluateModerationPodSilentAlert().catch((err) => {
+        console.error("[ModerationPodSilentAlerter] poll error:", err);
       });
     }, POLL_MS);
     pollHandle.unref?.();

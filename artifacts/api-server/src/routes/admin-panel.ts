@@ -81,6 +81,7 @@ import {
 import {
   evaluateModerationFailureAlert,
   getModerationFailureAlertingState,
+  evaluateModerationPodSilentAlert,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import { MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-digest-alerter";
@@ -3194,6 +3195,12 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
     }
     evaluateModerationFailureAlert().catch((err) => {
       console.error("[Admin] moderation-failure alerter dispatch failed:", err);
+    });
+    // Same backstop for the pod-silence watchdog: page on-call automatically
+    // when a previously-reporting moderation pod goes quiet past the staleness
+    // threshold, even if the in-process poll interval has stalled.
+    evaluateModerationPodSilentAlert().catch((err) => {
+      console.error("[Admin] moderation pod-silent alerter dispatch failed:", err);
     });
 
     // Production-only: surface a missing Turnstile secret as a high-severity
