@@ -16,7 +16,7 @@ validator (`artifacts/api-server/src/routes/course-progress.ts`) only accepted
 The validator was widened to accept the canonical v2 ids (1–23) while retaining the
 legacy ids (1–18) so older rows can still be deleted. After the fix, all 13 test
 cases pass — verified by a new backend integration test
-(`artifacts/api-server/src/__tests__/course-progress-blitz.test.ts`, 9 tests) and a
+(`artifacts/api-server/src/__tests__/course-progress-blitz.test.ts`, 10 tests) and a
 Playwright end-to-end run against a real 3-Month-tier member.
 
 ## Real Schema State
