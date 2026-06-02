@@ -119,6 +119,20 @@ export function __setMachineMismatchDigestSenderForTests(
   emailSenderOverride = sender;
 }
 
+let flaggedOrdersErrorForTests: Error | null = null;
+
+/**
+ * Test-only: force the flagged-orders DB query to throw so the `failed`
+ * outcome that originates from `findFlaggedOrders` (the query, before any
+ * email is attempted) can be exercised against the real schema without
+ * actually corrupting the database. Pass `null` to clear the override.
+ */
+export function __setMachineMismatchDigestQueryErrorForTests(
+  err: Error | null,
+): void {
+  flaggedOrdersErrorForTests = err;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -203,6 +217,9 @@ async function findFlaggedOrders(
   windowMs: number,
   now: number,
 ): Promise<FlaggedOrder[]> {
+  if (flaggedOrdersErrorForTests) {
+    throw flaggedOrdersErrorForTests;
+  }
   const since = new Date(now - windowMs);
   type Row = {
     externalOrderId: string;

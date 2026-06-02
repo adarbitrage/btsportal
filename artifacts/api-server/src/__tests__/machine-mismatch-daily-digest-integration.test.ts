@@ -24,6 +24,7 @@ import adminPanelRouter from "../routes/admin-panel";
 import {
   runMachineMismatchDigest,
   __setMachineMismatchDigestSenderForTests,
+  __setMachineMismatchDigestQueryErrorForTests,
   __resetMachineMismatchDigestStateForTests,
   MACHINE_MISMATCH_DIGEST_ACTION_TYPE,
   MACHINE_MISMATCH_DIGEST_ENTITY_TYPE,
@@ -240,6 +241,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   __setMachineMismatchDigestSenderForTests(null);
+  __setMachineMismatchDigestQueryErrorForTests(null);
   __resetMachineMismatchDigestStateForTests();
   delete process.env.OPS_ALERT_EMAIL;
 
@@ -496,5 +498,63 @@ describe("runMachineMismatchDigest — integration against the real schema", () 
     expect(meta.outcome).toBe("skipped_sendgrid_not_configured");
     expect(meta.recipient).toBe(`${TEST_TAG}-ops@example.test`);
     expect(meta.flaggedCount).toBe(result.flagged.length);
+  });
+
+  it("records outcome=failed with a reason and flaggedCount=0 when the flagged-orders query itself throws", async () => {
+    // The other failure path (a forced *send* error) is covered above. This
+    // pins the second entry point: findFlaggedOrders throwing *before* any
+    // email is attempted must still write a real machine_mismatch_digest audit
+    // row recording the failure, so a regression that drops the audit row when
+    // the query (not the send) breaks is caught at the real-schema level.
+    process.env.OPS_ALERT_EMAIL = `${TEST_TAG}-ops@example.test`;
+    __resetMachineMismatchDigestStateForTests();
+
+    // A sender is wired up on purpose: the query throws first, so this stub
+    // must never be invoked.
+    const sent: Array<{ to: string }> = [];
+    __setMachineMismatchDigestSenderForTests(async (msg) => {
+      sent.push({ to: msg.to });
+    });
+
+    const startedAt = new Date();
+    let result: Awaited<ReturnType<typeof runMachineMismatchDigest>>;
+    __setMachineMismatchDigestQueryErrorForTests(
+      new Error("simulated flagged-orders query outage"),
+    );
+    try {
+      result = await runMachineMismatchDigest();
+    } finally {
+      __setMachineMismatchDigestQueryErrorForTests(null);
+    }
+
+    expect(result.outcome).toBe("failed");
+    expect(result.reason).toContain("simulated flagged-orders query outage");
+    // The query never returned, so nothing was flagged and nothing was sent.
+    expect(result.flagged.length).toBe(0);
+    expect(sent.length).toBe(0);
+
+    // A real audit row records the failure with a non-null reason and zero
+    // flagged count.
+    const auditRows = await db
+      .select({
+        actionType: auditLogTable.actionType,
+        entityType: auditLogTable.entityType,
+        entityId: auditLogTable.entityId,
+        metadata: auditLogTable.metadata,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, MACHINE_MISMATCH_DIGEST_ACTION_TYPE),
+          gte(auditLogTable.createdAt, startedAt),
+        ),
+      );
+    expect(auditRows.length).toBe(1);
+    expect(auditRows[0].entityType).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_TYPE);
+    expect(auditRows[0].entityId).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_ID);
+    const meta = auditRows[0].metadata as Record<string, unknown>;
+    expect(meta.outcome).toBe("failed");
+    expect(meta.reason).toContain("simulated flagged-orders query outage");
+    expect(meta.flaggedCount).toBe(0);
   });
 });
