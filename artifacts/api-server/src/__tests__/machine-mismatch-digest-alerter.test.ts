@@ -97,6 +97,14 @@ describe("machine-mismatch-digest-alerter", () => {
     statusMock.mockReset();
     auditMock.mockClear();
     destinationsMock.mockClear();
+    // Restore the shipped tuning defaults (2× staleness, 1h re-page throttle)
+    // before each test so the few tests that override them can't leak their
+    // custom values into the rest of the suite.
+    tuningMock.mockReset();
+    tuningMock.mockResolvedValue({
+      thresholdMultiplier: 2,
+      notificationThrottleMs: 60 * 60 * 1000,
+    });
     pd = makeStub("pagerduty");
     email = makeStub("email");
     slack = makeStub("slack");
@@ -322,6 +330,88 @@ describe("machine-mismatch-digest-alerter", () => {
     const pdResult = results.find((r) => r.channel === "pagerduty");
     expect(pdResult?.ok).toBe(false);
     expect(pdResult?.reason).toContain("pd boom");
+  });
+
+  describe("honors admin-tuned settings end-to-end", () => {
+    it("respects a custom thresholdMultiplier: stays quiet past the default 2× and fires only past 3×", async () => {
+      // Heartbeat is 2.5 days old against a 1-day interval. The shipped 2×
+      // default would already consider this stale, but the admin has bumped
+      // the staleness window to 3× — so the alerter must stay quiet.
+      tuningMock.mockResolvedValue({
+        thresholdMultiplier: 3,
+        notificationThrottleMs: 60 * 60 * 1000,
+      });
+      setStatus({ lastRanAt: new Date(T0 - 2.5 * DAY).toISOString(), lastOutcome: "sent" });
+
+      // Sanity-check the contrast: the same heartbeat IS stale under the
+      // shipped 2× default but NOT under the admin-tuned 3×.
+      const status = statusMock();
+      expect(evaluateDigestHealth(status, T0, 2).stale).toBe(true);
+      expect(evaluateDigestHealth(status, T0, 3).stale).toBe(false);
+
+      // At an age (2.5×) that trips the default 2× but not the tuned 3×, the
+      // alerter does NOT page.
+      const quiet = await evaluateMachineMismatchDigestAlert(T0);
+      expect(quiet).toEqual([]);
+      expect(pd.calls).toHaveLength(0);
+      expect(email.calls).toHaveLength(0);
+      expect(slack.calls).toHaveLength(0);
+      expect(__getMachineMismatchDigestAlerterStateForTests()).toBe(false);
+
+      // Once the same heartbeat ages past the tuned 3× window (now 3.5 days
+      // old) it finally pages.
+      const fired = await evaluateMachineMismatchDigestAlert(T0 + DAY);
+      expect(fired.length).toBeGreaterThan(0);
+      expect(pd.calls).toHaveLength(1);
+      expect(pd.calls[0].kind).toBe("fire");
+      expect(pd.calls[0].health.thresholdMultiplier).toBe(3);
+      expect(__getMachineMismatchDigestAlerterStateForTests()).toBe(true);
+    });
+
+    it("respects a custom notificationThrottleMs for re-page suppression", async () => {
+      // Admin widened the re-page throttle to 3h (vs the 1h shipped default).
+      const THROTTLE = 3 * HOUR;
+      tuningMock.mockResolvedValue({
+        thresholdMultiplier: 2,
+        notificationThrottleMs: THROTTLE,
+      });
+
+      // The pagerduty stub records every payload it is handed, including the
+      // intervening "clear" deliveries, so count fire-kind pages explicitly.
+      const pdFireCount = () => pd.calls.filter((p) => p.kind === "fire").length;
+
+      // First fire at T0 claims the fire:* throttle slots until T0 + 3h.
+      setStatus({ lastRanAt: new Date(T0 - 3 * DAY).toISOString(), lastOutcome: "sent" });
+      await evaluateMachineMismatchDigestAlert(T0);
+      expect(pdFireCount()).toBe(1);
+
+      // Recover so the next unhealthy detection is a genuine fresh fire
+      // transition rather than a no-op held back by the `alerting` flag.
+      setStatus({ lastRanAt: new Date(T0 + 30 * 60 * 1000).toISOString(), lastOutcome: "sent" });
+      await evaluateMachineMismatchDigestAlert(T0 + 30 * 60 * 1000);
+
+      // Go unhealthy again 2h after the first fire. Under the 1h shipped
+      // default this would page again, but the admin-tuned 3h window must
+      // suppress it.
+      setStatus({ lastRanAt: new Date(T0 - 3 * DAY).toISOString(), lastOutcome: "sent" });
+      const throttled = await evaluateMachineMismatchDigestAlert(T0 + 2 * HOUR);
+      expect(pdFireCount()).toBe(1); // still just the first fire — re-page suppressed
+      const pdThrottled = throttled.find((r) => r.channel === "pagerduty");
+      expect(pdThrottled?.skipped).toBe(true);
+      expect(pdThrottled?.reason).toBe("throttled");
+
+      // Recover again, then go unhealthy a third time AFTER the 3h window has
+      // elapsed — now the re-page is allowed through.
+      setStatus({ lastRanAt: new Date(T0 + 3 * HOUR + 30 * 60 * 1000).toISOString(), lastOutcome: "sent" });
+      await evaluateMachineMismatchDigestAlert(T0 + 3 * HOUR + 30 * 60 * 1000);
+
+      setStatus({ lastRanAt: new Date(T0 - 3 * DAY).toISOString(), lastOutcome: "sent" });
+      const fired = await evaluateMachineMismatchDigestAlert(T0 + 4 * HOUR);
+      expect(pdFireCount()).toBe(2); // re-page allowed once the 3h window elapsed
+      const pdFired = fired.find((r) => r.channel === "pagerduty");
+      expect(pdFired?.skipped).toBeUndefined();
+      expect(pdFired?.ok).toBe(true);
+    });
   });
 
   it("does not double-fire when two evaluations race on the same first-time transition", async () => {
