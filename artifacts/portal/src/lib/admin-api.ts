@@ -1398,6 +1398,21 @@ export interface AutoBanRecord {
   createdAt: string;
 }
 
+export interface ManualBanRecord {
+  id: number;
+  actionType: "ban_posting" | "unban_posting";
+  actorId: number | null;
+  actorEmail: string | null;
+  description: string | null;
+  metadata: {
+    userId?: number;
+    bannedAt?: string;
+    strikesCleared?: boolean;
+    previousBannedAt?: string | null;
+  } | null;
+  createdAt: string;
+}
+
 export interface UserStrikesDetail {
   user: {
     id: number;
@@ -1409,6 +1424,7 @@ export interface UserStrikesDetail {
   strikes: StrikeRecord[];
   strikeCount: number;
   autoBan: AutoBanRecord | null;
+  manualBan: ManualBanRecord | null;
 }
 
 export function useAdminStrikesList() {
