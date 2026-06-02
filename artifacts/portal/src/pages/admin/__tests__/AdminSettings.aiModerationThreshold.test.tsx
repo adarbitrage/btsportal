@@ -189,4 +189,52 @@ describe("AiModerationThresholdConfigCard", () => {
     expect(current).toHaveTextContent("4");
     expect(preview.textContent).toContain("40");
   });
+
+  it("offers a retry when the preview request fails and recovers on success", async () => {
+    // First debounced preview call rejects, surfacing the error + retry control.
+    getAiModerationThresholdPreview.mockReset();
+    getAiModerationThresholdPreview.mockRejectedValueOnce(new Error("network down"));
+
+    render(<AdminSettings />);
+
+    const input = (await screen.findByTestId(
+      "ai-moderation-flag-threshold-input",
+    )) as HTMLInputElement;
+
+    // Type an in-range value so the debounced preview request fires and fails.
+    await userEvent.clear(input);
+    await userEvent.type(input, "0.05");
+
+    const retry = await screen.findByTestId(
+      "ai-moderation-flag-threshold-preview-retry",
+    );
+    expect(retry).toBeInTheDocument();
+    const preview = screen.getByTestId("ai-moderation-flag-threshold-preview");
+    expect(preview.textContent).toContain("network down");
+
+    // The next attempt succeeds — clicking retry re-runs the request for the
+    // current draft value and renders the normal preview.
+    getAiModerationThresholdPreview.mockResolvedValueOnce({
+      threshold: 0.05,
+      currentThreshold: 0.7,
+      sampleWindowDays: 14,
+      sampleSize: 40,
+      wouldBeFlaggedByAi: 31,
+      currentlyFlaggedByAi: 4,
+    });
+
+    await userEvent.click(retry);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("ai-moderation-flag-threshold-preview-retry"),
+      ).not.toBeInTheDocument();
+    });
+
+    const would = await within(preview).findByTestId(
+      "ai-moderation-flag-threshold-preview-would",
+    );
+    expect(would).toHaveTextContent("31");
+    expect(getAiModerationThresholdPreview).toHaveBeenLastCalledWith(0.05);
+  });
 });

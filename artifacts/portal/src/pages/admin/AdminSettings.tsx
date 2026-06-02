@@ -2489,6 +2489,7 @@ function AiModerationThresholdConfigCard() {
   const [preview, setPreview] = useState<AiModerationThresholdPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingValue, setPendingValue] = useState<number | null>(null);
 
@@ -2542,7 +2543,7 @@ function AiModerationThresholdConfigCard() {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [draft, status]);
+  }, [draft, status, previewReloadKey]);
 
   const validateLocal = (): { ok: boolean; value: number } => {
     if (!status) return { ok: false, value: 0 };
@@ -2689,7 +2690,17 @@ function AiModerationThresholdConfigCard() {
                 data-testid="ai-moderation-flag-threshold-preview"
               >
                 {previewError ? (
-                  <span className="text-destructive">{previewError}</span>
+                  <div className="space-y-2">
+                    <span className="block text-destructive">{previewError}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewReloadKey((k) => k + 1)}
+                      data-testid="ai-moderation-flag-threshold-preview-retry"
+                    >
+                      Retry
+                    </Button>
+                  </div>
                 ) : previewLoading && !preview ? (
                   <span className="text-muted-foreground">Calculating preview…</span>
                 ) : preview ? (
