@@ -101,10 +101,17 @@ export async function resolveCurrentSectionBulk(
 ): Promise<Map<number, CurrentSectionResult>> {
   if (userIds.length === 0) return new Map();
 
+  // Pass the ids as a single Postgres array literal (e.g. "{1,2,3}") cast to
+  // int[]. Interpolating the JS array directly (`ANY(${userIds}::int[])`) makes
+  // drizzle expand it into a comma-separated parameter list, which Postgres
+  // reads as a record cast and rejects with "cannot cast type record to
+  // integer[]". userIds are DB-sourced integers, so the literal is injection-safe.
+  const idArrayLiteral = `{${userIds.join(",")}}`;
+
   const rows = await db.execute(sql`
     SELECT user_id, course_id
     FROM course_progress
-    WHERE user_id = ANY(${userIds}::int[])
+    WHERE user_id = ANY(${idArrayLiteral}::int[])
       AND course_id ~ '^blitz-hub-step-v2-[0-9]+$'
   `);
 

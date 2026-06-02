@@ -206,10 +206,11 @@ export default function MenteeDetail() {
         <div className="text-center p-12 bg-white rounded-xl border border-border">
           <h2 className="text-xl font-semibold">Mentee not found</h2>
           <p className="text-muted-foreground mt-2">This account may not exist or is not a member.</p>
-          <Link href="/coach/dashboard">
-            <a className="inline-flex items-center gap-1 mt-4 text-primary text-sm hover:underline">
-              <ArrowLeft className="w-4 h-4" /> Back to dashboard
-            </a>
+          <Link
+            href="/coach/dashboard"
+            className="inline-flex items-center gap-1 mt-4 text-primary text-sm hover:underline"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to dashboard
           </Link>
         </div>
       </AppLayout>
@@ -226,11 +227,12 @@ export default function MenteeDetail() {
     <AppLayout>
       <div className="space-y-6">
         {/* Back link */}
-        <Link href="/coach/dashboard">
-          <a className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Coach Dashboard
-          </a>
+        <Link
+          href="/coach/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Coach Dashboard
         </Link>
 
         {/* Header card */}

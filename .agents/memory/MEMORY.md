@@ -6,3 +6,4 @@
 - [Supported affiliate networks](affiliate-networks-supported.md) — only Media Mavens & ClickBank; MaxWeb/Affiliati removed by design. Don't "fix" the lingering maxweb label in dead LessonLibrary.tsx.
 - [Monorepo typecheck stale cache](monorepo-typecheck-cache.md) — concurrent package typechecks corrupt the composite ref cache -> spurious "@workspace/db has no exported member"; rebuild libs with `tsc -b lib/db lib/api-zod lib/auth`, run typechecks sequentially.
 - [Moderation pod-silent threshold](moderation-pod-silent-threshold.md) — pod staleness (2× rolling window, totalCount===0) now single-source in lib/moderation-shared; both card + alerter import it. CI gate lives in api-server tests only.
+- [Drizzle ANY(array) record-cast pitfall](drizzle-array-any-cast.md) — `ANY(${jsArray}::int[])` throws runtime 42846 "cannot cast record to integer[]"; pass a `{1,2,3}` literal string param instead. Typechecks fine, fails only at query time.
