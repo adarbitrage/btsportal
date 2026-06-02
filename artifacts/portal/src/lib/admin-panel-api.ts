@@ -319,6 +319,24 @@ export type DigestAlerterTuningStatus = {
   bounds: Record<DigestAlerterTuningField, { min: number; max: number }>;
 };
 
+export type DigestWatchdogState = {
+  firing: boolean;
+  enabled: boolean;
+  evaluatedAt: string;
+  health: {
+    stale: boolean;
+    failed: boolean;
+    alerting: boolean;
+    ageMs: number;
+    thresholdMultiplier: number;
+  };
+  status: {
+    intervalMs: number;
+    lastRanAt: string | null;
+    lastOutcome: string | null;
+  };
+};
+
 export type AiModerationThresholdConfig = {
   flagThreshold: number;
 };
@@ -1523,6 +1541,12 @@ export const adminPanelApi = {
         changedFields: Array<"thresholdMultiplier" | "notificationThrottleMs">;
       }
     >;
+  },
+
+  async getMachineMismatchDigestWatchdogState() {
+    const res = await authFetch("/admin/machine-mismatch-digest-watchdog-state");
+    if (!res.ok) throw new Error("Failed to fetch Machine mismatch digest watchdog state");
+    return res.json() as Promise<DigestWatchdogState>;
   },
 
   async getChangeHistoryRetentionConfig() {

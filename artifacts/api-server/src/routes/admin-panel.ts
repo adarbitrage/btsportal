@@ -3784,6 +3784,28 @@ router.put(
   },
 );
 
+/**
+ * Live read of the digest watchdog's current state for the Settings card so
+ * on-call can confirm a sensitivity change had the intended effect without
+ * waiting for a page. Returns the same snapshot the System Health page uses
+ * (`getMachineMismatchDigestWatchdogState`), which reuses the exact
+ * `evaluateDigestHealth` decision the alerter acts on — so the displayed
+ * state always matches what the watchdog would do.
+ */
+router.get(
+  "/admin/machine-mismatch-digest-watchdog-state",
+  requirePermission("settings:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const state = await getMachineMismatchDigestWatchdogState();
+      res.json(state);
+    } catch (error) {
+      console.error("[Admin] Get machine mismatch digest watchdog state error:", error);
+      res.status(500).json({ error: "Failed to fetch machine mismatch digest watchdog state" });
+    }
+  },
+);
+
 // Audit-log entityType / actionType / allowed-fields for the burst-alert
 // threshold edits, kept next to the route that filters on them so the
 // dashboard alert and the Settings card stay in sync if the writer ever

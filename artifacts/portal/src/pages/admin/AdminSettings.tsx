@@ -13,6 +13,7 @@ import {
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
   type DigestAlerterTuningStatus,
+  type DigestWatchdogState,
   type MachineMismatchAlertConfigStatus,
   type ModerationFailureAlertConfigStatus,
 } from "@/lib/admin-panel-api";
@@ -1344,9 +1345,23 @@ function digestSourceLabel(source: "db" | "env" | "default"): string {
   return "Using default";
 }
 
+function formatAgeMs(ms: number): string {
+  if (ms < 0) ms = 0;
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remMin = minutes % 60;
+  if (hours < 24) return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
+}
+
 function DigestAlerterTuningCard() {
   const { toast } = useToast();
   const [status, setStatus] = useState<DigestAlerterTuningStatus | null>(null);
+  const [watchdog, setWatchdog] = useState<DigestWatchdogState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<{ thresholdMultiplier: string; throttleMinutes: string }>({
@@ -1367,8 +1382,12 @@ function DigestAlerterTuningCard() {
   const load = async () => {
     try {
       setLoading(true);
-      const data = await adminPanelApi.getMachineMismatchDigestAlertConfig();
+      const [data, wd] = await Promise.all([
+        adminPanelApi.getMachineMismatchDigestAlertConfig(),
+        adminPanelApi.getMachineMismatchDigestWatchdogState().catch(() => null),
+      ]);
       hydrate(data);
+      setWatchdog(wd);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -1492,6 +1511,105 @@ function DigestAlerterTuningCard() {
           <div className="p-4 text-center text-sm text-muted-foreground">Loading digest watchdog settings...</div>
         ) : (
           <>
+            {watchdog && (() => {
+              const wd = watchdog;
+              const intervalHours = Math.max(1, Math.round(wd.status.intervalMs / (60 * 60 * 1000)));
+              const reasons: string[] = [];
+              if (wd.health.stale) reasons.push(`heartbeat older than ${wd.health.thresholdMultiplier}× interval`);
+              if (wd.health.failed) reasons.push("most recent run failed");
+              const reasonLabel = reasons.length > 0 ? reasons.join(" · ") : null;
+              const stateLabel = !wd.enabled
+                ? "Disabled"
+                : wd.firing
+                  ? "Firing"
+                  : wd.health.alerting
+                    ? "Unhealthy"
+                    : "Healthy";
+              const badgeClass = !wd.enabled
+                ? "bg-muted text-muted-foreground"
+                : wd.firing || wd.health.alerting
+                  ? wd.health.failed
+                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                    : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                  : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+              const panelClass = !wd.enabled
+                ? "border-border"
+                : wd.firing || wd.health.alerting
+                  ? wd.health.failed
+                    ? "border-red-500/40 bg-red-50 dark:bg-red-950/30"
+                    : "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30"
+                  : "border-border";
+              return (
+                <div
+                  className={`border rounded-md p-3 space-y-2 ${panelClass}`}
+                  data-testid="digest-alerter-watchdog-status"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Current digest health</p>
+                      <p className="text-xs text-muted-foreground">
+                        Live read of what the watchdog sees right now — same decision it pages on.
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded font-medium ${badgeClass}`}
+                      data-testid="digest-alerter-watchdog-state-badge"
+                    >
+                      {stateLabel}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Currently paging</span>
+                      <span className="font-medium text-right" data-testid="digest-alerter-watchdog-firing">
+                        {wd.firing ? "Yes — on-call paged" : "No"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Last run</span>
+                      <span
+                        className="font-medium text-right"
+                        data-testid="digest-alerter-watchdog-last-run"
+                        title={wd.status.lastRanAt ? new Date(wd.status.lastRanAt).toLocaleString() : undefined}
+                      >
+                        {wd.status.lastRanAt ? new Date(wd.status.lastRanAt).toLocaleString() : "Never"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Heartbeat age</span>
+                      <span className="font-medium text-right" data-testid="digest-alerter-watchdog-age">
+                        {wd.enabled
+                          ? `${formatAgeMs(wd.health.ageMs)} / ${formatAgeMs(wd.health.thresholdMultiplier * wd.status.intervalMs)} threshold`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Watch interval</span>
+                      <span className="font-medium text-right">
+                        {wd.enabled ? `every ${intervalHours}h` : "Disabled"}
+                      </span>
+                    </div>
+                  </div>
+                  {wd.enabled && reasonLabel && (
+                    <p
+                      className={`text-xs ${wd.health.failed ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}
+                      data-testid="digest-alerter-watchdog-reason"
+                    >
+                      Why unhealthy: {reasonLabel}
+                    </p>
+                  )}
+                  {!wd.enabled && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid="digest-alerter-watchdog-disabled-detail"
+                    >
+                      The digest job is disabled (run interval set to 0), so the watchdog has nothing to watch.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="border rounded-md p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
