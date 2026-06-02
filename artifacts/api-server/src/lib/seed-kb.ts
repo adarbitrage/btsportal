@@ -3,6 +3,7 @@ import path from "path";
 import { db } from "@workspace/db";
 import { knowledgebaseDocsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { scrubPrivateContent } from "./content-privacy-filter";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -248,7 +249,7 @@ export async function seedKnowledgebaseFromFiles(): Promise<void> {
     try {
       const result = await db.execute(
         sql`INSERT INTO knowledgebase_docs (title, category, content)
-            VALUES (${doc.title}, ${doc.category}, ${doc.content})
+            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)})
             ON CONFLICT (title) DO NOTHING
             RETURNING id`
       );

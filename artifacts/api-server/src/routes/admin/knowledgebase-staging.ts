@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
+import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 
 const router = Router();
 router.use(requirePermission("chat:manage"));
@@ -292,11 +293,11 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
 
     await db.transaction(async (tx) => {
       for (const doc of newlyApproved) {
-        const content = doc.editedContent ?? doc.content;
+        const content = scrubPrivateContent(doc.editedContent ?? doc.content);
         await tx
           .insert(knowledgebaseDocsTable)
           .values({
-            title: doc.title,
+            title: scrubPrivateContent(doc.title),
             category: doc.category,
             content,
           })

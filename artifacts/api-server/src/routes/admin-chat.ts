@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
+import { scrubPrivateContent } from "../lib/content-privacy-filter";
 
 const router: IRouter = Router();
 
@@ -439,7 +440,11 @@ router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async
 
   const [doc] = await db
     .insert(knowledgebaseDocsTable)
-    .values({ title, category: category || "faq", content })
+    .values({
+      title: scrubPrivateContent(title),
+      category: category || "faq",
+      content: scrubPrivateContent(content),
+    })
     .returning();
 
   res.status(201).json({ ...doc, chunkCount: Math.ceil(doc.content.length / 500) });
@@ -460,9 +465,9 @@ router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), as
 
   const { title, category, content } = req.body as { title?: string; category?: string; content?: string };
   const updates: Record<string, any> = {};
-  if (title !== undefined) updates.title = title;
+  if (title !== undefined) updates.title = scrubPrivateContent(title);
   if (category !== undefined) updates.category = category;
-  if (content !== undefined) updates.content = content;
+  if (content !== undefined) updates.content = scrubPrivateContent(content);
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nothing to update" });

@@ -12,6 +12,7 @@
 import { db } from "@workspace/db";
 import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { scrubPrivateContent } from "../lib/content-privacy-filter";
 
 const SOURCES = ["blitz", "coaching_call"] as const;
 
@@ -49,10 +50,10 @@ async function main() {
 
   await db.transaction(async (tx) => {
     for (const doc of pushed) {
-      const content = doc.editedContent ?? doc.content;
+      const content = scrubPrivateContent(doc.editedContent ?? doc.content);
       const result = await tx.execute(
         sql`INSERT INTO knowledgebase_docs (title, category, content)
-            VALUES (${doc.title}, ${doc.category}, ${content})
+            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${content})
             ON CONFLICT (title) DO UPDATE
               SET category = EXCLUDED.category,
                   content = EXCLUDED.content,
