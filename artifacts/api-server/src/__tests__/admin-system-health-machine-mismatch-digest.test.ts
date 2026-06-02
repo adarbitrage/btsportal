@@ -120,6 +120,20 @@ describe("GET /api/admin/system/health — machine mismatch digest field", () =>
     expect(digest.lastFlaggedCount).toBeNull();
     expect(digest.lastRecipient).toBeNull();
     expect(digest.lastReason).toBeNull();
+
+    // The watchdog's own live state is surfaced alongside the heartbeat so the
+    // System Health page can render a "digest watchdog: healthy / firing" panel.
+    const watchdog = res.body?.services?.machineMismatchDigestWatchdog;
+    expect(watchdog).toBeTruthy();
+    expect(typeof watchdog.firing).toBe("boolean");
+    expect(typeof watchdog.enabled).toBe("boolean");
+    expect(typeof watchdog.evaluatedAt).toBe("string");
+    expect(watchdog.health).toBeTruthy();
+    expect(typeof watchdog.health.stale).toBe("boolean");
+    expect(typeof watchdog.health.failed).toBe("boolean");
+    expect(typeof watchdog.health.alerting).toBe("boolean");
+    expect(watchdog.status).toBeTruthy();
+    expect(typeof watchdog.status.intervalMs).toBe("number");
   });
 
   it("flips to outcome=sent with the flagged count and recipient after a real run", async () => {

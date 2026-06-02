@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -2066,6 +2066,144 @@ export default function SystemHealth() {
                             data-testid="machine-mismatch-digest-stale-detail"
                           >
                             Digest hasn't reported in over 2× its {intervalLabel} interval — the daily job may have stopped. Check the API server logs.
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.machineMismatchDigestWatchdog && (() => {
+                interface DigestWatchdogState {
+                  firing: boolean;
+                  enabled: boolean;
+                  evaluatedAt: string;
+                  health: {
+                    stale: boolean;
+                    failed: boolean;
+                    alerting: boolean;
+                    ageMs: number;
+                  };
+                  status: {
+                    intervalMs: number;
+                    lastRanAt: string | null;
+                    lastOutcome: string | null;
+                  };
+                }
+                const wd = health.services.machineMismatchDigestWatchdog as DigestWatchdogState;
+                const intervalHours = Math.max(1, Math.round(wd.status.intervalMs / (60 * 60 * 1000)));
+                const intervalLabel = `${intervalHours}h`;
+                const reasons: string[] = [];
+                if (wd.health.stale) reasons.push("heartbeat older than 2× interval");
+                if (wd.health.failed) reasons.push("most recent run failed");
+                const reasonLabel = reasons.length > 0 ? reasons.join(" · ") : null;
+                const stateLabel = !wd.enabled
+                  ? "Disabled"
+                  : wd.firing
+                    ? "Firing"
+                    : wd.health.alerting
+                      ? "Unhealthy"
+                      : "Healthy";
+                const stateVariant: "success" | "warning" | "outline" =
+                  !wd.enabled ? "outline" : wd.firing || wd.health.alerting ? "warning" : "success";
+                const fmtEvaluated = (iso: string) => {
+                  const rel = formatRelativeTime(iso);
+                  const abs = new Date(iso).toLocaleString();
+                  return rel ? `${rel} (${abs})` : abs;
+                };
+                return (
+                  <Card data-testid="card-machine-mismatch-digest-watchdog">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4" />
+                        Digest outage watchdog
+                        <Badge
+                          variant={stateVariant}
+                          className="ml-2"
+                          data-testid="machine-mismatch-digest-watchdog-state-badge"
+                        >
+                          {wd.firing && <AlertTriangle className="w-3 h-3 mr-1" />}
+                          {stateLabel}
+                        </Badge>
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Pages on-call when the Machine mismatch daily digest quietly stops
+                        firing. This panel reflects the watchdog's own live state — whether
+                        it is currently paging, when it last evaluated the heartbeat, and
+                        whether the digest is considered healthy right now.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div
+                        className={`rounded-md border p-3 ${
+                          !wd.enabled
+                            ? "border-border"
+                            : wd.firing || wd.health.alerting
+                              ? wd.health.failed
+                                ? "border-red-500/40 bg-red-50 dark:bg-red-950/30"
+                                : "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30"
+                              : "border-border"
+                        }`}
+                        data-testid="machine-mismatch-digest-watchdog-summary"
+                      >
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Currently firing</span>
+                            <span
+                              className="font-medium text-right"
+                              data-testid="machine-mismatch-digest-watchdog-firing"
+                            >
+                              {wd.firing ? "Yes — on-call paged" : "No"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Digest health</span>
+                            <span className="font-medium text-right">
+                              <Badge
+                                variant={!wd.enabled ? "outline" : wd.health.alerting ? "warning" : "success"}
+                                data-testid="machine-mismatch-digest-watchdog-health"
+                              >
+                                {!wd.enabled ? "N/A (disabled)" : wd.health.alerting ? "Unhealthy" : "Healthy"}
+                              </Badge>
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Last evaluated</span>
+                            <span
+                              className="font-medium text-right"
+                              data-testid="machine-mismatch-digest-watchdog-evaluated-at"
+                              title={new Date(wd.evaluatedAt).toLocaleString()}
+                            >
+                              {fmtEvaluated(wd.evaluatedAt)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Watch interval</span>
+                            <span className="font-medium text-right">
+                              {wd.enabled ? `every ${intervalLabel}` : "Disabled"}
+                            </span>
+                          </div>
+                        </div>
+                        {wd.enabled && reasonLabel && (
+                          <p
+                            className={`mt-2 text-xs ${
+                              wd.health.failed
+                                ? "text-red-700 dark:text-red-300"
+                                : "text-amber-700 dark:text-amber-300"
+                            }`}
+                            data-testid="machine-mismatch-digest-watchdog-reason"
+                          >
+                            Why unhealthy: {reasonLabel}
+                          </p>
+                        )}
+                        {!wd.enabled && (
+                          <p
+                            className="mt-2 text-xs text-muted-foreground"
+                            data-testid="machine-mismatch-digest-watchdog-disabled-detail"
+                          >
+                            The digest job is disabled (run interval set to 0), so the
+                            watchdog has nothing to watch.
                           </p>
                         )}
                       </div>

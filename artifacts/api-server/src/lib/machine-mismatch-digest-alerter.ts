@@ -327,6 +327,51 @@ export function __getMachineMismatchDigestAlerterStateForTests(): boolean {
 }
 
 /**
+ * Read-only snapshot of the watchdog's current state for the admin System
+ * Health page. Reuses the exact `evaluateDigestHealth` decision the poll runs
+ * on, plus the in-process `alerting` transition flag so admins can see at a
+ * glance whether the watchdog is *currently firing* (has paged on-call and
+ * not yet sent an all-clear) versus merely observing an unhealthy heartbeat
+ * this instant.
+ *
+ * `enabled` is false when the digest job — and therefore this watchdog — is
+ * turned off (`intervalMs <= 0`), mirroring the no-op short-circuit in
+ * `evaluateMachineMismatchDigestAlert`. When disabled there is no heartbeat
+ * to watch, so `health` is reported but should be treated as informational.
+ */
+export interface MachineMismatchDigestWatchdogState {
+  /**
+   * True while the watchdog considers the digest unhealthy and has dispatched
+   * a "fire" that has not yet been cleared. This is the durable transition
+   * flag, not a fresh recompute — it answers "is on-call currently paged?".
+   */
+  firing: boolean;
+  /** Health recomputed from the live heartbeat snapshot at `evaluatedAt`. */
+  health: DigestHealth;
+  /** The underlying digest heartbeat snapshot the health was derived from. */
+  status: MachineMismatchDigestStatus;
+  /** False when the digest job (and thus the watchdog) is disabled. */
+  enabled: boolean;
+  /** ISO timestamp at which this snapshot was computed. */
+  evaluatedAt: string;
+}
+
+export function getMachineMismatchDigestWatchdogState(
+  now: number = Date.now(),
+): MachineMismatchDigestWatchdogState {
+  const status = getMachineMismatchDigestStatus();
+  const enabled = status.intervalMs > 0;
+  const health = evaluateDigestHealth(status, now);
+  return {
+    firing: alerting,
+    health,
+    status,
+    enabled,
+    evaluatedAt: new Date(now).toISOString(),
+  };
+}
+
+/**
  * Read the digest heartbeat and dispatch any state-transition alerts (fire on
  * the first detection that the digest has gone unhealthy, clear when a fresh
  * healthy run lands). No-op when the digest job is disabled. Safe to call

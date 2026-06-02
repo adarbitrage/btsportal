@@ -26,6 +26,7 @@ vi.mock("../lib/oncall-settings", () => ({
 import {
   evaluateMachineMismatchDigestAlert,
   evaluateDigestHealth,
+  getMachineMismatchDigestWatchdogState,
   __resetMachineMismatchDigestAlerterForTests,
   __setMachineMismatchDigestAlerterDeliveriesForTests,
   __getMachineMismatchDigestAlerterStateForTests,
@@ -151,6 +152,44 @@ describe("machine-mismatch-digest-alerter", () => {
       };
       const health = evaluateDigestHealth(status, T0);
       expect(health.alerting).toBe(false);
+    });
+  });
+
+  describe("getMachineMismatchDigestWatchdogState", () => {
+    it("reports a healthy, not-firing, enabled watchdog when the digest is fresh", () => {
+      setStatus({ lastRanAt: new Date(T0 - HOUR).toISOString(), lastOutcome: "sent" });
+
+      const state = getMachineMismatchDigestWatchdogState(T0);
+
+      expect(state.enabled).toBe(true);
+      expect(state.firing).toBe(false);
+      expect(state.health.alerting).toBe(false);
+      expect(state.health.stale).toBe(false);
+      expect(state.health.failed).toBe(false);
+      expect(state.evaluatedAt).toBe(new Date(T0).toISOString());
+      expect(state.status.lastOutcome).toBe("sent");
+    });
+
+    it("reports enabled=false when the digest job is turned off", () => {
+      setStatus({ intervalMs: 0, lastRanAt: null });
+
+      const state = getMachineMismatchDigestWatchdogState(T0);
+
+      expect(state.enabled).toBe(false);
+    });
+
+    it("reflects the live firing flag once the watchdog has paged", async () => {
+      setStatus({ lastRanAt: new Date(T0 - 3 * DAY).toISOString(), lastOutcome: "sent" });
+
+      const before = getMachineMismatchDigestWatchdogState(T0);
+      expect(before.firing).toBe(false);
+      expect(before.health.alerting).toBe(true);
+
+      await evaluateMachineMismatchDigestAlert(T0);
+
+      const after = getMachineMismatchDigestWatchdogState(T0);
+      expect(after.firing).toBe(true);
+      expect(after.health.stale).toBe(true);
     });
   });
 

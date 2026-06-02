@@ -84,7 +84,10 @@ import {
   evaluateModerationPodSilentAlert,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
-import { MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-digest-alerter";
+import {
+  MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
+  getMachineMismatchDigestWatchdogState,
+} from "../lib/machine-mismatch-digest-alerter";
 import {
   getAuthRateLimitAlertTrafficPreview,
   coerceLookbackDays as coerceAlertTrafficPreviewLookbackDays,
@@ -2703,6 +2706,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
         auditLogRetention,
         machineMismatchDigest: getMachineMismatchDigestStatus(),
+        machineMismatchDigestWatchdog: getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,
         moderationFailures,
         missingCriticalSecrets,
