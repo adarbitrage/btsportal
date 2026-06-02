@@ -38,7 +38,6 @@ const NETWORK_LABEL: Record<string, { label: string; cls: string }> = {
   universal: { label: "All Networks", cls: "bg-slate-100 text-slate-700 border-slate-300" },
   "media-mavens": { label: "Media Mavens", cls: "bg-emerald-50 text-emerald-800 border-emerald-300" },
   clickbank: { label: "ClickBank", cls: "bg-amber-50 text-amber-800 border-amber-300" },
-  maxweb: { label: "MaxWeb", cls: "bg-blue-50 text-blue-800 border-blue-300" },
 };
 
 const PUBLISHER_LABEL: Record<string, { label: string; cls: string }> = {

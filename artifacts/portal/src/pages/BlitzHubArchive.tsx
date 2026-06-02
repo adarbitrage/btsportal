@@ -43,20 +43,20 @@ const LESSONS: HubLesson[] = [
   {
     id: 4, phase: "build", step: "Phase 1 — Network Selection",
     title: "Choose Your Affiliate Network",
-    desc: "Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions. Affiliati and MaxWeb require proof of prior affiliate revenue — check with your coach before applying to either.",
+    desc: "Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions.",
     tags: [
       { kind: "mm", label: "Media Mavens ⭐ Recommended" },
-      { kind: "cb", label: "ClickBank · MaxWeb · Affiliati" },
+      { kind: "cb", label: "ClickBank" },
     ],
     ctas: [{ label: "Go to Section", section: "s4" }],
   },
   {
     id: 5, phase: "build", step: "Phase 1 — Product Selection",
     title: "Select Your Offer and Get Your Affiliate Link",
-    desc: "Choose the specific product you'll promote within your network. Save your unique affiliate tracking link. For ClickBank and MaxWeb, confirm the product's sales page URL — you'll refer to it when writing your jump page body copy.",
+    desc: "Choose the specific product you'll promote within your network. Save your unique affiliate tracking link. For ClickBank, confirm the product's sales page URL — you'll refer to it when writing your jump page body copy.",
     tags: [
       { kind: "mm", label: "MM: Look for products with pre-built advertorial" },
-      { kind: "cb", label: "CB/MW: Confirm jump page path applies" },
+      { kind: "cb", label: "CB: Confirm jump page path applies" },
     ],
     ctas: [{ label: "Go to Section", section: "s5" }],
   },
@@ -84,7 +84,7 @@ const LESSONS: HubLesson[] = [
     title: "Create Your Landing Page Assets — Media Mavens",
     desc: (
       <>
-        For Media Mavens: generate 5 landing page headlines using AffAngleArchitect and Copy Blocks, then source 5 hero shot images. These 5 headlines × 5 hero shots = 25 combinations that MetricMover™ will create automatically in the next step. <em>Skip this lesson if you're using a ClickBank, MaxWeb, or Affiliati (jump page) offer — go to the next lesson instead.</em>
+        For Media Mavens: generate 5 landing page headlines using AffAngleArchitect and Copy Blocks, then source 5 hero shot images. These 5 headlines × 5 hero shots = 25 combinations that MetricMover™ will create automatically in the next step. <em>Skip this lesson if you're using a ClickBank (jump page) offer — go to the next lesson instead.</em>
       </>
     ),
     tags: [
@@ -95,7 +95,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 9, phase: "build", step: "Phase 1 — Creative Assets",
     title: "Create Your Landing Page Assets — ClickBank",
-    desc: "For ClickBank, MaxWeb, and Affiliati (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
+    desc: "For ClickBank (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
     tags: [
       { kind: "cb", label: "VSL → Transcript → Body Copy → 5 Headlines + 5 Hero Shots" },
     ],
@@ -111,7 +111,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 11, phase: "build", step: "Phase 1 — Flexy™ Setup",
     title: "Setting Up Your Website in Flexy™",
-    desc: "Clone the pre-built Flexy™ website template into your account, connect a custom domain, and learn how to duplicate individual pages within your site. This is the universal setup everyone completes before moving on to MetricMover™ — regardless of whether you're on the Media Mavens or ClickBank/MaxWeb path.",
+    desc: "Clone the pre-built Flexy™ website template into your account, connect a custom domain, and learn how to duplicate individual pages within your site. This is the universal setup everyone completes before moving on to MetricMover™ — regardless of whether you're on the Media Mavens or ClickBank path.",
     tags: [
       { kind: "all", label: "Universal — Everyone Does This First" },
       { kind: "all", label: "Ends with: Clone Page Into Any Website" },
@@ -121,7 +121,7 @@ const LESSONS: HubLesson[] = [
   {
     id: 12, phase: "build", step: "Phase 1 — MetricMover™",
     title: "Using MetricMover™",
-    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank / MaxWeb jump page customization is handled earlier in the Landing Page Assets lesson.)",
+    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank jump page customization is handled earlier in the Landing Page Assets lesson.)",
     tags: [
       { kind: "all", label: "MM1–MM5 Video Series" },
       { kind: "all", label: "Same process for every path" },
