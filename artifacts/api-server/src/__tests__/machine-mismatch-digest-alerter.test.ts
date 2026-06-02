@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-const { statusMock, auditMock, destinationsMock } = vi.hoisted(() => {
+const { statusMock, auditMock, destinationsMock, tuningMock } = vi.hoisted(() => {
   const statusMock = vi.fn();
   const auditMock = vi.fn(async () => {});
   const destinationsMock = vi.fn(async () => ({
@@ -8,7 +8,11 @@ const { statusMock, auditMock, destinationsMock } = vi.hoisted(() => {
     opsAlertEmail: null,
     opsAlertSlackWebhookUrl: null,
   }));
-  return { statusMock, auditMock, destinationsMock };
+  const tuningMock = vi.fn(async () => ({
+    thresholdMultiplier: 2,
+    notificationThrottleMs: 60 * 60 * 1000,
+  }));
+  return { statusMock, auditMock, destinationsMock, tuningMock };
 });
 
 vi.mock("../lib/machine-mismatch-daily-digest", () => ({
@@ -21,6 +25,7 @@ vi.mock("../lib/audit-log", () => ({
 
 vi.mock("../lib/oncall-settings", () => ({
   getOnCallDestinations: destinationsMock,
+  getDigestAlerterTuning: tuningMock,
 }));
 
 import {
@@ -119,6 +124,7 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: null,
+        stale: true,
       };
       const health = evaluateDigestHealth(status, T0);
       expect(health.stale).toBe(true);
@@ -134,6 +140,7 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: "boom",
+        stale: false,
       };
       const health = evaluateDigestHealth(status, T0);
       expect(health.stale).toBe(false);
@@ -149,6 +156,7 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: null,
+        stale: false,
       };
       const health = evaluateDigestHealth(status, T0);
       expect(health.alerting).toBe(false);
@@ -156,10 +164,10 @@ describe("machine-mismatch-digest-alerter", () => {
   });
 
   describe("getMachineMismatchDigestWatchdogState", () => {
-    it("reports a healthy, not-firing, enabled watchdog when the digest is fresh", () => {
+    it("reports a healthy, not-firing, enabled watchdog when the digest is fresh", async () => {
       setStatus({ lastRanAt: new Date(T0 - HOUR).toISOString(), lastOutcome: "sent" });
 
-      const state = getMachineMismatchDigestWatchdogState(T0);
+      const state = await getMachineMismatchDigestWatchdogState(T0);
 
       expect(state.enabled).toBe(true);
       expect(state.firing).toBe(false);
@@ -170,10 +178,10 @@ describe("machine-mismatch-digest-alerter", () => {
       expect(state.status.lastOutcome).toBe("sent");
     });
 
-    it("reports enabled=false when the digest job is turned off", () => {
+    it("reports enabled=false when the digest job is turned off", async () => {
       setStatus({ intervalMs: 0, lastRanAt: null });
 
-      const state = getMachineMismatchDigestWatchdogState(T0);
+      const state = await getMachineMismatchDigestWatchdogState(T0);
 
       expect(state.enabled).toBe(false);
     });
@@ -181,13 +189,13 @@ describe("machine-mismatch-digest-alerter", () => {
     it("reflects the live firing flag once the watchdog has paged", async () => {
       setStatus({ lastRanAt: new Date(T0 - 3 * DAY).toISOString(), lastOutcome: "sent" });
 
-      const before = getMachineMismatchDigestWatchdogState(T0);
+      const before = await getMachineMismatchDigestWatchdogState(T0);
       expect(before.firing).toBe(false);
       expect(before.health.alerting).toBe(true);
 
       await evaluateMachineMismatchDigestAlert(T0);
 
-      const after = getMachineMismatchDigestWatchdogState(T0);
+      const after = await getMachineMismatchDigestWatchdogState(T0);
       expect(after.firing).toBe(true);
       expect(after.health.stale).toBe(true);
     });

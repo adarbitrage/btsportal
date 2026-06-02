@@ -50,7 +50,7 @@
  */
 
 import { logAuditEvent } from "./audit-log";
-import { getOnCallDestinations } from "./oncall-settings";
+import { getOnCallDestinations, getDigestAlerterTuning } from "./oncall-settings";
 import {
   getMachineMismatchDigestStatus,
   type MachineMismatchDigestStatus,
@@ -84,11 +84,14 @@ export const MACHINE_MISMATCH_DIGEST_ALERT_ENTITY_ID =
 
 export type AlertDeliveryOutcome = "sent" | "failed" | "throttled" | "skipped";
 
-function getNotificationThrottleMs(): number {
-  return parseEnvInt(
-    "MACHINE_MISMATCH_DIGEST_ALERT_THROTTLE_MS",
-    60 * 60 * 1000,
-  );
+/**
+ * Re-page throttle window in ms. Read fresh from `oncall-settings` per
+ * dispatch so an admin tuning it from the Settings UI takes effect without a
+ * restart. Falls back to the matching env var / shipped default inside
+ * `getDigestAlerterTuning`.
+ */
+async function getNotificationThrottleMs(): Promise<number> {
+  return (await getDigestAlerterTuning()).notificationThrottleMs;
 }
 
 // 1 hour by default. The digest interval is 24h and the staleness threshold
@@ -100,7 +103,7 @@ const POLL_MS = parseEnvInt(
 );
 
 export interface DigestHealth {
-  /** True when the heartbeat is older than 2× the configured run interval. */
+  /** True when the heartbeat is older than the configured staleness window. */
   stale: boolean;
   /** True when the most recent run's outcome was "failed". */
   failed: boolean;
@@ -108,6 +111,8 @@ export interface DigestHealth {
   alerting: boolean;
   /** Age of the heartbeat in ms (measured from baseline when never run). */
   ageMs: number;
+  /** Staleness threshold (multiple of the run interval) used for this check. */
+  thresholdMultiplier: number;
 }
 
 export interface MachineMismatchDigestAlertPayload {
@@ -131,20 +136,29 @@ let baselineSince = Date.now();
 export function evaluateDigestHealth(
   status: MachineMismatchDigestStatus,
   now: number,
+  thresholdMultiplier: number = 2,
 ): DigestHealth {
   const referenceTs = status.lastRanAt
     ? Date.parse(status.lastRanAt)
     : baselineSince;
   const ageMs = now - referenceTs;
-  const stale = ageMs > 2 * status.intervalMs;
+  const stale = ageMs > thresholdMultiplier * status.intervalMs;
   const failed = status.lastOutcome === "failed";
-  return { stale, failed, alerting: stale || failed, ageMs };
+  return {
+    stale,
+    failed,
+    alerting: stale || failed,
+    ageMs,
+    thresholdMultiplier,
+  };
 }
 
 function buildTriggerSummary(health: DigestHealth): string {
   const reasons: string[] = [];
   if (health.stale) {
-    reasons.push("the heartbeat is older than 2× the run interval");
+    reasons.push(
+      `the heartbeat is older than ${health.thresholdMultiplier}× the run interval`,
+    );
   }
   if (health.failed) {
     reasons.push("the most recent run failed");
@@ -356,12 +370,15 @@ export interface MachineMismatchDigestWatchdogState {
   evaluatedAt: string;
 }
 
-export function getMachineMismatchDigestWatchdogState(
+export async function getMachineMismatchDigestWatchdogState(
   now: number = Date.now(),
-): MachineMismatchDigestWatchdogState {
+): Promise<MachineMismatchDigestWatchdogState> {
   const status = getMachineMismatchDigestStatus();
   const enabled = status.intervalMs > 0;
-  const health = evaluateDigestHealth(status, now);
+  // Use the admin-tuned multiplier so the System Health snapshot reports the
+  // exact health the poll would act on, not the shipped 2× default.
+  const { thresholdMultiplier } = await getDigestAlerterTuning();
+  const health = evaluateDigestHealth(status, now, thresholdMultiplier);
   return {
     firing: alerting,
     health,
@@ -390,7 +407,8 @@ export async function evaluateMachineMismatchDigestAlert(
   if (status.intervalMs <= 0) {
     return [];
   }
-  const health = evaluateDigestHealth(status, now);
+  const { thresholdMultiplier } = await getDigestAlerterTuning();
+  const health = evaluateDigestHealth(status, now, thresholdMultiplier);
   const prev = alerting;
   if (health.alerting && !prev) {
     alerting = true;

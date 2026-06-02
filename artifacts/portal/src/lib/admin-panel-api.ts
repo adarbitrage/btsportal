@@ -305,6 +305,20 @@ export type MachineMismatchAlertConfigStatus = {
   };
 };
 
+export type DigestAlerterTuning = {
+  thresholdMultiplier: number;
+  notificationThrottleMs: number;
+};
+
+export type DigestAlerterTuningField = keyof DigestAlerterTuning;
+
+export type DigestAlerterTuningStatus = {
+  config: DigestAlerterTuning;
+  sources: Record<DigestAlerterTuningField, "db" | "env" | "default">;
+  defaults: DigestAlerterTuning;
+  bounds: Record<DigestAlerterTuningField, { min: number; max: number }>;
+};
+
 export type AiModerationThresholdConfig = {
   flagThreshold: number;
 };
@@ -1469,6 +1483,44 @@ export const adminPanelApi = {
     return res.json() as Promise<
       MachineMismatchAlertConfigStatus & {
         changedFields: Array<"threshold" | "windowHours">;
+      }
+    >;
+  },
+
+  async getMachineMismatchDigestAlertConfig() {
+    const res = await authFetch("/admin/machine-mismatch-digest-alert-config");
+    if (!res.ok) throw new Error("Failed to fetch Machine mismatch digest alert config");
+    return res.json() as Promise<DigestAlerterTuningStatus>;
+  },
+
+  // A `null` value resets that field to its env/default; omit a field to
+  // leave it untouched.
+  async updateMachineMismatchDigestAlertConfig(payload: {
+    thresholdMultiplier?: number | null;
+    notificationThrottleMs?: number | null;
+  }) {
+    const res = await authFetch("/admin/machine-mismatch-digest-alert-config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const fieldErrors = Array.isArray(body.fieldErrors)
+        ? (body.fieldErrors as Array<{ field: string; message: string }>)
+        : [];
+      const detail =
+        fieldErrors.length > 0
+          ? fieldErrors.map((e) => `${e.field}: ${e.message}`).join("; ")
+          : body.error || "Failed to update Machine mismatch digest alert config";
+      const err = new Error(detail) as Error & {
+        fieldErrors?: Array<{ field: string; message: string }>;
+      };
+      if (fieldErrors.length > 0) err.fieldErrors = fieldErrors;
+      throw err;
+    }
+    return res.json() as Promise<
+      DigestAlerterTuningStatus & {
+        changedFields: Array<"thresholdMultiplier" | "notificationThrottleMs">;
       }
     >;
   },

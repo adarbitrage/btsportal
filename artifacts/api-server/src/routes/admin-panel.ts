@@ -46,7 +46,11 @@ import {
   getOnCallDestinationsStatus,
   setOnCallDestination,
   isOnCallSettingKey,
+  getDigestAlerterTuningStatus,
+  applyDigestAlerterTuningUpdate,
+  validateDigestAlerterTuningUpdate,
   type OnCallField,
+  type DigestAlerterTuningField,
 } from "../lib/oncall-settings";
 import {
   getAuthRateLimitAlertConfigStatus,
@@ -2706,7 +2710,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
         auditLogRetention,
         machineMismatchDigest: getMachineMismatchDigestStatus(),
-        machineMismatchDigestWatchdog: getMachineMismatchDigestWatchdogState(),
+        machineMismatchDigestWatchdog: await getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,
         moderationFailures,
         missingCriticalSecrets,
@@ -3696,6 +3700,66 @@ router.put("/admin/machine-mismatch-alert-config", requirePermission("settings:m
     res.status(500).json({ error: "Failed to update machine mismatch alert config" });
   }
 });
+
+router.get(
+  "/admin/machine-mismatch-digest-alert-config",
+  requirePermission("settings:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const status = await getDigestAlerterTuningStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("[Admin] Get machine mismatch digest alert config error:", error);
+      res.status(500).json({ error: "Failed to fetch machine mismatch digest alert config" });
+    }
+  },
+);
+
+/**
+ * Update the Machine order mismatch *digest watchdog* sensitivity knobs:
+ * the staleness threshold multiplier and the re-page throttle. Body is a
+ * partial — omit a field to leave it untouched; a `null` resets that field
+ * to its env/default. Out-of-bounds values are rejected 400 with
+ * `fieldErrors` so the UI can surface them inline. Successful saves write an
+ * audit-log row tagged `entityType=machine_mismatch_digest_alert_config`
+ * with the per-field diff.
+ */
+router.put(
+  "/admin/machine-mismatch-digest-alert-config",
+  requirePermission("settings:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const validation = validateDigestAlerterTuningUpdate(req.body);
+      if (!validation.ok) {
+        res.status(400).json({ error: "Invalid digest alert config", fieldErrors: validation.errors });
+        return;
+      }
+      const { before, after, changedFields } = await applyDigestAlerterTuningUpdate(
+        validation.update,
+        req.userEmail || (req.userId ? String(req.userId) : null),
+      );
+      if (changedFields.length > 0) {
+        const diff: Record<string, { from: number; to: number }> = {};
+        for (const field of changedFields as DigestAlerterTuningField[]) {
+          diff[field] = { from: before[field], to: after[field] };
+        }
+        await logAdminAction(
+          req,
+          "update_setting",
+          "machine_mismatch_digest_alert_config",
+          "oncall",
+          `Updated machine mismatch digest alert config: ${changedFields.join(", ")}`,
+          { changedFields, diff },
+        );
+      }
+      const status = await getDigestAlerterTuningStatus();
+      res.json({ ...status, changedFields });
+    } catch (error) {
+      console.error("[Admin] Update machine mismatch digest alert config error:", error);
+      res.status(500).json({ error: "Failed to update machine mismatch digest alert config" });
+    }
+  },
+);
 
 // Audit-log entityType / actionType / allowed-fields for the burst-alert
 // threshold edits, kept next to the route that filters on them so the

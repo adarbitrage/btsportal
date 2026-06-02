@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge } from "lucide-react";
 import {
   adminPanelApi,
   type AiModerationThresholdConfigStatus,
@@ -12,6 +12,7 @@ import {
   type AuthRateLimitAlertConfigStatus,
   type AuthRateLimitAlertTrafficPreview,
   type ChangeHistoryRetentionConfigStatus,
+  type DigestAlerterTuningStatus,
   type MachineMismatchAlertConfigStatus,
   type ModerationFailureAlertConfigStatus,
 } from "@/lib/admin-panel-api";
@@ -96,6 +97,8 @@ export default function AdminSettings() {
         <AuthRateLimitAlertConfigCard />
 
         <MachineMismatchAlertConfigCard />
+
+        <DigestAlerterTuningCard />
 
         <ModerationFailureAlertConfigCard />
 
@@ -1310,6 +1313,280 @@ function MachineMismatchAlertConfigCard() {
                 onClick={handleSave}
                 disabled={saving}
                 data-testid="machine-mismatch-alert-save-button"
+              >
+                <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Settings card for the Machine order mismatch *digest watchdog* sensitivity.
+ * The digest watchdog pages on-call when the daily reconciliation digest
+ * quietly stops firing. Two knobs:
+ *  - thresholdMultiplier: how many run-intervals stale the heartbeat must get
+ *    before it pages (e.g. 2× a 24h interval = page after 48h of silence)
+ *  - notificationThrottleMs: minimum gap between repeat pages per channel so
+ *    a stuck digest can't re-page every poll
+ *
+ * The throttle is edited in minutes for readability and converted to ms on
+ * the wire. `null` for either field on save resets it to its env/default.
+ */
+type DigestAlerterField = "thresholdMultiplier" | "notificationThrottleMs";
+
+function digestSourceLabel(source: "db" | "env" | "default"): string {
+  if (source === "db") return "Customized";
+  if (source === "env") return "From env";
+  return "Using default";
+}
+
+function DigestAlerterTuningCard() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<DigestAlerterTuningStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ thresholdMultiplier: string; throttleMinutes: string }>({
+    thresholdMultiplier: "",
+    throttleMinutes: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<DigestAlerterField, string>>>({});
+
+  const hydrate = (s: DigestAlerterTuningStatus) => {
+    setStatus(s);
+    setDraft({
+      thresholdMultiplier: String(s.config.thresholdMultiplier),
+      throttleMinutes: String(s.config.notificationThrottleMs / 60000),
+    });
+    setFieldErrors({});
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getMachineMismatchDigestAlertConfig();
+      hydrate(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  // Throttle bounds are stored in ms; surface the minute-equivalent for the UI.
+  const throttleMinBounds = status
+    ? {
+        min: Math.ceil(status.bounds.notificationThrottleMs.min / 60000),
+        max: Math.floor(status.bounds.notificationThrottleMs.max / 60000),
+      }
+    : { min: 0, max: 0 };
+
+  const validateLocal = (): { ok: boolean; payload: { thresholdMultiplier: number; notificationThrottleMs: number } } => {
+    if (!status) return { ok: false, payload: { thresholdMultiplier: 0, notificationThrottleMs: 0 } };
+    const errors: Partial<Record<DigestAlerterField, string>> = {};
+
+    const multiplierNum = Number(draft.thresholdMultiplier);
+    const mBounds = status.bounds.thresholdMultiplier;
+    if (!Number.isFinite(multiplierNum)) {
+      errors.thresholdMultiplier = "Must be a number";
+    } else if (multiplierNum < mBounds.min || multiplierNum > mBounds.max) {
+      errors.thresholdMultiplier = `Must be between ${mBounds.min} and ${mBounds.max}`;
+    }
+
+    // Throttle is edited in minutes for readability but stored in ms; accept
+    // fractional minutes (e.g. an env value of 90s shows as 1.5) so editing
+    // the multiplier alone never gets blocked by an odd throttle value.
+    const minutesNum = Number(draft.throttleMinutes);
+    if (!Number.isFinite(minutesNum)) {
+      errors.notificationThrottleMs = "Must be a number of minutes";
+    } else if (minutesNum < throttleMinBounds.min || minutesNum > throttleMinBounds.max) {
+      errors.notificationThrottleMs = `Must be between ${throttleMinBounds.min} and ${throttleMinBounds.max} minutes`;
+    }
+
+    setFieldErrors(errors);
+    return {
+      ok: Object.keys(errors).length === 0,
+      payload: {
+        thresholdMultiplier: multiplierNum,
+        notificationThrottleMs: Math.round(minutesNum * 60000),
+      },
+    };
+  };
+
+  const handleSave = async () => {
+    if (!status) return;
+    const v = validateLocal();
+    if (!v.ok) {
+      toast({ title: "Fix the highlighted fields and try again", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateMachineMismatchDigestAlertConfig(v.payload);
+      hydrate(data);
+      if (data.changedFields.length === 0) {
+        toast({ title: "No changes to save" });
+      } else {
+        toast({ title: "Digest alert sensitivity saved" });
+      }
+    } catch (err: any) {
+      if (err.fieldErrors && Array.isArray(err.fieldErrors)) {
+        const next: Partial<Record<DigestAlerterField, string>> = {};
+        for (const e of err.fieldErrors as Array<{ field: string; message: string }>) {
+          if (e.field === "thresholdMultiplier" || e.field === "notificationThrottleMs") {
+            next[e.field] = e.message;
+          }
+        }
+        setFieldErrors(next);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    if (!status) return;
+    const anyCustomized = status.sources.thresholdMultiplier === "db" || status.sources.notificationThrottleMs === "db";
+    if (!anyCustomized) {
+      setDraft({
+        thresholdMultiplier: String(status.defaults.thresholdMultiplier),
+        throttleMinutes: String(status.defaults.notificationThrottleMs / 60000),
+      });
+      setFieldErrors({});
+      return;
+    }
+    try {
+      setSaving(true);
+      const data = await adminPanelApi.updateMachineMismatchDigestAlertConfig({
+        thresholdMultiplier: null,
+        notificationThrottleMs: null,
+      });
+      hydrate(data);
+      setFieldErrors({});
+      toast({ title: "Reset to defaults" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Gauge className="w-4 h-4" /> Machine mismatch digest watchdog
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Controls how sensitive the watchdog is that pages on-call when the daily Machine-order mismatch <em>digest</em> quietly stops firing. Changes take effect on the watchdog's next poll — no restart needed.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading || !status ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading digest watchdog settings...</div>
+        ) : (
+          <>
+            <div className="border rounded-md p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Staleness threshold (× run interval)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Page when the heartbeat is older than this many digest run-intervals. Lower = more sensitive.
+                  </p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${
+                    status.sources.thresholdMultiplier === "db"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {digestSourceLabel(status.sources.thresholdMultiplier)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step={0.5}
+                  min={status.bounds.thresholdMultiplier.min}
+                  max={status.bounds.thresholdMultiplier.max}
+                  value={draft.thresholdMultiplier}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, thresholdMultiplier: e.target.value }))}
+                  className="w-40"
+                  data-testid="digest-alerter-threshold-multiplier-input"
+                  aria-invalid={!!fieldErrors.thresholdMultiplier}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Range {status.bounds.thresholdMultiplier.min}–{status.bounds.thresholdMultiplier.max}. Current: {status.config.thresholdMultiplier}. Default: {status.defaults.thresholdMultiplier}.
+                </span>
+              </div>
+              {fieldErrors.thresholdMultiplier && (
+                <p className="text-xs text-destructive" data-testid="digest-alerter-threshold-multiplier-error">{fieldErrors.thresholdMultiplier}</p>
+              )}
+            </div>
+
+            <div className="border rounded-md p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Re-page throttle (minutes)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Minimum gap between repeat pages per channel while the digest stays unhealthy. 0 disables throttling.
+                  </p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${
+                    status.sources.notificationThrottleMs === "db"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {digestSourceLabel(status.sources.notificationThrottleMs)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min={throttleMinBounds.min}
+                  max={throttleMinBounds.max}
+                  value={draft.throttleMinutes}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, throttleMinutes: e.target.value }))}
+                  className="w-40"
+                  data-testid="digest-alerter-throttle-minutes-input"
+                  aria-invalid={!!fieldErrors.notificationThrottleMs}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Range {throttleMinBounds.min}–{throttleMinBounds.max} min. Current: {status.config.notificationThrottleMs / 60000} min. Default: {status.defaults.notificationThrottleMs / 60000} min.
+                </span>
+              </div>
+              {fieldErrors.notificationThrottleMs && (
+                <p className="text-xs text-destructive" data-testid="digest-alerter-throttle-minutes-error">{fieldErrors.notificationThrottleMs}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResetDefaults}
+                disabled={saving}
+                data-testid="digest-alerter-reset-button"
+              >
+                <RotateCcw className="w-4 h-4 mr-1" /> Reset to defaults
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                data-testid="digest-alerter-save-button"
               >
                 <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save"}
               </Button>

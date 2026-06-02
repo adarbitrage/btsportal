@@ -189,8 +189,12 @@ export interface DispatcherOptions<TPayload, TKey> {
   name: string;
   /** Resolves the current destinations at dispatch time. */
   destinations: () => Promise<OnCallDestinations> | OnCallDestinations;
-  /** Throttle window in ms (re-read per dispatch so env-driven overrides take effect). */
-  throttleMs: () => number;
+  /**
+   * Throttle window in ms (re-read per dispatch so env-driven or
+   * admin-edited overrides take effect). May be async so the value can be
+   * sourced from the DB at dispatch time.
+   */
+  throttleMs: () => number | Promise<number>;
   /** Where to claim/release throttle slots. */
   throttleStore: ThrottleStore<TKey>;
   /** Build the throttle key for a given (payload, channel). */
@@ -335,7 +339,7 @@ export function createOnCallDispatcher<TPayload, TKey>(
     payload: TPayload,
     now: number,
   ): Promise<DeliveryResult[]> {
-    const throttleMs = opts.throttleMs();
+    const throttleMs = await opts.throttleMs();
     const channels: readonly DeliveryChannel[] = [
       "pagerduty",
       "email",
