@@ -20,6 +20,9 @@
     },
     {
       "path": "../../lib/auth"
+    },
+    {
+      "path": "../../lib/moderation-shared"
     }
   ]
 }

@@ -7,6 +7,7 @@ import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Z
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
+import { isPodStale, staleThresholdMsForWindow } from "@workspace/moderation-shared";
 
 type AlertOutcomeFilter = "sent" | "failed" | "throttled" | "skipped";
 type AlertChannelFilter = "pagerduty" | "email" | "slack";
@@ -2359,20 +2360,18 @@ export default function SystemHealth() {
                 // has now gone silent could be failing to run moderation at all,
                 // letting flag-worthy posts stay live unnoticed. Stale pods carry
                 // no in-window failures (otherwise their lastAt would be recent),
-                // so they'd otherwise drop out of the breakdown entirely.
-                const staleThresholdMs = (mf.window.windowMs ?? 0) * 2;
+                // so they'd otherwise drop out of the breakdown entirely. The
+                // rule lives in @workspace/moderation-shared so this card and
+                // the on-call alerter (failure-alerter.ts) can never disagree
+                // about which pods are stale.
+                const staleThresholdMs = staleThresholdMsForWindow(
+                  mf.window.windowMs ?? 0,
+                );
                 const nowMs = health.serverTime
                   ? Date.parse(health.serverTime)
                   : Date.now();
-                const isPodStale = (p: { totalCount: number; lastAt: string | null }) => {
-                  if (!(staleThresholdMs > 0) || !Number.isFinite(nowMs)) return false;
-                  if (p.totalCount > 0 || !p.lastAt) return false;
-                  const last = Date.parse(p.lastAt);
-                  if (!Number.isFinite(last)) return false;
-                  return nowMs - last > staleThresholdMs;
-                };
                 const stalePods = reportingPods
-                  .filter((p) => isPodStale(p))
+                  .filter((p) => isPodStale(p, nowMs, staleThresholdMs))
                   .slice()
                   .sort(
                     (a, b) =>

@@ -5,4 +5,4 @@
 - [Blitz course-id validator](blitz-courseid-validator.md) — Mark-Complete breaks (silent 400) unless API isValidCourseId accepts the exact blitz-hub-step-v2-{id} the UI sends; lesson count duplicated frontend+backend, keep in lockstep.
 - [Supported affiliate networks](affiliate-networks-supported.md) — only Media Mavens & ClickBank; MaxWeb/Affiliati removed by design. Don't "fix" the lingering maxweb label in dead LessonLibrary.tsx.
 - [Monorepo typecheck stale cache](monorepo-typecheck-cache.md) — concurrent package typechecks corrupt the composite ref cache -> spurious "@workspace/db has no exported member"; rebuild libs with `tsc -b lib/db lib/api-zod lib/auth`, run typechecks sequentially.
-- [Moderation pod-silent threshold](moderation-pod-silent-threshold.md) — pod staleness (2× rolling window, totalCount===0) is duplicated in SystemHealth.tsx isPodStale + failure-alerter.ts isPodSilent; keep in lockstep.
+- [Moderation pod-silent threshold](moderation-pod-silent-threshold.md) — pod staleness (2× rolling window, totalCount===0) now single-source in lib/moderation-shared; both card + alerter import it. CI gate lives in api-server tests only.

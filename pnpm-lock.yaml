@@ -197,6 +197,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      '@workspace/moderation-shared':
+        specifier: workspace:*
+        version: link:../../lib/moderation-shared
       adm-zip:
         specifier: ^0.5.17
         version: 0.5.17
@@ -625,6 +628,9 @@ importers:
       '@workspace/auth':
         specifier: workspace:*
         version: link:../../lib/auth
+      '@workspace/moderation-shared':
+        specifier: workspace:*
+        version: link:../../lib/moderation-shared
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -848,6 +854,12 @@ importers:
       p-retry:
         specifier: ^7.1.1
         version: 7.1.1
+
+  lib/moderation-shared:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@25.3.5)(jsdom@25.0.1)(lightningcss@1.31.1)
 
   scripts:
     devDependencies:

@@ -17,6 +17,9 @@
       "path": "../../lib/auth"
     },
     {
+      "path": "../../lib/moderation-shared"
+    },
+    {
       "path": "../../lib/integrations-anthropic-ai"
     },
     {

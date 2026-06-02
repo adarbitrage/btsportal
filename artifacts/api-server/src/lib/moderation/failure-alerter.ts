@@ -46,6 +46,10 @@ import {
   getModerationFailureAlertConfig,
   MODERATION_FAILURE_ALERT_DEFAULTS,
 } from "./failure-alert-settings";
+import {
+  isPodStale,
+  staleThresholdMsForWindow,
+} from "@workspace/moderation-shared";
 
 type DeliveryChannel = "pagerduty" | "email" | "slack";
 type AlertKind = "fire" | "clear";
@@ -572,21 +576,18 @@ export function __resetModerationPodSilentAlerterForTests(): void {
 }
 
 /**
- * Mirror of the System Health card's staleness test: a pod is "silent" when
- * it has no in-window failures but its last report is older than 2× the
- * rolling window. Kept byte-for-byte equivalent to `isPodStale` in
- * `SystemHealth.tsx` so the page and the page-on-call never disagree.
+ * A pod is "silent" when it has no in-window failures but its last report is
+ * older than 2× the rolling window. The actual test is `isPodStale` in
+ * `@workspace/moderation-shared` — the single source of truth the System
+ * Health card (`SystemHealth.tsx`) also consumes — so the page and the
+ * page-on-call can never disagree about which pods are stale.
  */
 function isPodSilent(
   pod: ModerationFailurePodStats,
   nowMs: number,
   staleThresholdMs: number,
 ): boolean {
-  if (!(staleThresholdMs > 0) || !Number.isFinite(nowMs)) return false;
-  if (pod.totalCount > 0 || !pod.lastAt) return false;
-  const last = Date.parse(pod.lastAt);
-  if (!Number.isFinite(last)) return false;
-  return nowMs - last > staleThresholdMs;
+  return isPodStale(pod, nowMs, staleThresholdMs);
 }
 
 async function dispatchPodSilentAll(
@@ -653,7 +654,7 @@ export async function evaluateModerationPodSilentAlert(
     );
   }
   const windowMs = windowMinutes * 60 * 1000;
-  const staleThresholdMs = windowMs * 2;
+  const staleThresholdMs = staleThresholdMsForWindow(windowMs);
   const window = await getModerationFailuresInWindowAggregated(windowMs, now);
   const pods = window.pods;
   const presentIds = new Set(pods.map((p) => p.instanceId));
