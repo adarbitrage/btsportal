@@ -55,6 +55,10 @@ The project is structured as a pnpm workspace monorepo using Node.js 24 and Type
 -   **Outgoing Webhooks:** BullMQ-based system for custom events with HMAC-SHA256 signing and exponential backoff retries.
 -   **Member Account Page:** Allows members to manage profile details, change passwords (with session revocation), update their email address through a verification flow (current password required, confirmation link sent to the new address with a notification to the old one, all sessions revoked on confirmation), and set notification preferences.
 
+**Dev Database Sync (Testing):**
+-   Schema renames can make `drizzle-kit push` stop on an interactive prompt that hangs on non-TTY shells, silently blocking the admin-config vitest suites. `pnpm --filter @workspace/db sync-dev` (wrapper around the `lib/db/drizzle/*.sql` companion migrations + `drizzle-kit push --force`, see `lib/db/scripts/sync-dev-db.sh`) resolves this non-interactively and idempotently.
+-   This sync runs automatically before the api-server vitest suite via `artifacts/api-server/vitest.globalSetup.ts`, so a fresh/recovered dev DB picks up new companion migrations without a manual step. Set `SKIP_DEV_DB_SYNC=1` to opt out for fast local iteration; it is skipped when `DATABASE_URL` is unset. The merge path (`scripts/post-merge.sh`) applies the equivalent migrations inline.
+
 **Monorepo Structure:**
 -   `artifacts/`: Deployable applications (API server, portal).
 -   `lib/`: Shared libraries (OpenAPI spec, generated clients/schemas, Drizzle DB schema, AI integrations).

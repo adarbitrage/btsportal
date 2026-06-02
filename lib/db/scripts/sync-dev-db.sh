@@ -20,6 +20,14 @@
 #   DATABASE_URL=... bash lib/db/scripts/sync-dev-db.sh
 #   pnpm --filter @workspace/db sync-dev
 #
+# Wiring: this is invoked automatically before the api-server vitest suite
+# via artifacts/api-server/vitest.globalSetup.ts, so a fresh checkout (or a
+# CI run after a schema PR) brings the dev DB up to date on its own — no
+# manual `sync-dev` step. Set SKIP_DEV_DB_SYNC=1 to opt out for fast local
+# iteration. (The merge path in scripts/post-merge.sh applies the same
+# companion migrations + push-force inline, so merged checkouts are already
+# in sync before tests ever run.)
+#
 # Exit codes:
 #   0 - schema is in sync (push succeeded, or only failed on unrelated
 #       pre-existing data-integrity issues which we report and skip).
