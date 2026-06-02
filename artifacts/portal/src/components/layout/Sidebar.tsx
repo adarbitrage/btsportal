@@ -339,7 +339,7 @@ const ADMIN_NAV_FOLDER: NavFolder = {
   children: ADMIN_CHILDREN,
 };
 
-const COACH_NAV_NODES: NavNode[] = [
+export const COACH_NAV_NODES: NavNode[] = [
   {
     kind: "leaf",
     href: "/coach/dashboard",
@@ -347,6 +347,15 @@ const COACH_NAV_NODES: NavNode[] = [
     icon: Users2,
   },
 ];
+
+export function shouldShowCoachSection(
+  authRole: string | undefined | null,
+  memberRole: string | undefined | null,
+): boolean {
+  const { userRole, isAdminUser } = resolveAdminRole(authRole, memberRole);
+  const isCoach = authRole === "coach" || memberRole === "coach";
+  return isCoach || (isAdminUser && hasPermission(userRole, "coaching:view"));
+}
 
 const LS_PREFIX = "sidebar-folder-";
 
@@ -542,9 +551,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const { userRole, isAdminUser } = resolveAdminRole(user?.role, member?.role);
 
-  const memberRole = member?.role as string | undefined;
-  const isCoach = user?.role === "coach" || memberRole === "coach";
-  const showCoachSection = isCoach || (isAdminUser && hasPermission(userRole, "coaching:view"));
+  const showCoachSection = shouldShowCoachSection(user?.role, member?.role);
 
   const highestSlug: string = member?.sourceProduct ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
