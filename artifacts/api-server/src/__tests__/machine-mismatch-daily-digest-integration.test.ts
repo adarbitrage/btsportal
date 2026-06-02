@@ -10,6 +10,7 @@ import {
   userProductsTable,
   webhookLogsTable,
   auditLogTable,
+  systemSettingsTable,
 } from "@workspace/db";
 import { and, eq, gte, inArray } from "drizzle-orm";
 
@@ -78,6 +79,15 @@ async function insertUser(role: string, suffix: string): Promise<number> {
 
 beforeAll(async () => {
   app = buildTestAppWithRouters([adminPanelRouter]);
+
+  // Deterministic baseline for the recipient-resolution branches: clear any
+  // DB-backed ops email so getOnCallDestinations falls back to env. Without
+  // this, a leaked oncall.ops_alert_email row in the shared test DB would win
+  // over env and silently stop the skipped_no_recipient case from exercising
+  // its intended branch.
+  await db
+    .delete(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "oncall.ops_alert_email"));
 
   const adminId = await insertUser("super_admin", "admin");
   adminCookie = signCookie(adminId, `${TEST_TAG}-admin@example.test`);
@@ -376,5 +386,115 @@ describe("runMachineMismatchDigest — integration against the real schema", () 
     expect(meta.outcome).toBe("sent");
     expect(meta.flaggedCount).toBe(result.flagged.length);
     expect(meta.recipient).toBe(`${TEST_TAG}-ops@example.test`);
+  });
+
+  it("suppresses the email but still records outcome=skipped_no_recipient when no ops recipient is configured", async () => {
+    // No DB row and no env var → getOnCallDestinations resolves opsAlertEmail to
+    // null, so the digest must skip the send while still writing its audit trail.
+    delete process.env.OPS_ALERT_EMAIL;
+    __resetMachineMismatchDigestStateForTests();
+
+    const sent: Array<{ to: string }> = [];
+    // A sender is wired up on purpose: the no-recipient branch returns before any
+    // send, so this stub must never be invoked.
+    __setMachineMismatchDigestSenderForTests(async (msg) => {
+      sent.push({ to: msg.to });
+    });
+
+    const startedAt = new Date();
+    const result = await runMachineMismatchDigest();
+
+    expect(result.outcome).toBe("skipped_no_recipient");
+    expect(result.recipient).toBeNull();
+    expect(sent.length).toBe(0);
+
+    // The same in-window mismatches were still detected — only the delivery was
+    // suppressed because there was nobody to send to.
+    const flaggedTagged = result.flagged
+      .map((o) => o.externalOrderId)
+      .filter((id) => id.startsWith(TEST_TAG))
+      .sort();
+    expect(flaggedTagged).toEqual(
+      [UNDER_GRANT_ORDER_ID, OVER_GRANT_ORDER_ID].sort(),
+    );
+
+    // A real audit row records the skip so admins can see the job fired.
+    const auditRows = await db
+      .select({
+        actionType: auditLogTable.actionType,
+        entityType: auditLogTable.entityType,
+        entityId: auditLogTable.entityId,
+        metadata: auditLogTable.metadata,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, MACHINE_MISMATCH_DIGEST_ACTION_TYPE),
+          gte(auditLogTable.createdAt, startedAt),
+        ),
+      );
+    expect(auditRows.length).toBe(1);
+    expect(auditRows[0].entityType).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_TYPE);
+    expect(auditRows[0].entityId).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_ID);
+    const meta = auditRows[0].metadata as Record<string, unknown>;
+    expect(meta.outcome).toBe("skipped_no_recipient");
+    expect(meta.recipient).toBeNull();
+    expect(meta.flaggedCount).toBe(result.flagged.length);
+  });
+
+  it("records outcome=skipped_sendgrid_not_configured when a recipient is set but SendGrid is not configured", async () => {
+    process.env.OPS_ALERT_EMAIL = `${TEST_TAG}-ops@example.test`;
+    // Drop the real sender override so the digest falls through to the SendGrid
+    // check, and ensure no API key (and no env sender override) is present.
+    __setMachineMismatchDigestSenderForTests(null);
+    __resetMachineMismatchDigestStateForTests();
+
+    const originalSendgridKey = process.env.SENDGRID_API_KEY;
+    delete process.env.SENDGRID_API_KEY;
+
+    const startedAt = new Date();
+    let result: Awaited<ReturnType<typeof runMachineMismatchDigest>>;
+    try {
+      result = await runMachineMismatchDigest();
+    } finally {
+      if (originalSendgridKey !== undefined) {
+        process.env.SENDGRID_API_KEY = originalSendgridKey;
+      }
+    }
+
+    expect(result.outcome).toBe("skipped_sendgrid_not_configured");
+    // The recipient was resolved (so this is distinct from the no-recipient
+    // skip) — the digest just had no transport to deliver through.
+    expect(result.recipient).toBe(`${TEST_TAG}-ops@example.test`);
+
+    const flaggedTagged = result.flagged
+      .map((o) => o.externalOrderId)
+      .filter((id) => id.startsWith(TEST_TAG))
+      .sort();
+    expect(flaggedTagged).toEqual(
+      [UNDER_GRANT_ORDER_ID, OVER_GRANT_ORDER_ID].sort(),
+    );
+
+    const auditRows = await db
+      .select({
+        actionType: auditLogTable.actionType,
+        entityType: auditLogTable.entityType,
+        entityId: auditLogTable.entityId,
+        metadata: auditLogTable.metadata,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, MACHINE_MISMATCH_DIGEST_ACTION_TYPE),
+          gte(auditLogTable.createdAt, startedAt),
+        ),
+      );
+    expect(auditRows.length).toBe(1);
+    expect(auditRows[0].entityType).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_TYPE);
+    expect(auditRows[0].entityId).toBe(MACHINE_MISMATCH_DIGEST_ENTITY_ID);
+    const meta = auditRows[0].metadata as Record<string, unknown>;
+    expect(meta.outcome).toBe("skipped_sendgrid_not_configured");
+    expect(meta.recipient).toBe(`${TEST_TAG}-ops@example.test`);
+    expect(meta.flaggedCount).toBe(result.flagged.length);
   });
 });
