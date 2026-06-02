@@ -938,7 +938,7 @@ export const blitzBodyHTML = `<div class="version-banner">
 
   <p>Before writing a single headline or choosing a single image, you need to understand the psychology behind what makes someone click an ad and then stay engaged long enough to buy. This is the foundation everything else is built on.</p>
 
-  <div class="video-slot" data-vidalytics-id="7nwbAaCdt87p7eLn"><div class="play-icon"></div><div><div class="vt">Finding Your Edge With Ad Banner Psychology</div><div class="vd">Watch this first — it shapes how you approach everything that follows</div></div></div>
+  <div class="video-slot" data-vidalytics-id="HfBppeKNhC8Xx7nS" data-status="ready"><div class="play-icon"></div><div><div class="vt">Finding Your Edge With Ad Banner Psychology</div><div class="vd">Watch this first — it shapes how you approach everything that follows</div></div></div>
 
   <div class="why-box">
     <div class="why-label">💡 The Affiliate Funnel Is a Three-Part Story</div>
