@@ -1413,6 +1413,27 @@ export interface ManualBanRecord {
   createdAt: string;
 }
 
+export interface BanHistoryEntry {
+  id: number;
+  actionType: "ban_posting" | "unban_posting" | "auto_ban_posting";
+  actorId: number | null;
+  actorEmail: string | null;
+  description: string | null;
+  metadata: {
+    userId?: number;
+    bannedAt?: string;
+    strikesCleared?: boolean;
+    previousBannedAt?: string | null;
+    reviewerId?: number | null;
+    triggeringQueueId?: number;
+    triggeringStrikeId?: number;
+    strikeCount?: number;
+    targetType?: string;
+    targetId?: number;
+  } | null;
+  createdAt: string;
+}
+
 export interface UserStrikesDetail {
   user: {
     id: number;
@@ -1425,6 +1446,7 @@ export interface UserStrikesDetail {
   strikeCount: number;
   autoBan: AutoBanRecord | null;
   manualBan: ManualBanRecord | null;
+  banHistory: BanHistoryEntry[];
 }
 
 export function useAdminStrikesList() {

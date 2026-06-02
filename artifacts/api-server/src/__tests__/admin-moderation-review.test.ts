@@ -439,6 +439,51 @@ describe("Admin moderation queue review actions", () => {
       expect(strikesRes.body.manualBan.actionType).toBe("unban_posting");
       expect(strikesRes.body.manualBan.metadata.strikesCleared).toBe(true);
     });
+
+    it("returns the full chronological ban/unban history (not just the latest) in banHistory", async () => {
+      // Drive a real ban -> unban -> re-ban cycle through the endpoints so
+      // three audit rows accumulate for the same member.
+      await request(app)
+        .post(`/api/admin/strikes/users/${author.id}/ban`)
+        .set("Cookie", admin.cookie)
+        .expect(200);
+      await request(app)
+        .post(`/api/admin/strikes/users/${author.id}/unban`)
+        .set("Cookie", admin.cookie)
+        .expect(200);
+      await request(app)
+        .post(`/api/admin/strikes/users/${author.id}/ban`)
+        .set("Cookie", admin.cookie)
+        .expect(200);
+
+      const strikesRes = await request(app)
+        .get(`/api/admin/strikes/users/${author.id}`)
+        .set("Cookie", admin.cookie);
+      expect(strikesRes.status).toBe(200);
+
+      const history = strikesRes.body.banHistory;
+      expect(Array.isArray(history)).toBe(true);
+      // All three events surface, not just the most recent of each kind.
+      const cycle = history.filter((h: { actionType: string }) =>
+        ["ban_posting", "unban_posting"].includes(h.actionType),
+      );
+      expect(cycle.length).toBe(3);
+      expect(cycle.map((h: { actionType: string }) => h.actionType)).toEqual([
+        "ban_posting",
+        "unban_posting",
+        "ban_posting",
+      ]);
+      // Newest-first ordering: each entry is at or after the next one.
+      for (let i = 0; i < history.length - 1; i++) {
+        expect(
+          new Date(history[i].createdAt).getTime(),
+        ).toBeGreaterThanOrEqual(new Date(history[i + 1].createdAt).getTime());
+      }
+      // Every entry records the acting admin.
+      for (const entry of cycle) {
+        expect(entry.actorId).toBe(admin.id);
+      }
+    });
   });
 
   describe("RBAC: non-admin members get 403 on every moderation review endpoint", () => {

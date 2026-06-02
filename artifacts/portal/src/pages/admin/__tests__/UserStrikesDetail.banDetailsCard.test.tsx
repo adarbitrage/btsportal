@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { UserStrikesDetail as UserStrikesDetailData } from "@/lib/admin-api";
 
@@ -41,6 +41,8 @@ function baseData(
     strikes: [],
     strikeCount: 3,
     autoBan: null,
+    manualBan: null,
+    banHistory: [],
     ...overrides,
   };
 }
@@ -119,5 +121,63 @@ describe("UserStrikesDetail — Ban Details card", () => {
 
     expect(screen.queryByText("Ban Details")).not.toBeInTheDocument();
     expect(screen.queryByText("Banned by admin")).not.toBeInTheDocument();
+  });
+
+  it("renders the full ban/unban history with the most recent event as current reason", () => {
+    useAdminUserStrikes.mockReturnValue({
+      data: baseData({
+        banHistory: [
+          {
+            id: 3,
+            actionType: "ban_posting",
+            actorId: 9,
+            actorEmail: "current-admin@example.com",
+            description: null,
+            metadata: { userId: 42 },
+            createdAt: new Date(2026, 2, 1, 12, 0, 0).toISOString(),
+          },
+          {
+            id: 2,
+            actionType: "unban_posting",
+            actorId: 8,
+            actorEmail: "lenient-admin@example.com",
+            description: null,
+            metadata: { userId: 42, strikesCleared: true },
+            createdAt: new Date(2026, 1, 1, 12, 0, 0).toISOString(),
+          },
+          {
+            id: 1,
+            actionType: "auto_ban_posting",
+            actorId: 5,
+            actorEmail: "reviewer@example.com",
+            description: null,
+            metadata: {
+              userId: 42,
+              triggeringQueueId: 884,
+              triggeringStrikeId: 991,
+              strikeCount: 3,
+            },
+            createdAt: new Date(2026, 0, 10, 9, 30, 0).toISOString(),
+          },
+        ],
+      }),
+      isLoading: false,
+      error: null,
+    });
+
+    render(<UserStrikesDetail />);
+
+    expect(screen.getByText("Ban Details")).toBeInTheDocument();
+    expect(screen.getByText("3 events")).toBeInTheDocument();
+    // Most recent event is shown and flagged as the current reason.
+    expect(screen.getByText("Current reason")).toBeInTheDocument();
+    expect(screen.getByText("current-admin@example.com")).toBeInTheDocument();
+
+    // Earlier events live behind a collapsible — expand it to reveal them.
+    fireEvent.click(screen.getByText(/Show earlier history/i));
+
+    expect(screen.getByText("lenient-admin@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Strikes cleared")).toBeInTheDocument();
+    expect(screen.getByText("reviewer@example.com")).toBeInTheDocument();
   });
 });

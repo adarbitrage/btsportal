@@ -132,6 +132,32 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       .orderBy(desc(auditLogTable.createdAt))
       .limit(1);
 
+    // A member can be banned, unbanned and re-banned multiple times. The
+    // single-latest autoBan/manualBan rows above only explain the *current*
+    // state — for investigating repeat offenders admins need the full
+    // chronological timeline of every ban/unban event. Return all
+    // ban_posting / unban_posting / auto_ban_posting audit rows ordered
+    // newest-first as `banHistory`.
+    const banHistory = await db
+      .select({
+        id: auditLogTable.id,
+        actionType: auditLogTable.actionType,
+        actorId: auditLogTable.actorId,
+        actorEmail: auditLogTable.actorEmail,
+        description: auditLogTable.description,
+        metadata: auditLogTable.metadata,
+        createdAt: auditLogTable.createdAt,
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          sql`${auditLogTable.actionType} in ('ban_posting', 'unban_posting', 'auto_ban_posting')`,
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(userId)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt));
+
     res.json({
       user: {
         id: user.id,
@@ -144,6 +170,7 @@ router.get("/users/:userId", requirePermission("community:moderate"), async (req
       strikeCount: strikes.length,
       autoBan: autoBan ?? null,
       manualBan: manualBan ?? null,
+      banHistory,
     });
   } catch (err) {
     console.error("[Admin/Strikes] Get user strikes error:", err);
