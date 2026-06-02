@@ -16,6 +16,31 @@ import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 
+// Guard the storage shape of `vault_resources.tags`. The column is pinned to
+// a JSONB array by the `vault_resources_tags_is_array` CHECK constraint
+// (see lib/db/drizzle/0027_vault_resources_tags_array_check.sql). Without
+// this guard a client could POST/PATCH `tags: "facebook"` (a bare string) or
+// any other non-array value, which Drizzle's jsonb mapper would try to store
+// as a string scalar — the exact shape that bug #329 left in the seeded
+// rows. The DB would now reject it with SQLSTATE 23514, but as an opaque 500.
+// Normalize here so callers get a clean 400 and a bad row can never come back.
+function normalizeTags(
+  value: unknown,
+): { ok: true; value: string[] } | { ok: false; error: string } {
+  if (value === undefined || value === null) return { ok: true, value: [] };
+  if (!Array.isArray(value)) {
+    return { ok: false, error: "tags must be an array of strings" };
+  }
+  const cleaned: string[] = [];
+  for (const t of value) {
+    if (typeof t !== "string") {
+      return { ok: false, error: "tags must be an array of strings" };
+    }
+    cleaned.push(t);
+  }
+  return { ok: true, value: cleaned };
+}
+
 router.get("/admin/vault/collections", requirePermission("vault:view"), async (_req: Request, res: Response) => {
   try {
     const collections = await db
@@ -222,6 +247,9 @@ router.post("/admin/vault/resources", requirePermission("vault:manage"), async (
 
     if (!title) { res.status(400).json({ error: "title is required" }); return; }
 
+    const normalizedTags = normalizeTags(tags);
+    if (!normalizedTags.ok) { res.status(400).json({ error: normalizedTags.error }); return; }
+
     const [resource] = await db.insert(vaultResourcesTable).values({
       title,
       description: description || null,
@@ -236,7 +264,7 @@ router.post("/admin/vault/resources", requirePermission("vault:manage"), async (
       contentHtml: contentHtml || null,
       externalUrl: externalUrl || null,
       videoUrl: videoUrl || null,
-      tags: tags || [],
+      tags: normalizedTags.value,
       requiredEntitlement: requiredEntitlement || "content:frontend",
       isFeatured: isFeatured || false,
       isPinned: isPinned || false,
@@ -263,12 +291,21 @@ router.patch("/admin/vault/resources/:id", requirePermission("vault:manage"), as
     const fields = [
       "title", "description", "longDescription", "resourceType", "collectionId",
       "fileUrl", "fileName", "fileSize", "fileType", "previewImageUrl",
-      "contentHtml", "externalUrl", "videoUrl", "tags",
+      "contentHtml", "externalUrl", "videoUrl",
       "requiredEntitlement", "isFeatured", "isPinned", "isNew", "status",
       "version", "updateNote", "sortOrder",
     ];
     for (const f of fields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
+    }
+
+    // `tags` is handled separately so a non-array value is rejected with a
+    // clean 400 instead of hitting the DB's vault_resources_tags_is_array
+    // CHECK constraint as an opaque 500.
+    if (req.body.tags !== undefined) {
+      const normalizedTags = normalizeTags(req.body.tags);
+      if (!normalizedTags.ok) { res.status(400).json({ error: normalizedTags.error }); return; }
+      updates.tags = normalizedTags.value;
     }
 
     const [updated] = await db.update(vaultResourcesTable).set(updates).where(eq(vaultResourcesTable.id, id)).returning();

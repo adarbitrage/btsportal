@@ -135,3 +135,48 @@ redeploy is expected to make `pnpm --filter db push` a clean no-op.
 This step must be performed by an operator (task agents cannot publish)
 — once the next production deploy completes, append the actual `db
 push` output here as the final piece of evidence.
+
+## Dev DB — 2026-06-02 (legacy-row cleanup + API write-path guard)
+
+The `sync-dev` script (`lib/db/scripts/sync-dev-db.sh`) tolerates a
+`vault_resources_tags_is_array is violated by some row` failure so the
+admin-config vitest suites stay unblocked. This task confirmed the
+underlying data state and closed the write path that could reintroduce
+the bad shape.
+
+### Offending-row state
+
+```sql
+SELECT jsonb_typeof(tags) AS shape, count(*)
+FROM vault_resources
+GROUP BY jsonb_typeof(tags);
+-- shape | count
+-- array |    25
+
+SELECT count(*) AS bad_rows
+FROM vault_resources
+WHERE tags IS NOT NULL AND jsonb_typeof(tags) <> 'array';
+-- bad_rows | 0
+```
+
+No string-scalar (or other non-array) rows remain on the dev DB, the
+`vault_resources_tags_is_array` CHECK constraint is attached, and
+`pnpm --filter @workspace/db push-force` completes cleanly ("Changes
+applied", no constraint-violation abort). The repair UPDATE in this
+file is idempotent, so re-running it stays a no-op.
+
+### Write-path guard (so the bad row can't come back)
+
+`artifacts/api-server/src/routes/admin-vault.ts` previously wrote
+`tags` straight from the request body (POST `tags: tags || []`, PATCH
+`updates[f] = req.body[f]`). A client sending `tags: "facebook"` (a
+bare string) or any non-array value would attempt to store a JSONB
+string scalar — the exact shape this constraint guards — and get an
+opaque 500 from the DB. A `normalizeTags()` helper now validates the
+value on both routes: non-array input (and arrays with non-string
+elements) are rejected with a clean 400, and missing tags default to
+`[]`. Pinned by
+`artifacts/api-server/src/__tests__/admin-vault-tags-guard.test.ts`
+(6 tests: POST/PATCH reject + happy-path + default), alongside the
+existing DB-level regression
+`vault-resources-tags-array-check.test.ts` (8 tests). All 14 pass.
