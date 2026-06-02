@@ -27,8 +27,10 @@ vi.mock("@/hooks/useAdminModeration", () => ({
 import AiFlagged from "@/pages/admin/moderation/ai-flagged";
 
 function baseSummary(overrides: Partial<AiFlaggedSummary> = {}): AiFlaggedSummary {
-  return {
+  const base: AiFlaggedSummary = {
     sampleWindowDays: 30,
+    from: null,
+    to: null,
     sampleSize: 5,
     currentThreshold: 0.7,
     // Ascending max scores: 4 of 5 are above the current 0.70 threshold.
@@ -65,8 +67,8 @@ function baseSummary(overrides: Partial<AiFlaggedSummary> = {}): AiFlaggedSummar
         approveRate: 0,
       },
     ],
-    ...overrides,
   };
+  return { ...base, ...overrides };
 }
 
 beforeEach(() => {
@@ -173,5 +175,97 @@ describe("AiFlagged — Threshold tuning summary card", () => {
     expect(
       screen.queryByTestId("ai-flagged-whatif-result"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("AiFlagged — date-aware threshold summary", () => {
+  it("reads 'Last 30 days' in the header when no range is applied", () => {
+    useAdminAiFlaggedSummary.mockReturnValue({
+      data: baseSummary({ from: null, to: null }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<AiFlagged />);
+
+    const range = screen.getByTestId("ai-flagged-summary-range");
+    expect(range).toHaveTextContent("Last 30 days");
+    expect(range).toHaveTextContent("5 AI-flagged items");
+  });
+
+  it("switches the header to the applied From/To range and recomputes the what-if counts", () => {
+    // Smart mock: echo the applied from/to into the summary (like the backend
+    // does) and return a narrower sample for any explicit range. This proves
+    // the card tracks the filters the admin applies rather than a fixed window.
+    useAdminAiFlaggedSummary.mockImplementation(
+      (filters?: { from?: string; to?: string }) => {
+        const hasRange = Boolean(filters?.from || filters?.to);
+        return {
+          data: hasRange
+            ? baseSummary({
+                from: filters?.from ?? null,
+                to: filters?.to ?? null,
+                sampleSize: 2,
+                // 1 of 2 above the current 0.70 threshold.
+                maxScores: [0.6, 0.95],
+                buckets: [
+                  {
+                    min: 0.5,
+                    max: 0.7,
+                    label: "0.50–0.70",
+                    total: 1,
+                    approved: 1,
+                    rejected: 0,
+                    pending: 0,
+                    approveRate: 1,
+                  },
+                  {
+                    min: 0.85,
+                    max: 1,
+                    label: "0.85–1.00",
+                    total: 1,
+                    approved: 0,
+                    rejected: 1,
+                    pending: 0,
+                    approveRate: 0,
+                  },
+                ],
+              })
+            : baseSummary({ from: null, to: null }),
+          isLoading: false,
+          isError: false,
+        };
+      },
+    );
+
+    render(<AiFlagged />);
+
+    // Default window: "Last 30 days" header, 4 of 5 trigger at the 0.70 seed.
+    const rangeBefore = screen.getByTestId("ai-flagged-summary-range");
+    expect(rangeBefore).toHaveTextContent("Last 30 days");
+    expect(screen.getByTestId("ai-flagged-whatif-result")).toHaveTextContent(
+      "4 of the last 5",
+    );
+
+    // Apply an explicit From/To window via the filter form.
+    fireEvent.change(screen.getByLabelText("From"), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "2026-03-31" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    // Header now reflects the selected range (formatted dates, not the default
+    // "Last 30 days"); assert on year + range separator to stay TZ-agnostic.
+    const rangeAfter = screen.getByTestId("ai-flagged-summary-range");
+    expect(rangeAfter).not.toHaveTextContent("Last 30 days");
+    expect(rangeAfter).toHaveTextContent(/2026.*–.*2026/);
+    expect(rangeAfter).toHaveTextContent("2 AI-flagged items");
+
+    // What-if "would still trigger" count recomputes for the narrower sample.
+    expect(screen.getByTestId("ai-flagged-whatif-result")).toHaveTextContent(
+      "1 of the last 2",
+    );
   });
 });
