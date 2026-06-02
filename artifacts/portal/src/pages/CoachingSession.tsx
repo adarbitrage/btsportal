@@ -29,7 +29,7 @@ const packages = [
 
 const coaches = [
   { name: "Sasha", initials: "SB" },
-  { name: "Robin Shepard", initials: "RS" },
+  { name: "Robin", initials: "RS" },
   { name: "Todd", initials: "TR" },
   { name: "Bruce", initials: "BC" },
   { name: "Michael", initials: "MW" },

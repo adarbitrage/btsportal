@@ -58,8 +58,8 @@ KEY TOOLS:
 - Media Mavens: BTS proprietary affiliate network (100% commission)
 
 COACHING TEAM:
-- Sasha Bobylev, Bruce Clark, Michael Wissbaum, Todd Rupp (live coaching calls)
-- Robin Shepard (1:1 sessions)
+- Sasha, Bruce, Michael, Todd (live coaching calls)
+- Robin (1:1 sessions)
 
 CONCIERGE TEAM:
 - John Dela Cruz, Neil Warren, Mikha Bechayda
