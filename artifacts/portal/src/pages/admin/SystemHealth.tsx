@@ -2220,6 +2220,33 @@ export default function SystemHealth() {
                   .filter((p) => p.totalCount > 0)
                   .slice()
                   .sort((a, b) => b.totalCount - a.totalCount);
+                // A pod is "stale" once its most recent report is older than
+                // twice the rolling window: a pod that previously reported but
+                // has now gone silent could be failing to run moderation at all,
+                // letting flag-worthy posts stay live unnoticed. Stale pods carry
+                // no in-window failures (otherwise their lastAt would be recent),
+                // so they'd otherwise drop out of the breakdown entirely.
+                const staleThresholdMs = (mf.window.windowMs ?? 0) * 2;
+                const nowMs = health.serverTime
+                  ? Date.parse(health.serverTime)
+                  : Date.now();
+                const isPodStale = (p: { totalCount: number; lastAt: string | null }) => {
+                  if (!(staleThresholdMs > 0) || !Number.isFinite(nowMs)) return false;
+                  if (p.totalCount > 0 || !p.lastAt) return false;
+                  const last = Date.parse(p.lastAt);
+                  if (!Number.isFinite(last)) return false;
+                  return nowMs - last > staleThresholdMs;
+                };
+                const stalePods = reportingPods
+                  .filter((p) => isPodStale(p))
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      Date.parse(a.lastAt ?? "") - Date.parse(b.lastAt ?? ""),
+                  );
+                const staleInstanceIds = new Set(stalePods.map((p) => p.instanceId));
+                const displayedPods = [...podsWithFailures, ...stalePods];
+                const staleMinutes = Math.max(1, Math.round(staleThresholdMs / 60000));
                 const source = mf.window.source ?? "memory";
                 return (
                   <Card data-testid="card-moderation-failures">
@@ -2334,11 +2361,22 @@ export default function SystemHealth() {
                             </span>
                           </div>
                         </div>
-                        {podsWithFailures.length > 0 && (
+                        {displayedPods.length > 0 && (
                           <div className="pt-2 border-t">
                             <p className="text-[11px] uppercase text-muted-foreground mb-1">
                               Per-pod breakdown (last {minutes}m)
                             </p>
+                            {stalePods.length > 0 && (
+                              <p
+                                className="text-[11px] text-muted-foreground mb-2"
+                                data-testid="moderation-failures-stale-help"
+                              >
+                                <span className="font-medium text-amber-600">stale</span>{" "}
+                                = no report in over {staleMinutes}m (2× the window). A pod
+                                that has gone silent may have stopped running moderation
+                                entirely, leaving flag-worthy posts live.
+                              </p>
+                            )}
                             <div
                               className="space-y-1"
                               data-testid="moderation-failures-pods"
@@ -2349,15 +2387,28 @@ export default function SystemHealth() {
                                 <span className="text-right">persist</span>
                                 <span className="text-right">last</span>
                               </div>
-                              {podsWithFailures.map((pod) => (
+                              {displayedPods.map((pod) => {
+                                const stale = staleInstanceIds.has(pod.instanceId);
+                                return (
                                 <div
                                   key={pod.instanceId}
                                   className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 text-xs items-baseline"
                                   data-testid={`moderation-failures-pod-${pod.instanceId}`}
+                                  data-stale={stale ? "true" : "false"}
                                   title={pod.instanceId}
                                 >
-                                  <span className="text-muted-foreground truncate font-mono">
+                                  <span className="text-muted-foreground truncate font-mono flex items-center gap-1">
                                     {pod.instanceId}
+                                    {stale && (
+                                      <Badge
+                                        variant="warning"
+                                        className="font-normal text-[9px] px-1 py-0 leading-tight"
+                                        data-testid={`moderation-failures-pod-stale-${pod.instanceId}`}
+                                        title={`No report in over ${staleMinutes}m (2× the ${minutes}m window) — this pod may have stopped running moderation.`}
+                                      >
+                                        stale
+                                      </Badge>
+                                    )}
                                   </span>
                                   <span className="font-medium text-right">
                                     {pod.byKind?.engine ?? 0}
@@ -2367,13 +2418,16 @@ export default function SystemHealth() {
                                   >
                                     {pod.byKind?.persist ?? 0}
                                   </span>
-                                  <span className="text-muted-foreground text-right">
+                                  <span
+                                    className={`text-right ${stale ? "text-amber-600" : "text-muted-foreground"}`}
+                                  >
                                     {pod.lastAt
                                       ? new Date(pod.lastAt).toLocaleTimeString()
                                       : "—"}
                                   </span>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

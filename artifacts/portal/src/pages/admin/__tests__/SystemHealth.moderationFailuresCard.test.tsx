@@ -285,6 +285,108 @@ describe("SystemHealth — Background moderation failures per-pod breakdown", ()
     expect(rows[1]).toBe(podAlpha);
   });
 
+  it("surfaces a pod whose last report is older than 2x the window with a stale indicator", async () => {
+    const recentlyReporting: PodFixture = {
+      instanceId: "pod-fresh",
+      totalCount: 0,
+      byKind: { engine: 0, persist: 0 },
+      // Reported a minute ago — quiet but healthy, must NOT be flagged stale
+      // and must NOT show in the breakdown (no in-window failures).
+      lastAt: new Date(Date.now() - 60_000).toISOString(),
+    };
+    const droppedOut: PodFixture = {
+      instanceId: "pod-ghost",
+      totalCount: 0,
+      byKind: { engine: 0, persist: 0 },
+      // Last reported well over a year ago — far past 2x the 15m window.
+      lastAt: "2025-01-01T00:00:00.000Z",
+    };
+    const failing: PodFixture = {
+      instanceId: "pod-busy",
+      totalCount: 4,
+      byKind: { engine: 1, persist: 3 },
+      lastAt: new Date(Date.now() - 30_000).toISOString(),
+    };
+
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        alerting: false,
+        windowTotal: 4,
+        engine: 1,
+        persist: 3,
+        source: "redis",
+        pods: [recentlyReporting, droppedOut, failing],
+      }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-moderation-failures");
+    const podsContainer = within(card).getByTestId("moderation-failures-pods");
+
+    // The stale pod is surfaced even with zero in-window failures...
+    const ghostRow = within(podsContainer).getByTestId(
+      "moderation-failures-pod-pod-ghost",
+    );
+    expect(ghostRow).toHaveAttribute("data-stale", "true");
+    expect(
+      within(ghostRow).getByTestId(
+        "moderation-failures-pod-stale-pod-ghost",
+      ),
+    ).toHaveTextContent(/stale/i);
+
+    // ...the busy pod is shown but not stale...
+    const busyRow = within(podsContainer).getByTestId(
+      "moderation-failures-pod-pod-busy",
+    );
+    expect(busyRow).toHaveAttribute("data-stale", "false");
+    expect(
+      within(busyRow).queryByTestId(
+        "moderation-failures-pod-stale-pod-busy",
+      ),
+    ).not.toBeInTheDocument();
+
+    // ...and the recently-reporting, zero-failure pod is omitted entirely.
+    expect(
+      within(podsContainer).queryByTestId(
+        "moderation-failures-pod-pod-fresh",
+      ),
+    ).not.toBeInTheDocument();
+
+    // Help text explaining what "stale" means is present.
+    expect(
+      within(card).getByTestId("moderation-failures-stale-help"),
+    ).toHaveTextContent(/no report/i);
+  });
+
+  it("does not render stale help text when no pod is stale", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        alerting: false,
+        windowTotal: 2,
+        engine: 1,
+        persist: 1,
+        source: "redis",
+        pods: [
+          {
+            instanceId: "pod-only",
+            totalCount: 2,
+            byKind: { engine: 1, persist: 1 },
+            lastAt: new Date(Date.now() - 30_000).toISOString(),
+          },
+        ],
+      }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-moderation-failures");
+    await within(card).findByTestId("moderation-failures-pods");
+    expect(
+      within(card).queryByTestId("moderation-failures-stale-help"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders the in-memory-only badge when source is memory", async () => {
     getSystemHealth.mockResolvedValue(
       buildHealth({
