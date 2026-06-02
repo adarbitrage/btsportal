@@ -591,6 +591,73 @@ export const GetLessonResponse = zod.object({
 });
 
 /**
+ * @summary Record a Blitz view, completed, or uncompleted event
+ */
+export const postBlitzEventBodyVideoPositionSecondsMin = 0;
+
+export const postBlitzEventBodyScrollPositionPctMin = 0;
+export const postBlitzEventBodyScrollPositionPctMax = 100;
+
+export const PostBlitzEventBody = zod.object({
+  courseId: zod.string().describe("blitz-hub-step-v2-{1..23}"),
+  eventType: zod.enum(["viewed", "completed", "uncompleted"]),
+  videoPositionSeconds: zod
+    .number()
+    .min(postBlitzEventBodyVideoPositionSecondsMin)
+    .nullish(),
+  scrollPositionPct: zod
+    .number()
+    .min(postBlitzEventBodyScrollPositionPctMin)
+    .max(postBlitzEventBodyScrollPositionPctMax)
+    .nullish(),
+});
+
+/**
+ * @summary Return the section the user should resume next
+ */
+export const GetBlitzContinueResponse = zod.object({
+  status: zod.enum(["new", "in_progress", "returning", "complete"]),
+  sectionId: zod.number().nullable(),
+  courseId: zod.string().nullable(),
+  savedPositionSeconds: zod.number().nullable(),
+});
+
+/**
+ * @summary Return streak data and 84-day activity heatmap
+ */
+export const GetBlitzStreakResponse = zod.object({
+  dailyStreak: zod.number(),
+  longestDailyStreak: zod.number(),
+  weeksActiveLast4: zod.number(),
+  weeksActiveLast12: zod.number(),
+  heatmap: zod.array(
+    zod.object({
+      date: zod.date(),
+      count: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Return per-phase completion and locked/unlocked state
+ */
+export const GetBlitzPhaseStatusResponse = zod.object({
+  phases: zod.array(
+    zod.object({
+      slug: zod.string(),
+      name: zod.string(),
+      sortOrder: zod.number(),
+      color: zod.string(),
+      totalLessons: zod.number(),
+      completedLessons: zod.number(),
+      completionPct: zod.number(),
+      unlocked: zod.boolean(),
+    }),
+  ),
+  adminOverride: zod.boolean(),
+});
+
+/**
  * @summary List all progress entries for the current user
  */
 export const ListProgressResponseItem = zod.object({

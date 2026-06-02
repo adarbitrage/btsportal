@@ -108,6 +108,10 @@ import type {
   AppInstance,
   AuthUser,
   BadRequestResponse,
+  BlitzContinue,
+  BlitzEventInput,
+  BlitzPhaseStatus,
+  BlitzStreak,
   BookSessionRequest,
   CancelEmailChangeResponse,
   CancelSessionRequest,
@@ -223,6 +227,7 @@ import type {
   PatchOnboardingStepBody,
   PatchOnboardingStepResponse,
   Plan,
+  PostBlitzEvent201,
   ProductInfo,
   ProductMapping,
   Progress,
@@ -2138,6 +2143,317 @@ export function useGetLesson<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetLessonQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Record a Blitz view, completed, or uncompleted event
+ */
+export const getPostBlitzEventUrl = () => {
+  return `/api/blitz/events`;
+};
+
+export const postBlitzEvent = async (
+  blitzEventInput: BlitzEventInput,
+  options?: RequestInit,
+): Promise<PostBlitzEvent201> => {
+  return customFetch<PostBlitzEvent201>(getPostBlitzEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(blitzEventInput),
+  });
+};
+
+export const getPostBlitzEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postBlitzEvent>>,
+    TError,
+    { data: BodyType<BlitzEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postBlitzEvent>>,
+  TError,
+  { data: BodyType<BlitzEventInput> },
+  TContext
+> => {
+  const mutationKey = ["postBlitzEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postBlitzEvent>>,
+    { data: BodyType<BlitzEventInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return postBlitzEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostBlitzEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postBlitzEvent>>
+>;
+export type PostBlitzEventMutationBody = BodyType<BlitzEventInput>;
+export type PostBlitzEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Record a Blitz view, completed, or uncompleted event
+ */
+export const usePostBlitzEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postBlitzEvent>>,
+    TError,
+    { data: BodyType<BlitzEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postBlitzEvent>>,
+  TError,
+  { data: BodyType<BlitzEventInput> },
+  TContext
+> => {
+  return useMutation(getPostBlitzEventMutationOptions(options));
+};
+
+/**
+ * @summary Return the section the user should resume next
+ */
+export const getGetBlitzContinueUrl = () => {
+  return `/api/blitz/continue`;
+};
+
+export const getBlitzContinue = async (
+  options?: RequestInit,
+): Promise<BlitzContinue> => {
+  return customFetch<BlitzContinue>(getGetBlitzContinueUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBlitzContinueQueryKey = () => {
+  return [`/api/blitz/continue`] as const;
+};
+
+export const getGetBlitzContinueQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBlitzContinue>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzContinue>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBlitzContinueQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBlitzContinue>>
+  > = ({ signal }) => getBlitzContinue({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzContinue>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBlitzContinueQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBlitzContinue>>
+>;
+export type GetBlitzContinueQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Return the section the user should resume next
+ */
+
+export function useGetBlitzContinue<
+  TData = Awaited<ReturnType<typeof getBlitzContinue>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzContinue>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBlitzContinueQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Return streak data and 84-day activity heatmap
+ */
+export const getGetBlitzStreakUrl = () => {
+  return `/api/blitz/streak`;
+};
+
+export const getBlitzStreak = async (
+  options?: RequestInit,
+): Promise<BlitzStreak> => {
+  return customFetch<BlitzStreak>(getGetBlitzStreakUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBlitzStreakQueryKey = () => {
+  return [`/api/blitz/streak`] as const;
+};
+
+export const getGetBlitzStreakQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBlitzStreak>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzStreak>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBlitzStreakQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBlitzStreak>>> = ({
+    signal,
+  }) => getBlitzStreak({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzStreak>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBlitzStreakQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBlitzStreak>>
+>;
+export type GetBlitzStreakQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Return streak data and 84-day activity heatmap
+ */
+
+export function useGetBlitzStreak<
+  TData = Awaited<ReturnType<typeof getBlitzStreak>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzStreak>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBlitzStreakQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Return per-phase completion and locked/unlocked state
+ */
+export const getGetBlitzPhaseStatusUrl = () => {
+  return `/api/blitz/phase-status`;
+};
+
+export const getBlitzPhaseStatus = async (
+  options?: RequestInit,
+): Promise<BlitzPhaseStatus> => {
+  return customFetch<BlitzPhaseStatus>(getGetBlitzPhaseStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBlitzPhaseStatusQueryKey = () => {
+  return [`/api/blitz/phase-status`] as const;
+};
+
+export const getGetBlitzPhaseStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBlitzPhaseStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzPhaseStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBlitzPhaseStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBlitzPhaseStatus>>
+  > = ({ signal }) => getBlitzPhaseStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzPhaseStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBlitzPhaseStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBlitzPhaseStatus>>
+>;
+export type GetBlitzPhaseStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Return per-phase completion and locked/unlocked state
+ */
+
+export function useGetBlitzPhaseStatus<
+  TData = Awaited<ReturnType<typeof getBlitzPhaseStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBlitzPhaseStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBlitzPhaseStatusQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1,10 +1,22 @@
 {
   "constraints": {
-    "onlyInPush": [],
+    "onlyInPush": [
+      "blitz_daily_activity | f | FOREIGN KEY (user_id) REFERENCES users(id)",
+      "blitz_daily_activity | p | PRIMARY KEY (user_id, activity_date)",
+      "blitz_events | f | FOREIGN KEY (user_id) REFERENCES users(id)",
+      "blitz_events | p | PRIMARY KEY (id)",
+      "blitz_phases | p | PRIMARY KEY (slug)"
+    ],
     "onlyInMigrations": []
   },
   "indexes": {
-    "onlyInPush": [],
+    "onlyInPush": [
+      "blitz_daily_activity | CREATE UNIQUE INDEX <name> ON public.blitz_daily_activity USING btree (user_id, activity_date)",
+      "blitz_events | CREATE INDEX <name> ON public.blitz_events USING btree (user_id, course_id, occurred_at)",
+      "blitz_events | CREATE INDEX <name> ON public.blitz_events USING btree (user_id, occurred_at)",
+      "blitz_events | CREATE UNIQUE INDEX <name> ON public.blitz_events USING btree (id)",
+      "blitz_phases | CREATE UNIQUE INDEX <name> ON public.blitz_phases USING btree (slug)"
+    ],
     "onlyInMigrations": []
   }
 }

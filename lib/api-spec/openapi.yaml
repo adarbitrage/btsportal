@@ -16,6 +16,7 @@ tags:
   - name: tracks
   - name: modules
   - name: lessons
+  - name: blitz
   - name: progress
   - name: coaching
   - name: coaches
@@ -490,6 +491,70 @@ paths:
                 $ref: "#/components/schemas/Lesson"
         "404":
           description: Not found
+
+  /blitz/events:
+    post:
+      operationId: postBlitzEvent
+      tags: [blitz]
+      summary: Record a Blitz view, completed, or uncompleted event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzEventInput"
+      responses:
+        "201":
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/BlitzEventRecord"
+                required: [event]
+        "400":
+          description: Invalid input
+
+  /blitz/continue:
+    get:
+      operationId: getBlitzContinue
+      tags: [blitz]
+      summary: Return the section the user should resume next
+      responses:
+        "200":
+          description: Continue target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzContinue"
+
+  /blitz/streak:
+    get:
+      operationId: getBlitzStreak
+      tags: [blitz]
+      summary: Return streak data and 84-day activity heatmap
+      responses:
+        "200":
+          description: Streak data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzStreak"
+
+  /blitz/phase-status:
+    get:
+      operationId: getBlitzPhaseStatus
+      tags: [blitz]
+      summary: Return per-phase completion and locked/unlocked state
+      responses:
+        "200":
+          description: Phase status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzPhaseStatus"
 
   /progress:
     get:
@@ -6058,6 +6123,124 @@ components:
           description: Unix timestamp when the rate limit window resets
 
   schemas:
+    BlitzEventInput:
+      type: object
+      properties:
+        courseId:
+          type: string
+          description: "blitz-hub-step-v2-{1..23}"
+        eventType:
+          type: string
+          enum: [viewed, completed, uncompleted]
+        videoPositionSeconds:
+          type: integer
+          nullable: true
+          minimum: 0
+        scrollPositionPct:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+      required: [courseId, eventType]
+
+    BlitzEventRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        courseId:
+          type: string
+        eventType:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        videoPositionSeconds:
+          type: integer
+          nullable: true
+        scrollPositionPct:
+          type: number
+          nullable: true
+      required: [id, userId, courseId, eventType, occurredAt]
+
+    BlitzContinue:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [new, in_progress, returning, complete]
+        sectionId:
+          type: integer
+          nullable: true
+        courseId:
+          type: string
+          nullable: true
+        savedPositionSeconds:
+          type: integer
+          nullable: true
+      required: [status, sectionId, courseId, savedPositionSeconds]
+
+    BlitzStreakHeatmapEntry:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+      required: [date, count]
+
+    BlitzStreak:
+      type: object
+      properties:
+        dailyStreak:
+          type: integer
+        longestDailyStreak:
+          type: integer
+        weeksActiveLast4:
+          type: integer
+        weeksActiveLast12:
+          type: integer
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzStreakHeatmapEntry"
+      required: [dailyStreak, longestDailyStreak, weeksActiveLast4, weeksActiveLast12, heatmap]
+
+    BlitzPhaseInfo:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        color:
+          type: string
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        completionPct:
+          type: integer
+        unlocked:
+          type: boolean
+      required: [slug, name, sortOrder, color, totalLessons, completedLessons, completionPct, unlocked]
+
+    BlitzPhaseStatus:
+      type: object
+      properties:
+        phases:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzPhaseInfo"
+        adminOverride:
+          type: boolean
+      required: [phases, adminOverride]
+
     AffiliateNetwork:
       type: object
       properties:

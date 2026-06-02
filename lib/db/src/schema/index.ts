@@ -60,6 +60,7 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./kb-staging";
 export * from "./course-progress";
+export * from "./blitz-events";
 export * from "./member-app-instances";
 export * from "./app-global-settings";
 export * from "./email-change-attempts";

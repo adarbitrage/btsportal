@@ -5,6 +5,84 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+export type BlitzEventInputEventType =
+  (typeof BlitzEventInputEventType)[keyof typeof BlitzEventInputEventType];
+
+export const BlitzEventInputEventType = {
+  viewed: "viewed",
+  completed: "completed",
+  uncompleted: "uncompleted",
+} as const;
+
+export interface BlitzEventInput {
+  /** blitz-hub-step-v2-{1..23} */
+  courseId: string;
+  eventType: BlitzEventInputEventType;
+  /** @minimum 0 */
+  videoPositionSeconds?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  scrollPositionPct?: number | null;
+}
+
+export interface BlitzEventRecord {
+  id: number;
+  userId: number;
+  courseId: string;
+  eventType: string;
+  occurredAt: string;
+  videoPositionSeconds?: number | null;
+  scrollPositionPct?: number | null;
+}
+
+export type BlitzContinueStatus =
+  (typeof BlitzContinueStatus)[keyof typeof BlitzContinueStatus];
+
+export const BlitzContinueStatus = {
+  new: "new",
+  in_progress: "in_progress",
+  returning: "returning",
+  complete: "complete",
+} as const;
+
+export interface BlitzContinue {
+  status: BlitzContinueStatus;
+  sectionId: number | null;
+  courseId: string | null;
+  savedPositionSeconds: number | null;
+}
+
+export interface BlitzStreakHeatmapEntry {
+  date: string;
+  count: number;
+}
+
+export interface BlitzStreak {
+  dailyStreak: number;
+  longestDailyStreak: number;
+  weeksActiveLast4: number;
+  weeksActiveLast12: number;
+  heatmap: BlitzStreakHeatmapEntry[];
+}
+
+export interface BlitzPhaseInfo {
+  slug: string;
+  name: string;
+  sortOrder: number;
+  color: string;
+  totalLessons: number;
+  completedLessons: number;
+  completionPct: number;
+  unlocked: boolean;
+}
+
+export interface BlitzPhaseStatus {
+  phases: BlitzPhaseInfo[];
+  adminOverride: boolean;
+}
+
 export interface AffiliateNetwork {
   id: number;
   slug: string;
@@ -2585,6 +2663,10 @@ export type GetMemberEmailChangePrefillParams = {
 
 export type GetLegalDocumentsParams = {
   type?: string;
+};
+
+export type PostBlitzEvent201 = {
+  event: BlitzEventRecord;
 };
 
 export type ListCoachingCallsParams = {
