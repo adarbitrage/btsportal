@@ -178,7 +178,7 @@ function VideoTable({
             <th className="px-3 py-2 font-semibold">#</th>
             <th className="px-3 py-2 font-semibold">Video</th>
             <th className="px-3 py-2 font-semibold">Section</th>
-            <th className="px-3 py-2 font-semibold">Watch</th>
+            <th className="px-3 py-2 font-semibold">Vidalytics ID</th>
           </tr>
         </thead>
         <tbody>
@@ -188,24 +188,26 @@ function VideoTable({
               <tr key={`${v.vidalyticsId}-${i}`} className="border-t border-border align-top">
                 <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                 <td className="px-3 py-2">
-                  <div className="font-medium">{v.title}</div>
+                  {playable ? (
+                    <button
+                      onClick={() => onPlay(v)}
+                      className="text-left font-medium text-primary underline-offset-2 hover:underline"
+                      title="Play video"
+                    >
+                      {v.title}
+                    </button>
+                  ) : (
+                    <div className="font-medium">
+                      {v.title}{" "}
+                      <span className="text-xs italic text-muted-foreground">(not connected)</span>
+                    </div>
+                  )}
                   {v.description && (
                     <div className="text-xs text-muted-foreground">{v.description}</div>
                   )}
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{v.section}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {playable ? (
-                    <button
-                      onClick={() => onPlay(v)}
-                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
-                    >
-                      ▶ Play
-                    </button>
-                  ) : (
-                    <span className="text-xs italic text-muted-foreground">Not connected</span>
-                  )}
-                </td>
+                <td className="px-3 py-2 font-mono text-xs">{v.vidalyticsId}</td>
               </tr>
             );
           })}
