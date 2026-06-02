@@ -170,9 +170,23 @@ function SummarySkeleton() {
 }
 
 /**
+ * Human label for the window the summary covers: the explicit From/To range
+ * the admin applied to the list, or the default "Last N days" fallback when no
+ * range is set. Keeps the card's header in sync with the list below it.
+ */
+function rangeLabel(summary: AiFlaggedSummary): string {
+  if (summary.from || summary.to) {
+    const from = summary.from ? format(new Date(summary.from), "MMM d, yyyy") : "earliest";
+    const to = summary.to ? format(new Date(summary.to), "MMM d, yyyy") : "now";
+    return `${from} – ${to}`;
+  }
+  return `Last ${summary.sampleWindowDays} days`;
+}
+
+/**
  * Summary card for threshold tuning: a per-score-band table (count +
  * approve/reject split) plus a "what-if threshold" slider that previews how
- * many of the last 30 days of flags would still trigger at a hypothetical
+ * many flags in the selected range would still trigger at a hypothetical
  * threshold. Lets an admin see "more confident scores get rejected more often"
  * and pick a threshold from real data instead of guessing.
  */
@@ -201,15 +215,15 @@ function ThresholdSummary({ summary }: { summary: AiFlaggedSummary }) {
       <CardContent className="py-4 px-5 space-y-5">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <h2 className="text-base font-semibold text-foreground">Threshold tuning</h2>
-          <span className="text-xs text-muted-foreground">
-            Last {summary.sampleWindowDays} days · {summary.sampleSize} AI-flagged item
+          <span className="text-xs text-muted-foreground" data-testid="ai-flagged-summary-range">
+            {rangeLabel(summary)} · {summary.sampleSize} AI-flagged item
             {summary.sampleSize === 1 ? "" : "s"}
           </span>
         </div>
 
         {summary.sampleSize === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            No AI-flagged activity in the last {summary.sampleWindowDays} days to summarize.
+            No AI-flagged activity in {summary.from || summary.to ? "the selected range" : `the last ${summary.sampleWindowDays} days`} to summarize.
           </p>
         ) : (
           <>
@@ -342,7 +356,7 @@ export default function AiFlagged() {
   const [applied, setApplied] = useState<AiFlaggedFilters>({});
 
   const query = useAdminAiFlagged(applied);
-  const summaryQuery = useAdminAiFlaggedSummary();
+  const summaryQuery = useAdminAiFlaggedSummary(applied);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback(

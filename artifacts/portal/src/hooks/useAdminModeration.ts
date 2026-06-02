@@ -88,6 +88,10 @@ export interface AiScoreBandBucket {
 
 export interface AiFlaggedSummary {
   sampleWindowDays: number;
+  /** Explicit lower bound applied (ISO), or null when defaulting to last N days. */
+  from: string | null;
+  /** Explicit upper bound applied (ISO), or null when unbounded toward "now". */
+  to: string | null;
   sampleSize: number;
   currentThreshold: number;
   buckets: AiScoreBandBucket[];
@@ -138,14 +142,26 @@ export function useAdminAiFlagged(filters: AiFlaggedFilters) {
 
 /**
  * Score-band summary for the AI Flagged dashboard: counts and approve/reject
- * rates bucketed by classifier score over the last 30 days, plus the raw
- * max-scores that power the "what-if threshold" slider. Aggregated server-side
- * so the dashboard turns threshold tuning into a single-screen decision.
+ * rates bucketed by classifier score, plus the raw max-scores that power the
+ * "what-if threshold" slider. Aggregated server-side so the dashboard turns
+ * threshold tuning into a single-screen decision.
+ *
+ * Accepts the same From/To filters the list uses (only `from`/`to` are
+ * forwarded — score/status filters don't apply to the threshold summary) so
+ * the card tracks the exact window shown below it. Falls back to the last 30
+ * days when no range is set.
  */
-export function useAdminAiFlaggedSummary() {
+export function useAdminAiFlaggedSummary(filters: AiFlaggedFilters = {}) {
+  const { from, to } = filters;
   return useQuery({
-    queryKey: ["admin", "moderation", "ai-flagged", "summary"] as const,
-    queryFn: () => adminFetch<AiFlaggedSummary>(`/admin/moderation/queue/ai-flagged/summary`),
+    queryKey: ["admin", "moderation", "ai-flagged", "summary", { from, to }] as const,
+    queryFn: () => {
+      const qs = new URLSearchParams();
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return adminFetch<AiFlaggedSummary>(`/admin/moderation/queue/ai-flagged/summary${suffix}`);
+    },
   });
 }
 

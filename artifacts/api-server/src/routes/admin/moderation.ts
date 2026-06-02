@@ -165,15 +165,30 @@ router.get("/ai-flagged", requirePermission("community:moderate"), async (req: R
 });
 
 /**
- * Score-band summary for the AI Flagged dashboard. Buckets the last 30 days of
- * AI-flagged content by max classifier score and reports the approve/reject
- * split per band, plus the raw max-scores so the UI's "what-if threshold"
- * slider can preview how many recent flags would still trigger at a
- * hypothetical threshold. Read-only aggregation; no query params.
+ * Score-band summary for the AI Flagged dashboard. Buckets AI-flagged content
+ * by max classifier score and reports the approve/reject split per band, plus
+ * the raw max-scores so the UI's "what-if threshold" slider can preview how
+ * many flags would still trigger at a hypothetical threshold. Read-only.
+ *
+ * Query params (all optional), mirroring the /ai-flagged list route so the
+ * summary tracks the same window the admin applied to the list:
+ *   from, to — ISO date strings, inclusive bounds on createdAt. When neither
+ *              is supplied the summary falls back to the last 30 days.
  */
-router.get("/ai-flagged/summary", requirePermission("community:moderate"), async (_req: Request, res: Response) => {
+router.get("/ai-flagged/summary", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
-    const summary = await computeAiThresholdScoreBandSummary();
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const opts: { from?: Date; to?: Date } = {};
+    if (from) {
+      const d = new Date(from);
+      if (!isNaN(d.getTime())) opts.from = d;
+    }
+    if (to) {
+      const d = new Date(to);
+      if (!isNaN(d.getTime())) opts.to = d;
+    }
+    const summary = await computeAiThresholdScoreBandSummary(opts);
     res.json(summary);
   } catch (err) {
     console.error("[Admin/Moderation] AI-flagged summary error:", err);

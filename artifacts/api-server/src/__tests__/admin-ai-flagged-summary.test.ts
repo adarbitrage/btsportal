@@ -170,6 +170,33 @@ describe("GET /admin/moderation/queue/ai-flagged/summary", () => {
     expect(body.sampleWindowDays).toBe(30);
   });
 
+  it("honors from/to query params and reports the active range", async () => {
+    // A range that ends before any of our seeds were created (all seeded just
+    // now in beforeAll) should yield an empty sample and echo the bounds back.
+    const from = "2000-01-01T00:00:00.000Z";
+    const to = "2000-01-02T00:00:00.000Z";
+    const res = await request(app)
+      .get(`/api/admin/moderation/queue/ai-flagged/summary?from=${from}&to=${to}`)
+      .set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.from).toBe(from);
+    expect(res.body.to).toBe(to);
+    expect(res.body.sampleSize).toBe(0);
+    expect(res.body.maxScores).toEqual([]);
+  });
+
+  it("defaults to the last 30 days with null bounds when no range is set", async () => {
+    const res = await request(app)
+      .get("/api/admin/moderation/queue/ai-flagged/summary")
+      .set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.from).toBeNull();
+    expect(res.body.to).toBeNull();
+    expect(res.body.sampleWindowDays).toBe(30);
+  });
+
   it("computes approveRate as null for bands with no reviewed items", async () => {
     const res = await request(app)
       .get("/api/admin/moderation/queue/ai-flagged/summary")

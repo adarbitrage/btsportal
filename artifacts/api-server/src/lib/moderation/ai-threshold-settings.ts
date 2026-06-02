@@ -16,7 +16,7 @@
  */
 
 import { db, systemSettingsTable, moderationQueueTable } from "@workspace/db";
-import { eq, inArray, gte, desc, and } from "drizzle-orm";
+import { eq, inArray, gte, lte, desc, and, type SQL } from "drizzle-orm";
 
 export interface AiModerationThresholdConfig {
   /** Minimum classifier score (0..1) at which content is flagged. */
@@ -311,8 +311,17 @@ export interface AiScoreBandBucket {
 }
 
 export interface AiScoreBandSummary {
-  /** How many days of moderation_queue history were considered. */
+  /**
+   * How many days of moderation_queue history were considered when no explicit
+   * From/To range was supplied (the default-window fallback). Still reported
+   * when an explicit range is given, but `from`/`to` then describe the actual
+   * bounds and should drive the UI label.
+   */
   sampleWindowDays: number;
+  /** Explicit lower bound applied (ISO), or null when defaulting to the last N days. */
+  from: string | null;
+  /** Explicit upper bound applied (ISO), or null when unbounded toward "now". */
+  to: string | null;
   /** Total AI-flagged rows scanned (capped at PREVIEW_MAX_ROWS). */
   sampleSize: number;
   /** The currently-saved flag threshold, for marking it on the slider. */
@@ -355,15 +364,38 @@ function bandIndexForScore(score: number): number {
  * genuine flags) vs where it's noisy (high approve-rate = false positives the
  * threshold should skip).
  *
- * Same sample as `computeAiThresholdPreview`: the last `PREVIEW_WINDOW_DAYS`
- * of `moderation_queue` rows that the AI classifier weighed in on, capped at
- * `PREVIEW_MAX_ROWS`. Pure wordlist flags are excluded — they're unaffected by
- * the threshold and would skew the bands.
+ * Sample window mirrors the AI Flagged list route: when the caller supplies a
+ * `from`/`to` range (the admin's date filters) we honour exactly those bounds;
+ * otherwise we fall back to the last `PREVIEW_WINDOW_DAYS` of history. Either
+ * way we look at `moderation_queue` rows the AI classifier weighed in on,
+ * capped at `PREVIEW_MAX_ROWS`. Pure wordlist flags are excluded — they're
+ * unaffected by the threshold and would skew the bands.
  */
-export async function computeAiThresholdScoreBandSummary(): Promise<AiScoreBandSummary> {
+export async function computeAiThresholdScoreBandSummary(
+  opts?: { from?: Date; to?: Date },
+): Promise<AiScoreBandSummary> {
   const status = await getAiModerationThresholdConfigStatus();
   const currentThreshold = status.config.flagThreshold;
-  const since = new Date(Date.now() - PREVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const from = opts?.from;
+  const to = opts?.to;
+  // "No range set" means neither bound was supplied — only then do we apply the
+  // default last-N-days floor. Mirrors the list route, which applies whichever
+  // of from/to is present and nothing otherwise.
+  const hasExplicitRange = from !== undefined || to !== undefined;
+
+  const conditions: SQL[] = [
+    inArray(moderationQueueTable.triggeredBy, ["ai_classifier", "combined"]),
+  ];
+  if (from !== undefined) {
+    conditions.push(gte(moderationQueueTable.createdAt, from));
+  } else if (!hasExplicitRange) {
+    const since = new Date(Date.now() - PREVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    conditions.push(gte(moderationQueueTable.createdAt, since));
+  }
+  if (to !== undefined) {
+    conditions.push(lte(moderationQueueTable.createdAt, to));
+  }
 
   const rows = await db
     .select({
@@ -371,12 +403,7 @@ export async function computeAiThresholdScoreBandSummary(): Promise<AiScoreBandS
       status: moderationQueueTable.status,
     })
     .from(moderationQueueTable)
-    .where(
-      and(
-        gte(moderationQueueTable.createdAt, since),
-        inArray(moderationQueueTable.triggeredBy, ["ai_classifier", "combined"]),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(desc(moderationQueueTable.createdAt))
     .limit(PREVIEW_MAX_ROWS);
 
@@ -413,6 +440,8 @@ export async function computeAiThresholdScoreBandSummary(): Promise<AiScoreBandS
 
   return {
     sampleWindowDays: PREVIEW_WINDOW_DAYS,
+    from: from ? from.toISOString() : null,
+    to: to ? to.toISOString() : null,
     sampleSize: rows.length,
     currentThreshold,
     buckets,
