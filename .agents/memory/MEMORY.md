@@ -4,3 +4,4 @@
 - [Blitz SPA navigation](blitz-spa-navigation.md) — internal nav must use wouter <Link> (base-relative), never plain <a>; full reloads corrupt the iframe back-stack -> Back lands on full guide.
 - [Blitz course-id validator](blitz-courseid-validator.md) — Mark-Complete breaks (silent 400) unless API isValidCourseId accepts the exact blitz-hub-step-v2-{id} the UI sends; lesson count duplicated frontend+backend, keep in lockstep.
 - [Supported affiliate networks](affiliate-networks-supported.md) — only Media Mavens & ClickBank; MaxWeb/Affiliati removed by design. Don't "fix" the lingering maxweb label in dead LessonLibrary.tsx.
+- [Monorepo typecheck stale cache](monorepo-typecheck-cache.md) — concurrent package typechecks corrupt the composite ref cache -> spurious "@workspace/db has no exported member"; rebuild libs with `tsc -b lib/db lib/api-zod lib/auth`, run typechecks sequentially.

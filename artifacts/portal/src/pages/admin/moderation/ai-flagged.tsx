@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, FileText, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import {
   useAdminAiFlagged,
+  useAdminAiFlaggedSummary,
   type AiFlaggedFilters,
   type AiFlaggedItem,
+  type AiFlaggedSummary,
   type ModerationStatus,
 } from "@/hooks/useAdminModeration";
 
@@ -151,6 +154,180 @@ function RowsSkeleton() {
   );
 }
 
+function formatRate(rate: number | null): string {
+  if (rate === null) return "—";
+  return `${Math.round(rate * 100)}%`;
+}
+
+function SummarySkeleton() {
+  return (
+    <Card>
+      <CardContent className="py-4 px-5">
+        <Skeleton className="h-40 w-full" />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Summary card for threshold tuning: a per-score-band table (count +
+ * approve/reject split) plus a "what-if threshold" slider that previews how
+ * many of the last 30 days of flags would still trigger at a hypothetical
+ * threshold. Lets an admin see "more confident scores get rejected more often"
+ * and pick a threshold from real data instead of guessing.
+ */
+function ThresholdSummary({ summary }: { summary: AiFlaggedSummary }) {
+  // Start the slider at the currently-saved threshold so "would still trigger"
+  // reads as a delta from today's behaviour.
+  const [whatIf, setWhatIf] = useState<number>(summary.currentThreshold);
+
+  const wouldStillTrigger = useMemo(
+    () => summary.maxScores.filter((s) => s > whatIf).length,
+    [summary.maxScores, whatIf],
+  );
+  const triggeringAtCurrent = useMemo(
+    () => summary.maxScores.filter((s) => s > summary.currentThreshold).length,
+    [summary.maxScores, summary.currentThreshold],
+  );
+
+  const totalReviewed = summary.buckets.reduce((n, b) => n + b.approved + b.rejected, 0);
+  const totalApproved = summary.buckets.reduce((n, b) => n + b.approved, 0);
+  const overallApproveRate = totalReviewed > 0 ? totalApproved / totalReviewed : null;
+
+  const delta = wouldStillTrigger - triggeringAtCurrent;
+
+  return (
+    <Card data-testid="ai-flagged-summary">
+      <CardContent className="py-4 px-5 space-y-5">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <h2 className="text-base font-semibold text-foreground">Threshold tuning</h2>
+          <span className="text-xs text-muted-foreground">
+            Last {summary.sampleWindowDays} days · {summary.sampleSize} AI-flagged item
+            {summary.sampleSize === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {summary.sampleSize === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            No AI-flagged activity in the last {summary.sampleWindowDays} days to summarize.
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-muted-foreground text-left border-b">
+                    <th className="font-medium py-1.5 pr-3">Score band</th>
+                    <th className="font-medium py-1.5 px-3 text-right">Flags</th>
+                    <th className="font-medium py-1.5 px-3 text-right">Approved</th>
+                    <th className="font-medium py-1.5 px-3 text-right">Rejected</th>
+                    <th className="font-medium py-1.5 px-3 text-right">Pending</th>
+                    <th className="font-medium py-1.5 pl-3 text-right">Approve rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.buckets.map((b) => (
+                    <tr
+                      key={b.label}
+                      className="border-b last:border-0"
+                      data-testid={`summary-band-${b.label}`}
+                    >
+                      <td className="py-1.5 pr-3 font-mono">{b.label}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums">{b.total}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums text-green-700 dark:text-green-400">
+                        {b.approved}
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums text-red-700 dark:text-red-400">
+                        {b.rejected}
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums text-muted-foreground">
+                        {b.pending}
+                      </td>
+                      <td
+                        className="py-1.5 pl-3 text-right tabular-nums font-medium"
+                        data-testid={`summary-band-approve-rate-${b.label}`}
+                      >
+                        {formatRate(b.approveRate)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="text-xs text-muted-foreground">
+                    <td className="pt-2 pr-3">Overall</td>
+                    <td className="pt-2 px-3 text-right tabular-nums">{summary.sampleSize}</td>
+                    <td className="pt-2 px-3 text-right tabular-nums">{totalApproved}</td>
+                    <td className="pt-2 px-3 text-right tabular-nums">
+                      {totalReviewed - totalApproved}
+                    </td>
+                    <td className="pt-2 px-3 text-right tabular-nums">
+                      {summary.sampleSize - totalReviewed}
+                    </td>
+                    <td className="pt-2 pl-3 text-right tabular-nums font-medium">
+                      {formatRate(overallApproveRate)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              A high approve rate in a band means the classifier flagged a lot of content moderators
+              ultimately kept — those flags are candidates to skip by raising the threshold.
+            </p>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <Label className="text-sm font-medium">What if the threshold were…</Label>
+                <span
+                  className="font-mono text-sm font-semibold tabular-nums"
+                  data-testid="ai-flagged-whatif-value"
+                >
+                  {whatIf.toFixed(2)}
+                </span>
+              </div>
+              <Slider
+                value={[whatIf]}
+                min={0}
+                max={1}
+                step={0.01}
+                onValueChange={(v) => setWhatIf(v[0])}
+                aria-label="What-if threshold"
+                data-testid="ai-flagged-whatif-slider"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>0.00</span>
+                <span>current {summary.currentThreshold.toFixed(2)}</span>
+                <span>1.00</span>
+              </div>
+              <p className="text-sm" data-testid="ai-flagged-whatif-result">
+                At a threshold of{" "}
+                <span className="font-semibold tabular-nums">{whatIf.toFixed(2)}</span>,{" "}
+                <span className="font-semibold tabular-nums">{wouldStillTrigger}</span> of the last{" "}
+                <span className="tabular-nums">{summary.sampleSize}</span> AI-flagged item
+                {summary.sampleSize === 1 ? "" : "s"} would still trigger
+                {delta !== 0 ? (
+                  <>
+                    {" "}
+                    <span
+                      className={delta < 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}
+                    >
+                      ({delta < 0 ? "−" : "+"}
+                      {Math.abs(delta)} vs the current {summary.currentThreshold.toFixed(2)})
+                    </span>
+                  </>
+                ) : (
+                  <> (same as the current {summary.currentThreshold.toFixed(2)})</>
+                )}
+                .
+              </p>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 const DEFAULT_FILTERS: AiFlaggedFilters & { statusUi: StatusOption } = {
   status: "",
   statusUi: "all",
@@ -165,6 +342,7 @@ export default function AiFlagged() {
   const [applied, setApplied] = useState<AiFlaggedFilters>({});
 
   const query = useAdminAiFlagged(applied);
+  const summaryQuery = useAdminAiFlaggedSummary();
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback(
@@ -214,6 +392,20 @@ export default function AiFlagged() {
             effect at the time, and why it triggered — to help tune the threshold setting from real data.
           </p>
         </div>
+
+        {summaryQuery.isLoading ? (
+          <SummarySkeleton />
+        ) : summaryQuery.isError ? (
+          <Card>
+            <CardContent className="py-6 text-center text-destructive text-sm">
+              Failed to load the threshold tuning summary.
+            </CardContent>
+          </Card>
+        ) : summaryQuery.data ? (
+          // Key on the saved threshold so the what-if slider re-seeds to the
+          // new baseline if the saved threshold changes between refetches.
+          <ThresholdSummary key={summaryQuery.data.currentThreshold} summary={summaryQuery.data} />
+        ) : null}
 
         <Card>
           <CardContent className="py-4 px-5">

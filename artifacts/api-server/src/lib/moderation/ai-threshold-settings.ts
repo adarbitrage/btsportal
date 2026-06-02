@@ -16,7 +16,7 @@
  */
 
 import { db, systemSettingsTable, moderationQueueTable } from "@workspace/db";
-import { eq, inArray, gte, desc } from "drizzle-orm";
+import { eq, inArray, gte, desc, and } from "drizzle-orm";
 
 export interface AiModerationThresholdConfig {
   /** Minimum classifier score (0..1) at which content is flagged. */
@@ -288,6 +288,135 @@ export async function computeAiThresholdPreview(
     sampleSize: rows.length,
     wouldBeFlaggedByAi,
     currentlyFlaggedByAi,
+  };
+}
+
+export interface AiScoreBandBucket {
+  /** Inclusive lower bound of the band. */
+  min: number;
+  /** Upper bound — exclusive except for the top band (1.0), which is inclusive. */
+  max: number;
+  /** Display label, e.g. "0.5–0.6". */
+  label: string;
+  /** Total sampled AI-flagged rows whose max score falls in this band. */
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  /**
+   * approved / (approved + rejected) for this band. Null when nothing in the
+   * band has been reviewed yet (so the UI can show "—" instead of "0%").
+   */
+  approveRate: number | null;
+}
+
+export interface AiScoreBandSummary {
+  /** How many days of moderation_queue history were considered. */
+  sampleWindowDays: number;
+  /** Total AI-flagged rows scanned (capped at PREVIEW_MAX_ROWS). */
+  sampleSize: number;
+  /** The currently-saved flag threshold, for marking it on the slider. */
+  currentThreshold: number;
+  /** Per-score-band counts and approve/reject split. */
+  buckets: AiScoreBandBucket[];
+  /**
+   * Ascending list of the per-row max classifier scores in the sample, so the
+   * UI can compute "how many would still trigger at threshold X" for any X
+   * without another round-trip. Capped with the sample at PREVIEW_MAX_ROWS.
+   */
+  maxScores: number[];
+}
+
+const SCORE_BANDS: ReadonlyArray<{ min: number; max: number; label: string }> = [
+  { min: 0, max: 0.5, label: "< 0.5" },
+  { min: 0.5, max: 0.6, label: "0.5–0.6" },
+  { min: 0.6, max: 0.7, label: "0.6–0.7" },
+  { min: 0.7, max: 0.8, label: "0.7–0.8" },
+  { min: 0.8, max: 0.9, label: "0.8–0.9" },
+  { min: 0.9, max: 1.0, label: "0.9–1.0" },
+];
+
+function bandIndexForScore(score: number): number {
+  for (let i = 0; i < SCORE_BANDS.length; i++) {
+    const band = SCORE_BANDS[i];
+    const isTop = i === SCORE_BANDS.length - 1;
+    if (score >= band.min && (isTop ? score <= band.max : score < band.max)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Aggregate recently AI-flagged content into score bands with the approve /
+ * reject split for each band. Powers the AI Flagged dashboard's summary card
+ * and "what-if threshold" slider: by seeing the approve-rate per band an admin
+ * can tell where the classifier earns its keep (low approve-rate = mostly
+ * genuine flags) vs where it's noisy (high approve-rate = false positives the
+ * threshold should skip).
+ *
+ * Same sample as `computeAiThresholdPreview`: the last `PREVIEW_WINDOW_DAYS`
+ * of `moderation_queue` rows that the AI classifier weighed in on, capped at
+ * `PREVIEW_MAX_ROWS`. Pure wordlist flags are excluded — they're unaffected by
+ * the threshold and would skew the bands.
+ */
+export async function computeAiThresholdScoreBandSummary(): Promise<AiScoreBandSummary> {
+  const status = await getAiModerationThresholdConfigStatus();
+  const currentThreshold = status.config.flagThreshold;
+  const since = new Date(Date.now() - PREVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      aiScores: moderationQueueTable.aiScores,
+      status: moderationQueueTable.status,
+    })
+    .from(moderationQueueTable)
+    .where(
+      and(
+        gte(moderationQueueTable.createdAt, since),
+        inArray(moderationQueueTable.triggeredBy, ["ai_classifier", "combined"]),
+      ),
+    )
+    .orderBy(desc(moderationQueueTable.createdAt))
+    .limit(PREVIEW_MAX_ROWS);
+
+  const buckets: AiScoreBandBucket[] = SCORE_BANDS.map((b) => ({
+    min: b.min,
+    max: b.max,
+    label: b.label,
+    total: 0,
+    approved: 0,
+    rejected: 0,
+    pending: 0,
+    approveRate: null,
+  }));
+  const maxScores: number[] = [];
+
+  for (const row of rows) {
+    const score = maxAiScore(row.aiScores);
+    maxScores.push(score);
+    const idx = bandIndexForScore(score);
+    if (idx < 0) continue;
+    const bucket = buckets[idx];
+    bucket.total += 1;
+    if (row.status === "approved") bucket.approved += 1;
+    else if (row.status === "rejected") bucket.rejected += 1;
+    else bucket.pending += 1;
+  }
+
+  for (const bucket of buckets) {
+    const reviewed = bucket.approved + bucket.rejected;
+    bucket.approveRate = reviewed > 0 ? bucket.approved / reviewed : null;
+  }
+
+  maxScores.sort((a, b) => a - b);
+
+  return {
+    sampleWindowDays: PREVIEW_WINDOW_DAYS,
+    sampleSize: rows.length,
+    currentThreshold,
+    buckets,
+    maxScores,
   };
 }
 

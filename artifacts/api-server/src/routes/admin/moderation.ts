@@ -3,6 +3,7 @@ import { db, moderationQueueTable, usersTable, communityPostsTable, communityCom
 import { eq, and, lt, gte, lte, desc, sql, inArray, type SQL } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
 import { logAuditEvent } from "../../lib/audit-log";
+import { computeAiThresholdScoreBandSummary } from "../../lib/moderation/ai-threshold-settings";
 
 const router = Router();
 
@@ -160,6 +161,23 @@ router.get("/ai-flagged", requirePermission("community:moderate"), async (req: R
   } catch (err) {
     console.error("[Admin/Moderation] AI-flagged list error:", err);
     res.status(500).json({ error: "Failed to fetch AI-flagged items" });
+  }
+});
+
+/**
+ * Score-band summary for the AI Flagged dashboard. Buckets the last 30 days of
+ * AI-flagged content by max classifier score and reports the approve/reject
+ * split per band, plus the raw max-scores so the UI's "what-if threshold"
+ * slider can preview how many recent flags would still trigger at a
+ * hypothetical threshold. Read-only aggregation; no query params.
+ */
+router.get("/ai-flagged/summary", requirePermission("community:moderate"), async (_req: Request, res: Response) => {
+  try {
+    const summary = await computeAiThresholdScoreBandSummary();
+    res.json(summary);
+  } catch (err) {
+    console.error("[Admin/Moderation] AI-flagged summary error:", err);
+    res.status(500).json({ error: "Failed to compute AI-flagged summary" });
   }
 });
 

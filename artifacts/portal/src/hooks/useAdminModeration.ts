@@ -74,6 +74,27 @@ export interface ModerationQueuePage {
   hasMore: boolean;
 }
 
+export interface AiScoreBandBucket {
+  min: number;
+  max: number;
+  label: string;
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  /** approved / (approved + rejected); null when nothing in the band is reviewed. */
+  approveRate: number | null;
+}
+
+export interface AiFlaggedSummary {
+  sampleWindowDays: number;
+  sampleSize: number;
+  currentThreshold: number;
+  buckets: AiScoreBandBucket[];
+  /** Ascending max classifier scores for the sample, for the what-if slider. */
+  maxScores: number[];
+}
+
 function moderationQueueKey(status: ModerationStatus) {
   return ["admin", "moderation", "queue", status] as const;
 }
@@ -112,6 +133,19 @@ export function useAdminAiFlagged(filters: AiFlaggedFilters) {
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * Score-band summary for the AI Flagged dashboard: counts and approve/reject
+ * rates bucketed by classifier score over the last 30 days, plus the raw
+ * max-scores that power the "what-if threshold" slider. Aggregated server-side
+ * so the dashboard turns threshold tuning into a single-screen decision.
+ */
+export function useAdminAiFlaggedSummary() {
+  return useQuery({
+    queryKey: ["admin", "moderation", "ai-flagged", "summary"] as const,
+    queryFn: () => adminFetch<AiFlaggedSummary>(`/admin/moderation/queue/ai-flagged/summary`),
   });
 }
 
