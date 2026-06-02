@@ -1188,7 +1188,7 @@ export const blitzBodyHTML = `<div class="version-banner">
       </div>
     </div>
 
-    <div class="video-slot" data-vidalytics-id="bVZQh22uMsWXS5AR"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes how to generate animated GIFs using the Gifster app</div></div></div>
+    <div class="video-slot" data-vidalytics-id="qRtg_65vvMi60o1d" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes how to generate animated GIFs using the Gifster app</div></div></div>
 
     <div class="callout-box"><div class="pe-label">💡 About Adam's Hero Shot Video</div>Adam's video is excellent and goes deep — but it also covers creating animated GIFs using the <strong>Gifster app</strong>, which is more advanced. Start with the AI video first. Once you're comfortable with the basics, return to Adam's video to learn the GIF creation process.</div>
 
@@ -1257,7 +1257,7 @@ export const blitzBodyHTML = `<div class="version-banner">
     <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
 
     <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
-    <div class="video-slot" data-vidalytics-id="bVZQh22uMsWXS5AR"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
+    <div class="video-slot" data-vidalytics-id="qRtg_65vvMi60o1d" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
 
     <p><strong>Other ways to generate or source hero shot images:</strong></p>
     <ul>
