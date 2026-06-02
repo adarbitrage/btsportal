@@ -1923,18 +1923,14 @@ export default function SystemHealth() {
                   lastFlaggedCount: number | null;
                   lastRecipient: string | null;
                   lastReason: string | null;
+                  stale: boolean;
                 }
                 const mmd = health.services.machineMismatchDigest as MachineMismatchDigestStatus;
-                const now = Date.now();
-                const lastRunMs = mmd.lastRanAt ? new Date(mmd.lastRanAt).getTime() : null;
-                // Flag a stale heartbeat: no row in > 2× the run interval.
-                // Mirrors the retention-sweep card's freshness check so on-call
-                // gets a consistent signal across every background job.
-                const staleThresholdMs = Math.max(mmd.intervalMs * 2, 1);
-                const isStale =
-                  lastRunMs === null
-                    ? false
-                    : now - lastRunMs > staleThresholdMs;
+                // Staleness is computed server-side (heartbeat older than 2×
+                // the run interval, with a cold-start baseline) so this card
+                // matches the retention-sweep cards exactly and a never-run
+                // job still trips the alarm. See getMachineMismatchDigestStatus.
+                const isStale = mmd.stale === true;
                 const isFailed = mmd.lastOutcome === "failed";
                 const flagged = isStale || isFailed;
                 const intervalHours = Math.max(1, Math.round(mmd.intervalMs / (60 * 60 * 1000)));

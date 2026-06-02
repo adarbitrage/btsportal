@@ -290,3 +290,62 @@ describe("runMachineMismatchDigest", () => {
     ).toBe("failed");
   });
 });
+
+describe("getMachineMismatchDigestStatus — stale flag", () => {
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  let prevInterval: string | undefined;
+
+  beforeEach(() => {
+    prevInterval = process.env.MACHINE_MISMATCH_DIGEST_INTERVAL_MS;
+    process.env.MACHINE_MISMATCH_DIGEST_INTERVAL_MS = String(ONE_HOUR_MS);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-02T00:00:00Z"));
+    // Re-seed the cold-start baseline at the (now frozen) current time so the
+    // staleness window is measured from a known instant.
+    __resetMachineMismatchDigestStateForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (prevInterval === undefined) {
+      delete process.env.MACHINE_MISMATCH_DIGEST_INTERVAL_MS;
+    } else {
+      process.env.MACHINE_MISMATCH_DIGEST_INTERVAL_MS = prevInterval;
+    }
+  });
+
+  it("treats a fresh cold start as not stale, then flips after 2× the interval with no run", () => {
+    // Cold start: baseline just set, no run yet. Not stale even though
+    // lastRanAt is null — matches the retention-sweep cards.
+    expect(getMachineMismatchDigestStatus().lastRanAt).toBeNull();
+    expect(getMachineMismatchDigestStatus().stale).toBe(false);
+
+    // Exactly at 2× the interval is still within the window (boundary uses >).
+    vi.advanceTimersByTime(2 * ONE_HOUR_MS);
+    expect(getMachineMismatchDigestStatus().stale).toBe(false);
+
+    // One tick past 2× the interval with no run trips the alarm.
+    vi.advanceTimersByTime(1);
+    expect(getMachineMismatchDigestStatus().stale).toBe(true);
+  });
+
+  it("clears the stale flag after a run and re-trips once the heartbeat ages past 2× the interval", async () => {
+    // Let the baseline go stale first.
+    vi.advanceTimersByTime(3 * ONE_HOUR_MS);
+    expect(getMachineMismatchDigestStatus().stale).toBe(true);
+
+    // A real run advances the heartbeat to "now" and clears staleness.
+    flaggedQueryRows = [];
+    await runMachineMismatchDigest();
+    expect(getMachineMismatchDigestStatus().lastRanAt).not.toBeNull();
+    expect(getMachineMismatchDigestStatus().stale).toBe(false);
+
+    // Fresh through 2× the interval...
+    vi.advanceTimersByTime(2 * ONE_HOUR_MS);
+    expect(getMachineMismatchDigestStatus().stale).toBe(false);
+
+    // ...and stale again just past it.
+    vi.advanceTimersByTime(1);
+    expect(getMachineMismatchDigestStatus().stale).toBe(true);
+  });
+});

@@ -274,6 +274,15 @@ interface DigestRunState {
 
 let lastRun: DigestRunState | null = null;
 
+// Baseline used to compute staleness when the job has not yet reported a
+// run. Set at module load — which in production is process start, the same
+// moment `startMachineMismatchDigestJob` would have started scheduling. If
+// no run shows up after 2 intervals from this baseline, the System Health
+// panel surfaces it as stale instead of leaving it on "Pending" forever.
+// Mirrors the cold-start handling in `email-change-attempts-cleanup` and
+// `abuse-rate-limit-cleanup` so on-call only has to learn one rule.
+let baselineSince: Date = new Date();
+
 function recordHeartbeat(result: DigestRunResult): void {
   lastRun = {
     lastRanAt: new Date(),
@@ -292,6 +301,13 @@ export interface MachineMismatchDigestStatus {
   lastFlaggedCount: number | null;
   lastRecipient: string | null;
   lastReason: string | null;
+  /**
+   * True when the heartbeat is older than 2× `intervalMs` — i.e. the job has
+   * silently stopped firing. On a cold start (no run yet) this is computed
+   * against the module-load baseline, matching `emailChangeAttemptsCleanup`
+   * and `abuseRateLimitCleanup` so a never-running job still trips the alarm.
+   */
+  stale: boolean;
 }
 
 /**
@@ -300,19 +316,27 @@ export interface MachineMismatchDigestStatus {
  * fired in this process so the UI can render a "Pending" placeholder.
  */
 export function getMachineMismatchDigestStatus(): MachineMismatchDigestStatus {
+  const intervalMs = getRunIntervalMs();
+  // When the job has never reported a run we fall back to the module-load
+  // baseline: if the process has been up longer than 2 intervals without a
+  // single digest landing, that is itself a regression worth surfacing.
+  const referenceTs = (lastRun?.lastRanAt ?? baselineSince).getTime();
+  const stale = Date.now() - referenceTs > 2 * intervalMs;
   return {
-    intervalMs: getRunIntervalMs(),
+    intervalMs,
     lastRanAt: lastRun ? lastRun.lastRanAt.toISOString() : null,
     lastOutcome: lastRun ? lastRun.lastOutcome : null,
     lastFlaggedCount: lastRun ? lastRun.lastFlaggedCount : null,
     lastRecipient: lastRun ? lastRun.lastRecipient : null,
     lastReason: lastRun ? lastRun.lastReason : null,
+    stale,
   };
 }
 
 /** Test hook: reset the heartbeat state. Not intended for production use. */
 export function __resetMachineMismatchDigestStateForTests(): void {
   lastRun = null;
+  baselineSince = new Date();
 }
 
 async function recordRun(result: DigestRunResult): Promise<void> {
