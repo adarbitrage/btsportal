@@ -743,7 +743,7 @@ const blitzBodyHTML = `<div class="version-banner">
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
             <td style="background:#fff7ed;padding:16px 10px;border:1px solid var(--border);">
               <strong>Flexy™</strong><br>
-              <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB/MW/AF)</span>
+              <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB)</span>
             </td>
             <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
             <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
