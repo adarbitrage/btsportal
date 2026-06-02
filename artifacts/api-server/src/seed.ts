@@ -24,7 +24,8 @@ import { seedVaultData } from "./lib/seed-vault";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedKnowledgebaseFromFiles } from "./lib/seed-kb";
 import { ANTI_HALLUCINATION_SYSTEM_PROMPT } from "./lib/chat-system-prompt";
-import { affiliateNetworksTable } from "@workspace/db/schema";
+import { affiliateNetworksTable, blitzPhasesTable } from "@workspace/db/schema";
+import { BLITZ_PHASES } from "./lib/blitz/sections";
 
 async function seed() {
   console.log("Seeding database...");
@@ -1251,6 +1252,21 @@ async function seed() {
   await seedAssistantCards();
 
   await seedKnowledgebaseFromFiles();
+
+  const PHASE_COLORS: Record<string, string> = {
+    intro: "#475569",
+    build: "#188f4a",
+    test:  "#cf550a",
+    scale: "#7f2ac9",
+  };
+  for (const phase of BLITZ_PHASES) {
+    await db.insert(blitzPhasesTable).values({
+      slug: phase.key,
+      name: phase.label,
+      sortOrder: phase.sortOrder,
+      color: PHASE_COLORS[phase.key] ?? "#6b7280",
+    }).onConflictDoNothing();
+  }
 
   console.log("\nSeeding complete!");
   console.log("Products created:", Object.keys(productsBySlug).join(", "));

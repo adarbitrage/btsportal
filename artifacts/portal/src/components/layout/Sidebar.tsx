@@ -75,6 +75,7 @@ import {
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
+import { hasPermission } from "@/lib/permissions";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 
 function ModerationPendingBadge() {
@@ -338,6 +339,15 @@ const ADMIN_NAV_FOLDER: NavFolder = {
   children: ADMIN_CHILDREN,
 };
 
+const COACH_NAV_NODES: NavNode[] = [
+  {
+    kind: "leaf",
+    href: "/coach/dashboard",
+    label: "Mentee Progress",
+    icon: Users2,
+  },
+];
+
 const LS_PREFIX = "sidebar-folder-";
 
 function useFolderState(key: string, defaultOpen: boolean) {
@@ -532,6 +542,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const { userRole, isAdminUser } = resolveAdminRole(user?.role, member?.role);
 
+  const memberRole = member?.role as string | undefined;
+  const isCoach = user?.role === "coach" || memberRole === "coach";
+  const showCoachSection = isCoach || (isAdminUser && hasPermission(userRole, "coaching:view"));
+
   const highestSlug: string = member?.sourceProduct ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
@@ -587,6 +601,26 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             isAdminNode={false}
           />
         ))}
+
+        {showCoachSection && (
+          <div className="mt-6 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <Users2 className="w-3.5 h-3.5" />
+              Coach
+            </div>
+            <div className="space-y-0.5">
+              {COACH_NAV_NODES.map((node) => (
+                <NavNodeRow
+                  key={node.kind === "leaf" ? node.href : node.storageKey}
+                  node={node}
+                  location={location}
+                  onNavClick={onNavClick}
+                  indent={0}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {showAdminSection && (
           <div className="mt-6 pt-4 border-t border-border/50">

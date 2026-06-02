@@ -148,7 +148,10 @@ import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import MyProducts from "@/pages/MyProducts";
+import CoachDashboard from "@/pages/coaching/CoachDashboard";
+import MenteeDetail from "@/pages/coaching/MenteeDetail";
 import { AdminRoute } from "@/components/auth/AdminRoute";
+import { CoachRoute } from "@/components/auth/CoachRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -471,6 +474,8 @@ function Router() {
       <Route path="/admin/assistant/groups">{() => <AdminRoute component={AdminAssistantGroups} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/groups/:groupId/cards">{() => <AdminRoute component={AdminAssistantCards} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>
+      <Route path="/coach/dashboard">{() => <CoachRoute component={CoachDashboard} />}</Route>
+      <Route path="/coach/mentees/:userId">{() => <CoachRoute component={MenteeDetail} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
