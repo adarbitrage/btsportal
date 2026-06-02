@@ -28,11 +28,11 @@ const packages = [
 ];
 
 const coaches = [
-  { name: "Sasha Bobylev", initials: "SB" },
+  { name: "Sasha", initials: "SB" },
   { name: "Robin Shepard", initials: "RS" },
-  { name: "Todd Rupp", initials: "TR" },
-  { name: "Bruce Clark", initials: "BC" },
-  { name: "Michael Wissbaum", initials: "MW" },
+  { name: "Todd", initials: "TR" },
+  { name: "Bruce", initials: "BC" },
+  { name: "Michael", initials: "MW" },
 ];
 
 const benefits = [

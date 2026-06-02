@@ -6,15 +6,15 @@ import { Calendar, Video, Users } from "lucide-react";
 const GOOGLE_MEET_LINK = "https://meet.google.com/adz-axqj-pjm";
 
 const liveSchedule = [
-  { day: "Mondays", time: "8 - 9am CST", coach: "Todd Rupp" },
-  { day: "Mondays", time: "3 - 4pm CST", coach: "Bruce Clark" },
-  { day: "Mondays", time: "6 - 7pm CST", coach: "Sasha Bobylev" },
-  { day: "Tuesdays", time: "3 - 4pm CST", coach: "Bruce Clark" },
-  { day: "Tuesdays", time: "6 - 7pm CST", coach: "Michael Wissbaum" },
-  { day: "Wednesdays", time: "6 - 7pm CST", coach: "Sasha Bobylev" },
-  { day: "Thursdays", time: "6 - 7pm CST", coach: "Michael Wissbaum" },
-  { day: "Fridays", time: "8 - 9am CST", coach: "Todd Rupp" },
-  { day: "Saturdays", time: "10 - 11am CST", coach: "Bruce Clark" },
+  { day: "Mondays", time: "8 - 9am CST", coach: "Todd" },
+  { day: "Mondays", time: "3 - 4pm CST", coach: "Bruce" },
+  { day: "Mondays", time: "6 - 7pm CST", coach: "Sasha" },
+  { day: "Tuesdays", time: "3 - 4pm CST", coach: "Bruce" },
+  { day: "Tuesdays", time: "6 - 7pm CST", coach: "Michael" },
+  { day: "Wednesdays", time: "6 - 7pm CST", coach: "Sasha" },
+  { day: "Thursdays", time: "6 - 7pm CST", coach: "Michael" },
+  { day: "Fridays", time: "8 - 9am CST", coach: "Todd" },
+  { day: "Saturdays", time: "10 - 11am CST", coach: "Bruce" },
 ];
 
 type AvatarTint = {
@@ -24,10 +24,10 @@ type AvatarTint = {
 };
 
 const coaches: { name: string; initials: string; tint: AvatarTint }[] = [
-  { name: "Sasha Bobylev", initials: "SB", tint: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" } },
-  { name: "Bruce Clark", initials: "BC", tint: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" } },
-  { name: "Michael Wissbaum", initials: "MW", tint: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" } },
-  { name: "Todd Rupp", initials: "TR", tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" } },
+  { name: "Sasha", initials: "SB", tint: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" } },
+  { name: "Bruce", initials: "BC", tint: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" } },
+  { name: "Michael", initials: "MW", tint: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" } },
+  { name: "Todd", initials: "TR", tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" } },
 ];
 
 export default function Coaching() {
