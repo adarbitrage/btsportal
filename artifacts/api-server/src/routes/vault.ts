@@ -133,7 +133,6 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
       })),
       resources: resources.map(r => ({
         ...r,
-        tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
         isFavorited: favoriteSet.has(r.id),
       })),
     });
@@ -220,7 +219,6 @@ router.get("/vault/resources", async (req: Request, res: Response) => {
     res.json({
       resources: paginatedResources.map(r => ({
         ...r,
-        tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
         isFavorited: favoriteSet.has(r.id),
       })),
       total,
@@ -275,7 +273,6 @@ router.get("/vault/resources/featured", async (req: Request, res: Response) => {
       .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .map(r => ({
         ...r,
-        tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
         isFavorited: favoriteSet.has(r.id),
       }))
     );
@@ -324,7 +321,6 @@ router.get("/vault/resources/recent", async (req: Request, res: Response) => {
       .filter(r => !r.requiredEntitlement || entitlements.has(r.requiredEntitlement))
       .map(r => ({
         ...r,
-        tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
         isFavorited: favoriteSet.has(r.id),
       }))
     );
@@ -424,7 +420,6 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
 
     res.json({
       ...resource,
-      tags: typeof resource.tags === "string" ? JSON.parse(resource.tags) : resource.tags,
       isFavorited: !!fav,
       relatedResources,
     });
@@ -516,7 +511,6 @@ router.get("/vault/favorites", async (req: Request, res: Response) => {
 
     res.json(filtered.map(r => ({
       ...r,
-      tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags,
       isFavorited: true,
     })));
   } catch (error) {

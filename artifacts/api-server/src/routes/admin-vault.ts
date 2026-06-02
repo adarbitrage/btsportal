@@ -325,6 +325,11 @@ router.post("/admin/vault/resources/:id/duplicate", requirePermission("vault:man
     const [original] = await db.select().from(vaultResourcesTable).where(eq(vaultResourcesTable.id, id));
     if (!original) { res.status(404).json({ error: "Resource not found" }); return; }
 
+    // `rest` (including `tags`) is copied straight from a row that already
+    // lives in the table, so its `tags` value is guaranteed by the
+    // vault_resources_tags_is_array CHECK constraint to be NULL or a real
+    // JSONB array — no normalization needed here. The constraint would
+    // reject any malformed shape on the way back in regardless.
     const { id: _id, createdAt: _ca, updatedAt: _ua, downloadCount: _dc, favoriteCount: _fc, ...rest } = original;
     const [duplicate] = await db.insert(vaultResourcesTable).values({
       ...rest,
