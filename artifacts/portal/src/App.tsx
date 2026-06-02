@@ -26,6 +26,7 @@ import Blitz from "@/pages/Blitz";
 import BlitzHub from "@/pages/BlitzHub";
 import BlitzArchive from "@/pages/BlitzArchive";
 import BlitzHubArchive from "@/pages/BlitzHubArchive";
+import VideoReview from "@/pages/VideoReview";
 import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
@@ -361,6 +362,7 @@ function Router() {
       <Route path="/blitz-archive">{() => <AdminRoute component={BlitzHubArchive} permission="content:manage" />}</Route>
       <Route path="/blitz-archive/guide">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
       <Route path="/blitz-archive/guide/:lessonId">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
+      <Route path="/videoreview">{() => <AdminRoute component={VideoReview} permission="content:manage" />}</Route>
       <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
       <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
       <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>

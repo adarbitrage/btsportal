@@ -539,7 +539,7 @@ const blitzCSS = `.blitz-content{
   .blitz-content .phase-jump a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
   .blitz-content .version-banner{padding:5px 0;}`;
 
-const blitzBodyHTML = `<div class="version-banner">
+export const blitzBodyHTML = `<div class="version-banner">
   <div class="vb-left">
     <span class="vb-tag">v4.0</span>
     <span>Caterpillar Edition</span>
