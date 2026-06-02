@@ -2090,6 +2090,50 @@ export default function Blitz() {
     return () => window.clearTimeout(t);
   }, [isSectionView, lessonId]);
 
+  // Deep-link resume: read ?t=<seconds> and auto-open the first video in the
+  // section, then seek to the saved position. Falls back gracefully if there's
+  // no video slot or the player doesn't expose a seekable <video> element.
+  useEffect(() => {
+    if (!contentEl || !isSectionView) return;
+    const params = new URLSearchParams(window.location.search);
+    const tRaw = params.get("t");
+    if (!tRaw) return;
+    const seekTo = Number(tRaw);
+    if (!Number.isFinite(seekTo) || seekTo <= 0) return;
+
+    // Wait for the section content to settle, then auto-open the first video.
+    let seekTimer: ReturnType<typeof window.setInterval> | undefined;
+    const openTimer = window.setTimeout(() => {
+      const firstSlot = contentEl.querySelector<HTMLElement>(
+        ".video-slot[data-vidalytics-id]",
+      );
+      if (!firstSlot) return;
+      firstSlot.click();
+
+      // Poll for the <video> element that Vidalytics inserts into the lightbox,
+      // then seek to the saved position. Give up after ~8s.
+      let attempts = 0;
+      const maxAttempts = 32;
+      seekTimer = window.setInterval(() => {
+        attempts++;
+        const vid = document.querySelector<HTMLVideoElement>(
+          "[data-blitz-lightbox-portal] video, #vdVideoContainer video",
+        );
+        if (vid && vid.readyState >= 1) {
+          try { vid.currentTime = seekTo; } catch { /* ignore */ }
+          window.clearInterval(seekTimer);
+          return;
+        }
+        if (attempts >= maxAttempts) window.clearInterval(seekTimer);
+      }, 250);
+    }, 200);
+
+    return () => {
+      window.clearTimeout(openTimer);
+      if (seekTimer !== undefined) window.clearInterval(seekTimer);
+    };
+  }, [contentEl, isSectionView, lessonId]);
+
   // ─── TEMP: video review-status counter ─────────────────────────────────────
   // REMOVE BEFORE GO-LIVE. Renders a small floating tally of video tiles by
   // data-status. Self-contained: delete this entire block and the

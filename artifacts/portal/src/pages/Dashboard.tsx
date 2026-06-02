@@ -12,6 +12,8 @@ import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
+import { BlitzContinueCard } from "@/components/blitz/BlitzContinueCard";
+import { BlitzStreakWidget } from "@/components/blitz/BlitzStreakWidget";
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
@@ -52,6 +54,8 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-8">
+        <BlitzContinueCard />
+
         <div className="bg-white rounded-2xl border border-border p-5 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
           <div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
@@ -222,6 +226,8 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
+
+            <BlitzStreakWidget />
 
             <WinsSummaryWidget />
 
