@@ -86,6 +86,7 @@ import {
   evaluateModerationFailureAlert,
   getModerationFailureAlertingState,
   evaluateModerationPodSilentAlert,
+  getModerationPodSilentAlertingState,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import {
@@ -3204,6 +3205,28 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
     evaluateModerationFailureAlert().catch((err) => {
       console.error("[Admin] moderation-failure alerter dispatch failed:", err);
     });
+    // Surface the pod-silence watchdog in the bell so an admin sees that a
+    // moderation pod has gone quiet (and may have stopped moderating) without
+    // first opening System Health. Reads the alerter's current state, which is
+    // driven forward by the evaluation kicked off below (and by the in-process
+    // poll). Mirrors the moderation-failure block above.
+    const podSilentAlerting = getModerationPodSilentAlertingState();
+    if (podSilentAlerting.alertingPodIds.length > 0) {
+      const ids = podSilentAlerting.alertingPodIds;
+      const count = ids.length;
+      notifications.push({
+        id: "moderation-pod-silent",
+        type: "moderation_pod_silent",
+        severity: "high",
+        title:
+          count === 1
+            ? "A moderation pod has gone silent"
+            : `${count} moderation pods have gone silent`,
+        message: `${count === 1 ? "Pod" : "Pods"} ${ids.join(", ")} stopped reporting moderation activity for over 2× the rolling window — flag-worthy posts may be staying publicly live with nobody watching.`,
+        link: "/admin/system",
+        createdAt: new Date().toISOString(),
+      });
+    }
     // Same backstop for the pod-silence watchdog: page on-call automatically
     // when a previously-reporting moderation pod goes quiet past the staleness
     // threshold, even if the in-process poll interval has stalled.
