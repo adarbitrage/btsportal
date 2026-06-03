@@ -17,10 +17,23 @@ interface VideoItem {
   title: string;
   description: string;
   section: string;
+  note: string;
   status: StatusKey;
 }
 
 const VD_ACCOUNT = "trR5xdVa";
+
+// Blur notes keyed by Vidalytics ID — what needs blurring in each needs-blur video.
+const BLUR_NOTES: Record<string, string> = {
+  E0BeXueyRE2hjvgc: "Blurred out was removed at 2:47",
+  LMe9EeU5R991GLFt: "Blurred out Cherrington Media Flexy",
+  F0m4KkexkOZumjKs: "Blurred out Cherrington Media Tab Name",
+  "2FPdP3k_ADZB_kPR":
+    "Has TCE resources tab opened as well as pop up video showing TCE logo (1:03)",
+  YJI5apPmvQBdn13r: "Has TCE Media Maven Tab opened",
+  T0xLx5hA7Ex7udDA:
+    "(1:15) Folder was opened with a name 'Cherrington Method' as well as the other parts of the video",
+};
 
 const STATUS_META: Record<StatusKey, { label: string; color: string; bg: string }> = {
   unreviewed: { label: "Unreviewed", color: "#334155", bg: "#e2e8f0" },
@@ -58,7 +71,9 @@ function parseVideos(): VideoItem[] {
     const heading = moduleEl?.querySelector(".module-header h2")?.textContent?.trim() || "";
     const section = [badge, heading].filter(Boolean).join(" · ") || "Unknown section";
 
-    items.push({ vidalyticsId, title, description, section, status });
+    const note = BLUR_NOTES[vidalyticsId] || "";
+
+    items.push({ vidalyticsId, title, description, section, note, status });
   }
   return items;
 }
@@ -174,13 +189,16 @@ function VideoModal({ video, onClose }: { video: VideoItem; onClose: () => void 
 function VideoTable({
   items,
   onPlay,
+  column = "section",
 }: {
   items: VideoItem[];
   onPlay: (v: VideoItem) => void;
+  column?: "section" | "notes";
 }) {
   if (items.length === 0) {
     return <p className="text-sm text-muted-foreground">None — all caught up.</p>;
   }
+  const showNotes = column === "notes";
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -188,7 +206,7 @@ function VideoTable({
           <tr>
             <th className="px-3 py-2 font-semibold">#</th>
             <th className="px-3 py-2 font-semibold">Video</th>
-            <th className="px-3 py-2 font-semibold">Section</th>
+            <th className="px-3 py-2 font-semibold">{showNotes ? "Notes" : "Section"}</th>
             <th className="px-3 py-2 font-semibold">Vidalytics ID</th>
           </tr>
         </thead>
@@ -217,7 +235,13 @@ function VideoTable({
                     <div className="text-xs text-muted-foreground">{v.description}</div>
                   )}
                 </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{v.section}</td>
+                {showNotes ? (
+                  <td className="px-3 py-2 text-xs text-foreground">
+                    {v.note || <span className="text-muted-foreground italic">—</span>}
+                  </td>
+                ) : (
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{v.section}</td>
+                )}
                 <td className="px-3 py-2 font-mono text-xs">{v.vidalyticsId}</td>
               </tr>
             );
@@ -237,7 +261,15 @@ export default function VideoReview() {
   const awaitingLink = videos.filter((v) => v.status === "awaiting-link");
   const needsBlur = videos.filter((v) => v.status === "needs-blur");
 
-  const Section = ({ status, items }: { status: StatusKey; items: VideoItem[] }) => {
+  const Section = ({
+    status,
+    items,
+    column = "section",
+  }: {
+    status: StatusKey;
+    items: VideoItem[];
+    column?: "section" | "notes";
+  }) => {
     const meta = STATUS_META[status];
     return (
       <section className="mb-8">
@@ -250,7 +282,7 @@ export default function VideoReview() {
           </span>
           <span className="text-sm text-muted-foreground">{items.length} video(s)</span>
         </div>
-        <VideoTable items={items} onPlay={setPlaying} />
+        <VideoTable items={items} onPlay={setPlaying} column={column} />
       </section>
     );
   };
@@ -269,7 +301,7 @@ export default function VideoReview() {
       <Section status="needs-rerecord" items={rerecord} />
       <Section status="incorrect-link" items={wrongLink} />
       <Section status="awaiting-link" items={awaitingLink} />
-      <Section status="needs-blur" items={needsBlur} />
+      <Section status="needs-blur" items={needsBlur} column="notes" />
       {playing && (
         <VideoModal
           key={playing.vidalyticsId}
