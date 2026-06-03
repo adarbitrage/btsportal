@@ -1089,7 +1089,7 @@ export const blitzBodyHTML = `<div class="version-banner">
     Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
   </div>
 
-  <div class="video-slot" data-vidalytics-id="E0BeXueyRE2hjvgc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
+  <div class="video-slot" data-vidalytics-id="E0BeXueyRE2hjvgc" data-status="needs-blur"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
   <div class="video-slot" data-vidalytics-id="1HySXYGJDBpvQPus" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate a Description for Your Ad Headlines</div><div class="vd">Write the supporting copy that pairs with each headline</div></div></div>
   <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Shorten Your Ad Headline Title and Insert Dynamic Macros</div><div class="vd">Trim long headlines to fit Caterpillar's character limits and use macros like {city} and {state} to personalize ads</div></div></div>
 
@@ -1234,7 +1234,7 @@ export const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
     <div class="video-slot" data-vidalytics-id="SZTE9m7CzKj724QW" data-status="ready"><div class="play-icon"></div><div><div class="vt">Bridge Page Copy Bot Intro — Call Recording</div><div class="vd">Full introduction to the bot and how to get the best results</div></div></div>
     <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
-    <div class="video-slot" data-vidalytics-id="LMe9EeU5R991GLFt" data-status="ready"><div class="play-icon"></div><div><div class="vt">Create Your Landing Page Base Copy</div><div class="vd">Use the Bridge Page Copy Bot output to draft the base copy for your landing page</div></div></div>
+    <div class="video-slot" data-vidalytics-id="LMe9EeU5R991GLFt" data-status="needs-blur"><div class="play-icon"></div><div><div class="vt">Create Your Landing Page Base Copy</div><div class="vd">Use the Bridge Page Copy Bot output to draft the base copy for your landing page</div></div></div>
 
     <h4>Generate 5 Landing Page Headlines</h4>
     <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
@@ -1377,7 +1377,7 @@ export const blitzBodyHTML = `<div class="version-banner">
         <div class="video-slot" data-vidalytics-id="jLy2BysHyTrFFpIP" data-status="needs-rerecord" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create DIYTrax Campaign Placeholder</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
       </div></li>
       <li><div class="step-num">2</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
-        <div class="video-slot" data-vidalytics-id="2FPdP3k_ADZB_kPR" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
+        <div class="video-slot" data-vidalytics-id="2FPdP3k_ADZB_kPR" data-status="needs-blur" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
       </div></li>
       <li><div class="step-num">3</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
         <div class="video-slot" data-vidalytics-id="4_P5mpduG6ivR2lK" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
@@ -1385,7 +1385,7 @@ export const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
       </div></li>
       <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
-        <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
+        <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r" data-status="needs-blur" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
       </div></li>
     </ol>
   </div>
@@ -1401,7 +1401,7 @@ export const blitzBodyHTML = `<div class="version-banner">
   <div class="video-slot" data-vidalytics-id="zP9oZsPJgMgXTUKJ" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T4 — Create More Ads in Caterpillar</div><div class="vd">Add your remaining headlines to complete all 10 ads</div></div></div>
   <div class="video-slot" data-vidalytics-id="asSx55NQbclVdP89" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T5 — Fund Your Traffic Source</div><div class="vd">Add funds to your Caterpillar publisher account so ads can run</div></div></div>
   <div class="video-slot" data-vidalytics-id="RLAZ22kFspRtI1A3" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T6 — Add Your Landing Pages in DIYTrax</div><div class="vd">Tell DIYTrax which landing pages to rotate traffic between</div></div></div>
-  <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r" data-status="ready"><div class="play-icon"></div><div><div class="vt">T7 — Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
+  <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r" data-status="needs-blur"><div class="play-icon"></div><div><div class="vt">T7 — Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
   <div class="video-slot" data-vidalytics-id="DYnYK_Drhg1FKu7A" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T8 — Final QA Campaign Check and Set To Go Live</div><div class="vd">A final review of every element before flipping the switch</div></div></div>
   <div class="video-slot" data-vidalytics-id="VIDEO_ID_062" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">T9 — How Caterpillar Traffic Source Works and What to Expect</div><div class="vd">Understanding the platform and what happens after you go live</div></div></div>
 
@@ -1587,7 +1587,7 @@ export const blitzBodyHTML = `<div class="version-banner">
   <div class="gate pass"><div class="gate-header">✅ Round 3 Pass: Best placement returning approximately 60% ROAS</div><p style="font-size:.9rem;margin:0;">Earning ~$600 on $1,000 spent means you are closing in on a profitable combination. Continue to refine and iterate based on your top performing ads and landing pages — keep testing until you find the winning combination that produces a positive return.</p></div>
   <div class="gate fail"><div class="gate-header">❌ Round 3 Fail: Best placement below 60% ROAS</div><p style="font-size:.9rem;margin:0;">Take your top performing placement and run a focused headline + description test: 5 headlines × 2 descriptions = 10 ads. Spend at least 1× CPA per ad before cutting. Your top performing visual is solid — the messaging may need refinement.</p></div>
 
-  <div class="video-slot" data-vidalytics-id="T0xLx5hA7Ex7udDA" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
+  <div class="video-slot" data-vidalytics-id="T0xLx5hA7Ex7udDA" data-status="needs-blur"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
 
   <div class="alert danger">
     <strong>⚠ Important Update — Subcampaign Structure for Round 3</strong>
