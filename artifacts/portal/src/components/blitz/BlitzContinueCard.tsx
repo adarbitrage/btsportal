@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Zap, PlayCircle, ArrowRight, RotateCcw } from "lucide-react";
 import { Link } from "wouter";
 
-const LESSON_TITLES: Record<number, { title: string; step: string }> = {
+// Compact, card-specific labels for the "continue" surface. The curriculum
+// skeleton (ids / phases / canonical titles) is owned by the shared
+// @workspace/blitz-curriculum package; these are intentionally shortened
+// presentational copies keyed by that id set. A drift-guard test
+// (blitz-curriculum-drift) asserts these keys stay in lockstep with the
+// canonical section ids so a section can never render with a blank label.
+export const LESSON_TITLES: Record<number, { title: string; step: string }> = {
   1:  { step: "Introduction",              title: "What Is Affiliate Arbitrage?" },
   2:  { step: "Before You Start",          title: "Understand the System" },
   3:  { step: "Phase 1 Overview",          title: "How Phase 1 Works" },

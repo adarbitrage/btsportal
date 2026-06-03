@@ -64,6 +64,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/auth": "workspace:*",
+    "@workspace/blitz-curriculum": "workspace:*",
     "@workspace/moderation-shared": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",

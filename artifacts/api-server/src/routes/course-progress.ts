@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, courseProgressTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { isValidBlitzCourseId } from "../lib/blitz/sections";
 
 const router: IRouter = Router();
 
@@ -13,18 +14,12 @@ const STATIC_VALID_COURSE_IDS = new Set([
   "direct-edge",
 ]);
 
-// Number of lessons in the canonical Blitz Caterpillar Edition hub (BlitzHub.tsx).
-const BLITZ_V2_LESSON_COUNT = 23;
-
 function isValidCourseId(id: unknown): id is string {
   if (typeof id !== "string") return false;
   if (STATIC_VALID_COURSE_IDS.has(id)) return true;
-  // Canonical Blitz Caterpillar Edition hub steps (v2): lessons 1-23.
-  const v2 = id.match(/^blitz-hub-step-v2-(\d+)$/);
-  if (v2) {
-    const n = Number(v2[1]);
-    return n >= 1 && n <= BLITZ_V2_LESSON_COUNT;
-  }
+  // Canonical Blitz Caterpillar Edition hub steps (v2): validated against the
+  // shared @workspace/blitz-curriculum source of truth (lessons 1-23).
+  if (isValidBlitzCourseId(id)) return true;
   // Legacy hub steps 1-18 (pre-v2 ids; kept so older rows can still be removed).
   const legacy = id.match(/^blitz-hub-step-(\d+)$/);
   if (legacy) {

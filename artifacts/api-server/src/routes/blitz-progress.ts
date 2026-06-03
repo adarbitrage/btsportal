@@ -4,75 +4,39 @@ import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { isAdminRole } from "../middleware/rbac";
 import { usersTable } from "@workspace/db";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import {
+  BLITZ_SECTIONS,
+  BLITZ_PHASES,
+  BLITZ_PHASE_ORDER,
+  BLITZ_PHASE_LESSON_COUNTS,
+  buildBlitzCourseId,
+  isValidBlitzCourseId,
+  blitzLessonIdFromCourseId,
+  type BlitzPhaseKey,
+} from "../lib/blitz/sections";
 
 const router: IRouter = Router();
 
-const BLITZ_V2_LESSON_COUNT = 23;
-
 const VALID_EVENT_TYPES = new Set(["viewed", "completed", "uncompleted"]);
 
-function isValidCourseId(id: unknown): id is string {
-  if (typeof id !== "string") return false;
-  const m = id.match(/^blitz-hub-step-v2-(\d+)$/);
-  if (!m) return false;
-  const n = Number(m[1]);
-  return n >= 1 && n <= BLITZ_V2_LESSON_COUNT;
-}
+// All curriculum identity (count, courseId format, lesson→phase map, phase
+// order/counts) now comes from the shared @workspace/blitz-curriculum package
+// via ../lib/blitz/sections. These aliases keep the local call sites readable.
+type PhaseSlug = BlitzPhaseKey;
 
-function lessonIdFromCourseId(courseId: string): number {
-  const m = courseId.match(/^blitz-hub-step-v2-(\d+)$/);
-  return m ? Number(m[1]) : 0;
-}
+const isValidCourseId = isValidBlitzCourseId;
+const lessonIdFromCourseId = blitzLessonIdFromCourseId;
 
-type PhaseSlug = "intro" | "build" | "test" | "scale";
-
-interface LessonMeta {
-  id: number;
-  phase: PhaseSlug;
-}
-
-const LESSON_PHASE_MAP: LessonMeta[] = [
-  { id: 1, phase: "intro" },
-  { id: 2, phase: "intro" },
-  { id: 3, phase: "build" },
-  { id: 4, phase: "build" },
-  { id: 5, phase: "build" },
-  { id: 6, phase: "build" },
-  { id: 7, phase: "build" },
-  { id: 8, phase: "build" },
-  { id: 9, phase: "build" },
-  { id: 10, phase: "build" },
-  { id: 11, phase: "build" },
-  { id: 12, phase: "build" },
-  { id: 13, phase: "build" },
-  { id: 14, phase: "build" },
-  { id: 15, phase: "test" },
-  { id: 16, phase: "test" },
-  { id: 17, phase: "test" },
-  { id: 18, phase: "test" },
-  { id: 19, phase: "test" },
-  { id: 20, phase: "test" },
-  { id: 21, phase: "scale" },
-  { id: 22, phase: "scale" },
-  { id: 23, phase: "scale" },
-];
-
-const PHASE_ORDER: PhaseSlug[] = ["intro", "build", "test", "scale"];
-
-const PHASE_LESSON_COUNTS: Record<PhaseSlug, number> = {
-  intro: LESSON_PHASE_MAP.filter((l) => l.phase === "intro").length,
-  build: LESSON_PHASE_MAP.filter((l) => l.phase === "build").length,
-  test: LESSON_PHASE_MAP.filter((l) => l.phase === "test").length,
-  scale: LESSON_PHASE_MAP.filter((l) => l.phase === "scale").length,
-};
+const PHASE_ORDER: readonly PhaseSlug[] = BLITZ_PHASE_ORDER;
+const PHASE_LESSON_COUNTS: Readonly<Record<PhaseSlug, number>> = BLITZ_PHASE_LESSON_COUNTS;
 
 async function seedPhases(): Promise<void> {
-  const phases = [
-    { slug: "intro", name: "Introduction", sortOrder: 0, color: "#475569" },
-    { slug: "build", name: "Phase 1 — Build", sortOrder: 1, color: "#188f4a" },
-    { slug: "test", name: "Phase 2 — Test", sortOrder: 2, color: "#cf550a" },
-    { slug: "scale", name: "Phase 3 — Scale", sortOrder: 3, color: "#7f2ac9" },
-  ];
+  const phases = BLITZ_PHASES.map((p) => ({
+    slug: p.key,
+    name: p.label,
+    sortOrder: p.sortOrder,
+    color: p.color,
+  }));
   await db
     .insert(blitzPhasesTable)
     .values(phases)
@@ -193,11 +157,11 @@ router.get("/blitz/continue", async (req, res): Promise<void> => {
     .limit(1);
 
   if (completedIds.size === 0 && lastViewed.length === 0) {
-    const first = LESSON_PHASE_MAP[0];
+    const first = BLITZ_SECTIONS[0];
     res.json({
       status: "new",
       sectionId: first.id,
-      courseId: `blitz-hub-step-v2-${first.id}`,
+      courseId: buildBlitzCourseId(first.id),
       savedPositionSeconds: null,
     });
     return;
@@ -220,7 +184,7 @@ router.get("/blitz/continue", async (req, res): Promise<void> => {
     }
   }
 
-  const allLessonIds = LESSON_PHASE_MAP.map((l) => l.id);
+  const allLessonIds = BLITZ_SECTIONS.map((s) => s.id);
   const nextIncomplete = allLessonIds.find((id) => !completedIds.has(id));
 
   if (nextIncomplete === undefined) {
@@ -236,7 +200,7 @@ router.get("/blitz/continue", async (req, res): Promise<void> => {
   res.json({
     status: "returning",
     sectionId: nextIncomplete,
-    courseId: `blitz-hub-step-v2-${nextIncomplete}`,
+    courseId: buildBlitzCourseId(nextIncomplete),
     savedPositionSeconds: null,
   });
 });
@@ -377,8 +341,8 @@ router.get("/blitz/phase-status", async (req, res): Promise<void> => {
 
   const phaseCompletionPct: Record<string, number> = {};
   for (const phase of PHASE_ORDER) {
-    const lessonsInPhase = LESSON_PHASE_MAP.filter((l) => l.phase === phase);
-    const completedInPhase = lessonsInPhase.filter((l) => completedIds.has(l.id)).length;
+    const lessonsInPhase = BLITZ_SECTIONS.filter((s) => s.phase === phase);
+    const completedInPhase = lessonsInPhase.filter((s) => completedIds.has(s.id)).length;
     phaseCompletionPct[phase] = lessonsInPhase.length > 0
       ? Math.round((completedInPhase / lessonsInPhase.length) * 100)
       : 0;
@@ -404,8 +368,8 @@ router.get("/blitz/phase-status", async (req, res): Promise<void> => {
       sortOrder: phase.sortOrder,
       color: phase.color,
       totalLessons: PHASE_LESSON_COUNTS[slug] ?? 0,
-      completedLessons: LESSON_PHASE_MAP.filter(
-        (l) => l.phase === slug && completedIds.has(l.id),
+      completedLessons: BLITZ_SECTIONS.filter(
+        (s) => s.phase === slug && completedIds.has(s.id),
       ).length,
       completionPct,
       unlocked,

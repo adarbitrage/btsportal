@@ -23,8 +23,14 @@ import {
   BLITZ_SECTION_BY_ID,
   BLITZ_SECTION_COUNT,
   BLITZ_PHASE_MAP,
+  BLITZ_V2_COURSE_ID_SQL_PATTERN,
   type BlitzSection,
 } from "./sections";
+
+// Raw SQL fragment for the canonical v2 courseId filter, single-sourced from
+// the shared curriculum package. `sql.raw` of a trusted compile-time constant
+// emits byte-identical SQL to the previous inline literal.
+const BLITZ_V2_COURSE_ID_FILTER = sql.raw(`'${BLITZ_V2_COURSE_ID_SQL_PATTERN}'`);
 
 export interface CurrentSectionResult {
   /** Section object — null only if the user has completed every section. */
@@ -61,7 +67,7 @@ export async function resolveCurrentSection(
       SELECT course_id
       FROM course_progress
       WHERE user_id = ${userId}
-        AND course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+        AND course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
     `);
     completed = new Set((rows.rows as Array<{ course_id: string }>).map(r => r.course_id));
   }
@@ -112,7 +118,7 @@ export async function resolveCurrentSectionBulk(
     SELECT user_id, course_id
     FROM course_progress
     WHERE user_id = ANY(${idArrayLiteral}::int[])
-      AND course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+      AND course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
   `);
 
   // Group completions by user

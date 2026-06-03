@@ -3,40 +3,57 @@ import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Zap, Printer, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  BLITZ_SECTIONS,
+  BLITZ_SECTION_COUNT,
+  BLITZ_SECTION_BY_ID,
+  type BlitzPhaseKey,
+} from "@workspace/blitz-curriculum";
 
-// Lesson id → section anchor + display label, mirrors BlitzHub LESSONS array.
-const LESSON_LOOKUP: Record<number, { section: string; label: string }> = {
-  1: { section: "s1", label: "Introduction" },
-  2: { section: "s2", label: "Before You Start — What You Need to Know" },
-  3: { section: "s3", label: "Phase 1 — Overview" },
-  4: { section: "s4", label: "Network Selection" },
-  5: { section: "s5", label: "Phase 1 — Product Selection" },
-  6: { section: "s6", label: "Phase 1 — Creative Assets · Foundation" },
-  7: { section: "s6b", label: "Phase 1 — Create Your Native Ad Assets" },
-  8: { section: "s6c", label: "Phase 1 — Landing Page Assets · Media Mavens" },
-  9: { section: "s6d", label: "Phase 1 — Landing Page Assets · ClickBank" },
-  10: { section: "s7", label: "Phase 1 — Compliance Review" },
-  11: { section: "s8", label: "Phase 1 — Setting Up Your Website in Flexy™" },
-  12: { section: "s8b", label: "Phase 1 — Using MetricMover™" },
-  13: { section: "s9", label: "Phase 1 — DIYTrax Setup" },
-  14: { section: "s10", label: "Phase 1 — Go Live" },
-  15: { section: "s11", label: "Phase 2 — Overview" },
-  16: { section: "s12", label: "Phase 2 · Round 1" },
-  17: { section: "s13", label: "Between Rounds 1 & 2" },
-  18: { section: "s14", label: "Phase 2 · Round 2" },
-  19: { section: "s15", label: "Between Rounds 2 & 3" },
-  20: { section: "s16", label: "Phase 2 · Round 3" },
-  21: { section: "s17", label: "Phase 3 · Method 1 — Scale Budget" },
-  22: { section: "s18", label: "Phase 3 · Method 2 — New Placements" },
-  23: { section: "s19", label: "Phase 3 · Method 3 — Master Publisher" },
+// Lesson id → guide display label. The section anchor, phase, and total count
+// all come from the shared @workspace/blitz-curriculum source of truth; only
+// these chrome labels are specific to this guide surface.
+export const LESSON_LABELS: Record<number, string> = {
+  1: "Introduction",
+  2: "Before You Start — What You Need to Know",
+  3: "Phase 1 — Overview",
+  4: "Network Selection",
+  5: "Phase 1 — Product Selection",
+  6: "Phase 1 — Creative Assets · Foundation",
+  7: "Phase 1 — Create Your Native Ad Assets",
+  8: "Phase 1 — Landing Page Assets · Media Mavens",
+  9: "Phase 1 — Landing Page Assets · ClickBank",
+  10: "Phase 1 — Compliance Review",
+  11: "Phase 1 — Setting Up Your Website in Flexy™",
+  12: "Phase 1 — Using MetricMover™",
+  13: "Phase 1 — DIYTrax Setup",
+  14: "Phase 1 — Go Live",
+  15: "Phase 2 — Overview",
+  16: "Phase 2 · Round 1",
+  17: "Between Rounds 1 & 2",
+  18: "Phase 2 · Round 2",
+  19: "Between Rounds 2 & 3",
+  20: "Phase 2 · Round 3",
+  21: "Phase 3 · Method 1 — Scale Budget",
+  22: "Phase 3 · Method 2 — New Placements",
+  23: "Phase 3 · Method 3 — Master Publisher",
 };
 
+// Lesson id → section anchor + display label, derived from the shared skeleton.
+const LESSON_LOOKUP: Record<number, { section: string; label: string }> =
+  Object.fromEntries(
+    BLITZ_SECTIONS.map((s) => [
+      s.id,
+      { section: s.sectionAnchor, label: LESSON_LABELS[s.id] ?? s.title },
+    ]),
+  );
+
 // Total lessons, used for the header "Lesson X of Y" progress marker.
-const TOTAL_LESSONS = Object.keys(LESSON_LOOKUP).length;
+const TOTAL_LESSONS = BLITZ_SECTION_COUNT;
 
 // Short titles for the large prev/next pager buttons — the full LESSON_LOOKUP
 // labels are too long to fit. Indexed by lesson id (all 23).
-const LESSON_SHORT_TITLES: Record<number, string> = {
+export const LESSON_SHORT_TITLES: Record<number, string> = {
   1: "Introduction",
   2: "Before You Start",
   3: "Phase 1 Overview",
@@ -65,12 +82,9 @@ const LESSON_SHORT_TITLES: Record<number, string> = {
 // Phase of a lesson, used to color the pager by its DESTINATION phase so the
 // color shifts at phase transitions. Lessons 1–2 are the intro (neutral),
 // 3–14 Phase 1 (build), 15–20 Phase 2 (test), 21–23 Phase 3 (scale).
-type LessonPhase = "intro" | "build" | "test" | "scale";
+type LessonPhase = BlitzPhaseKey;
 function lessonPhase(id: number): LessonPhase {
-  if (id <= 2) return "intro";
-  if (id <= 14) return "build";
-  if (id <= 20) return "test";
-  return "scale";
+  return BLITZ_SECTION_BY_ID[id]?.phase ?? "intro";
 }
 
 // Pager button styling per phase: solid Av2 phase fill + darker border +

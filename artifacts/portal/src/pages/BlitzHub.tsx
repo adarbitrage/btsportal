@@ -4,9 +4,23 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Zap, ArrowUpRight, Check, Lock } from "lucide-react";
+import {
+  BLITZ_SECTIONS,
+  BLITZ_SECTION_COUNT,
+  buildBlitzCourseId,
+  type BlitzPhaseKey,
+} from "@workspace/blitz-curriculum";
 
-type Phase = "intro" | "build" | "test" | "scale";
+type Phase = BlitzPhaseKey;
 type Tag = { kind: "mm" | "cb" | "all" | "warn"; label: string };
+
+// Surface-specific lesson presentation (long description + path tags). The
+// curriculum skeleton (id, phase, step, title, guide anchor) is the shared
+// source of truth in @workspace/blitz-curriculum; this map is keyed by that id.
+interface HubLessonContent {
+  desc: React.ReactNode;
+  tags?: Tag[];
+}
 
 interface HubLesson {
   id: number;
@@ -18,71 +32,48 @@ interface HubLesson {
   ctas: { label: string; section: string; secondary?: boolean }[];
 }
 
-const LESSONS: HubLesson[] = [
-  {
-    id: 1, phase: "intro", step: "Introduction",
-    title: "What Is Affiliate Arbitrage?",
+export const LESSON_CONTENT: Record<number, HubLessonContent> = {
+  1: {
     desc: "Start here before anything else. This short video explains the business model behind The Blitz™ — how affiliate arbitrage works, and why the Build → Test → Scale framework makes it predictable and scalable. The Key Terms reference guide is also available for any unfamiliar affiliate marketing terms you encounter throughout the guide — bookmark it and use it as needed.",
-    ctas: [{ label: "Go to Section", section: "s1" }],
   },
-  {
-    id: 2, phase: "intro", step: "Before You Start",
-    title: "Understand the System — The Three Phases, Your Budget, and the Phase Gates",
+  2: {
     desc: "Read this entire section before touching any technical setup. It covers how the three phases work, what your money is actually buying in the early rounds, realistic budget expectations including net cost after commissions, and the gates you must pass before advancing to the next phase.",
-    ctas: [{ label: "Go to Section", section: "s2" }],
   },
-  {
-    id: 3, phase: "build", step: "Overview",
-    title: "How Phase 1 Works — Campaign Architecture and Your Path",
+  3: {
     desc: "Read this before starting Product Selection. Start here to understand how all the tools and pieces fit together — the Campaign Architecture diagram (how Caterpillar, Flexy™, DIYTrax, and your affiliate network connect), the Path Decision Tree (which path you're on based on whether your product has a pre-built advertorial), and an orientation to the Phase 1 build sections. Work through the sections in order — understanding angles and creative direction in the Creative Assets lessons directly shapes everything you build afterward.",
     tags: [
       { kind: "mm", label: "Path A: Pre-built advertorial → MetricMover™" },
       { kind: "cb", label: "Path B: Jump page template → MetricMover™" },
     ],
-    ctas: [{ label: "Go to Section", section: "s3" }],
   },
-  {
-    id: 4, phase: "build", step: "Network Selection",
-    title: "Choose Your Affiliate Network",
+  4: {
     desc: "Select the network you'll use to find and promote products. Media Mavens is recommended for first campaigns — pre-built advertorials, no chargebacks, higher commissions. ClickBank is a large public marketplace with instant signup.",
     tags: [
       { kind: "mm", label: "Media Mavens ⭐ Recommended" },
       { kind: "cb", label: "ClickBank" },
     ],
-    ctas: [{ label: "Go to Section", section: "s4" }],
   },
-  {
-    id: 5, phase: "build", step: "Product Selection",
-    title: "Select Your Offer and Get Your Affiliate Link",
+  5: {
     desc: "Choose the specific product you'll promote within your network. Save your unique affiliate tracking link. For ClickBank, confirm the product's sales page URL — you'll refer to it when writing your jump page body copy.",
     tags: [
       { kind: "mm", label: "MM: Look for products with pre-built advertorial" },
       { kind: "cb", label: "CB: Confirm jump page path applies" },
     ],
-    ctas: [{ label: "Go to Section", section: "s5" }],
   },
-  {
-    id: 6, phase: "build", step: "Creative Assets",
-    title: "Understanding Creative Assets — The Foundation of Your Campaign",
+  6: {
     desc: (
       <>
         Before creating anything, understand what you're actually testing and why. This lesson covers the <strong>Two-Headline Concept</strong> (ad headlines vs landing page headlines and their different jobs), what an angle is, and why every headline and image you create is an angle hypothesis. The angles section includes a table showing how angles play out across all four asset types.
       </>
     ),
-    ctas: [{ label: "Go to Section", section: "s6" }],
   },
-  {
-    id: 7, phase: "build", step: "Creative Assets",
-    title: "Create Your Native Ad Assets",
+  7: {
     desc: "Create the three assets that make up your Caterpillar ad: 10 headlines (max 90 characters each), 1 description, and 1 static image (16:9, min 960×540px). Covers using FreeAdCopy™ to generate headlines, what makes a strong ad image, and the optional dynamic macro codes for personalization.",
     tags: [
       { kind: "all", label: "10 Headlines · 1 Description · 1 Image" },
     ],
-    ctas: [{ label: "Go to Section", section: "s6b" }],
   },
-  {
-    id: 8, phase: "build", step: "Creative Assets",
-    title: "Create Your Landing Page Assets — Media Mavens",
+  8: {
     desc: (
       <>
         For Media Mavens: generate 5 landing page headlines using AffAngleArchitect and Copy Blocks, then source 5 hero shot images. These 5 headlines × 5 hero shots = 25 combinations that MetricMover™ will create automatically in the next step. <em>Skip this lesson if you're using a ClickBank (jump page) offer — go to the next lesson instead.</em>
@@ -91,137 +82,105 @@ const LESSONS: HubLesson[] = [
     tags: [
       { kind: "mm", label: "5 LP Headlines + 5 Hero Shots = 25 combinations" },
     ],
-    ctas: [{ label: "Go to Section", section: "s6c" }],
   },
-  {
-    id: 9, phase: "build", step: "Creative Assets",
-    title: "Create Your Landing Page Assets — ClickBank",
+  9: {
     desc: "For ClickBank (jump page): download the product VSL using DownloadHelper, transcribe it using Temi, then use the Bridge Page Copy Bot to write your jump page body copy. Then follow the same process as Media Mavens — generate 5 LP headlines and 5 hero shots for MetricMover™.",
     tags: [
       { kind: "cb", label: "VSL → Transcript → Body Copy → 5 Headlines + 5 Hero Shots" },
     ],
-    ctas: [{ label: "Go to Section", section: "s6d" }],
   },
-  {
-    id: 10, phase: "build", step: "Compliance",
-    title: "Submit Your Assets for Compliance Review",
+  10: {
     desc: "Before building any pages, submit your headlines, images, and landing page assets to BTS for compliance review. Typical turnaround is 24–48 hours. You may begin Flexy™ setup while waiting, but do not go live until approval is confirmed.",
     tags: [{ kind: "warn", label: "Do not go live until compliance is confirmed" }],
-    ctas: [{ label: "Go to Section", section: "s7" }],
   },
-  {
-    id: 11, phase: "build", step: "Flexy™ Setup",
-    title: "Setting Up Your Website in Flexy™",
+  11: {
     desc: "Clone the pre-built Flexy™ website template into your account, connect a custom domain, and learn how to duplicate individual pages within your site. This is the universal setup everyone completes before moving on to MetricMover™ — regardless of whether you're on the Media Mavens or ClickBank path.",
     tags: [
       { kind: "all", label: "Universal — Everyone Does This First" },
       { kind: "all", label: "Ends with: Clone Page Into Any Website" },
     ],
-    ctas: [{ label: "Go to Section", section: "s8" }],
   },
-  {
-    id: 12, phase: "build", step: "MetricMover™",
-    title: "Using MetricMover™",
+  12: {
     desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank jump page customization is handled earlier in the Landing Page Assets lesson.)",
     tags: [
       { kind: "all", label: "MM1–MM5 Video Series" },
       { kind: "all", label: "Same process for every path" },
     ],
-    ctas: [{ label: "Go to Section", section: "s8b" }],
   },
-  {
-    id: 13, phase: "build", step: "DIYTrax Setup",
-    title: "Set Up DIYTrax",
+  13: {
     desc: "Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.",
     tags: [
       { kind: "cb", label: "ClickBank: IPN integration required" },
       { kind: "all", label: "Complete 5-step setup sequence in order" },
     ],
-    ctas: [{ label: "Go to Section", section: "s9" }],
   },
-  {
-    id: 14, phase: "build", step: "Go Live",
-    title: "Configure Caterpillar and Go Live",
+  14: {
     desc: "Create your campaign in Caterpillar, upload all 10 ad headlines across 2 sub-campaigns of 5 each, upload your ad image, fund your account with at least $500, and complete the pre-launch checklist before activating. Watch T1–T9 in order.",
     tags: [
       { kind: "all", label: "T1–T9 Video Series" },
       { kind: "all", label: "2 Sub-Campaigns × 5 headlines" },
       { kind: "warn", label: "Complete pre-launch checklist before going live" },
     ],
-    ctas: [{ label: "Go to Section", section: "s10" }],
   },
-  {
-    id: 15, phase: "test", step: "Testing — Getting Started",
-    title: "Find Your Winners Through Data",
+  15: {
     desc: "Read this before launching Round 1. Phase 2 is where your campaign gets smarter — most mentees go through multiple rounds before reaching profitability, and that's the process working as designed. Learn the daily monitoring routine (conversions → ad CTR → landing page CTR) and set up your P&L Tracker so every round produces clean data for the next one.",
-    ctas: [{ label: "Go to Section", section: "s11" }],
   },
-  {
-    id: 16, phase: "test", step: "Round 1 · Min. $500",
-    title: "Find Your Top Performing Headline",
+  16: {
     desc: "Run all 10 ads and monitor performance daily. At $25/ad: cut any ad with 33+ clicks but zero landing page clicks. At $500 total: identify the headline with the strongest metrics. Expect ~20% ROAS — you are buying data, not revenue.",
     tags: [{ kind: "all", label: "Target: ~$100 returned (20% ROAS)" }],
-    ctas: [{ label: "Go to Section", section: "s12" }],
   },
-  {
-    id: 17, phase: "test", step: "Between Rounds 1 and 2",
-    title: "Prepare Additional Static Images While Round 1 Runs",
+  17: {
     desc: "While Round 1 is running, prepare your Round 2 assets. Create 9 new static images in 16:9 format using AI tools. These will compete against your original Round 1 image in Round 2. MM/CB path: also prepare 5 new landing page headlines, 5 new hero shots, and set up a new MetricMover™ project.",
-    ctas: [{ label: "Go to Section", section: "s13" }],
   },
-  {
-    id: 18, phase: "test", step: "Round 2 · Min. $500",
-    title: "Find Your Top Performing Visual Creative",
+  18: {
     desc: "Run 10 static images in 16:9 format — your original plus 9 new ones — all using your Round 1 top performing headline. Identify which visual generates the best return. Target approximately 75% ROAS before advancing to Round 3.",
     tags: [
       { kind: "all", label: "Target: ~$375 returned (75% ROAS)" },
       { kind: "all", label: "All creatives 16:9 static format" },
     ],
-    ctas: [{ label: "Go to Section", section: "s14" }],
   },
-  {
-    id: 19, phase: "test", step: "Between Rounds 2 and 3",
-    title: "Prepare Your Round 3 Placement Format Assets",
+  19: {
     desc: "Take your Round 2 top performing creative and convert it into all 6 placement formats: 16:9 static image, 9:16 static image, 16:9 GIF, 9:16 GIF, 16:9 video, and 9:16 video. Use Cropbot, Adobe Express, and GIFSTER as needed.",
-    ctas: [{ label: "Go to Section", section: "s15" }],
   },
-  {
-    id: 20, phase: "test", step: "Round 3 · Min. $1,000",
-    title: "Find Your Top Performing Placement Format",
+  20: {
     desc: "Run all 6 placement formats as 6 separate sub-campaigns — one format per sub-campaign, as required by the publisher. Identify which placement format generates the best return. Earning ~$600 on $1,000 means you're closing in on profitability — continue refining until the campaign generates a positive return.",
     tags: [
       { kind: "all", label: "Target: ~$600 returned (60% ROAS)" },
       { kind: "warn", label: "1 placement format per sub-campaign — publisher requirement" },
     ],
-    ctas: [{ label: "Go to Section", section: "s16" }],
   },
-  {
-    id: 21, phase: "scale", step: "Method 1",
-    title: "Increase Budget on Your Top Performing Placement",
+  21: {
     desc: "Remove non-profitable ads and increase your daily budget 2× on your top performing placement. If ROAS stays stable after 3–5 days, increase to 5×, then 10×. Monitor daily — stop scaling a placement if ROAS declines for 5+ consecutive days.",
     tags: [{ kind: "warn", label: "Only enter Phase 3 once Phase 2 is profitable" }],
-    ctas: [{ label: "Go to Section", section: "s17" }],
   },
-  {
-    id: 22, phase: "scale", step: "Method 2",
-    title: "Test New Placements and Publishers",
+  22: {
     desc: "Use your proven ads and landing pages on Grasshopper or Crane publishers — no new creative required. Minimum $1,500 per new placement. See the Grasshopper and Crane Supplemental Guides for setup instructions.",
-    ctas: [{ label: "Go to Section", section: "s18" }],
   },
-  {
-    id: 23, phase: "scale", step: "Method 3",
-    title: "Master Publisher",
+  23: {
     desc: "A dedicated email blast to a large subscriber list — dramatically higher reach than native or banner ads. Only available after 14+ consecutive profitable days. Requires a single best headline, image, and landing page. Discuss with your coach before pursuing.",
     tags: [
       { kind: "warn", label: "14+ consecutive profitable days required" },
       { kind: "warn", label: "Coach approval required" },
     ],
-    ctas: [{ label: "Go to Section", section: "s19" }],
   },
-];
+};
 
-const TOTAL = LESSONS.length;
-const STEP_COURSE_PREFIX = "blitz-hub-step-v2-";
+// Compose the rendered lesson list from the shared curriculum skeleton + the
+// local presentation map. Every step links to its guide section anchor.
+const LESSONS: HubLesson[] = BLITZ_SECTIONS.map((section) => {
+  const content = LESSON_CONTENT[section.id] ?? { desc: "" };
+  return {
+    id: section.id,
+    phase: section.phase,
+    step: section.step,
+    title: section.title,
+    desc: content.desc,
+    tags: content.tags,
+    ctas: [{ label: "Go to Section", section: section.sectionAnchor }],
+  };
+});
+
+const TOTAL = BLITZ_SECTION_COUNT;
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 type PhaseTint = {
@@ -383,7 +342,7 @@ export default function BlitzHub() {
     const lastAt = lastViewedAt.current.get(id) ?? 0;
     if (now - lastAt < 60_000) return;
     lastViewedAt.current.set(id, now);
-    const courseId = `${STEP_COURSE_PREFIX}${id}`;
+    const courseId = buildBlitzCourseId(id);
     fetch(`${API_BASE}/blitz/events`, {
       method: "POST",
       credentials: "include",
@@ -394,7 +353,7 @@ export default function BlitzHub() {
 
   const toggleComplete = useCallback(
     async (id: number) => {
-      const courseId = `${STEP_COURSE_PREFIX}${id}`;
+      const courseId = buildBlitzCourseId(id);
       const wasCompleted = completed.has(id);
       setCompleted((prev) => {
         const next = new Set(prev);
@@ -440,7 +399,7 @@ export default function BlitzHub() {
     setCompleted(new Set());
     await Promise.all(
       ids.map((id) =>
-        fetch(`${API_BASE}/course-progress/${STEP_COURSE_PREFIX}${id}`, {
+        fetch(`${API_BASE}/course-progress/${buildBlitzCourseId(id)}`, {
           method: "DELETE",
           credentials: "include",
         }).catch(() => null),

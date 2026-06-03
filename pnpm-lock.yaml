@@ -188,6 +188,9 @@ importers:
       '@workspace/auth':
         specifier: workspace:*
         version: link:../../lib/auth
+      '@workspace/blitz-curriculum':
+        specifier: workspace:*
+        version: link:../../lib/blitz-curriculum
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
@@ -628,6 +631,9 @@ importers:
       '@workspace/auth':
         specifier: workspace:*
         version: link:../../lib/auth
+      '@workspace/blitz-curriculum':
+        specifier: workspace:*
+        version: link:../../lib/blitz-curriculum
       '@workspace/moderation-shared':
         specifier: workspace:*
         version: link:../../lib/moderation-shared
@@ -796,6 +802,12 @@ importers:
         version: 3.25.76
 
   lib/auth:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@25.3.5)(jsdom@25.0.1)(lightningcss@1.31.1)
+
+  lib/blitz-curriculum:
     devDependencies:
       vitest:
         specifier: ^2.1.9

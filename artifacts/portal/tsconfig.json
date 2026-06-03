@@ -23,6 +23,9 @@
     },
     {
       "path": "../../lib/moderation-shared"
+    },
+    {
+      "path": "../../lib/blitz-curriculum"
     }
   ]
 }

@@ -24,7 +24,13 @@ import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
   BLITZ_SECTION_BY_COURSE_ID,
+  BLITZ_V2_COURSE_ID_SQL_PATTERN,
 } from "../lib/blitz/sections";
+
+// Raw SQL fragment for the canonical v2 courseId filter, single-sourced from
+// the shared curriculum package. `sql.raw` of a trusted compile-time constant
+// emits byte-identical SQL to the previous inline literal.
+const BLITZ_V2_COURSE_ID_FILTER = sql.raw(`'${BLITZ_V2_COURSE_ID_SQL_PATTERN}'`);
 import { resolveCurrentSectionBulk, resolveCurrentSection } from "../lib/blitz/continue-resolver";
 import { fetchRecentActivity } from "../lib/blitz/activity";
 
@@ -100,18 +106,18 @@ async function fetchAllMenteeRows(): Promise<MenteeBaseRow[]> {
       SELECT
         cp.user_id,
         COUNT(*) FILTER (
-          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+          WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
         )::int                                                              AS blitz_count,
         MAX(cp.completed_at) FILTER (
-          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+          WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
         )                                                                   AS last_blitz_at,
         (COUNT(*) FILTER (
-          WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+          WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
             AND cp.completed_at > NOW() - INTERVAL '7 days'
         ) > 0)                                                              AS had_recent_blitz,
         MAX(
           CASE
-            WHEN cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+            WHEN cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
             THEN SUBSTRING(cp.course_id FROM '[0-9]+$')::int
             ELSE 0
           END
@@ -347,18 +353,18 @@ router.get(
           SELECT
             cp.user_id,
             COUNT(*) FILTER (
-              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+              WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
             )::int                                                             AS blitz_count,
             MAX(cp.completed_at) FILTER (
-              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+              WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
             )                                                                  AS last_blitz_at,
             (COUNT(*) FILTER (
-              WHERE cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+              WHERE cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
                 AND cp.completed_at > NOW() - INTERVAL '7 days'
             ) > 0)                                                             AS had_recent_blitz,
             MAX(
               CASE
-                WHEN cp.course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+                WHEN cp.course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
                 THEN SUBSTRING(cp.course_id FROM '[0-9]+$')::int
                 ELSE 0
               END
@@ -399,7 +405,7 @@ router.get(
         SELECT course_id, completed_at
         FROM course_progress
         WHERE user_id = ${userId}
-          AND course_id ~ '^blitz-hub-step-v2-[0-9]+$'
+          AND course_id ~ ${BLITZ_V2_COURSE_ID_FILTER}
         ORDER BY completed_at DESC
       `);
 
