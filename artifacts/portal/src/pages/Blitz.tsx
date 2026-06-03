@@ -7,6 +7,7 @@ import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
   BLITZ_SECTION_BY_ID,
+  buildBlitzCourseId,
   type BlitzPhaseKey,
 } from "@workspace/blitz-curriculum";
 
@@ -1789,7 +1790,6 @@ const SECTION_BAR_CSS = `
 `;
 
 const BLITZ_API_BASE = `${import.meta.env.BASE_URL}api`;
-const BLITZ_COURSE_PREFIX = "blitz-hub-step-v2-";
 
 function ArrowLeftIcon() {
   return (
@@ -1833,7 +1833,7 @@ export default function Blitz() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        courseId: `${BLITZ_COURSE_PREFIX}${lessonId}`,
+        courseId: buildBlitzCourseId(lessonId),
         eventType: "viewed",
       }),
     }).catch(() => {});
@@ -1842,7 +1842,7 @@ export default function Blitz() {
   // Flush scroll position to the API (every ~10 s and on unmount).
   useEffect(() => {
     if (!lessonId || !lesson) return;
-    const courseId = `${BLITZ_COURSE_PREFIX}${lessonId}`;
+    const courseId = buildBlitzCourseId(lessonId);
 
     const handleScroll = () => {
       const total = document.body.scrollHeight - window.innerHeight;

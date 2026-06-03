@@ -26,18 +26,11 @@ import { db } from "@workspace/db";
 import { blitzPhasesTable } from "@workspace/db";
 import { BLITZ_PHASES, BLITZ_SECTIONS } from "../lib/blitz/sections";
 
-const PHASE_COLORS: Record<string, string> = {
-  intro: "#475569",
-  build: "#188f4a",
-  test:  "#cf550a",
-  scale: "#7f2ac9",
-};
-
 async function seedBlitzPhases() {
   console.log("Seeding blitz_phases...");
 
   for (const phase of BLITZ_PHASES) {
-    const color = PHASE_COLORS[phase.key] ?? "#6b7280";
+    const color = phase.color;
     await db
       .insert(blitzPhasesTable)
       .values({

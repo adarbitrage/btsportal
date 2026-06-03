@@ -1253,18 +1253,12 @@ async function seed() {
 
   await seedKnowledgebaseFromFiles();
 
-  const PHASE_COLORS: Record<string, string> = {
-    intro: "#475569",
-    build: "#188f4a",
-    test:  "#cf550a",
-    scale: "#7f2ac9",
-  };
   for (const phase of BLITZ_PHASES) {
     await db.insert(blitzPhasesTable).values({
       slug: phase.key,
       name: phase.label,
       sortOrder: phase.sortOrder,
-      color: PHASE_COLORS[phase.key] ?? "#6b7280",
+      color: phase.color,
     }).onConflictDoNothing();
   }
 

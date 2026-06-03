@@ -8,6 +8,7 @@ import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
   buildBlitzCourseId,
+  blitzLessonIdFromCourseId,
   type BlitzPhaseKey,
 } from "@workspace/blitz-curriculum";
 
@@ -265,8 +266,8 @@ export default function BlitzHub() {
         if (cancelled) return;
         const next = new Set<number>();
         for (const row of rows ?? []) {
-          const m = row.courseId?.match(/^blitz-hub-step-v2-(\d+)$/);
-          if (m) next.add(Number(m[1]));
+          const id = row.courseId ? blitzLessonIdFromCourseId(row.courseId) : 0;
+          if (id) next.add(id);
         }
         setCompleted(next);
       })
@@ -413,8 +414,8 @@ export default function BlitzHub() {
         const rows: ProgressEntry[] = await res.json();
         const next = new Set<number>();
         for (const row of rows ?? []) {
-          const m = row.courseId?.match(/^blitz-hub-step-v2-(\d+)$/);
-          if (m) next.add(Number(m[1]));
+          const id = row.courseId ? blitzLessonIdFromCourseId(row.courseId) : 0;
+          if (id) next.add(id);
         }
         setCompleted(next);
       } else {
