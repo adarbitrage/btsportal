@@ -363,7 +363,7 @@ export default function Concierge() {
               </ul>
             </div>
             <p className="text-muted-foreground leading-relaxed">
-              Our Concierge team is here to make it happen. These experts are committed to ensuring nothing stands in the way of your success. <strong className="text-foreground">Most tasks are turned around within 24 hours</strong>, depending on complexity.
+              Our Concierge team is here to make it happen. These experts are committed to ensuring nothing stands in the way of your success. <strong className="text-foreground">Most tasks are turned around within 24-72 hours</strong>, depending on complexity.
             </p>
           </CardContent>
         </Card>
