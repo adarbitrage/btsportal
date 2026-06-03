@@ -378,7 +378,7 @@ export default function Concierge() {
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Submit A Task For The Concierge™</h2>
                   <p className="text-sm text-muted-foreground">
-                    Fill out the form below and let us know how we can assist. Turnaround time: 24 hours.
+                    Fill out the form below and let us know how we can assist. Turnaround time: 24-72 hours.
                   </p>
                 </div>
               </div>
