@@ -57,7 +57,22 @@ if (SENDGRID_API_KEY) {
 
 let twilioClient: ReturnType<typeof twilio> | null = null;
 if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
-  twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+  if (!TWILIO_ACCOUNT_SID.startsWith("AC")) {
+    console.warn(
+      "[communication-service] TWILIO_ACCOUNT_SID does not start with \"AC\"; " +
+        "Twilio SMS is disabled. Provide the Account SID (starts with AC), " +
+        "not an API Key SID (SK...) or auth token.",
+    );
+  } else {
+    try {
+      twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+    } catch (err) {
+      console.warn(
+        "[communication-service] Failed to initialize Twilio client; SMS disabled:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 }
 
 let emailQueue: Queue | null = null;
