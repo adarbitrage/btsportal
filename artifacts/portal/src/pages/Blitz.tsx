@@ -229,6 +229,9 @@ const blitzCSS = `.blitz-content{
   .blitz-content .video-slot[data-status="awaiting-link"]::after{
     content:"⏳ AWAITING LINK"; color:#fff; background:#3b82f6; border-color:#2563eb;
   }
+  .blitz-content .video-slot[data-status="needs-blur"]::after{
+    content:"🔒 NEEDS BLUR"; color:#fff; background:#a855f7; border-color:#9333ea;
+  }
 
   .blitz-content .roadmap{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:stretch;margin:28px 0;}
   @media(max-width:600px){.blitz-content .roadmap{grid-template-columns:1fr;} .blitz-content .roadmap-arrow{display:none;}}
@@ -2234,13 +2237,14 @@ export default function Blitz() {
     document.body.appendChild(badge);
     const update = () => {
       const slots = contentEl.querySelectorAll<HTMLElement>(".video-slot");
-      let ready = 0, redo = 0, wrong = 0, awaiting = 0, unrev = 0;
+      let ready = 0, redo = 0, wrong = 0, awaiting = 0, blur = 0, unrev = 0;
       slots.forEach((s) => {
         const st = s.getAttribute("data-status");
         if (st === "ready") ready++;
         else if (st === "needs-rerecord") redo++;
         else if (st === "incorrect-link") wrong++;
         else if (st === "awaiting-link") awaiting++;
+        else if (st === "needs-blur") blur++;
         else unrev++;
       });
       badge.innerHTML =
@@ -2248,7 +2252,8 @@ export default function Blitz() {
         `<span style="color:#6ee7b7">${ready} ready</span> · ` +
         `<span style="color:#fbbf24">${redo} re-record</span> · ` +
         `<span style="color:#fca5a5">${wrong} wrong link</span> · ` +
-        `<span style="color:#93c5fd">${awaiting} awaiting link</span>`;
+        `<span style="color:#93c5fd">${awaiting} awaiting link</span> · ` +
+        `<span style="color:#d8b4fe">${blur} needs blur</span>`;
     };
     update();
     const obs = new MutationObserver(update);
