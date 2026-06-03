@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { blitzBodyHTML } from "@/pages/Blitz";
 
-type StatusKey = "unreviewed" | "needs-rerecord";
+type StatusKey = "unreviewed" | "needs-rerecord" | "incorrect-link" | "awaiting-link";
 
 interface VideoItem {
   vidalyticsId: string;
@@ -20,6 +20,8 @@ const VD_ACCOUNT = "trR5xdVa";
 const STATUS_META: Record<StatusKey, { label: string; color: string; bg: string }> = {
   unreviewed: { label: "Unreviewed", color: "#334155", bg: "#e2e8f0" },
   "needs-rerecord": { label: "Re-record", color: "#92400e", bg: "#fde68a" },
+  "incorrect-link": { label: "Wrong Link", color: "#991b1b", bg: "#fecaca" },
+  "awaiting-link": { label: "Awaiting Link", color: "#1e40af", bg: "#bfdbfe" },
 };
 
 function isPlayable(id: string): boolean {
@@ -35,8 +37,10 @@ function parseVideos(): VideoItem[] {
     const raw = slot.getAttribute("data-status");
     let status: StatusKey | null = null;
     if (raw === "needs-rerecord") status = "needs-rerecord";
+    else if (raw === "incorrect-link") status = "incorrect-link";
+    else if (raw === "awaiting-link") status = "awaiting-link";
     else if (!raw) status = "unreviewed";
-    if (!status) continue; // skip ready / incorrect-link / awaiting-link
+    if (!status) continue; // skip ready
 
     const title = slot.querySelector(".vt")?.textContent?.trim() || "(untitled)";
     const description = slot.querySelector(".vd")?.textContent?.trim() || "";
@@ -222,6 +226,8 @@ export default function VideoReview() {
   const [playing, setPlaying] = useState<VideoItem | null>(null);
   const unreviewed = videos.filter((v) => v.status === "unreviewed");
   const rerecord = videos.filter((v) => v.status === "needs-rerecord");
+  const wrongLink = videos.filter((v) => v.status === "incorrect-link");
+  const awaitingLink = videos.filter((v) => v.status === "awaiting-link");
 
   const Section = ({ status, items }: { status: StatusKey; items: VideoItem[] }) => {
     const meta = STATUS_META[status];
@@ -253,6 +259,8 @@ export default function VideoReview() {
       </div>
       <Section status="unreviewed" items={unreviewed} />
       <Section status="needs-rerecord" items={rerecord} />
+      <Section status="incorrect-link" items={wrongLink} />
+      <Section status="awaiting-link" items={awaitingLink} />
       {playing && (
         <VideoModal
           key={playing.vidalyticsId}
