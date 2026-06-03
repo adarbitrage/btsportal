@@ -5,7 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { blitzBodyHTML } from "@/pages/Blitz";
 
-type StatusKey = "unreviewed" | "needs-rerecord" | "incorrect-link" | "awaiting-link";
+type StatusKey =
+  | "unreviewed"
+  | "needs-rerecord"
+  | "incorrect-link"
+  | "awaiting-link"
+  | "needs-blur";
 
 interface VideoItem {
   vidalyticsId: string;
@@ -22,6 +27,7 @@ const STATUS_META: Record<StatusKey, { label: string; color: string; bg: string 
   "needs-rerecord": { label: "Re-record", color: "#92400e", bg: "#fde68a" },
   "incorrect-link": { label: "Wrong Link", color: "#991b1b", bg: "#fecaca" },
   "awaiting-link": { label: "Awaiting Link", color: "#1e40af", bg: "#bfdbfe" },
+  "needs-blur": { label: "Needs Blur", color: "#6b21a8", bg: "#e9d5ff" },
 };
 
 function isPlayable(id: string): boolean {
@@ -39,6 +45,7 @@ function parseVideos(): VideoItem[] {
     if (raw === "needs-rerecord") status = "needs-rerecord";
     else if (raw === "incorrect-link") status = "incorrect-link";
     else if (raw === "awaiting-link") status = "awaiting-link";
+    else if (raw === "needs-blur") status = "needs-blur";
     else if (!raw) status = "unreviewed";
     if (!status) continue; // skip ready
 
@@ -228,6 +235,7 @@ export default function VideoReview() {
   const rerecord = videos.filter((v) => v.status === "needs-rerecord");
   const wrongLink = videos.filter((v) => v.status === "incorrect-link");
   const awaitingLink = videos.filter((v) => v.status === "awaiting-link");
+  const needsBlur = videos.filter((v) => v.status === "needs-blur");
 
   const Section = ({ status, items }: { status: StatusKey; items: VideoItem[] }) => {
     const meta = STATUS_META[status];
@@ -261,6 +269,7 @@ export default function VideoReview() {
       <Section status="needs-rerecord" items={rerecord} />
       <Section status="incorrect-link" items={wrongLink} />
       <Section status="awaiting-link" items={awaitingLink} />
+      <Section status="needs-blur" items={needsBlur} />
       {playing && (
         <VideoModal
           key={playing.vidalyticsId}
