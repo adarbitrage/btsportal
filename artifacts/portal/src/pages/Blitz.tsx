@@ -1605,7 +1605,7 @@ export const blitzBodyHTML = `<div class="version-banner">
   <div class="gate pass"><div class="gate-header">✅ Round 3 Pass: Best placement returning approximately 60% ROAS</div><p style="font-size:.9rem;margin:0;">Earning ~$600 on $1,000 spent means you are closing in on a profitable combination. Continue to refine and iterate based on your top performing ads and landing pages — keep testing until you find the winning combination that produces a positive return.</p></div>
   <div class="gate fail"><div class="gate-header">❌ Round 3 Fail: Best placement below 60% ROAS</div><p style="font-size:.9rem;margin:0;">Take your top performing placement and run a focused headline + description test: 5 headlines × 2 descriptions = 10 ads. Spend at least 1× CPA per ad before cutting. Your top performing visual is solid — the messaging may need refinement.</p></div>
 
-  <div class="video-slot" data-vidalytics-id="T0xLx5hA7Ex7udDA" data-status="needs-blur"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
+  <div class="video-slot" data-vidalytics-id="uIwXbmT4lFLLU88o" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
 
   <div class="alert danger">
     <strong>⚠ Important Update — Subcampaign Structure for Round 3</strong>
