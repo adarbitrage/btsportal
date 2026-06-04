@@ -1403,7 +1403,7 @@ export const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
       </div></li>
       <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
-        <div class="video-slot" data-vidalytics-id="YJI5apPmvQBdn13r" data-status="needs-blur" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
+        <div class="video-slot" data-vidalytics-id="aswGPSkz_Y1UbT1g" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
       </div></li>
     </ol>
   </div>
