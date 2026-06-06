@@ -1394,16 +1394,16 @@ export const blitzBodyHTML = `<div class="version-banner">
       <li><div class="step-num">1</div><div class="step-body"><strong>Create Campaign Placeholder</strong> — generates the tracking link you'll embed on your landing pages
         <div class="video-slot" data-vidalytics-id="HnhCtlX2CkufU78S" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create Your DIYTrax Campaign</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
       </div></li>
-      <li><div class="step-num">2</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
-        <div class="video-slot" data-vidalytics-id="Zel8U5NlHPNnz8JT" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
-      </div></li>
-      <li><div class="step-num">3</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
+      <li><div class="step-num">2</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
         <div class="video-slot" data-vidalytics-id="4_P5mpduG6ivR2lK" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
       </div></li>
-      <li><div class="step-num">4</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
+      <li><div class="step-num">3</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
       </div></li>
-      <li><div class="step-num">5</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
+      <li><div class="step-num">4</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
         <div class="video-slot" data-vidalytics-id="aswGPSkz_Y1UbT1g" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
+      </div></li>
+      <li><div class="step-num">5</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
+        <div class="video-slot" data-vidalytics-id="Zel8U5NlHPNnz8JT" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
       </div></li>
     </ol>
   </div>
