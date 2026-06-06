@@ -1398,6 +1398,7 @@ export const blitzBodyHTML = `<div class="version-banner">
         <div class="video-slot" data-vidalytics-id="4_P5mpduG6ivR2lK" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
       </div></li>
       <li><div class="step-num">3</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each<br><em style="font-size:.88rem;color:var(--muted);">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section. All paths now use MetricMover™.</em>
+        <div class="video-slot" data-vidalytics-id="Zu2NIbJiBtjch_oC" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Adding Landing Pages to DIYTrax</div><div class="vd">So it can rotate between them and track each</div></div></div>
       </div></li>
       <li><div class="step-num">4</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
         <div class="video-slot" data-vidalytics-id="aswGPSkz_Y1UbT1g" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
