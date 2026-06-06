@@ -1593,7 +1593,7 @@ export const blitzBodyHTML = `<div class="version-banner">
     <div class="video-slot" data-vidalytics-id="ZxiG7Yyrbu2T1CWx" data-status="ready"><div class="play-icon"></div><div><div class="vt">V3 — How to Trim Video Length Using Adobe Express</div><div class="vd">Cut videos to the right length before converting to GIF</div></div></div>
     <div class="video-slot" data-vidalytics-id="V_w3Mcr3ldyC0EA9" data-status="ready"><div class="play-icon"></div><div><div class="vt">V4 — How to Convert Videos to GIFs Using Adobe Express</div><div class="vd">Create animated GIFs from your video files</div></div></div>
     <div class="video-slot" data-vidalytics-id="abn8q5U_MMI85KvK" data-status="ready"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
-    <div class="video-slot" data-vidalytics-id="ezlIzQmdshnlKwkE" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using GIFSTER</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
+    <div class="video-slot" data-vidalytics-id="uRjbZx71u3BMvrY8" data-status="ready"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using EZgif</div><div class="vd">Alternative GIF creation method using GIFSTER</div></div></div>
   </div>
 
 </div><!-- end blitz-between-r2-r3 -->
