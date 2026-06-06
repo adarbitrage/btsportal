@@ -1392,7 +1392,7 @@ export const blitzBodyHTML = `<div class="version-banner">
     <div class="card-title">Setup Sequence — Follow In This Order</div>
     <ol class="step-list">
       <li><div class="step-num">1</div><div class="step-body"><strong>Create Campaign Placeholder</strong> — generates the tracking link you'll embed on your landing pages
-        <div class="video-slot" data-vidalytics-id="jLy2BysHyTrFFpIP" data-status="needs-rerecord" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create DIYTrax Campaign Placeholder</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
+        <div class="video-slot" data-vidalytics-id="HnhCtlX2CkufU78S" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create Your DIYTrax Campaign</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
       </div></li>
       <li><div class="step-num">2</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
         <div class="video-slot" data-vidalytics-id="Zel8U5NlHPNnz8JT" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
