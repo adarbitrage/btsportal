@@ -1416,8 +1416,6 @@ export const blitzBodyHTML = `<div class="version-banner">
 
   <div class="video-slot" data-vidalytics-id="Vf88dRj1aX14ApL8" data-status="ready"><div class="play-icon"></div><div><div class="vt">Building Your Ads, Funding Your Account, and Going Live</div><div class="vd">Connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch</div></div></div>
 
-  <div class="alert warning"><strong>Sub-Campaign Split Required</strong>Caterpillar recommends a maximum of 3–5 ads per Sub-Campaign. Split your 10 headlines into 2 Sub-Campaigns of 5 each. The videos walk you through this.</div>
-
   <div class="card">
     <div class="card-title">Ad Status Reference</div>
     <table style="margin:0;">
