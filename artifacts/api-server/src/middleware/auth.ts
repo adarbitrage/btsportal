@@ -43,6 +43,7 @@ const PUBLIC_PATHS = [
   "/email/unsubscribe",
   "/v1/health",
   "/integrations/machine-purchase",
+  "/integrations/bootstrap-superadmin",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {

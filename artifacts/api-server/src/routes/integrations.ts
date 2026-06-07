@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, productsTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { db, productsTable, usersTable } from "@workspace/db";
+import { inArray, eq, sql } from "drizzle-orm";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import {
   getCachedGrantResponse,
@@ -593,6 +594,106 @@ router.post(
           message: "An internal error occurred while processing the grant",
         },
       });
+    }
+  },
+);
+
+// One-time, self-disabling super_admin bootstrap.
+//
+// Production starts with NO super_admin, and the in-app "assign role" endpoint
+// is itself super_admin-only — a chicken-and-egg deadlock that nothing in the
+// running app can break. This endpoint mints the FIRST super_admin so the
+// normal in-app role-assignment flow can take over from there.
+//
+// Two hard guards keep it from being a standing backdoor:
+//   1. It requires the machine shared secret (same secret + timing-safe compare
+//      as the purchase webhook).
+//   2. It self-disables: the instant ANY super_admin row exists it refuses every
+//      request (409 ALREADY_BOOTSTRAPPED). It can therefore only ever create
+//      that very first super_admin, never additional ones.
+router.post(
+  "/integrations/bootstrap-superadmin",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!process.env.MACHINE_PORTAL_SHARED_SECRET) {
+      res.status(503).json({ error: { code: "SERVICE_UNAVAILABLE" } });
+      return;
+    }
+
+    const provided = req.headers["x-machine-webhook-secret"];
+    if (!provided || typeof provided !== "string" || !verifyMachineSecret(provided)) {
+      res.status(401).json({ error: { code: "INVALID_SECRET" } });
+      return;
+    }
+
+    const email =
+      typeof req.body?.email === "string" ? req.body.email.toLowerCase().trim() : "";
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || !name || password.length < 8) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR" } });
+      return;
+    }
+
+    try {
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      // Serialize the whole check-then-write under a transaction-scoped
+      // advisory lock so two concurrent valid requests can never both observe
+      // "0 super_admins" and both create one (TOCTOU race). The lock auto-
+      // releases at commit/rollback. The arbitrary key namespaces this lock.
+      const outcome = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(4242042001)`);
+
+        // Self-disabling guard: refuse the moment any super_admin already exists.
+        const [{ n }] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(usersTable)
+          .where(eq(usersTable.role, "super_admin"));
+        if (n > 0) {
+          return { kind: "already_bootstrapped" as const };
+        }
+
+        // Insert-only: never mutate an existing account. If the email is already
+        // taken (e.g. a typo pointing at a real member), refuse rather than
+        // silently reset their password/role and take over their account.
+        const [existing] = await tx
+          .select({ id: usersTable.id })
+          .from(usersTable)
+          .where(eq(usersTable.email, email))
+          .limit(1);
+        if (existing) {
+          return { kind: "email_exists" as const };
+        }
+
+        const [created] = await tx
+          .insert(usersTable)
+          .values({
+            name,
+            email,
+            passwordHash,
+            role: "super_admin",
+            emailVerified: true,
+            onboardingComplete: true,
+          })
+          .returning({ id: usersTable.id });
+        return { kind: "created" as const, userId: created.id };
+      });
+
+      if (outcome.kind === "already_bootstrapped") {
+        res.status(409).json({ error: { code: "ALREADY_BOOTSTRAPPED" } });
+        return;
+      }
+      if (outcome.kind === "email_exists") {
+        res.status(409).json({ error: { code: "EMAIL_EXISTS" } });
+        return;
+      }
+
+      console.log(`[Bootstrap] First super_admin bootstrapped id=${outcome.userId}`);
+      res.status(200).json({ success: true, id: outcome.userId });
+    } catch (err: unknown) {
+      console.error("[Bootstrap] super_admin bootstrap error:", redactPii(err));
+      res.status(500).json({ error: { code: "INTERNAL_ERROR" } });
     }
   },
 );

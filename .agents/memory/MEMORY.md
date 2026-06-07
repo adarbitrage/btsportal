@@ -10,4 +10,5 @@
 - [Moderation pod-silent threshold](moderation-pod-silent-threshold.md) — pod staleness (2× rolling window, totalCount===0) now single-source in lib/moderation-shared; both card + alerter import it. CI gate lives in api-server tests only.
 - [KB ingestion DB vs files](kb-ingestion-db-vs-files.md) — editing knowledge-base/*.txt does NOT update seeded knowledgebase_docs rows (ON CONFLICT title DO NOTHING); must UPDATE DB too + restart for system-prompt cache; title has UNIQUE constraint.
 - [/videoreview temp page](videoreview-temp-page.md) — temp admin tracker auto-filters Blitz unreviewed/re-record; mark a slot data-status="ready" to drop it; full teardown (page+counter+tags) when all done.
+- [Prod super_admin bootstrap](prod-superadmin-bootstrap.md) — prod is a separate DB that started with 0 super_admins; secret-gated self-disabling /api/integrations/bootstrap-superadmin mints the first; must publish before it can run.
 - [Drizzle ANY(array) record-cast pitfall](drizzle-array-any-cast.md) — `ANY(${jsArray}::int[])` throws runtime 42846 "cannot cast record to integer[]"; pass a `{1,2,3}` literal string param instead. Typechecks fine, fails only at query time.
