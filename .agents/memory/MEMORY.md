@@ -12,3 +12,4 @@
 - [/videoreview temp page](videoreview-temp-page.md) — temp admin tracker auto-filters Blitz unreviewed/re-record; mark a slot data-status="ready" to drop it; full teardown (page+counter+tags) when all done.
 - [Prod super_admin bootstrap](prod-superadmin-bootstrap.md) — prod is a separate DB that started with 0 super_admins; secret-gated self-disabling /api/integrations/bootstrap-superadmin mints the first; must publish before it can run.
 - [Drizzle ANY(array) record-cast pitfall](drizzle-array-any-cast.md) — `ANY(${jsArray}::int[])` throws runtime 42846 "cannot cast record to integer[]"; pass a `{1,2,3}` literal string param instead. Typechecks fine, fails only at query time.
+- [Prod email/verification config](prod-email-verification-config.md) — prod verification/reset emails skip until SENDGRID_API_KEY + PORTAL_URL set AND a republish picks them up; agent cant republish/set-secrets/write-prod.

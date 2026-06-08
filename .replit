@@ -64,5 +64,8 @@ timeoutMs = 20000
 
 [userenv.shared]
 
+[userenv.production]
+PORTAL_URL = "https://portal.buildtestscale.com"
+
 [nix]
 channel = "stable-25_05"
