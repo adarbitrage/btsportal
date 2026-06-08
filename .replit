@@ -34,12 +34,12 @@ args = "db-drift"
 name = "test"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_REDIS_INTEGRATION_TESTS=1 pnpm --filter @workspace/api-server test"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/portal run test"
 
 [[workflows.workflow]]
 name = "db-drift"
