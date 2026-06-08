@@ -172,7 +172,7 @@ const STEP_ROUTES = [
   "/onboarding/quick-start",
 ];
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType<any> }) {
+export function ProtectedRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -343,7 +343,7 @@ function GuestRoute({ component: Component }: { component: React.ComponentType<a
 // signed-in user whose account still carries the temporary password
 // (mustChangePassword). Everyone else is bounced away so the screen can't be
 // opened (or linked to) outside the intended flow.
-function PasswordChangeRoute({ component: Component }: { component: React.ComponentType<any> }) {
+export function PasswordChangeRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
 
   if (loading) return null;
