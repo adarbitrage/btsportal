@@ -26,8 +26,8 @@ export const LESSON_LABELS: Record<number, string> = {
   9: "Phase 1 — Landing Page Assets · ClickBank",
   10: "Phase 1 — Compliance Review",
   11: "Phase 1 — Setting Up Your Website in Flexy™",
-  12: "Phase 1 — Using MetricMover™",
-  13: "Phase 1 — DIYTrax Setup",
+  12: "Phase 1 — DIYTrax Setup",
+  13: "Phase 1 — Using MetricMover™",
   14: "Phase 1 — Go Live",
   15: "Phase 2 — Overview",
   16: "Phase 2 · Round 1",
@@ -66,8 +66,8 @@ export const LESSON_SHORT_TITLES: Record<number, string> = {
   9: "Landing Pages · ClickBank",
   10: "Compliance Review",
   11: "Website Setup (Flexy™)",
-  12: "Using MetricMover™",
-  13: "DIYTrax Setup",
+  12: "DIYTrax Setup",
+  13: "Using MetricMover™",
   14: "Go Live",
   15: "Phase 2 Overview",
   16: "Round 1",
@@ -1362,30 +1362,8 @@ export const blitzBodyHTML = `<div class="version-banner">
 
 </div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
 
-<span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
-<div class="module" id="blitz-step3b" data-section="s8b">
-  <div class="module-header"><span class="mod-badge build">12 — Build — Using MetricMover™</span><h2 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h2></div>
-
-  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
-
-  <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
-  <div class="callout-box" style="margin-bottom:16px;">
-    <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
-    The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
-  </div>
-  <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
-  <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2 — Create Your 5 Landing Page Headline Variants</div><div class="vd">How to add and save your headline variations in MetricMover™</div></div></div>
-  <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3 — Create Your 5 Hero Shot Image Variants</div><div class="vd">Upload your images to Flexy™, grab the links, and set up image variations in MetricMover™</div></div></div>
-  <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
-  <div class="video-slot" data-vidalytics-id="zGwUsZj7isZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
-
-  <div class="alert info"><strong>ClickBank path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
-
-  <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
-
-</div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step4" data-section="s9">
-  <div class="module-header"><span class="mod-badge build">13 — Build — DIYTrax Setup</span><h2 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div class="module-header"><span class="mod-badge build">12 — Build — DIYTrax Setup</span><h2 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h2></div>
   <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
 
   <div class="card">
@@ -1410,6 +1388,28 @@ export const blitzBodyHTML = `<div class="version-banner">
   </div>
 
 </div><!-- end blitz-step4 -->
+<span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
+<div class="module" id="blitz-step3b" data-section="s8b">
+  <div class="module-header"><span class="mod-badge build">13 — Build — Using MetricMover™</span><h2 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h2></div>
+
+  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
+
+  <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
+  <div class="callout-box" style="margin-bottom:16px;">
+    <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
+    The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
+  </div>
+  <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
+  <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2 — Create Your 5 Landing Page Headline Variants</div><div class="vd">How to add and save your headline variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3 — Create Your 5 Hero Shot Image Variants</div><div class="vd">Upload your images to Flexy™, grab the links, and set up image variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
+  <div class="video-slot" data-vidalytics-id="zGwUsZj7isZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
+
+  <div class="alert info"><strong>ClickBank path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
+
+  <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
+
+</div><!-- end blitz-step3b (Using MetricMover) -->
 <div class="module" id="blitz-step5" data-section="s10">
   <div class="module-header"><span class="mod-badge build">14 — Build — Go Live</span><h2 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h2></div>
   <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>

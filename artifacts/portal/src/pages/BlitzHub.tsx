@@ -102,17 +102,17 @@ export const LESSON_CONTENT: Record<number, HubLessonContent> = {
     ],
   },
   12: {
-    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank jump page customization is handled earlier in the Landing Page Assets lesson.)",
-    tags: [
-      { kind: "all", label: "MM1–MM5 Video Series" },
-      { kind: "all", label: "Same process for every path" },
-    ],
-  },
-  13: {
     desc: "Configure your campaign tracking system. Create your Campaign Placeholder to generate your tracking link, set up IPN integration if using ClickBank, embed your offer link in landing pages, and import your MetricMover™ page variants. DIYTrax connects every part of your campaign and records which combinations generate sales.",
     tags: [
       { kind: "cb", label: "ClickBank: IPN integration required" },
       { kind: "all", label: "Complete 5-step setup sequence in order" },
+    ],
+  },
+  13: {
+    desc: "Turn your 5 landing page headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 to set up your project, add your headline and hero shot variants, build your Flexy™ landing page with the embed code, and upload all 25 variants to DIYTrax. (ClickBank jump page customization is handled earlier in the Landing Page Assets lesson.)",
+    tags: [
+      { kind: "all", label: "MM1–MM5 Video Series" },
+      { kind: "all", label: "Same process for every path" },
     ],
   },
   14: {
