@@ -21,6 +21,14 @@ spellings — both "Wissbaum" (double-s) and "Wisbaum" (single-s); the filter on
 double-s. Coach surname patterns must tolerate variants (e.g. `Wiss?baum`, `Bob[iy]lev`).
 
 **How to apply:** When asked to scrub a name from the assistant: (1) add/widen the filter rule
-in content-privacy-filter.ts to cover spelling variants, and (2) re-scrub existing
-knowledgebase_docs rows in the DB. Both content paths now run through the filter, so cleaning
-the raw qa-articles.txt/glossary.txt files is no longer required for safety (still nice for tidiness).
+in content-privacy-filter.ts to cover spelling variants, (2) clean the raw source files read by
+getSystemPrompt (qa-articles.txt, glossary.txt), and (3) re-scrub existing knowledgebase_docs rows
+in the DB. Both content paths now run through the filter, so cleaning the raw files is no longer
+strictly required for safety but recommended for tidiness and to ensure the leak-guard test passes.
+
+**Re-scrub gotcha:** when re-scrubbing existing knowledgebase_docs rows, scrub the `content`
+column ONLY — `title` has a UNIQUE constraint and scrubbing titles can collapse two distinct
+rows onto the same title (the whitespace/"the the" cleanup rules), throwing 23505. A leak guard
+test (kb-coach-name-leak-guard) scans qa-articles.txt + glossary.txt raw AND all DB rows with
+variant-tolerant fuzzy matchers; the re-scrub one-shot lives at
+scripts/rescrub-knowledgebase-docs.ts.
