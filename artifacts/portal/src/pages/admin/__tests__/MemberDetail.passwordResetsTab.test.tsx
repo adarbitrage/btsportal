@@ -21,6 +21,7 @@ const flexyPanelStub = vi.fn((props: Record<string, unknown>) => (
 ));
 vi.mock("@/components/admin/FlexyRegeneratePanel", () => ({
   FlexyRegeneratePanel: (props: Record<string, unknown>) => flexyPanelStub(props),
+  fetchFlexyLookup: vi.fn().mockResolvedValue(null),
 }));
 
 const getMemberFull = vi.fn();

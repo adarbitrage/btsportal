@@ -112,7 +112,7 @@ export function FlexyStatusSummary({
         <Badge
           variant="outline"
           className="bg-green-50 text-green-700 border-green-200 text-[10px]"
-          data-testid={`${testIdPrefix}-badge-staff-user`}
+          data-testid={`badge-${testIdPrefix}-staff-user`}
         >
           Staff user linked
         </Badge>
@@ -120,7 +120,7 @@ export function FlexyStatusSummary({
         <Badge
           variant="outline"
           className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
-          data-testid={`${testIdPrefix}-badge-staff-user`}
+          data-testid={`badge-${testIdPrefix}-staff-user`}
         >
           No staff user
         </Badge>
@@ -130,7 +130,7 @@ export function FlexyStatusSummary({
           <Badge
             variant="outline"
             className="bg-green-50 text-green-700 border-green-200 text-[10px]"
-            data-testid={`${testIdPrefix}-badge-sms`}
+            data-testid={`badge-${testIdPrefix}-sms`}
           >
             SMS opt-in
           </Badge>
@@ -138,7 +138,7 @@ export function FlexyStatusSummary({
           <Badge
             variant="outline"
             className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
-            data-testid={`${testIdPrefix}-badge-sms`}
+            data-testid={`badge-${testIdPrefix}-sms`}
           >
             Phone on file, no SMS opt-in
           </Badge>
@@ -147,7 +147,7 @@ export function FlexyStatusSummary({
         <Badge
           variant="outline"
           className="bg-muted text-muted-foreground text-[10px]"
-          data-testid={`${testIdPrefix}-badge-sms`}
+          data-testid={`badge-${testIdPrefix}-sms`}
         >
           No phone on file
         </Badge>

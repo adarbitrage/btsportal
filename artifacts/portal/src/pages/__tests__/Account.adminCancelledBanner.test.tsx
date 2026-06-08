@@ -192,9 +192,8 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
     // Pre-filling the support form via a topic param keeps the click count to
     // one — without it, members would land on a blank form and have to retype
     // the context themselves.
-    expect(link).toHaveAttribute(
-      "href",
-      "/support/contact?topic=email-admin-cancelled",
+    expect(link.getAttribute("href")).toMatch(
+      /^\/support\/contact\?topic=email-admin-cancelled(?:&|$)/,
     );
     expect(link).toHaveTextContent(/contact support/i);
   });

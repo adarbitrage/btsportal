@@ -9,9 +9,17 @@ vi.mock("@/components/layout/AdminLayout", () => ({
 }));
 
 const getTicketAuditHistory = vi.fn();
+const getAdminTicket = vi.fn();
+const getAdminTicketSla = vi.fn();
+const getTicketAssignees = vi.fn();
+const getAdminTickets = vi.fn();
 vi.mock("@/lib/admin-panel-api", () => ({
   adminPanelApi: {
     getTicketAuditHistory: (...args: unknown[]) => getTicketAuditHistory(...args),
+    getAdminTicket: (...args: unknown[]) => getAdminTicket(...args),
+    getAdminTicketSla: (...args: unknown[]) => getAdminTicketSla(...args),
+    getTicketAssignees: (...args: unknown[]) => getTicketAssignees(...args),
+    getAdminTickets: (...args: unknown[]) => getAdminTickets(...args),
   },
 }));
 
@@ -26,8 +34,35 @@ vi.mock("wouter", () => ({
 
 import AdminTicketDetail from "@/pages/admin/AdminTicketDetail";
 
+function makeTicket(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    ticketNumber: "BTS-000001",
+    userId: 7,
+    category: "other",
+    priority: "normal" as const,
+    status: "open" as const,
+    subject: "Recent activity test ticket",
+    source: null,
+    sourceReferenceId: null,
+    assignedTo: null,
+    createdAt: new Date("2026-05-01T12:00:00Z").toISOString(),
+    updatedAt: new Date("2026-05-01T12:00:00Z").toISOString(),
+    resolvedAt: null,
+    member: { id: 7, name: "Casey Member", email: "casey@example.test" },
+    assignee: null,
+    tier: "standard",
+    messages: [],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   getTicketAuditHistory.mockReset();
+  getAdminTicket.mockReset().mockResolvedValue(makeTicket());
+  getAdminTicketSla.mockReset().mockResolvedValue(null);
+  getTicketAssignees.mockReset().mockResolvedValue([]);
+  getAdminTickets.mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {

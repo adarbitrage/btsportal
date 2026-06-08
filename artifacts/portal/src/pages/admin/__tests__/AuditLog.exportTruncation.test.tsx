@@ -16,6 +16,7 @@ vi.mock("@/lib/admin-panel-api", () => ({
     getAuditLog: (...args: unknown[]) => getAuditLog(...args),
     exportAuditLog: (...args: unknown[]) => exportAuditLog(...args),
   },
+  saveBlobAsFile: vi.fn(),
 }));
 
 const toastSpy = vi.fn();
