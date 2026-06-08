@@ -79,6 +79,8 @@ export default function MemberDetail() {
   const [forceVerifying, setForceVerifying] = useState(false);
   const [forceVerifyConfirmOpen, setForceVerifyConfirmOpen] = useState(false);
   const [resendingInvite, setResendingInvite] = useState(false);
+  const [forcingPasswordReset, setForcingPasswordReset] = useState(false);
+  const [forcePasswordResetConfirmOpen, setForcePasswordResetConfirmOpen] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page. Ordinary audit rows live for ~90 days, but
@@ -512,6 +514,23 @@ export default function MemberDetail() {
     }
   };
 
+  const handleForcePasswordReset = async () => {
+    try {
+      setForcingPasswordReset(true);
+      await adminPanelApi.forceMemberPasswordReset(memberId);
+      toast({
+        title: "Password reset forced",
+        description: "They'll be required to set a new password the next time they sign in.",
+      });
+      setForcePasswordResetConfirmOpen(false);
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setForcingPasswordReset(false);
+    }
+  };
+
   const handleRevokeProduct = async (userProductId: number) => {
     try {
       await adminPanelApi.revokeProduct(memberId, userProductId);
@@ -808,6 +827,62 @@ export default function MemberDetail() {
                   {resendingInvite ? "Sending…" : "Resend invite"}
                 </Button>
               </div>
+
+              {canAssignRole && (
+                <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-4 mt-4">
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-sm">Force password reset on next sign-in</p>
+                    <p className="text-xs text-muted-foreground">
+                      Requires this account to set a brand-new password before reaching anything else the next time they sign in. Use after sharing a temporary password out-of-band, or if the account may be compromised.
+                    </p>
+                  </div>
+                  <Dialog open={forcePasswordResetConfirmOpen} onOpenChange={setForcePasswordResetConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={forcingPasswordReset}
+                        data-testid="button-force-password-reset"
+                      >
+                        <KeyRound className="w-3 h-3 mr-1" />
+                        {forcingPasswordReset ? "Forcing…" : "Force password reset"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-confirm-force-password-reset">
+                      <DialogHeader>
+                        <DialogTitle>Force a password reset?</DialogTitle>
+                        <DialogDescription>
+                          Require <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}
+                          {" "}to set a new password the next time they sign in. They won't be able to reach anything else until they do. The requirement clears itself once they set the new password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setForcePasswordResetConfirmOpen(false)}
+                          disabled={forcingPasswordReset}
+                          data-testid="button-cancel-force-password-reset"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleForcePasswordReset}
+                          disabled={forcingPasswordReset}
+                          data-testid="button-confirm-force-password-reset"
+                        >
+                          <KeyRound className="w-3 h-3 mr-1" />
+                          {forcingPasswordReset ? "Forcing…" : "Force password reset"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

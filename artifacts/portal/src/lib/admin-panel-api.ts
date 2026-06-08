@@ -1083,6 +1083,15 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async forceMemberPasswordReset(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/force-password-reset`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to force password reset");
+    }
+    return res.json() as Promise<{ success: true; id: number; mustChangePassword: true; alreadySet: boolean }>;
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");

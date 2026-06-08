@@ -2472,6 +2472,57 @@ router.post("/admin/members/:id/unlock", requirePermission("members:edit"), asyn
   }
 });
 
+// Force an existing account to set a fresh password the next time they sign in
+// by flipping the same `mustChangePassword` flag that POST /admin/staff sets on
+// brand-new staff. Used after a temp password was shared out-of-band, or when an
+// account may be compromised. The flag clears itself once the user completes the
+// existing /change-password flow (see POST /members/me/password). RBAC + audit
+// mirror POST /admin/staff (members:assign_role) since this is a sensitive
+// credential-lifecycle action.
+router.post("/admin/members/:id/force-password-reset", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, mustChangePassword: usersTable.mustChangePassword })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const wasSet = member.mustChangePassword;
+
+    // Always run the update (even when already set) so the response is
+    // idempotent and the audit trail records the admin's intent either way —
+    // matching the /unlock and /force-verify patterns.
+    await db
+      .update(usersTable)
+      .set({ mustChangePassword: true })
+      .where(eq(usersTable.id, id));
+
+    await logAdminAction(
+      req,
+      "force_password_reset",
+      "user",
+      String(id),
+      `Forced password reset for member ${member.email} (they must set a new password on next sign-in)`,
+      {
+        before: { mustChangePassword: wasSet },
+        after: { mustChangePassword: true },
+        // Surfaced so the audit-log redactor can scrub the email from the
+        // description for viewers without `members:pii`.
+        memberEmail: member.email,
+      },
+    );
+
+    res.json({ success: true, id, mustChangePassword: true, alreadySet: wasSet });
+  } catch (error) {
+    console.error("[Admin] Force password reset error:", error);
+    res.status(500).json({ error: "Failed to force password reset" });
+  }
+});
+
 // Friendly display label used inside the `role_changed` notification email
 // so the recipient sees "Support Agent" instead of the raw `support_agent`
 // identifier. Kept local to this route module on purpose — the admin role
