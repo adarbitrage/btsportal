@@ -59,6 +59,12 @@
   --destructive-foreground: 0 0% 100%;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 @layer base {
   html {
     font-size: 16.5px;
