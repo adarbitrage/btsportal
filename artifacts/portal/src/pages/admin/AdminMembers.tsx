@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2, UserPlus } from "lucide-react";
+import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2, UserPlus, ShieldPlus, Copy, Check } from "lucide-react";
 import { adminPanelApi, saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
 import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, ADMIN_ROLES, ROLE_INFO, type AdminRole } from "@/lib/permissions";
 import { format } from "date-fns";
 
 const SOURCE_ANY = "any";
@@ -41,10 +41,28 @@ export default function AdminMembers() {
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  // Staff-account creation (super_admin only). Distinct from the member-invite
+  // flow above: it picks a role and surfaces a one-time temporary password.
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState<AdminRole>("support_agent");
+  const [creatingStaff, setCreatingStaff] = useState(false);
+  // Holds the freshly-minted staff credentials so we can show the one-time
+  // temporary password until the super_admin dismisses it.
+  const [staffResult, setStaffResult] = useState<{
+    id: number;
+    email: string;
+    name: string;
+    role: string;
+    temporaryPassword: string;
+  } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const { user: currentUser } = useAuth();
   const canCreateMembers = hasPermission(currentUser?.role, "members:edit");
+  const canCreateStaff = hasPermission(currentUser?.role, "members:assign_role");
 
   const load = async (page = 1) => {
     try {
@@ -103,6 +121,45 @@ export default function AdminMembers() {
     }
   };
 
+  const resetStaffForm = () => {
+    setStaffEmail("");
+    setStaffName("");
+    setStaffRole("support_agent");
+  };
+
+  const handleCreateStaff = async () => {
+    const email = staffEmail.trim();
+    const name = staffName.trim();
+    if (!email || !name) {
+      toast({ title: "Missing info", description: "Email and name are required.", variant: "destructive" });
+      return;
+    }
+    setCreatingStaff(true);
+    try {
+      const result = await adminPanelApi.createStaffAccount({ email, name, role: staffRole });
+      setStaffOpen(false);
+      resetStaffForm();
+      setCopiedPassword(false);
+      setStaffResult(result);
+    } catch (err: any) {
+      toast({ title: "Could not create staff account", description: err.message, variant: "destructive" });
+    } finally {
+      setCreatingStaff(false);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!staffResult) return;
+    try {
+      await navigator.clipboard.writeText(staffResult.temporaryPassword);
+      setCopiedPassword(true);
+      toast({ title: "Temporary password copied" });
+      setTimeout(() => setCopiedPassword(false), 2000);
+    } catch {
+      toast({ title: "Copy failed", description: "Select the password and copy it manually.", variant: "destructive" });
+    }
+  };
+
   const handleExport = async () => {
     // Belt-and-braces: the button is also disabled while an export runs,
     // but a stale Enter key / double-tap could still re-enter this handler
@@ -155,6 +212,17 @@ export default function AdminMembers() {
               >
                 <UserPlus className="w-4 h-4 mr-1" />
                 Add Member
+              </Button>
+            )}
+            {canCreateStaff && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStaffOpen(true)}
+                data-testid="button-add-staff"
+              >
+                <ShieldPlus className="w-4 h-4 mr-1" />
+                Create Staff Account
               </Button>
             )}
             <Button
@@ -301,6 +369,136 @@ export default function AdminMembers() {
               >
                 {creating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
                 {creating ? "Creating…" : "Create & send invite"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={staffOpen} onOpenChange={(open) => { if (!creatingStaff) setStaffOpen(open); }}>
+          <DialogContent data-testid="dialog-add-staff">
+            <DialogHeader>
+              <DialogTitle>Create a staff account</DialogTitle>
+              <DialogDescription>
+                Provisions a new admin-panel team member with the role you pick. The account is
+                ready to use immediately and a one-time temporary password is shown after creation
+                for you to share manually.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-staff-name">Name</Label>
+                <Input
+                  id="new-staff-name"
+                  value={staffName}
+                  onChange={(e) => setStaffName(e.target.value)}
+                  placeholder="Jane Doe"
+                  autoComplete="off"
+                  data-testid="input-new-staff-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-staff-email">Email</Label>
+                <Input
+                  id="new-staff-email"
+                  type="email"
+                  value={staffEmail}
+                  onChange={(e) => setStaffEmail(e.target.value)}
+                  placeholder="jane@example.com"
+                  autoComplete="off"
+                  data-testid="input-new-staff-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-staff-role">Role</Label>
+                <Select value={staffRole} onValueChange={(v) => setStaffRole(v as AdminRole)}>
+                  <SelectTrigger id="new-staff-role" data-testid="select-new-staff-role">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ADMIN_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>{ROLE_INFO[role]?.label ?? role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{ROLE_INFO[staffRole]?.impact}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setStaffOpen(false)}
+                disabled={creatingStaff}
+                data-testid="button-cancel-add-staff"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateStaff}
+                disabled={creatingStaff}
+                data-testid="button-confirm-add-staff"
+              >
+                {creatingStaff ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ShieldPlus className="w-4 h-4 mr-1" />}
+                {creatingStaff ? "Creating…" : "Create account"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!staffResult} onOpenChange={(open) => { if (!open) setStaffResult(null); }}>
+          <DialogContent data-testid="dialog-staff-credentials">
+            <DialogHeader>
+              <DialogTitle>Staff account created</DialogTitle>
+              <DialogDescription>
+                Share these credentials with {staffResult?.name} securely. This temporary password
+                is shown only once — it cannot be retrieved again. Ask them to change it after their
+                first sign-in.
+              </DialogDescription>
+            </DialogHeader>
+            {staffResult && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="text-sm font-medium" data-testid="text-staff-email">{staffResult.email}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Role</Label>
+                  <p className="text-sm font-medium" data-testid="text-staff-role">{ROLE_INFO[staffResult.role as AdminRole]?.label ?? staffResult.role}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Temporary password</Label>
+                  <div className="flex items-center gap-2">
+                    <code
+                      className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all"
+                      data-testid="text-staff-temp-password"
+                    >
+                      {staffResult.temporaryPassword}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyPassword}
+                      data-testid="button-copy-staff-password"
+                    >
+                      {copiedPassword ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  const id = staffResult?.id;
+                  setStaffResult(null);
+                  if (id) navigate(`/admin/members/${id}`);
+                }}
+                variant="outline"
+                data-testid="button-view-staff-member"
+              >
+                View account
+              </Button>
+              <Button onClick={() => setStaffResult(null)} data-testid="button-done-staff-credentials">
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>

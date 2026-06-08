@@ -2235,6 +2235,101 @@ router.post("/admin/members", requirePermission("members:edit"), async (req: Req
   }
 });
 
+// Create a STAFF account (admin / support_agent / content_manager /
+// compliance_reviewer / super_admin) straight from the admin panel — no more
+// hand-editing the DB to onboard a teammate. Distinct from POST /admin/members
+// (which creates a regular member and emails them a self-serve password link):
+//   - Gated on `members:assign_role` (super_admin only) because picking the
+//     role is itself a role-assignment super-power.
+//   - The role MUST be one of the admin roles — this endpoint exists to mint
+//     staff, not regular members (use POST /admin/members for those).
+//   - Account is created ready-to-use: emailVerified=true AND
+//     onboardingComplete=true, so the teammate skips the member onboarding
+//     wizard and can sign straight into the admin panel.
+//   - A human-shareable temporary password is generated and returned ONCE in
+//     the response so the super_admin can hand it over out-of-band. We never
+//     email it and never persist it in plaintext (only the bcrypt hash is
+//     stored), so it is unrecoverable after this single response.
+//   - Duplicate email returns 409 with a clear message (admins should see the
+//     conflict, unlike the non-enumerable public /auth/register path).
+router.post("/admin/staff", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    const rawName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    const rawRole = typeof req.body?.role === "string" ? req.body.role.trim() : "";
+    if (!rawEmail || !rawName) { res.status(400).json({ error: "Email and name are required" }); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(rawEmail)) { res.status(400).json({ error: "Invalid email format" }); return; }
+    if (!isAdminRole(rawRole)) {
+      res.status(400).json({
+        error: `Invalid role. Staff accounts must use one of: ${ADMIN_ROLES.join(", ")}`,
+      });
+      return;
+    }
+    const email = rawEmail.toLowerCase();
+
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1);
+    if (existing) { res.status(409).json({ error: "A member with that email already exists", id: existing.id }); return; }
+
+    // Human-shareable temporary password. base64url avoids +/=/ characters
+    // that get mangled when copy-pasted, while 18 random bytes (~24 chars)
+    // keeps it well beyond brute-force range. The super_admin shares it
+    // out-of-band; the staffer should change it after first sign-in.
+    const temporaryPassword = crypto.randomBytes(18).toString("base64url");
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+
+    let user;
+    try {
+      [user] = await db.insert(usersTable).values({
+        name: rawName,
+        email,
+        passwordHash,
+        role: rawRole,
+        emailVerified: true,
+        onboardingComplete: true,
+      }).returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
+    } catch (err) {
+      // Race: someone else just inserted this email between our check and insert.
+      const [raced] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1);
+      if (raced) { res.status(409).json({ error: "A member with that email already exists", id: raced.id }); return; }
+      throw err;
+    }
+
+    console.log(`[Admin] Created staff account id=${user.id} role=${rawRole} via admin panel`);
+    await logAdminAction(
+      req,
+      "create_staff",
+      "user",
+      String(user.id),
+      `Created staff account ${email} with role ${rawRole} via admin panel`,
+      { after: { email, name: rawName, role: rawRole, emailVerified: true, onboardingComplete: true } },
+      { memberEmail: email },
+    );
+
+    // `temporaryPassword` is returned exactly once — it is not stored in
+    // plaintext anywhere, so it cannot be re-fetched later.
+    res.status(201).json({
+      success: true,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      temporaryPassword,
+    });
+  } catch (error) {
+    console.error("[Admin] Create staff account error:", error);
+    res.status(500).json({ error: "Failed to create staff account" });
+  }
+});
+
 // Re-send the password-setup / password-reset email to an existing member.
 // Useful when the original invite (from POST /admin/members) expired before
 // the new member clicked it, or when a member is stuck and can't trigger

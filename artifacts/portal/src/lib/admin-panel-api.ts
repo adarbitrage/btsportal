@@ -1058,6 +1058,22 @@ export const adminPanelApi = {
     return res.json() as Promise<{ success: true; id: number; email: string; name: string }>;
   },
 
+  async createStaffAccount(input: { email: string; name: string; role: string }) {
+    const res = await authFetch(`/admin/staff`, { method: "POST", body: JSON.stringify(input) });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to create staff account");
+    }
+    return res.json() as Promise<{
+      success: true;
+      id: number;
+      email: string;
+      name: string;
+      role: string;
+      temporaryPassword: string;
+    }>;
+  },
+
   async forceVerifyMemberEmail(userId: number) {
     const res = await authFetch(`/admin/members/${userId}/force-verify`, { method: "POST" });
     if (!res.ok) {
