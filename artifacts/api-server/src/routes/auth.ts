@@ -909,7 +909,7 @@ router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Pr
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
 
-  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
+  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword });
 });
 
 router.post("/auth/refresh", async (req, res): Promise<void> => {
@@ -953,7 +953,7 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
   const newRefreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, newRefreshToken);
 
-  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep });
+  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword });
 });
 
 router.post("/auth/logout", async (req, res): Promise<void> => {
@@ -1361,6 +1361,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     role: usersTable.role,
     onboardingComplete: usersTable.onboardingComplete,
     onboardingStep: usersTable.onboardingStep,
+    mustChangePassword: usersTable.mustChangePassword,
   }).from(usersTable).where(eq(usersTable.id, req.userId));
 
   if (!user) {

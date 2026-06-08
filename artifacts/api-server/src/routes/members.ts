@@ -235,7 +235,12 @@ router.post("/members/me/password", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+  // Clearing mustChangePassword here is what releases a forced-first-login
+  // staffer (created via POST /admin/staff) from the change-password gate.
+  await db
+    .update(usersTable)
+    .set({ passwordHash, mustChangePassword: false })
+    .where(eq(usersTable.id, userId));
 
   await db
     .update(sessionsTable)

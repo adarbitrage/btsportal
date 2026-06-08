@@ -46,6 +46,10 @@ export function AdminRoute({ component: Component, permission }: AdminRouteProps
     return <Redirect to="/login" />;
   }
 
+  if (user.mustChangePassword) {
+    return <Redirect to="/change-password" />;
+  }
+
   const memberRole = (member as { role?: string } | undefined)?.role;
   const { userRole, isAdminUser } = resolveAdminRole(user.role, memberRole);
 

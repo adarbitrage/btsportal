@@ -198,6 +198,9 @@ describe("POST /api/admin/staff", () => {
     expect(stored.role).toBe("support_agent");
     expect(stored.emailVerified).toBe(true);
     expect(stored.onboardingComplete).toBe(true);
+    // New staff are flagged to set their own password on first sign-in so the
+    // shared temporary password is never their long-term credential.
+    expect(stored.mustChangePassword).toBe(true);
     // Password is hashed (bcrypt), never the raw temp password.
     expect(stored.passwordHash).toMatch(/^\$2[aby]\$/);
     expect(stored.passwordHash).not.toBe(res.body.temporaryPassword);

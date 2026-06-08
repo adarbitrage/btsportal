@@ -2291,6 +2291,9 @@ router.post("/admin/staff", requirePermission("members:assign_role"), async (req
         role: rawRole,
         emailVerified: true,
         onboardingComplete: true,
+        // Force a password change on first sign-in so the shared temporary
+        // password is never the staffer's long-term credential.
+        mustChangePassword: true,
       }).returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
     } catch (err) {
       // Race: someone else just inserted this email between our check and insert.

@@ -54,6 +54,7 @@ import MediaMavens from "@/pages/MediaMavens";
 import CollectionDetail from "@/pages/CollectionDetail";
 import ResourceDetail from "@/pages/ResourceDetail";
 import Login from "@/pages/Login";
+import ChangePasswordRequired from "@/pages/ChangePasswordRequired";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
@@ -206,6 +207,10 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     return <Redirect to="/login" />;
   }
 
+  if (user.mustChangePassword) {
+    return <Redirect to="/change-password" />;
+  }
+
   if (!user.onboardingComplete) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
@@ -247,6 +252,10 @@ function EntitlementRoute({ component: Component, entitlement }: { component: Re
 
   if (!user) {
     return <Redirect to="/login" />;
+  }
+
+  if (user.mustChangePassword) {
+    return <Redirect to="/change-password" />;
   }
 
   if (!user.onboardingComplete) {
@@ -317,6 +326,9 @@ function GuestRoute({ component: Component }: { component: React.ComponentType<a
   if (loading) return null;
 
   if (user) {
+    if (user.mustChangePassword) {
+      return <Redirect to="/change-password" />;
+    }
     if (!user.onboardingComplete) {
       const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
       return <Redirect to={stepRoute} />;
@@ -327,10 +339,31 @@ function GuestRoute({ component: Component }: { component: React.ComponentType<a
   return <Component />;
 }
 
+// Gate for the forced first-login change-password screen. Only reachable by a
+// signed-in user whose account still carries the temporary password
+// (mustChangePassword). Everyone else is bounced away so the screen can't be
+// opened (or linked to) outside the intended flow.
+function PasswordChangeRoute({ component: Component }: { component: React.ComponentType<any> }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
+
+  if (!user.mustChangePassword) {
+    return <Redirect to="/" />;
+  }
+
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/login">{() => <GuestRoute component={Login} />}</Route>
+      <Route path="/change-password">{() => <PasswordChangeRoute component={ChangePasswordRequired} />}</Route>
       <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
       <Route path="/forgot-password">{() => <GuestRoute component={ForgotPassword} />}</Route>
       <Route path="/verify-email">{() => <VerifyEmail />}</Route>

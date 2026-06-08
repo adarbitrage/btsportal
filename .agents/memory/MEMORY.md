@@ -13,4 +13,5 @@
 - [Prod super_admin bootstrap](prod-superadmin-bootstrap.md) — prod is a separate DB that started with 0 super_admins; secret-gated self-disabling /api/integrations/bootstrap-superadmin mints the first; must publish before it can run.
 - [Drizzle ANY(array) record-cast pitfall](drizzle-array-any-cast.md) — `ANY(${jsArray}::int[])` throws runtime 42846 "cannot cast record to integer[]"; pass a `{1,2,3}` literal string param instead. Typechecks fine, fails only at query time.
 - [Prod email/verification config](prod-email-verification-config.md) — prod verification/reset emails skip until SENDGRID_API_KEY + PORTAL_URL set AND a republish picks them up; agent cant republish/set-secrets/write-prod.
+- [Drizzle push pre-existing drift](drizzle-push-drift.md) — full `db push` wants to drop unrelated sequence_* columns (data loss); add new columns via targeted SQL ALTER + matching schema field, never a force push.
 - [Coach-name privacy filter](coach-name-privacy-filter.md) — assistant shows coach FIRST names only; system prompt reads qa-articles.txt/glossary.txt RAW (bypasses filter); surnames have spelling variants (Wiss?baum).

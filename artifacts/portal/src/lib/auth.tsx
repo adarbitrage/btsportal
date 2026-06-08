@@ -7,6 +7,10 @@ interface User {
   role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  // True for staff accounts created via the admin panel that still hold their
+  // shared temporary password. While set, route guards force the user to the
+  // change-password screen before anything else loads.
+  mustChangePassword?: boolean;
 }
 
 export interface LoginError extends Error {
