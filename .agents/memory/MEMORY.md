@@ -15,3 +15,4 @@
 - [Prod email/verification config](prod-email-verification-config.md) — prod verification/reset emails skip until SENDGRID_API_KEY + PORTAL_URL set AND a republish picks them up; agent cant republish/set-secrets/write-prod.
 - [Drizzle push pre-existing drift](drizzle-push-drift.md) — full `db push` wants to drop unrelated sequence_* columns (data loss); add new columns via targeted SQL ALTER + matching schema field, never a force push.
 - [Coach-name privacy filter](coach-name-privacy-filter.md) — assistant shows coach FIRST names only; system prompt reads qa-articles.txt/glossary.txt RAW (bypasses filter); surnames have spelling variants (Wiss?baum).
+- [E2E loopback proxy hang](e2e-loopback-proxy-hang.md) — portal e2e: successful-login auth calls stall via vite proxy/IPv4 & Playwright `request` fixture; use global fetch direct to API (127.0.0.1:8080), inject cookie.
