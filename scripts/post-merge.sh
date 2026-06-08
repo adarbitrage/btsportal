@@ -94,3 +94,15 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0033_products_plan_metadata.sql \
     >/dev/null
 fi
+
+# Re-scrub knowledgebase_docs through the centralized privacy filter so a
+# freshly-synced dev database can never re-introduce a coach surname that was
+# already removed (e.g. a stale row copy carrying "Wisbaum"). The script only
+# touches the content column (titles carry a UNIQUE constraint) and only
+# updates rows whose content actually changes, so it is idempotent and a no-op
+# when nothing needs cleaning. Keeps the kb-coach-name-leak-guard DB test green
+# after every merge without anyone running the script by hand.
+if [ -n "$DATABASE_URL" ]; then
+  pnpm --filter @workspace/api-server exec tsx \
+    src/scripts/rescrub-knowledgebase-docs.ts
+fi
