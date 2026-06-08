@@ -25,15 +25,18 @@ export interface PrivacyRule {
 
 export const PRIVACY_RULES: PrivacyRule[] = [
   // --- Coaches: full name -> first name only ---
-  { pattern: /Sasha\s+Bobylev/gi, replacement: "Sasha" },
+  // NOTE: surnames have spelling variants in the source content (e.g. the
+  // transcripts/QA articles use both "Wissbaum" and "Wisbaum"); each pattern
+  // must tolerate every variant seen in the wild.
+  { pattern: /Sasha\s+Bob[iy]lev/gi, replacement: "Sasha" },
   { pattern: /Bruce\s+Clark/gi, replacement: "Bruce" },
-  { pattern: /Michael\s+Wissbaum/gi, replacement: "Michael" },
+  { pattern: /Michael\s+Wiss?baum/gi, replacement: "Michael" },
   { pattern: /Todd\s+Rupp/gi, replacement: "Todd" },
   { pattern: /Robin\s+Shep[ah]rd/gi, replacement: "Robin" },
 
   // --- Coaches: strip orphaned surnames (left over from chunk splits) ---
-  { pattern: /\bBobylev\b/gi, replacement: "" },
-  { pattern: /\bWissbaum\b/gi, replacement: "" },
+  { pattern: /\bBob[iy]lev\b/gi, replacement: "" },
+  { pattern: /\bWiss?baum\b/gi, replacement: "" },
   { pattern: /\bRupp\b/gi, replacement: "" },
   { pattern: /\bShep[ah]rd\b/gi, replacement: "" },
   { pattern: /\bClark\b/gi, replacement: "Bruce" },
