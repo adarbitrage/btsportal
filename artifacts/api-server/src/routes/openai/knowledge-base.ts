@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -12,13 +13,17 @@ function loadStaticPromptContent() {
   if (qaContent || glossaryContent) return;
 
   try {
-    qaContent = fs.readFileSync(path.join(KB_DIR, "qa-articles.txt"), "utf-8");
+    qaContent = scrubPrivateContent(
+      fs.readFileSync(path.join(KB_DIR, "qa-articles.txt"), "utf-8"),
+    );
   } catch {
     qaContent = "";
   }
 
   try {
-    glossaryContent = fs.readFileSync(path.join(KB_DIR, "glossary.txt"), "utf-8");
+    glossaryContent = scrubPrivateContent(
+      fs.readFileSync(path.join(KB_DIR, "glossary.txt"), "utf-8"),
+    );
   } catch {
     glossaryContent = "";
   }
