@@ -3,7 +3,10 @@ import { randomUUID } from "crypto";
 import { db, knowledgebaseDocsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
-import { rescrubKnowledgebaseDocs } from "../scripts/rescrub-knowledgebase-docs";
+import {
+  rescrubKnowledgebaseDocs,
+  findUnscrubbedTitles,
+} from "../scripts/rescrub-knowledgebase-docs";
 
 /**
  * Pin the automatic title-scrub in the post-merge re-scrub script.
@@ -94,5 +97,19 @@ describe("rescrub knowledgebase_docs titles", () => {
     const result = await rescrubKnowledgebaseDocs();
     expect(result.contentUpdated).toBe(0);
     expect(result.titleUpdated).toBe(0);
+  });
+
+  it("findUnscrubbedTitles confirms titles are clean after a re-scrub", async () => {
+    const dirty = await seed(`${TAG} Bruce Clark verify`);
+
+    // Before the re-scrub the dirty title is reported as a leak.
+    const before = await findUnscrubbedTitles();
+    expect(before.some((l) => l.id === dirty)).toBe(true);
+
+    await rescrubKnowledgebaseDocs();
+
+    // After the re-scrub the one-time check reports zero leaks for our rows.
+    const after = await findUnscrubbedTitles();
+    expect(after.some((l) => createdIds.includes(l.id))).toBe(false);
   });
 });

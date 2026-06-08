@@ -4,6 +4,10 @@ import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import { seedKnowledgebaseFromFiles } from "./seed-kb";
 import {
+  rescrubKnowledgebaseDocs,
+  findUnscrubbedTitles,
+} from "./rescrub-knowledgebase-docs";
+import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
   ANTI_HALLUCINATION_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
@@ -139,8 +143,47 @@ async function ensureKBGrounding(): Promise<void> {
     console.log("[Bootstrap] Updated active system prompt with anti-hallucination grounding rules.");
   }
 
-  // 3. Ingest BTS knowledge base files (idempotent via ON CONFLICT DO NOTHING).
+  // 3. Re-scrub every existing knowledgebase_docs row through the privacy filter
+  //    and verify the titles are clean — AWAITED so it completes BEFORE the HTTP
+  //    server accepts traffic (ensureKBGrounding is awaited by
+  //    bootstrapCriticalPrerequisites, which index.ts awaits before app.listen).
+  //    This closes the rollout window where a freshly-deployed instance could
+  //    otherwise serve a stale title/content still carrying a coach surname.
+  //
+  //    Why the re-scrub runs here at all (not just in post-merge.sh): post-merge
+  //    only ever touches the DEV database. PRODUCTION is a separate database the
+  //    agent cannot write directly, so the only way the title/content re-scrub
+  //    reaches prod is for a freshly-deployed instance to apply it against the
+  //    DATABASE_URL it boots with. The re-scrub is idempotent (only rows that
+  //    actually change are written) and de-duplicates colliding scrubbed titles
+  //    with a numeric suffix, so it never violates the UNIQUE constraint and is
+  //    a fast no-op once everything is clean.
+  const rescrub = await rescrubKnowledgebaseDocs((m) => console.log(m));
+
+  // One-time cleanliness verification: after the re-scrub no title may still
+  // carry an unscrubbed private token. Logged as deploy evidence; a non-empty
+  // result means the privacy filter missed a variant and must be widened.
+  const titleLeaks = await findUnscrubbedTitles();
+  if (titleLeaks.length > 0) {
+    console.error(
+      `[Bootstrap] CRITICAL: ${titleLeaks.length} knowledgebase_docs title(s) ` +
+        `still carry an unscrubbed coach surname after re-scrub: ` +
+        titleLeaks.map((l) => `#${l.id} "${l.title}"`).join("; ") +
+        `. Widen the rule in lib/content-privacy-filter.ts to cover the variant.`,
+    );
+  } else {
+    console.log(
+      `[Bootstrap] knowledgebase_docs titles verified clean ` +
+        `(${rescrub.titleUpdated} retitled, ${rescrub.contentUpdated} content ` +
+        `cleaned this run across ${rescrub.scanned} rows).`,
+    );
+  }
+
+  // 4. Ingest BTS knowledge base files (idempotent via ON CONFLICT DO NOTHING).
   //    Runs in the background after startup so it doesn't block the HTTP server.
+  //    Seed content is already scrubbed at ingest time (seed-kb runs
+  //    scrubPrivateContent before INSERT), so new rows are clean without waiting
+  //    on the re-scrub above — which targets pre-existing stale rows.
   seedKnowledgebaseFromFiles().catch((err) => {
     console.error("[Bootstrap] KB file ingestion failed:", err);
   });

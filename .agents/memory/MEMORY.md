@@ -16,3 +16,4 @@
 - [Drizzle push pre-existing drift](drizzle-push-drift.md) — full `db push` wants to drop unrelated sequence_* columns (data loss); add new columns via targeted SQL ALTER + matching schema field, never a force push.
 - [Coach-name privacy filter](coach-name-privacy-filter.md) — assistant shows coach FIRST names only; system prompt reads qa-articles.txt/glossary.txt RAW (bypasses filter); surnames have spelling variants (Wiss?baum).
 - [E2E loopback proxy hang](e2e-loopback-proxy-hang.md) — portal e2e: successful-login auth calls stall via vite proxy/IPv4 & Playwright `request` fixture; use global fetch direct to API (127.0.0.1:8080), inject cookie.
+- [Prod DB data fixes via startup hooks](prod-db-data-fixes-via-startup-hooks.md) — post-merge only hits dev; idempotent data repairs reach prod only by running on server boot. Watch the esbuild import.meta.url CLI-guard bundle trap.
