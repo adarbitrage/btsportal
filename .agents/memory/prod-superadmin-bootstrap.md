@@ -30,3 +30,24 @@ can create the first one.
 **How to apply:** must be **published/deployed** before it can run against prod
 (the route lives in the api-server). After the first super_admin exists it is
 inert; it can be removed in a follow-up publish if desired.
+
+## Current mechanism: startup boot hook (preferred over the endpoint)
+
+`ensureFoundingSuperAdmins()` (`artifacts/api-server/src/lib/ensure-founding-superadmins.ts`)
+is wired as a step in `bootstrapCriticalPrerequisites()` and runs on every boot.
+It is preferred over the endpoint because the endpoint mints only ONE super_admin
+and is insert-only, but the requirement was TWO founders where one (Adam) already
+existed as an admin.
+
+- **Founders are hardcoded:** `adam@cherringtonmedia.com` + `sandy@cherringtonmedia.com`.
+  Promotes existing accounts in place; creates missing ones as super_admin with a
+  random password + 24h reset token and fires a `password_reset` email ONCE (only
+  on creation, so deploys never re-spam).
+- **Self-disabling = the load-bearing property:** the instant ANY super_admin row
+  exists the whole hook is a no-op. This is what stops a later UI demotion from
+  being silently re-promoted on the next deploy. Do NOT make it re-assert roles.
+- Surfaces partial failure: throws if a founder op fails so bootstrap records it
+  in `missing` instead of falsely logging "All critical prerequisites OK".
+- Reaches prod only on **publish** (same constraint as every prod data fix here).
+- Watch out: `sandy@buildtestscale.com` (member, prod id≈19) was a wrong-domain
+  typo from earlier — NOT the founder account; the real one is @cherringtonmedia.com.

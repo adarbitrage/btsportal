@@ -12,6 +12,7 @@ import {
   ANTI_HALLUCINATION_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
+import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -102,6 +103,16 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureKBGrounding() threw:", err);
     missing.push("ensureKBGrounding");
+  }
+
+  // 5. Mint the founding super_admins (one-time, self-disabling). Breaks the
+  //    "0 super_admins, but assigning roles needs a super_admin" deadlock on a
+  //    fresh production DB. No-op once any super_admin exists.
+  try {
+    await ensureFoundingSuperAdmins();
+  } catch (err) {
+    console.error("[Bootstrap] ensureFoundingSuperAdmins() threw:", err);
+    missing.push("ensureFoundingSuperAdmins");
   }
 
   if (missing.length === 0) {
