@@ -57,6 +57,7 @@ import Login from "@/pages/Login";
 import ChangePasswordRequired from "@/pages/ChangePasswordRequired";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
 import VerifyEmailChange from "@/pages/VerifyEmailChange";
 import NotFound from "@/pages/not-found";
@@ -366,6 +367,7 @@ function Router() {
       <Route path="/change-password">{() => <PasswordChangeRoute component={ChangePasswordRequired} />}</Route>
       <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
       <Route path="/forgot-password">{() => <GuestRoute component={ForgotPassword} />}</Route>
+      <Route path="/reset-password">{() => <ResetPassword />}</Route>
       <Route path="/verify-email">{() => <VerifyEmail />}</Route>
       <Route path="/verify-email-change">{() => <VerifyEmailChange />}</Route>
       <Route path="/onboarding/welcome">{() => <OnboardingRoute component={OnboardingWelcome} step={1} />}</Route>
