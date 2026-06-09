@@ -39,7 +39,8 @@ It is preferred over the endpoint because the endpoint mints only ONE super_admi
 and is insert-only, but the requirement was TWO founders where one (Adam) already
 existed as an admin.
 
-- **Founders are hardcoded:** `adam@cherringtonmedia.com` + `sandy@cherringtonmedia.com`.
+- **Founders are hardcoded in that file** (the `FOUNDING_SUPER_ADMINS` list — the
+  code is the source of truth for which accounts; don't duplicate the addresses here).
   Promotes existing accounts in place; creates missing ones as super_admin with a
   random password + 24h reset token and fires a `password_reset` email ONCE (only
   on creation, so deploys never re-spam).
@@ -49,5 +50,6 @@ existed as an admin.
 - Surfaces partial failure: throws if a founder op fails so bootstrap records it
   in `missing` instead of falsely logging "All critical prerequisites OK".
 - Reaches prod only on **publish** (same constraint as every prod data fix here).
-- Watch out: `sandy@buildtestscale.com` (member, prod id≈19) was a wrong-domain
-  typo from earlier — NOT the founder account; the real one is @cherringtonmedia.com.
+- Watch out: an earlier wrong-domain typo created a stray member account in prod
+  that is NOT one of the founders; confirm the domain against the code list before
+  acting on a "Sandy" account.
