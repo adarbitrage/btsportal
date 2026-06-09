@@ -1,5 +1,22 @@
 import { authFetch } from "./auth";
 
+/**
+ * Pull a human-readable message out of an error response body, tolerating both
+ * shapes the API emits: route handlers return `{ error: "string" }`, while the
+ * shared `sendError`/RBAC layer returns `{ error: { code, message, requestId } }`.
+ * Without this, `data.error` from the structured shape is an object and
+ * `new Error(object)` renders as the useless "[object Object]" toast.
+ */
+function extractApiError(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const err = (data as { error?: unknown }).error;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return undefined;
+}
+
 export type StreamDownloadProgress = {
   bytesReceived: number;
   rowsReceived: number | null;
@@ -1035,7 +1052,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/members/${userId}/unlock`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to unlock account");
+      throw new Error(extractApiError(data) || "Failed to unlock account");
     }
     return res.json();
   },
@@ -1044,7 +1061,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/members/${userId}/resend-invite`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to resend invite");
+      throw new Error(extractApiError(data) || "Failed to resend invite");
     }
     return res.json() as Promise<{ success: true; id: number }>;
   },
@@ -1053,7 +1070,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/members`, { method: "POST", body: JSON.stringify(input) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to create member");
+      throw new Error(extractApiError(data) || "Failed to create member");
     }
     return res.json() as Promise<{ success: true; id: number; email: string; name: string }>;
   },
@@ -1062,7 +1079,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/staff`, { method: "POST", body: JSON.stringify(input) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to create staff account");
+      throw new Error(extractApiError(data) || "Failed to create staff account");
     }
     return res.json() as Promise<{
       success: true;
@@ -1078,7 +1095,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/members/${userId}/force-verify`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to force-verify email");
+      throw new Error(extractApiError(data) || "Failed to force-verify email");
     }
     return res.json();
   },
@@ -1087,7 +1104,7 @@ export const adminPanelApi = {
     const res = await authFetch(`/admin/members/${userId}/force-password-reset`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to force password reset");
+      throw new Error(extractApiError(data) || "Failed to force password reset");
     }
     return res.json() as Promise<{ success: true; id: number; mustChangePassword: true; alreadySet: boolean }>;
   },
@@ -1105,7 +1122,7 @@ export const adminPanelApi = {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Failed to update role");
+      throw new Error(extractApiError(data) || "Failed to update role");
     }
     return res.json() as Promise<{ id: number; role: string; changed: boolean }>;
   },

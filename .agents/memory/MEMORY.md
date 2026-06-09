@@ -17,3 +17,4 @@
 - [Coach-name privacy filter](coach-name-privacy-filter.md) — assistant shows coach FIRST names only; system prompt reads qa-articles.txt/glossary.txt RAW (bypasses filter); surnames have spelling variants (Wiss?baum).
 - [E2E loopback proxy hang](e2e-loopback-proxy-hang.md) — portal e2e: successful-login auth calls stall via vite proxy/IPv4 & Playwright `request` fixture; use global fetch direct to API (127.0.0.1:8080), inject cookie.
 - [Prod DB data fixes via startup hooks](prod-db-data-fixes-via-startup-hooks.md) — post-merge only hits dev; idempotent data repairs reach prod only by running on server boot. Watch the esbuild import.meta.url CLI-guard bundle trap.
+- [Admin-panel-api error shapes](admin-panel-api-error-shapes.md) — API emits TWO error shapes: route handlers `{error:"str"}` vs shared sendError/RBAC `{error:{code,message}}`; client must extract via helper or `new Error(obj)` renders "[object Object]" toast.
