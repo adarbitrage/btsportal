@@ -81,6 +81,8 @@ export default function MemberDetail() {
   const [resendingInvite, setResendingInvite] = useState(false);
   const [forcingPasswordReset, setForcingPasswordReset] = useState(false);
   const [forcePasswordResetConfirmOpen, setForcePasswordResetConfirmOpen] = useState(false);
+  const [sendingResetEmail, setSendingResetEmail] = useState(false);
+  const [sendResetEmailConfirmOpen, setSendResetEmailConfirmOpen] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page. Ordinary audit rows live for ~90 days, but
@@ -531,6 +533,42 @@ export default function MemberDetail() {
     }
   };
 
+  const handleSendPasswordResetEmail = async () => {
+    try {
+      setSendingResetEmail(true);
+      const result = await adminPanelApi.sendMemberPasswordResetEmail(memberId);
+      setSendResetEmailConfirmOpen(false);
+      if (result.emailSent) {
+        toast({
+          title: "Password reset email sent",
+          description: "The member will receive a link to set a new password in their inbox.",
+        });
+      } else if (result.portalUrlMissing) {
+        toast({
+          title: "Email not sent — portal URL not configured",
+          description: "Set a portal URL in Admin → Settings before sending password reset emails.",
+          variant: "destructive",
+        });
+      } else if (!result.emailConfigured) {
+        toast({
+          title: "Email not sent — SendGrid not configured",
+          description: "Configure the SENDGRID_API_KEY environment variable to enable outbound email.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email skipped",
+          description: `The email was not delivered (status: ${result.emailStatus}). Check system settings.`,
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingResetEmail(false);
+    }
+  };
+
   const handleRevokeProduct = async (userProductId: number) => {
     try {
       await adminPanelApi.revokeProduct(memberId, userProductId);
@@ -877,6 +915,70 @@ export default function MemberDetail() {
                         >
                           <KeyRound className="w-3 h-3 mr-1" />
                           {forcingPasswordReset ? "Forcing…" : "Force password reset"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+
+              {canAssignRole && (
+                <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-4 mt-4">
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-sm">Send password reset email</p>
+                    <p className="text-xs text-muted-foreground">
+                      Emails the member a time-limited link to set a new password — the same link the "Forgot password" flow sends. Use this to recover their account on their behalf.
+                    </p>
+                  </div>
+                  <Dialog open={sendResetEmailConfirmOpen} onOpenChange={setSendResetEmailConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={sendingResetEmail}
+                        data-testid="button-send-password-reset-email"
+                      >
+                        {sendingResetEmail ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Mail className="w-3 h-3 mr-1" />
+                        )}
+                        {sendingResetEmail ? "Sending…" : "Send password reset email"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-confirm-send-password-reset-email">
+                      <DialogHeader>
+                        <DialogTitle>Send password reset email?</DialogTitle>
+                        <DialogDescription>
+                          Send <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}
+                          {" "}a password reset link by email. The link expires in 1 hour. Any existing reset link is invalidated.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setSendResetEmailConfirmOpen(false)}
+                          disabled={sendingResetEmail}
+                          data-testid="button-cancel-send-password-reset-email"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSendPasswordResetEmail}
+                          disabled={sendingResetEmail}
+                          data-testid="button-confirm-send-password-reset-email"
+                        >
+                          {sendingResetEmail ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Mail className="w-3 h-3 mr-1" />
+                          )}
+                          {sendingResetEmail ? "Sending…" : "Send email"}
                         </Button>
                       </DialogFooter>
                     </DialogContent>

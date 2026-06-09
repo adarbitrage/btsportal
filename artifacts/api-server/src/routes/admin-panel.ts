@@ -2523,6 +2523,74 @@ router.post("/admin/members/:id/force-password-reset", requirePermission("member
   }
 });
 
+// Admin-initiated password-reset email. Unlike the self-serve forgot-password
+// flow, this endpoint is authenticated (admin only), bypasses the public
+// per-email/per-IP rate limit, and records an audit row so the action is
+// visible in the member's history. The reset token + email are identical to
+// what the self-serve flow sends, so the member follows the same link to
+// set their new password and active sessions are revoked on completion.
+router.post("/admin/members/:id/send-reset-email", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    await db
+      .update(usersTable)
+      .set({
+        resetToken: resetTokenHash,
+        resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
+      })
+      .where(eq(usersTable.id, id));
+
+    const emailResult = await CommunicationService.sendEmailNow({
+      templateSlug: "password_reset",
+      to: member.email,
+      variables: { member_name: member.name ?? "", reset_token: resetToken },
+      userId: member.id,
+    });
+
+    const emailSent = emailResult.status === "sent";
+    const skipReason = emailResult.status === "skipped" ? emailResult.reason : null;
+    const emailConfigured = skipReason === null || !skipReason.includes("provider_not_configured");
+    const portalUrlMissing = skipReason === "portal_url_unconfigured";
+
+    await logAdminAction(
+      req,
+      "send_password_reset_email",
+      "user",
+      String(id),
+      `Sent password reset email for member ${member.email} (result: ${emailResult.status}${skipReason ? ` — ${skipReason}` : ""})`,
+      {
+        emailStatus: emailResult.status,
+        emailConfigured,
+        memberEmail: member.email,
+      },
+    );
+
+    res.json({
+      success: true,
+      id,
+      emailSent,
+      emailConfigured,
+      portalUrlMissing,
+      emailStatus: emailResult.status,
+    });
+  } catch (error) {
+    console.error("[Admin] Send password reset email error:", error);
+    res.status(500).json({ error: "Failed to send password reset email" });
+  }
+});
+
 // Friendly display label used inside the `role_changed` notification email
 // so the recipient sees "Support Agent" instead of the raw `support_agent`
 // identifier. Kept local to this route module on purpose — the admin role

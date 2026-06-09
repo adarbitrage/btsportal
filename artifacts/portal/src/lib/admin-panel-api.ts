@@ -1109,6 +1109,22 @@ export const adminPanelApi = {
     return res.json() as Promise<{ success: true; id: number; mustChangePassword: true; alreadySet: boolean }>;
   },
 
+  async sendMemberPasswordResetEmail(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/send-reset-email`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Failed to send password reset email");
+    }
+    return res.json() as Promise<{
+      success: true;
+      id: number;
+      emailSent: boolean;
+      emailConfigured: boolean;
+      portalUrlMissing: boolean;
+      emailStatus: string;
+    }>;
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");
