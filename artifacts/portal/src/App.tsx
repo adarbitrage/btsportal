@@ -275,7 +275,7 @@ function EntitlementRoute({ component: Component, entitlement }: { component: Re
   return <Component />;
 }
 
-function OnboardingRoute({ component: Component, step }: { component: React.ComponentType<any>; step: number }) {
+export function OnboardingRoute({ component: Component, step }: { component: React.ComponentType<any>; step: number }) {
   const { user, loading } = useAuth();
 
   if (loading) {
