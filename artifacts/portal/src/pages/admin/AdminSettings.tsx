@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge, LifeBuoy } from "lucide-react";
+import { TICKETDESK_URL } from "@/config/support";
+import { Badge } from "@/components/ui/badge";
 import {
   adminPanelApi,
   type AiModerationThresholdConfigStatus,
@@ -107,6 +109,8 @@ export default function AdminSettings() {
 
         <ChangeHistoryRetentionConfigCard />
 
+        <LiveChatSupportCard />
+
         <Card>
           <CardHeader><CardTitle className="text-base">Add New Setting</CardTitle></CardHeader>
           <CardContent>
@@ -147,6 +151,146 @@ export default function AdminSettings() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+// Read-only surface for the resolved live-chat (TicketDesk) support
+// destination. The same URL is consumed in two independent runtimes — the
+// in-portal embed (the value this bundle resolved via VITE_TICKETDESK_URL /
+// the shared default) and the backend health probe (LIVE_CHAT_EMBED_PROBE_URL
+// / the shared default). Surfacing both, plus an in-sync indicator, lets a
+// non-technical admin confirm at a glance that the chat members load and the
+// destination System Health probes are the same — no code or env spelunking.
+function LiveChatSupportCard() {
+  const { toast } = useToast();
+  const [probeUrl, setProbeUrl] = useState<string | null>(null);
+  const [probeUrlSource, setProbeUrlSource] = useState<"env" | "default" | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await adminPanelApi.getLiveChatSupportConfig();
+        if (cancelled) return;
+        setProbeUrl(data.probeUrl);
+        setProbeUrlSource(data.probeUrlSource);
+        setError(null);
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(err.message || "Failed to load live-chat support config");
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+
+  const embedUrl = TICKETDESK_URL;
+  // Compare on the normalised string so a trailing-slash difference doesn't
+  // read as a mismatch.
+  const normalise = (u: string) => u.trim().replace(/\/+$/, "");
+  const inSync = probeUrl !== null && normalise(embedUrl) === normalise(probeUrl);
+
+  return (
+    <Card data-testid="card-live-chat-support">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <LifeBuoy className="w-4 h-4" /> Live-chat support link
+          {!loading && !error && probeUrl !== null && (
+            inSync ? (
+              <Badge
+                variant="success"
+                className="ml-2 font-normal"
+                data-testid="live-chat-support-sync"
+                title="The in-portal embed and the health probe resolve to the same URL."
+              >
+                in sync
+              </Badge>
+            ) : (
+              <Badge
+                variant="warning"
+                className="ml-2 font-normal"
+                data-testid="live-chat-support-sync"
+                title="The in-portal embed and the health probe resolve to different URLs — members may load a different destination than the one System Health monitors."
+              >
+                mismatch
+              </Badge>
+            )
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">
+          The live-chat (TicketDesk) destination members load in the portal. This
+          is the same URL the in-portal embed opens and the System Health probe
+          monitors, so you can confirm both agree without reading any env vars.
+          Read-only — managed via environment variables.
+        </p>
+        {loading ? (
+          <div className="text-sm text-muted-foreground">Loading…</div>
+        ) : error ? (
+          <div className="text-sm text-red-600" data-testid="live-chat-support-error">
+            {error}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center gap-4">
+              <span className="text-sm text-muted-foreground">In-portal embed</span>
+              <a
+                href={embedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium truncate max-w-[60%] text-right hover:underline inline-flex items-center gap-1"
+                title={embedUrl}
+                data-testid="live-chat-support-embed-url"
+              >
+                {embedUrl}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            </div>
+            <div className="flex justify-between items-center gap-4">
+              <span className="text-sm text-muted-foreground">Health probe</span>
+              <a
+                href={probeUrl ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium truncate max-w-[60%] text-right hover:underline inline-flex items-center gap-1"
+                title={probeUrl ?? ""}
+                data-testid="live-chat-support-probe-url"
+              >
+                {probeUrl}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            </div>
+            {!inSync && (
+              <div
+                className="text-xs text-red-600 pt-2 border-t"
+                data-testid="live-chat-support-mismatch-note"
+              >
+                The in-portal embed and the health probe point to different URLs.
+                Members may load a different destination than the one System Health
+                monitors — line up <code>VITE_TICKETDESK_URL</code> and{" "}
+                <code>LIVE_CHAT_EMBED_PROBE_URL</code>.
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground pt-2 border-t">
+              Probe URL source:{" "}
+              <span className="font-medium">
+                {probeUrlSource === "env"
+                  ? "LIVE_CHAT_EMBED_PROBE_URL env override"
+                  : "shared default"}
+              </span>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

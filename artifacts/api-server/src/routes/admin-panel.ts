@@ -89,7 +89,11 @@ import {
   getModerationPodSilentAlertingState,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
-import { getLiveChatEmbedProbeState } from "../lib/live-chat-embed-probe";
+import {
+  getLiveChatEmbedProbeState,
+  getLiveChatEmbedProbeUrl,
+} from "../lib/live-chat-embed-probe";
+import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
 import {
   MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
   getMachineMismatchDigestWatchdogState,
@@ -3092,6 +3096,36 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     res.status(500).json({ status: "error", error: "Failed to check system health" });
   }
 });
+
+/**
+ * Resolved live-chat (TicketDesk) support destination.
+ *
+ * The same support URL is consumed in two independent runtimes: the portal
+ * embed (Vite, `VITE_TICKETDESK_URL`) and the backend health probe (Node,
+ * `LIVE_CHAT_EMBED_PROBE_URL`), each falling back to the shared default in
+ * `@workspace/support-config`. This endpoint surfaces the backend-resolved
+ * probe URL (and the shared default) so the admin Settings page can show the
+ * live destination and confirm the probe and embed agree — without an admin
+ * having to read code or env vars. Gated on `settings:view` so Settings
+ * admins (who may lack `system:view`) can still see it.
+ */
+router.get(
+  "/admin/system/live-chat-support",
+  requirePermission("settings:view"),
+  (_req: Request, res: Response) => {
+    const probeUrl = getLiveChatEmbedProbeUrl();
+    const probeUrlSource =
+      process.env.LIVE_CHAT_EMBED_PROBE_URL &&
+      process.env.LIVE_CHAT_EMBED_PROBE_URL.trim().length > 0
+        ? "env"
+        : "default";
+    res.json({
+      probeUrl,
+      probeUrlSource,
+      defaultUrl: DEFAULT_TICKETDESK_URL,
+    });
+  },
+);
 
 /**
  * Recent queue-fallback events from the audit log.

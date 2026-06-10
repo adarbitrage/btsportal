@@ -172,6 +172,51 @@ describe("GET /api/admin/system/health — liveChatEmbed surfacing", () => {
   });
 });
 
+describe("GET /api/admin/system/live-chat-support", () => {
+  it("returns the resolved probe URL, source, and shared default for admins", async () => {
+    const prev = process.env.LIVE_CHAT_EMBED_PROBE_URL;
+    delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/live-chat-support")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.probeUrl).toBe(DEFAULT_TICKETDESK_URL);
+      expect(res.body.probeUrlSource).toBe("default");
+      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_URL);
+    } finally {
+      if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
+      else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
+    }
+  });
+
+  it("reports an env override when LIVE_CHAT_EMBED_PROBE_URL is set", async () => {
+    const prev = process.env.LIVE_CHAT_EMBED_PROBE_URL;
+    process.env.LIVE_CHAT_EMBED_PROBE_URL = "https://support.example.test/";
+    try {
+      const res = await request(app)
+        .get("/api/admin/system/live-chat-support")
+        .set("Cookie", adminCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.probeUrl).toBe("https://support.example.test/");
+      expect(res.body.probeUrlSource).toBe("env");
+      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_URL);
+    } finally {
+      if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
+      else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
+    }
+  });
+
+  it("rejects callers without settings:view permission", async () => {
+    const res = await request(app)
+      .get("/api/admin/system/live-chat-support")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("Live Chat support URL lockstep", () => {
   it("backend probe default resolves from the shared support-config source", () => {
     // With no LIVE_CHAT_EMBED_PROBE_URL override, the probe must fall back to
