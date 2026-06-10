@@ -53,6 +53,60 @@ async function grantAiChatEntitlement(page: Page): Promise<void> {
   });
 }
 
+// Verify the panel can actually *render* TicketDesk, not just that the iframe
+// is wired to its URL. The component spec proves the in-app fallback works when
+// the iframe fails; this proves the happy path is still real by hitting the
+// live TicketDesk endpoint and confirming it (a) responds and (b) does not set
+// framing headers that would silently turn the embedded panel into a blank box.
+// If TicketDesk ever adds X-Frame-Options: DENY/SAMEORIGIN or a CSP
+// `frame-ancestors 'none'/'self'`, this fails loudly instead of users hitting a
+// dead panel that only the 8s timeout rescues.
+test.describe("Live Chat launcher — TicketDesk embeddability", () => {
+  test("TicketDesk responds and does not block being framed", async () => {
+    let res: Response;
+    try {
+      res = await fetch(TICKETDESK_URL, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(20_000),
+      });
+      await res.text().catch(() => undefined);
+    } catch (err) {
+      throw new Error(
+        `Could not reach TicketDesk at ${TICKETDESK_URL}: ${String(err)}`,
+      );
+    }
+
+    expect(
+      res.ok,
+      `TicketDesk (${TICKETDESK_URL}) should respond 2xx, got HTTP ${res.status}`,
+    ).toBe(true);
+
+    // X-Frame-Options: DENY or SAMEORIGIN blocks the cross-origin portal frame.
+    const xfo = res.headers.get("x-frame-options");
+    expect(
+      xfo === null || !/deny|sameorigin/i.test(xfo),
+      `TicketDesk now sends X-Frame-Options: "${xfo}", which blocks the embedded Live Chat panel — the in-app iframe will silently fail.`,
+    ).toBe(true);
+
+    // CSP frame-ancestors 'none' or only 'self' would likewise block framing
+    // from the portal's origin.
+    const csp = res.headers.get("content-security-policy");
+    const frameAncestors = csp
+      ?.split(";")
+      .map((d) => d.trim().toLowerCase())
+      .find((d) => d.startsWith("frame-ancestors"));
+    if (frameAncestors) {
+      const sources = frameAncestors.replace("frame-ancestors", "").trim();
+      const blocks =
+        sources === "'none'" || sources === "'self'" || sources === "";
+      expect(
+        blocks,
+        `TicketDesk now sends CSP "${frameAncestors}", which blocks the embedded Live Chat panel.`,
+      ).toBe(false);
+    }
+  });
+});
+
 test.describe.serial("Live Chat launcher — signed-in member", () => {
   const databaseUrl = process.env.DATABASE_URL;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, act } from "@testing-library/react";
 
 const TICKETDESK_URL = "https://tickets.buildtestscale.com/";
 
@@ -102,6 +102,87 @@ describe("LiveChatLauncher — component", () => {
     const button = getByRole("button", { name: /open live chat support/i });
     expect(button.className).toContain("bottom-24");
     expect(button.className).not.toContain("bottom-6");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Load-failure fallback.
+//
+// The embedded panel gives TicketDesk an 8s window to load before flipping to
+// the "couldn't load here / Open Live Chat" fallback (it also flips immediately
+// on an iframe `error` event). That fallback is the only thing standing between
+// a member and a dead blank panel if TicketDesk ever starts refusing to be
+// framed (X-Frame-Options / CSP frame-ancestors), so it must keep rendering and
+// its escape-hatch button must keep opening the real URL in a new tab. The
+// matching e2e spec asserts TicketDesk is *currently* embeddable; these tests
+// assert the portal degrades gracefully if that ever changes.
+// ---------------------------------------------------------------------------
+describe("LiveChatLauncher — load-failure fallback", () => {
+  const openPanel = (getByRole: ReturnType<typeof render>["getByRole"]) => {
+    fireEvent.click(getByRole("button", { name: /open live chat support/i }));
+  };
+
+  it("shows the fallback when the iframe never loads within the 8s timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const { getByRole, getByText, getByTitle, queryByText, queryByTitle } =
+        render(<LiveChatLauncher />);
+      openPanel(getByRole);
+      // Before the timeout elapses the panel is still trying to load (the live
+      // iframe and the loading spinner are present, no fallback yet).
+      expect(getByTitle("Live Chat Support")).toBeInTheDocument();
+      expect(queryByText(/couldn't load here/i)).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(8000);
+      });
+
+      expect(getByText(/couldn't load here/i)).toBeInTheDocument();
+      expect(
+        getByRole("button", { name: /^open live chat$/i }),
+      ).toBeInTheDocument();
+      // The dead iframe is unmounted so the member isn't staring at a blank frame.
+      expect(queryByTitle("Live Chat Support")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("opens the TicketDesk URL in a new tab from the fallback button", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    vi.useFakeTimers();
+    try {
+      const { getByRole } = render(<LiveChatLauncher />);
+      openPanel(getByRole);
+      act(() => {
+        vi.advanceTimersByTime(8000);
+      });
+      fireEvent.click(getByRole("button", { name: /^open live chat$/i }));
+      expect(openSpy).toHaveBeenCalledWith(
+        TICKETDESK_URL,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } finally {
+      vi.useRealTimers();
+      openSpy.mockRestore();
+    }
+  });
+
+  it("does not show the fallback when the iframe loads before the timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const { getByRole, getByTitle, queryByText } = render(<LiveChatLauncher />);
+      openPanel(getByRole);
+      fireEvent.load(getByTitle("Live Chat Support"));
+      act(() => {
+        vi.advanceTimersByTime(8000);
+      });
+      expect(queryByText(/couldn't load here/i)).toBeNull();
+      expect(getByTitle("Live Chat Support")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
