@@ -4383,6 +4383,67 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /auth/sessions:
+    get:
+      operationId: getMyActiveSessions
+      tags: [auth]
+      summary: List the current user's active sign-in sessions
+      description: |
+        Returns the authenticated member's own currently-active sessions
+        (not revoked, not expired). The session backing the current request
+        is flagged with `current: true` so the UI can mark "this device".
+      responses:
+        "200":
+          description: Active sessions for the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyActiveSessionList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/sessions/{sessionId}/revoke:
+    post:
+      operationId: revokeMyActiveSession
+      tags: [auth]
+      summary: End one of the current user's own active sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Revoke result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokeMySessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /auth/sessions/revoke-others:
+    post:
+      operationId: revokeMyOtherSessions
+      tags: [auth]
+      summary: Sign out everywhere except the current device
+      description: |
+        Revokes all of the authenticated member's active sessions except
+        the one backing the current request, so the member stays signed in
+        on this device while every other device is signed out.
+      responses:
+        "200":
+          description: Revoke result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokeMyOtherSessionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 
 
   /members/me/onboarding-complete:
@@ -8309,6 +8370,55 @@ components:
         success:
           type: boolean
       required: [success]
+
+    MyActiveSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        current:
+          type: boolean
+      required: [id, createdAt, lastSeenAt, ipAddress, userAgent, current]
+
+    MyActiveSessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyActiveSession"
+      required: [sessions]
+
+    RevokeMySessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        sessionId:
+          type: integer
+        revoked:
+          type: boolean
+      required: [success, sessionId, revoked]
+
+    RevokeMyOtherSessionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        revokedSessionCount:
+          type: integer
+      required: [success, revokedSessionCount]
+
     SendChatMessageBody:
       type: object
       properties:

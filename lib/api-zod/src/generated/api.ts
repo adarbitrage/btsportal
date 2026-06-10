@@ -3955,6 +3955,51 @@ export const GetAuthMeResponse = zod.object({
 });
 
 /**
+ * Returns the authenticated member's own currently-active sessions
+(not revoked, not expired). The session backing the current request
+is flagged with `current: true` so the UI can mark "this device".
+
+ * @summary List the current user's active sign-in sessions
+ */
+export const GetMyActiveSessionsResponse = zod.object({
+  sessions: zod.array(
+    zod.object({
+      id: zod.number(),
+      createdAt: zod.date(),
+      lastSeenAt: zod.date(),
+      ipAddress: zod.string().nullable(),
+      userAgent: zod.string().nullable(),
+      current: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary End one of the current user's own active sessions
+ */
+export const RevokeMyActiveSessionParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const RevokeMyActiveSessionResponse = zod.object({
+  success: zod.boolean(),
+  sessionId: zod.number(),
+  revoked: zod.boolean(),
+});
+
+/**
+ * Revokes all of the authenticated member's active sessions except
+the one backing the current request, so the member stays signed in
+on this device while every other device is signed out.
+
+ * @summary Sign out everywhere except the current device
+ */
+export const RevokeMyOtherSessionsResponse = zod.object({
+  success: zod.boolean(),
+  revokedSessionCount: zod.number(),
+});
+
+/**
  * @summary Mark onboarding as complete
  */
 export const CompleteOnboardingResponse = zod.object({

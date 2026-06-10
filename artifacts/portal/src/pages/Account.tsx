@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { User, Lock, Bell, Mail, Clock, AlertTriangle, X } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2 } from "lucide-react";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
@@ -25,6 +25,10 @@ import {
   useCancelMemberEmailChange,
   useDismissAdminCancelledEmailChange,
   getMemberEmailChangePrefill,
+  useGetMyActiveSessions,
+  useRevokeMyActiveSession,
+  useRevokeMyOtherSessions,
+  type MyActiveSession,
 } from "@workspace/api-client-react";
 
 export default function Account() {
@@ -37,6 +41,13 @@ export default function Account() {
   const requestEmailChange = useRequestMemberEmailChange();
   const cancelEmailChange = useCancelMemberEmailChange();
   const dismissAdminCancelled = useDismissAdminCancelledEmailChange();
+  const {
+    data: sessionsData,
+    isLoading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useGetMyActiveSessions();
+  const revokeSession = useRevokeMyActiveSession();
+  const revokeOtherSessions = useRevokeMyOtherSessions();
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
@@ -67,6 +78,12 @@ export default function Account() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+
+  // Session id currently being revoked (single), or null — disables just that
+  // row's button while the request is in flight.
+  const [revokingSessionId, setRevokingSessionId] = useState<number | null>(null);
+  const [revokeOthersConfirmOpen, setRevokeOthersConfirmOpen] = useState(false);
+  const [revokingOthers, setRevokingOthers] = useState(false);
 
   useEffect(() => {
     if (member) {
@@ -314,6 +331,67 @@ export default function Account() {
       setPasswordError(err?.message || "Failed to change password.");
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const sessions = sessionsData?.sessions ?? [];
+  const otherSessionsCount = sessions.filter((s) => !s.current).length;
+
+  const handleRevokeSession = async (session: MyActiveSession) => {
+    try {
+      setRevokingSessionId(session.id);
+      const result = await revokeSession.mutateAsync({ sessionId: session.id });
+      // Ending the current session signs the member out: their access token is
+      // still valid for up to 15 minutes, but the refresh that keeps them
+      // signed in will now fail, so send them to login proactively.
+      if (session.current) {
+        toast({
+          title: "Signed out of this device",
+          description: "You'll need to sign in again.",
+        });
+        await logout();
+        navigate("/login");
+        return;
+      }
+      toast({
+        title: result.revoked ? "Device signed out" : "Already signed out",
+        description: result.revoked
+          ? "That device has been signed out."
+          : "That device was no longer active.",
+      });
+      await refetchSessions();
+    } catch (err: any) {
+      toast({
+        title: "Couldn't sign out device",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
+
+  const handleRevokeOtherSessions = async () => {
+    try {
+      setRevokingOthers(true);
+      const result = await revokeOtherSessions.mutateAsync();
+      setRevokeOthersConfirmOpen(false);
+      toast({
+        title: "Other devices signed out",
+        description:
+          result.revokedSessionCount > 0
+            ? `Signed out ${result.revokedSessionCount} other device${result.revokedSessionCount === 1 ? "" : "s"}.`
+            : "There were no other devices to sign out.",
+      });
+      await refetchSessions();
+    } catch (err: any) {
+      toast({
+        title: "Couldn't sign out other devices",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRevokingOthers(false);
     }
   };
 
@@ -565,6 +643,144 @@ export default function Account() {
                 {passwordSaving ? "Updating..." : "Update password"}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-active-sessions">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-primary" />
+                  <CardTitle>Where you're signed in</CardTitle>
+                </div>
+                <CardDescription className="mt-1.5">
+                  Devices currently signed in to your account. Sign out a device
+                  you don't recognize.
+                </CardDescription>
+              </div>
+              {otherSessionsCount > 0 && (
+                <Dialog open={revokeOthersConfirmOpen} onOpenChange={setRevokeOthersConfirmOpen}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={revokingOthers}
+                    onClick={() => setRevokeOthersConfirmOpen(true)}
+                    data-testid="button-revoke-other-sessions"
+                  >
+                    {revokingOthers ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <X className="w-3 h-3 mr-1" />
+                    )}
+                    {revokingOthers ? "Signing out…" : "Sign out other devices"}
+                  </Button>
+                  <DialogContent data-testid="dialog-confirm-revoke-others">
+                    <DialogHeader>
+                      <DialogTitle>Sign out other devices?</DialogTitle>
+                      <DialogDescription>
+                        This signs you out everywhere except this device. You'll
+                        stay signed in here. This does not change your password.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setRevokeOthersConfirmOpen(false)}
+                        disabled={revokingOthers}
+                        data-testid="button-cancel-revoke-others"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleRevokeOtherSessions}
+                        disabled={revokingOthers}
+                        data-testid="button-confirm-revoke-others"
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        {revokingOthers ? "Signing out…" : "Sign out other devices"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {sessionsLoading ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-sessions-loading">
+                Loading devices…
+              </p>
+            ) : sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-no-active-sessions">
+                No active sessions.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-start justify-between gap-3 flex-wrap border rounded-md p-3"
+                    data-testid={`row-session-${s.id}`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-sm font-medium break-all flex items-center gap-2" data-testid={`text-session-useragent-${s.id}`}>
+                        {s.userAgent || "Unknown device"}
+                        {s.current && (
+                          <span
+                            className="inline-flex items-center rounded-full bg-primary/10 text-primary text-xs font-medium px-2 py-0.5"
+                            data-testid={`badge-current-session-${s.id}`}
+                          >
+                            This device
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground" data-testid={`text-session-ip-${s.id}`}>
+                        IP: {s.ipAddress || "unknown"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Signed in{" "}
+                        {new Date(s.createdAt).toLocaleString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                        {" · "}
+                        Last seen{" "}
+                        {new Date(s.lastSeenAt).toLocaleString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRevokeSession(s)}
+                      disabled={revokingSessionId === s.id}
+                      data-testid={`button-revoke-session-${s.id}`}
+                    >
+                      {revokingSessionId === s.id ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <X className="w-3 h-3 mr-1" />
+                      )}
+                      {revokingSessionId === s.id
+                        ? "Signing out…"
+                        : s.current
+                          ? "Sign out"
+                          : "Sign out device"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

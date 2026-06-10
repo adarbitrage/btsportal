@@ -1333,6 +1333,32 @@ export interface SuccessResponse {
   success: boolean;
 }
 
+export interface MyActiveSession {
+  id: number;
+  createdAt: string;
+  lastSeenAt: string;
+  /** @nullable */
+  ipAddress: string | null;
+  /** @nullable */
+  userAgent: string | null;
+  current: boolean;
+}
+
+export interface MyActiveSessionList {
+  sessions: MyActiveSession[];
+}
+
+export interface RevokeMySessionResponse {
+  success: boolean;
+  sessionId: number;
+  revoked: boolean;
+}
+
+export interface RevokeMyOtherSessionsResponse {
+  success: boolean;
+  revokedSessionCount: number;
+}
+
 export interface SendChatMessageBody {
   message: string;
   /** @nullable */

@@ -1384,4 +1384,134 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   res.json(user);
 });
 
+// Resolve the session row backing the current request from the refresh_token
+// cookie. The refresh cookie is scoped to `/api/auth`, so it IS sent to these
+// /auth/sessions endpoints (which live under that path) even though the JWT
+// access token is what authenticates the request. We use it only to flag
+// "this device" and to spare the current session from "sign out everywhere
+// else" — if it's missing or stale, callers just won't have a current row.
+function getCurrentSessionHash(req: Request): string | null {
+  const token = (req as any).cookies?.refresh_token;
+  if (!token) return null;
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Member self-service: list the authenticated user's own active sign-in
+// sessions. Mirrors the admin Active-sessions card (admin-panel.ts) but scoped
+// to req.userId so a member can only ever see their own devices.
+router.get("/auth/sessions", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const currentHash = getCurrentSessionHash(req);
+
+  const rows = await db
+    .select({
+      id: sessionsTable.id,
+      createdAt: sessionsTable.createdAt,
+      lastSeenAt: sessionsTable.lastSeenAt,
+      ipAddress: sessionsTable.ipAddress,
+      userAgent: sessionsTable.userAgent,
+      refreshTokenHash: sessionsTable.refreshTokenHash,
+    })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.userId, req.userId),
+        isNull(sessionsTable.revokedAt),
+        gt(sessionsTable.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(desc(sessionsTable.lastSeenAt));
+
+  const sessions = rows.map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt,
+    lastSeenAt: r.lastSeenAt,
+    ipAddress: r.ipAddress,
+    userAgent: r.userAgent,
+    current: currentHash !== null && r.refreshTokenHash === currentHash,
+  }));
+
+  res.json({ sessions });
+});
+
+// Member self-service: end one of the authenticated user's own sessions.
+// Scoped to req.userId so a member can't revoke a session they don't own by
+// guessing IDs. Only acts on a still-active session so the response is
+// meaningful. Ending the current session is allowed — the member's access
+// token stays valid until it expires (≤15m), then refresh fails and they're
+// signed out, matching the admin revoke-single behaviour.
+router.post("/auth/sessions/:sessionId/revoke", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const sessionId = parseInt(req.params.sessionId, 10);
+  if (isNaN(sessionId)) {
+    res.status(400).json({ error: "Invalid session ID" });
+    return;
+  }
+
+  const [session] = await db
+    .select({ id: sessionsTable.id })
+    .from(sessionsTable)
+    .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.userId, req.userId)))
+    .limit(1);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  const revoked = await db
+    .update(sessionsTable)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessionsTable.id, sessionId),
+        eq(sessionsTable.userId, req.userId),
+        isNull(sessionsTable.revokedAt),
+      ),
+    )
+    .returning({ id: sessionsTable.id });
+
+  res.json({ success: true, sessionId, revoked: revoked.length > 0 });
+});
+
+// Member self-service: "Sign out everywhere except this device". Revokes all
+// of the authenticated user's active sessions except the one backing the
+// current request, so the member stays signed in here while every other
+// device is signed out. If the current session can't be resolved from the
+// refresh cookie, we revoke nothing rather than risk signing the member out
+// of their own current device.
+router.post("/auth/sessions/revoke-others", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const currentHash = getCurrentSessionHash(req);
+  if (!currentHash) {
+    res.status(400).json({ error: "Could not identify the current session" });
+    return;
+  }
+
+  const revoked = await db
+    .update(sessionsTable)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessionsTable.userId, req.userId),
+        isNull(sessionsTable.revokedAt),
+        sql`${sessionsTable.refreshTokenHash} <> ${currentHash}`,
+      ),
+    )
+    .returning({ id: sessionsTable.id });
+
+  res.json({ success: true, revokedSessionCount: revoked.length });
+});
+
 export default router;

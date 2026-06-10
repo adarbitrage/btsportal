@@ -46,6 +46,9 @@ vi.mock("@workspace/api-client-react", () => ({
   useDismissAdminCancelledEmailChange: () => ({ mutateAsync: vi.fn() }),
   getMemberEmailChangePrefill: (...args: unknown[]) =>
     getMemberEmailChangePrefillMock(...args),
+  useGetMyActiveSessions: () => ({ data: { sessions: [] }, isLoading: false, refetch: vi.fn() }),
+  useRevokeMyActiveSession: () => ({ mutateAsync: vi.fn() }),
+  useRevokeMyOtherSessions: () => ({ mutateAsync: vi.fn() }),
 }));
 
 import Account from "@/pages/Account";

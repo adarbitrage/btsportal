@@ -220,6 +220,7 @@ import type {
   MergeTicketsResult,
   MessageResponse,
   ModuleWithLessons,
+  MyActiveSessionList,
   NightlyJobResult,
   NotFoundResponse,
   OnboardingState,
@@ -248,6 +249,8 @@ import type {
   RescheduleSessionRequest,
   ResetPasswordBody,
   ResourceUploadRequest,
+  RevokeMyOtherSessionsResponse,
+  RevokeMySessionResponse,
   RoutingRule,
   SatisfactionStatus,
   SaveToolDataBody,
@@ -17675,6 +17678,263 @@ export function useGetAuthMe<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns the authenticated member's own currently-active sessions
+(not revoked, not expired). The session backing the current request
+is flagged with `current: true` so the UI can mark "this device".
+
+ * @summary List the current user's active sign-in sessions
+ */
+export const getGetMyActiveSessionsUrl = () => {
+  return `/api/auth/sessions`;
+};
+
+export const getMyActiveSessions = async (
+  options?: RequestInit,
+): Promise<MyActiveSessionList> => {
+  return customFetch<MyActiveSessionList>(getGetMyActiveSessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyActiveSessionsQueryKey = () => {
+  return [`/api/auth/sessions`] as const;
+};
+
+export const getGetMyActiveSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyActiveSessions>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyActiveSessionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyActiveSessions>>
+  > = ({ signal }) => getMyActiveSessions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyActiveSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyActiveSessions>>
+>;
+export type GetMyActiveSessionsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List the current user's active sign-in sessions
+ */
+
+export function useGetMyActiveSessions<
+  TData = Awaited<ReturnType<typeof getMyActiveSessions>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyActiveSessionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary End one of the current user's own active sessions
+ */
+export const getRevokeMyActiveSessionUrl = (sessionId: number) => {
+  return `/api/auth/sessions/${sessionId}/revoke`;
+};
+
+export const revokeMyActiveSession = async (
+  sessionId: number,
+  options?: RequestInit,
+): Promise<RevokeMySessionResponse> => {
+  return customFetch<RevokeMySessionResponse>(
+    getRevokeMyActiveSessionUrl(sessionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRevokeMyActiveSessionMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeMyActiveSession>>,
+    TError,
+    { sessionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeMyActiveSession>>,
+  TError,
+  { sessionId: number },
+  TContext
+> => {
+  const mutationKey = ["revokeMyActiveSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeMyActiveSession>>,
+    { sessionId: number }
+  > = (props) => {
+    const { sessionId } = props ?? {};
+
+    return revokeMyActiveSession(sessionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeMyActiveSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeMyActiveSession>>
+>;
+
+export type RevokeMyActiveSessionMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary End one of the current user's own active sessions
+ */
+export const useRevokeMyActiveSession = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeMyActiveSession>>,
+    TError,
+    { sessionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeMyActiveSession>>,
+  TError,
+  { sessionId: number },
+  TContext
+> => {
+  return useMutation(getRevokeMyActiveSessionMutationOptions(options));
+};
+
+/**
+ * Revokes all of the authenticated member's active sessions except
+the one backing the current request, so the member stays signed in
+on this device while every other device is signed out.
+
+ * @summary Sign out everywhere except the current device
+ */
+export const getRevokeMyOtherSessionsUrl = () => {
+  return `/api/auth/sessions/revoke-others`;
+};
+
+export const revokeMyOtherSessions = async (
+  options?: RequestInit,
+): Promise<RevokeMyOtherSessionsResponse> => {
+  return customFetch<RevokeMyOtherSessionsResponse>(
+    getRevokeMyOtherSessionsUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRevokeMyOtherSessionsMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeMyOtherSessions>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeMyOtherSessions>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["revokeMyOtherSessions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeMyOtherSessions>>,
+    void
+  > = () => {
+    return revokeMyOtherSessions(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeMyOtherSessionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeMyOtherSessions>>
+>;
+
+export type RevokeMyOtherSessionsMutationError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Sign out everywhere except the current device
+ */
+export const useRevokeMyOtherSessions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeMyOtherSessions>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeMyOtherSessions>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRevokeMyOtherSessionsMutationOptions(options));
+};
 
 /**
  * @summary Mark onboarding as complete
