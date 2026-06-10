@@ -19,10 +19,23 @@ import { format } from "date-fns";
 const SOURCE_ANY = "any";
 const SOURCE_DIRECT = "direct";
 
+// Role filter for the list. "all" tells the backend to skip its default
+// role=member filter so staff/admins (incl. super_admins like the founders)
+// also appear — otherwise they are invisible here. Order: All, Member, then
+// each admin role.
+const ROLE_ALL = "all";
+const ROLE_FILTER_OPTIONS: ReadonlyArray<string> = [ROLE_ALL, "member", ...ADMIN_ROLES];
+
 function formatSourceLabel(source: string): string {
   if (source === SOURCE_ANY) return "Any source";
   if (source === SOURCE_DIRECT) return "Direct";
   return source.toUpperCase();
+}
+
+function formatRoleLabel(role: string): string {
+  if (role === ROLE_ALL) return "All roles";
+  if (role === "member") return "Member";
+  return ROLE_INFO[role as AdminRole]?.label ?? role;
 }
 
 export default function AdminMembers() {
@@ -30,6 +43,7 @@ export default function AdminMembers() {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState("");
   const [externalSource, setExternalSource] = useState<string>(SOURCE_ANY);
+  const [roleFilter, setRoleFilter] = useState<string>(ROLE_ALL);
   const [externalOrderId, setExternalOrderId] = useState("");
   const [availableSources, setAvailableSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,12 +78,13 @@ export default function AdminMembers() {
   const canCreateMembers = hasPermission(currentUser?.role, "members:edit");
   const canCreateStaff = hasPermission(currentUser?.role, "members:assign_role");
 
-  const load = async (page = 1) => {
+  const load = async (page = 1, roleOverride?: string) => {
     try {
       setLoading(true);
       const data = await adminPanelApi.getMembers({
         page,
         search: search || undefined,
+        role: (roleOverride ?? roleFilter) || undefined,
         externalSource: externalSource && externalSource !== SOURCE_ANY ? externalSource : undefined,
         externalOrderId: externalOrderId || undefined,
       });
@@ -252,6 +267,18 @@ export default function AdminMembers() {
               <Button onClick={handleSearch} data-testid="button-search-members">Search</Button>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="sm:w-48">
+                <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); load(1, v); }}>
+                  <SelectTrigger data-testid="select-role-filter">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_FILTER_OPTIONS.map((r) => (
+                      <SelectItem key={r} value={r}>{formatRoleLabel(r)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="sm:w-48">
                 <Select value={externalSource} onValueChange={setExternalSource}>
                   <SelectTrigger data-testid="select-external-source">

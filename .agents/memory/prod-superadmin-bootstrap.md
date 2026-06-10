@@ -36,7 +36,7 @@ inert; it can be removed in a follow-up publish if desired.
 `ensureFoundingSuperAdmins()` (`artifacts/api-server/src/lib/ensure-founding-superadmins.ts`)
 is wired as a step in `bootstrapCriticalPrerequisites()` and runs on every boot.
 It is preferred over the endpoint because the endpoint mints only ONE super_admin
-and is insert-only, but the requirement was TWO founders where one (Adam) already
+and is insert-only, but the requirement was TWO founders where one already
 existed as an admin.
 
 - **Founders are hardcoded in that file** (the `FOUNDING_SUPER_ADMINS` list — the
@@ -46,7 +46,7 @@ existed as an admin.
   on creation, so deploys never re-spam).
 - **Always-enforcing (policy changed):** the old global self-disable gate
   (no-op the instant ANY super_admin existed) was a BUG — it let whichever founder
-  was created first (Sandy) suppress promotion of the other (Adam, who stayed admin).
+  was created first suppress promotion of the other (who stayed admin).
   The gate was removed. The loop now runs every boot and is per-founder idempotent:
   promote-in-place if not super_admin, create+invite if missing, no-op once both are
   super_admin. **Trade-off:** a UI demotion of a founder is reverted on next deploy.
@@ -57,5 +57,5 @@ existed as an admin.
   in `missing` instead of falsely logging "All critical prerequisites OK".
 - Reaches prod only on **publish** (same constraint as every prod data fix here).
 - Watch out: an earlier wrong-domain typo created a stray member account in prod
-  that is NOT one of the founders; confirm the domain against the code list before
-  acting on a "Sandy" account.
+  that is NOT one of the founders; confirm the domain against the `FOUNDING_SUPER_ADMINS`
+  code list before acting on a founder-looking account.
