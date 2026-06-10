@@ -338,3 +338,122 @@ describe("route guards block the page while auth/entitlement data is still loadi
     expect(queryByTestId("redirect")).toBeNull();
   });
 });
+
+// GuestRoute fronts the login / register / forgot-password screens. A signed-out
+// visitor must reach the screen; an already-signed-in visitor must be bounced to
+// wherever they belong (the first-login gate, their onboarding step, or the
+// dashboard) so they can't re-open the auth screens once authenticated.
+describe("GuestRoute — lets signed-out users in and bounces signed-in users to where they belong", () => {
+  it("renders the target (login/register/etc.) for a signed-out visitor", () => {
+    authStateMock.mockReturnValue({ user: null, loading: false });
+
+    const { getByTestId, queryByTestId } = render(
+      <GuestRoute component={Target} />,
+    );
+
+    expect(getByTestId("target-content")).toBeInTheDocument();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("redirects a signed-in mustChangePassword user to /change-password", () => {
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, mustChangePassword: true },
+      loading: false,
+    });
+
+    const { getByTestId, queryByTestId } = render(
+      <GuestRoute component={Target} />,
+    );
+
+    expect(getByTestId("redirect")).toHaveAttribute(
+      "data-to",
+      "/change-password",
+    );
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+
+  it("redirects a signed-in onboarding-incomplete user into their current step", () => {
+    authStateMock.mockReturnValue({ user: onboardingUser, loading: false });
+
+    const { getByTestId, queryByTestId } = render(
+      <GuestRoute component={Target} />,
+    );
+
+    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/profile
+    expect(getByTestId("redirect")).toHaveAttribute(
+      "data-to",
+      "/onboarding/profile",
+    );
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+
+  it("falls back to the first onboarding step when onboardingStep is missing", () => {
+    authStateMock.mockReturnValue({
+      user: { ...onboardingUser, onboardingStep: undefined },
+      loading: false,
+    });
+
+    const { getByTestId, queryByTestId } = render(
+      <GuestRoute component={Target} />,
+    );
+
+    expect(getByTestId("redirect")).toHaveAttribute(
+      "data-to",
+      "/onboarding/welcome",
+    );
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+
+  it("redirects a fully-onboarded signed-in user to /", () => {
+    authStateMock.mockReturnValue({ user: completedUser, loading: false });
+
+    const { getByTestId, queryByTestId } = render(
+      <GuestRoute component={Target} />,
+    );
+
+    expect(getByTestId("redirect")).toHaveAttribute("data-to", "/");
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+});
+
+// PasswordChangeRoute gates the forced first-login change-password screen. Only a
+// signed-in user who still carries the temporary password (mustChangePassword)
+// may reach it; everyone else is bounced so the screen can't be opened outside
+// the intended flow.
+describe("PasswordChangeRoute — only a mustChangePassword user reaches the forced screen", () => {
+  it("renders the change-password screen for a mustChangePassword user", () => {
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, mustChangePassword: true },
+      loading: false,
+    });
+
+    const { getByTestId, queryByTestId } = render(
+      <PasswordChangeRoute component={Target} />,
+    );
+
+    expect(getByTestId("target-content")).toBeInTheDocument();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("redirects to /login when there is no signed-in user", () => {
+    authStateMock.mockReturnValue({ user: null, loading: false });
+
+    const { getByTestId, queryByTestId } = render(
+      <PasswordChangeRoute component={Target} />,
+    );
+
+    expect(getByTestId("redirect")).toHaveAttribute("data-to", "/login");
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+
+  it("redirects to / when the user's password is already set", () => {
+    authStateMock.mockReturnValue({ user: completedUser, loading: false });
+
+    const { getByTestId, queryByTestId } = render(
+      <PasswordChangeRoute component={Target} />,
+    );
+
+    expect(getByTestId("redirect")).toHaveAttribute("data-to", "/");
+    expect(queryByTestId("target-content")).toBeNull();
+  });
+});
