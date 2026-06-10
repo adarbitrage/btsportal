@@ -1,24 +1,29 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { CommunicationService } from "./communication-service";
 
-// One-time founding super_admin bootstrap.
+// Founding super_admin enforcement.
 //
 // PRODUCTION is a separate database the agent cannot write directly, and it
 // started life with ZERO super_admins. The in-app "assign role" action is
 // itself super_admin-only, so nobody could ever hand out the first one — a
-// chicken-and-egg deadlock. This boot hook mints the agreed founding
-// super_admins (Adam + Sandy) so the normal in-app role-assignment flow can
-// take over from there.
+// chicken-and-egg deadlock. This boot hook guarantees the agreed founding
+// super_admins (Adam + Sandy) always hold the super_admin role so the normal
+// in-app role-assignment flow has a starting point.
 //
-// SELF-DISABLING — the most important property: this runs on EVERY deploy, so
-// it MUST NOT re-assert roles. The instant ANY super_admin row exists it
-// becomes a complete no-op. That guarantees:
-//   - it only ever acts once (when prod still has 0 super_admins), and
-//   - if a super_admin later demotes Adam or Sandy through the UI, the next
-//     deploy will NOT silently re-promote them.
+// IDEMPOTENT — this runs on EVERY deploy. For each founder:
+//   - if the account exists but isn't super_admin, it is promoted in place;
+//   - if the account is missing, it is created as super_admin and sent a
+//     one-time password-setup email (only ever fires on initial creation,
+//     since after that the account exists and hits the promote/no-op branch);
+//   - once both founders are super_admin it is a complete no-op.
+//
+// TRADE-OFF: because founders are always re-asserted, demoting Adam or Sandy
+// through the UI will be undone on the next deploy. That is intentional — the
+// founders are the account owners and should not be lockable out of their own
+// platform. Remove an entry from FOUNDING_SUPER_ADMINS to stop enforcing it.
 const FOUNDING_SUPER_ADMINS: ReadonlyArray<{ email: string; name: string }> = [
   { email: "adam@cherringtonmedia.com", name: "Adam" },
   { email: "sandy@cherringtonmedia.com", name: "Sandy" },
@@ -27,18 +32,6 @@ const FOUNDING_SUPER_ADMINS: ReadonlyArray<{ email: string; name: string }> = [
 const RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h — generous so a boot-time invite isn't stale by the time it's opened.
 
 export async function ensureFoundingSuperAdmins(): Promise<void> {
-  // Self-disable: if a super_admin already exists, the deadlock is broken and
-  // role management belongs entirely to the in-app flow from here on.
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(usersTable)
-    .where(eq(usersTable.role, "super_admin"));
-  if (n > 0) {
-    return;
-  }
-
-  console.log("[Bootstrap] 0 super_admins found — minting founding super_admins.");
-
   // Collect per-founder failures but keep going so one bad founder never blocks
   // the other. Re-thrown at the end so bootstrapCriticalPrerequisites records
   // it in `missing` instead of falsely reporting "All critical prerequisites OK".

@@ -44,9 +44,15 @@ existed as an admin.
   Promotes existing accounts in place; creates missing ones as super_admin with a
   random password + 24h reset token and fires a `password_reset` email ONCE (only
   on creation, so deploys never re-spam).
-- **Self-disabling = the load-bearing property:** the instant ANY super_admin row
-  exists the whole hook is a no-op. This is what stops a later UI demotion from
-  being silently re-promoted on the next deploy. Do NOT make it re-assert roles.
+- **Always-enforcing (policy changed):** the old global self-disable gate
+  (no-op the instant ANY super_admin existed) was a BUG — it let whichever founder
+  was created first (Sandy) suppress promotion of the other (Adam, who stayed admin).
+  The gate was removed. The loop now runs every boot and is per-founder idempotent:
+  promote-in-place if not super_admin, create+invite if missing, no-op once both are
+  super_admin. **Trade-off:** a UI demotion of a founder is reverted on next deploy.
+  That is intentional (founders = account owners); to stop enforcing one, remove it
+  from `FOUNDING_SUPER_ADMINS`. Email re-spam is still impossible (send only on the
+  create branch, which can't fire once the account exists).
 - Surfaces partial failure: throws if a founder op fails so bootstrap records it
   in `missing` instead of falsely logging "All critical prerequisites OK".
 - Reaches prod only on **publish** (same constraint as every prod data fix here).

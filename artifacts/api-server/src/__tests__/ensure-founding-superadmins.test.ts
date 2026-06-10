@@ -98,19 +98,22 @@ beforeEach(() => {
 });
 
 describe("ensureFoundingSuperAdmins", () => {
-  it("is a no-op when a super_admin already exists (self-disabling)", async () => {
+  it("promotes a founder even when another super_admin already exists (always-enforcing)", async () => {
+    // Regression: previously this self-disabled the moment ANY super_admin
+    // existed, so Adam (a founder) was never promoted once Sandy was created.
     state.users = [
-      { id: 1, name: "Existing", email: "boss@example.com", role: "super_admin" },
+      { id: 20, name: "Sandy", email: "sandy@cherringtonmedia.com", role: "super_admin" },
       { id: 7, name: "Adam", email: "adam@cherringtonmedia.com", role: "admin" },
     ];
 
     await ensureFoundingSuperAdmins();
 
-    expect(state.updates).toHaveLength(0);
+    // Adam is promoted in place; Sandy is already super_admin so untouched.
+    expect(state.users.find((u) => u.email === "adam@cherringtonmedia.com")?.role).toBe("super_admin");
+    expect(state.updates).toEqual([{ id: 7, role: "super_admin" }]);
     expect(state.inserts).toHaveLength(0);
+    // No re-email — Adam's account already existed, only Sandy's role was checked.
     expect(sentEmails).toHaveLength(0);
-    // Adam is left untouched — role management belongs to the in-app flow now.
-    expect(state.users.find((u) => u.email === "adam@cherringtonmedia.com")?.role).toBe("admin");
   });
 
   it("promotes an existing account and creates a missing one when there are 0 super_admins", async () => {

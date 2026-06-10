@@ -105,9 +105,10 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("ensureKBGrounding");
   }
 
-  // 5. Mint the founding super_admins (one-time, self-disabling). Breaks the
-  //    "0 super_admins, but assigning roles needs a super_admin" deadlock on a
-  //    fresh production DB. No-op once any super_admin exists.
+  // 5. Ensure the founding super_admins (Adam + Sandy) always hold super_admin.
+  //    Breaks the "0 super_admins, but assigning roles needs a super_admin"
+  //    deadlock on a fresh production DB, and idempotently promotes any founder
+  //    who isn't super_admin yet. No-op once both founders are super_admin.
   try {
     await ensureFoundingSuperAdmins();
   } catch (err) {
