@@ -123,3 +123,10 @@ iframe[src*="tickets.buildtestscale.com"] {
   left: auto !important;
   top: auto !important;
 }
+
+/* Suppress the TicketDesk live-chat widget on auth/onboarding routes */
+body.chat-widget-hidden #ticketdesk-widget-container,
+body.chat-widget-hidden #ticketdesk-widget,
+body.chat-widget-hidden iframe[src*="tickets.buildtestscale.com"] {
+  display: none !important;
+}

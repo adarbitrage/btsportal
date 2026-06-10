@@ -534,6 +534,36 @@ function AuthenticatedChatWidget() {
   return <ChatWidget />;
 }
 
+// Routes where the third-party TicketDesk live-chat widget (loaded globally via
+// the script in index.html) should be suppressed — auth and onboarding screens
+// where the launcher feels out of place or overlaps form elements.
+const CHAT_WIDGET_HIDDEN_EXACT = new Set([
+  "/login",
+  "/register",
+  "/change-password",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/verify-email-change",
+]);
+const CHAT_WIDGET_HIDDEN_PREFIXES = ["/onboarding"];
+
+function ChatWidgetVisibility() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const shouldHide =
+      CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
+      CHAT_WIDGET_HIDDEN_PREFIXES.some(
+        (prefix) => location === prefix || location.startsWith(prefix + "/"),
+      );
+    document.body.classList.toggle("chat-widget-hidden", shouldHide);
+    return () => {
+      document.body.classList.remove("chat-widget-hidden");
+    };
+  }, [location]);
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -541,6 +571,7 @@ function App() {
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <ScrollToTop />
+            <ChatWidgetVisibility />
             <Router />
             <AuthenticatedChatWidget />
           </WouterRouter>
