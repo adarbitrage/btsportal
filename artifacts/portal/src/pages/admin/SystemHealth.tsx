@@ -2598,18 +2598,18 @@ export default function SystemHealth() {
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4" />
-                        Live Chat embed
+                        Live Chat widget
                         <Badge
                           variant={badge.variant}
                           className="ml-2 font-normal"
                           data-testid="live-chat-embed-status"
                           title={
                             lce.status === "blocked"
-                              ? "TicketDesk is sending framing-blocking headers — the in-portal iframe is broken and members are bounced to a new tab."
+                              ? "TicketDesk widget script is unavailable (non-2xx response) — the live-chat widget will fail to load for members."
                               : lce.status === "unreachable"
-                                ? "The last probe could not reach TicketDesk (transient). The blocked streak is unchanged."
+                                ? "The last probe could not reach the widget script (transient). The unavailability streak is unchanged."
                                 : lce.status === "ok"
-                                  ? "TicketDesk loads without framing-blocking headers — the in-portal embed works."
+                                  ? "TicketDesk widget script is accessible — the live-chat widget loads correctly for members."
                                   : "No probe has run yet."
                           }
                         >
@@ -2630,7 +2630,7 @@ export default function SystemHealth() {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Embed URL</span>
+                          <span className="text-sm text-muted-foreground">Widget script</span>
                           <a
                             href={lce.url}
                             target="_blank"
@@ -2643,7 +2643,7 @@ export default function SystemHealth() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
-                            Consecutive blocked
+                            Consecutive unavailable
                           </span>
                           <span
                             className={`text-sm font-medium ${lce.consecutiveBlocked > 0 ? "text-red-600" : ""}`}
@@ -2668,7 +2668,7 @@ export default function SystemHealth() {
                             data-testid="live-chat-embed-reasons"
                           >
                             <span className="block uppercase text-[10px] tracking-wide mb-1">
-                              Blocking headers
+                              Load error
                             </span>
                             {lce.reasons.map((r, i) => (
                               <code key={i} className="block break-all">
@@ -2704,7 +2704,7 @@ export default function SystemHealth() {
                           )}
                           {lce.lastBlockedAt && (
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Last blocked</span>
+                              <span className="text-muted-foreground">Last unavailable</span>
                               <span className="font-medium">
                                 {new Date(lce.lastBlockedAt).toLocaleString()}
                               </span>

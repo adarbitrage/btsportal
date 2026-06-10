@@ -6,7 +6,10 @@ import { randomUUID } from "crypto";
 import { db, usersTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
-import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+import {
+  DEFAULT_TICKETDESK_URL,
+  DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
+} from "@workspace/support-config";
 
 import adminPanelRouter from "../routes/admin-panel";
 import {
@@ -52,15 +55,12 @@ async function seedUser(
   return { id: row.id, email, cookie: signCookie(row.id, email) };
 }
 
-/** A fetch stub returning the given status + headers once per call. */
-function fetchReturning(
-  status: number,
-  hdrs: Record<string, string>,
-): typeof fetch {
+/** A fetch stub returning the given status once per call. */
+function fetchReturning(status: number): typeof fetch {
   return (async () =>
     new Response("ok", {
       status,
-      headers: new Headers(hdrs),
+      headers: new Headers({}),
     })) as unknown as typeof fetch;
 }
 
@@ -106,7 +106,7 @@ beforeEach(() => {
 describe("GET /api/admin/system/health — liveChatEmbed surfacing", () => {
   it("includes a services.liveChatEmbed block with the expected fields", async () => {
     // Drive one clean probe so the snapshot has concrete (non-null) status.
-    __setLiveChatEmbedProbeFetchForTests(fetchReturning(200, {}));
+    __setLiveChatEmbedProbeFetchForTests(fetchReturning(200));
     silenceDeliveries();
     await evaluateLiveChatEmbedProbe();
 
@@ -136,10 +136,9 @@ describe("GET /api/admin/system/health — liveChatEmbed surfacing", () => {
     expect(typeof lce.lastOkAt).toBe("string");
   });
 
-  it("flips overallStatus to degraded and reports blocked/alerting once the embed is blocked past threshold", async () => {
-    __setLiveChatEmbedProbeFetchForTests(
-      fetchReturning(200, { "x-frame-options": "DENY" }),
-    );
+  it("flips overallStatus to degraded and reports blocked/alerting once the widget script is unavailable past threshold", async () => {
+    // 404 → "blocked" (script definitively not loadable).
+    __setLiveChatEmbedProbeFetchForTests(fetchReturning(404));
     silenceDeliveries();
 
     // Threshold defaults to 3 — drive three consecutive blocked probes so the
@@ -160,8 +159,25 @@ describe("GET /api/admin/system/health — liveChatEmbed surfacing", () => {
     expect(lce.alerting).toBe(true);
     expect(lce.consecutiveBlocked).toBe(3);
     expect(lce.consecutiveBlocked).toBeGreaterThanOrEqual(lce.threshold);
-    expect(lce.reasons).toContain("X-Frame-Options: DENY");
+    expect(lce.reasons).toContain("http_404");
     expect(typeof lce.lastBlockedAt).toBe("string");
+  });
+
+  it("treats a 5xx server error as unreachable (inconclusive), not blocked", async () => {
+    __setLiveChatEmbedProbeFetchForTests(fetchReturning(503));
+    silenceDeliveries();
+
+    await evaluateLiveChatEmbedProbe();
+
+    const res = await request(app)
+      .get("/api/admin/system/health")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const lce = res.body.services.liveChatEmbed;
+    expect(lce.status).toBe("unreachable");
+    expect(lce.consecutiveBlocked).toBe(0);
+    expect(lce.alerting).toBe(false);
   });
 
   it("rejects callers without system:view permission", async () => {
@@ -182,9 +198,11 @@ describe("GET /api/admin/system/live-chat-support", () => {
         .set("Cookie", adminCookie);
 
       expect(res.status).toBe(200);
-      expect(res.body.probeUrl).toBe(DEFAULT_TICKETDESK_URL);
+      // probeUrl now defaults to the widget script URL (not the root URL).
+      expect(res.body.probeUrl).toBe(DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL);
       expect(res.body.probeUrlSource).toBe("default");
-      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_URL);
+      // defaultUrl reflects the widget script default, keeping it in lockstep.
+      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL);
     } finally {
       if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
       else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
@@ -202,7 +220,7 @@ describe("GET /api/admin/system/live-chat-support", () => {
       expect(res.status).toBe(200);
       expect(res.body.probeUrl).toBe("https://support.example.test/");
       expect(res.body.probeUrlSource).toBe("env");
-      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_URL);
+      expect(res.body.defaultUrl).toBe(DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL);
     } finally {
       if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
       else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
@@ -217,19 +235,24 @@ describe("GET /api/admin/system/live-chat-support", () => {
   });
 });
 
-describe("Live Chat support URL lockstep", () => {
-  it("backend probe default resolves from the shared support-config source", () => {
+describe("Live Chat widget URL lockstep", () => {
+  it("backend probe default resolves from the shared support-config widget script URL", () => {
     // With no LIVE_CHAT_EMBED_PROBE_URL override, the probe must fall back to
-    // the exact same shared default the portal embed (support.ts) uses. If
-    // these ever diverge, System Health would probe a different URL than the
-    // one members actually load — masking a real embed outage.
+    // the exact same widget script URL the portal embed (LiveChatLauncher.tsx)
+    // uses. If these ever diverge, System Health would probe a different URL
+    // than the one members actually load — masking a real widget outage.
     const prev = process.env.LIVE_CHAT_EMBED_PROBE_URL;
     delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
     try {
-      expect(getLiveChatEmbedProbeUrl()).toBe(DEFAULT_TICKETDESK_URL);
+      expect(getLiveChatEmbedProbeUrl()).toBe(DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL);
     } finally {
       if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
       else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
     }
   });
 });
+
+// Keep DEFAULT_TICKETDESK_URL imported to ensure the root URL constant is still
+// accessible for any callers that reference it (e.g. the live-chat-support
+// endpoint's defaultUrl field, which previously pointed at the root URL).
+void DEFAULT_TICKETDESK_URL;

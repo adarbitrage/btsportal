@@ -1,22 +1,21 @@
 /**
- * Actively detects when the embedded Live Chat (TicketDesk) starts sending
- * framing-blocking response headers that would break the in-portal iframe
- * for real members.
+ * Actively detects when the TicketDesk chat widget script becomes unavailable,
+ * which would silently break the live-chat widget for all portal members.
  *
- * Why this exists: the portal embeds `https://tickets.buildtestscale.com/`
- * in an in-page iframe (`LiveChatLauncher.tsx`) and only falls back to a new
- * tab after an 8s client-side watchdog. If TicketDesk ever starts returning
- * `X-Frame-Options` or a CSP `frame-ancestors` directive that excludes the
- * portal's origin, the embed silently breaks and the only signal is a member
- * complaint. This probe periodically fetches the TicketDesk URL, inspects the
- * framing headers, and pages on-call (and surfaces on System Health) the
- * moment the embed would stop working — before anyone reports it.
+ * Why this exists: `LiveChatLauncher.tsx` injects the TicketDesk `widget.js`
+ * script into the portal page. If the widget script URL ever stops responding
+ * (404, 403, server error, DNS failure), the TicketDesk widget silently fails
+ * to initialise and members get no live-chat launcher at all. This probe
+ * periodically fetches the widget script URL, checks it responds with a 2xx
+ * status, and pages on-call (and surfaces on System Health) the moment the
+ * script becomes unreachable — before anyone reports it.
  *
  * Resilience: a single transient failure (TicketDesk briefly down, DNS blip,
- * timeout) is classified as `unreachable` and is *inconclusive* — it never
- * increments the blocked streak and never clears an active alert. We only
- * page after the embed is observed blocked for `threshold` consecutive probes
- * (default 3), so a flaky moment can't false-alarm.
+ * timeout, 5xx server error) is classified as `unreachable` and is
+ * *inconclusive* — it never increments the blocked streak and never clears an
+ * active alert. Only a definitively non-loadable response (4xx) increments the
+ * blocked streak; we only page after `threshold` consecutive blocked probes
+ * (default 3), so transient blips can't false-alarm.
  *
  * Delivery, throttling, and SendGrid lazy init are owned by the shared
  * `oncall-dispatcher.ts`. Delivery channels use the same env vars as every
@@ -26,16 +25,16 @@
  *   - Slack:      OPS_ALERT_SLACK_WEBHOOK_URL
  *
  * Tunables (env, all optional):
- *   - LIVE_CHAT_EMBED_PROBE_URL                (default https://tickets.buildtestscale.com/)
+ *   - LIVE_CHAT_EMBED_PROBE_URL                (default: widget.js URL from support-config)
  *   - LIVE_CHAT_EMBED_PROBE_POLL_MS            (default 5 min)
- *   - LIVE_CHAT_EMBED_PROBE_TIMEOUT_MS         (default 8s — matches the UI watchdog)
- *   - LIVE_CHAT_EMBED_BLOCKED_THRESHOLD        (default 3 consecutive blocked probes)
+ *   - LIVE_CHAT_EMBED_PROBE_TIMEOUT_MS         (default 8s)
+ *   - LIVE_CHAT_EMBED_BLOCKED_THRESHOLD        (default 3 consecutive unavailable probes)
  *   - LIVE_CHAT_EMBED_ALERT_THROTTLE_MS        (default 15 min per channel)
- *   - PORTAL_URL                               (used to know which ancestor origin the
- *                                               embed needs; buildtestscale.com is always allowed)
  */
 
-import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+import {
+  DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
+} from "@workspace/support-config";
 
 import {
   createInMemoryThrottleStore,
@@ -52,9 +51,9 @@ import {
 
 export type { DeliveryResult };
 
-// Default falls back to the shared support destination so the URL this probe
-// checks and the URL the portal actually embeds can never silently diverge.
-const DEFAULT_PROBE_URL = DEFAULT_TICKETDESK_URL;
+// Default falls back to the shared widget script URL so the URL this probe
+// checks and the URL the portal actually loads can never silently diverge.
+const DEFAULT_PROBE_URL = DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL;
 
 export function getLiveChatEmbedProbeUrl(): string {
   const raw = process.env.LIVE_CHAT_EMBED_PROBE_URL;
@@ -76,123 +75,6 @@ export function getBlockedThreshold(): number {
 
 function getThrottleMs(): number {
   return parseEnvInt("LIVE_CHAT_EMBED_ALERT_THROTTLE_MS", 15 * 60 * 1000);
-}
-
-// ---------------------------------------------------------------------------
-// Framing-header analysis (pure — unit tested directly)
-// ---------------------------------------------------------------------------
-
-export interface FramingAnalysis {
-  /** True when the headers would prevent the portal from embedding the page. */
-  blocked: boolean;
-  /** Human-readable reasons, one per blocking header. */
-  reasons: string[];
-}
-
-/** Minimal Headers-like shape so this is trivially testable. */
-interface HeaderReader {
-  get(name: string): string | null;
-}
-
-function hostFromUrlish(value: string): string | null {
-  const v = value.trim();
-  if (!v) return null;
-  try {
-    // Has a scheme — parse normally.
-    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) {
-      return new URL(v).hostname.toLowerCase();
-    }
-    // Bare host (optionally with port/path) — prefix a scheme to parse.
-    return new URL(`https://${v}`).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-/** Hosts whose origin is permitted to frame the embed. */
-export function getAllowedAncestorHosts(): string[] {
-  const hosts = new Set<string>(["buildtestscale.com"]);
-  const portalHost = process.env.PORTAL_URL
-    ? hostFromUrlish(process.env.PORTAL_URL)
-    : null;
-  if (portalHost) hosts.add(portalHost);
-  return [...hosts];
-}
-
-/** True when `host` is `allowed` or a subdomain of it. */
-function hostMatches(host: string, allowed: string): boolean {
-  return host === allowed || host.endsWith(`.${allowed}`);
-}
-
-/**
- * Extract the `frame-ancestors` source list from a CSP header value, or
- * `null` when the directive is absent. Returns the lowercased tokens (e.g.
- * `["'none'"]`, `["'self'"]`, `["https://buildtestscale.com", "*"]`).
- */
-export function extractFrameAncestors(csp: string): string[] | null {
-  for (const directive of csp.split(";")) {
-    const parts = directive.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) continue;
-    if (parts[0].toLowerCase() === "frame-ancestors") {
-      return parts.slice(1).map((p) => p.toLowerCase());
-    }
-  }
-  return null;
-}
-
-function frameAncestorsAllow(sources: string[], allowedHosts: string[]): boolean {
-  if (sources.length === 0) return false; // empty == 'none'
-  if (sources.includes("'none'")) return false;
-  if (sources.includes("*")) return true;
-  for (const src of sources) {
-    if (src === "'self'") continue; // 'self' is TicketDesk's own origin, not the portal
-    const wildcard = src.startsWith("*.");
-    const bareHost = hostFromUrlish(wildcard ? src.slice(2) : src);
-    if (!bareHost) continue;
-    for (const allowed of allowedHosts) {
-      if (wildcard) {
-        // `*.example.com` allows any subdomain of example.com.
-        if (allowed === bareHost || allowed.endsWith(`.${bareHost}`)) return true;
-      } else if (hostMatches(allowed, bareHost) || hostMatches(bareHost, allowed)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * Inspect framing headers and decide whether the portal (origin in
- * `allowedHosts`) would be blocked from embedding the response.
- */
-export function analyzeFramingHeaders(
-  headers: HeaderReader,
-  allowedHosts: string[] = getAllowedAncestorHosts(),
-): FramingAnalysis {
-  const reasons: string[] = [];
-
-  const xfo = headers.get("x-frame-options");
-  if (xfo && xfo.trim().length > 0) {
-    const v = xfo.trim().toLowerCase();
-    // Every X-Frame-Options value blocks the portal: DENY blocks all frames;
-    // SAMEORIGIN blocks because the portal is a different origin than
-    // tickets.buildtestscale.com; the obsolete ALLOW-FROM is ignored by
-    // modern browsers and treated as a block.
-    if (v.includes("deny")) reasons.push("X-Frame-Options: DENY");
-    else if (v.includes("sameorigin")) reasons.push("X-Frame-Options: SAMEORIGIN");
-    else reasons.push(`X-Frame-Options: ${xfo.trim()}`);
-  }
-
-  const csp = headers.get("content-security-policy");
-  if (csp && csp.trim().length > 0) {
-    const fa = extractFrameAncestors(csp);
-    if (fa !== null && !frameAncestorsAllow(fa, allowedHosts)) {
-      const rendered = fa.length > 0 ? fa.join(" ") : "'none'";
-      reasons.push(`CSP frame-ancestors ${rendered}`);
-    }
-  }
-
-  return { blocked: reasons.length > 0, reasons };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,10 +107,17 @@ function describeError(err: unknown): string {
 }
 
 /**
- * Run a single probe of the embed URL. Follows redirects so we inspect the
- * framing headers of the document the iframe would actually render. A 5xx or
- * a thrown error (timeout/DNS/network) is classified `unreachable` — that's
- * the transient, inconclusive bucket the caller must not treat as a block.
+ * Run a single probe of the widget script URL. Follows redirects.
+ *
+ * Status semantics:
+ *   - `ok`          — script responded 2xx; the widget will load.
+ *   - `blocked`     — script responded 4xx (not found, forbidden, etc.);
+ *                     the widget will fail to load for all members.
+ *   - `unreachable` — network error, timeout, or 5xx server error; the
+ *                     result is inconclusive (may be transient).
+ *
+ * Only `blocked` increments the alerting streak; `unreachable` is held
+ * inconclusive so a brief server restart can't false-alarm.
  */
 export async function performLiveChatEmbedProbe(): Promise<ProbeOutcome> {
   const url = getLiveChatEmbedProbeUrl();
@@ -243,8 +132,7 @@ export async function performLiveChatEmbedProbe(): Promise<ProbeOutcome> {
       headers: { "User-Agent": "BTS-LiveChatEmbedProbe/1.0" },
     });
     if (res.status >= 500) {
-      // Server-side error — the embed health is inconclusive, don't treat
-      // a 503 as "framing is fine".
+      // 5xx — server error, likely transient; hold as inconclusive.
       return {
         status: "unreachable",
         reasons: [],
@@ -252,11 +140,11 @@ export async function performLiveChatEmbedProbe(): Promise<ProbeOutcome> {
         httpStatus: res.status,
       };
     }
-    const analysis = analyzeFramingHeaders(res.headers);
-    if (analysis.blocked) {
+    if (res.status >= 400) {
+      // 4xx — script definitively not loadable (wrong URL, access denied, etc.).
       return {
         status: "blocked",
-        reasons: analysis.reasons,
+        reasons: [`http_${res.status}`],
         error: null,
         httpStatus: res.status,
       };
@@ -324,47 +212,44 @@ function destinationsFromEnv(): OnCallDestinations {
 
 function buildMessages(p: LiveChatEmbedAlertPayload): AlertMessages {
   const reasonText =
-    p.reasons.length > 0 ? p.reasons.join("; ") : "framing-blocking headers";
+    p.reasons.length > 0 ? p.reasons.join("; ") : "unavailable";
   const summary =
     p.kind === "fire"
-      ? `Live Chat embed is blocked — ${p.url} is sending framing-blocking headers (${reasonText})`
-      : `Live Chat embed recovered — ${p.url} no longer blocks in-portal framing`;
+      ? `Live Chat widget script unavailable — ${p.url} is not loading (${reasonText})`
+      : `Live Chat widget script recovered — ${p.url} is accessible again`;
   const emailText =
     p.kind === "fire"
       ? [
-          `The portal embeds Live Chat (${p.url}) in an in-page iframe, but that URL has`,
-          `returned framing-blocking headers for ${p.consecutiveBlocked} consecutive probe(s)`,
-          `(threshold ${p.threshold}).`,
+          `The portal injects the TicketDesk chat widget script (${p.url}) to render`,
+          `the live-chat launcher, but that script has returned a non-2xx response for`,
+          `${p.consecutiveBlocked} consecutive probe(s) (threshold ${p.threshold}).`,
           "",
-          `Blocking headers: ${reasonText}.`,
+          `Last probe response: ${reasonText}.`,
           "",
-          "Real members now hit the 8s client-side watchdog and get bounced to a new tab",
-          "instead of the in-page chat. Check whether TicketDesk changed its",
-          "X-Frame-Options / CSP frame-ancestors policy, and add the portal origin back",
-          "to the allowed ancestors.",
+          "Members currently get no live-chat widget at all. Check whether the",
+          "TicketDesk widget script URL has changed or the service is down, and",
+          "update LIVE_CHAT_EMBED_PROBE_URL / the shared support-config if needed.",
           "",
-          `First detected blocked at: ${p.lastBlockedAt ?? "n/a"}.`,
-          "Confirm via /admin/system (Live Chat embed card).",
+          `First detected unavailable at: ${p.lastBlockedAt ?? "n/a"}.`,
+          "Confirm via /admin/system (Live Chat widget card).",
         ].join("\n")
       : [
-          `The Live Chat embed (${p.url}) is framing-allowed again — a recent probe`,
-          "loaded without framing-blocking headers. Marking the alert resolved.",
+          `The Live Chat widget script (${p.url}) is loading again — a recent probe`,
+          "received a 2xx response. Marking the alert resolved.",
           "",
           "Confirm via /admin/system.",
         ].join("\n");
   const slackText =
     p.kind === "fire"
-      ? `:rotating_light: *Live Chat embed is blocked* — ${p.url} sent framing-blocking headers ${p.consecutiveBlocked}× in a row (threshold ${p.threshold}). ${reasonText}. Members are bounced to a new tab. Check /admin/system.`
-      : `:white_check_mark: *Live Chat embed recovered* — ${p.url} no longer blocks in-portal framing.`;
+      ? `:rotating_light: *Live Chat widget script unavailable* — ${p.url} returned ${reasonText} ${p.consecutiveBlocked}× in a row (threshold ${p.threshold}). Members have no live-chat widget. Check /admin/system.`
+      : `:white_check_mark: *Live Chat widget script recovered* — ${p.url} is accessible again.`;
   return {
     pagerduty: {
-      // Stable dedup key so re-fires fold into one incident and the resolve
-      // auto-closes it.
       dedupKey: "live-chat-embed:blocked",
       summary,
       severity: "error",
       component: "live-chat-embed",
-      class: "live_chat_embed_blocked",
+      class: "live_chat_widget_unavailable",
       custom_details: {
         url: p.url,
         threshold: p.threshold,
@@ -377,8 +262,8 @@ function buildMessages(p: LiveChatEmbedAlertPayload): AlertMessages {
     email: {
       subject:
         p.kind === "fire"
-          ? "[ALERT] Live Chat embed is blocked in the portal"
-          : "[RESOLVED] Live Chat embed recovered",
+          ? "[ALERT] Live Chat widget script is unavailable"
+          : "[RESOLVED] Live Chat widget script recovered",
       text: emailText,
     },
     slack: { text: slackText },
@@ -392,8 +277,6 @@ const dispatcher = createOnCallDispatcher<LiveChatEmbedAlertPayload, string>({
   destinations: destinationsFromEnv,
   throttleMs: getThrottleMs,
   throttleStore,
-  // Separate throttle slots for fire vs clear per channel so a recovery
-  // notification is never suppressed by a recent page.
   throttleKey: (p, dc) => `${p.kind}:${dc}`,
   buildMessages,
   kindOf: (p) => p.kind,
@@ -439,9 +322,6 @@ function iso(ms: number | null): string | null {
  *                     a transient outage neither false-alarms nor resolves a
  *                     real block.
  *   - `blocked`     → bump the blocked streak; fire once it reaches threshold.
- *
- * Safe to call frequently — re-fires while alerting are gated by the shared
- * dispatcher's per-channel throttle.
  */
 export async function evaluateLiveChatEmbedProbe(
   now: number = Date.now(),
@@ -528,7 +408,7 @@ export interface LiveChatEmbedProbeStateView {
 
 /**
  * Read-only snapshot for the admin System Health page. Lets the page render
- * the embed's status without re-deriving the transition logic.
+ * the widget's status without re-deriving the transition logic.
  */
 export function getLiveChatEmbedProbeState(): LiveChatEmbedProbeStateView {
   return {
@@ -554,12 +434,12 @@ const runner = createPollRunner({
   startupEvaluate: true,
 });
 
-/** Start the embed probe poll. Idempotent. */
+/** Start the widget script probe poll. Idempotent. */
 export function startLiveChatEmbedProbe(): void {
   runner.start();
 }
 
-/** Stop the embed probe poll. */
+/** Stop the widget script probe poll. */
 export function stopLiveChatEmbedProbe(): void {
   runner.stop();
 }

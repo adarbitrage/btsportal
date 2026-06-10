@@ -93,7 +93,10 @@ import {
   getLiveChatEmbedProbeState,
   getLiveChatEmbedProbeUrl,
 } from "../lib/live-chat-embed-probe";
-import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+import {
+  DEFAULT_TICKETDESK_URL,
+  DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
+} from "@workspace/support-config";
 import {
   MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
   getMachineMismatchDigestWatchdogState,
@@ -3122,7 +3125,7 @@ router.get(
     res.json({
       probeUrl,
       probeUrlSource,
-      defaultUrl: DEFAULT_TICKETDESK_URL,
+      defaultUrl: DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
     });
   },
 );

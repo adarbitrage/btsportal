@@ -1,141 +1,84 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { LiveChatLauncher } from "./LiveChatLauncher";
-import { TICKETDESK_URL } from "@/config/support";
-
-let openSpy: ReturnType<typeof vi.fn>;
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { render, act } from "@testing-library/react";
+import { LiveChatLauncher, WIDGET_SCRIPT_ID, WIDGET_STACKED_STYLE_ID } from "./LiveChatLauncher";
+import {
+  TICKETDESK_WIDGET_SCRIPT_URL,
+  TICKETDESK_WIDGET_WORKSPACE_ID,
+  TICKETDESK_WIDGET_API_URL,
+} from "@/config/support";
 
 beforeEach(() => {
-  openSpy = vi.fn();
-  vi.stubGlobal("open", openSpy);
+  document.getElementById(WIDGET_SCRIPT_ID)?.remove();
+  document.getElementById(WIDGET_STACKED_STYLE_ID)?.remove();
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
+  document.getElementById(WIDGET_SCRIPT_ID)?.remove();
+  document.getElementById(WIDGET_STACKED_STYLE_ID)?.remove();
 });
 
-function getLauncherButton() {
-  return screen.getByLabelText("Open live chat support");
-}
-
-// The launcher button shares title="Live Chat Support" with the iframe, so we
-// target the embed by tag to avoid an ambiguous match.
-function queryIframe(container: HTMLElement) {
-  return container.querySelector("iframe");
-}
-
 describe("LiveChatLauncher", () => {
-  it("opens an in-page panel with the TicketDesk iframe (not a new tab) when the launcher is clicked", async () => {
-    const { container } = render(<LiveChatLauncher />);
-
-    // Closed state: only the launcher button, no iframe yet.
-    expect(getLauncherButton()).toBeInTheDocument();
-    expect(queryIframe(container)).toBeNull();
-
-    await userEvent.click(getLauncherButton());
-
-    // The embed renders in-page, pointing at the TicketDesk URL.
-    const iframe = queryIframe(container);
-    expect(iframe).not.toBeNull();
-    expect(iframe!.getAttribute("title")).toBe("Live Chat Support");
-    expect(iframe!.getAttribute("src")).toBe(TICKETDESK_URL);
-
-    // Crucially, it did NOT open a new tab.
-    expect(openSpy).not.toHaveBeenCalled();
-  });
-
-  it("supports minimize and close controls that return to the launcher", async () => {
-    const { container } = render(<LiveChatLauncher />);
-
-    // Open, then minimize.
-    await userEvent.click(getLauncherButton());
-    expect(queryIframe(container)).not.toBeNull();
-
-    await userEvent.click(screen.getByTitle("Minimize"));
-    expect(queryIframe(container)).toBeNull();
-    expect(getLauncherButton()).toBeInTheDocument();
-
-    // Re-open, then close.
-    await userEvent.click(getLauncherButton());
-    expect(queryIframe(container)).not.toBeNull();
-
-    await userEvent.click(screen.getByTitle("Close"));
-    expect(queryIframe(container)).toBeNull();
-    expect(getLauncherButton()).toBeInTheDocument();
-  });
-
-  it("exposes an 'Open in new tab' header control that opens TicketDesk in a new tab", async () => {
+  it("injects the widget script tag into <head> with correct src and data attributes on mount", () => {
     render(<LiveChatLauncher />);
 
-    await userEvent.click(getLauncherButton());
-    await userEvent.click(screen.getByTitle("Open in new tab"));
-
-    expect(openSpy).toHaveBeenCalledWith(
-      TICKETDESK_URL,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const script = document.getElementById(WIDGET_SCRIPT_ID) as HTMLScriptElement | null;
+    expect(script).not.toBeNull();
+    expect(script!.tagName).toBe("SCRIPT");
+    expect(script!.getAttribute("src")).toBe(TICKETDESK_WIDGET_SCRIPT_URL);
+    expect(script!.async).toBe(true);
+    expect(script!.getAttribute("data-workspace")).toBe(TICKETDESK_WIDGET_WORKSPACE_ID);
+    expect(script!.getAttribute("data-api")).toBe(TICKETDESK_WIDGET_API_URL);
   });
 
-  it("falls back to a new-tab 'Open Live Chat' button when the embed never loads (e.g. blocked by X-Frame-Options/CSP)", async () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = render(<LiveChatLauncher />);
-
-      fireEvent.click(getLauncherButton());
-
-      // Still loading: iframe present, no fallback yet.
-      expect(queryIframe(container)).not.toBeNull();
-      expect(screen.queryByText("Live chat couldn't load here")).toBeNull();
-
-      // A frame-ancestors/X-Frame-Options block means onLoad never fires, so the
-      // 8s watchdog is what surfaces the fallback. Advance past it.
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
-
-      // The iframe is replaced by the fallback message + new-tab CTA.
-      expect(queryIframe(container)).toBeNull();
-      expect(screen.getByText("Live chat couldn't load here")).toBeInTheDocument();
-
-      // The fallback CTA opens TicketDesk in a new tab.
-      const fallbackButton = screen.getByRole("button", { name: /Open Live Chat/i });
-      fireEvent.click(fallbackButton);
-      expect(openSpy).toHaveBeenCalledWith(
-        TICKETDESK_URL,
-        "_blank",
-        "noopener,noreferrer",
-      );
-    } finally {
-      vi.useRealTimers();
-    }
+  it("renders no visible DOM output (the widget renders itself via the injected script)", () => {
+    const { container } = render(<LiveChatLauncher />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it("clears the fallback timeout and shows the embed once the iframe loads", async () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = render(<LiveChatLauncher />);
+  it("removes the widget script tag from <head> on unmount", () => {
+    const { unmount } = render(<LiveChatLauncher />);
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).not.toBeNull();
+    unmount();
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
+  });
 
-      fireEvent.click(getLauncherButton());
+  it("does not inject a duplicate script when already present in the DOM", () => {
+    render(<LiveChatLauncher />);
+    render(<LiveChatLauncher />);
+    const scripts = document.querySelectorAll(`#${WIDGET_SCRIPT_ID}`);
+    expect(scripts.length).toBe(1);
+  });
 
-      const iframe = queryIframe(container);
-      expect(iframe).not.toBeNull();
-      act(() => {
-        fireEvent.load(iframe!);
-      });
+  it("does not inject the stacked offset style when stacked=false (default)", () => {
+    render(<LiveChatLauncher />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
+  });
 
-      // Even after the watchdog window passes, no fallback because it loaded.
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
+  it("injects the stacked offset style when stacked=true so the widget bubble clears the AI launcher", () => {
+    render(<LiveChatLauncher stacked />);
+    const style = document.getElementById(WIDGET_STACKED_STYLE_ID) as HTMLStyleElement | null;
+    expect(style).not.toBeNull();
+    expect(style!.textContent).toContain("96px");
+  });
 
-      expect(queryIframe(container)).not.toBeNull();
-      expect(screen.queryByText("Live chat couldn't load here")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+  it("removes the stacked offset style on unmount when stacked=true", () => {
+    const { unmount } = render(<LiveChatLauncher stacked />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+    unmount();
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
+  });
+
+  it("injects the stacked style when stacked prop changes from false to true", () => {
+    const { rerender } = render(<LiveChatLauncher stacked={false} />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
+    act(() => rerender(<LiveChatLauncher stacked={true} />));
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+  });
+
+  it("removes the stacked style when stacked prop changes from true to false", () => {
+    const { rerender } = render(<LiveChatLauncher stacked={true} />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+    act(() => rerender(<LiveChatLauncher stacked={false} />));
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
   });
 });

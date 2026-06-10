@@ -1,16 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, fireEvent, act } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, act } from "@testing-library/react";
 
-import { TICKETDESK_URL } from "@/config/support";
+import {
+  TICKETDESK_WIDGET_SCRIPT_URL,
+  TICKETDESK_WIDGET_WORKSPACE_ID,
+  TICKETDESK_WIDGET_API_URL,
+} from "@/config/support";
 
 // ---------------------------------------------------------------------------
 // Mocks shared by the AuthenticatedChatWidget gating tests below.
-//
-// AuthenticatedChatWidget lives in App.tsx and decides *whether* the launcher
-// renders (authenticated + onboarded members only) and *whether* it stacks
-// above the AI ChatWidget (only when the member holds the chat:ai
-// entitlement). We mock the data sources it reads but keep the real
-// LiveChatLauncher so we exercise the actual button + URL + positioning.
 // ---------------------------------------------------------------------------
 const authStateMock = vi.fn(() => ({
   user: { id: 1, role: "member", onboardingComplete: true, onboardingStep: 5 },
@@ -37,13 +35,11 @@ vi.mock("wouter", () => ({
   ),
 }));
 
-// The AI ChatWidget is a heavy component with its own data hooks; stub it so we
-// can focus on the live-chat launcher's presence and stacking.
 vi.mock("@/components/chat/ChatWidget", () => ({
   ChatWidget: () => <div data-testid="ai-chat-widget" />,
 }));
 
-import { LiveChatLauncher } from "@/components/chat/LiveChatLauncher";
+import { LiveChatLauncher, WIDGET_SCRIPT_ID, WIDGET_STACKED_STYLE_ID } from "@/components/chat/LiveChatLauncher";
 import { AuthenticatedChatWidget } from "@/App";
 
 beforeEach(() => {
@@ -57,158 +53,109 @@ beforeEach(() => {
   memberMock.mockImplementation(() => ({ data: { entitlements: [] } }));
   locationMock.mockReset();
   locationMock.mockImplementation(() => "/dashboard");
+  // Clean up any lingering DOM elements from previous tests.
+  document.getElementById(WIDGET_SCRIPT_ID)?.remove();
+  document.getElementById(WIDGET_STACKED_STYLE_ID)?.remove();
 });
 
-describe("LiveChatLauncher — component", () => {
-  it("renders a bottom-right launcher button", () => {
-    const { getByRole } = render(<LiveChatLauncher />);
-    const button = getByRole("button", { name: /open live chat support/i });
-    expect(button).toBeInTheDocument();
-    expect(button.className).toContain("fixed");
-    expect(button.className).toContain("right-6");
-    expect(button.className).toContain("bottom-6");
+afterEach(() => {
+  document.getElementById(WIDGET_SCRIPT_ID)?.remove();
+  document.getElementById(WIDGET_STACKED_STYLE_ID)?.remove();
+});
+
+describe("LiveChatLauncher — script injection", () => {
+  it("injects the widget script tag into document.head on mount", () => {
+    render(<LiveChatLauncher />);
+    const script = document.getElementById(WIDGET_SCRIPT_ID) as HTMLScriptElement | null;
+    expect(script).not.toBeNull();
+    expect(script!.tagName).toBe("SCRIPT");
+    expect(script!.src).toContain(TICKETDESK_WIDGET_SCRIPT_URL);
+    expect(script!.async).toBe(true);
   });
 
-  it("opens an embedded panel pointing at the TicketDesk URL when clicked", () => {
-    const { getByRole, getByTitle } = render(<LiveChatLauncher />);
-    fireEvent.click(getByRole("button", { name: /open live chat support/i }));
-    const iframe = getByTitle("Live Chat Support");
-    expect(iframe.tagName).toBe("IFRAME");
-    expect(iframe).toHaveAttribute("src", TICKETDESK_URL);
+  it("sets the correct data-workspace attribute", () => {
+    render(<LiveChatLauncher />);
+    const script = document.getElementById(WIDGET_SCRIPT_ID)!;
+    expect(script.getAttribute("data-workspace")).toBe(TICKETDESK_WIDGET_WORKSPACE_ID);
   });
 
-  it("opens the TicketDesk URL in a new tab from the external-link control", () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    const { getByRole, getByTitle } = render(<LiveChatLauncher />);
-    fireEvent.click(getByRole("button", { name: /open live chat support/i }));
-    fireEvent.click(getByTitle("Open in new tab"));
-    expect(openSpy).toHaveBeenCalledWith(
-      TICKETDESK_URL,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    openSpy.mockRestore();
+  it("sets the correct data-api attribute", () => {
+    render(<LiveChatLauncher />);
+    const script = document.getElementById(WIDGET_SCRIPT_ID)!;
+    expect(script.getAttribute("data-api")).toBe(TICKETDESK_WIDGET_API_URL);
   });
 
-  it("sits at the default height when not stacked", () => {
-    const { getByRole } = render(<LiveChatLauncher stacked={false} />);
-    const button = getByRole("button", { name: /open live chat support/i });
-    expect(button.className).toContain("bottom-6");
-    expect(button.className).not.toContain("bottom-24");
+  it("removes the widget script tag from document.head on unmount", () => {
+    const { unmount } = render(<LiveChatLauncher />);
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).not.toBeNull();
+    unmount();
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
   });
 
-  it("lifts above the AI ChatWidget when stacked", () => {
-    const { getByRole } = render(<LiveChatLauncher stacked />);
-    const button = getByRole("button", { name: /open live chat support/i });
-    expect(button.className).toContain("bottom-24");
-    expect(button.className).not.toContain("bottom-6");
+  it("renders no DOM output (returns null)", () => {
+    const { container } = render(<LiveChatLauncher />);
+    expect(container.firstChild).toBeNull();
   });
 });
 
-// ---------------------------------------------------------------------------
-// Load-failure fallback.
-//
-// The embedded panel gives TicketDesk an 8s window to load before flipping to
-// the "couldn't load here / Open Live Chat" fallback (it also flips immediately
-// on an iframe `error` event). That fallback is the only thing standing between
-// a member and a dead blank panel if TicketDesk ever starts refusing to be
-// framed (X-Frame-Options / CSP frame-ancestors), so it must keep rendering and
-// its escape-hatch button must keep opening the real URL in a new tab. The
-// matching e2e spec asserts TicketDesk is *currently* embeddable; these tests
-// assert the portal degrades gracefully if that ever changes.
-// ---------------------------------------------------------------------------
-describe("LiveChatLauncher — load-failure fallback", () => {
-  const openPanel = (getByRole: ReturnType<typeof render>["getByRole"]) => {
-    fireEvent.click(getByRole("button", { name: /open live chat support/i }));
-  };
-
-  it("shows the fallback when the iframe never loads within the 8s timeout", () => {
-    vi.useFakeTimers();
-    try {
-      const { getByRole, getByText, getByTitle, queryByText, queryByTitle } =
-        render(<LiveChatLauncher />);
-      openPanel(getByRole);
-      // Before the timeout elapses the panel is still trying to load (the live
-      // iframe and the loading spinner are present, no fallback yet).
-      expect(getByTitle("Live Chat Support")).toBeInTheDocument();
-      expect(queryByText(/couldn't load here/i)).toBeNull();
-
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
-
-      expect(getByText(/couldn't load here/i)).toBeInTheDocument();
-      expect(
-        getByRole("button", { name: /^open live chat$/i }),
-      ).toBeInTheDocument();
-      // The dead iframe is unmounted so the member isn't staring at a blank frame.
-      expect(queryByTitle("Live Chat Support")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+describe("LiveChatLauncher — stacking offset", () => {
+  it("does not inject the stacked style when stacked=false", () => {
+    render(<LiveChatLauncher stacked={false} />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
   });
 
-  it("opens the TicketDesk URL in a new tab from the fallback button", () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    vi.useFakeTimers();
-    try {
-      const { getByRole } = render(<LiveChatLauncher />);
-      openPanel(getByRole);
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
-      fireEvent.click(getByRole("button", { name: /^open live chat$/i }));
-      expect(openSpy).toHaveBeenCalledWith(
-        TICKETDESK_URL,
-        "_blank",
-        "noopener,noreferrer",
-      );
-    } finally {
-      vi.useRealTimers();
-      openSpy.mockRestore();
-    }
+  it("injects the stacked style when stacked=true", () => {
+    render(<LiveChatLauncher stacked />);
+    const style = document.getElementById(WIDGET_STACKED_STYLE_ID) as HTMLStyleElement | null;
+    expect(style).not.toBeNull();
+    expect(style!.textContent).toContain("bottom: 96px");
   });
 
-  it("does not show the fallback when the iframe loads before the timeout", () => {
-    vi.useFakeTimers();
-    try {
-      const { getByRole, getByTitle, queryByText } = render(<LiveChatLauncher />);
-      openPanel(getByRole);
-      fireEvent.load(getByTitle("Live Chat Support"));
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
-      expect(queryByText(/couldn't load here/i)).toBeNull();
-      expect(getByTitle("Live Chat Support")).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+  it("removes the stacked style on unmount when stacked=true", () => {
+    const { unmount } = render(<LiveChatLauncher stacked />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+    unmount();
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
+  });
+
+  it("injects style when stacked changes from false to true", () => {
+    const { rerender } = render(<LiveChatLauncher stacked={false} />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
+    act(() => {
+      rerender(<LiveChatLauncher stacked={true} />);
+    });
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+  });
+
+  it("removes style when stacked changes from true to false", () => {
+    const { rerender } = render(<LiveChatLauncher stacked={true} />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+    act(() => {
+      rerender(<LiveChatLauncher stacked={false} />);
+    });
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
   });
 });
 
 describe("AuthenticatedChatWidget — launcher gating", () => {
-  it("renders the live-chat launcher for an authenticated, onboarded member", () => {
-    const { getByRole } = render(<AuthenticatedChatWidget />);
-    expect(
-      getByRole("button", { name: /open live chat support/i }),
-    ).toBeInTheDocument();
+  it("injects the widget script for an authenticated, onboarded member", () => {
+    render(<AuthenticatedChatWidget />);
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).not.toBeNull();
   });
 
-  it("does not stack the launcher for a member without the chat:ai entitlement", () => {
+  it("does not inject the stacked style for a member without the chat:ai entitlement", () => {
     memberMock.mockImplementation(() => ({ data: { entitlements: [] } }));
-    const { getByRole } = render(<AuthenticatedChatWidget />);
-    const button = getByRole("button", { name: /open live chat support/i });
-    expect(button.className).toContain("bottom-6");
-    expect(button.className).not.toContain("bottom-24");
+    render(<AuthenticatedChatWidget />);
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).toBeNull();
   });
 
-  it("stacks the launcher above the AI ChatWidget only with the chat:ai entitlement", () => {
+  it("injects the stacked style only when the member holds the chat:ai entitlement", () => {
     memberMock.mockImplementation(() => ({ data: { entitlements: ["chat:ai"] } }));
-    const { getByRole, getByTestId } = render(<AuthenticatedChatWidget />);
-    const button = getByRole("button", { name: /open live chat support/i });
+    const { getByTestId } = render(<AuthenticatedChatWidget />);
     expect(getByTestId("ai-chat-widget")).toBeInTheDocument();
-    expect(button.className).toContain("bottom-24");
-    expect(button.className).not.toContain("bottom-6");
+    expect(document.getElementById(WIDGET_STACKED_STYLE_ID)).not.toBeNull();
+    const style = document.getElementById(WIDGET_STACKED_STYLE_ID) as HTMLStyleElement;
+    expect(style.textContent).toContain("96px");
   });
 
   it("renders nothing while auth is still loading", () => {
@@ -219,6 +166,7 @@ describe("AuthenticatedChatWidget — launcher gating", () => {
     }));
     const { container } = render(<AuthenticatedChatWidget />);
     expect(container.firstChild).toBeNull();
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
   });
 
   it("renders nothing for a signed-out visitor", () => {
@@ -229,6 +177,7 @@ describe("AuthenticatedChatWidget — launcher gating", () => {
     }));
     const { container } = render(<AuthenticatedChatWidget />);
     expect(container.firstChild).toBeNull();
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
   });
 
   it("renders nothing for a member who has not finished onboarding", () => {
@@ -239,11 +188,12 @@ describe("AuthenticatedChatWidget — launcher gating", () => {
     }));
     const { container } = render(<AuthenticatedChatWidget />);
     expect(container.firstChild).toBeNull();
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
   });
 
-  it("hides the launcher on auth/onboarding routes", () => {
+  it("does not inject the widget script on auth/onboarding routes", () => {
     locationMock.mockImplementation(() => "/onboarding/profile");
-    const { container } = render(<AuthenticatedChatWidget />);
-    expect(container.firstChild).toBeNull();
+    render(<AuthenticatedChatWidget />);
+    expect(document.getElementById(WIDGET_SCRIPT_ID)).toBeNull();
   });
 });
