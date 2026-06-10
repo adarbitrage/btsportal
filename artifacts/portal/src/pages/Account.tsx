@@ -646,7 +646,7 @@ export default function Account() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-active-sessions">
+        <Card id="sessions" data-testid="card-active-sessions">
           <CardHeader>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>

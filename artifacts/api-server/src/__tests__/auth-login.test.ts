@@ -6,8 +6,9 @@ import { randomUUID } from "crypto";
 import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, inArray, and, isNull } from "drizzle-orm";
 
-const { sendEmailNowMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(() => ({
+const { sendEmailNowMock, queueEmailMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(() => ({
   sendEmailNowMock: vi.fn(async () => ({ success: true })),
+  queueEmailMock: vi.fn(async () => ({ result: "queued" })),
   queueGHLSyncMock: vi.fn(async () => "job_test_id"),
   emitWebhookEventMock: vi.fn(async () => undefined),
 }));
@@ -15,6 +16,7 @@ const { sendEmailNowMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(
 vi.mock("../lib/communication-service", () => ({
   CommunicationService: {
     sendEmailNow: sendEmailNowMock,
+    queueEmail: queueEmailMock,
   },
 }));
 
@@ -122,6 +124,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   sendEmailNowMock.mockClear();
+  queueEmailMock.mockClear();
   queueGHLSyncMock.mockClear();
   emitWebhookEventMock.mockClear();
 });
@@ -228,6 +231,93 @@ describe("POST /api/auth/login — happy path", () => {
       .send({ email: user.email, password: TEST_PASSWORD });
     expect(second.status).toBe(200);
     expect(queueGHLSyncMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/login — new-device sign-in notice", () => {
+  it("does NOT send a notice on the very first sign-in (no prior sessions)", async () => {
+    const user = await insertUser("new-device-first");
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: user.email, password: TEST_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("does NOT send a notice when signing in again from the same device", async () => {
+    const user = await insertUser("new-device-same");
+
+    // First login establishes a session for this User-Agent.
+    const first = await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "KnownBrowser/1.0")
+      .send({ email: user.email, password: TEST_PASSWORD });
+    expect(first.status).toBe(200);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+
+    // Second login from the same User-Agent: still recognized, no notice.
+    const second = await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "KnownBrowser/1.0")
+      .send({ email: user.email, password: TEST_PASSWORD });
+    expect(second.status).toBe(200);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("queues a security notice when signing in from a new device, addressed to the member with a device label and IP", async () => {
+    const user = await insertUser("new-device-unfamiliar");
+
+    // Seed a prior session for a *different* User-Agent so this account has
+    // a known-device history that the next login won't match.
+    const first = await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "OldBrowser/1.0")
+      .send({ email: user.email, password: TEST_PASSWORD });
+    expect(first.status).toBe(200);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+
+    // Login from a brand-new User-Agent → unfamiliar device → notice.
+    const second = await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36")
+      .send({ email: user.email, password: TEST_PASSWORD });
+    expect(second.status).toBe(200);
+
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    const call = queueEmailMock.mock.calls[0][0];
+    expect(call).toMatchObject({
+      templateSlug: "new_device_signin",
+      to: user.email,
+      userId: user.id,
+    });
+    expect(call.variables.member_name).toBe(user.name);
+    expect(call.variables.device_description).toBe("Chrome on Windows");
+    expect(typeof call.variables.ip_address).toBe("string");
+    expect(call.variables.ip_address.length).toBeGreaterThan(0);
+    expect(typeof call.variables.sign_in_time).toBe("string");
+  });
+
+  it("does not fail the login if the notice send throws", async () => {
+    const user = await insertUser("new-device-throws");
+
+    await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "OldBrowser/2.0")
+      .send({ email: user.email, password: TEST_PASSWORD });
+
+    queueEmailMock.mockRejectedValueOnce(new Error("mailer down"));
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "BrandNewBrowser/9.9")
+      .send({ email: user.email, password: TEST_PASSWORD });
+
+    // Login still succeeds even though the notice send rejected.
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(user.id);
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
   });
 });
 

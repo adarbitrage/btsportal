@@ -94,6 +94,28 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "member_email", "member_email_encoded", "portal_url", "support_email", "current_year"],
   },
   {
+    slug: "new_device_signin",
+    name: "New Sign-in Detected",
+    subject: "New sign-in to your Build Test Scale account",
+    htmlBody: wrapHtml("New Sign-in Detected", `
+<h2 style="color:#1a1a2e;margin-top:0;">New Sign-in Detected</h2>
+<p>Hi {{member_name}},</p>
+<p>Your Build Test Scale account was just signed in to from a device we haven't seen before:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Device:</strong> {{device_description}}<br>
+<strong>IP address:</strong> {{ip_address}}<br>
+<strong>When:</strong> {{sign_in_time}}
+</p>
+<p>If this was you, no action is needed.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away.</p>
+<p><a href="{{portal_url}}/account#sessions" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Review your devices</a></p>
+<p>Questions? Contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour Build Test Scale account was just signed in to from a device we haven't seen before:\n\nDevice: {{device_description}}\nIP address: {{ip_address}}\nWhen: {{sign_in_time}}\n\nIf this was you, no action is needed.\n\nIf this wasn't you, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away:\n{{portal_url}}/account#sessions\n\nQuestions? Contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "device_description", "ip_address", "sign_in_time", "portal_url", "support_email", "current_year"],
+  },
+  {
     slug: "email_change_verify",
     name: "Email Change Verification",
     subject: "Confirm your new Build Test Scale email address",
@@ -757,6 +779,7 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "email_change_cancelled_by_member",
   "email_change_cancelled_by_member_pending",
   "signup_attempted",
+  "new_device_signin",
   "role_changed",
 ] as const;
 

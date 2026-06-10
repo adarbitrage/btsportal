@@ -562,6 +562,84 @@ async function createSession(
   return refreshToken;
 }
 
+// Builds a human-friendly "Chrome on Windows" style label from a raw
+// User-Agent header for the new-sign-in notification email. Best-effort only:
+// User-Agent strings are unreliable, so we fall back to the raw string (or a
+// generic label) rather than ever throwing or showing nothing.
+function describeDevice(userAgent: string | null | undefined): string {
+  const ua = (userAgent || "").trim();
+  if (!ua) return "an unknown device";
+
+  let browser: string | null = null;
+  if (/\bEdg(?:e|A|iOS)?\//.test(ua)) browser = "Edge";
+  else if (/\bOPR\/|\bOpera\b/.test(ua)) browser = "Opera";
+  else if (/\bFirefox\//.test(ua)) browser = "Firefox";
+  else if (/\bChrome\//.test(ua) && !/\bChromium\//.test(ua)) browser = "Chrome";
+  else if (/\bChromium\//.test(ua)) browser = "Chromium";
+  else if (/\bSafari\//.test(ua) && /\bVersion\//.test(ua)) browser = "Safari";
+
+  let os: string | null = null;
+  if (/\bWindows NT\b/.test(ua)) os = "Windows";
+  else if (/\b(iPhone|iPad|iPod)\b/.test(ua)) os = "iOS";
+  else if (/\bMac OS X\b/.test(ua)) os = "macOS";
+  else if (/\bAndroid\b/.test(ua)) os = "Android";
+  else if (/\bLinux\b/.test(ua)) os = "Linux";
+
+  if (browser && os) return `${browser} on ${os}`;
+  if (browser) return browser;
+  if (os) return os;
+  return ua.length > 120 ? `${ua.slice(0, 117)}...` : ua;
+}
+
+// Decides whether the current request is signing in from a device we haven't
+// seen before for this user. "Device" is keyed on the User-Agent string: a
+// device is recognized if any prior session row (active OR revoked) for the
+// user shares the same User-Agent. We deliberately do NOT key on IP — member
+// IPs rotate constantly (mobile networks, ISPs), which would make the notice
+// far too noisy. The very first sign-in (no prior sessions at all) is treated
+// as NOT new, so members aren't emailed a "new device" notice moments after
+// verifying a brand-new account.
+//
+// Must be called BEFORE createSession inserts the new row, otherwise the
+// just-created session would count as a prior match and every login would
+// look "known".
+async function isNewDeviceSignin(userId: number, req: Request): Promise<boolean> {
+  const userAgent = req.headers["user-agent"] || null;
+  const priorSessions = await db
+    .select({ userAgent: sessionsTable.userAgent })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.userId, userId));
+
+  if (priorSessions.length === 0) return false;
+  return !priorSessions.some((s) => s.userAgent === userAgent);
+}
+
+// Sends the "new sign-in detected" security notice. Queued (with the service's
+// own direct-send fallback) so a slow/unavailable mailer never blocks or fails
+// the login response. Errors are swallowed for the same reason — a failed
+// notification must not break authentication.
+async function sendNewDeviceNotice(
+  user: { id: number; email: string; name: string },
+  req: Request,
+): Promise<void> {
+  try {
+    const ip = req.ip || req.connection?.remoteAddress || "unknown";
+    await CommunicationService.queueEmail({
+      templateSlug: "new_device_signin",
+      to: user.email,
+      userId: user.id,
+      variables: {
+        member_name: user.name,
+        device_description: describeDevice(req.headers["user-agent"]),
+        ip_address: ip,
+        sign_in_time: new Date().toUTCString(),
+      },
+    });
+  } catch (err) {
+    console.error(`[Auth] Failed to send new-device notice to user ${user.id}:`, err);
+  }
+}
+
 const REGISTER_LIMITS = {
   perIp: { max: 5, windowSeconds: 15 * 60 },
   perEmail: { max: 3, windowSeconds: 15 * 60 },
@@ -915,8 +993,19 @@ router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Pr
     });
   }
 
+  // Check for an unfamiliar device BEFORE creating the session row, so the
+  // row we're about to insert can't count itself as a "known" device.
+  const newDevice = await isNewDeviceSignin(user.id, req);
+
   const refreshToken = await createSession(user.id, req);
   setAuthCookies(res, user.id, user.email, refreshToken);
+
+  if (newDevice) {
+    await sendNewDeviceNotice(
+      { id: user.id, email: user.email, name: user.name },
+      req,
+    );
+  }
 
   res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword });
 });
