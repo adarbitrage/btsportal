@@ -221,7 +221,7 @@ export function ProtectedRoute({ component: Component }: { component: React.Comp
   return <Component />;
 }
 
-function EntitlementRoute({ component: Component, entitlement }: { component: React.ComponentType<any>; entitlement: string }) {
+export function EntitlementRoute({ component: Component, entitlement }: { component: React.ComponentType<any>; entitlement: string }) {
   const { user, loading } = useAuth();
   const { data: member, isLoading: memberLoading } = useGetCurrentMember();
 
