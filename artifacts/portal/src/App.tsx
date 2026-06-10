@@ -322,7 +322,7 @@ export function OnboardingRoute({ component: Component, step }: { component: Rea
   return <Component />;
 }
 
-function GuestRoute({ component: Component }: { component: React.ComponentType<any> }) {
+export function GuestRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
 
   if (loading) return null;

@@ -32,7 +32,13 @@ vi.mock("@workspace/api-client-react", () => ({
   useGetCurrentMember: () => memberMock(),
 }));
 
-import { ProtectedRoute, OnboardingRoute, EntitlementRoute } from "@/App";
+import {
+  ProtectedRoute,
+  OnboardingRoute,
+  EntitlementRoute,
+  GuestRoute,
+  PasswordChangeRoute,
+} from "@/App";
 
 const Target = () => <div data-testid="target-content" />;
 
@@ -297,6 +303,35 @@ describe("route guards block the page while auth/entitlement data is still loadi
 
     const { queryByTestId } = render(
       <EntitlementRoute component={Target} entitlement="community:access" />,
+    );
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("GuestRoute renders neither the target nor a redirect while loading", () => {
+    // A signed-in, fully-onboarded user is supplied: if the loading branch were
+    // skipped, GuestRoute would fire a <Redirect to="/"> and flash a bounce.
+    // Holding on loading means neither the login screen nor a redirect shows.
+    authStateMock.mockReturnValue({ user: completedUser, loading: true });
+
+    const { queryByTestId } = render(<GuestRoute component={Target} />);
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("PasswordChangeRoute renders neither the target nor a redirect while loading", () => {
+    // A user who still must change their password is supplied: if the loading
+    // branch were skipped, the forced change-password screen would render before
+    // auth settles. Holding on loading shows neither the screen nor a redirect.
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, mustChangePassword: true },
+      loading: true,
+    });
+
+    const { queryByTestId } = render(
+      <PasswordChangeRoute component={Target} />,
     );
 
     expect(queryByTestId("target-content")).toBeNull();
