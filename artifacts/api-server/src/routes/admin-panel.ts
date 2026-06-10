@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable } from "@workspace/db";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
@@ -2501,22 +2501,33 @@ router.post("/admin/members/:id/force-password-reset", requirePermission("member
       .set({ mustChangePassword: true })
       .where(eq(usersTable.id, id));
 
+    // Revoke the member's active sessions so an attacker with a live session is
+    // bounced immediately rather than at their next /me re-fetch. The next
+    // sign-in still routes them to /change-password via mustChangePassword.
+    const revoked = await db
+      .update(sessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessionsTable.userId, id), isNull(sessionsTable.revokedAt)))
+      .returning({ id: sessionsTable.id });
+    const revokedCount = revoked.length;
+
     await logAdminAction(
       req,
       "force_password_reset",
       "user",
       String(id),
-      `Forced password reset for member ${member.email} (they must set a new password on next sign-in)`,
+      `Forced password reset for member ${member.email} (they must set a new password on next sign-in; revoked ${revokedCount} active session${revokedCount === 1 ? "" : "s"})`,
       {
         before: { mustChangePassword: wasSet },
         after: { mustChangePassword: true },
+        revokedSessionCount: revokedCount,
         // Surfaced so the audit-log redactor can scrub the email from the
         // description for viewers without `members:pii`.
         memberEmail: member.email,
       },
     );
 
-    res.json({ success: true, id, mustChangePassword: true, alreadySet: wasSet });
+    res.json({ success: true, id, mustChangePassword: true, alreadySet: wasSet, revokedSessionCount: revokedCount });
   } catch (error) {
     console.error("[Admin] Force password reset error:", error);
     res.status(500).json({ error: "Failed to force password reset" });

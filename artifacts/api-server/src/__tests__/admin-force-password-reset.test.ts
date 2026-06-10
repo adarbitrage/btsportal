@@ -3,8 +3,8 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, auditLogTable } from "@workspace/db";
-import { eq, inArray, and, desc } from "drizzle-orm";
+import { db, usersTable, auditLogTable, sessionsTable } from "@workspace/db";
+import { eq, inArray, and, desc, isNull } from "drizzle-orm";
 
 vi.mock("../lib/redis", () => ({
   getRedis: () => null,
@@ -70,11 +70,26 @@ beforeAll(async () => {
 afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db
+      .delete(sessionsTable)
+      .where(inArray(sessionsTable.userId, seededUserIds));
+    await db
       .delete(auditLogTable)
       .where(inArray(auditLogTable.actorId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
+
+async function seedSession(userId: number): Promise<number> {
+  const [row] = await db
+    .insert(sessionsTable)
+    .values({
+      userId,
+      refreshTokenHash: `${TEST_TAG}-${randomUUID()}`,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    })
+    .returning({ id: sessionsTable.id });
+  return row.id;
+}
 
 describe("POST /api/admin/members/:id/force-password-reset", () => {
   it("requires authentication (no cookie -> 401)", async () => {
@@ -146,9 +161,55 @@ describe("POST /api/admin/members/:id/force-password-reset", () => {
     const diff = entry.changeDiff as {
       before?: { mustChangePassword: boolean };
       after?: { mustChangePassword: boolean };
+      revokedSessionCount?: number;
     } | null;
     expect(diff?.before?.mustChangePassword).toBe(false);
     expect(diff?.after?.mustChangePassword).toBe(true);
+    expect(diff?.revokedSessionCount).toBe(0);
+  });
+
+  it("revokes the member's active sessions and records the count", async () => {
+    const target = await insertUser("member", "revoke-sessions");
+    const activeA = await seedSession(target.id);
+    const activeB = await seedSession(target.id);
+    // A session already revoked must stay untouched and not be re-counted.
+    const alreadyRevoked = await seedSession(target.id);
+    await db
+      .update(sessionsTable)
+      .set({ revokedAt: new Date(Date.now() - 60_000) })
+      .where(eq(sessionsTable.id, alreadyRevoked));
+
+    const res = await request(app)
+      .post(`/api/admin/members/${target.id}/force-password-reset`)
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.revokedSessionCount).toBe(2);
+
+    // Both formerly-active sessions are now revoked.
+    const stillActive = await db
+      .select({ id: sessionsTable.id })
+      .from(sessionsTable)
+      .where(and(eq(sessionsTable.userId, target.id), isNull(sessionsTable.revokedAt)));
+    expect(stillActive).toHaveLength(0);
+    expect([activeA, activeB].sort()).toEqual([activeA, activeB].sort());
+
+    // Audit log reflects the revoked-session count.
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.actionType, "force_password_reset"),
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(target.id)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(1);
+    const diff = entry.changeDiff as { revokedSessionCount?: number } | null;
+    expect(diff?.revokedSessionCount).toBe(2);
+    expect(entry.description).toMatch(/revoked 2 active sessions/i);
   });
 
   it("is idempotent when the flag is already set", async () => {

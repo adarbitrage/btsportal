@@ -1106,7 +1106,7 @@ export const adminPanelApi = {
       const data = await res.json().catch(() => ({}));
       throw new Error(extractApiError(data) || "Failed to force password reset");
     }
-    return res.json() as Promise<{ success: true; id: number; mustChangePassword: true; alreadySet: boolean }>;
+    return res.json() as Promise<{ success: true; id: number; mustChangePassword: true; alreadySet: boolean; revokedSessionCount: number }>;
   },
 
   async sendMemberPasswordResetEmail(userId: number) {
