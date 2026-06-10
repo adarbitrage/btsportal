@@ -82,6 +82,7 @@ import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingOrientation from "@/pages/onboarding/Orientation";
 import OnboardingQuickStart from "@/pages/onboarding/QuickStart";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { LiveChatLauncher } from "@/components/chat/LiveChatLauncher";
 import AdminTicketQueue from "@/pages/admin/AdminTicketQueue";
 import AdminTicketDetail from "@/pages/admin/AdminTicketDetail";
 import RoutingRules from "@/pages/admin/RoutingRules";
@@ -526,17 +527,9 @@ function ScrollToTop() {
   return null;
 }
 
-function AuthenticatedChatWidget() {
-  const { user, loading } = useAuth();
-  const [location] = useLocation();
-  if (loading || !user || !user.onboardingComplete) return null;
-  if (location === "/chat" || location === "/ai-assistant") return null;
-  return <ChatWidget />;
-}
-
-// Routes where the third-party TicketDesk live-chat widget (loaded globally via
-// the script in index.html) should be suppressed — auth and onboarding screens
-// where the launcher feels out of place or overlaps form elements.
+// Routes where the live-chat launchers should be suppressed — auth and
+// onboarding screens where the launcher feels out of place or overlaps form
+// elements.
 const CHAT_WIDGET_HIDDEN_EXACT = new Set([
   "/login",
   "/register",
@@ -548,20 +541,29 @@ const CHAT_WIDGET_HIDDEN_EXACT = new Set([
 ]);
 const CHAT_WIDGET_HIDDEN_PREFIXES = ["/onboarding"];
 
-function ChatWidgetVisibility() {
+function isChatWidgetHiddenRoute(location: string) {
+  return (
+    CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
+    CHAT_WIDGET_HIDDEN_PREFIXES.some(
+      (prefix) => location === prefix || location.startsWith(prefix + "/"),
+    )
+  );
+}
+
+function AuthenticatedChatWidget() {
+  const { user, loading } = useAuth();
+  const { data: member } = useGetCurrentMember();
   const [location] = useLocation();
-  useEffect(() => {
-    const shouldHide =
-      CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
-      CHAT_WIDGET_HIDDEN_PREFIXES.some(
-        (prefix) => location === prefix || location.startsWith(prefix + "/"),
-      );
-    document.body.classList.toggle("chat-widget-hidden", shouldHide);
-    return () => {
-      document.body.classList.remove("chat-widget-hidden");
-    };
-  }, [location]);
-  return null;
+  if (loading || !user || !user.onboardingComplete) return null;
+  if (location === "/chat" || location === "/ai-assistant") return null;
+  if (isChatWidgetHiddenRoute(location)) return null;
+  const hasAiChat = (member?.entitlements ?? []).includes("chat:ai");
+  return (
+    <>
+      <ChatWidget />
+      <LiveChatLauncher stacked={hasAiChat} />
+    </>
+  );
 }
 
 function App() {
@@ -571,7 +573,6 @@ function App() {
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <ScrollToTop />
-            <ChatWidgetVisibility />
             <Router />
             <AuthenticatedChatWidget />
           </WouterRouter>

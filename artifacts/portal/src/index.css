@@ -111,22 +111,3 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/50;
 }
-
-/* TicketDesk live-chat widget — pin launcher to bottom-right corner */
-#ticketdesk-widget-container,
-#ticketdesk-widget,
-iframe[src*="tickets.buildtestscale.com"] {
-  position: fixed !important;
-  bottom: 24px !important;
-  right: 24px !important;
-  z-index: 9999 !important;
-  left: auto !important;
-  top: auto !important;
-}
-
-/* Suppress the TicketDesk live-chat widget on auth/onboarding routes */
-body.chat-widget-hidden #ticketdesk-widget-container,
-body.chat-widget-hidden #ticketdesk-widget,
-body.chat-widget-hidden iframe[src*="tickets.buildtestscale.com"] {
-  display: none !important;
-}
