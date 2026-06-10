@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, fireEvent, act } from "@testing-library/react";
 
-const TICKETDESK_URL = "https://tickets.buildtestscale.com/";
+import { TICKETDESK_URL } from "@/config/support";
 
 // ---------------------------------------------------------------------------
 // Mocks shared by the AuthenticatedChatWidget gating tests below.

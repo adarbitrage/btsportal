@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Headset, X, Minimize2, ExternalLink } from "lucide-react";
-
-const TICKETDESK_URL = "https://tickets.buildtestscale.com/";
+import { TICKETDESK_URL } from "@/config/support";
 
 interface LiveChatLauncherProps {
   /** When true, sits above the AI chat launcher so the two don't overlap. */

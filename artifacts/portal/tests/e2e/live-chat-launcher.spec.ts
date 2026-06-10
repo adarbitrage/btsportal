@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { loginAs } from "./auth";
+import { TICKETDESK_URL } from "../../src/config/support";
 
 // End-to-end coverage for the Live Chat launcher (LiveChatLauncher) gated by
 // AuthenticatedChatWidget in App.tsx. The component test under
@@ -14,8 +15,6 @@ import { loginAs } from "./auth";
 //   2. it targets the TicketDesk URL (the embedded support panel iframe), and
 //   3. when the member holds the `chat:ai` entitlement (so the AI ChatWidget
 //      also renders), the two launchers stack instead of overlapping.
-
-const TICKETDESK_URL = "https://tickets.buildtestscale.com/";
 
 const LIVE_CHAT_LABEL = /open live chat support/i;
 const AI_CHAT_LABEL = /^open chat$/i;

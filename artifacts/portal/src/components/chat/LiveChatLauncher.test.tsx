@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LiveChatLauncher } from "./LiveChatLauncher";
-
-const TICKETDESK_URL = "https://tickets.buildtestscale.com/";
+import { TICKETDESK_URL } from "@/config/support";
 
 let openSpy: ReturnType<typeof vi.fn>;
 
