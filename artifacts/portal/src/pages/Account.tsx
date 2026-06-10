@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { formatDeviceLabel } from "@/lib/device-label";
 import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2 } from "lucide-react";
 import {
   useGetCurrentMember,
@@ -725,8 +726,12 @@ export default function Account() {
                     data-testid={`row-session-${s.id}`}
                   >
                     <div className="space-y-1 min-w-0">
-                      <p className="text-sm font-medium break-all flex items-center gap-2" data-testid={`text-session-useragent-${s.id}`}>
-                        {s.userAgent || "Unknown device"}
+                      <p
+                        className="text-sm font-medium flex items-center gap-2"
+                        title={s.userAgent || undefined}
+                        data-testid={`text-session-useragent-${s.id}`}
+                      >
+                        {formatDeviceLabel(s.userAgent)}
                         {s.current && (
                           <span
                             className="inline-flex items-center rounded-full bg-primary/10 text-primary text-xs font-medium px-2 py-0.5"
