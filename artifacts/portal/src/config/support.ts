@@ -1,13 +1,14 @@
-// Single source of truth for the live-chat support destination (TicketDesk).
+// Live-chat support destination (TicketDesk) for the portal embed.
 //
 // The URL can be overridden per-environment via the `VITE_TICKETDESK_URL`
-// env var; otherwise it falls back to the production support desk. This module
-// is consumed both by the Vite-built portal (where Vite injects
+// env var; otherwise it falls back to the shared default in
+// `@workspace/support-config`, which the backend health probe also imports —
+// so the embed members see and the URL System Health probes can never drift.
+// This module is consumed both by the Vite-built portal (where Vite injects
 // `import.meta.env`) and by the Playwright e2e suite (plain Node, where the
-// same var is read off `process.env`), so neither side has to repeat the
-// literal and the two can never drift.
+// same var is read off `process.env`), so neither side repeats the literal.
 
-const DEFAULT_TICKETDESK_URL = "https://tickets.buildtestscale.com/";
+import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
 
 function resolveTicketdeskUrl(): string {
   // Vite replaces `import.meta.env` with the injected env object at build time;

@@ -25,6 +25,9 @@
       "path": "../../lib/moderation-shared"
     },
     {
+      "path": "../../lib/support-config"
+    },
+    {
       "path": "../../lib/blitz-curriculum"
     }
   ]

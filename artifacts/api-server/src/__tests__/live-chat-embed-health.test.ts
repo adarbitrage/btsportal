@@ -6,9 +6,12 @@ import { randomUUID } from "crypto";
 import { db, usersTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
+import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+
 import adminPanelRouter from "../routes/admin-panel";
 import {
   evaluateLiveChatEmbedProbe,
+  getLiveChatEmbedProbeUrl,
   __resetLiveChatEmbedProbeForTests,
   __setLiveChatEmbedProbeFetchForTests,
   __setLiveChatEmbedProbeDeliveriesForTests,
@@ -166,5 +169,22 @@ describe("GET /api/admin/system/health — liveChatEmbed surfacing", () => {
       .get("/api/admin/system/health")
       .set("Cookie", memberCookie);
     expect(res.status).toBe(403);
+  });
+});
+
+describe("Live Chat support URL lockstep", () => {
+  it("backend probe default resolves from the shared support-config source", () => {
+    // With no LIVE_CHAT_EMBED_PROBE_URL override, the probe must fall back to
+    // the exact same shared default the portal embed (support.ts) uses. If
+    // these ever diverge, System Health would probe a different URL than the
+    // one members actually load — masking a real embed outage.
+    const prev = process.env.LIVE_CHAT_EMBED_PROBE_URL;
+    delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
+    try {
+      expect(getLiveChatEmbedProbeUrl()).toBe(DEFAULT_TICKETDESK_URL);
+    } finally {
+      if (prev === undefined) delete process.env.LIVE_CHAT_EMBED_PROBE_URL;
+      else process.env.LIVE_CHAT_EMBED_PROBE_URL = prev;
+    }
   });
 });

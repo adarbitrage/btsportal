@@ -35,6 +35,8 @@
  *                                               embed needs; buildtestscale.com is always allowed)
  */
 
+import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+
 import {
   createInMemoryThrottleStore,
   createOnCallDispatcher,
@@ -50,7 +52,9 @@ import {
 
 export type { DeliveryResult };
 
-const DEFAULT_PROBE_URL = "https://tickets.buildtestscale.com/";
+// Default falls back to the shared support destination so the URL this probe
+// checks and the URL the portal actually embeds can never silently diverge.
+const DEFAULT_PROBE_URL = DEFAULT_TICKETDESK_URL;
 
 export function getLiveChatEmbedProbeUrl(): string {
   const raw = process.env.LIVE_CHAT_EMBED_PROBE_URL;
