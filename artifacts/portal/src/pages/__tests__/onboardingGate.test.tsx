@@ -243,3 +243,63 @@ describe("onboarding gate — EntitlementRoute runs the first-login and onboardi
     expect(queryByTestId("redirect")).toBeNull();
   });
 });
+
+// While auth (and, for EntitlementRoute, the member query) is still resolving,
+// every guard must hold on the loading spinner: it must NOT render the gated
+// target page (which would briefly expose gated content) and must NOT fire a
+// <Redirect> (which would bounce a user who is actually allowed in). These
+// tests pin that "neither target nor redirect while loading" contract.
+describe("route guards block the page while auth/entitlement data is still loading", () => {
+  it("ProtectedRoute renders neither the target nor a redirect while loading", () => {
+    // A *complete* user is supplied so that, if the loading branch were ever
+    // skipped, the target would render — proving the loading branch wins.
+    authStateMock.mockReturnValue({ user: completedUser, loading: true });
+
+    const { queryByTestId } = render(<ProtectedRoute component={Target} />);
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("OnboardingRoute renders neither the target nor a redirect while loading", () => {
+    authStateMock.mockReturnValue({ user: onboardingUser, loading: true });
+
+    const { queryByTestId } = render(
+      <OnboardingRoute component={Target} step={3} />,
+    );
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("EntitlementRoute renders neither the target nor a redirect while auth is loading", () => {
+    authStateMock.mockReturnValue({ user: completedUser, loading: true });
+    // Member is fully resolved with the entitlement; only auth is still loading.
+    memberMock.mockReturnValue({
+      data: { role: "admin", entitlements: ["community:access"] },
+      isLoading: false,
+    });
+
+    const { queryByTestId } = render(
+      <EntitlementRoute component={Target} entitlement="community:access" />,
+    );
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("EntitlementRoute stays in the loading state while the member query is loading (even after auth resolves)", () => {
+    // Auth has resolved to a fully-onboarded user, but the member/entitlement
+    // query is still in flight — the guard must wait rather than evaluate the
+    // entitlement against undefined data and bounce the user to "/".
+    authStateMock.mockReturnValue({ user: completedUser, loading: false });
+    memberMock.mockReturnValue({ data: undefined, isLoading: true });
+
+    const { queryByTestId } = render(
+      <EntitlementRoute component={Target} entitlement="community:access" />,
+    );
+
+    expect(queryByTestId("target-content")).toBeNull();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+});
