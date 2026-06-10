@@ -30,6 +30,10 @@ args = "test"
 task = "workflow.run"
 args = "db-drift"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "live-chat-widget"
+
 [[workflows.workflow]]
 name = "test"
 author = "agent"
@@ -48,6 +52,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/db test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "live-chat-widget"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/support-config exec vitest run src/index.test.ts && pnpm --filter @workspace/portal exec vitest run src/config/support.test.ts src/components/chat/LiveChatLauncher.test.tsx src/components/chat/__tests__/LiveChatLauncher.test.tsx src/pages/admin/__tests__/SystemHealth.liveChatEmbedCard.test.tsx && pnpm --filter @workspace/api-server exec vitest run src/__tests__/live-chat-embed-health.test.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
