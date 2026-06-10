@@ -36,6 +36,10 @@ import {
   startMachineMismatchDigestAlerter,
   stopMachineMismatchDigestAlerter,
 } from "./lib/machine-mismatch-digest-alerter";
+import {
+  startLiveChatEmbedProbe,
+  stopLiveChatEmbedProbe,
+} from "./lib/live-chat-embed-probe";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
@@ -90,6 +94,7 @@ startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
 startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
+startLiveChatEmbedProbe();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
 // BEFORE accepting traffic so a fresh deploy can never race the
@@ -134,6 +139,7 @@ async function gracefulShutdown(signal: string) {
   stopMachineMismatchDigestJob();
   stopMachineMismatchDigestAlerter();
   stopModerationFailureAlerter();
+  stopLiveChatEmbedProbe();
   process.exit(0);
 }
 

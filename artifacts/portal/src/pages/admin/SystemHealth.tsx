@@ -2570,6 +2570,153 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {health.services?.liveChatEmbed && (() => {
+                const lce = health.services.liveChatEmbed as {
+                  url: string;
+                  status: "ok" | "blocked" | "unreachable" | "unknown";
+                  alerting: boolean;
+                  threshold: number;
+                  consecutiveBlocked: number;
+                  consecutiveUnreachable: number;
+                  reasons: string[];
+                  lastCheckedAt: string | null;
+                  lastOkAt: string | null;
+                  lastBlockedAt: string | null;
+                  lastUnreachableAt: string | null;
+                  lastError: string | null;
+                };
+                const badge =
+                  lce.status === "blocked"
+                    ? { variant: "destructive" as const, label: "blocked" }
+                    : lce.status === "unreachable"
+                      ? { variant: "warning" as const, label: "unreachable" }
+                      : lce.status === "ok"
+                        ? { variant: "default" as const, label: "ok" }
+                        : { variant: "outline" as const, label: "unknown" };
+                return (
+                  <Card data-testid="card-live-chat-embed">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Live Chat embed
+                        <Badge
+                          variant={badge.variant}
+                          className="ml-2 font-normal"
+                          data-testid="live-chat-embed-status"
+                          title={
+                            lce.status === "blocked"
+                              ? "TicketDesk is sending framing-blocking headers — the in-portal iframe is broken and members are bounced to a new tab."
+                              : lce.status === "unreachable"
+                                ? "The last probe could not reach TicketDesk (transient). The blocked streak is unchanged."
+                                : lce.status === "ok"
+                                  ? "TicketDesk loads without framing-blocking headers — the in-portal embed works."
+                                  : "No probe has run yet."
+                          }
+                        >
+                          {badge.label}
+                        </Badge>
+                        {lce.alerting && (
+                          <Badge
+                            variant="destructive"
+                            className="font-normal"
+                            data-testid="live-chat-embed-alerting"
+                            title="On-call has been paged: the embed has been blocked for the configured number of consecutive probes."
+                          >
+                            alerting
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Embed URL</span>
+                          <a
+                            href={lce.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-medium truncate max-w-[60%] text-right hover:underline"
+                            title={lce.url}
+                          >
+                            {lce.url}
+                          </a>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            Consecutive blocked
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${lce.consecutiveBlocked > 0 ? "text-red-600" : ""}`}
+                            data-testid="live-chat-embed-consecutive-blocked"
+                          >
+                            {lce.consecutiveBlocked} / {lce.threshold}
+                          </span>
+                        </div>
+                        {lce.consecutiveUnreachable > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              Consecutive unreachable
+                            </span>
+                            <span className="text-sm font-medium text-amber-600">
+                              {lce.consecutiveUnreachable}
+                            </span>
+                          </div>
+                        )}
+                        {lce.reasons.length > 0 && (
+                          <div
+                            className="text-xs text-muted-foreground pt-2 border-t"
+                            data-testid="live-chat-embed-reasons"
+                          >
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Blocking headers
+                            </span>
+                            {lce.reasons.map((r, i) => (
+                              <code key={i} className="block break-all">
+                                {r}
+                              </code>
+                            ))}
+                          </div>
+                        )}
+                        {lce.lastError && lce.status === "unreachable" && (
+                          <div className="text-xs text-muted-foreground pt-2 border-t">
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Last probe error
+                            </span>
+                            <code className="break-all">{lce.lastError}</code>
+                          </div>
+                        )}
+                        <div className="space-y-1 pt-2 border-t text-xs">
+                          {lce.lastCheckedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last checked</span>
+                              <span className="font-medium">
+                                {new Date(lce.lastCheckedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {lce.lastOkAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last OK</span>
+                              <span className="font-medium">
+                                {new Date(lce.lastOkAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {lce.lastBlockedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last blocked</span>
+                              <span className="font-medium">
+                                {new Date(lce.lastBlockedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.redis && (
                 <Card>
                   <CardHeader><CardTitle className="text-base flex items-center gap-2"><Zap className="w-4 h-4" />Redis / Comms Queue</CardTitle></CardHeader>

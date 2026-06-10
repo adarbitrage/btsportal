@@ -89,6 +89,7 @@ import {
   getModerationPodSilentAlertingState,
 } from "../lib/moderation/failure-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
+import { getLiveChatEmbedProbeState } from "../lib/live-chat-embed-probe";
 import {
   MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
   getMachineMismatchDigestWatchdogState,
@@ -3034,7 +3035,14 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       alerter: getModerationFailureAlertingState(),
     };
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0
+    // Active probe of the embedded Live Chat (TicketDesk). If that URL starts
+    // sending framing-blocking headers (X-Frame-Options / CSP frame-ancestors)
+    // the in-portal iframe silently breaks and members get bounced to a new
+    // tab by the 8s client-side watchdog. Surface the probe state and flip the
+    // banner to degraded the moment the embed is blocked.
+    const liveChatEmbed = getLiveChatEmbedProbeState();
+
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting
       ? "degraded"
       : "healthy";
 
@@ -3069,6 +3077,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         machineMismatchDigestWatchdog: await getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,
         moderationFailures,
+        liveChatEmbed,
         missingCriticalSecrets,
         portalUrl,
       },
