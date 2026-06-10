@@ -541,7 +541,7 @@ const CHAT_WIDGET_HIDDEN_EXACT = new Set([
 ]);
 const CHAT_WIDGET_HIDDEN_PREFIXES = ["/onboarding"];
 
-function isChatWidgetHiddenRoute(location: string) {
+export function isChatWidgetHiddenRoute(location: string) {
   return (
     CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
     CHAT_WIDGET_HIDDEN_PREFIXES.some(
@@ -550,7 +550,7 @@ function isChatWidgetHiddenRoute(location: string) {
   );
 }
 
-function AuthenticatedChatWidget() {
+export function AuthenticatedChatWidget() {
   const { user, loading } = useAuth();
   const { data: member } = useGetCurrentMember();
   const [location] = useLocation();
