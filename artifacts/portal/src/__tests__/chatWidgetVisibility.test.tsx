@@ -5,12 +5,12 @@ import { act } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
-// The TicketDesk live-chat launcher is suppressed on auth/onboarding screens.
+// The AI ChatWidget is suppressed on auth/onboarding screens.
 // This is driven by `isChatWidgetHiddenRoute` (the single source of truth for
 // which routes hide the widget) and applied in `AuthenticatedChatWidget`, which
-// returns null — so the <LiveChatLauncher> never renders — on those routes.
+// returns null on those routes.
 // These tests pin both layers so a future refactor of the route list can't
-// silently bring the launcher back on login/onboarding.
+// silently bring the widget back on login/onboarding.
 
 const authStateMock = vi.fn<() => { user: unknown; loading: boolean }>();
 vi.mock("@/lib/auth", () => ({
@@ -25,10 +25,6 @@ vi.mock("@workspace/api-client-react", () => ({
 
 vi.mock("@/components/chat/ChatWidget", () => ({
   ChatWidget: () => <div data-testid="chat-widget" />,
-}));
-
-vi.mock("@/components/chat/LiveChatLauncher", () => ({
-  LiveChatLauncher: () => <div data-testid="live-chat-launcher" />,
 }));
 
 import { isChatWidgetHiddenRoute, AuthenticatedChatWidget } from "@/App";
@@ -64,7 +60,7 @@ function renderAt(path: string) {
   return { ...utils, navigate };
 }
 
-describe("isChatWidgetHiddenRoute — route list that suppresses the live-chat widget", () => {
+describe("isChatWidgetHiddenRoute — route list that suppresses the chat widget", () => {
   it.each([
     ["/login"],
     ["/forgot-password"],
@@ -80,7 +76,7 @@ describe("isChatWidgetHiddenRoute — route list that suppresses the live-chat w
   });
 });
 
-describe("AuthenticatedChatWidget — does not render the launcher on auth/onboarding routes", () => {
+describe("AuthenticatedChatWidget — does not render on auth/onboarding routes", () => {
   it.each([
     ["/login"],
     ["/forgot-password"],
@@ -88,33 +84,31 @@ describe("AuthenticatedChatWidget — does not render the launcher on auth/onboa
     ["/onboarding/welcome"],
   ])("renders nothing on %s", (path) => {
     const { queryByTestId } = renderAt(path);
-    expect(queryByTestId("live-chat-launcher")).toBeNull();
     expect(queryByTestId("chat-widget")).toBeNull();
   });
 
-  it("renders the launcher on a normal authenticated route", () => {
+  it("renders the AI chat widget on a normal authenticated route", () => {
     const { queryByTestId } = renderAt("/dashboard");
-    expect(queryByTestId("live-chat-launcher")).not.toBeNull();
     expect(queryByTestId("chat-widget")).not.toBeNull();
   });
 
-  it("removes the launcher when navigating from a normal route to a hidden route", () => {
+  it("removes the widget when navigating from a normal route to a hidden route", () => {
     const { queryByTestId, navigate } = renderAt("/dashboard");
-    expect(queryByTestId("live-chat-launcher")).not.toBeNull();
+    expect(queryByTestId("chat-widget")).not.toBeNull();
 
     act(() => {
       navigate("/onboarding/documents");
     });
-    expect(queryByTestId("live-chat-launcher")).toBeNull();
+    expect(queryByTestId("chat-widget")).toBeNull();
   });
 
-  it("restores the launcher when navigating from a hidden route to a normal route", () => {
+  it("restores the widget when navigating from a hidden route to a normal route", () => {
     const { queryByTestId, navigate } = renderAt("/login");
-    expect(queryByTestId("live-chat-launcher")).toBeNull();
+    expect(queryByTestId("chat-widget")).toBeNull();
 
     act(() => {
       navigate("/dashboard");
     });
-    expect(queryByTestId("live-chat-launcher")).not.toBeNull();
+    expect(queryByTestId("chat-widget")).not.toBeNull();
   });
 });

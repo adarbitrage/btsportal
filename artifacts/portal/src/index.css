@@ -97,6 +97,13 @@
   }
 }
 
+/* Push the TicketDesk widget bubble above the AI chat launcher (bottom-6 +
+   height ≈ 96 px) so the two bubbles don't overlap when both are present. */
+.woot-widget-bubble,
+.chatwoot-widget-bubble {
+  bottom: 96px !important;
+}
+
 /* Custom Scrollbar for a premium feel */
 ::-webkit-scrollbar {
   width: 8px;

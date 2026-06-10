@@ -82,7 +82,6 @@ import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingOrientation from "@/pages/onboarding/Orientation";
 import OnboardingQuickStart from "@/pages/onboarding/QuickStart";
 import { ChatWidget } from "@/components/chat/ChatWidget";
-import { LiveChatLauncher } from "@/components/chat/LiveChatLauncher";
 import AdminTicketQueue from "@/pages/admin/AdminTicketQueue";
 import AdminTicketDetail from "@/pages/admin/AdminTicketDetail";
 import RoutingRules from "@/pages/admin/RoutingRules";
@@ -552,18 +551,11 @@ export function isChatWidgetHiddenRoute(location: string) {
 
 export function AuthenticatedChatWidget() {
   const { user, loading } = useAuth();
-  const { data: member } = useGetCurrentMember();
   const [location] = useLocation();
   if (loading || !user || !user.onboardingComplete) return null;
   if (location === "/chat" || location === "/ai-assistant") return null;
   if (isChatWidgetHiddenRoute(location)) return null;
-  const hasAiChat = (member?.entitlements ?? []).includes("chat:ai");
-  return (
-    <>
-      <ChatWidget />
-      <LiveChatLauncher stacked={hasAiChat} />
-    </>
-  );
+  return <ChatWidget />;
 }
 
 function App() {
