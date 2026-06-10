@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:manual": "E2E_NO_WEBSERVER=1 playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
