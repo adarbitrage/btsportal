@@ -32,6 +32,18 @@ test.describe("TicketDesk widget static tag", () => {
     await expect(widget).toHaveCount(1);
     await expect(widget).toHaveAttribute("data-workspace", WIDGET_WORKSPACE);
     await expect(widget).toHaveAttribute("data-api", WIDGET_API);
+
+    // The inline global-config script must appear before the widget tag so
+    // window.TicketDeskChat is set before widget.js executes. This is the
+    // fallback that makes init succeed when document.currentScript is null
+    // (async scripts).
+    const globalConfig = await page.evaluate(() => {
+      return (window as unknown as { TicketDeskChat?: { workspaceId: string; apiBase: string } })
+        .TicketDeskChat ?? null;
+    });
+    expect(globalConfig).not.toBeNull();
+    expect(globalConfig?.workspaceId).toBe(WIDGET_WORKSPACE);
+    expect(globalConfig?.apiBase).toBe(WIDGET_API);
   });
 
   test("widget script URL is reachable (2xx)", async ({ request }) => {
