@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone, Monitor } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -31,6 +31,15 @@ interface ProductRow {
   type: string;
   durationDays: number | null;
   priceDisplay: string | null;
+}
+
+interface ActiveSessionRow {
+  id: number;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -83,6 +92,11 @@ export default function MemberDetail() {
   const [forcePasswordResetConfirmOpen, setForcePasswordResetConfirmOpen] = useState(false);
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
   const [sendResetEmailConfirmOpen, setSendResetEmailConfirmOpen] = useState(false);
+  // Session id currently being revoked (single), or null. Used to disable just
+  // that row's button while the request is in flight.
+  const [revokingSessionId, setRevokingSessionId] = useState<number | null>(null);
+  const [revokeAllSessionsConfirmOpen, setRevokeAllSessionsConfirmOpen] = useState(false);
+  const [revokingAllSessions, setRevokingAllSessions] = useState(false);
 
   // Email-change attempts are paged so support can reach attempts older than
   // the most recent page. Ordinary audit rows live for ~90 days, but
@@ -569,6 +583,44 @@ export default function MemberDetail() {
     }
   };
 
+  const handleRevokeSession = async (sessionId: number) => {
+    try {
+      setRevokingSessionId(sessionId);
+      const result = await adminPanelApi.revokeMemberSession(memberId, sessionId);
+      toast({
+        title: result.revoked ? "Session revoked" : "Session already ended",
+        description: result.revoked
+          ? "That sign-in session has been ended."
+          : "That session was no longer active.",
+      });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    try {
+      setRevokingAllSessions(true);
+      const result = await adminPanelApi.revokeAllMemberSessions(memberId);
+      setRevokeAllSessionsConfirmOpen(false);
+      toast({
+        title: "Sessions revoked",
+        description:
+          result.revokedSessionCount > 0
+            ? `Ended ${result.revokedSessionCount} active session${result.revokedSessionCount === 1 ? "" : "s"}.`
+            : "There were no active sessions to end.",
+      });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setRevokingAllSessions(false);
+    }
+  };
+
   const handleRevokeProduct = async (userProductId: number) => {
     try {
       await adminPanelApi.revokeProduct(memberId, userProductId);
@@ -602,7 +654,7 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [] } = data;
+  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [], activeSessions = [] } = data;
   // The server applies the status filter before pagination, so the loaded
   // rows AND `emailAttemptsTotal` already reflect only matching rows.
   const visibleAttempts = emailAttempts;
@@ -983,6 +1035,118 @@ export default function MemberDetail() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {canAssignRole && (
+          <Card data-testid="card-active-sessions">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Monitor className="w-4 h-4" />
+                  Active sessions
+                </CardTitle>
+                {activeSessions.length > 0 && (
+                  <Dialog open={revokeAllSessionsConfirmOpen} onOpenChange={setRevokeAllSessionsConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={revokingAllSessions}
+                        data-testid="button-revoke-all-sessions"
+                      >
+                        {revokingAllSessions ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <X className="w-3 h-3 mr-1" />
+                        )}
+                        {revokingAllSessions ? "Ending…" : "End all sessions"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-confirm-revoke-all-sessions">
+                      <DialogHeader>
+                        <DialogTitle>End all active sessions?</DialogTitle>
+                        <DialogDescription>
+                          Sign <span className="font-medium">{member.name}</span>
+                          {member.email ? (
+                            <>
+                              {" "}(<span className="font-mono">{member.email}</span>)
+                            </>
+                          ) : null}
+                          {" "}out of every device. They'll need to sign in again everywhere. This does not change their password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setRevokeAllSessionsConfirmOpen(false)}
+                          disabled={revokingAllSessions}
+                          data-testid="button-cancel-revoke-all-sessions"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleRevokeAllSessions}
+                          disabled={revokingAllSessions}
+                          data-testid="button-confirm-revoke-all-sessions"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          {revokingAllSessions ? "Ending…" : "End all sessions"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">
+                Devices currently signed in to this account. End a single session to sign out one suspicious device, or end all sessions to sign out everywhere. Sessions also end automatically when you force a password reset.
+              </p>
+              {activeSessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground" data-testid="text-no-active-sessions">
+                  No active sessions.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {activeSessions.map((s: ActiveSessionRow) => (
+                    <div
+                      key={s.id}
+                      className="flex items-start justify-between gap-3 flex-wrap border rounded-md p-3"
+                      data-testid={`row-session-${s.id}`}
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-medium break-all" data-testid={`text-session-useragent-${s.id}`}>
+                          {s.userAgent || "Unknown device"}
+                        </p>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-session-ip-${s.id}`}>
+                          IP: {s.ipAddress || "unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Signed in {format(new Date(s.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                          {" · "}
+                          Last seen {format(new Date(s.lastSeenAt), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRevokeSession(s.id)}
+                        disabled={revokingSessionId === s.id}
+                        data-testid={`button-revoke-session-${s.id}`}
+                      >
+                        {revokingSessionId === s.id ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <X className="w-3 h-3 mr-1" />
+                        )}
+                        {revokingSessionId === s.id ? "Ending…" : "End session"}
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

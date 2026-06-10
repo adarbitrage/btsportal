@@ -537,7 +537,15 @@ function setAuthCookies(res: any, userId: number, email: string, refreshToken: s
   });
 }
 
-async function createSession(userId: number, req: any): Promise<string> {
+async function createSession(
+  userId: number,
+  req: any,
+  // When a refresh rotates an existing session (revoke old row + insert new),
+  // pass the old row's `createdAt` so the new row keeps the original sign-in
+  // time. `last_seen_at` is always stamped to now() (the DB default), so it
+  // tracks the most recent activity while `created_at` stays the sign-in time.
+  inheritCreatedAt?: Date,
+): Promise<string> {
   const refreshToken = crypto.randomBytes(48).toString("hex");
   const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -548,6 +556,7 @@ async function createSession(userId: number, req: any): Promise<string> {
     expiresAt,
     ipAddress: req.ip || req.connection?.remoteAddress,
     userAgent: req.headers["user-agent"] || null,
+    ...(inheritCreatedAt ? { createdAt: inheritCreatedAt } : {}),
   });
 
   return refreshToken;
@@ -950,7 +959,10 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
 
   await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.id, session.id));
 
-  const newRefreshToken = await createSession(user.id, req);
+  // Carry the original sign-in time forward across the rotation so the new
+  // row's `created_at` keeps representing when this session began; its
+  // `last_seen_at` is stamped to now() so admins can see recent activity.
+  const newRefreshToken = await createSession(user.id, req, session.createdAt);
   setAuthCookies(res, user.id, user.email, newRefreshToken);
 
   res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword });

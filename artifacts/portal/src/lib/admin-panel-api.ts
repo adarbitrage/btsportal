@@ -1125,6 +1125,24 @@ export const adminPanelApi = {
     }>;
   },
 
+  async revokeMemberSession(userId: number, sessionId: number) {
+    const res = await authFetch(`/admin/members/${userId}/sessions/${sessionId}/revoke`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to revoke session");
+    }
+    return res.json() as Promise<{ success: true; id: number; sessionId: number; revoked: boolean }>;
+  },
+
+  async revokeAllMemberSessions(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/sessions/revoke-all`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to revoke sessions");
+    }
+    return res.json() as Promise<{ success: true; id: number; revokedSessionCount: number }>;
+  },
+
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start impersonation");

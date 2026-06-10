@@ -1337,7 +1337,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     if (!member) { res.status(404).json({ error: "Member not found" }); return; }
 
-    const [products, tickets, progress, notes, auditHistory, emailHistoryFull, emailAttemptRowsFull, phoneHistory] = await Promise.all([
+    const [products, tickets, progress, notes, auditHistory, emailHistoryFull, emailAttemptRowsFull, phoneHistory, activeSessions] = await Promise.all([
       safeQuery(
         db.select({ id: userProductsTable.id, productId: userProductsTable.productId, status: userProductsTable.status, expiresAt: userProductsTable.expiresAt, createdAt: userProductsTable.createdAt, productName: productsTable.name, productSlug: productsTable.slug, externalOrderId: userProductsTable.externalOrderId, externalSource: userProductsTable.externalSource })
           .from(userProductsTable).innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id)).where(eq(userProductsTable.userId, id))
@@ -1395,6 +1395,26 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
           .orderBy(desc(phoneChangeHistoryTable.changedAt))
           .limit(50)
       ),
+      // Currently-active sign-in sessions: not revoked and not past their
+      // expiry. Most-recently-active first so the freshest device is on top.
+      // Backs the "Active sessions" card on the Member Detail page.
+      safeQuery(
+        db.select({
+          id: sessionsTable.id,
+          createdAt: sessionsTable.createdAt,
+          lastSeenAt: sessionsTable.lastSeenAt,
+          expiresAt: sessionsTable.expiresAt,
+          ipAddress: sessionsTable.ipAddress,
+          userAgent: sessionsTable.userAgent,
+        })
+          .from(sessionsTable)
+          .where(and(
+            eq(sessionsTable.userId, id),
+            isNull(sessionsTable.revokedAt),
+            gt(sessionsTable.expiresAt, new Date()),
+          ))
+          .orderBy(desc(sessionsTable.lastSeenAt))
+      ),
     ]);
 
     const classified = classifyEmailAttempts(
@@ -1420,6 +1440,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       emailAttemptsTotal: classified.length,
       emailAttemptsPageSize: EMAIL_ATTEMPTS_DEFAULT_PAGE_SIZE,
       phoneHistory,
+      activeSessions,
     });
   } catch (error) {
     console.error("[Admin] Member detail error:", error);
@@ -2531,6 +2552,112 @@ router.post("/admin/members/:id/force-password-reset", requirePermission("member
   } catch (error) {
     console.error("[Admin] Force password reset error:", error);
     res.status(500).json({ error: "Failed to force password reset" });
+  }
+});
+
+// Revoke a single one of a member's active sign-in sessions. Finer-grained
+// than force-password-reset (which revokes ALL sessions): lets an admin end
+// one suspicious device without disturbing the member's other sessions or
+// forcing a password change. RBAC + audit mirror force-password-reset
+// (members:assign_role) since this is a sensitive credential-lifecycle action.
+router.post("/admin/members/:id/sessions/:sessionId/revoke", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+    const sessionId = parseInt(req.params.sessionId, 10);
+    if (isNaN(sessionId)) { res.status(400).json({ error: "Invalid session ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    // Scope the lookup to this member so an admin can't revoke a session that
+    // belongs to a different user by guessing IDs. Only act on a session that
+    // is still active (not already revoked) so the response is meaningful.
+    const [session] = await db
+      .select({ id: sessionsTable.id, ipAddress: sessionsTable.ipAddress })
+      .from(sessionsTable)
+      .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.userId, id)))
+      .limit(1);
+    if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+    const revoked = await db
+      .update(sessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.userId, id), isNull(sessionsTable.revokedAt)))
+      .returning({ id: sessionsTable.id });
+    const wasActive = revoked.length > 0;
+
+    if (wasActive) {
+      await logAdminAction(
+        req,
+        "revoke_session",
+        "user",
+        String(id),
+        `Revoked active sign-in session #${sessionId} for member ${member.email}`,
+        {
+          sessionId,
+          sessionIp: session.ipAddress ?? null,
+          // Surfaced so the audit-log redactor can scrub the email from the
+          // description for viewers without `members:pii`.
+          memberEmail: member.email,
+        },
+      );
+    }
+
+    res.json({ success: true, id, sessionId, revoked: wasActive });
+  } catch (error) {
+    console.error("[Admin] Revoke session error:", error);
+    res.status(500).json({ error: "Failed to revoke session" });
+  }
+});
+
+// Revoke ALL of a member's active sign-in sessions in one shot (without the
+// password-change requirement that force-password-reset adds). Use when an
+// account may be compromised but a forced password reset isn't wanted. RBAC +
+// audit mirror force-password-reset (members:assign_role).
+router.post("/admin/members/:id/sessions/revoke-all", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    const revoked = await db
+      .update(sessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessionsTable.userId, id), isNull(sessionsTable.revokedAt)))
+      .returning({ id: sessionsTable.id });
+    const revokedCount = revoked.length;
+
+    if (revokedCount > 0) {
+      await logAdminAction(
+        req,
+        "revoke_all_sessions",
+        "user",
+        String(id),
+        `Revoked all ${revokedCount} active sign-in session${revokedCount === 1 ? "" : "s"} for member ${member.email}`,
+        {
+          revokedSessionCount: revokedCount,
+          // Surfaced so the audit-log redactor can scrub the email from the
+          // description for viewers without `members:pii`.
+          memberEmail: member.email,
+        },
+      );
+    }
+
+    res.json({ success: true, id, revokedSessionCount: revokedCount });
+  } catch (error) {
+    console.error("[Admin] Revoke all sessions error:", error);
+    res.status(500).json({ error: "Failed to revoke sessions" });
   }
 });
 
