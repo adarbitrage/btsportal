@@ -2,21 +2,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { Pool } from "pg";
 import type { E2EFixture } from "./global-setup";
+import { apiLogin, loginAsAdmin } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Browser base (the dev-server / SPA host).
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:25265";
-// Raw API calls (auth) go straight to the API server rather than through the
-// dev-server proxy: the proxy's first call over the IPv4 loopback can stall for
-// the request's whole timeout, whereas the API server answers in ~100ms. The
-// access_token cookie it returns is host-agnostic, so it is still valid for the
-// browser's BASE_URL origin once injected.
-const AUTH_URL = process.env.E2E_AUTH_URL ?? "http://127.0.0.1:8080";
 
 function loadFixture(): E2EFixture {
   try {
@@ -27,74 +19,6 @@ function loadFixture(): E2EFixture {
       "E2E fixture file is missing. The Playwright globalSetup must run first to seed an isolated admin + member.",
     );
   }
-}
-
-interface LoginResult {
-  ok: boolean;
-  status: number;
-  setCookies: string[];
-}
-
-// Authenticate against the live API through the dev-server proxy. We use the
-// Node runtime's global fetch (undici) rather than Playwright's `request`
-// fixture: the fixture's HTTP client can stall for tens of seconds on a
-// successful login (one that returns a Set-Cookie), whereas plain fetch handles
-// the identical round-trip in a few hundred milliseconds.
-async function apiLogin(email: string, password: string): Promise<LoginResult> {
-  let lastErr: unknown;
-  // Retry once: the very first loopback connection after browser launch can be
-  // slow to establish on this shared environment.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetch(`${AUTH_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      // Drain the body so the connection is released.
-      await res.text().catch(() => undefined);
-      return {
-        ok: res.ok,
-        status: res.status,
-        setCookies: res.headers.getSetCookie?.() ?? [],
-      };
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  throw lastErr;
-}
-
-async function loginAsAdmin(page: Page, fixture: E2EFixture): Promise<void> {
-  const login = await apiLogin(fixture.adminEmail, fixture.adminPassword);
-  expect(login.ok, `Login API call failed (HTTP ${login.status})`).toBe(true);
-  expect(
-    login.setCookies.length,
-    "Login should return at least one Set-Cookie header",
-  ).toBeGreaterThan(0);
-
-  const cookies = login.setCookies
-    .map((raw) => {
-      const [pair] = raw.split(";");
-      const [name, ...valueParts] = pair.split("=");
-      const value = valueParts.join("=");
-      return name && value ? { name: name.trim(), value: value.trim() } : null;
-    })
-    .filter((c): c is { name: string; value: string } => c !== null);
-
-  const baseUrlObj = new URL(BASE_URL);
-  await page.context().addCookies(
-    cookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: baseUrlObj.hostname,
-      path: "/",
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax" as const,
-    })),
-  );
 }
 
 test.describe("Admin Members — Create Staff Account", () => {

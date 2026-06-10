@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "@playwright/test";
 import type { E2EFixture } from "./global-setup";
+import { loginAsAdmin } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,48 +22,13 @@ function loadFixture(): E2EFixture {
 test.describe("Admin Flexy lookup card", () => {
   test("admin can search a member, see their Flexy email, and open the regenerate confirmation dialog without submitting", async ({
     page,
-    request,
   }) => {
     const fixture = loadFixture();
 
     // Log in via the API so the cookie is set without UI flakiness on the
     // styled inputs of /login. We still navigate via the UI for the actual
     // feature flow.
-    const loginRes = await request.post("/api/auth/login", {
-      data: { email: fixture.adminEmail, password: fixture.adminPassword },
-    });
-    expect(
-      loginRes.ok(),
-      `Login API call failed (${loginRes.status()} ${loginRes.statusText()})`,
-    ).toBe(true);
-
-    const setCookieHeader = loginRes.headers()["set-cookie"];
-    expect(setCookieHeader, "Login should return an access_token cookie").toBeTruthy();
-
-    // Forward the access_token cookie into the browser context so SPA fetches
-    // are authenticated.
-    const cookies = (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader])
-      .flatMap((header) => header.split(/,(?=[^;]+=)/g))
-      .map((raw) => {
-        const [pair] = raw.split(";");
-        const [name, ...valueParts] = pair.split("=");
-        const value = valueParts.join("=");
-        return name && value ? { name: name.trim(), value: value.trim() } : null;
-      })
-      .filter((c): c is { name: string; value: string } => c !== null);
-
-    const baseUrlObj = new URL(process.env.E2E_BASE_URL ?? "http://localhost:25265");
-    await page.context().addCookies(
-      cookies.map((c) => ({
-        name: c.name,
-        value: c.value,
-        domain: baseUrlObj.hostname,
-        path: "/",
-        httpOnly: true,
-        secure: false,
-        sameSite: "Lax" as const,
-      })),
-    );
+    await loginAsAdmin(page, fixture);
 
     // Navigate to the Apps Manager page.
     await page.goto("/admin/apps-manager");

@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import type { E2EFixture } from "./global-setup";
+import { loginAs } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,54 +22,9 @@ function loadFixture(): E2EFixture {
   }
 }
 
-async function loginAs(
-  page: Page,
-  request: APIRequestContext,
-  email: string,
-  password: string,
-): Promise<void> {
-  const loginRes = await request.post("/api/auth/login", {
-    data: { email, password },
-  });
-  expect(
-    loginRes.ok(),
-    `Login API call failed (${loginRes.status()} ${loginRes.statusText()})`,
-  ).toBe(true);
-
-  const setCookieHeader = loginRes.headers()["set-cookie"];
-  expect(setCookieHeader, "Login should return an access_token cookie").toBeTruthy();
-
-  const cookies = (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader])
-    .flatMap((header) => header.split(/,(?=[^;]+=)/g))
-    .map((raw) => {
-      const [pair] = raw.split(";");
-      const [name, ...valueParts] = pair.split("=");
-      const value = valueParts.join("=");
-      return name && value ? { name: name.trim(), value: value.trim() } : null;
-    })
-    .filter((c): c is { name: string; value: string } => c !== null);
-
-  const baseUrlObj = new URL(process.env.E2E_BASE_URL ?? "http://localhost:25265");
-  // Clear any previous cookies so the second login doesn't keep the first
-  // user's access_token around.
-  await page.context().clearCookies();
-  await page.context().addCookies(
-    cookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: baseUrlObj.hostname,
-      path: "/",
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax" as const,
-    })),
-  );
-}
-
 test.describe("Member portal + admin — YSE-granted product details", () => {
   test("YSE badge renders only on the granted row; admin sees source + order id", async ({
     page,
-    request,
   }) => {
     const fixture = loadFixture();
 
@@ -151,7 +107,7 @@ test.describe("Member portal + admin — YSE-granted product details", () => {
 
     try {
       // --- Member portal view: /account/products ----------------------------
-      await loginAs(page, request, memberEmail, memberPassword);
+      await loginAs(page, memberEmail, memberPassword);
 
       await page.goto("/account/products");
 
@@ -175,7 +131,7 @@ test.describe("Member portal + admin — YSE-granted product details", () => {
       ).toHaveCount(0);
 
       // --- Admin member-detail view: products tab ---------------------------
-      await loginAs(page, request, fixture.adminEmail, fixture.adminPassword);
+      await loginAs(page, fixture.adminEmail, fixture.adminPassword);
 
       await page.goto(`/admin/members/${memberId}`);
       await expect(

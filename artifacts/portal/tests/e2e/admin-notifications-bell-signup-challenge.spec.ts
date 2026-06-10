@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import type { E2EFixture } from "./global-setup";
+import { loginAsAdmin } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,56 +19,12 @@ function loadFixture(): E2EFixture {
   }
 }
 
-async function loginAsAdmin(
-  page: Page,
-  request: APIRequestContext,
-  fixture: E2EFixture,
-): Promise<void> {
-  // Mirrors the login pattern used by the other admin e2e specs: hit the API
-  // directly and forward the access_token cookie into the browser context so
-  // SPA fetches are authenticated without depending on /login UI flake.
-  const loginRes = await request.post("/api/auth/login", {
-    data: { email: fixture.adminEmail, password: fixture.adminPassword },
-  });
-  expect(
-    loginRes.ok(),
-    `Login API call failed (${loginRes.status()} ${loginRes.statusText()})`,
-  ).toBe(true);
-
-  const setCookieHeader = loginRes.headers()["set-cookie"];
-  expect(setCookieHeader, "Login should return an access_token cookie").toBeTruthy();
-
-  const cookies = (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader])
-    .flatMap((header) => header.split(/,(?=[^;]+=)/g))
-    .map((raw) => {
-      const [pair] = raw.split(";");
-      const [name, ...valueParts] = pair.split("=");
-      const value = valueParts.join("=");
-      return name && value ? { name: name.trim(), value: value.trim() } : null;
-    })
-    .filter((c): c is { name: string; value: string } => c !== null);
-
-  const baseUrlObj = new URL(process.env.E2E_BASE_URL ?? "http://localhost:25265");
-  await page.context().addCookies(
-    cookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: baseUrlObj.hostname,
-      path: "/",
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax" as const,
-    })),
-  );
-}
-
 test.describe("Admin notification bell — signup-challenge warning", () => {
   test("renders the high-severity 'Signup challenge disabled in production' notification and deep-links to System Health", async ({
     page,
-    request,
   }) => {
     const fixture = loadFixture();
-    await loginAsAdmin(page, request, fixture);
+    await loginAsAdmin(page, fixture);
 
     // Simulate the production misconfiguration at the network boundary.
     // Restarting the API with NODE_ENV=production + missing TURNSTILE_SECRET_KEY

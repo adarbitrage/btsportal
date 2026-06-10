@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import type { E2EFixture } from "./global-setup";
+import { apiLogin, cookieHeader, loginAsAdmin, AUTH_URL } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,46 +17,6 @@ function loadFixture(): E2EFixture {
       "E2E fixture file is missing. The Playwright globalSetup must run first to seed an isolated admin + member.",
     );
   }
-}
-
-async function loginAsAdmin(
-  page: Page,
-  request: APIRequestContext,
-  fixture: E2EFixture,
-): Promise<void> {
-  const loginRes = await request.post("/api/auth/login", {
-    data: { email: fixture.adminEmail, password: fixture.adminPassword },
-  });
-  expect(
-    loginRes.ok(),
-    `Login API call failed (${loginRes.status()} ${loginRes.statusText()})`,
-  ).toBe(true);
-
-  const setCookieHeader = loginRes.headers()["set-cookie"];
-  expect(setCookieHeader, "Login should return an access_token cookie").toBeTruthy();
-
-  const cookies = (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader])
-    .flatMap((header) => header.split(/,(?=[^;]+=)/g))
-    .map((raw) => {
-      const [pair] = raw.split(";");
-      const [name, ...valueParts] = pair.split("=");
-      const value = valueParts.join("=");
-      return name && value ? { name: name.trim(), value: value.trim() } : null;
-    })
-    .filter((c): c is { name: string; value: string } => c !== null);
-
-  const baseUrlObj = new URL(process.env.E2E_BASE_URL ?? "http://localhost:25265");
-  await page.context().addCookies(
-    cookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: baseUrlObj.hostname,
-      path: "/",
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax" as const,
-    })),
-  );
 }
 
 // Build a minimal but realistic system-health payload. The SystemHealth page
@@ -109,10 +70,9 @@ function buildHealthPayload(overrides: {
 test.describe("Admin System Health — upgrade-prompt analytics retention card", () => {
   test("renders the card with status, retention window, run interval, and rows-deleted populated, and reflects retention changes", async ({
     page,
-    request,
   }) => {
     const fixture = loadFixture();
-    await loginAsAdmin(page, request, fixture);
+    await loginAsAdmin(page, fixture);
 
     // First load: 90-day retention, 12 rows deleted on the last sweep.
     let payload = buildHealthPayload({
@@ -191,22 +151,31 @@ test.describe("Admin System Health — upgrade-prompt analytics retention card",
   });
 
   test("the real /api/admin/system/health response includes upgradePromptEventsCleanup wired from the backend status helper", async ({
-    request,
   }) => {
     // Complement to the stubbed UI test above: this hits the real API with
     // no route mocking so a regression that drops `upgradePromptEventsCleanup`
     // from the admin-panel response (or breaks `getUpgradePromptEventsCleanupStatus()`
     // itself) is caught end-to-end — not just at the rendering layer.
+    //
+    // Both calls go straight to the API server with global fetch (not the
+    // Playwright `request` fixture through the proxy) to avoid the loopback
+    // hang on successful logins. We forward the login cookie by hand since
+    // there's no shared cookie jar.
     const fixture = loadFixture();
-    const loginRes = await request.post("/api/auth/login", {
-      data: { email: fixture.adminEmail, password: fixture.adminPassword },
-    });
-    expect(loginRes.ok()).toBe(true);
-
-    const healthRes = await request.get("/api/admin/system/health");
+    const login = await apiLogin(fixture.adminEmail, fixture.adminPassword);
+    expect(login.ok, `Login API call failed (HTTP ${login.status})`).toBe(true);
     expect(
-      healthRes.ok(),
-      `system-health API call failed (${healthRes.status()} ${healthRes.statusText()})`,
+      login.setCookies.length,
+      "Login should return at least one Set-Cookie header",
+    ).toBeGreaterThan(0);
+
+    const healthRes = await fetch(`${AUTH_URL}/api/admin/system/health`, {
+      headers: { cookie: cookieHeader(login.setCookies) },
+      signal: AbortSignal.timeout(15_000),
+    });
+    expect(
+      healthRes.ok,
+      `system-health API call failed (${healthRes.status} ${healthRes.statusText})`,
     ).toBe(true);
 
     const body = (await healthRes.json()) as {

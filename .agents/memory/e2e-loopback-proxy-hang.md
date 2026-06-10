@@ -23,6 +23,9 @@ access_token cookie is host-agnostic — inject it into the browser context for 
 browser's `localhost` BASE_URL origin. Add a one-shot retry for cold-start. The
 browser UI itself still goes through the proxy/baseURL fine.
 
-Note: existing specs like `admin-member-unlock.spec.ts` use the proxy + `request`
-fixture and exhibit the same intermittent timeout; `admin-create-staff.spec.ts`
-uses the fetch+direct-API pattern instead.
+All portal e2e login now lives in one place: `artifacts/portal/tests/e2e/auth.ts`
+exports `apiLogin`/`loginAs`/`loginAsAdmin` (global fetch → API directly) plus
+`cookieHeader`/`parseSetCookies` for API-only specs that must forward the cookie
+on a follow-up fetch. Every spec imports from there; none use the `request`
+fixture for auth anymore. Add new login-bearing specs by importing these, not by
+re-rolling the `request.post("/api/auth/login")` block.

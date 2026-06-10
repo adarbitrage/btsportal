@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page, type Locator, type APIRequestContext } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import { Pool } from "pg";
 import type { E2EFixture } from "./global-setup";
+import { loginAsAdmin } from "./auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,48 +19,6 @@ function loadFixture(): E2EFixture {
       "E2E fixture file is missing. The Playwright globalSetup must run first to seed an isolated admin + member.",
     );
   }
-}
-
-async function loginAsAdmin(
-  page: Page,
-  request: APIRequestContext,
-  fixture: E2EFixture,
-): Promise<void> {
-  // Log in via the API and forward the access_token cookie into the browser
-  // context, mirroring the other e2e specs (avoids flakiness on /login).
-  const loginRes = await request.post("/api/auth/login", {
-    data: { email: fixture.adminEmail, password: fixture.adminPassword },
-  });
-  expect(
-    loginRes.ok(),
-    `Login API call failed (${loginRes.status()} ${loginRes.statusText()})`,
-  ).toBe(true);
-
-  const setCookieHeader = loginRes.headers()["set-cookie"];
-  expect(setCookieHeader, "Login should return an access_token cookie").toBeTruthy();
-
-  const cookies = (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader])
-    .flatMap((header) => header.split(/,(?=[^;]+=)/g))
-    .map((raw) => {
-      const [pair] = raw.split(";");
-      const [name, ...valueParts] = pair.split("=");
-      const value = valueParts.join("=");
-      return name && value ? { name: name.trim(), value: value.trim() } : null;
-    })
-    .filter((c): c is { name: string; value: string } => c !== null);
-
-  const baseUrlObj = new URL(process.env.E2E_BASE_URL ?? "http://localhost:25265");
-  await page.context().addCookies(
-    cookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: baseUrlObj.hostname,
-      path: "/",
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax" as const,
-    })),
-  );
 }
 
 // Unique marker so our seeded rows are unmistakable in a shared dev DB and so
@@ -239,9 +198,9 @@ async function setDateRange(page: Page, from: string, to: string): Promise<void>
 }
 
 test.describe("Admin AI-Flagged dashboard", () => {
-  test.beforeEach(async ({ page, request }) => {
+  test.beforeEach(async ({ page }) => {
     const fixture = loadFixture();
-    await loginAsAdmin(page, request, fixture);
+    await loginAsAdmin(page, fixture);
     await page.goto("/admin/moderation/ai-flagged");
     await expect(
       page.getByRole("heading", { name: "AI Flagged" }),
