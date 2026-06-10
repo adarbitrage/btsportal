@@ -23,6 +23,7 @@ import {
 } from "@/components/admin/FlexyRegeneratePanel";
 import { useAuth } from "@/lib/auth";
 import { ADMIN_ROLES, ROLE_INFO, getRoleLabel, hasPermission } from "@/lib/permissions";
+import { formatDeviceLabel } from "@/lib/device-label";
 
 interface ProductRow {
   id: number;
@@ -1119,8 +1120,12 @@ export default function MemberDetail() {
                       data-testid={`row-session-${s.id}`}
                     >
                       <div className="space-y-1 min-w-0">
-                        <p className="text-sm font-medium break-all" data-testid={`text-session-useragent-${s.id}`}>
-                          {s.userAgent || "Unknown device"}
+                        <p
+                          className="text-sm font-medium break-all"
+                          title={s.userAgent || undefined}
+                          data-testid={`text-session-useragent-${s.id}`}
+                        >
+                          {formatDeviceLabel(s.userAgent)}
                         </p>
                         <p className="text-xs text-muted-foreground" data-testid={`text-session-ip-${s.id}`}>
                           IP: {s.ipAddress || "unknown"}

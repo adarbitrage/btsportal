@@ -11,6 +11,7 @@ import { adminPanelApi, saveBlobAsFile } from "@/lib/admin-panel-api";
 import { formatBytes } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDeviceLabel } from "@/lib/device-label";
 import { format } from "date-fns";
 
 /**
@@ -827,7 +828,7 @@ export default function AuditLog() {
                             })()}
                           </div>
                           <div><span className="text-muted-foreground">IP Address:</span> {log.ipAddress || "N/A"}</div>
-                          <div><span className="text-muted-foreground">User Agent:</span> <span className="truncate block max-w-md">{log.userAgent || "N/A"}</span></div>
+                          <div><span className="text-muted-foreground">User Agent:</span> <span className="truncate block max-w-md" title={log.userAgent || undefined}>{log.userAgent ? formatDeviceLabel(log.userAgent) : "N/A"}</span></div>
                           <div><span className="text-muted-foreground">Actor ID:</span> {log.actorId || "N/A"}</div>
                           {log.actionType === "queue_fallback" && (
                             <>
