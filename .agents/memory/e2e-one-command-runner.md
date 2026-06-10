@@ -27,9 +27,21 @@ the API server on **8080** (`tsx ./src/index.ts`) and the portal dev server on
 ## Redis-backed flows
 
 Some specs `test.skip()` when `REDIS_URL` is unset (abuse limiter is a no-op
-without Redis). Export `REDIS_URL` before the command — it's inherited by both
-the API process and the test runner. Without it the GHL worker logs harmless
-`ECONNREFUSED 127.0.0.1:6379` chatter; ignore it.
+without Redis). The runner now **auto-provisions a throwaway Redis** when it
+manages the servers: `tests/e2e/redis-manager.ts` daemonizes `redis-server` on
+6399 (no persistence), sets `process.env.REDIS_URL` in the config module (so the
+auto-booted API webServer + the worker processes all inherit it), and shuts it
+down via an `exit`/SIGINT/SIGTERM handler. Best-effort: if redis-server is
+missing or the port is taken it returns null and the gated specs skip cleanly.
+Knobs: `REDIS_URL` (use an existing instance as-is), `E2E_REDIS_PORT`,
+`E2E_NO_REDIS=1` (disable). Only managed when servers are managed — in
+`E2E_NO_WEBSERVER` mode it only honors an externally provided `REDIS_URL` (the
+API was already booted by hand, so starting redis after the fact wouldn't help).
+
+**Why workers don't double-start redis:** the config is re-required in each
+worker, but `startManagedRedisIfPossible()` early-returns when `REDIS_URL` is
+already set (workers inherit it from the parent), so only the main process
+starts + registers teardown.
 
 ## Validating in this environment
 

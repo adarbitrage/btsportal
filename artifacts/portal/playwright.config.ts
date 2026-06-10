@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { startManagedRedisIfPossible } from "./tests/e2e/redis-manager";
 
 const PORTAL_BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:25265";
 // The raw API origin the auth helper and the vite proxy talk to. Keep the port
@@ -18,6 +19,21 @@ const API_PORT = Number(new URL(API_AUTH_URL).port || "8080");
 // before running to exercise the Redis-backed flows (rate-limiter etc.) that
 // otherwise skip themselves.
 const manageServers = !process.env.E2E_NO_WEBSERVER;
+
+// When we boot the servers ourselves, also auto-provision a throwaway local
+// Redis so the Redis-gated specs (e.g. the abuse-rate-limiter 429 case in
+// verify-email-recovery.spec.ts) actually run instead of skipping. This is
+// best-effort: if Redis can't be started it returns null and those specs fall
+// back to skipping cleanly. Setting REDIS_URL on process.env here means both
+// the auto-booted API process and the Playwright test runner inherit it. In
+// E2E_NO_WEBSERVER mode we don't manage Redis (the API was started by hand), so
+// we only honor an externally provided REDIS_URL.
+const MANAGED_REDIS_URL = manageServers
+  ? startManagedRedisIfPossible()
+  : (process.env.REDIS_URL ?? null);
+if (MANAGED_REDIS_URL) {
+  process.env.REDIS_URL = MANAGED_REDIS_URL;
+}
 
 function resolveSystemChromium(): string | undefined {
   const candidates = [
@@ -69,7 +85,13 @@ export default defineConfig({
           command:
             "pnpm --filter @workspace/api-server exec tsx ./src/index.ts",
           port: API_PORT,
-          env: { PORT: String(API_PORT), NODE_ENV: "development" },
+          env: {
+            PORT: String(API_PORT),
+            NODE_ENV: "development",
+            // Inherit the auto-provisioned (or externally supplied) Redis so the
+            // API's abuse rate-limiter is live for the Redis-gated specs.
+            ...(MANAGED_REDIS_URL ? { REDIS_URL: MANAGED_REDIS_URL } : {}),
+          },
           reuseExistingServer: true,
           stdout: "pipe",
           stderr: "pipe",

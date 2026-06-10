@@ -31,19 +31,31 @@ server startup needed.
 ## Running the Redis-backed flows
 
 A few specs (e.g. the verify-email rate-limit case in
-`verify-email-recovery.spec.ts`) `test.skip()` themselves when `REDIS_URL` is
-unset, because the abuse rate-limiter is a no-op without Redis. To include them,
-just export `REDIS_URL` before running — it is inherited by both the API process
-and the test runner:
+`verify-email-recovery.spec.ts`) need a live Redis, because the abuse
+rate-limiter is a no-op without it.
+
+**This now happens automatically.** When the one-command run boots the servers
+itself, it also provisions a throwaway local Redis (a `redis-server` daemon on
+port `6399`, no persistence), sets `REDIS_URL` for both the auto-booted API
+process and the Playwright test runner, and shuts it down when the run finishes.
+So the Redis-gated specs execute on a default run — no manual setup:
 
 ```bash
-REDIS_URL=redis://localhost:6379 pnpm --filter @workspace/portal run test:e2e
+pnpm --filter @workspace/portal run test:e2e
 ```
 
-Start a local Redis first if you don't already have one (for example
-`redis-server --daemonize yes`, or any Redis instance reachable at that URL).
-Without `REDIS_URL` the suite still runs fully — the Redis-only cases simply skip
-and report as skipped rather than failing.
+The auto-provisioning is best-effort. If Redis can't be located or started
+(e.g. `redis-server` isn't installed, or the port is taken), the run continues
+and the Redis-only specs fall back to skipping cleanly rather than failing.
+
+Knobs:
+
+- `REDIS_URL=redis://host:port …` — point the suite at an existing Redis
+  instead of provisioning one. The given instance is used as-is.
+- `E2E_REDIS_PORT=6400 …` — change the port used for the provisioned Redis
+  (default `6399`).
+- `E2E_NO_REDIS=1 …` — disable auto-provisioning entirely; the Redis-gated
+  specs then skip (unless you also set `REDIS_URL`).
 
 ## Running against servers you started by hand
 
