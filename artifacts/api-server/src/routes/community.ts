@@ -36,7 +36,7 @@ async function requireCommunityAccess(req: any, res: any): Promise<boolean> {
     return false;
   }
   const has = await hasEntitlement(userId, "community:access");
-  if (!has) {
+  if (!has && !(await getIsAdmin(userId))) {
     res.status(403).json({ error: "Community access required. Upgrade to a mentorship tier." });
     return false;
   }

@@ -30,6 +30,12 @@ const router: IRouter = Router();
 async function requireActiveMember(userId: number, res: import("express").Response): Promise<boolean> {
   const entitlements = await getUserEntitlements(userId);
   if (entitlements.size === 0) {
+    const [u] = await db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    if (u && isAdminRole(u.role)) return true;
     res.status(403).json({ error: "An active membership is required to use this app." });
     return false;
   }

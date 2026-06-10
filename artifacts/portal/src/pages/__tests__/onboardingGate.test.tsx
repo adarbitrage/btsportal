@@ -204,10 +204,14 @@ describe("onboarding gate — EntitlementRoute runs the first-login and onboardi
     expect(queryByTestId("target-content")).toBeNull();
   });
 
-  it("redirects a fully-onboarded user without the required entitlement to /", () => {
-    authStateMock.mockReturnValue({ user: completedUser, loading: false });
+  it("redirects a fully-onboarded member without the required entitlement to /", () => {
+    // A regular member (no admin role on either source) without the entitlement.
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, role: "member" },
+      loading: false,
+    });
     memberMock.mockReturnValue({
-      data: { role: "admin", entitlements: [] },
+      data: { role: "member", entitlements: [] },
       isLoading: false,
     });
 
@@ -217,6 +221,44 @@ describe("onboarding gate — EntitlementRoute runs the first-login and onboardi
 
     expect(getByTestId("redirect")).toHaveAttribute("data-to", "/");
     expect(queryByTestId("target-content")).toBeNull();
+  });
+
+  it("renders the target for an admin even without the entitlement (staff bypass via auth role)", () => {
+    // super_admin/admin staff often have no purchased products (empty
+    // entitlements) but must still reach every gated member page.
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, role: "super_admin" },
+      loading: false,
+    });
+    memberMock.mockReturnValue({
+      data: { role: "member", entitlements: [] },
+      isLoading: false,
+    });
+
+    const { getByTestId, queryByTestId } = render(
+      <EntitlementRoute component={Target} entitlement="coaching:one_on_one:*" />,
+    );
+
+    expect(getByTestId("target-content")).toBeInTheDocument();
+    expect(queryByTestId("redirect")).toBeNull();
+  });
+
+  it("renders the target when the admin role comes from the member source (staff bypass via member role)", () => {
+    authStateMock.mockReturnValue({
+      user: { ...completedUser, role: "member" },
+      loading: false,
+    });
+    memberMock.mockReturnValue({
+      data: { role: "super_admin", entitlements: [] },
+      isLoading: false,
+    });
+
+    const { getByTestId, queryByTestId } = render(
+      <EntitlementRoute component={Target} entitlement="community:access" />,
+    );
+
+    expect(getByTestId("target-content")).toBeInTheDocument();
+    expect(queryByTestId("redirect")).toBeNull();
   });
 
   it("renders the target for a fully-onboarded user who has the entitlement", () => {

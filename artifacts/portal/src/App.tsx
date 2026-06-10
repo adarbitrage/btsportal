@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { isAdminRole } from "@workspace/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
@@ -264,11 +265,12 @@ export function EntitlementRoute({ component: Component, entitlement }: { compon
     return <Redirect to={stepRoute} />;
   }
 
+  const isAdmin = isAdminRole(user?.role) || isAdminRole(member?.role);
   const entitlements = new Set(member?.entitlements ?? []);
   const hasEntitlement = entitlement.endsWith(":*")
     ? Array.from(entitlements).some((e: string) => e.startsWith(entitlement.replace(":*", ":")))
     : entitlements.has(entitlement);
-  if (!hasEntitlement) {
+  if (!isAdmin && !hasEntitlement) {
     return <Redirect to="/" />;
   }
 

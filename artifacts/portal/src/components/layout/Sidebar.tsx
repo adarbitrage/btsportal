@@ -557,7 +557,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const hasLifetime = isLifetimeSlug(highestSlug);
 
   const filteredMemberNav = filterNavByHiddenRoles(
-    filterNavByEntitlements(MEMBER_NAV, entitlements),
+    filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser),
     userRole,
   );
 
@@ -696,7 +696,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               {getProductDisplayName(highestSlug)}
             </p>
           </div>
-          {entitlements.has("community:access") && <NotificationBell />}
+          {(isAdminUser || entitlements.has("community:access")) && <NotificationBell />}
           <button
             onClick={() => logout()}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"

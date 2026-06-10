@@ -146,6 +146,39 @@ describe("filterNavByEntitlements", () => {
     expect(withoutWildcard).toHaveLength(0);
   });
 
+  it("bypasses entitlement gating entirely when bypassEntitlements is true (staff/admin)", () => {
+    // A super_admin with no purchased products has an empty entitlement set,
+    // but must still see every member-facing nav item.
+    const nav: NavNode[] = [
+      leaf("/apps", { requiredEntitlement: "software:base" }),
+      leaf("/community", { requiredEntitlement: "community:access" }),
+      leaf("/dashboard"),
+      folder("coaching", [
+        leaf("/coaching", { requiredEntitlement: "coaching:group" }),
+        leaf("/coaching/one-on-one", {
+          requiredEntitlement: "coaching:one_on_one:*",
+        }),
+      ]),
+    ];
+    const result = filterNavByEntitlements(nav, new Set(), true);
+    expect(result).toHaveLength(4);
+    const coaching = result[3];
+    if (coaching.kind !== "folder") throw new Error("expected folder");
+    expect(coaching.children).toHaveLength(2);
+  });
+
+  it("still gates by entitlement when bypassEntitlements is false (default unchanged)", () => {
+    const nav: NavNode[] = [
+      leaf("/apps", { requiredEntitlement: "software:base" }),
+      leaf("/dashboard"),
+    ];
+    expect(
+      filterNavByEntitlements(nav, new Set(), false).map(
+        (n) => (n as NavLeaf).href,
+      ),
+    ).toEqual(["/dashboard"]);
+  });
+
   it("removes folders where every child is filtered out (empty-folder cascade)", () => {
     const nav: NavNode[] = [
       folder("earn", [

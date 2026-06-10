@@ -68,17 +68,22 @@ export function filterNavByRole(
 export function filterNavByEntitlements(
   nodes: NavNode[],
   entitlements: Set<string>,
+  bypassEntitlements = false,
 ): NavNode[] {
   const result: NavNode[] = [];
   for (const node of nodes) {
     if (node.kind === "leaf") {
-      if (hasEntitlementCheck(node.requiredEntitlement, entitlements))
+      if (
+        bypassEntitlements ||
+        hasEntitlementCheck(node.requiredEntitlement, entitlements)
+      )
         result.push(node);
       continue;
     }
     const filteredChildren = filterNavByEntitlements(
       node.children,
       entitlements,
+      bypassEntitlements,
     );
     if (filteredChildren.length === 0) continue;
     result.push({ ...node, children: filteredChildren });
