@@ -8,6 +8,7 @@ import { computeFunnelPerformance, computeLTVAnalysis } from "./funnel-performan
 import { computeRevenueForecast } from "./revenue-forecasting";
 import { db, revenueMetricsCacheTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "revenue-metrics";
@@ -18,14 +19,8 @@ let worker: Worker | null = null;
 
 function getConnection(): ConnectionOptions {
   if (!connection) {
-    connection = new IORedis(REDIS_URL, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      lazyConnect: true,
-    });
-    connection.on("error", (err) => {
-      console.error("[Revenue Pipeline] Redis connection error:", err.message);
-    });
+    connection = new IORedis(REDIS_URL, { ...QUEUE_REDIS_OPTIONS });
+    connection.on("error", makeThrottledRedisErrorLogger("[Revenue Pipeline]"));
   }
   return connection as unknown as ConnectionOptions;
 }

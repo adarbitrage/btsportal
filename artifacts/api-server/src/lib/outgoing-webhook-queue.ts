@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import crypto from "crypto";
 import { db, webhookSubscriptionsTable, webhookDeliveriesTable } from "@workspace/db";
 import { eq, and, lte, sql } from "drizzle-orm";
+import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "outgoing-webhooks";
@@ -17,14 +18,8 @@ let worker: Worker | null = null;
 
 function getConnection(): ConnectionOptions {
   if (!connection) {
-    connection = new IORedis(REDIS_URL, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      lazyConnect: true,
-    });
-    connection.on("error", (err) => {
-      console.error("[Outgoing Webhook Queue] Redis connection error:", err.message);
-    });
+    connection = new IORedis(REDIS_URL, { ...QUEUE_REDIS_OPTIONS });
+    connection.on("error", makeThrottledRedisErrorLogger("[Outgoing Webhook Queue]"));
   }
   return connection as unknown as ConnectionOptions;
 }
