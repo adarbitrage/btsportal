@@ -66,11 +66,12 @@ import {
   filterNavByEntitlements,
   filterNavByHiddenRoles,
   filterNavByRole,
-  getProductDisplayName,
+  getSidebarTierLabel,
   isLifetimeSlug,
   leafMatchesLocation,
   nodeContainsLocation,
   resolveAdminRole,
+  shouldShowUpgradeCard,
   type NavFolder,
   type NavLeaf,
   type NavNode,
@@ -556,8 +557,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
-  const staffLabel = userRole === "super_admin" ? "Super Admin" : "Admin";
-
   const filteredMemberNav = filterNavByHiddenRoles(
     filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser),
     userRole,
@@ -675,7 +674,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 mt-auto">
-        {!isAdminUser && (
+        {shouldShowUpgradeCard(isAdminUser) && (
           <UpgradeFeaturesCard
             entitlements={entitlements}
             hasLifetime={hasLifetime}
@@ -697,7 +696,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               {member?.name ?? "Loading..."}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {isAdminUser ? staffLabel : getProductDisplayName(highestSlug)}
+              {getSidebarTierLabel({
+                isAdminUser,
+                userRole,
+                highestProductSlug: highestSlug,
+              })}
             </p>
           </div>
           {(isAdminUser || entitlements.has("community:access")) && <NotificationBell />}

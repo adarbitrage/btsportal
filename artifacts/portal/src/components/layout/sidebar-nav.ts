@@ -164,3 +164,20 @@ export function getProductDisplayName(slug: string | undefined | null): string {
 export function isLifetimeSlug(slug: string | undefined | null): boolean {
   return (slug ?? "free") === "lifetime";
 }
+
+export function getStaffLabel(userRole: string | undefined | null): string {
+  return userRole === "super_admin" ? "Super Admin" : "Admin";
+}
+
+export function getSidebarTierLabel(params: {
+  isAdminUser: boolean;
+  userRole: string | undefined | null;
+  highestProductSlug: string | undefined | null;
+}): string {
+  if (params.isAdminUser) return getStaffLabel(params.userRole);
+  return getProductDisplayName(params.highestProductSlug);
+}
+
+export function shouldShowUpgradeCard(isAdminUser: boolean): boolean {
+  return !isAdminUser;
+}
