@@ -17,6 +17,7 @@
 - [Coach-name privacy filter](coach-name-privacy-filter.md) — assistant shows coach FIRST names only; system prompt reads qa-articles.txt/glossary.txt RAW (bypasses filter); surnames have spelling variants (Wiss?baum).
 - [E2E loopback proxy hang](e2e-loopback-proxy-hang.md) — portal e2e: successful-login auth calls stall via vite proxy/IPv4 & Playwright `request` fixture; use global fetch direct to API (127.0.0.1:8080), inject cookie.
 - [Auth email links need matching SPA routes](auth-email-link-routes.md) — every email-template path needs a portal `<Route>`+page or it 404s on the catch-all; reset = two pages (request `/forgot-password` + complete `/reset-password`).
+- [Tapfiliate list pagination](tapfiliate-pagination.md) — `/programs/` paginates ~25/page via `?page=N`; loop+dedupe or page-2 programs (e.g. "Heat Haven") silently vanish. Base is api.tapfiliate.com/1.6.
 - [Prod DB data fixes via startup hooks](prod-db-data-fixes-via-startup-hooks.md) — post-merge only hits dev; idempotent data repairs reach prod only by running on server boot. Watch the esbuild import.meta.url CLI-guard bundle trap.
 - [Bash background process lifetime](bash-background-process-lifetime.md) — nohup/& jobs from the bash tool die when the call returns; run long work synchronously per-call or as parallel blocking calls.
 - [Portal app intro videos](portal-app-intro-videos.md) — 7 videos+posters in portal/public; transcode rebrand HEVC 1080p exports to H.264 720p60 faststart before replacing; never commit raw exports.

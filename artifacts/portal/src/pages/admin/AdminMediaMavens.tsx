@@ -220,7 +220,7 @@ function ProductFormDialog({
   const updateMutation = useAdminUpdateMediaMavensProduct();
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  const { data: tapfiliatePrograms, isError: tapfiliateError, error: tapfiliateErrorObj } = useAdminTapfiliatePrograms();
+  const { data: tapfiliatePrograms, isLoading: tapfiliateLoading, isError: tapfiliateError, error: tapfiliateErrorObj } = useAdminTapfiliatePrograms();
   const tapfiliateNotConfigured = tapfiliateError && tapfiliateErrorObj instanceof Error && tapfiliateErrorObj.message.includes("TAPFILIATE_API_KEY");
 
   function set<K extends keyof MediaMavensProductFormData>(key: K, value: MediaMavensProductFormData[K]) {
@@ -346,9 +346,13 @@ function ProductFormDialog({
               <p className="text-xs text-amber-600 mt-1">Tapfiliate not configured — set TAPFILIATE_API_KEY to enable program selection.</p>
             ) : tapfiliateError ? (
               <p className="text-xs text-red-600 mt-1">Failed to load Tapfiliate programs — check API connectivity and try again.</p>
+            ) : tapfiliateLoading || !tapfiliatePrograms ? (
+              <div className="mt-1 flex h-10 items-center rounded-md border border-input px-3 text-sm text-muted-foreground">
+                Loading programs…
+              </div>
             ) : (
               <Select
-                value={form.tapfiliateProgramId ?? "__none__"}
+                value={tapfiliatePrograms.some((p) => p.id === form.tapfiliateProgramId) ? form.tapfiliateProgramId! : "__none__"}
                 onValueChange={(v) => {
                   if (v === "__none__") {
                     set("tapfiliateProgramId", null);

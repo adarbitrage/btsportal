@@ -92,7 +92,26 @@ export async function createAffiliate(
 }
 
 export async function listPrograms(): Promise<TapfiliateProgram[]> {
-  return tapRequest<TapfiliateProgram[]>("GET", "/programs/");
+  const all: TapfiliateProgram[] = [];
+  const seen = new Set<string>();
+  const maxPages = 100;
+  for (let page = 1; page <= maxPages; page++) {
+    const batch = await tapRequest<TapfiliateProgram[]>(
+      "GET",
+      `/programs/?page=${page}`,
+    );
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    let added = 0;
+    for (const program of batch) {
+      if (!seen.has(program.id)) {
+        seen.add(program.id);
+        all.push(program);
+        added++;
+      }
+    }
+    if (added === 0) break;
+  }
+  return all;
 }
 
 export async function enrollAffiliateInProgram(
