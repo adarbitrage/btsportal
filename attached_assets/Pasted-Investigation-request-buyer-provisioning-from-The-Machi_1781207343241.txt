@@ -1,0 +1,17 @@
+Investigation request — buyer provisioning from The Machine's funnels into BTS
+I'm integrating 6 front-end offers from The Machine (a separate platform) that need to provision buyers into the BTS portal's back-end. Before I write any fix, I need ground truth on how provisioning actually works in the current BTS codebase — not the architecture docs, the live code. Please investigate and report:
+1. The actual inbound provisioning path(s). When a front-end buyer needs to be granted access in BTS, what is the real, currently-wired entry point?
+
+Is it the ThriveCart webhook (POST /api/webhooks/thrivecart), an NMI-based path, a portal-member-sync mechanism, a PORTAL_ACCEPTED_FUNNEL_SLUGS allow-list, or something else?
+If multiple paths exist, which is live and which is legacy/dead? Show the actual handler code and where it's registered.
+
+2. PORTAL_ACCEPTED_FUNNEL_SLUGS (if it exists). Does this constant/config exist in the BTS codebase? If so: where is it defined, what slugs are currently in it, and what exactly happens to an inbound purchase whose funnel slug is NOT in the list (silent skip? error? logged?). If it doesn't exist in BTS, say so — it may live on The Machine side only.
+3. The product → entitlement mapping as actually implemented. The docs describe 8 products with entitlement keys. In the live code:
+
+How is an incoming purchase mapped to a BTS product and its entitlements? By ThriveCart product ID, by funnel slug, by a product-mapping table, by SKU?
+Where is that mapping defined (table, config, code)?
+For a NEW front-end brand to provision correctly, what specifically has to be added, and where?
+
+4. Front-end entitlement reality. Do all front-end offers grant the same entitlement set (e.g. content:frontend), or can different front-ends grant different access? I need to know whether "different brand" can mean "different back-end access" or only "different attribution/commission source."
+5. The 6 brands in question. These front-end brands need to provision into BTS: Your Second Engine, The Backroad System, The Off-Market Affiliate System, The Reserve Income System, The Silent Partner System, Test Like Mad. Which of these (if any) already exist as products/mappings in the BTS DB, and which are entirely absent?
+Output: a factual map of the real provisioning path with file/table references, what's already wired for these brands, and the exact gap that has to be closed for a Machine-funnel buyer to land in BTS with correct access. Do NOT write or change any code yet — investigation only. Halt with findings.

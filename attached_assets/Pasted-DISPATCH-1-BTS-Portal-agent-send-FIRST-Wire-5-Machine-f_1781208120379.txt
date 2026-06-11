@@ -1,0 +1,16 @@
+DISPATCH 1 — BTS Portal agent (send FIRST)
+Wire 5 Machine front-end brands into BTS provisioning — products + member-sync slugs
+Investigation already complete (your prior report). Now execute. The Machine provisions buyers via two calls: /grant-product (slug-direct, grants access) and /api/integrations/machine-purchase (member-sync, funnel-slug gated). This task makes both work for 5 new brands. Each brand gets its own product slug for distinct attribution, but all grant the same entitlement set as the existing standard front-ends.
+1. Create products rows for the 2 missing brands:
+Brandslugnametypeentitlement_keysThe Silent Partner Systemsilent_partnerThe Silent Partner Systemfrontend["content:frontend","support:basic","chat:basic"]Test Like Madtest_like_madTest Like Madfrontend["content:frontend","support:basic","chat:basic"]
+Match the exact column shape of the existing backroad/offmarket/reserve_income seed rows (seed.ts:77–95) — same type, same entitlement set, just new slug + name. If those rows carry a thrivecart_product_id, set these two to a placeholder/null consistent with how a Machine-only (non-ThriveCart) product should be represented — flag how you handled it.
+2. Confirm the 3 existing brand products are grant-ready. backroad, offmarket, reserve_income already exist with entitlements. The /grant-product path matches on products.slug — confirm these 3 slugs resolve correctly when called via /grant-product (they were wired for ThriveCart; verify the slug-match path doesn't depend on the thrivecart_product_id). No changes needed if they resolve; flag if they don't.
+3. Add the 5 new funnel slugs to MACHINE_FUNNEL_SLUGS (integrations.ts:286) — for the member-sync call (machine-purchase), which 400s on unknown slugs. Add the workshop + ebook slugs for each brand (10 total): backroad-system-workshop, backroad-system-ebook, off-market-affiliate-workshop, off-market-affiliate-ebook, reserve-income-workshop, reserve-income-ebook, silent-partner-workshop, silent-partner-ebook, test-like-mad-workshop, test-like-mad-ebook. (Confirm exact slug strings against what The Machine sends — Dispatch 2 will report them; if uncertain, halt for the confirmed list.)
+4. Add machine_product_key_mappings rows (machine-product-key-mappings.ts) mapping each brand's Machine product key → its portal slug, so the member-sync path resolves correctly too: e.g. Machine key for Backroad → backroad, Silent Partner → silent_partner, etc. (The exact Machine keys come from Dispatch 2 — coordinate or halt for them.)
+Halt with:
+
+Confirmation the 2 new products exist with correct slugs + entitlements (show the rows)
+Confirmation the 3 existing brand slugs resolve via /grant-product
+The updated MACHINE_FUNNEL_SLUGS + new mapping rows
+The exact portal slugs now available for The Machine to target (all 6: yse_front_end, backroad, offmarket, reserve_income, silent_partner, test_like_mad)
+Do NOT change /grant-product or /api/integrations/machine-purchase handler logic — only data (products, slugs, mappings)
