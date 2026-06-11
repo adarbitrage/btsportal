@@ -123,19 +123,44 @@ export async function enrollAffiliateInProgram(
       affiliate: { id: affiliateId },
     });
   } catch (err) {
-    if (err instanceof TapfiliateApiError && err.status === 409) {
-      return;
+    if (err instanceof TapfiliateApiError) {
+      // Tapfiliate signals an already-enrolled affiliate inconsistently: a 409,
+      // or a 400 whose body says "Affiliate already member of program". Both
+      // mean the affiliate is enrolled, which is the desired end state.
+      if (
+        err.status === 409 ||
+        (err.status === 400 && /already member of program/i.test(err.message))
+      ) {
+        return;
+      }
     }
     throw err;
   }
+}
+
+interface TapfiliateAffiliateInProgram {
+  id: string;
+  referral_link?: {
+    link: string;
+    asset_id?: string;
+    source_id?: string;
+  };
 }
 
 export async function getAffiliateReferralLinks(
   affiliateId: string,
   programId: string,
 ): Promise<TapfiliateReferralLink[]> {
-  return tapRequest<TapfiliateReferralLink[]>(
+  const affiliateInProgram = await tapRequest<TapfiliateAffiliateInProgram>(
     "GET",
-    `/affiliates/${affiliateId}/programs/${programId}/referral-links/`,
+    `/programs/${programId}/affiliates/${affiliateId}/`,
   );
+  const referral = affiliateInProgram.referral_link;
+  if (!referral?.link) return [];
+  return [
+    {
+      link: referral.link,
+      asset: referral.asset_id ? { id: referral.asset_id } : undefined,
+    },
+  ];
 }
