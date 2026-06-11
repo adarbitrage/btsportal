@@ -553,8 +553,10 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const showCoachSection = shouldShowCoachSection(user?.role, member?.role);
 
-  const highestSlug: string = member?.sourceProduct ?? "free";
+  const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
+
+  const staffLabel = userRole === "super_admin" ? "Super Admin" : "Admin";
 
   const filteredMemberNav = filterNavByHiddenRoles(
     filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser),
@@ -673,16 +675,18 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 mt-auto">
-        <UpgradeFeaturesCard
-          entitlements={entitlements}
-          hasLifetime={hasLifetime}
-          variant="sidebar"
-          sourceTier={member ? highestSlug : null}
-          onCtaClick={() => {
-            onNavClick?.();
-            setLocation("/plans");
-          }}
-        />
+        {!isAdminUser && (
+          <UpgradeFeaturesCard
+            entitlements={entitlements}
+            hasLifetime={hasLifetime}
+            variant="sidebar"
+            sourceTier={member ? highestSlug : null}
+            onCtaClick={() => {
+              onNavClick?.();
+              setLocation("/plans");
+            }}
+          />
+        )}
 
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
@@ -693,7 +697,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               {member?.name ?? "Loading..."}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {getProductDisplayName(highestSlug)}
+              {isAdminUser ? staffLabel : getProductDisplayName(highestSlug)}
             </p>
           </div>
           {(isAdminUser || entitlements.has("community:access")) && <NotificationBell />}
