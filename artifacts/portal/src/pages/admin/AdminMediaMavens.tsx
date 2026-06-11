@@ -220,7 +220,8 @@ function ProductFormDialog({
   const updateMutation = useAdminUpdateMediaMavensProduct();
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  const { data: tapfiliatePrograms, isError: tapfiliateError } = useAdminTapfiliatePrograms();
+  const { data: tapfiliatePrograms, isError: tapfiliateError, error: tapfiliateErrorObj } = useAdminTapfiliatePrograms();
+  const tapfiliateNotConfigured = tapfiliateError && tapfiliateErrorObj instanceof Error && tapfiliateErrorObj.message.includes("TAPFILIATE_API_KEY");
 
   function set<K extends keyof MediaMavensProductFormData>(key: K, value: MediaMavensProductFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -341,8 +342,10 @@ function ProductFormDialog({
 
           <div>
             <Label>Tapfiliate Program</Label>
-            {tapfiliateError ? (
+            {tapfiliateNotConfigured ? (
               <p className="text-xs text-amber-600 mt-1">Tapfiliate not configured — set TAPFILIATE_API_KEY to enable program selection.</p>
+            ) : tapfiliateError ? (
+              <p className="text-xs text-red-600 mt-1">Failed to load Tapfiliate programs — check API connectivity and try again.</p>
             ) : (
               <Select
                 value={form.tapfiliateProgramId ?? "__none__"}

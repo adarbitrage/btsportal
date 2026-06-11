@@ -1,4 +1,4 @@
-const TAPFILIATE_BASE = "https://tapfiliate.com/api/1.6";
+const TAPFILIATE_BASE = "https://api.tapfiliate.com/1.6";
 
 export class TapfiliateConfigError extends Error {
   constructor() {
