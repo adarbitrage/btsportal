@@ -131,6 +131,12 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(function Tu
         });
       })
       .catch((err) => {
+        // Error code 3589 = hostname not in the widget's allowed-domain list
+        // (or invalid site key). Fix: go to the Cloudflare Turnstile dashboard,
+        // find the widget whose site key matches VITE_TURNSTILE_SITE_KEY, and
+        // add the production hostname (e.g. portal.buildtestscale.com) to its
+        // allowed-hostnames list. If the key itself is wrong, generate a new one
+        // and update the VITE_TURNSTILE_SITE_KEY secret in the deployment.
         console.error("[Turnstile] failed to load:", err);
         onErrorRef.current?.();
       });

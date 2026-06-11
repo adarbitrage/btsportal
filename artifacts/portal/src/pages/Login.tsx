@@ -28,10 +28,16 @@ export default function Login() {
   const [resendNotice, setResendNotice] = useState("");
   const [resendError, setResendError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaFailed, setCaptchaFailed] = useState(false);
   const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
     setCaptchaToken(token);
+    if (token) setCaptchaFailed(false);
+  }, []);
+
+  const handleCaptchaError = useCallback(() => {
+    setCaptchaFailed(true);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +49,7 @@ export default function Login() {
     setResendNotice("");
     setResendError("");
 
-    if (TURNSTILE_SITE_KEY && !captchaToken) {
+    if (TURNSTILE_SITE_KEY && !captchaToken && !captchaFailed) {
       setError("Please complete the challenge below before continuing.");
       return;
     }
@@ -80,8 +86,15 @@ export default function Login() {
       // fresh challenge appears, otherwise the user is stuck with a
       // "solved"-looking widget but a disabled submit button.
       if (loginErr.code !== "RATE_LIMIT_EXCEEDED") {
-        setCaptchaToken("");
-        turnstileRef.current?.reset();
+        // Only reset the widget if a real token was consumed by the server.
+        // When the widget failed to load (captchaFailed=true, captchaToken=""),
+        // there is nothing to reset — clearing captchaFailed here would
+        // re-lock the button with no widget available to unlock it again.
+        if (captchaToken) {
+          setCaptchaToken("");
+          setCaptchaFailed(false);
+          turnstileRef.current?.reset();
+        }
       }
     } finally {
       setLoading(false);
@@ -108,7 +121,7 @@ export default function Login() {
   };
 
   const submitDisabled =
-    loading || (TURNSTILE_SITE_KEY ? !captchaToken : false);
+    loading || (TURNSTILE_SITE_KEY ? (!captchaToken && !captchaFailed) : false);
 
   return (
     <div style={{
@@ -319,12 +332,31 @@ export default function Login() {
           </div>
 
           {TURNSTILE_SITE_KEY && (
-            <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+            <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <Turnstile
                 ref={turnstileRef}
                 siteKey={TURNSTILE_SITE_KEY}
                 onToken={handleCaptchaToken}
+                onError={handleCaptchaError}
               />
+              {captchaFailed && (
+                <div
+                  data-testid="captcha-failed-notice"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "#fef9c3",
+                    border: "1px solid #fde68a",
+                    borderRadius: 8,
+                    color: "#854d0e",
+                    fontSize: 13,
+                    textAlign: "center",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  The security challenge could not load. You can still sign in — your credentials will be verified as usual.
+                </div>
+              )}
             </div>
           )}
 
