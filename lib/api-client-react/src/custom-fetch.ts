@@ -271,6 +271,58 @@ async function parseSuccessBody(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Transparent access-token refresh
+//
+// Access tokens are short-lived (15-minute JWTs). When one expires mid-session
+// the API answers 401. Without recovery here every generated-hook query would
+// surface that 401 as a hard error (the React Query client uses retry:false),
+// and the user would have to reload the page to mint a fresh token via the
+// app-boot auth flow. To avoid that, on a 401 we make a single-flight call to
+// the refresh endpoint — which rotates the httpOnly refresh_token cookie into a
+// new access_token cookie — and replay the original request once.
+// ---------------------------------------------------------------------------
+
+const API_PATH_SEGMENT = "/api/";
+const AUTH_PATH_SEGMENT = "/api/auth/";
+
+// Shared across every concurrent 401 so a burst of expired requests triggers
+// exactly one refresh round-trip rather than a thundering herd.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function isAuthEndpoint(url: string): boolean {
+  return url.includes(AUTH_PATH_SEGMENT);
+}
+
+// Derive the refresh URL from the failing request's URL so any base-path or
+// origin prefix (e.g. "/portal/api/..." or "https://host/api/...") carries over
+// verbatim. Returns null when there is no "/api/" segment to anchor on.
+function deriveRefreshUrl(requestUrl: string): string | null {
+  const idx = requestUrl.indexOf(API_PATH_SEGMENT);
+  if (idx === -1) return null;
+  return `${requestUrl.slice(0, idx)}${API_PATH_SEGMENT}auth/refresh`;
+}
+
+async function refreshAccessToken(refreshUrl: string): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(refreshUrl, {
+          method: "POST",
+          credentials: "include",
+          headers: { accept: "application/json" },
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
@@ -299,7 +351,29 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers, credentials: "include" });
+  const sendRequest = () =>
+    fetch(input, { ...init, method, headers, credentials: "include" });
+
+  let response = await sendRequest();
+
+  // An expired access token surfaces as 401. Recover transparently by
+  // refreshing once (single-flight) and replaying the request, so callers
+  // never see a spurious auth error mid-session. Auth routes are skipped to
+  // avoid a refresh -> 401 -> refresh loop, and a Request input is left alone
+  // because its body may already be consumed and cannot be safely replayed.
+  if (
+    response.status === 401 &&
+    !isRequest(input) &&
+    !isAuthEndpoint(requestInfo.url)
+  ) {
+    const refreshUrl = deriveRefreshUrl(requestInfo.url);
+    if (refreshUrl) {
+      const refreshed = await refreshAccessToken(refreshUrl);
+      if (refreshed) {
+        response = await sendRequest();
+      }
+    }
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
