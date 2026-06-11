@@ -2,6 +2,7 @@ import { db, productsTable, chatSystemPromptsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { runTapfiliateColumnMigration } from "./tapfiliate-migration";
 import { seedYseProducts } from "./seed-yse-products";
+import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import { seedKnowledgebaseFromFiles } from "./seed-kb";
 import {
@@ -47,6 +48,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedYseProducts() threw:", err);
     missing.push("seedYseProducts");
+  }
+
+  // 1a. Machine brand products (backroad, offmarket, reserve_income,
+  //     silent_partner, test_like_mad). These were dev-only (seed.ts) and
+  //     therefore absent in production — /grant-product returns UNKNOWN_SLUGS
+  //     for them without this seeder. Idempotent: insert-if-missing on slug.
+  try {
+    await seedMachineBrandProducts();
+  } catch (err) {
+    console.error("[Bootstrap] seedMachineBrandProducts() threw:", err);
+    missing.push("seedMachineBrandProducts");
   }
 
   // 1b. Default machine_product_key_mappings rows so the receiver can

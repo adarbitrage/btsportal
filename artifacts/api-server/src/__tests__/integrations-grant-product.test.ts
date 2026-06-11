@@ -441,3 +441,68 @@ describe("POST /api/integrations/grant-product — happy paths", () => {
     expect(granted.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ─── Machine brand product slug resolution ────────────────────────────────
+// Confirms all 5 Machine front-end brand slugs resolve via /grant-product's
+// slug-match path (NOT thrivecart_product_id). Each brand must return 200,
+// not 404 UNKNOWN_SLUGS, which would mean the boot seeder missed a row.
+describe("POST /api/integrations/grant-product — Machine brand slugs resolve", () => {
+  const BRAND_SLUGS = [
+    "backroad",
+    "offmarket",
+    "reserve_income",
+    "silent_partner",
+    "test_like_mad",
+  ] as const;
+
+  const brandProductIds: number[] = [];
+
+  beforeAll(async () => {
+    for (const slug of BRAND_SLUGS) {
+      const [existing] = await db
+        .select({ id: productsTable.id })
+        .from(productsTable)
+        .where(eq(productsTable.slug, slug))
+        .limit(1);
+      if (existing) {
+        brandProductIds.push(existing.id);
+        continue;
+      }
+      const [row] = await db
+        .insert(productsTable)
+        .values({
+          slug,
+          name: `Test ${slug}`,
+          type: "frontend",
+          thrivecartProductId: null,
+          entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+          priceDisplay: null,
+          sortOrder: 999,
+        })
+        .returning({ id: productsTable.id });
+      seededProductIds.push(row.id);
+      brandProductIds.push(row.id);
+    }
+  });
+
+  it.each(BRAND_SLUGS)(
+    "slug '%s' resolves via /grant-product (200, not 404 UNKNOWN_SLUGS)",
+    async (slug) => {
+      const email = `brand-${slug.replace(/_/g, "-")}-${TEST_TAG}@machine.test`;
+      const res = await request(app)
+        .post(BASE_URL)
+        .set("Authorization", `Bearer ${validApiKey}`)
+        .send(
+          validBody({
+            customer: { email, firstName: "Brand", lastName: "Buyer" },
+            externalOrderId: `ord_brand_${slug}_${randomUUID().slice(0, 8)}`,
+            productSlugs: [slug],
+          })
+        );
+      expect(res.status).toBe(200);
+      expect(res.body.grants).toHaveLength(1);
+      expect(res.body.grants[0].productSlug).toBe(slug);
+      if (res.body.userId) seededUserIds.push(res.body.userId);
+    },
+  );
+});

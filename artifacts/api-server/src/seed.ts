@@ -126,6 +126,23 @@ async function seed() {
       priceDisplay: "TBD", sortOrder: 8,
       checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
     },
+    // Machine front-end brand products. silent_partner and test_like_mad are
+    // net-new; backroad/offmarket/reserve_income are above with placeholder
+    // thrivecart IDs for local testing. thrivecartProductId is null for the
+    // two new Machine-only products — they are provisioned via portal_product_keys,
+    // not ThriveCart webhooks.
+    {
+      slug: "silent_partner", name: "The Silent Partner System", type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: null, sortOrder: 15,
+    },
+    {
+      slug: "test_like_mad", name: "Test Like Mad", type: "frontend",
+      thrivecartProductId: null,
+      entitlementKeys: ["content:frontend", "support:basic", "chat:basic"],
+      priceDisplay: null, sortOrder: 16,
+    },
     // YSE (Your Second Engine) products — purchased via yoursecondengine.com
     // and granted to BTS via the /api/integrations/grant-product endpoint.
     // thrivecartProductId is null because these products are sold by YSE's

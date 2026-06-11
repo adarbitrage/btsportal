@@ -283,7 +283,21 @@ router.post(
   },
 );
 
-const MACHINE_FUNNEL_SLUGS = ["yse-workshop", "yse-ebook", "your-second-engine"] as const;
+const MACHINE_FUNNEL_SLUGS = [
+  "yse-workshop",
+  "yse-ebook",
+  "your-second-engine",
+  "backroad-system-workshop",
+  "backroad-system-ebook",
+  "off-market-affiliate-workshop",
+  "off-market-affiliate-ebook",
+  "reserve-income-workshop",
+  "reserve-income-ebook",
+  "silent-partner-workshop",
+  "silent-partner-ebook",
+  "test-like-mad-workshop",
+  "test-like-mad-ebook",
+] as const;
 type MachineFunnelSlug = (typeof MACHINE_FUNNEL_SLUGS)[number];
 
 function validateMachinePurchaseBody(body: unknown):

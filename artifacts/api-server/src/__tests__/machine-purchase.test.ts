@@ -243,13 +243,29 @@ describe("POST /api/integrations/machine-purchase — validation", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("accepts all three valid funnel_slug values", async () => {
-    for (const slug of ["yse-workshop", "yse-ebook", "your-second-engine"]) {
+  it("accepts all valid funnel_slug values (YSE + 5 brand workshops and ebooks)", async () => {
+    const allSlugs = [
+      "yse-workshop",
+      "yse-ebook",
+      "your-second-engine",
+      "backroad-system-workshop",
+      "backroad-system-ebook",
+      "off-market-affiliate-workshop",
+      "off-market-affiliate-ebook",
+      "reserve-income-workshop",
+      "reserve-income-ebook",
+      "silent-partner-workshop",
+      "silent-partner-ebook",
+      "test-like-mad-workshop",
+      "test-like-mad-ebook",
+    ];
+    for (const slug of allSlugs) {
+      const tag = slug.slice(0, 12).replace(/-/g, "");
       const res = await authedPost(
         validBody({
           funnel_slug: slug,
-          email: `${TEST_TAG}-funnel-${slug}@machine.test`,
-          order_number: `tm_ord_funnel_${slug}_${randomUUID().slice(0, 6)}`,
+          email: `${TEST_TAG}-fn-${tag}@machine.test`,
+          order_number: `tm_fn_${tag}_${randomUUID().slice(0, 6)}`,
         }),
       );
       expect([200, 201]).toContain(res.status);
