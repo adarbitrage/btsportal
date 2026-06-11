@@ -69,6 +69,7 @@ import adminAssistantGeneratorRouter from "./admin/assistant-generator.js";
 import assistantCardsRouter from "./assistant-cards";
 import adminAssistantCardsRouter from "./admin-assistant-cards";
 import coachDashboardRouter from "./coach-dashboard";
+import mediaMavensLinksRouter from "./media-mavens-links";
 
 const router: IRouter = Router();
 
@@ -142,5 +143,6 @@ router.use(adminAssistantGeneratorRouter);
 router.use(assistantCardsRouter);
 router.use(adminAssistantCardsRouter);
 router.use(coachDashboardRouter);
+router.use(mediaMavensLinksRouter);
 
 export default router;

@@ -15,6 +15,8 @@ export const mediaMavensProductsTable = pgTable("media_mavens_products", {
   salesPageUrl: text("sales_page_url").notNull().default(""),
   logoDriveUrl: text("logo_drive_url").notNull().default(""),
   affiliateLink: text("affiliate_link").notNull().default(""),
+  tapfiliateProgramId: text("tapfiliate_program_id"),
+  tapfiliateProgramTitle: text("tapfiliate_program_title"),
   displayOrder: integer("display_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

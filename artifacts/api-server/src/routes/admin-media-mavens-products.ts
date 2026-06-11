@@ -3,6 +3,8 @@ import { db, mediaMavensProductsTable, mediaMavensCategoriesTable } from "@works
 import { eq, asc, and, ne } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { listPrograms, TapfiliateConfigError } from "../lib/tapfiliate";
+import { invalidateCachedReferralUrlsByProgram } from "../lib/tapfiliate-cache";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -43,6 +45,11 @@ async function validateProductBody(body: Record<string, unknown>, requireSlugNam
     const validNames = await getValidCategoryNames();
     if (typeof body.category !== "string" || !validNames.includes(body.category)) {
       return `category must be one of: ${validNames.join(", ")}`;
+    }
+  }
+  if (body.tapfiliateProgramId !== undefined && body.tapfiliateProgramId !== null && body.tapfiliateProgramId !== "") {
+    if (typeof body.tapfiliateProgramId !== "string") {
+      return "tapfiliateProgramId must be a string";
     }
   }
   const urlFields: string[] = ["salesPageUrl", "logoDriveUrl", "affiliateLink"];
@@ -105,6 +112,9 @@ router.post("/admin/media-mavens-products", requirePermission("content:manage"),
     const firstCategory = await db.select({ name: mediaMavensCategoriesTable.name }).from(mediaMavensCategoriesTable).orderBy(asc(mediaMavensCategoriesTable.displayOrder)).limit(1);
     const defaultCategory = firstCategory[0]?.name ?? "Health";
 
+    const tapfiliateProgramId = (body.tapfiliateProgramId as string | null | undefined) ?? null;
+    const tapfiliateProgramTitle = (body.tapfiliateProgramTitle as string | null | undefined) ?? null;
+
     const [product] = await db.insert(mediaMavensProductsTable).values({
       slug: body.slug as string,
       name: body.name as string,
@@ -117,6 +127,8 @@ router.post("/admin/media-mavens-products", requirePermission("content:manage"),
       salesPageUrl: (body.salesPageUrl as string) ?? "",
       logoDriveUrl: (body.logoDriveUrl as string) ?? "",
       affiliateLink: (body.affiliateLink as string) ?? "",
+      tapfiliateProgramId: tapfiliateProgramId || null,
+      tapfiliateProgramTitle: tapfiliateProgramTitle || null,
       displayOrder: (body.displayOrder as number) ?? 0,
       isActive: (body.isActive as boolean) ?? true,
     }).returning();
@@ -178,6 +190,25 @@ router.put("/admin/media-mavens-products/:id", requirePermission("content:manage
     if (body.affiliateLink !== undefined) updateData.affiliateLink = body.affiliateLink;
     if (body.displayOrder !== undefined) updateData.displayOrder = body.displayOrder;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
+    if ("tapfiliateProgramId" in body) {
+      const newProgramId = (body.tapfiliateProgramId as string | null | undefined) || null;
+      updateData.tapfiliateProgramId = newProgramId;
+      const [cur] = await db
+        .select({ tapfiliateProgramId: mediaMavensProductsTable.tapfiliateProgramId })
+        .from(mediaMavensProductsTable)
+        .where(eq(mediaMavensProductsTable.id, id))
+        .limit(1);
+      const oldProgramId = cur?.tapfiliateProgramId ?? null;
+      if (oldProgramId && oldProgramId !== newProgramId) {
+        await invalidateCachedReferralUrlsByProgram(oldProgramId);
+      }
+      if (newProgramId && newProgramId !== oldProgramId) {
+        await invalidateCachedReferralUrlsByProgram(newProgramId);
+      }
+    }
+    if ("tapfiliateProgramTitle" in body) {
+      updateData.tapfiliateProgramTitle = (body.tapfiliateProgramTitle as string | null | undefined) || null;
+    }
 
     const [updated] = await db
       .update(mediaMavensProductsTable)
@@ -240,6 +271,20 @@ router.post("/admin/media-mavens-products/reorder", requirePermission("content:m
   } catch (error) {
     console.error("[Admin] Error reordering Media Mavens products:", error);
     res.status(500).json({ error: "Failed to reorder Media Mavens products" });
+  }
+});
+
+router.get("/admin/tapfiliate/programs", requirePermission("content:manage"), async (_req: Request, res: Response) => {
+  try {
+    const programs = await listPrograms();
+    res.json(programs);
+  } catch (err) {
+    if (err instanceof TapfiliateConfigError) {
+      res.status(503).json({ error: "Tapfiliate is not configured. Set the TAPFILIATE_API_KEY secret to enable program selection." });
+      return;
+    }
+    console.error("[Admin] Error fetching Tapfiliate programs:", err);
+    res.status(500).json({ error: "Failed to fetch Tapfiliate programs" });
   }
 });
 

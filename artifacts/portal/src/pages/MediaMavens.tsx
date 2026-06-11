@@ -2,11 +2,47 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Check, ChevronDown } from "lucide-react";
+import { Copy, Check, ChevronDown, ExternalLink } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useListMediaMavensProducts, useListMediaMavensCategories } from "@workspace/api-client-react";
-import type { MediaMavensProduct } from "@workspace/api-client-react";
+import { useListMediaMavensCategories } from "@workspace/api-client-react";
 import mediaMavensLogo from "@assets/mediamavens-logo-cropped.png";
+import { useQuery } from "@tanstack/react-query";
+
+const API_BASE = `${import.meta.env.BASE_URL}api`;
+
+interface ProductWithLink {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  category: string;
+  imageUrl: string | null;
+  description: string;
+  costToConsumer: string;
+  affiliateCommission: string;
+  salesPageUrl: string;
+  logoDriveUrl: string;
+  affiliateLink: string;
+  tapfiliateProgramId: string | null;
+  tapfiliateProgramTitle: string | null;
+  resolvedAffiliateLink: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+function useProductsWithLinks() {
+  return useQuery<ProductWithLink[]>({
+    queryKey: ["/api/media-mavens-products/with-links"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/media-mavens-products/with-links`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load products");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 const SECTION_STYLES = {
   bar: "bg-card text-foreground",
@@ -16,7 +52,7 @@ const SECTION_STYLES = {
   chevron: "text-foreground",
 };
 
-function getImageSrc(product: MediaMavensProduct): string | null {
+function getImageSrc(product: ProductWithLink): string | null {
   if (!product.imageUrl) return null;
   if (product.imageUrl.startsWith("http://") || product.imageUrl.startsWith("https://")) {
     return product.imageUrl;
@@ -24,12 +60,19 @@ function getImageSrc(product: MediaMavensProduct): string | null {
   return `${import.meta.env.BASE_URL}api${product.imageUrl}`;
 }
 
-function ProductCard({ product }: { product: MediaMavensProduct }) {
+function isTemplateLink(link: string): boolean {
+  return link.includes("youraffiliateid");
+}
+
+function ProductCard({ product }: { product: ProductWithLink }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const imageSrc = getImageSrc(product);
+
+  const displayLink = product.resolvedAffiliateLink;
+  const isResolved = product.tapfiliateProgramId != null && !isTemplateLink(displayLink);
 
   useLayoutEffect(() => {
     const el = descRef.current;
@@ -56,7 +99,7 @@ function ProductCard({ product }: { product: MediaMavensProduct }) {
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(product.affiliateLink);
+      await navigator.clipboard.writeText(displayLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -150,7 +193,7 @@ function ProductCard({ product }: { product: MediaMavensProduct }) {
               </div>
               <div className="flex items-stretch gap-2">
                 <code className="flex-1 min-w-0 text-xs bg-background border border-dashed border-border rounded px-2.5 py-2 font-mono text-foreground/90 truncate">
-                  {product.affiliateLink}
+                  {displayLink}
                 </code>
                 <Button
                   size="sm"
@@ -169,6 +212,19 @@ function ProductCard({ product }: { product: MediaMavensProduct }) {
                     </>
                   )}
                 </Button>
+                {isResolved && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    asChild
+                    data-testid={`button-visit-${product.slug}`}
+                    className="shrink-0"
+                  >
+                    <a href={displayLink} target="_blank" rel="noreferrer">
+                      <ExternalLink className="w-4 h-4 mr-1.5" /> Visit
+                    </a>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -206,11 +262,15 @@ function ProductCardSkeleton() {
 }
 
 export default function MediaMavens() {
-  const { data: products, isLoading: productsLoading, isError: productsError } = useListMediaMavensProducts();
+  const { data: products, isLoading: productsLoading, isError: productsError } = useProductsWithLinks();
   const { data: categories, isLoading: categoriesLoading, isError: categoriesError } = useListMediaMavensCategories();
   const isLoading = productsLoading || categoriesLoading;
   const isError = productsError || categoriesError;
   const sortedCategories = (categories ?? []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
+
+  const hasAnyResolved = (products ?? []).some(
+    (p) => p.tapfiliateProgramId != null && !isTemplateLink(p.resolvedAffiliateLink),
+  );
 
   return (
     <AppLayout>
@@ -234,17 +294,19 @@ export default function MediaMavens() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-          <p className="text-sm text-emerald-900">
-            <strong>Heads up:</strong> The affiliate link shown on each product card is
-            a template. Your unique affiliate ID will be filled in automatically once
-            your Media Mavens account is connected — until then, the placeholder{" "}
-            <code className="px-1 py-0.5 rounded bg-white border border-emerald-200 text-emerald-900 font-mono text-xs">
-              youraffiliateid
-            </code>{" "}
-            is shown so you can preview the link format.
-          </p>
-        </div>
+        {!isLoading && !isError && !hasAnyResolved && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <p className="text-sm text-emerald-900">
+              <strong>Heads up:</strong> The affiliate link shown on each product card is
+              a template. Your unique affiliate ID will be filled in automatically once
+              your Media Mavens account is connected — until then, the placeholder{" "}
+              <code className="px-1 py-0.5 rounded bg-white border border-emerald-200 text-emerald-900 font-mono text-xs">
+                youraffiliateid
+              </code>{" "}
+              is shown so you can preview the link format.
+            </p>
+          </div>
+        )}
 
         {isLoading && (
           <div className="space-y-4">
@@ -288,7 +350,7 @@ function CategorySection({
   products,
 }: {
   category: string;
-  products: MediaMavensProduct[];
+  products: ProductWithLink[];
 }) {
   const [open, setOpen] = useState(false);
   const styles = SECTION_STYLES;

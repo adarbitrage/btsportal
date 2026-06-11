@@ -1101,6 +1101,8 @@ export interface AdminMediaMavensProduct {
   salesPageUrl: string;
   logoDriveUrl: string;
   affiliateLink: string;
+  tapfiliateProgramId: string | null;
+  tapfiliateProgramTitle: string | null;
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -1119,8 +1121,15 @@ export interface MediaMavensProductFormData {
   salesPageUrl: string;
   logoDriveUrl: string;
   affiliateLink: string;
+  tapfiliateProgramId: string | null;
+  tapfiliateProgramTitle: string | null;
   displayOrder: number;
   isActive: boolean;
+}
+
+export interface TapfiliateProgram {
+  id: string;
+  title: string;
 }
 
 export const adminMediaMavensApi = {
@@ -1146,6 +1155,8 @@ export const adminMediaMavensApi = {
     adminFetch<{ uploadURL: string; objectPath: string }>("/admin/media-mavens-products/upload-image-url", {
       method: "POST",
     }),
+  listTapfiliatePrograms: () =>
+    adminFetch<TapfiliateProgram[]>("/admin/tapfiliate/programs"),
 };
 
 export function useAdminMediaMavensProducts() {
@@ -1198,6 +1209,15 @@ export function useAdminReorderMediaMavensProducts() {
       qc.invalidateQueries({ queryKey: ["/api/admin/media-mavens-products"] });
       qc.invalidateQueries({ queryKey: ["/api/media-mavens-products"] });
     },
+  });
+}
+
+export function useAdminTapfiliatePrograms() {
+  return useQuery({
+    queryKey: ["/api/admin/tapfiliate/programs"],
+    queryFn: () => adminMediaMavensApi.listTapfiliatePrograms(),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

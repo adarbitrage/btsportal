@@ -1,5 +1,6 @@
 import { db, productsTable, chatSystemPromptsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { runTapfiliateColumnMigration } from "./tapfiliate-migration";
 import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import { seedKnowledgebaseFromFiles } from "./seed-kb";
@@ -31,6 +32,14 @@ export interface PrerequisiteResult {
 
 export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResult> {
   const missing: string[] = [];
+
+  // 0. Add Tapfiliate columns (IF NOT EXISTS — idempotent).
+  try {
+    await runTapfiliateColumnMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runTapfiliateColumnMigration() threw:", err);
+    missing.push("tapfiliateColumnMigration");
+  }
 
   // 1. YSE product seeding — endpoint returns UNKNOWN_SLUGS / 500 without it.
   try {

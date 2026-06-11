@@ -72,6 +72,7 @@ import {
   useAdminUpdateMediaMavensCategory,
   useAdminDeleteMediaMavensCategory,
   useAdminReorderMediaMavensCategories,
+  useAdminTapfiliatePrograms,
   type AdminMediaMavensProduct,
   type AdminMediaMavensCategory,
   type MediaMavensProductFormData,
@@ -91,6 +92,8 @@ const EMPTY_FORM: MediaMavensProductFormData = {
   salesPageUrl: "",
   logoDriveUrl: "",
   affiliateLink: "",
+  tapfiliateProgramId: null,
+  tapfiliateProgramTitle: null,
   displayOrder: 0,
   isActive: true,
 };
@@ -108,6 +111,8 @@ function productToForm(p: AdminMediaMavensProduct): MediaMavensProductFormData {
     salesPageUrl: p.salesPageUrl,
     logoDriveUrl: p.logoDriveUrl,
     affiliateLink: p.affiliateLink,
+    tapfiliateProgramId: p.tapfiliateProgramId,
+    tapfiliateProgramTitle: p.tapfiliateProgramTitle,
     displayOrder: p.displayOrder,
     isActive: p.isActive,
   };
@@ -214,6 +219,8 @@ function ProductFormDialog({
   const createMutation = useAdminCreateMediaMavensProduct();
   const updateMutation = useAdminUpdateMediaMavensProduct();
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  const { data: tapfiliatePrograms, isError: tapfiliateError } = useAdminTapfiliatePrograms();
 
   function set<K extends keyof MediaMavensProductFormData>(key: K, value: MediaMavensProductFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -327,8 +334,43 @@ function ProductFormDialog({
           </div>
 
           <div>
-            <Label>Affiliate Link</Label>
+            <Label>Affiliate Link (fallback template)</Label>
             <Input value={form.affiliateLink} onChange={(e) => set("affiliateLink", e.target.value)} className="mt-1" placeholder="https://..." type="url" />
+            <p className="text-xs text-muted-foreground mt-1">Used when no Tapfiliate program is assigned, or as a fallback if the API is unavailable.</p>
+          </div>
+
+          <div>
+            <Label>Tapfiliate Program</Label>
+            {tapfiliateError ? (
+              <p className="text-xs text-amber-600 mt-1">Tapfiliate not configured — set TAPFILIATE_API_KEY to enable program selection.</p>
+            ) : (
+              <Select
+                value={form.tapfiliateProgramId ?? "__none__"}
+                onValueChange={(v) => {
+                  if (v === "__none__") {
+                    set("tapfiliateProgramId", null);
+                    set("tapfiliateProgramTitle", null);
+                  } else {
+                    const prog = (tapfiliatePrograms ?? []).find((p) => p.id === v);
+                    set("tapfiliateProgramId", v);
+                    set("tapfiliateProgramTitle", prog?.title ?? null);
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={tapfiliatePrograms ? "None (use fallback link)" : "Loading programs…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (use fallback link)</SelectItem>
+                  {(tapfiliatePrograms ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {form.tapfiliateProgramId && (
+              <p className="text-xs text-emerald-700 mt-1">Members will get their personal referral URL for this program.</p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

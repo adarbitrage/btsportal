@@ -32,6 +32,7 @@ export const usersTable = pgTable("users", {
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
   communityBio: text("community_bio"),
   ghlContactId: text("ghl_contact_id"),
+  tapfiliateAffiliateId: text("tapfiliate_affiliate_id"),
   marketingOptIn: boolean("marketing_opt_in").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   postingBannedAt: timestamp("posting_banned_at", { withTimezone: true }),
