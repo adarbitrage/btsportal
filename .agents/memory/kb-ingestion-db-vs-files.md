@@ -13,6 +13,6 @@ The AI assistant (`/api/ai-chat`) draws KB content from TWO independent places:
 
 **How to apply:** For any KB content change, do BOTH: edit source files (so fresh seeds/new envs are correct) AND `UPDATE knowledgebase_docs`. Then restart api-server for the system-prompt cache. Remember production: its DB also won't auto-update on redeploy (same ON CONFLICT), so re-run the UPDATE against prod.
 
-**Gotcha:** `knowledgebase_docs.title` has a UNIQUE constraint (`knowledgebase_docs_title_uniq`). Bulk title rewrites can collapse near-duplicate titles into collisions (duplicate coaching-call ingests like `... Wissbaum` vs `... Wissbaum(1)` vs `Call-` vs `Call -`). Dedupe by appending a discriminator (we used `[id]`) when a stripped title already exists.
+**Gotcha:** `knowledgebase_docs.title` has a UNIQUE constraint (`knowledgebase_docs_title_uniq`). Bulk title rewrites can collapse near-duplicate titles into collisions (duplicate coaching-call ingests like `... <coach>` vs `... <coach>(1)` vs `Call-` vs `Call -`). Dedupe by appending a discriminator (we used `[id]`) when a stripped title already exists.
 
 Other AI-history surfaces to check when scrubbing names: `messages`, `chat_messages`, `chat_sessions.title`, `conversations.title`, `chat_prompts`, `chat_system_prompts` — prior conversation turns get replayed into the prompt as recent history.

@@ -17,8 +17,8 @@ The AI assistant must only ever surface coach FIRST names. `lib/content-privacy-
    can no longer reintroduce a surname. (coaching-transcripts.txt is only DB-ingested, never read raw.)
 
 **Why:** A coach last name leaked despite the filter because the source uses inconsistent
-spellings — both "Wissbaum" (double-s) and "Wisbaum" (single-s); the filter only matched the
-double-s. Coach surname patterns must tolerate variants (e.g. `Wiss?baum`, `Bob[iy]lev`).
+spellings (e.g. a doubled vs. single inner consonant); the filter only matched one spelling.
+Coach surname patterns must tolerate such variants (optional/alternating characters in the regex).
 
 **How to apply:** When asked to scrub a name from the assistant: (1) add/widen the filter rule
 in content-privacy-filter.ts to cover spelling variants, (2) clean the raw source files read by
