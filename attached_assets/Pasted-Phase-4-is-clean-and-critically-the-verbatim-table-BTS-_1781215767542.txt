@@ -1,0 +1,17 @@
+Phase 4 is clean — and critically, the verbatim table BTS has been waiting on is now in hand. This is the deliverable that unblocks Task #750.
+The Machine side is solid: registry as single source of truth, the YSE wire stays byte-identical (locked by a frozen JSON + hash guard — that's a nice belt-and-suspenders on the regression bar), and the sender now unions the brand key correctly. The agent's HALT warning is exactly the right flag: The Machine now sends correct brand keys, but the live BTS receiver still runs the v1 contract (accepts only 3 YSE slugs, grants yse_front_end for everything). Those two systems are now temporarily out of sync — by design, because BTS Task #750 is the piece that catches up.
+So this is the handoff moment. The string table goes to the BTS agent now to close Task #750. Here's that relay:
+
+To the BTS agent — the verbatim strings for Task #750 are here. Fold them in and propose #750 for approval.
+The Machine agent's Phase 4 is complete and reports these as the source-of-truth strings (verified against live Neon funnels.slug):
+BrandWorkshop funnel slugEbook funnel slugportal_product_keyYour Second Engineyse-workshopyse-ebookyse_front_endBackroad Systembackroad-system-workshopbackroad-system-ebookbackroadOff-Market Affiliateoff-market-affiliate-workshopoff-market-affiliate-ebookoffmarketReserve Incomereserve-income-workshopreserve-income-ebookreserve_incomeSilent Partnersilent-partner-workshopsilent-partner-ebooksilent_partnerTest Like Madtest-like-mad-workshoptest-like-mad-ebooktest_like_mad
+Close Task #750's two parts against these:
+(a) Reconcile MACHINE_FUNNEL_SLUGS — you have 10 provisional slugs already merged. Check them against the 12 above (workshop + ebook × 6). Keep the matches, fix any that differ, add YSE's 2 if not present. The full accepted set should be exactly these 12 slugs.
+(b) Add machine_product_key_mappings rows — map each portal_product_key above → its portal product slug. Per the table, the keys ARE the portal slugs (backroad → backroad, etc.), so confirm whether the mapping is identity or whether the Machine key and portal slug differ in your schema. Map all 6.
+Critical — also address the two receiver-side gaps The Machine agent flagged, because these are what actually make brand provisioning work (Task #749 created the products; this is wiring the receiver to use them):
+
+Expand the receiver's funnel_slug enum/accepted set to all 13 slugs (the 12 above — confirm whether it's 12 or 13 in your contract; The Machine gates on a 13-slug set). Without this, a brand order 400s and burns all 5 retries, paging on-call.
+Re-key grant resolution off portal_product_keys/funnel_slug instead of the current behavior that grants yse_front_end for every accepted purchase. Without this, an accepted brand buyer is wrongly granted YSE access even after the enum is expanded.
+
+Both #749 (products exist) and these receiver changes must be live before any brand purchase hits the member-sync path. There are 0 brand orders today, so the window is clean — but only until the first brand sale.
+Halt with: the reconciled MACHINE_FUNNEL_SLUGS, the mapping rows, the expanded receiver enum, the re-keyed grant resolution, and confirmation a simulated brand purchase (e.g. backroad-system-workshop + key backroad) now resolves to the backroad product — not yse_front_end. YSE must stay unaffected.
