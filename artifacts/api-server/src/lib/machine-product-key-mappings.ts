@@ -54,7 +54,64 @@ export const DEFAULT_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<{
     portalSlug: "yse_profit_maximizer_pass",
     notes: "Profit Maximizer Pass ($97). Verbatim Machine→Portal slug.",
   },
+  // ── Machine front-end brand products (identity mapping: key = slug) ──────
+  {
+    machineKey: "backroad",
+    portalSlug: "backroad",
+    notes: "Backroad System front-end offer. Identity mapping per Dispatch 2.",
+  },
+  {
+    machineKey: "offmarket",
+    portalSlug: "offmarket",
+    notes: "Off-Market Affiliate front-end offer. Identity mapping per Dispatch 2.",
+  },
+  {
+    machineKey: "reserve_income",
+    portalSlug: "reserve_income",
+    notes: "Reserve Income front-end offer. Identity mapping per Dispatch 2.",
+  },
+  {
+    machineKey: "silent_partner",
+    portalSlug: "silent_partner",
+    notes: "Silent Partner front-end offer. Identity mapping per Dispatch 2.",
+  },
+  {
+    machineKey: "test_like_mad",
+    portalSlug: "test_like_mad",
+    notes: "Test Like Mad front-end offer. Identity mapping per Dispatch 2.",
+  },
 ];
+
+/**
+ * Canonical funnel-slug → Portal product slug mapping covering all 13 accepted
+ * Machine funnel slugs (12 verbatim from Dispatch 2 + the legacy
+ * "your-second-engine" slug).  YSE funnels → "yse_front_end"; each brand's
+ * two funnels → that brand's portal product slug.
+ *
+ * This map is the single source of truth for funnel-derived fallback grants:
+ * when `portal_product_keys` resolve to an empty set, the receiver uses this
+ * map to derive the correct product from `funnel_slug` instead of always
+ * falling back to "yse_front_end".
+ *
+ * Drift guard: every slug accepted by the MACHINE_FUNNEL_SLUGS validator in
+ * integrations.ts MUST have exactly one entry here. The guard test in
+ * machine-product-key-mappings.test.ts enforces this at CI time.
+ */
+export const FUNNEL_SLUG_TO_PRODUCT: Readonly<Record<string, string>> = {
+  "yse-workshop": "yse_front_end",
+  "yse-ebook": "yse_front_end",
+  "your-second-engine": "yse_front_end",
+  "backroad-system-workshop": "backroad",
+  "backroad-system-ebook": "backroad",
+  "off-market-affiliate-workshop": "offmarket",
+  "off-market-affiliate-ebook": "offmarket",
+  "reserve-income-workshop": "reserve_income",
+  "reserve-income-ebook": "reserve_income",
+  "silent-partner-workshop": "silent_partner",
+  "silent-partner-ebook": "silent_partner",
+  "test-like-mad-workshop": "test_like_mad",
+  "test-like-mad-ebook": "test_like_mad",
+};
 
 /**
  * Insert the default mapping rows if they're missing. Idempotent: existing
@@ -103,7 +160,7 @@ export interface MachineKeyResolution {
   portalSlugs: string[];
   /** Machine keys that have no mapping row — captured for admin review. */
   unknownKeys: string[];
-  /** True iff the resolver fell back to the legacy ["yse_front_end"] grant. */
+  /** True iff the resolver fell back to a derived/legacy grant. */
   usedFallback: boolean;
 }
 
@@ -111,15 +168,20 @@ export interface MachineKeyResolution {
  * Resolve a Machine `portal_product_keys` array onto Portal product slugs
  * using the admin-editable mapping table.
  *
- * Backward-compat fallback: if the resolved set is empty (no input keys, or
- * every input key was unknown), return ["yse_front_end"] so we preserve the
- * pre-#493 behaviour of always granting at least the front-end product. This
- * keeps the 201 / 200-merge / 200-deduped wire contract intact for senders
- * that haven't started emitting `portal_product_keys` yet.
+ * Fallback behaviour: if the resolved set is empty (no input keys, or every
+ * input key was unknown), derive the fallback product from `funnelSlug` via
+ * FUNNEL_SLUG_TO_PRODUCT. This ensures brand buyers always receive their own
+ * product instead of "yse_front_end". Only genuine YSE funnels fall back to
+ * "yse_front_end". When no funnelSlug is provided (e.g. in pure unit tests),
+ * "yse_front_end" is used as the ultimate backstop.
+ *
+ * This keeps the 201 / 200-merge / 200-deduped wire contract intact for
+ * senders that haven't started emitting `portal_product_keys` yet.
  */
 export function resolveMachineProductKeys(
   inputKeys: readonly string[],
   mappings: ReadonlyMap<string, string>,
+  funnelSlug?: string,
 ): MachineKeyResolution {
   const portalSlugs: string[] = [];
   const seen = new Set<string>();
@@ -140,8 +202,11 @@ export function resolveMachineProductKeys(
   }
 
   if (portalSlugs.length === 0) {
+    const fallbackSlug =
+      (funnelSlug !== undefined ? FUNNEL_SLUG_TO_PRODUCT[funnelSlug] : undefined) ??
+      "yse_front_end";
     return {
-      portalSlugs: ["yse_front_end"],
+      portalSlugs: [fallbackSlug],
       unknownKeys,
       usedFallback: true,
     };

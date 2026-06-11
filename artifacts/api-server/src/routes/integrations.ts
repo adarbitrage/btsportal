@@ -11,6 +11,7 @@ import {
   redactPii,
 } from "../lib/external-grant-product";
 import {
+  FUNNEL_SLUG_TO_PRODUCT,
   getMachineProductKeyMappings,
   recordUnknownMachineProductKeys,
   resolveMachineProductKeys,
@@ -283,7 +284,7 @@ router.post(
   },
 );
 
-const MACHINE_FUNNEL_SLUGS = [
+export const MACHINE_FUNNEL_SLUGS = [
   "yse-workshop",
   "yse-ebook",
   "your-second-engine",
@@ -471,10 +472,11 @@ router.post(
     // panel) and also stamped onto the webhook_logs payload metadata
     // alongside the originals, so post-hoc reconciliation never has to
     // diff two separate sources of truth. If the mapping produces an
-    // empty set (every key unknown, or none supplied), we fall back to
-    // the legacy ["yse_front_end"] grant so the 201/200/200-dedupe wire
-    // contract is unchanged for senders that haven't started emitting
-    // the field yet — see task #493.
+    // empty set (every key unknown, or none supplied), we derive the
+    // fallback product from `funnel_slug` via FUNNEL_SLUG_TO_PRODUCT:
+    // brand funnels → their own product; YSE funnels → "yse_front_end".
+    // This keeps the 201/200/200-dedupe wire contract intact for senders
+    // that haven't started emitting `portal_product_keys` yet.
     let resolvedSlugs: string[];
     let unknownKeys: string[];
     let usedFallback: boolean;
@@ -483,18 +485,19 @@ router.post(
       const resolution = resolveMachineProductKeys(
         data.portal_product_keys,
         mappings,
+        data.funnel_slug,
       );
       resolvedSlugs = resolution.portalSlugs;
       unknownKeys = resolution.unknownKeys;
       usedFallback = resolution.usedFallback;
     } catch (err) {
-      // The mapping read failed — preserve the previous behaviour
-      // (front-end only) rather than 500ing on a non-grant code path.
+      // The mapping read failed — derive the fallback product from funnel_slug
+      // so brand buyers still receive their own product rather than yse_front_end.
       console.error(
-        "[MachinePurchase] mapping lookup failed; falling back to yse_front_end:",
+        "[MachinePurchase] mapping lookup failed; falling back via funnel_slug:",
         redactPii(err),
       );
-      resolvedSlugs = ["yse_front_end"];
+      resolvedSlugs = [FUNNEL_SLUG_TO_PRODUCT[data.funnel_slug] ?? "yse_front_end"];
       unknownKeys = [];
       usedFallback = true;
     }
@@ -513,9 +516,9 @@ router.post(
       const filtered = resolvedSlugs.filter((s) => existingSet.has(s));
       unmappedSlugs = resolvedSlugs.filter((s) => !existingSet.has(s));
       if (filtered.length === 0) {
-        // Every mapped slug is missing as a product — fall back to the
-        // legacy front-end grant so the wire contract still holds.
-        resolvedSlugs = ["yse_front_end"];
+        // Every mapped slug is missing as a product — derive the fallback
+        // product from funnel_slug so brand buyers receive their own product.
+        resolvedSlugs = [FUNNEL_SLUG_TO_PRODUCT[data.funnel_slug] ?? "yse_front_end"];
         usedFallback = true;
       } else {
         resolvedSlugs = filtered;

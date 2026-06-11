@@ -53,9 +53,11 @@ import { buildTestApp, buildTestAppWithRouters } from "./test-app";
 import integrationsRouter from "../routes/integrations";
 import adminPanelRouter from "../routes/admin-panel";
 import {
+  FUNNEL_SLUG_TO_PRODUCT,
   resolveMachineProductKeys,
   seedMachineProductKeyMappings,
 } from "../lib/machine-product-key-mappings";
+import { MACHINE_FUNNEL_SLUGS } from "../routes/integrations";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const TEST_TAG = `mpkm_${randomUUID().slice(0, 6).replace(/-/g, "")}`;
@@ -438,5 +440,252 @@ describe("Admin endpoints — machine product key mappings", () => {
       (u: { machineKey: string }) => u.machineKey,
     );
     expect(includeKeys).toContain(machineKey);
+  });
+});
+
+// ─── Drift guard: funnel-slug accepted set ───────────────────────────────────
+// Locks the 13-slug set so it can't silently drift from the Dispatch 2
+// source-of-truth table without a test failure.
+describe("MACHINE_FUNNEL_SLUGS — accepted set guard", () => {
+  const EXPECTED_SLUGS = [
+    "yse-workshop",
+    "yse-ebook",
+    "your-second-engine",
+    "backroad-system-workshop",
+    "backroad-system-ebook",
+    "off-market-affiliate-workshop",
+    "off-market-affiliate-ebook",
+    "reserve-income-workshop",
+    "reserve-income-ebook",
+    "silent-partner-workshop",
+    "silent-partner-ebook",
+    "test-like-mad-workshop",
+    "test-like-mad-ebook",
+  ] as const;
+
+  it("contains exactly the 13 source-of-truth slugs (12 verbatim + legacy your-second-engine)", () => {
+    const actual = [...MACHINE_FUNNEL_SLUGS].sort();
+    const expected = [...EXPECTED_SLUGS].sort();
+    expect(actual).toEqual(expected);
+  });
+
+  it("FUNNEL_SLUG_TO_PRODUCT has exactly one entry per accepted funnel slug", () => {
+    for (const slug of MACHINE_FUNNEL_SLUGS) {
+      expect(FUNNEL_SLUG_TO_PRODUCT[slug]).toBeDefined();
+      expect(typeof FUNNEL_SLUG_TO_PRODUCT[slug]).toBe("string");
+    }
+    expect(Object.keys(FUNNEL_SLUG_TO_PRODUCT)).toHaveLength(MACHINE_FUNNEL_SLUGS.length);
+  });
+});
+
+// ─── resolveMachineProductKeys — funnel-derived fallback (pure) ──────────────
+describe("resolveMachineProductKeys — funnel-derived fallback (pure)", () => {
+  const emptyMap = new Map<string, string>();
+
+  it("uses the funnel-derived product when portal_product_keys is empty", () => {
+    for (const [funnelSlug, expectedProduct] of Object.entries(FUNNEL_SLUG_TO_PRODUCT)) {
+      const r = resolveMachineProductKeys([], emptyMap, funnelSlug);
+      expect(r.portalSlugs).toEqual([expectedProduct]);
+      expect(r.usedFallback).toBe(true);
+    }
+  });
+
+  it("uses the funnel-derived product when every key is unknown", () => {
+    const r = resolveMachineProductKeys(["unknown_key"], emptyMap, "backroad-system-workshop");
+    expect(r.portalSlugs).toEqual(["backroad"]);
+    expect(r.unknownKeys).toEqual(["unknown_key"]);
+    expect(r.usedFallback).toBe(true);
+  });
+
+  it("YSE funnels fall back to yse_front_end", () => {
+    for (const slug of ["yse-workshop", "yse-ebook", "your-second-engine"]) {
+      const r = resolveMachineProductKeys([], emptyMap, slug);
+      expect(r.portalSlugs).toEqual(["yse_front_end"]);
+    }
+  });
+
+  it("each brand funnel falls back to its own product, never yse_front_end", () => {
+    const brandCases: Array<[string, string]> = [
+      ["backroad-system-workshop", "backroad"],
+      ["backroad-system-ebook", "backroad"],
+      ["off-market-affiliate-workshop", "offmarket"],
+      ["off-market-affiliate-ebook", "offmarket"],
+      ["reserve-income-workshop", "reserve_income"],
+      ["reserve-income-ebook", "reserve_income"],
+      ["silent-partner-workshop", "silent_partner"],
+      ["silent-partner-ebook", "silent_partner"],
+      ["test-like-mad-workshop", "test_like_mad"],
+      ["test-like-mad-ebook", "test_like_mad"],
+    ];
+    for (const [funnelSlug, expectedProduct] of brandCases) {
+      const r = resolveMachineProductKeys([], emptyMap, funnelSlug);
+      expect(r.portalSlugs).toEqual([expectedProduct]);
+      expect(r.portalSlugs).not.toContain("yse_front_end");
+    }
+  });
+
+  it("falls back to yse_front_end when funnelSlug is undefined (no-arg backward compat)", () => {
+    const r = resolveMachineProductKeys([], emptyMap);
+    expect(r.portalSlugs).toEqual(["yse_front_end"]);
+    expect(r.usedFallback).toBe(true);
+  });
+});
+
+// ─── Brand purchase integration tests ────────────────────────────────────────
+// Prove that a brand purchase resolves to the correct brand product, not YSE,
+// covering both the key-path and the funnel-derived fallback.
+describe("POST /api/integrations/machine-purchase — brand product resolution", () => {
+  const brandProductIds: Record<string, number> = {};
+  const brandUserIds: number[] = [];
+
+  beforeAll(async () => {
+    const brands = [
+      { slug: "backroad", name: "The Backroad System" },
+      { slug: "offmarket", name: "The Off-Market Affiliate System" },
+      { slug: "reserve_income", name: "The Reserve Income System" },
+      { slug: "silent_partner", name: "The Silent Partner System" },
+      { slug: "test_like_mad", name: "Test Like Mad" },
+    ];
+    for (const { slug, name } of brands) {
+      brandProductIds[slug] = await ensureProduct(slug, name);
+    }
+  });
+
+  afterAll(async () => {
+    if (brandUserIds.length > 0) {
+      await db.delete(userProductsTable).where(inArray(userProductsTable.userId, brandUserIds));
+      await db.delete(usersTable).where(inArray(usersTable.id, brandUserIds));
+    }
+  });
+
+  const BRAND_CASES: Array<{
+    funnelSlug: string;
+    machineKey: string;
+    productSlug: string;
+  }> = [
+    { funnelSlug: "backroad-system-workshop", machineKey: "backroad", productSlug: "backroad" },
+    { funnelSlug: "off-market-affiliate-workshop", machineKey: "offmarket", productSlug: "offmarket" },
+    { funnelSlug: "reserve-income-workshop", machineKey: "reserve_income", productSlug: "reserve_income" },
+    { funnelSlug: "silent-partner-workshop", machineKey: "silent_partner", productSlug: "silent_partner" },
+    { funnelSlug: "test-like-mad-workshop", machineKey: "test_like_mad", productSlug: "test_like_mad" },
+  ];
+
+  for (const { funnelSlug, machineKey, productSlug } of BRAND_CASES) {
+    it(`key-path: ${funnelSlug} + key ${machineKey} → ${productSlug}, NOT yse_front_end`, async () => {
+      const order = `tm_bk_${machineKey.slice(0, 8)}_${randomUUID().slice(0, 6)}`;
+      const res = await authedPost(
+        validBody({
+          funnel_slug: funnelSlug,
+          order_number: order,
+          email: `${TEST_TAG}-bk-${machineKey}@machine.test`,
+          portal_product_keys: [machineKey],
+        }),
+      );
+      expect([200, 201]).toContain(res.status);
+      brandUserIds.push(res.body.userId);
+
+      const grants = await db
+        .select({ productId: userProductsTable.productId })
+        .from(userProductsTable)
+        .where(eq(userProductsTable.userId, res.body.userId));
+      const grantedIds = grants.map((g) => g.productId);
+
+      expect(grantedIds).toContain(brandProductIds[productSlug]);
+      expect(grantedIds).not.toContain(frontEndProductId);
+
+      const metadata = await readMetadata(order);
+      expect(metadata.resolved_portal_slugs).toEqual([productSlug]);
+      expect(metadata.portal_product_keys_fallback).toBe(false);
+    });
+
+    it(`funnel-fallback: ${funnelSlug} + empty keys → ${productSlug}, NOT yse_front_end`, async () => {
+      const order = `tm_bf_${machineKey.slice(0, 8)}_${randomUUID().slice(0, 6)}`;
+      const res = await authedPost(
+        validBody({
+          funnel_slug: funnelSlug,
+          order_number: order,
+          email: `${TEST_TAG}-bf-${machineKey}@machine.test`,
+          portal_product_keys: [],
+        }),
+      );
+      expect([200, 201]).toContain(res.status);
+      brandUserIds.push(res.body.userId);
+
+      const grants = await db
+        .select({ productId: userProductsTable.productId })
+        .from(userProductsTable)
+        .where(eq(userProductsTable.userId, res.body.userId));
+      const grantedIds = grants.map((g) => g.productId);
+
+      expect(grantedIds).toContain(brandProductIds[productSlug]);
+      expect(grantedIds).not.toContain(frontEndProductId);
+
+      const metadata = await readMetadata(order);
+      expect(metadata.resolved_portal_slugs).toEqual([productSlug]);
+      expect(metadata.portal_product_keys_fallback).toBe(true);
+    });
+  }
+
+  it("YSE purchase is completely unaffected: yse-workshop + yse_front_end key → yse_front_end", async () => {
+    const order = `tm_yse_sanity_${randomUUID().slice(0, 6)}`;
+    const res = await authedPost(
+      validBody({
+        funnel_slug: "yse-workshop",
+        order_number: order,
+        email: `${TEST_TAG}-yse-sanity@machine.test`,
+        portal_product_keys: ["yse_front_end"],
+      }),
+    );
+    expect([200, 201]).toContain(res.status);
+    brandUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.resolved_portal_slugs).toEqual(["yse_front_end"]);
+    expect(metadata.portal_product_keys_fallback).toBe(false);
+  });
+
+  it("YSE funnel-fallback: yse-workshop + empty keys → yse_front_end", async () => {
+    const order = `tm_yse_fb_${randomUUID().slice(0, 6)}`;
+    const res = await authedPost(
+      validBody({
+        funnel_slug: "yse-workshop",
+        order_number: order,
+        email: `${TEST_TAG}-yse-fb@machine.test`,
+        portal_product_keys: [],
+      }),
+    );
+    expect([200, 201]).toContain(res.status);
+    brandUserIds.push(res.body.userId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.resolved_portal_slugs).toEqual(["yse_front_end"]);
+    expect(metadata.portal_product_keys_fallback).toBe(true);
+  });
+
+  it("simulated brand purchase: backroad-system-workshop + backroad key → backroad, not yse_front_end", async () => {
+    const order = `tm_backroad_sim_${randomUUID().slice(0, 6)}`;
+    const res = await authedPost(
+      validBody({
+        funnel_slug: "backroad-system-workshop",
+        order_number: order,
+        email: `${TEST_TAG}-backroad-sim@machine.test`,
+        portal_product_keys: ["backroad"],
+      }),
+    );
+    expect([200, 201]).toContain(res.status);
+    brandUserIds.push(res.body.userId);
+
+    const grants = await db
+      .select({ productId: userProductsTable.productId })
+      .from(userProductsTable)
+      .where(eq(userProductsTable.userId, res.body.userId));
+    const grantedIds = grants.map((g) => g.productId);
+
+    expect(grantedIds).toContain(brandProductIds["backroad"]);
+    expect(grantedIds).not.toContain(frontEndProductId);
+
+    const metadata = await readMetadata(order);
+    expect(metadata.resolved_portal_slugs).toEqual(["backroad"]);
+    expect(metadata.portal_product_keys_fallback).toBe(false);
   });
 });
