@@ -45,3 +45,21 @@ calendar" feature.
 **Why this matters:** the 1-on-1 "book a real GHL calendar" feature can READ
 availability today, but cannot WRITE bookings until we know the calendars' home
 location and have valid write creds for it.
+
+## RESOLVED: coach calendars location + roster (confirmed by The Master)
+- Coach calendars live in GHL sub-account `JI6HzFwkNIr5VA2QUWUL`, which IS under
+  the Cherrington/Flexy agency — so the existing agency OAuth mints a
+  location-scoped write token for it (no new secret). One location token covers
+  ALL coaches. End-to-end book + Google-Meet-link + delete VERIFIED working.
+- Booking needs a `contactId` in that same sub-account; GHL auto-attaches the
+  coach's Google Meet link to the created appointment.
+- **Confirmed 1-on-1 coach roster (FIRST NAMES ONLY — portal never shows
+  surnames):**
+  - Sasha → `BdBxOw8kL1aF7VfJR5cc`
+  - Bruce → `0feHbG6YfH2apzvdmR3U`
+  - Michael → `JF7LYxF5KRQImZpvSrHo`
+  - Todd → `JiTLouUKzGeYrsPtEmK5`
+- Other calendars in the sub-account are NOT 1-on-1 coaches (Robin, Mark Blyn's
+  Personal, Mentee Kick-Off Call, TCE Launchpad Onboarding Call, sandy test).
+- Still on hold (user's call): credits/packs + payment processor (ThriveCart vs
+  WooCommerce) — "save for later".
