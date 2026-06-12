@@ -53,4 +53,15 @@ describe("community-api error extraction", () => {
     expect((err as Error).message).toBe("Insufficient permissions for this action");
     expect((err as Error).message).not.toContain("[object Object]");
   });
+
+  // When the body has no usable `error` string or `error.message`, the client
+  // must fall back to a friendly default instead of throwing an empty message
+  // (which would render as a blank toast).
+  it("falls back to a friendly message when the body has no usable error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(500, { somethingElse: true }));
+    const err = await fetchCategories().catch((e: Error) => e);
+    expect(err).toBeInstanceOf(CommunityApiError);
+    expect((err as Error).message).toBe("Something went wrong. Please try again.");
+    expect((err as Error).message).not.toBe("");
+  });
 });

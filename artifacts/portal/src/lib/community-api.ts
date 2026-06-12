@@ -30,7 +30,7 @@ async function communityFetch(path: string, options?: RequestInit) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new CommunityApiError(extractApiError(data) ?? "", res.status);
+    throw new CommunityApiError(extractApiError(data) ?? "Something went wrong. Please try again.", res.status);
   }
   return res.json();
 }
