@@ -8,7 +8,7 @@ import { abuseRateLimit, ipKey, emailKey } from "../middleware/abuse-rate-limit"
 import { verifyCaptcha } from "../middleware/captcha";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
-import { emitWebhookEvent } from "../lib/webhook-events";
+import { emitWebhookEvent, type WebhookEventType } from "../lib/webhook-events";
 import { getRedis } from "../lib/redis";
 import { logAuditEvent } from "../lib/audit-log";
 
@@ -1446,7 +1446,7 @@ router.post("/auth/verify-email-change", async (req, res): Promise<void> => {
     email: newEmail,
   }).catch(() => {});
 
-  emitWebhookEvent("member.email_changed", {
+  emitWebhookEvent("member.email_changed" as WebhookEventType, {
     user_id: user.id,
     old_email: oldEmail,
     new_email: newEmail,

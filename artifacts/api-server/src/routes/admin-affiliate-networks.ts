@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import { db, affiliateNetworksTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
@@ -109,7 +110,7 @@ router.post("/admin/affiliate-networks", requirePermission("content:manage"), as
 
 router.put("/admin/affiliate-networks/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
       return;
@@ -188,7 +189,7 @@ router.put("/admin/affiliate-networks/:id", requirePermission("content:manage"),
 
 router.delete("/admin/affiliate-networks/:id", requirePermission("content:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
       return;

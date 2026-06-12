@@ -41,10 +41,10 @@ const {
   sendEmailNowMock,
   sendSmsNowMock,
 } = vi.hoisted(() => ({
-  queueEmailMock: vi.fn(async () => ({ result: "queued" as const })),
-  queueSmsMock: vi.fn(async () => ({ result: "queued" as const })),
-  sendEmailNowMock: vi.fn(async () => ({ success: true })),
-  sendSmsNowMock: vi.fn(async () => ({ success: true })),
+  queueEmailMock: vi.fn(async (..._args: any[]): Promise<{ result: string; reason?: string }> => ({ result: "queued" })),
+  queueSmsMock: vi.fn(async (..._args: any[]): Promise<{ result: string; reason?: string }> => ({ result: "queued" })),
+  sendEmailNowMock: vi.fn(async (..._args: any[]) => ({ success: true })),
+  sendSmsNowMock: vi.fn(async (..._args: any[]) => ({ success: true })),
 }));
 
 vi.mock("../lib/ghl-agency-client", () => ({

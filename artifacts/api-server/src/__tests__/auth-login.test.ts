@@ -7,9 +7,9 @@ import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, inArray, and, isNull } from "drizzle-orm";
 
 const { sendEmailNowMock, queueEmailMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(() => ({
-  sendEmailNowMock: vi.fn(async () => ({ success: true })),
-  queueEmailMock: vi.fn(async () => ({ result: "queued" })),
-  queueGHLSyncMock: vi.fn(async () => "job_test_id"),
+  sendEmailNowMock: vi.fn(async (..._args: any[]) => ({ success: true })),
+  queueEmailMock: vi.fn(async (..._args: any[]) => ({ result: "queued" })),
+  queueGHLSyncMock: vi.fn(async (..._args: any[]) => "job_test_id"),
   emitWebhookEventMock: vi.fn(async () => undefined),
 }));
 
@@ -93,7 +93,7 @@ function parseSetCookies(res: request.Response): ParsedCookie[] {
   const raw = res.headers["set-cookie"];
   const headers = Array.isArray(raw) ? raw : raw ? [raw] : [];
   return headers.map((header) => {
-    const segments = header.split(";").map((s) => s.trim());
+    const segments = header.split(";").map((s: string) => s.trim());
     const [nameValue, ...attrs] = segments;
     const eqIdx = nameValue.indexOf("=");
     const name = eqIdx === -1 ? nameValue : nameValue.slice(0, eqIdx);

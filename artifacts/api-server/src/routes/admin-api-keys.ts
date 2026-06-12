@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -105,7 +106,7 @@ router.post("/admin/api-keys", requirePermission("api_keys:manage"), async (req:
 
 router.patch("/admin/api-keys/:id", requirePermission("api_keys:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid key ID");
       return;
@@ -163,7 +164,7 @@ router.patch("/admin/api-keys/:id", requirePermission("api_keys:manage"), async 
 
 router.post("/admin/api-keys/:id/revoke", requirePermission("api_keys:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid key ID");
       return;

@@ -71,7 +71,7 @@ async function probe(
 async function main(): Promise<void> {
   const APIKEY = decoded.apiKey;
   const FB = decoded.firebaseToken;
-  const u = encodeURIComponent(STAFF);
+  const u = encodeURIComponent(STAFF!);
 
   type T = {
     label: string;

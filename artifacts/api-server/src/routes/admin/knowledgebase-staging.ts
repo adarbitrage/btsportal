@@ -1,3 +1,4 @@
+import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
@@ -66,7 +67,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     const [doc] = await db
       .select()
       .from(kbStagingDocsTable)
@@ -86,7 +87,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     const { status, adminNotes, editedContent, title, category, tags } =
       req.body;
 
@@ -335,7 +336,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
 
 router.get("/:id/similar", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     const [doc] = await db
       .select()
       .from(kbStagingDocsTable)

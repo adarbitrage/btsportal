@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -1455,7 +1456,7 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
 
 router.get("/admin/members/:id/full", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -1585,7 +1586,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
 const MEMBER_IMPERSONATION_HISTORY_LIMIT = 200;
 router.get("/admin/members/:id/impersonation-history", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const rows = await safeQuery(
@@ -1678,7 +1679,7 @@ router.get("/admin/members/:id/impersonation-history", requirePermission("member
 const TICKET_AUDIT_HISTORY_LIMIT = 20;
 router.get("/admin/tickets/:id/audit-history", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
-    const rawId = req.params.id;
+    const rawId = getParam(req.params.id);
     const id = typeof rawId === "string" ? parseInt(rawId, 10) : NaN;
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ticket ID" }); return; }
 
@@ -1710,7 +1711,7 @@ router.get("/admin/tickets/:id/audit-history", requirePermission("tickets:view")
 // stable across pages.
 router.get("/admin/members/:id/email-attempts", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const rawLimit = req.query.limit;
@@ -1853,9 +1854,9 @@ router.get("/admin/members/:id/email-attempts", requirePermission("members:view"
 //     superseded it (if any), which is exactly what the task is asking for.
 router.get("/admin/members/:id/email-attempts/:attemptId", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
-    const attemptId = parseInt(req.params.attemptId, 10);
+    const attemptId = parseInt(getParam(req.params.attemptId), 10);
     if (isNaN(attemptId)) { res.status(400).json({ error: "Invalid attempt ID" }); return; }
 
     const [member] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
@@ -2013,7 +2014,7 @@ router.get("/admin/members/:id/email-attempts/:attemptId", requirePermission("me
 
 router.post("/admin/members/:id/notes", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const { content } = req.body;
@@ -2061,7 +2062,7 @@ router.get("/admin/products", requirePermission("members:view"), async (_req: Re
 // audit log so support staff can trace marketing-copy edits.
 router.patch("/admin/products/:id", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid product ID" });
       return;
@@ -2196,7 +2197,7 @@ async function recomputeSourceProduct(userId: number): Promise<void> {
 
 router.post("/admin/members/:id/grant-product", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     const { productId, expiresAt } = req.body;
     if (isNaN(id) || !productId) { res.status(400).json({ error: "Invalid request" }); return; }
 
@@ -2218,7 +2219,7 @@ router.post("/admin/members/:id/grant-product", requirePermission("members:edit"
 
 router.post("/admin/members/:id/revoke-product", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     const { userProductId } = req.body;
     if (isNaN(id) || !userProductId) { res.status(400).json({ error: "Invalid request" }); return; }
 
@@ -2239,7 +2240,7 @@ router.post("/admin/members/:id/revoke-product", requirePermission("members:edit
 
 router.post("/admin/members/:id/cancel-email-change", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2584,7 +2585,7 @@ router.post("/admin/staff", requirePermission("members:assign_role"), async (req
 // the public forgot-password flow uses.
 router.post("/admin/members/:id/resend-invite", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2632,7 +2633,7 @@ router.post("/admin/members/:id/resend-invite", requirePermission("members:edit"
 
 router.post("/admin/members/:id/force-verify", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2674,7 +2675,7 @@ router.post("/admin/members/:id/force-verify", requirePermission("members:edit")
 
 router.post("/admin/members/:id/unlock", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2723,7 +2724,7 @@ router.post("/admin/members/:id/unlock", requirePermission("members:edit"), asyn
 // credential-lifecycle action.
 router.post("/admin/members/:id/force-password-reset", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2783,9 +2784,9 @@ router.post("/admin/members/:id/force-password-reset", requirePermission("member
 // (members:assign_role) since this is a sensitive credential-lifecycle action.
 router.post("/admin/members/:id/sessions/:sessionId/revoke", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
-    const sessionId = parseInt(req.params.sessionId, 10);
+    const sessionId = parseInt(getParam(req.params.sessionId), 10);
     if (isNaN(sessionId)) { res.status(400).json({ error: "Invalid session ID" }); return; }
 
     const [member] = await db
@@ -2842,7 +2843,7 @@ router.post("/admin/members/:id/sessions/:sessionId/revoke", requirePermission("
 // audit mirror force-password-reset (members:assign_role).
 router.post("/admin/members/:id/sessions/revoke-all", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2890,7 +2891,7 @@ router.post("/admin/members/:id/sessions/revoke-all", requirePermission("members
 // set their new password and active sessions are revoked on completion.
 router.post("/admin/members/:id/send-reset-email", requirePermission("members:assign_role"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [member] = await db
@@ -2973,7 +2974,7 @@ router.post(
   requirePermission("members:assign_role"),
   async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(getParam(req.params.id), 10);
       if (Number.isNaN(id)) {
         res.status(400).json({ error: "Invalid member ID" });
         return;
@@ -3198,7 +3199,7 @@ router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), 
   try {
     if (!JWT_SECRET) { res.status(503).json({ error: "Impersonation unavailable — JWT_SECRET not configured" }); return; }
 
-    const targetId = parseInt(req.params.id, 10);
+    const targetId = parseInt(getParam(req.params.id), 10);
     if (isNaN(targetId)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
     const [target] = await db
@@ -3288,7 +3289,7 @@ router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), 
 
 router.get("/admin/export/:type", requirePermission("export:data"), async (req: Request, res: Response) => {
   try {
-    const { type } = req.params;
+    const type = getParam(req.params.type);
     const { startDate, endDate, format = "csv" } = req.query;
 
     const conditions: any[] = [];
@@ -4108,7 +4109,7 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
 
 router.put("/admin/settings/:key", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const { key } = req.params;
+    const key = getParam(req.params.key);
     const { value, category, description } = req.body;
 
     if (value === undefined) { res.status(400).json({ error: "Value is required" }); return; }
@@ -4324,7 +4325,7 @@ router.post(
   requirePermission("settings:manage"),
   async (req: Request, res: Response) => {
     try {
-      const { field } = req.params;
+      const field = getParam(req.params.field);
       if (!ALL_ONCALL_FIELDS.includes(field as OnCallField)) {
         res.status(400).json({ error: `Unknown on-call field: ${field}` });
         return;
@@ -5667,7 +5668,7 @@ router.get(
         const products = Array.isArray(r.products) ? r.products : [];
         const portalProductKeys = parsePortalProductKeys(r.portalProductKeys);
         const mismatch = computeOrderMismatch(
-          r.externalSource,
+          r.externalSource!,
           products.map((p) => p.slug),
           portalProductKeys,
         );
@@ -5998,7 +5999,7 @@ router.patch(
   "/admin/integrations/machine-product-key-mappings/:id",
   requirePermission("members:edit"),
   async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid mapping id" });
       return;
@@ -6056,7 +6057,7 @@ router.delete(
   "/admin/integrations/machine-product-key-mappings/:id",
   requirePermission("members:edit"),
   async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid mapping id" });
       return;
@@ -6114,7 +6115,7 @@ router.post(
   "/admin/integrations/machine-unknown-product-keys/:id/dismiss",
   requirePermission("members:edit"),
   async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
       return;

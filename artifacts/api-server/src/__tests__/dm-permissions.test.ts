@@ -55,7 +55,7 @@ async function seedUser(suffix: string, role: string): Promise<TestUser> {
   return { id: row.id, email, cookie: signCookie(row.id, email) };
 }
 
-let app: ReturnType<typeof buildTestAppWithRouters>;
+let app: ReturnType<typeof express>;
 let member1: TestUser;
 let member2: TestUser;
 let coach: TestUser;

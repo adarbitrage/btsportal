@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import {
   db,
@@ -73,7 +74,7 @@ router.get("/admin/apps-manager", requirePermission("apps:manage"), async (req, 
 });
 
 router.patch("/admin/apps-manager/:appName", requirePermission("apps:manage"), async (req, res): Promise<void> => {
-  const { appName } = req.params;
+  const appName = getParam(req.params.appName);
 
   if (!(APP_NAMES as readonly string[]).includes(appName)) {
     res.status(400).json({ error: "Invalid app name" });
@@ -163,7 +164,7 @@ router.get(
   "/admin/apps/flexy/lookup/:userId",
   requirePermission("apps:support"),
   async (req, res): Promise<void> => {
-    const userId = parseUserId(req.params.userId);
+    const userId = parseUserId(getParam(req.params.userId));
     if (userId === null) {
       res.status(400).json({ error: "Invalid user id" });
       return;
@@ -362,7 +363,7 @@ router.post(
   "/admin/apps/flexy/regenerate-password/:userId",
   requirePermission("apps:support"),
   async (req, res): Promise<void> => {
-    const userId = parseUserId(req.params.userId);
+    const userId = parseUserId(getParam(req.params.userId));
     if (userId === null) {
       res.status(400).json({ error: "Invalid user id" });
       return;

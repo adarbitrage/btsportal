@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import { db, toolsTable, toolCategoriesTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -68,7 +69,7 @@ router.get("/tools", async (req, res): Promise<void> => {
 
 router.get("/tools/:slug", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const { slug } = req.params;
+  const slug = getParam(req.params.slug);
   const entitlements = await getUserEntitlements(userId);
 
   if (!entitlements.has("software:base") && !entitlements.has("software:expanded")) {
@@ -202,7 +203,7 @@ router.post("/tools/:toolId/data", async (req, res): Promise<void> => {
 router.put("/tools/:toolId/data/:dataKey", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const toolId = parseInt(req.params.toolId);
-  const { dataKey } = req.params;
+  const dataKey = getParam(req.params.dataKey);
   const { dataValue } = req.body;
   if (dataValue === undefined) {
     res.status(400).json({ error: "dataValue is required" });
@@ -245,7 +246,7 @@ router.put("/tools/:toolId/data/:dataKey", async (req, res): Promise<void> => {
 router.delete("/tools/:toolId/data/:dataKey", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const toolId = parseInt(req.params.toolId);
-  const { dataKey } = req.params;
+  const dataKey = getParam(req.params.dataKey);
   const entitlements = await getUserEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {

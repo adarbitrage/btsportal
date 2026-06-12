@@ -1,3 +1,4 @@
+import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -199,7 +200,7 @@ router.post("/process-transcripts", async (req: Request, res: Response) => {
 
 router.post("/process-single/:index", async (req: Request, res: Response) => {
   try {
-    const idx = parseInt(req.params.index);
+    const idx = parseInt(getParam(req.params.index));
     const raw = fs.readFileSync(
       path.join(KB_DIR, "video-transcripts.txt"),
       "utf-8",

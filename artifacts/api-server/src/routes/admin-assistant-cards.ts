@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import {
   db,
@@ -67,7 +68,7 @@ router.post("/admin/assistant/groups", requirePermission(PERM), async (req: Requ
 
 router.put("/admin/assistant/groups/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid group ID" }); return; }
 
     const { name, description, icon, sortOrder, isActive } = req.body as {
@@ -104,7 +105,7 @@ router.put("/admin/assistant/groups/:id", requirePermission(PERM), async (req: R
 
 router.delete("/admin/assistant/groups/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid group ID" }); return; }
 
     const [updated] = await db
@@ -213,7 +214,7 @@ router.post("/admin/assistant/cards", requirePermission(PERM), async (req: Reque
 
 router.put("/admin/assistant/cards/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid card ID" }); return; }
 
     const { groupId, title, description, icon, entitlementKey, upgradeProductId, sortOrder, isActive } = req.body as {
@@ -256,7 +257,7 @@ router.put("/admin/assistant/cards/:id", requirePermission(PERM), async (req: Re
 
 router.delete("/admin/assistant/cards/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid card ID" }); return; }
 
     const [updated] = await db
@@ -364,7 +365,7 @@ router.post("/admin/assistant/questions", requirePermission(PERM), async (req: R
 
 router.put("/admin/assistant/questions/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid question ID" }); return; }
 
     const { cardId, body, sortOrder, isActive, generatedBy, retrievalConfidence, sourceKbDocIds } = req.body as {
@@ -405,7 +406,7 @@ router.put("/admin/assistant/questions/:id", requirePermission(PERM), async (req
 
 router.delete("/admin/assistant/questions/:id", requirePermission(PERM), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseId(req.params.id);
+    const id = parseId(getParam(req.params.id));
     if (id === null) { res.status(400).json({ error: "Invalid question ID" }); return; }
 
     const [updated] = await db

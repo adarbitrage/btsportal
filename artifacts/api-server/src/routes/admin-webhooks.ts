@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import { db, webhookLogsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -30,7 +31,7 @@ router.post(
   "/admin/yse-grants/:id/retry",
   requirePermission("settings:manage"),
   async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid log ID" });
       return;
@@ -117,7 +118,7 @@ router.get("/admin/webhook-logs", requirePermission("system:view"), async (req: 
 
 router.get("/admin/webhook-logs/:id", requirePermission("system:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid log ID" });
       return;
@@ -160,7 +161,7 @@ router.get("/admin/product-mappings", requirePermission("system:view"), async (_
 
 router.put("/admin/product-mappings/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid product ID" });
       return;

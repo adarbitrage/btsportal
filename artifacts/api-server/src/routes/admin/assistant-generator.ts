@@ -1,3 +1,4 @@
+import { getParam } from "../../lib/params";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -15,7 +16,7 @@ router.post(
     req.setTimeout(60_000);
     res.setTimeout(60_000);
 
-    const cardId = parseInt(req.params.cardId, 10);
+    const cardId = parseInt(getParam(req.params.cardId), 10);
     if (isNaN(cardId)) {
       res.status(400).json({ error: "Invalid cardId" });
       return;

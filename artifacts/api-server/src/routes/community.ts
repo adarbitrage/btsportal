@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import {
   db, usersTable,
@@ -231,7 +232,7 @@ router.get("/community/posts/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
   const userId = req.userId!;
-  const postId = parseInt(req.params.id);
+  const postId = parseInt(getParam(req.params.id));
   if (isNaN(postId)) {
     res.status(400).json({ error: "Invalid post id" });
     return;
@@ -252,7 +253,7 @@ router.patch("/community/posts/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
   const userId = req.userId!;
-  const postId = parseInt(req.params.id);
+  const postId = parseInt(getParam(req.params.id));
   if (isNaN(postId)) {
     res.status(400).json({ error: "Invalid post id" });
     return;
@@ -315,7 +316,7 @@ router.delete("/community/posts/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
   const userId = req.userId!;
-  const postId = parseInt(req.params.id);
+  const postId = parseInt(getParam(req.params.id));
   if (isNaN(postId)) {
     res.status(400).json({ error: "Invalid post id" });
     return;
@@ -343,7 +344,7 @@ router.delete("/community/posts/:id", async (req, res): Promise<void> => {
 
 router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
-  const postId = parseInt(req.params.id);
+  const postId = parseInt(getParam(req.params.id));
   const userId = req.userId!;
 
   const post = await getRawPost(postId);
@@ -425,7 +426,7 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
 router.post("/community/posts/:id/comments", requireNotBanned, async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
-  const postId = parseInt(req.params.id);
+  const postId = parseInt(getParam(req.params.id));
   if (isNaN(postId)) {
     res.status(400).json({ error: "Invalid post id" });
     return;
@@ -528,7 +529,7 @@ router.patch("/community/comments/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
   const userId = req.userId!;
-  const commentId = parseInt(req.params.id);
+  const commentId = parseInt(getParam(req.params.id));
   if (isNaN(commentId)) {
     res.status(400).json({ error: "Invalid comment id" });
     return;
@@ -601,7 +602,7 @@ router.delete("/community/comments/:id", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
 
   const userId = req.userId!;
-  const commentId = parseInt(req.params.id);
+  const commentId = parseInt(getParam(req.params.id));
   if (isNaN(commentId)) {
     res.status(400).json({ error: "Invalid comment id" });
     return;
@@ -776,7 +777,7 @@ router.get("/community/members", async (req, res): Promise<void> => {
 
 router.get("/community/members/:userId", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
-  const targetUserId = parseInt(req.params.userId);
+  const targetUserId = parseInt(getParam(req.params.userId));
 
   const targetHasAccess = await hasEntitlement(targetUserId, "community:access");
   if (!targetHasAccess) {
@@ -901,7 +902,7 @@ router.get("/community/notifications", async (req, res): Promise<void> => {
 router.patch("/community/notifications/:id/read", async (req, res): Promise<void> => {
   if (!(await requireCommunityAccess(req, res))) return;
   const userId = req.userId!;
-  const notificationId = parseInt(req.params.id);
+  const notificationId = parseInt(getParam(req.params.id));
 
   const [notification] = await db
     .select()

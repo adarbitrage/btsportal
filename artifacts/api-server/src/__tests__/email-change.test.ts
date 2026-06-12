@@ -13,9 +13,9 @@ const {
   queueGHLSyncMock,
   emitWebhookEventMock,
 } = vi.hoisted(() => ({
-  sendEmailNowMock: vi.fn(async () => ({ success: true })),
-  queueEmailMock: vi.fn(async () => ({ result: "queued" as const })),
-  queueGHLSyncMock: vi.fn(async () => "job_test_id"),
+  sendEmailNowMock: vi.fn(async (..._args: any[]) => ({ success: true })),
+  queueEmailMock: vi.fn(async (..._args: any[]) => ({ result: "queued" as const })),
+  queueGHLSyncMock: vi.fn(async (..._args: any[]) => "job_test_id"),
   emitWebhookEventMock: vi.fn(async () => undefined),
 }));
 

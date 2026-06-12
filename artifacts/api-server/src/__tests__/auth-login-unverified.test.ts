@@ -6,9 +6,9 @@ import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 const { sendEmailNowMock, queueGHLSyncMock, emitWebhookEventMock } = vi.hoisted(() => ({
-  sendEmailNowMock: vi.fn(async () => ({ success: true })),
-  queueGHLSyncMock: vi.fn(async () => "job_test_id"),
-  emitWebhookEventMock: vi.fn(async () => undefined),
+  sendEmailNowMock: vi.fn(async (..._args: any[]) => ({ success: true })),
+  queueGHLSyncMock: vi.fn(async (..._args: any[]) => "job_test_id"),
+  emitWebhookEventMock: vi.fn(async (..._args: any[]) => undefined),
 }));
 
 vi.mock("../lib/communication-service", () => ({

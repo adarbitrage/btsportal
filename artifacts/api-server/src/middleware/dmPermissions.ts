@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, dmThreadsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -93,7 +94,7 @@ export async function requireDmThreadParticipant(
     return;
   }
 
-  const threadId = parseInt(req.params.id, 10);
+  const threadId = parseInt(getParam(req.params.id), 10);
   if (isNaN(threadId)) {
     sendError(res, 400, ErrorCodes.BAD_REQUEST, "Invalid thread id");
     return;

@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import { db, vaultCollectionsTable, vaultResourcesTable, vaultFavoritesTable, vaultResourceRelationsTable } from "@workspace/db";
 import { eq, and, sql, desc, asc, ilike, count, inArray } from "drizzle-orm";
@@ -39,7 +40,7 @@ router.get("/vault/collections", async (req: Request, res: Response) => {
 
     const countMap: Record<number, number> = {};
     for (const rc of resourceCounts) {
-      countMap[rc.collectionId] = rc.count;
+      countMap[rc.collectionId as number] = rc.count;
     }
 
     const result = collections.map(c => ({
@@ -62,7 +63,7 @@ router.get("/vault/collections/:slug", async (req: Request, res: Response) => {
       return;
     }
 
-    const { slug } = req.params;
+    const slug = getParam(req.params.slug);
     const entitlements = await getUserEntitlements(req.userId);
 
     const [collection] = await db
@@ -191,7 +192,7 @@ router.get("/vault/resources", async (req: Request, res: Response) => {
       const searchTerm = search.trim().toLowerCase();
       allResources = allResources.filter(r =>
         r.title.toLowerCase().includes(searchTerm) ||
-        r.description.toLowerCase().includes(searchTerm)
+        r.description!.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -337,7 +338,7 @@ router.get("/vault/resources/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid resource ID" });
       return;
@@ -436,7 +437,7 @@ router.post("/vault/resources/:id/favorite", async (req: Request, res: Response)
       return;
     }
 
-    const resourceId = parseInt(req.params.id, 10);
+    const resourceId = parseInt(getParam(req.params.id), 10);
     if (isNaN(resourceId)) {
       res.status(400).json({ error: "Invalid resource ID" });
       return;
@@ -625,7 +626,7 @@ router.post("/vault/resources/:id/download", async (req: Request, res: Response)
       return;
     }
 
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid resource ID" });
       return;
@@ -648,7 +649,7 @@ router.post("/vault/resources/:id/download", async (req: Request, res: Response)
       return;
     }
 
-    if (resource.type !== "file" || !resource.fileUrl) {
+    if ((resource as any).type !== "file" || !resource.fileUrl) {
       res.status(400).json({ error: "This resource is not downloadable" });
       return;
     }

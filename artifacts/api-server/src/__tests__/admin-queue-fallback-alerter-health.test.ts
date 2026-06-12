@@ -142,7 +142,7 @@ describe("GET /api/admin/system/queue-fallback-alerter-health", () => {
     expect(typeof res.body.serverTime).toBe("string");
 
     const channelsByName = Object.fromEntries(
-      (res.body.channels as Array<{ channel: string }>).map((c) => [c.channel, c]),
+      (res.body.channels as Array<{ channel: string; alerting: boolean; lastFireAt: string | null; lastClearAt: string | null }>).map((c) => [c.channel, c]),
     );
     expect(channelsByName.email.alerting).toBe(true);
     expect(channelsByName.sms.alerting).toBe(false);
@@ -150,7 +150,7 @@ describe("GET /api/admin/system/queue-fallback-alerter-health", () => {
     // lastFireAt should reflect the freshest of the two seeded fires.
     const lastFireAt = channelsByName.email.lastFireAt;
     expect(typeof lastFireAt).toBe("string");
-    expect(new Date(lastFireAt).getTime()).toBeGreaterThan(now - 60 * 1000);
+    expect(new Date(lastFireAt!).getTime()).toBeGreaterThan(now - 60 * 1000);
     expect(typeof channelsByName.email.lastClearAt).toBe("string");
 
     // sms has no audit rows in this test → both should be null.

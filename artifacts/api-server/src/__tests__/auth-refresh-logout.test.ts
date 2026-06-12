@@ -111,7 +111,7 @@ function parseSetCookies(res: request.Response): ParsedCookie[] {
   const raw = res.headers["set-cookie"];
   const headers = Array.isArray(raw) ? raw : raw ? [raw] : [];
   return headers.map((header) => {
-    const segments = header.split(";").map((s) => s.trim());
+    const segments = header.split(";").map((s: string) => s.trim());
     const [nameValue, ...attrs] = segments;
     const eqIdx = nameValue.indexOf("=");
     const name = eqIdx === -1 ? nameValue : nameValue.slice(0, eqIdx);

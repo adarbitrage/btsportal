@@ -1,3 +1,4 @@
+import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { conversations, messages } from "@workspace/db";
@@ -20,7 +21,7 @@ async function getOwnedConversation(conversationId: number, userId: number) {
 router.get("/conversations", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const result = await db
       .select()
@@ -38,7 +39,7 @@ router.get("/conversations", async (req: Request, res: Response) => {
 router.post("/conversations", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const title = typeof req.body.title === "string" ? req.body.title.slice(0, 100) : "New Chat";
     const [conv] = await db
@@ -56,11 +57,11 @@ router.post("/conversations", async (req: Request, res: Response) => {
 router.delete("/conversations/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     const conv = await getOwnedConversation(id, userId);
-    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
     await db.delete(messages).where(eq(messages.conversationId, id));
     await db.delete(conversations).where(eq(conversations.id, id));
@@ -75,11 +76,11 @@ router.delete("/conversations/:id", async (req: Request, res: Response) => {
 router.get("/conversations/:id/messages", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     const conv = await getOwnedConversation(id, userId);
-    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
     const result = await db
       .select()
@@ -96,15 +97,16 @@ router.get("/conversations/:id/messages", async (req: Request, res: Response) =>
 
 router.post("/conversations/:id/messages", async (req: Request, res: Response) => {
   const userId = req.userId;
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const conversationId = parseInt(req.params.id);
+  const conversationId = parseInt(getParam(req.params.id));
   const conv = await getOwnedConversation(conversationId, userId);
-  if (!conv) return res.status(404).json({ error: "Conversation not found" });
+  if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
   const { content } = req.body;
   if (!content || typeof content !== "string" || content.trim().length === 0) {
-    return res.status(400).json({ error: "Message content is required" });
+    res.status(400).json({ error: "Message content is required" });
+    return;
   }
 
   const trimmedContent = content.trim().slice(0, 10000);

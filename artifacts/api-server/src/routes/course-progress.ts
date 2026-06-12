@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import { db, courseProgressTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -21,7 +22,7 @@ function isValidCourseId(id: unknown): id is string {
   // shared @workspace/blitz-curriculum source of truth (lessons 1-23).
   if (isValidBlitzCourseId(id)) return true;
   // Legacy hub steps 1-18 (pre-v2 ids; kept so older rows can still be removed).
-  const legacy = id.match(/^blitz-hub-step-(\d+)$/);
+  const legacy = (id as string).match(/^blitz-hub-step-(\d+)$/);
   if (legacy) {
     const n = Number(legacy[1]);
     return n >= 1 && n <= 18;
@@ -104,7 +105,7 @@ router.post("/course-progress", async (req, res): Promise<void> => {
 
 router.delete("/course-progress/:courseId", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const { courseId } = req.params;
+  const courseId = getParam(req.params.courseId);
 
   if (!isValidCourseId(courseId)) {
     res.status(400).json({ error: "Invalid courseId" });

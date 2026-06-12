@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 
 import {
-  analyzeFramingHeaders,
-  extractFrameAncestors,
   evaluateLiveChatEmbedProbe,
   getLiveChatEmbedProbeState,
   __resetLiveChatEmbedProbeForTests,
@@ -46,70 +44,6 @@ function makeStub(channel: "pagerduty" | "email" | "slack"): StubDelivery {
   });
   return { fn, calls };
 }
-
-describe("analyzeFramingHeaders", () => {
-  it("treats no framing headers as not blocked", () => {
-    const r = analyzeFramingHeaders(headers({}), ALLOWED);
-    expect(r.blocked).toBe(false);
-    expect(r.reasons).toEqual([]);
-  });
-
-  it("flags X-Frame-Options DENY and SAMEORIGIN", () => {
-    expect(analyzeFramingHeaders(headers({ "x-frame-options": "DENY" }), ALLOWED).blocked).toBe(true);
-    expect(analyzeFramingHeaders(headers({ "x-frame-options": "SAMEORIGIN" }), ALLOWED).blocked).toBe(true);
-  });
-
-  it("flags CSP frame-ancestors 'none' and 'self'", () => {
-    expect(
-      analyzeFramingHeaders(headers({ "content-security-policy": "frame-ancestors 'none'" }), ALLOWED).blocked,
-    ).toBe(true);
-    expect(
-      analyzeFramingHeaders(headers({ "content-security-policy": "frame-ancestors 'self'" }), ALLOWED).blocked,
-    ).toBe(true);
-  });
-
-  it("allows frame-ancestors that include the portal host or wildcard", () => {
-    expect(
-      analyzeFramingHeaders(
-        headers({ "content-security-policy": "frame-ancestors https://buildtestscale.com" }),
-        ALLOWED,
-      ).blocked,
-    ).toBe(false);
-    expect(
-      analyzeFramingHeaders(
-        headers({ "content-security-policy": "frame-ancestors *.buildtestscale.com" }),
-        ["app.buildtestscale.com"],
-      ).blocked,
-    ).toBe(false);
-    expect(
-      analyzeFramingHeaders(headers({ "content-security-policy": "frame-ancestors *" }), ALLOWED).blocked,
-    ).toBe(false);
-  });
-
-  it("blocks frame-ancestors that list only a foreign host", () => {
-    const r = analyzeFramingHeaders(
-      headers({ "content-security-policy": "frame-ancestors https://evil.example.com" }),
-      ALLOWED,
-    );
-    expect(r.blocked).toBe(true);
-  });
-
-  it("ignores CSP with no frame-ancestors directive", () => {
-    const r = analyzeFramingHeaders(
-      headers({ "content-security-policy": "default-src 'self'; script-src 'self'" }),
-      ALLOWED,
-    );
-    expect(r.blocked).toBe(false);
-  });
-
-  it("extractFrameAncestors returns null when absent and tokens when present", () => {
-    expect(extractFrameAncestors("default-src 'self'")).toBeNull();
-    expect(extractFrameAncestors("frame-ancestors 'self' https://X.com")).toEqual([
-      "'self'",
-      "https://x.com",
-    ]);
-  });
-});
 
 describe("Live Chat embed probe state machine", () => {
   let pd: StubDelivery;

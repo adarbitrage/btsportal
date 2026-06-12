@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import {
   db,
@@ -109,7 +110,7 @@ router.get("/admin/communications/email-templates", requirePermission("communica
 
 router.get("/admin/communications/email-templates/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [template] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
     if (!template) { res.status(404).json({ error: "Template not found" }); return; }
@@ -157,7 +158,7 @@ router.post("/admin/communications/email-templates", requirePermission("communic
 
 router.put("/admin/communications/email-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [existing] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
@@ -231,7 +232,7 @@ router.put("/admin/communications/email-templates/:id", requirePermission("commu
 
 router.delete("/admin/communications/email-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(emailTemplatesTable).where(eq(emailTemplatesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Template not found" }); return; }
@@ -253,7 +254,7 @@ router.delete("/admin/communications/email-templates/:id", requirePermission("co
 
 router.get("/admin/communications/email-templates/:id/versions", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const versions = await db.select().from(emailTemplateVersionsTable)
       .where(eq(emailTemplateVersionsTable.templateId, id))
@@ -267,8 +268,8 @@ router.get("/admin/communications/email-templates/:id/versions", requirePermissi
 
 router.post("/admin/communications/email-templates/:id/restore/:versionId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    const versionId = parseInt(req.params.versionId, 10);
+    const id = parseInt(getParam(req.params.id), 10);
+    const versionId = parseInt(getParam(req.params.versionId), 10);
     if (isNaN(id) || isNaN(versionId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
     const [version] = await db.select().from(emailTemplateVersionsTable)
@@ -334,7 +335,7 @@ router.post("/admin/communications/email-templates/:id/restore/:versionId", requ
  */
 router.post("/admin/communications/email-templates/:id/restore-default", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [existing] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
@@ -415,7 +416,7 @@ router.post("/admin/communications/email-templates/:id/restore-default", require
 
 router.post("/admin/communications/email-templates/:id/preview", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [template] = await db.select().from(emailTemplatesTable).where(eq(emailTemplatesTable.id, id));
@@ -497,7 +498,7 @@ router.post("/admin/communications/sms-templates", requirePermission("communicat
 
 router.put("/admin/communications/sms-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     // Snapshot current row so we can diff against the post-update copy. The
@@ -538,7 +539,7 @@ router.put("/admin/communications/sms-templates/:id", requirePermission("communi
 
 router.delete("/admin/communications/sms-templates/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(smsTemplatesTable).where(eq(smsTemplatesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Template not found" }); return; }
@@ -587,7 +588,7 @@ router.post("/admin/communications/sequences", requirePermission("communications
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
     const [sequence] = await db.insert(sequencesTable).values({
       name, description, triggerEvent,
-    }).returning();
+    } as any).returning();
     res.status(201).json(sequence);
   } catch (error) {
     console.error("[Admin] Error creating sequence:", error);
@@ -597,14 +598,14 @@ router.post("/admin/communications/sequences", requirePermission("communications
 
 router.get("/admin/communications/sequences/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [sequence] = await db.select().from(sequencesTable).where(eq(sequencesTable.id, id));
     if (!sequence) { res.status(404).json({ error: "Sequence not found" }); return; }
 
     const steps = await db.select().from(sequenceStepsTable)
       .where(eq(sequenceStepsTable.sequenceId, id))
-      .orderBy(asc(sequenceStepsTable.sortOrder));
+      .orderBy(asc((sequenceStepsTable as any).sortOrder));
 
     const enrollments = await db.select({
       enrollment: sequenceEnrollmentsTable,
@@ -624,7 +625,7 @@ router.get("/admin/communications/sequences/:id", requirePermission("communicati
 
 router.put("/admin/communications/sequences/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { name, description, triggerEvent, status } = req.body;
@@ -645,7 +646,7 @@ router.put("/admin/communications/sequences/:id", requirePermission("communicati
 
 router.delete("/admin/communications/sequences/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(sequencesTable).where(eq(sequencesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Sequence not found" }); return; }
@@ -658,14 +659,14 @@ router.delete("/admin/communications/sequences/:id", requirePermission("communic
 
 router.post("/admin/communications/sequences/:id/steps", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const sequenceId = parseInt(req.params.id, 10);
+    const sequenceId = parseInt(getParam(req.params.id), 10);
     if (isNaN(sequenceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { channel, templateSlug, subject, body, delayMinutes, condition, sortOrder } = req.body;
 
     let order = sortOrder;
     if (order === undefined) {
-      const [maxOrder] = await db.select({ max: sql<number>`COALESCE(MAX(${sequenceStepsTable.sortOrder}), -1)` })
+      const [maxOrder] = await db.select({ max: sql<number>`COALESCE(MAX(${(sequenceStepsTable as any).sortOrder}), -1)` })
         .from(sequenceStepsTable).where(eq(sequenceStepsTable.sequenceId, sequenceId));
       order = (maxOrder?.max ?? -1) + 1;
     }
@@ -675,7 +676,7 @@ router.post("/admin/communications/sequences/:id/steps", requirePermission("comm
       templateSlug, subject, body,
       delayMinutes: delayMinutes || 0,
       condition, sortOrder: order,
-    }).returning();
+    } as any).returning();
     res.status(201).json(step);
   } catch (error) {
     console.error("[Admin] Error adding sequence step:", error);
@@ -685,8 +686,8 @@ router.post("/admin/communications/sequences/:id/steps", requirePermission("comm
 
 router.put("/admin/communications/sequences/:id/steps/:stepId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const sequenceId = parseInt(req.params.id, 10);
-    const stepId = parseInt(req.params.stepId, 10);
+    const sequenceId = parseInt(getParam(req.params.id), 10);
+    const stepId = parseInt(getParam(req.params.stepId), 10);
     if (isNaN(sequenceId) || isNaN(stepId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { channel, templateSlug, subject, body, delayMinutes, condition, sortOrder, active } = req.body;
@@ -713,8 +714,8 @@ router.put("/admin/communications/sequences/:id/steps/:stepId", requirePermissio
 
 router.delete("/admin/communications/sequences/:id/steps/:stepId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const sequenceId = parseInt(req.params.id, 10);
-    const stepId = parseInt(req.params.stepId, 10);
+    const sequenceId = parseInt(getParam(req.params.id), 10);
+    const stepId = parseInt(getParam(req.params.stepId), 10);
     if (isNaN(sequenceId) || isNaN(stepId)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(sequenceStepsTable)
       .where(and(eq(sequenceStepsTable.id, stepId), eq(sequenceStepsTable.sequenceId, sequenceId)))
@@ -732,7 +733,7 @@ router.patch("/admin/communications/sequences/:id/steps/reorder", requirePermiss
     const { orders } = req.body;
     if (!Array.isArray(orders)) { res.status(400).json({ error: "orders must be an array" }); return; }
     for (const { id, sortOrder } of orders) {
-      await db.update(sequenceStepsTable).set({ sortOrder }).where(eq(sequenceStepsTable.id, id));
+      await db.update(sequenceStepsTable).set({ sortOrder } as any).where(eq(sequenceStepsTable.id, id));
     }
     res.json({ success: true });
   } catch (error) {
@@ -743,7 +744,7 @@ router.patch("/admin/communications/sequences/:id/steps/reorder", requirePermiss
 
 router.post("/admin/communications/sequences/:id/enroll", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const sequenceId = parseInt(req.params.id, 10);
+    const sequenceId = parseInt(getParam(req.params.id), 10);
     if (isNaN(sequenceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { userId } = req.body;
@@ -769,8 +770,8 @@ router.post("/admin/communications/sequences/:id/enroll", requirePermission("com
 
 router.post("/admin/communications/sequences/:id/cancel-enrollment/:enrollmentId", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const sequenceId = parseInt(req.params.id, 10);
-    const enrollmentId = parseInt(req.params.enrollmentId, 10);
+    const sequenceId = parseInt(getParam(req.params.id), 10);
+    const enrollmentId = parseInt(getParam(req.params.enrollmentId), 10);
     if (isNaN(sequenceId) || isNaN(enrollmentId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [updated] = await db.update(sequenceEnrollmentsTable).set({
@@ -787,9 +788,9 @@ router.post("/admin/communications/sequences/:id/cancel-enrollment/:enrollmentId
 
 router.patch("/admin/communications/sequences/:id/pause", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const [updated] = await db.update(sequencesTable).set({ status: "paused" }).where(eq(sequencesTable.id, id)).returning();
+    const [updated] = await db.update(sequencesTable).set({ status: "paused" } as any).where(eq(sequencesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Sequence not found" }); return; }
     res.json(updated);
   } catch (error) {
@@ -800,9 +801,9 @@ router.patch("/admin/communications/sequences/:id/pause", requirePermission("com
 
 router.patch("/admin/communications/sequences/:id/resume", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const [updated] = await db.update(sequencesTable).set({ status: "active" }).where(eq(sequencesTable.id, id)).returning();
+    const [updated] = await db.update(sequencesTable).set({ status: "active" } as any).where(eq(sequencesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Sequence not found" }); return; }
     res.json(updated);
   } catch (error) {
@@ -872,7 +873,7 @@ router.get("/admin/communications/broadcasts", requirePermission("communications
 
 router.get("/admin/communications/broadcasts/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [broadcast] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
     if (!broadcast) { res.status(404).json({ error: "Broadcast not found" }); return; }
@@ -906,7 +907,7 @@ router.post("/admin/communications/broadcasts", requirePermission("communication
 
 router.put("/admin/communications/broadcasts/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [existing] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
@@ -935,7 +936,7 @@ router.put("/admin/communications/broadcasts/:id", requirePermission("communicat
 
 router.delete("/admin/communications/broadcasts/:id", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [existing] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
     if (!existing) { res.status(404).json({ error: "Broadcast not found" }); return; }
@@ -950,7 +951,7 @@ router.delete("/admin/communications/broadcasts/:id", requirePermission("communi
 
 router.post("/admin/communications/broadcasts/:id/preview", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [broadcast] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
@@ -974,7 +975,7 @@ router.post("/admin/communications/broadcasts/:id/preview", requirePermission("c
 
 router.post("/admin/communications/broadcasts/:id/send", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [broadcast] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
@@ -1094,7 +1095,7 @@ router.post("/admin/communications/broadcasts/:id/send", requirePermission("comm
 
 router.post("/admin/communications/broadcasts/:id/duplicate", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [source] = await db.select().from(broadcastsTable).where(eq(broadcastsTable.id, id));
@@ -1431,7 +1432,7 @@ router.get("/admin/communications/log/export", requirePermission("communications
 
 router.get("/admin/communications/log/:id", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [entry] = await db.select({
@@ -1609,7 +1610,7 @@ async function fetchRelatedAuditRows(
 
 router.get("/admin/communications/member/:userId/history", requirePermission("communications:view"), async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId, 10);
+    const userId = parseInt(getParam(req.params.userId), 10);
     if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
 
     const logs = await db.select().from(communicationLogTable)
@@ -1636,7 +1637,7 @@ router.get("/admin/communications/bounces", requirePermission("communications:vi
 
 router.patch("/admin/communications/bounces/:id/unsuppress", requirePermission("communications:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [updated] = await db.update(emailBouncesTable).set({ suppressed: false }).where(eq(emailBouncesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Bounce not found" }); return; }

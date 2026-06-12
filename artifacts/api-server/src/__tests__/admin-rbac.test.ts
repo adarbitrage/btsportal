@@ -156,8 +156,8 @@ describe("Admin RBAC: portal <-> API permission matrix parity", () => {
 
   for (const permission of Object.keys(PORTAL_PERMISSION_MATRIX).sort()) {
     it(`grants the same roles for ${permission} on both sides`, () => {
-      expect(sortRoles(API_PERMISSION_MATRIX[permission])).toEqual(
-        sortRoles(PORTAL_PERMISSION_MATRIX[permission]),
+      expect(sortRoles((API_PERMISSION_MATRIX as unknown as Record<string, AdminRole[]>)[permission])).toEqual(
+        sortRoles((PORTAL_PERMISSION_MATRIX as unknown as Record<string, AdminRole[]>)[permission]),
       );
     });
   }
@@ -394,7 +394,7 @@ describe("Admin RBAC: per-role endpoint access", () => {
     describe(`role: ${role}`, () => {
       for (const testCase of rbacCases()) {
         // Source of truth: portal matrix (what the user-facing UI promises).
-        const allowedRoles = PORTAL_PERMISSION_MATRIX[testCase.permission] ?? [];
+        const allowedRoles = (PORTAL_PERMISSION_MATRIX as unknown as Record<string, AdminRole[]>)[testCase.permission] ?? [];
         const isAllowed = allowedRoles.includes(role);
         const label = `${testCase.resource} (${testCase.permission}) -> ${
           isAllowed ? "allowed (2xx)" : "forbidden (403)"
@@ -699,7 +699,7 @@ describe("Admin RBAC: per-role write-endpoint access", () => {
     for (const { resource, method, buildPath, body } of rbacWriteCases()) {
       const path = buildPath();
       let req = dispatch(method, path);
-      if (body !== undefined) req = req.send(body);
+      if (body !== undefined) req = req.send(body as object);
       const res = await req;
       expect(
         res.status,
@@ -729,7 +729,7 @@ describe("Admin RBAC: per-role write-endpoint access", () => {
     for (const { resource, method, buildPath, body } of rbacWriteCases()) {
       const path = buildPath();
       let req = dispatch(method, path).set("Cookie", cookie);
-      if (body !== undefined) req = req.send(body);
+      if (body !== undefined) req = req.send(body as object);
       const res = await req;
       expect(
         res.status,
@@ -742,7 +742,7 @@ describe("Admin RBAC: per-role write-endpoint access", () => {
     describe(`role: ${role}`, () => {
       for (const testCase of rbacWriteCases()) {
         // Source of truth: portal matrix (what the user-facing UI promises).
-        const allowedRoles = PORTAL_PERMISSION_MATRIX[testCase.permission] ?? [];
+        const allowedRoles = (PORTAL_PERMISSION_MATRIX as unknown as Record<string, AdminRole[]>)[testCase.permission] ?? [];
         const isAllowed = allowedRoles.includes(role);
         const label = `${testCase.resource} (${testCase.permission}) -> ${
           isAllowed ? "allowed (past gate)" : "forbidden (403)"
@@ -752,7 +752,7 @@ describe("Admin RBAC: per-role write-endpoint access", () => {
           const admin = adminsByRole[role];
           const path = testCase.buildPath();
           let req = dispatch(testCase.method, path).set("Cookie", admin.cookie);
-          if (testCase.body !== undefined) req = req.send(testCase.body);
+          if (testCase.body !== undefined) req = req.send(testCase.body as object);
           const res = await req;
 
           if (isAllowed) {

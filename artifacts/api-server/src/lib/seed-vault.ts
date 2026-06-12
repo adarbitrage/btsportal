@@ -534,11 +534,11 @@ Pick ONE traffic source and master it before diversifying. Most BTS members find
       requiredEntitlement: "content:frontend",
       sortOrder: 3,
     },
-  ]).returning();
+  ] as any).returning();
 
   const resourcesBySlug: Record<string, number> = {};
   for (const r of resources) {
-    resourcesBySlug[r.slug] = r.id;
+    resourcesBySlug[(r as any).slug] = r.id;
   }
 
   await db.insert(vaultResourceRelationsTable).values([

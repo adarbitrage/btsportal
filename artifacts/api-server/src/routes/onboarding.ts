@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, signedDocumentsTable, phoneChangeHistoryTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { GetOnboardingStateResponse } from "@workspace/api-zod";
 import {
-  GetOnboardingStateResponse,
   PatchOnboardingStepBody,
   PatchOnboardingStepResponse,
   PatchMemberProfileBody,
   PatchMemberProfileResponse,
-} from "@workspace/api-zod";
+} from "@workspace/api-zod/schemas";
 
 const router: IRouter = Router();
 

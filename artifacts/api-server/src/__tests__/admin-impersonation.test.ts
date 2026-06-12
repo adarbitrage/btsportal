@@ -112,7 +112,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
     expect(res.body).toHaveProperty("member");
     expect(res.body.member.id).toBe(member.id);
 
-    const setCookies: string[] = res.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (res.headers["set-cookie"] ?? []) as unknown as string[];
     expect(setCookies.some((c: string) => c.startsWith("access_token="))).toBe(true);
     expect(setCookies.some((c: string) => c.startsWith("imp_restore_token="))).toBe(true);
 
@@ -178,7 +178,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
 
     expect(startRes.status).toBe(200);
 
-    const setCookies: string[] = startRes.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (startRes.headers["set-cookie"] ?? []) as unknown as string[];
     const impAccessToken = setCookies
       .find((c: string) => c.startsWith("access_token="))
       ?.split(";")[0] ?? signCookie(member.id, member.email, { isImpersonation: true, impersonatedBy: admin.id });
@@ -218,7 +218,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
 
     expect(startRes.status).toBe(200);
 
-    const setCookies: string[] = startRes.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (startRes.headers["set-cookie"] ?? []) as unknown as string[];
     const impRestoreToken = extractSetCookieValue(setCookies, "imp_restore_token");
 
     // Call stop using a NORMAL (non-impersonation) admin access token — should 403.
@@ -243,7 +243,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
       .set("Cookie", signCookie(admin1.id, admin1.email));
 
     expect(startRes.status).toBe(200);
-    const setCookies: string[] = startRes.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (startRes.headers["set-cookie"] ?? []) as unknown as string[];
     const admin1RestoreToken = extractSetCookieValue(setCookies, "imp_restore_token");
 
     // Attempt stop using admin2's impersonation context but admin1's restore cookie.
@@ -272,7 +272,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
       .set("Cookie", signCookie(admin.id, admin.email));
 
     expect(startRes.status).toBe(200);
-    const setCookies: string[] = startRes.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (startRes.headers["set-cookie"] ?? []) as unknown as string[];
     const impAccessToken = setCookies.find((c: string) => c.startsWith("access_token="))?.split(";")[0]!;
     const impRestoreToken = extractSetCookieValue(setCookies, "imp_restore_token")!;
 
@@ -300,7 +300,7 @@ describe("POST /admin/impersonate/:id — permission gate", () => {
 
     expect(res.status).toBe(200);
 
-    const setCookies: string[] = res.headers["set-cookie"] ?? [];
+    const setCookies: string[] = (res.headers["set-cookie"] ?? []) as unknown as string[];
     // The response must clear the /api/auth-scoped refresh_token so the
     // browser cannot use it to silently refresh back to an admin session
     // while impersonation is active.

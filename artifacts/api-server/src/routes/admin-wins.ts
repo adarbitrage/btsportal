@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import { db, usersTable, winsTable, winMilestonesTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -92,7 +93,7 @@ router.get("/admin/wins", requirePermission("wins:view"), async (req, res): Prom
 
 router.patch("/admin/wins/:id/feature", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const adminId = req.userId!;
-  const winId = parseInt(req.params.id);
+  const winId = parseInt(getParam(req.params.id));
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
   if (!win) {
@@ -116,7 +117,7 @@ router.patch("/admin/wins/:id/feature", requirePermission("wins:manage"), async 
 });
 
 router.patch("/admin/wins/:id/verify", requirePermission("wins:manage"), async (req, res): Promise<void> => {
-  const winId = parseInt(req.params.id);
+  const winId = parseInt(getParam(req.params.id));
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
   if (!win) {
@@ -134,7 +135,7 @@ router.patch("/admin/wins/:id/verify", requirePermission("wins:manage"), async (
 });
 
 router.patch("/admin/wins/:id/hide", requirePermission("wins:manage"), async (req, res): Promise<void> => {
-  const winId = parseInt(req.params.id);
+  const winId = parseInt(getParam(req.params.id));
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
   if (!win) {
@@ -154,7 +155,7 @@ router.patch("/admin/wins/:id/hide", requirePermission("wins:manage"), async (re
 });
 
 router.post("/admin/wins/:id/request-testimonial", requirePermission("wins:manage"), async (req, res): Promise<void> => {
-  const winId = parseInt(req.params.id);
+  const winId = parseInt(getParam(req.params.id));
 
   const [win] = await db
     .select({
@@ -194,7 +195,7 @@ router.post("/admin/wins/:id/request-testimonial", requirePermission("wins:manag
 
 router.patch("/admin/wins/:id/approve-testimonial", requirePermission("wins:manage"), async (req, res): Promise<void> => {
   const adminId = req.userId!;
-  const winId = parseInt(req.params.id);
+  const winId = parseInt(getParam(req.params.id));
 
   const [win] = await db.select().from(winsTable).where(eq(winsTable.id, winId));
   if (!win) {

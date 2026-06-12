@@ -13,6 +13,7 @@ declare global {
     interface Request {
       userId?: number;
       userEmail?: string;
+      user?: { email?: string; userId?: number };
       requestId?: string;
       isApiKeyAuth?: boolean;
       isImpersonation?: boolean;

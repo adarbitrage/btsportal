@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import {
   db, affiliateProfilesTable, commissionsTable, commissionRatesTable,
@@ -134,7 +135,7 @@ router.get("/admin/commissions", requirePermission("commissions:view"), async (r
 });
 
 router.post("/admin/commissions/:id/approve", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const [commission] = await db.update(commissionsTable)
     .set({ status: "approved", approvedAt: new Date() })
     .where(and(eq(commissionsTable.id, id), eq(commissionsTable.status, "pending")))
@@ -156,7 +157,7 @@ router.post("/admin/commissions/:id/approve", requirePermission("commissions:man
 });
 
 router.post("/admin/commissions/:id/reject", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { reason } = req.body;
 
   const [commission] = await db.update(commissionsTable)
@@ -177,7 +178,7 @@ router.post("/admin/commissions/:id/reject", requirePermission("commissions:mana
 });
 
 router.post("/admin/commissions/:id/reverse", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { reason } = req.body;
 
   const [commission] = await db
@@ -236,7 +237,7 @@ router.get("/admin/commissions/payouts", requirePermission("commissions:view"), 
 });
 
 router.post("/admin/commissions/payouts/:id/mark-paid", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { paypalTransactionId, notes } = req.body;
 
   const [payout] = await db.update(commissionPayoutsTable)
@@ -305,7 +306,7 @@ router.get("/admin/affiliates", requirePermission("commissions:view"), async (re
 });
 
 router.patch("/admin/affiliates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { status, tier, fraudFlag, fraudReason } = req.body;
   const updates: Record<string, unknown> = {};
 
@@ -369,7 +370,7 @@ router.post("/admin/commissions/rates", requirePermission("commissions:manage"),
 });
 
 router.put("/admin/commissions/rates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { ratePercent, flatBonus } = req.body;
   const updates: Record<string, unknown> = {};
 
@@ -390,7 +391,7 @@ router.put("/admin/commissions/rates/:id", requirePermission("commissions:manage
 });
 
 router.delete("/admin/commissions/rates/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const [deleted] = await db.delete(commissionRatesTable)
     .where(eq(commissionRatesTable.id, id))
     .returning();
@@ -428,7 +429,7 @@ router.post("/admin/commissions/resources", requirePermission("commissions:manag
 });
 
 router.put("/admin/commissions/resources/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const { type, title, description, content, fileUrl, thumbnailUrl, productSlug, sortOrder, status } = req.body;
   const updates: Record<string, unknown> = {};
 
@@ -456,7 +457,7 @@ router.put("/admin/commissions/resources/:id", requirePermission("commissions:ma
 });
 
 router.delete("/admin/commissions/resources/:id", requirePermission("commissions:manage"), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   const [deleted] = await db.delete(affiliateResourcesTable)
     .where(eq(affiliateResourcesTable.id, id))
     .returning();

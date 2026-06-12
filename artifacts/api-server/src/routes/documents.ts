@@ -1,11 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, legalDocumentsTable, signedDocumentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import {
-  GetLegalDocumentsResponse,
-  SignDocumentBody,
-  SignDocumentResponse,
-} from "@workspace/api-zod";
+import { GetLegalDocumentsResponse } from "@workspace/api-zod";
+import { SignDocumentBody, SignDocumentResponse } from "@workspace/api-zod/schemas";
 
 const router: IRouter = Router();
 

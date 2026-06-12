@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import { db, affiliateProfilesTable, referralLinksTable, referralClicksTable, productsTable } from "@workspace/db";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -19,7 +20,7 @@ const PRODUCT_DESTINATIONS: Record<string, string> = {
 };
 
 router.get("/go/:productSlug", async (req: Request, res: Response) => {
-  const { productSlug } = req.params;
+  const productSlug = getParam(req.params.productSlug);
   const affiliateCode = req.query.ref as string;
 
   const destination = PRODUCT_DESTINATIONS[productSlug] || `https://buildtestscale.com/${productSlug}`;

@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import {
   db,
@@ -230,7 +231,7 @@ router.get("/admin/chat/sessions", requirePermission("chat:view"), async (req, r
 });
 
 router.get("/admin/chat/sessions/:sessionId", requirePermission("chat:view"), async (req, res): Promise<void> => {
-  const sessionId = parseInt(req.params.sessionId);
+  const sessionId = parseInt(getParam(req.params.sessionId));
   if (isNaN(sessionId)) {
     res.status(400).json({ error: "Invalid session ID" });
     return;
@@ -265,7 +266,7 @@ router.get("/admin/chat/sessions/:sessionId", requirePermission("chat:view"), as
 });
 
 router.patch("/admin/chat/messages/:messageId/flag", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const messageId = parseInt(req.params.messageId);
+  const messageId = parseInt(getParam(req.params.messageId));
   if (isNaN(messageId)) {
     res.status(400).json({ error: "Invalid message ID" });
     return;
@@ -290,7 +291,7 @@ router.patch("/admin/chat/messages/:messageId/flag", requirePermission("chat:man
 });
 
 router.patch("/admin/chat/messages/:messageId/notes", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const messageId = parseInt(req.params.messageId);
+  const messageId = parseInt(getParam(req.params.messageId));
   if (isNaN(messageId)) {
     res.status(400).json({ error: "Invalid message ID" });
     return;
@@ -345,7 +346,7 @@ router.post("/admin/chat/system-prompts", requirePermission("chat:manage"), asyn
 });
 
 router.patch("/admin/chat/system-prompts/:id/activate", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid prompt ID" });
     return;
@@ -451,7 +452,7 @@ router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async
 });
 
 router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid document ID" });
     return;
@@ -484,7 +485,7 @@ router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), as
 });
 
 router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(getParam(req.params.id));
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid document ID" });
     return;

@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import { db, webhookSubscriptionsTable, webhookDeliveriesTable } from "@workspace/db";
@@ -99,7 +100,7 @@ router.post("/admin/outgoing-webhooks", requirePermission("settings:manage"), as
 
 router.get("/admin/outgoing-webhooks/:id", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -124,7 +125,7 @@ router.get("/admin/outgoing-webhooks/:id", requirePermission("settings:view"), a
 
 router.put("/admin/outgoing-webhooks/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -182,7 +183,7 @@ router.put("/admin/outgoing-webhooks/:id", requirePermission("settings:manage"),
 
 router.delete("/admin/outgoing-webhooks/:id", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -206,7 +207,7 @@ router.delete("/admin/outgoing-webhooks/:id", requirePermission("settings:manage
 
 router.post("/admin/outgoing-webhooks/:id/rotate-secret", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -233,7 +234,7 @@ router.post("/admin/outgoing-webhooks/:id/rotate-secret", requirePermission("set
 
 router.post("/admin/outgoing-webhooks/:id/test", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -254,7 +255,7 @@ router.post("/admin/outgoing-webhooks/:id/test", requirePermission("settings:man
 
 router.get("/admin/outgoing-webhooks/:id/deliveries", requirePermission("settings:view"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid subscription ID" });
       return;
@@ -384,7 +385,7 @@ router.get("/admin/outgoing-webhook-deliveries", requirePermission("settings:vie
 
 router.post("/admin/outgoing-webhook-deliveries/:id/retry", requirePermission("settings:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid delivery ID" });
       return;

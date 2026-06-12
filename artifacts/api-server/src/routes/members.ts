@@ -8,16 +8,18 @@ import {
   GetCurrentMemberResponse,
   GetMemberProductsResponse,
   GetMemberEntitlementsResponse,
-  ChangeMemberPasswordBody,
-  ChangeMemberPasswordResponse,
   RequestMemberEmailChangeBody as RequestEmailChangeBody,
   RequestMemberEmailChangeResponse as RequestEmailChangeResponse,
   CancelMemberEmailChangeResponse as CancelEmailChangeResponse,
-  DismissAdminCancelledEmailChangeResponse,
   GetMemberEmailChangePrefillResponse as EmailChangePrefillResponse,
+} from "@workspace/api-zod";
+import {
+  ChangeMemberPasswordBody,
+  ChangeMemberPasswordResponse,
+  DismissAdminCancelledEmailChangeResponse,
   StartMemberCheckoutBody,
   StartMemberCheckoutResponse,
-} from "@workspace/api-zod";
+} from "@workspace/api-zod/schemas";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { CommunicationService } from "../lib/communication-service";
 import {

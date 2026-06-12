@@ -1,3 +1,4 @@
+import { getParam } from "../lib/params";
 import { Router, type Request, type Response } from "express";
 import {
   db,
@@ -66,7 +67,7 @@ router.post("/admin/canned-responses", requirePermission("tickets:manage"), asyn
 
 router.put("/admin/canned-responses/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
@@ -97,7 +98,7 @@ router.put("/admin/canned-responses/:id", requirePermission("tickets:manage"), a
 
 router.delete("/admin/canned-responses/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
@@ -150,7 +151,7 @@ router.post("/admin/ticket-routing", requirePermission("tickets:manage"), async 
 
 router.put("/admin/ticket-routing/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
@@ -184,7 +185,7 @@ router.put("/admin/ticket-routing/:id", requirePermission("tickets:manage"), asy
 
 router.delete("/admin/ticket-routing/:id", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(getParam(req.params.id));
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
@@ -555,7 +556,7 @@ router.post("/admin/tickets/merge", requirePermission("tickets:manage"), async (
 
 router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -627,7 +628,7 @@ router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: 
 
 router.get("/admin/tickets/:id/sla", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -657,7 +658,7 @@ router.get("/admin/tickets/:id/sla", requirePermission("tickets:view"), async (r
 
 router.post("/admin/tickets/:id/internal-note", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -690,7 +691,7 @@ router.post("/admin/tickets/:id/internal-note", requirePermission("tickets:manag
 
 router.post("/admin/tickets/:id/reply", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -731,7 +732,7 @@ router.post("/admin/tickets/:id/reply", requirePermission("tickets:manage"), asy
 
 router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -792,7 +793,7 @@ router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), asy
 
 router.put("/admin/tickets/:id/priority", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
@@ -823,7 +824,7 @@ router.put("/admin/tickets/:id/priority", requirePermission("tickets:manage"), a
 
 router.put("/admin/tickets/:id/assign", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
   try {
-    const ticketId = parseInt(req.params.id);
+    const ticketId = parseInt(getParam(req.params.id));
     if (isNaN(ticketId)) {
       res.status(400).json({ error: "Invalid ticket ID" });
       return;
