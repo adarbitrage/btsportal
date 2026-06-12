@@ -265,7 +265,7 @@ export function toggleReaction(data: {
 }): Promise<{ reacted: boolean; count: number }> {
   return communityFetch("/community/reactions", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ target_type: data.targetType, target_id: data.targetId }),
   });
 }
 
