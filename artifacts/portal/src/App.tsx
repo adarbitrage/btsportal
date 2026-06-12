@@ -108,6 +108,7 @@ import VaultAnalytics from "@/pages/admin/VaultAnalytics";
 import AdminWins from "@/pages/admin/AdminWins";
 import OneOnOneCoaching from "@/pages/coaching/OneOnOneCoaching";
 import BookCoaching from "@/pages/coaching/BookCoaching";
+import SessionBooking from "@/pages/coaching/SessionBooking";
 import CoachingSessionDetail from "@/pages/coaching/CoachingSessionDetail";
 import CoachingCoaches from "@/pages/admin/CoachingCoaches";
 import CoachingAvailability from "@/pages/admin/CoachingAvailability";
@@ -423,6 +424,7 @@ function Router() {
       <Route path="/coaching/one-on-one/book">{() => <EntitlementRoute component={BookCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching/one-on-one/sessions/:id">{() => <EntitlementRoute component={CoachingSessionDetail} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
+      <Route path="/coaching/book-session">{() => <ProtectedRoute component={SessionBooking} />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>

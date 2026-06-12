@@ -145,6 +145,7 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
       { kind: "leaf", href: "/coaching/one-on-one", label: "1-on-1 Coaching", icon: UserCheck, requiredEntitlement: "coaching:one_on_one:*" },
+      { kind: "leaf", href: "/coaching/book-session", label: "1-on-1 Sessions", icon: Ticket },
       { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Headphones },
     ],
   },
