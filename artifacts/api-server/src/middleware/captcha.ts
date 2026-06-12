@@ -59,13 +59,18 @@ export interface CaptchaMiddlewareOptions {
  * Express middleware that verifies a Cloudflare Turnstile token on the
  * incoming request.
  *
- * Behavior:
- *  - If `process.env.TURNSTILE_SECRET_KEY` is unset, the middleware logs a
- *    one-time warning and lets the request through. This keeps local dev
- *    and existing tests working without Turnstile setup.
- *  - If the secret is set and the token is missing → 400 CAPTCHA_REQUIRED.
- *  - If the secret is set and the token fails verification → 400 CAPTCHA_INVALID.
- *  - If the secret is set and the token verifies → next().
+ * Enforcement is gated to production: the challenge is only verified when
+ * `NODE_ENV === "production"` AND `TURNSTILE_SECRET_KEY` is set. Outside
+ * production the middleware always fails open. `TURNSTILE_SECRET_KEY` is a
+ * globally-scoped secret (so it is also present in dev/test); this gate
+ * prevents it from blocking dev/test signups, where no Turnstile widget
+ * (site key) is rendered and therefore no token is ever sent.
+ *
+ * Behavior (in production, with the secret set):
+ *  - If the token is missing → 400 CAPTCHA_REQUIRED.
+ *  - If the token fails verification → 400 CAPTCHA_INVALID.
+ *  - If the token verifies → next().
+ * Outside production, or when the secret is unset → next() (fail open).
  */
 export function verifyCaptcha(
   opts: CaptchaMiddlewareOptions = {},
@@ -77,11 +82,15 @@ export function verifyCaptcha(
     next: NextFunction,
   ): Promise<void> {
     const secret = process.env.TURNSTILE_SECRET_KEY;
-    if (!secret) {
-      if (!warnedNoSecret) {
+    const isProduction = process.env.NODE_ENV === "production";
+    // Fail open outside production, or when no secret is configured. See the
+    // doc comment above: enforcement is intentionally production-only so the
+    // globally-scoped secret never blocks dev/test signups.
+    if (!secret || !isProduction) {
+      if (isProduction && !secret && !warnedNoSecret) {
         warnedNoSecret = true;
         console.warn(
-          "[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled. Set TURNSTILE_SECRET_KEY in production to enforce it.",
+          "[captcha] TURNSTILE_SECRET_KEY is not set — signup challenge verification is disabled in production. Set TURNSTILE_SECRET_KEY to enforce it.",
         );
       }
       next();
@@ -126,9 +135,11 @@ export function verifyCaptcha(
 }
 
 /**
- * Returns whether the signup captcha challenge is actively enforced on
- * the backend — i.e. whether `TURNSTILE_SECRET_KEY` is set to a
- * non-empty value. Never returns or exposes the secret itself.
+ * Returns whether the signup captcha challenge is *configured* on the
+ * backend — i.e. whether `TURNSTILE_SECRET_KEY` is set to a non-empty
+ * value. Note that runtime enforcement by `verifyCaptcha` additionally
+ * requires `NODE_ENV === "production"`. Never returns or exposes the
+ * secret itself.
  */
 export function isSignupChallengeEnforced(): boolean {
   const secret = process.env.TURNSTILE_SECRET_KEY;

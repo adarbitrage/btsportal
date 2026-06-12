@@ -42,6 +42,7 @@ import { __resetCaptchaWarningForTests } from "../middleware/captcha";
 let app: ReturnType<typeof buildTestApp>;
 const realFetch = global.fetch;
 const fetchMock = vi.fn();
+const originalNodeEnv = process.env.NODE_ENV;
 
 beforeAll(() => {
   app = buildTestApp({ routers: [authRouter] });
@@ -50,6 +51,9 @@ beforeAll(() => {
 beforeEach(() => {
   __resetCaptchaWarningForTests();
   delete process.env.TURNSTILE_SECRET_KEY;
+  // verifyCaptcha only enforces in production, so exercise these tests as if
+  // running in the deployed environment.
+  process.env.NODE_ENV = "production";
   fetchMock.mockReset();
   global.fetch = fetchMock as unknown as typeof fetch;
 });
@@ -57,6 +61,11 @@ beforeEach(() => {
 afterEach(() => {
   global.fetch = realFetch;
   delete process.env.TURNSTILE_SECRET_KEY;
+  if (originalNodeEnv === undefined) {
+    delete (process.env as Record<string, string | undefined>).NODE_ENV;
+  } else {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
 });
 
 describe("POST /api/auth/login Turnstile verification", () => {

@@ -613,9 +613,16 @@ describe("Rate limiter short-circuits before captcha verification", () => {
   // the captcha and asserting we never call siteverify on a 429.
   const realFetch = global.fetch;
   const fetchMock = vi.fn();
+  let originalNodeEnv: string | undefined;
 
   beforeEach(() => {
     __resetCaptchaWarningForTests();
+    // verifyCaptcha only enforces when NODE_ENV === "production" (the secret
+    // is globally scoped, so the production gate keeps it from blocking
+    // dev/test). These tests assert siteverify IS called, so they must run
+    // with enforcement on.
+    originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
     process.env.TURNSTILE_SECRET_KEY = "test-secret-rate-limit-order";
     fetchMock.mockReset();
     // Resolve with a fresh Response on every call — Response bodies are
@@ -635,6 +642,11 @@ describe("Rate limiter short-circuits before captcha verification", () => {
   afterAll(() => {
     global.fetch = realFetch;
     delete process.env.TURNSTILE_SECRET_KEY;
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it("does not call Cloudflare siteverify on a 429 from /auth/login", async () => {

@@ -81,6 +81,7 @@ timeoutMs = 90000
 
 [userenv.production]
 PORTAL_URL = "https://portal.buildtestscale.com"
+VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADg3k96t3Hwv0N5i"
 
 [nix]
 channel = "stable-25_05"
