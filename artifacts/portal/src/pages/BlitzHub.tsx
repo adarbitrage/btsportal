@@ -257,6 +257,11 @@ export default function BlitzHub() {
   // Tracks last time a viewed event was sent per lesson (rate-limit: 1/min).
   const lastViewedAt = useRef<Map<number, number>>(new Map());
 
+  // Monotonic id so only the most recent phase-status response wins. Rapid
+  // completion toggles can overlap in-flight refreshes; without this an older
+  // response could land last and briefly show stale lock state.
+  const phaseStatusReqId = useRef(0);
+
   // Hydrate progress from server on mount.
   useEffect(() => {
     let cancelled = false;
@@ -277,24 +282,31 @@ export default function BlitzHub() {
     };
   }, []);
 
-  // Fetch phase-gate status.
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_BASE}/blitz/phase-status`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { phases: [], adminOverride: false }))
-      .then((data) => {
-        if (cancelled) return;
-        setPhaseStatus(data.phases ?? []);
-        setAdminOverride(data.adminOverride ?? false);
-        setPhaseStatusLoaded(true);
-      })
-      .catch(() => {
-        if (!cancelled) setPhaseStatusLoaded(true);
+  // Fetch phase-gate status. Extracted into a callback so it can be re-run
+  // after a lesson is marked complete/incomplete — that re-evaluates the
+  // unlock gates live (e.g. finishing the Introduction unlocks Phase 1)
+  // without the user having to leave the page and come back.
+  const refreshPhaseStatus = useCallback(async () => {
+    const reqId = ++phaseStatusReqId.current;
+    try {
+      const r = await fetch(`${API_BASE}/blitz/phase-status`, {
+        credentials: "include",
       });
-    return () => {
-      cancelled = true;
-    };
+      const data = r.ok ? await r.json() : { phases: [], adminOverride: false };
+      // Ignore a response that a newer refresh has already superseded.
+      if (reqId !== phaseStatusReqId.current) return;
+      setPhaseStatus(data.phases ?? []);
+      setAdminOverride(data.adminOverride ?? false);
+    } catch {
+      // Leave the last-known gate status in place on a transient failure.
+    } finally {
+      if (reqId === phaseStatusReqId.current) setPhaseStatusLoaded(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshPhaseStatus();
+  }, [refreshPhaseStatus]);
 
   // Restore scroll to last-viewed lesson after both data sources are ready.
   useEffect(() => {
@@ -379,6 +391,10 @@ export default function BlitzHub() {
           });
           if (!res.ok) throw new Error("post failed");
         }
+        // Re-evaluate the phase-unlock gates against the now-updated server
+        // progress so a newly-satisfied phase (e.g. Phase 1 after finishing
+        // the Introduction) unlocks immediately, without a page reload.
+        await refreshPhaseStatus();
       } catch {
         setCompleted((prev) => {
           const next = new Set(prev);
@@ -390,7 +406,7 @@ export default function BlitzHub() {
         setBusy(id, false);
       }
     },
-    [completed, setBusy],
+    [completed, setBusy, refreshPhaseStatus],
   );
 
   const resetProgress = useCallback(async () => {
@@ -424,7 +440,10 @@ export default function BlitzHub() {
     } catch {
       setCompleted(previous);
     }
-  }, [completed]);
+    // Reset re-locks every gate behind the Introduction; refresh so the UI
+    // reflects it without a reload.
+    await refreshPhaseStatus();
+  }, [completed, refreshPhaseStatus]);
 
   const doneCount = completed.size;
   const pct = Math.round((doneCount / TOTAL) * 100);
