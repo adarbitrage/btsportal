@@ -73,15 +73,45 @@ if [ -n "$DATABASE_URL" ]; then
   fi
 fi
 
-pnpm --filter db push-force
-
-# Belt-and-braces: after pushing, confirm every column declared in
-# lib/db/src/schema/ actually landed in the live database. Catches the
-# task #561 failure mode where a schema change was committed but never
-# pushed (e.g. push-force was skipped, errored partially, or the DB was
-# manually altered later). Runs the same vitest file the `db-drift`
-# workflow exercises.
-pnpm --filter @workspace/db exec vitest run src/live-schema-drift.test.ts
+# Schema sync — CONDITIONAL push.
+#
+# `drizzle-kit push --force` does a full "Pulling schema from database"
+# introspection of the ENTIRE database every time it runs. On this large DB
+# that costs 1-3 minutes (more under concurrent-merge load) and is by far the
+# single biggest, most load-sensitive step in post-merge — and on the common
+# merge that touches NO schema it introspects everything only to apply nothing.
+# That unconditional push is what made post-merge setup time out.
+#
+# So we gate the push on the drift test instead of running it every time:
+#
+#   - The drift test's vitest globalSetup applies the idempotent companion
+#     `.sql` migrations (SYNC_MIGRATIONS_ONLY) and then asserts the live dev DB
+#     matches every table/column declared in lib/db/src/schema/. It is the same
+#     vitest file the `db-drift` workflow exercises.
+#   - If it PASSES, the schema is already in sync and a full push would be a
+#     no-op — skip it. This is the common (fast) path.
+#   - If it FAILS, a genuine schema change merged that isn't in the dev DB yet.
+#     Run push-force to apply it, then re-run the drift test to confirm the push
+#     actually resolved the drift (the task #561 failure mode: push skipped,
+#     errored partially, or the DB was manually altered).
+#
+# `set -e` does not trip on the command in an `if` condition, so a drift-test
+# failure here cleanly routes to the push branch instead of aborting. A failed
+# push, or drift that survives the push, still aborts post-merge (as it should).
+#
+# Note: the drift test verifies tables/columns, not indexes/constraints. A
+# merge that ONLY adds an index/constraint with no companion `.sql` would not
+# be detected here and its push would be skipped — an acceptable trade for a
+# dev DB (perf-only; constraint changes ship with companion `.sql` that the
+# globalSetup applies regardless of this gate).
+if pnpm --filter @workspace/db exec vitest run src/live-schema-drift.test.ts; then
+  echo "post-merge: dev DB schema already in sync — skipping drizzle-kit push --force"
+else
+  echo "post-merge: schema drift detected — running drizzle-kit push --force"
+  pnpm --filter db push-force
+  # Confirm the push resolved the drift before we trust the dev DB.
+  pnpm --filter @workspace/db exec vitest run src/live-schema-drift.test.ts
+fi
 
 # Run the plan-metadata backfill from task #319. The SQL is fully idempotent
 # (each UPDATE is gated on `tagline IS NULL AND highlights = '[]'`), so it
