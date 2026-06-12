@@ -70,6 +70,7 @@ import assistantCardsRouter from "./assistant-cards";
 import adminAssistantCardsRouter from "./admin-assistant-cards";
 import coachDashboardRouter from "./coach-dashboard";
 import mediaMavensLinksRouter from "./media-mavens-links";
+import tapfiliateSSORrouter from "./tapfiliate-sso";
 
 const router: IRouter = Router();
 
@@ -144,5 +145,6 @@ router.use(assistantCardsRouter);
 router.use(adminAssistantCardsRouter);
 router.use(coachDashboardRouter);
 router.use(mediaMavensLinksRouter);
+router.use(tapfiliateSSORrouter);
 
 export default router;
