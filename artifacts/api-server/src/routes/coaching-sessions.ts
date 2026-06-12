@@ -9,12 +9,13 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { getCreditBalance } from "../lib/session-credits";
+import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
 import {
   getFreeSlots,
   upsertContact,
   createAppointment,
   cancelAppointment,
+  updateAppointment,
 } from "../lib/ghl-coaching-calendar";
 
 const router: IRouter = Router();
@@ -26,15 +27,6 @@ const MIN_LEAD_TIME_MS = 60 * 60 * 1000; // 1 hour
 const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 // Default availability lookahead when no explicit range is supplied.
 const DEFAULT_LOOKAHEAD_DAYS = 14;
-
-function hashCode(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return hash;
-}
 
 // Build an ISO string carrying the same zone offset as `reference`
 // (GHL slot times look like 2026-06-17T14:30:00-05:00).
@@ -199,7 +191,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
     const txDb = drizzle(client);
 
     // Serialize this member's booking attempts so credit can't be double-spent.
-    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${Math.abs(hashCode(`member-credit:${userId}`))})`);
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${memberCreditLockKey(userId)})`);
 
     const balance = await getCreditBalance(userId, txDb);
     if (balance < 1) {
@@ -325,7 +317,7 @@ router.patch("/coaching/sessions/:id/cancel", async (req, res): Promise<void> =>
 
     // Serialize this member's credit mutations so two concurrent cancels of the
     // same booking can't both refund. Shares the booking lock key.
-    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${Math.abs(hashCode(`member-credit:${userId}`))})`);
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${memberCreditLockKey(userId)})`);
 
     // Atomically claim the cancellation: only the request that actually flips
     // 'booked' -> 'cancelled' (rowCount === 1) owns the GHL cancel + refund.
@@ -394,6 +386,131 @@ router.patch("/coaching/sessions/:id/cancel", async (req, res): Promise<void> =>
     await client.query("ROLLBACK");
     console.error("[coaching-sessions] cancel failed:", err);
     res.status(500).json({ error: "Could not cancel the session. Please try again." });
+  } finally {
+    client.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Reschedule (credit-neutral: same booking, same spent credit, new time)
+// ---------------------------------------------------------------------------
+
+router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const bookingId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+
+  const { startTime } = req.body || {};
+  if (typeof startTime !== "string" || Number.isNaN(Date.parse(startTime))) {
+    res.status(400).json({ error: "Invalid start time" });
+    return;
+  }
+
+  const scheduledAt = new Date(startTime);
+  if (scheduledAt.getTime() < Date.now() + MIN_LEAD_TIME_MS) {
+    res.status(400).json({ error: "Sessions must be booked at least 1 hour in advance" });
+    return;
+  }
+
+  // Load the booking + its coach (calendar) up front.
+  const [existing] = await db
+    .select({
+      id: sessionPackBookingsTable.id,
+      status: sessionPackBookingsTable.status,
+      ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
+      ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
+      coachId: sessionPackBookingsTable.coachId,
+      title: sessionPackBookingsTable.title,
+    })
+    .from(sessionPackBookingsTable)
+    .where(
+      and(
+        eq(sessionPackBookingsTable.id, bookingId),
+        eq(sessionPackBookingsTable.memberId, userId),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (existing.status !== "booked") {
+    res.status(409).json({ error: "This session can no longer be rescheduled" });
+    return;
+  }
+  if (!existing.ghlAppointmentId) {
+    res.status(409).json({ error: "This session cannot be rescheduled" });
+    return;
+  }
+
+  // Confirm the requested slot is genuinely open on the coach's calendar.
+  const dayMs = scheduledAt.getTime();
+  const freeSlots = await getFreeSlots(existing.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
+  const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
+  if (!slotOpen) {
+    res.status(409).json({ error: "That time slot is no longer available" });
+    return;
+  }
+
+  const endAt = new Date(scheduledAt.getTime() + DURATION_MINUTES * 60000);
+  const endTimeIso = isoWithMatchingOffset(endAt, startTime);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const txDb = drizzle(client);
+
+    // Share the member's credit lock so a reschedule can't race a cancel.
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${memberCreditLockKey(userId)})`);
+
+    // Re-assert the booking is still reschedulable inside the lock.
+    const [locked] = await txDb
+      .select({ status: sessionPackBookingsTable.status })
+      .from(sessionPackBookingsTable)
+      .where(eq(sessionPackBookingsTable.id, bookingId));
+    if (!locked || locked.status !== "booked") {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "This session can no longer be rescheduled" });
+      return;
+    }
+
+    // Move the GHL appointment in place (same event id => credit-neutral). If
+    // it fails, roll back so the booking keeps its original time.
+    let meetLink: string | null = null;
+    try {
+      const updated = await updateAppointment({
+        eventId: existing.ghlAppointmentId,
+        calendarId: existing.ghlCalendarId,
+        startTime,
+        endTime: endTimeIso,
+        title: existing.title ?? undefined,
+      });
+      meetLink = updated.meetLink;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("[coaching-sessions] GHL reschedule failed:", err);
+      res.status(502).json({ error: "Could not reschedule the session. Please try again." });
+      return;
+    }
+
+    const [booking] = await txDb
+      .update(sessionPackBookingsTable)
+      .set({
+        scheduledAt,
+        endAt,
+        ...(meetLink ? { meetLink } : {}),
+      })
+      .where(eq(sessionPackBookingsTable.id, bookingId))
+      .returning();
+
+    await client.query("COMMIT");
+    res.json({ ok: true, booking });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[coaching-sessions] reschedule failed:", err);
+    res.status(500).json({ error: "Could not reschedule the session. Please try again." });
   } finally {
     client.release();
   }

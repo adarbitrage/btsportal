@@ -119,3 +119,19 @@ export function useCancelSessionBooking() {
     onSuccess: () => invalidateAll(queryClient),
   });
 }
+
+export function useRescheduleSessionBooking() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { ok: boolean; booking: SessionBooking },
+    Error,
+    { bookingId: number; startTime: string }
+  >({
+    mutationFn: ({ bookingId, startTime }) =>
+      sessionFetch(`/coaching/sessions/${bookingId}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ startTime }),
+      }),
+    onSuccess: () => invalidateAll(queryClient),
+  });
+}

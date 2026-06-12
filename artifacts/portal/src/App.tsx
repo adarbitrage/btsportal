@@ -109,7 +109,11 @@ import AdminWins from "@/pages/admin/AdminWins";
 import OneOnOneCoaching from "@/pages/coaching/OneOnOneCoaching";
 import BookCoaching from "@/pages/coaching/BookCoaching";
 import SessionBooking from "@/pages/coaching/SessionBooking";
+import BookSessionPack from "@/pages/coaching/BookSessionPack";
 import CoachingSessionDetail from "@/pages/coaching/CoachingSessionDetail";
+import PackSessions from "@/pages/admin/PackSessions";
+import PackCredits from "@/pages/admin/PackCredits";
+import PackCoaches from "@/pages/admin/PackCoaches";
 import CoachingCoaches from "@/pages/admin/CoachingCoaches";
 import CoachingAvailability from "@/pages/admin/CoachingAvailability";
 import CoachingOverrides from "@/pages/admin/CoachingOverrides";
@@ -424,6 +428,7 @@ function Router() {
       <Route path="/coaching/one-on-one/book">{() => <EntitlementRoute component={BookCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching/one-on-one/sessions/:id">{() => <EntitlementRoute component={CoachingSessionDetail} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
+      <Route path="/coaching/book-session/book">{() => <ProtectedRoute component={BookSessionPack} />}</Route>
       <Route path="/coaching/book-session">{() => <ProtectedRoute component={SessionBooking} />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
@@ -479,7 +484,9 @@ function Router() {
       <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/availability">{() => <AdminRoute component={CoachingAvailability} permission="coaching:manage" />}</Route>
       <Route path="/admin/coaching/overrides">{() => <AdminRoute component={CoachingOverrides} permission="coaching:manage" />}</Route>
-      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={CoachingSessions} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PackSessions} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/credits">{() => <AdminRoute component={PackCredits} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/roster">{() => <AdminRoute component={PackCoaches} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} permission="coaching:view" />}</Route>
       <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>

@@ -3,39 +3,47 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Calendar,
   Clock,
+  UserCheck,
   Video,
-  CheckCircle2,
   XCircle,
+  CheckCircle2,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  FileText,
   Ticket,
-  Sparkles,
-  Loader2,
 } from "lucide-react";
-import { format, addDays, startOfDay } from "date-fns";
+import { format, addMinutes, isBefore } from "date-fns";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSessionBalance,
-  useSessionCoaches,
-  useSessionCoachSlots,
-  useBookSessionPack,
   useMySessionBookings,
   useCancelSessionBooking,
-  type SessionCoach,
-  type SessionSlot,
-  type SessionBooking,
+  type SessionBooking as SessionBookingType,
 } from "@/lib/session-packs-api";
 
-const DATE_WINDOW_DAYS = 14;
+const PAST_PAGE_SIZE = 5;
 
 const PACKAGE_PLACEHOLDERS = [
-  { name: "Single Session", sessions: "1 session", blurb: "A focused 1-on-1 to unblock a specific challenge." },
-  { name: "Starter Pack", sessions: "5 sessions", blurb: "Build momentum with regular coaching touchpoints." },
-  { name: "Pro Pack", sessions: "10 sessions", blurb: "Go all-in with ongoing accountability and strategy." },
+  {
+    name: "Single Session",
+    sessions: "1 session",
+    blurb: "A focused 1-on-1 to unblock a specific challenge.",
+  },
+  {
+    name: "Starter Pack",
+    sessions: "5 sessions",
+    blurb: "Build momentum with regular coaching touchpoints.",
+  },
+  {
+    name: "Pro Pack",
+    sessions: "10 sessions",
+    blurb: "Go all-in with ongoing accountability and strategy.",
+  },
 ];
 
 function coachInitials(name: string): string {
@@ -47,83 +55,52 @@ function coachInitials(name: string): string {
     .toUpperCase();
 }
 
-function groupSlotsByDay(slots: SessionSlot[]): { date: string; label: string; slots: SessionSlot[] }[] {
-  const map = new Map<string, SessionSlot[]>();
-  for (const slot of slots) {
-    const d = new Date(slot.startTime);
-    const key = format(d, "yyyy-MM-dd");
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(slot);
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, daySlots]) => ({
-      date,
-      label: format(new Date(`${date}T12:00:00`), "EEE, MMM d"),
-      slots: daySlots,
-    }));
-}
-
 export default function SessionBooking() {
   const { toast } = useToast();
+  const [pastPage, setPastPage] = useState(0);
+
   const { data: balanceData, isLoading: balanceLoading } = useSessionBalance();
-  const { data: coaches, isLoading: coachesLoading } = useSessionCoaches();
-  const { data: bookings } = useMySessionBookings();
+  const { data: bookings, isLoading: bookingsLoading } = useMySessionBookings();
+  const cancelMutation = useCancelSessionBooking();
 
   const balance = balanceData?.balance ?? 0;
   const hasCredits = balance > 0;
+  const now = new Date();
 
-  const [selectedCoach, setSelectedCoach] = useState<SessionCoach | null>(null);
-  const [pendingSlot, setPendingSlot] = useState<string | null>(null);
-
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const startDate = format(today, "yyyy-MM-dd");
-  const endDate = format(addDays(today, DATE_WINDOW_DAYS), "yyyy-MM-dd");
-
-  const { data: slotData, isLoading: slotsLoading } = useSessionCoachSlots(
-    selectedCoach?.id ?? 0,
-    startDate,
-    endDate,
+  const upcoming = useMemo(
+    () =>
+      (bookings ?? [])
+        .filter(
+          (b) => b.status === "booked" && new Date(b.scheduledAt).getTime() >= now.getTime(),
+        )
+        .sort(
+          (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+        ),
+    [bookings],
   );
+  const nextSession = upcoming[0];
 
-  const bookMutation = useBookSessionPack();
-  const cancelMutation = useCancelSessionBooking();
-
-  const now = Date.now();
-  const upcoming = (bookings ?? [])
-    .filter((b) => b.status === "booked" && new Date(b.scheduledAt).getTime() >= now)
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  const past = (bookings ?? [])
-    .filter((b) => b.status !== "booked" || new Date(b.scheduledAt).getTime() < now)
-    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-
-  const groupedSlots = useMemo(
-    () => (slotData?.slots ? groupSlotsByDay(slotData.slots) : []),
-    [slotData],
+  const past = useMemo(
+    () =>
+      (bookings ?? [])
+        .filter(
+          (b) => b.status !== "booked" || new Date(b.scheduledAt).getTime() < now.getTime(),
+        )
+        .sort(
+          (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
+        ),
+    [bookings],
   );
+  const completedCount = past.filter((b) => b.status === "completed").length;
 
-  async function handleBook(startTime: string) {
-    if (!selectedCoach) return;
-    setPendingSlot(startTime);
-    try {
-      const result = await bookMutation.mutateAsync({ coachId: selectedCoach.id, startTime });
-      toast({
-        title: "Session booked!",
-        description: `${selectedCoach.name} · ${format(new Date(result.booking.scheduledAt), "EEE, MMM d 'at' h:mm a")}. ${result.balance} credit${result.balance === 1 ? "" : "s"} left.`,
-      });
-      setSelectedCoach(null);
-    } catch (err) {
-      toast({
-        title: "Could not book session",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPendingSlot(null);
-    }
-  }
+  const paginatedPast = useMemo(() => {
+    const totalPages = Math.ceil(past.length / PAST_PAGE_SIZE);
+    const start = pastPage * PAST_PAGE_SIZE;
+    return { sessions: past.slice(start, start + PAST_PAGE_SIZE), totalPages };
+  }, [past, pastPage]);
 
-  async function handleCancel(booking: SessionBooking) {
+  async function handleCancel(booking: SessionBookingType) {
+    if (!window.confirm("Are you sure you want to cancel this session?")) return;
     try {
       const result = await cancelMutation.mutateAsync({ bookingId: booking.id });
       toast({
@@ -141,248 +118,364 @@ export default function SessionBooking() {
     }
   }
 
+  function statusBadge(status: string) {
+    switch (status) {
+      case "completed":
+        return <Badge variant="secondary">Completed</Badge>;
+      case "cancelled":
+        return <Badge variant="outline">Cancelled</Badge>;
+      case "no_show":
+        return <Badge variant="warning">No-show</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  }
+
   return (
     <AppLayout>
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-        {/* Header + balance */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">1-on-1 Sessions</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Book private coaching sessions with our team. Each session uses one credit.
+            <div className="flex items-center gap-2 mb-2">
+              <UserCheck className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
+            </div>
+            <p className="text-muted-foreground">
+              Private coaching sessions tailored to your goals.
             </p>
           </div>
-          <Card className="shrink-0">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Ticket className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Session credits</p>
-                <p className="text-xl font-bold" data-testid="credit-balance">
-                  {balanceLoading ? "—" : balance}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {hasCredits && (
+            <Link href="/coaching/book-session/book">
+              <Button size="lg" className="shadow-lg shadow-primary/20">
+                <Calendar className="w-5 h-5 mr-2" />
+                Book a Session
+              </Button>
+            </Link>
+          )}
         </div>
 
-        {hasCredits ? (
-          <>
-            {/* Coach picker */}
-            {!selectedCoach ? (
-              <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Choose a coach</h2>
-                {coachesLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading coaches…
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {(coaches ?? []).map((coach) => (
-                      <Card
-                        key={coach.id}
-                        className="cursor-pointer transition-shadow hover:shadow-md"
-                        onClick={() => setSelectedCoach(coach)}
-                        data-testid={`coach-card-${coach.id}`}
-                      >
-                        <CardContent className="flex items-center gap-4 p-5">
-                          <Avatar className="h-14 w-14">
-                            {coach.photoUrl ? <AvatarImage src={coach.photoUrl} alt={coach.name} /> : null}
-                            <AvatarFallback>{coachInitials(coach.name)}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{coach.name}</p>
-                            {coach.bio ? (
-                              <p className="line-clamp-2 text-sm text-muted-foreground">{coach.bio}</p>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">30-minute 1-on-1 session</p>
-                            )}
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </section>
-            ) : (
-              /* Availability */
-              <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedCoach(null)}>
-                    <ChevronLeft className="mr-1 h-4 w-4" /> Coaches
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      {selectedCoach.photoUrl ? (
-                        <AvatarImage src={selectedCoach.photoUrl} alt={selectedCoach.name} />
-                      ) : null}
-                      <AvatarFallback>{coachInitials(selectedCoach.name)}</AvatarFallback>
-                    </Avatar>
-                    <h2 className="text-lg font-semibold">Book with {selectedCoach.name}</h2>
-                  </div>
+        {/* Session credits summary */}
+        <Card className="border-t-4 border-t-primary rounded-t-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Ticket className="w-6 h-6 text-primary" />
                 </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Session Credits</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Each credit books one 30-minute 1-on-1 session.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-primary" data-testid="credit-balance">
+                    {balanceLoading ? "—" : balance}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Credits</p>
+                </div>
+                <div className="w-px h-10 bg-border" />
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-foreground">{upcoming.length}</p>
+                  <p className="text-xs text-muted-foreground">Upcoming</p>
+                </div>
+                <div className="w-px h-10 bg-border" />
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-muted-foreground">{completedCount}</p>
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                {slotsLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading availability…
-                  </div>
-                ) : groupedSlots.length === 0 ? (
-                  <Card>
-                    <CardContent className="p-8 text-center text-muted-foreground">
-                      No open slots in the next {DATE_WINDOW_DAYS} days. Check back soon.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-5">
-                    {groupedSlots.map((day) => (
-                      <div key={day.date}>
-                        <p className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <Calendar className="h-4 w-4" /> {day.label}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {day.slots.map((slot) => {
-                            const isPending = pendingSlot === slot.startTime;
-                            return (
-                              <Button
-                                key={slot.startTime}
-                                variant="outline"
-                                size="sm"
-                                disabled={bookMutation.isPending}
-                                onClick={() => handleBook(slot.startTime)}
-                                data-testid={`slot-${slot.startTime}`}
-                              >
-                                {isPending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  format(new Date(slot.startTime), "h:mm a")
-                                )}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-          </>
-        ) : (
-          /* No credits → package placeholders */
-          <section className="space-y-4">
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center gap-2 p-8 text-center">
-                <Sparkles className="h-8 w-8 text-primary" />
-                <p className="text-lg font-semibold">You don't have any session credits yet</p>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  Session packages are coming soon. In the meantime, reach out to the team if you'd
-                  like access to 1-on-1 coaching.
-                </p>
-              </CardContent>
-            </Card>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {PACKAGE_PLACEHOLDERS.map((pkg) => (
-                <Card key={pkg.name} className="opacity-80">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold">{pkg.name}</p>
-                      <Badge variant="secondary">Coming soon</Badge>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Upcoming session */}
+            <div>
+              <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-6">
+                Upcoming Session
+              </h2>
+              {bookingsLoading ? (
+                <div className="animate-pulse h-40 bg-card rounded-xl" />
+              ) : nextSession ? (
+                <Card className="overflow-hidden" data-testid={`upcoming-${nextSession.id}`}>
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="bg-primary/5 p-6 flex flex-col items-center justify-center sm:w-40 border-b sm:border-b-0 sm:border-r border-border shrink-0">
+                      <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                        {format(new Date(nextSession.scheduledAt), "MMM")}
+                      </span>
+                      <span className="text-4xl font-bold text-foreground my-1">
+                        {format(new Date(nextSession.scheduledAt), "dd")}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {format(new Date(nextSession.scheduledAt), "EEEE")}
+                      </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{pkg.sessions}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">{pkg.blurb}</p>
-                    <Button className="mt-4 w-full" disabled>
-                      Coming soon
-                    </Button>
+                    <div className="p-6 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge
+                          variant="secondary"
+                          className="bg-primary/10 text-primary uppercase text-[10px] tracking-widest"
+                        >
+                          1-on-1
+                        </Badge>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          {format(new Date(nextSession.scheduledAt), "h:mm a")}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-foreground mt-2">
+                        Session with {nextSession.coachName}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 mt-1">
+                        {nextSession.durationMinutes} minute session
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {(() => {
+                          const sessionStart = new Date(nextSession.scheduledAt);
+                          const joinWindow = addMinutes(sessionStart, -5);
+                          const sessionEnd = addMinutes(
+                            sessionStart,
+                            nextSession.durationMinutes,
+                          );
+                          const canJoin =
+                            !isBefore(now, joinWindow) && isBefore(now, sessionEnd);
+                          return (
+                            <>
+                              {canJoin && nextSession.meetLink ? (
+                                <a
+                                  href={nextSession.meetLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Button>
+                                    <Video className="w-4 h-4 mr-2" />
+                                    Join Session
+                                  </Button>
+                                </a>
+                              ) : (
+                                <Button variant="outline" disabled>
+                                  <Video className="w-4 h-4 mr-2" />
+                                  Join (opens 5 min before)
+                                </Button>
+                              )}
+                              <Link href={`/coaching/book-session/book?reschedule=${nextSession.id}`}>
+                                <Button variant="outline">Reschedule</Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleCancel(nextSession)}
+                                disabled={cancelMutation.isPending}
+                                data-testid={`cancel-${nextSession.id}`}
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Cancel
+                              </Button>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      No Upcoming Session
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {hasCredits
+                        ? "Book your next coaching session to keep making progress."
+                        : "You don't have any session credits yet. See the packages below."}
+                    </p>
+                    {hasCredits && (
+                      <Link href="/coaching/book-session/book">
+                        <Button>
+                          <Calendar className="w-4 h-4 mr-2" />
+                          Book a Session
+                        </Button>
+                      </Link>
+                    )}
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </section>
-        )}
+              )}
 
-        {/* Upcoming */}
-        {upcoming.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Upcoming sessions</h2>
-            <div className="space-y-3">
-              {upcoming.map((booking) => (
-                <Card key={booking.id} data-testid={`upcoming-${booking.id}`}>
-                  <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10">
-                        {booking.coachPhotoUrl ? (
-                          <AvatarImage src={booking.coachPhotoUrl} alt={booking.coachName} />
-                        ) : null}
-                        <AvatarFallback>{coachInitials(booking.coachName)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{booking.coachName}</p>
-                        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          {format(new Date(booking.scheduledAt), "EEE, MMM d 'at' h:mm a")} ·{" "}
-                          {booking.durationMinutes} min
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {booking.meetLink && (
-                        <Button asChild size="sm">
-                          <a href={booking.meetLink} target="_blank" rel="noopener noreferrer">
-                            <Video className="mr-1.5 h-4 w-4" /> Join
-                          </a>
-                        </Button>
-                      )}
+              {upcoming.length > 1 && (
+                <div className="mt-4 space-y-3">
+                  {upcoming.slice(1).map((booking) => (
+                    <Card key={booking.id} data-testid={`upcoming-${booking.id}`}>
+                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                            {coachInitials(booking.coachName)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{booking.coachName}</p>
+                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(booking.scheduledAt), "EEE, MMM d 'at' h:mm a")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/coaching/book-session/book?reschedule=${booking.id}`}>
+                            <Button variant="outline" size="sm">
+                              Reschedule
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleCancel(booking)}
+                            disabled={cancelMutation.isPending}
+                            data-testid={`cancel-${booking.id}`}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Past sessions */}
+            <div>
+              <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-6">
+                Past Sessions
+              </h2>
+              {bookingsLoading ? (
+                <div className="animate-pulse space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-20 bg-card rounded-xl" />
+                  ))}
+                </div>
+              ) : paginatedPast.sessions.length > 0 ? (
+                <div className="space-y-3">
+                  {paginatedPast.sessions.map((booking) => (
+                    <Card key={booking.id}>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                            {booking.status === "cancelled" ? (
+                              <XCircle className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-foreground text-sm">
+                              Session with {booking.coachName}
+                            </h4>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {format(new Date(booking.scheduledAt), "MMM d, yyyy")}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {format(new Date(booking.scheduledAt), "h:mm a")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {statusBadge(booking.status)}
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {paginatedPast.totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-4 pt-4">
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={cancelMutation.isPending}
-                        onClick={() => handleCancel(booking)}
-                        data-testid={`cancel-${booking.id}`}
+                        onClick={() => setPastPage((p) => Math.max(0, p - 1))}
+                        disabled={pastPage <= 0}
                       >
-                        Cancel
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {pastPage + 1} of {paginatedPast.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPastPage((p) => Math.min(paginatedPast.totalPages - 1, p + 1))
+                        }
+                        disabled={pastPage >= paginatedPast.totalPages - 1}
+                      >
+                        <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
+                  )}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Past Sessions</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your completed coaching sessions will appear here.
+                    </p>
                   </CardContent>
                 </Card>
-              ))}
+              )}
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* Past */}
-        {past.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Past & cancelled</h2>
-            <div className="space-y-2">
-              {past.map((booking) => (
-                <Card key={booking.id} className="bg-muted/30">
-                  <CardContent className="flex items-center justify-between gap-3 p-4">
-                    <div className="flex items-center gap-3">
-                      {booking.status === "cancelled" ? (
-                        <XCircle className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div>
-                        <p className="text-sm font-medium">{booking.coachName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(booking.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant={booking.status === "cancelled" ? "outline" : "secondary"}>
-                      {booking.status}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )}
+          {/* Right rail */}
+          <div className="space-y-6">
+            <Card className="bg-gradient-to-b from-primary/5 to-transparent border-primary/20">
+              <CardContent className="p-6">
+                <h3 className="font-bold text-lg mb-2">Prepare for Success</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Prepare your questions and goals before your next session for maximum impact.
+                </p>
+                <Link href="/support">
+                  <Button variant="outline" className="w-full">
+                    Contact Support
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Coaching packages */}
+        <div>
+          <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-6">
+            Coaching Packages
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {PACKAGE_PLACEHOLDERS.map((pkg) => (
+              <Card key={pkg.name} className="opacity-90">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold">{pkg.name}</p>
+                    <Badge variant="secondary">Coming soon</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{pkg.sessions}</p>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{pkg.blurb}</p>
+                  <Button className="mt-4 w-full" disabled>
+                    Coming soon
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

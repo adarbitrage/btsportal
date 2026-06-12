@@ -7,7 +7,8 @@ import { sessionPackBookingsTable } from "./session-pack-bookings";
 // balance is SUM(delta). The purchase/checkout flow (deferred) just appends a
 // positive entry; until then admins grant credits. Booking = -1, early cancel
 // refund = +1.
-//   reason ∈ { admin_grant, booking, cancel_refund, purchase, adjustment }
+//   reason ∈ { admin_grant, booking, cancel_refund, admin_cancel_refund,
+//             no_show_refund, purchase, adjustment }
 export const coachingCreditLedgerTable = pgTable(
   "coaching_credit_ledger",
   {
@@ -29,6 +30,11 @@ export const coachingCreditLedgerTable = pgTable(
     uniqueIndex("uq_coaching_credit_ledger_cancel_refund")
       .on(table.bookingId)
       .where(sql`reason = 'cancel_refund'`),
+    // At most one admin-issued refund (admin cancel / no-show return) per
+    // booking — same defense-in-depth for the admin lifecycle actions.
+    uniqueIndex("uq_coaching_credit_ledger_admin_refund")
+      .on(table.bookingId)
+      .where(sql`reason in ('admin_cancel_refund', 'no_show_refund')`),
   ],
 );
 

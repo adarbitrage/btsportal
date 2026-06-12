@@ -341,6 +341,37 @@ export async function createAppointment(input: {
   };
 }
 
+/**
+ * Reschedule an existing appointment to a new time, keeping the same GHL event
+ * id (and therefore the same booking + spent credit — a credit-neutral move).
+ * Returns the (possibly refreshed) Google Meet link.
+ */
+export async function updateAppointment(input: {
+  eventId: string;
+  calendarId: string;
+  startTime: string;
+  endTime: string;
+  title?: string;
+  toNotify?: boolean;
+}): Promise<{ meetLink: string | null }> {
+  const data = await ghlRequest<AppointmentResponse>(
+    "PUT",
+    `/calendars/events/appointments/${encodeURIComponent(input.eventId)}`,
+    {
+      calendarId: input.calendarId,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      ...(input.title ? { title: input.title } : {}),
+      appointmentStatus: "confirmed",
+      ignoreDateRange: true,
+      toNotify: input.toNotify ?? true,
+    },
+  );
+  const meetLink =
+    typeof data.address === "string" && data.address.startsWith("http") ? data.address : null;
+  return { meetLink };
+}
+
 /** Cancel/delete an appointment by its GHL event id. */
 export async function cancelAppointment(eventId: string): Promise<void> {
   await ghlRequest("DELETE", `/calendars/events/${encodeURIComponent(eventId)}`);

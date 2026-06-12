@@ -15,3 +15,20 @@ export async function getCreditBalance(
     .where(eq(coachingCreditLedgerTable.memberId, memberId));
   return Number(row?.balance ?? 0);
 }
+
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return hash;
+}
+
+// Stable Postgres advisory-lock key for serializing a single member's credit
+// mutations (booking / cancel / reschedule / admin lifecycle). Every code path
+// that spends or refunds a member's credits MUST take this same lock so they
+// can't interleave and double-spend or double-refund.
+export function memberCreditLockKey(memberId: number): number {
+  return Math.abs(hashCode(`member-credit:${memberId}`));
+}

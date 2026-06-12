@@ -144,8 +144,7 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
-      { kind: "leaf", href: "/coaching/one-on-one", label: "1-on-1 Coaching", icon: UserCheck, requiredEntitlement: "coaching:one_on_one:*" },
-      { kind: "leaf", href: "/coaching/book-session", label: "1-on-1 Sessions", icon: Ticket },
+      { kind: "leaf", href: "/coaching/book-session", label: "1-on-1 Coaching", icon: UserCheck },
       { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Headphones },
     ],
   },
@@ -221,9 +220,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     icon: Video,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/admin/coaching/availability", label: "Call Schedules", icon: Activity, requiredPermission: "coaching:manage" },
-      { kind: "leaf", href: "/admin/coaching/sessions", label: "1-on-1 Sessions", icon: UserCheck, requiredPermission: "coaching:view" },
-      { kind: "leaf", href: "/admin/coaching", label: "Coach Management", icon: Users2, requiredPermission: "coaching:view" },
+      { kind: "leaf", href: "/admin/coaching/sessions", label: "1-on-1 Coaching", icon: UserCheck, requiredPermission: "coaching:view" },
     ],
   },
   {

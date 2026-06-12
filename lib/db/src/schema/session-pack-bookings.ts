@@ -22,8 +22,13 @@ export const sessionPackBookingsTable = pgTable(
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     durationMinutes: integer("duration_minutes").notNull().default(30),
     meetLink: text("meet_link"),
+    // booked | cancelled | completed | no_show
     status: text("status").notNull().default("booked"),
     title: text("title"),
+    // Admin-authored notes about the session outcome (lifecycle management).
+    coachNotes: text("coach_notes"),
+    // When an admin finalized the outcome (status -> completed | no_show).
+    outcomeAt: timestamp("outcome_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
