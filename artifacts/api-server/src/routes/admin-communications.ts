@@ -559,6 +559,42 @@ router.delete("/admin/communications/sms-templates/:id", requirePermission("comm
   }
 });
 
+// The `sequences` table tracks on/off via an `active` boolean, but the admin
+// UI speaks in a `status` string ("active" | "paused"). Map between the two so
+// the schema stays the single source of truth while the client contract holds.
+function withSequenceStatus<T extends { active: boolean }>(seq: T): T & { status: string } {
+  return { ...seq, status: seq.active ? "active" : "paused" };
+}
+
+// The schema stores a step's template reference under `templateRef`; the admin
+// UI reads it as `templateSlug`. Expose the alias so existing steps render.
+function withStepAliases<T extends { templateRef: string; stepOrder: number }>(step: T): T & { templateSlug: string; sortOrder: number } {
+  return { ...step, templateSlug: step.templateRef, sortOrder: step.stepOrder };
+}
+
+// `sequences.slug` is NOT NULL + UNIQUE with no default, but the create form
+// only collects a name. Derive a URL-safe slug and disambiguate collisions so
+// inserts never fail on the unique constraint.
+async function generateUniqueSequenceSlug(name: string): Promise<string> {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "sequence";
+  let candidate = base;
+  let suffix = 1;
+  // Bounded loop: append -2, -3, ... until the slug is free.
+  while (true) {
+    const [existing] = await db.select({ id: sequencesTable.id })
+      .from(sequencesTable)
+      .where(eq(sequencesTable.slug, candidate));
+    if (!existing) return candidate;
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+}
+
 router.get("/admin/communications/sequences", requirePermission("communications:view"), async (_req: Request, res: Response) => {
   try {
     const sequences = await db.select().from(sequencesTable).orderBy(desc(sequencesTable.createdAt));
@@ -570,7 +606,7 @@ router.get("/admin/communications/sequences", requirePermission("communications:
       const [enrollmentCount] = await db.select({ count: count() }).from(sequenceEnrollmentsTable)
         .where(and(eq(sequenceEnrollmentsTable.sequenceId, seq.id), eq(sequenceEnrollmentsTable.status, "active")));
       result.push({
-        ...seq,
+        ...withSequenceStatus(seq),
         stepCount: stepCount?.count ?? 0,
         activeEnrollments: enrollmentCount?.count ?? 0,
       });
@@ -586,10 +622,11 @@ router.post("/admin/communications/sequences", requirePermission("communications
   try {
     const { name, description, triggerEvent } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    const slug = await generateUniqueSequenceSlug(name);
     const [sequence] = await db.insert(sequencesTable).values({
-      name, description, triggerEvent,
-    } as any).returning();
-    res.status(201).json(sequence);
+      slug, name, description, triggerEvent: triggerEvent || "",
+    }).returning();
+    res.status(201).json(withSequenceStatus(sequence));
   } catch (error) {
     console.error("[Admin] Error creating sequence:", error);
     res.status(500).json({ error: "Failed to create sequence" });
@@ -605,7 +642,7 @@ router.get("/admin/communications/sequences/:id", requirePermission("communicati
 
     const steps = await db.select().from(sequenceStepsTable)
       .where(eq(sequenceStepsTable.sequenceId, id))
-      .orderBy(asc((sequenceStepsTable as any).sortOrder));
+      .orderBy(asc(sequenceStepsTable.stepOrder));
 
     const enrollments = await db.select({
       enrollment: sequenceEnrollmentsTable,
@@ -616,7 +653,7 @@ router.get("/admin/communications/sequences/:id", requirePermission("communicati
       .where(eq(sequenceEnrollmentsTable.sequenceId, id))
       .orderBy(desc(sequenceEnrollmentsTable.enrolledAt));
 
-    res.json({ ...sequence, steps, enrollments });
+    res.json({ ...withSequenceStatus(sequence), steps: steps.map(withStepAliases), enrollments });
   } catch (error) {
     console.error("[Admin] Error getting sequence:", error);
     res.status(500).json({ error: "Failed to get sequence" });
@@ -629,15 +666,15 @@ router.put("/admin/communications/sequences/:id", requirePermission("communicati
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { name, description, triggerEvent, status } = req.body;
-    const updates: Record<string, any> = {};
+    const updates: Partial<typeof sequencesTable.$inferInsert> = {};
     if (name !== undefined) updates.name = name;
     if (description !== undefined) updates.description = description;
     if (triggerEvent !== undefined) updates.triggerEvent = triggerEvent;
-    if (status !== undefined) updates.status = status;
+    if (status !== undefined) updates.active = status === "active";
 
     const [updated] = await db.update(sequencesTable).set(updates).where(eq(sequencesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Sequence not found" }); return; }
-    res.json(updated);
+    res.json(withSequenceStatus(updated));
   } catch (error) {
     console.error("[Admin] Error updating sequence:", error);
     res.status(500).json({ error: "Failed to update sequence" });
@@ -662,22 +699,22 @@ router.post("/admin/communications/sequences/:id/steps", requirePermission("comm
     const sequenceId = parseInt(getParam(req.params.id), 10);
     if (isNaN(sequenceId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    const { channel, templateSlug, subject, body, delayMinutes, condition, sortOrder } = req.body;
+    const { channel, templateSlug, subject, delayMinutes, condition, sortOrder } = req.body;
 
     let order = sortOrder;
     if (order === undefined) {
-      const [maxOrder] = await db.select({ max: sql<number>`COALESCE(MAX(${(sequenceStepsTable as any).sortOrder}), -1)` })
+      const [maxOrder] = await db.select({ max: sql<number>`COALESCE(MAX(${sequenceStepsTable.stepOrder}), -1)` })
         .from(sequenceStepsTable).where(eq(sequenceStepsTable.sequenceId, sequenceId));
       order = (maxOrder?.max ?? -1) + 1;
     }
 
     const [step] = await db.insert(sequenceStepsTable).values({
       sequenceId, channel: channel || "email",
-      templateSlug, subject, body,
+      templateRef: templateSlug ?? "", subject,
       delayMinutes: delayMinutes || 0,
-      condition, sortOrder: order,
-    } as any).returning();
-    res.status(201).json(step);
+      conditions: condition, stepOrder: order,
+    }).returning();
+    res.status(201).json(withStepAliases(step));
   } catch (error) {
     console.error("[Admin] Error adding sequence step:", error);
     res.status(500).json({ error: "Failed to add sequence step" });
@@ -690,22 +727,20 @@ router.put("/admin/communications/sequences/:id/steps/:stepId", requirePermissio
     const stepId = parseInt(getParam(req.params.stepId), 10);
     if (isNaN(sequenceId) || isNaN(stepId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-    const { channel, templateSlug, subject, body, delayMinutes, condition, sortOrder, active } = req.body;
-    const updates: Record<string, any> = {};
+    const { channel, templateSlug, subject, delayMinutes, condition, sortOrder } = req.body;
+    const updates: Partial<typeof sequenceStepsTable.$inferInsert> = {};
     if (channel !== undefined) updates.channel = channel;
-    if (templateSlug !== undefined) updates.templateSlug = templateSlug;
+    if (templateSlug !== undefined) updates.templateRef = templateSlug;
     if (subject !== undefined) updates.subject = subject;
-    if (body !== undefined) updates.body = body;
     if (delayMinutes !== undefined) updates.delayMinutes = delayMinutes;
-    if (condition !== undefined) updates.condition = condition;
-    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
-    if (active !== undefined) updates.active = active;
+    if (condition !== undefined) updates.conditions = condition;
+    if (sortOrder !== undefined) updates.stepOrder = sortOrder;
 
     const [updated] = await db.update(sequenceStepsTable).set(updates)
       .where(and(eq(sequenceStepsTable.id, stepId), eq(sequenceStepsTable.sequenceId, sequenceId)))
       .returning();
     if (!updated) { res.status(404).json({ error: "Step not found" }); return; }
-    res.json(updated);
+    res.json(withStepAliases(updated));
   } catch (error) {
     console.error("[Admin] Error updating sequence step:", error);
     res.status(500).json({ error: "Failed to update sequence step" });
@@ -733,7 +768,7 @@ router.patch("/admin/communications/sequences/:id/steps/reorder", requirePermiss
     const { orders } = req.body;
     if (!Array.isArray(orders)) { res.status(400).json({ error: "orders must be an array" }); return; }
     for (const { id, sortOrder } of orders) {
-      await db.update(sequenceStepsTable).set({ sortOrder } as any).where(eq(sequenceStepsTable.id, id));
+      await db.update(sequenceStepsTable).set({ stepOrder: sortOrder }).where(eq(sequenceStepsTable.id, id));
     }
     res.json({ success: true });
   } catch (error) {
@@ -790,9 +825,9 @@ router.patch("/admin/communications/sequences/:id/pause", requirePermission("com
   try {
     const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const [updated] = await db.update(sequencesTable).set({ status: "paused" } as any).where(eq(sequencesTable.id, id)).returning();
+    const [updated] = await db.update(sequencesTable).set({ active: false }).where(eq(sequencesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Sequence not found" }); return; }
-    res.json(updated);
+    res.json(withSequenceStatus(updated));
   } catch (error) {
     console.error("[Admin] Error pausing sequence:", error);
     res.status(500).json({ error: "Failed to pause sequence" });
@@ -803,9 +838,9 @@ router.patch("/admin/communications/sequences/:id/resume", requirePermission("co
   try {
     const id = parseInt(getParam(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const [updated] = await db.update(sequencesTable).set({ status: "active" } as any).where(eq(sequencesTable.id, id)).returning();
+    const [updated] = await db.update(sequencesTable).set({ active: true }).where(eq(sequencesTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Sequence not found" }); return; }
-    res.json(updated);
+    res.json(withSequenceStatus(updated));
   } catch (error) {
     console.error("[Admin] Error resuming sequence:", error);
     res.status(500).json({ error: "Failed to resume sequence" });
