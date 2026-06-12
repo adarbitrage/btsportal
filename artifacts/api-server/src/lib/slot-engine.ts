@@ -98,14 +98,14 @@ export async function getAvailableSlots(
     const dayOfWeek = coachDate.getDay();
 
     const dateOverrides = overrideMap.get(coachDateStr) || [];
-    const hasBlockedOverride = dateOverrides.some(o => (o as any).isBlocked);
+    const hasBlockedOverride = dateOverrides.some(o => o.overrideType === "blocked");
 
     if (hasBlockedOverride) {
       currentDate = addDays(currentDate, 1);
       continue;
     }
 
-    const customOverrides = dateOverrides.filter(o => !(o as any).isBlocked && o.startTime && o.endTime);
+    const customOverrides = dateOverrides.filter(o => o.overrideType !== "blocked" && o.startTime && o.endTime);
 
     let dayWindows: { startTime: string; endTime: string }[] = [];
 
