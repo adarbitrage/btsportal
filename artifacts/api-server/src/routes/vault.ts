@@ -649,7 +649,7 @@ router.post("/vault/resources/:id/download", async (req: Request, res: Response)
       return;
     }
 
-    if ((resource as any).type !== "file" || !resource.fileUrl) {
+    if (resource.resourceType !== "file" || !resource.fileUrl) {
       res.status(400).json({ error: "This resource is not downloadable" });
       return;
     }

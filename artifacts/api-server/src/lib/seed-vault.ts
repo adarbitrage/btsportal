@@ -35,7 +35,23 @@ export async function seedVaultData(marcusId: number) {
     eq(vaultCollectionsTable.id, collectionsBySlug["campaign-sops"])
   );
 
-  const resources = await db.insert(vaultResourcesTable).values([
+  const resourceSeeds: Array<{
+    collectionId: number;
+    title: string;
+    slug: string;
+    description: string;
+    type: string;
+    fileUrl?: string;
+    fileSize?: number;
+    fileType?: string;
+    videoUrl?: string;
+    externalUrl?: string;
+    markdownContent?: string;
+    tags: string[];
+    isFeatured?: boolean;
+    requiredEntitlement: string;
+    sortOrder: number;
+  }> = [
     {
       collectionId: collectionsBySlug["ad-templates"],
       title: "Facebook Ad Copy Template Pack",
@@ -534,11 +550,23 @@ Pick ONE traffic source and master it before diversifying. Most BTS members find
       requiredEntitlement: "content:frontend",
       sortOrder: 3,
     },
-  ] as any).returning();
+  ];
 
-  const resourcesBySlug: Record<string, number> = {};
+  const resources = await db.insert(vaultResourcesTable).values(
+    resourceSeeds.map(({ slug, type, markdownContent, ...rest }) => ({
+      ...rest,
+      resourceType: type,
+      ...(markdownContent !== undefined ? { contentHtml: markdownContent } : {}),
+    })),
+  ).returning();
+
+  const idByTitle: Record<string, number> = {};
   for (const r of resources) {
-    resourcesBySlug[(r as any).slug] = r.id;
+    idByTitle[r.title] = r.id;
+  }
+  const resourcesBySlug: Record<string, number> = {};
+  for (const seed of resourceSeeds) {
+    resourcesBySlug[seed.slug] = idByTitle[seed.title];
   }
 
   await db.insert(vaultResourceRelationsTable).values([
