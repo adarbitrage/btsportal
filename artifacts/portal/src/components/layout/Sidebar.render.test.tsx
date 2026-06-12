@@ -128,4 +128,69 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
     // sidebar upgrade card renders.
     expect(screen.getByTestId(UPGRADE_CARD_TESTID)).toBeInTheDocument();
   });
+
+  it("shows the product-tier label and the upgrade card for a paying member", () => {
+    useAuthMock.mockReturnValue({ user: { role: "member" }, logout: vi.fn() });
+    useGetCurrentMemberMock.mockReturnValue({
+      data: {
+        id: 4,
+        name: "Pat Paying",
+        role: "member",
+        // A 6-Month member still has features locked behind higher tiers, so
+        // the upgrade card must keep rendering for them.
+        entitlements: [],
+        highestProductSlug: "6month",
+      },
+    });
+
+    render(<SidebarContent />);
+
+    // The tier label paragraph reflects the purchased product, not "Free Member".
+    expect(screen.getByText("6-Month Mentorship", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByText("Free Member")).toBeNull();
+    // Paying members below lifetime still see the sidebar upgrade card.
+    expect(screen.getByTestId(UPGRADE_CARD_TESTID)).toBeInTheDocument();
+  });
+
+  it("shows the Lifetime Member label and hides the upgrade card for a lifetime member", () => {
+    useAuthMock.mockReturnValue({ user: { role: "member" }, logout: vi.fn() });
+    useGetCurrentMemberMock.mockReturnValue({
+      data: {
+        id: 5,
+        name: "Lee Lifetime",
+        role: "member",
+        entitlements: [],
+        highestProductSlug: "lifetime",
+      },
+    });
+
+    render(<SidebarContent />);
+
+    // Lifetime members get the top-tier label and never see the upgrade card.
+    expect(screen.getByText("Lifetime Member", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByTestId(UPGRADE_CARD_TESTID)).toBeNull();
+  });
+});
+
+describe("SidebarContent coach section (rendered)", () => {
+  it("shows the Coach section and Mentee Progress, and hides the Messages leaf", () => {
+    useAuthMock.mockReturnValue({ user: { role: "coach" }, logout: vi.fn() });
+    useGetCurrentMemberMock.mockReturnValue({
+      data: {
+        id: 6,
+        name: "Robin Coach",
+        role: "coach",
+        entitlements: [],
+        highestProductSlug: "free",
+      },
+    });
+
+    render(<SidebarContent />);
+
+    // The Coach section heading and its only leaf render for a coach.
+    expect(screen.getByText("Coach")).toBeInTheDocument();
+    expect(screen.getByText("Mentee Progress")).toBeInTheDocument();
+    // The member Messages leaf is hidden for coaches.
+    expect(screen.queryByText("Messages")).toBeNull();
+  });
 });
