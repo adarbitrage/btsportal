@@ -73,7 +73,7 @@ expertMode = true
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 300000
+timeoutMs = 420000
 
 [userenv]
 
