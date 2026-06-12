@@ -15,6 +15,7 @@ import {
   parseCursor,
   getPostById,
   createPostInCategory,
+  isMemberInGoodStanding,
   updatePost,
   softDeletePost,
   getRawPost,
@@ -176,7 +177,20 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
     return;
   }
 
-  const post = await createPostInCategory(userId, title.trim(), body, resolvedCategoryId, media_urls ?? []);
+  // Publish-then-moderate for trusted authors: established members in good
+  // standing (and admins) have their posts go live immediately and are then
+  // moderated asynchronously. New/untrusted members keep the manual approval
+  // gate (status="pending") and see a "pending review" indicator until an
+  // admin approves their post.
+  const trusted = (await getIsAdmin(userId)) || (await isMemberInGoodStanding(userId));
+  const post = await createPostInCategory(
+    userId,
+    title.trim(),
+    body,
+    resolvedCategoryId,
+    media_urls ?? [],
+    trusted ? "active" : "pending",
+  );
 
   enqueueModerationJob({
     targetType: "post",

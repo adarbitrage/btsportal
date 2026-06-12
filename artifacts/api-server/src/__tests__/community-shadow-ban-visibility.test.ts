@@ -163,6 +163,17 @@ beforeAll(async () => {
   await grantCommunityAccess(otherMember.id, "other");
   await grantCommunityAccess(admin.id, "admin");
   await grantCommunityAccess(bannedUser.id, "banned");
+
+  // The post-creation tests below rely on publish-then-moderate (create
+  // response returns status "active"). That only applies to members in good
+  // standing, so give the author a previously approved post on record.
+  await db.insert(communityPostsTable).values({
+    authorId: author.id,
+    categoryId,
+    title: "prior approved post",
+    content: "a previously approved post establishing good standing",
+    status: "active",
+  });
 });
 
 afterAll(async () => {
@@ -202,7 +213,7 @@ async function createCommentAs(actor: Fixture, postId: number, body = "nice post
   const res = await request(app)
     .post(`/api/community/posts/${postId}/comments`)
     .set("Cookie", actor.cookie)
-    .send({ body });
+    .send({ content: body });
   return res;
 }
 
@@ -270,7 +281,8 @@ describe("Community shadow-ban moderation wiring", () => {
       evaluateMock.mockResolvedValueOnce(FLAGGED);
       const res = await createCommentAs(author, parent.body.id, "flagged comment");
       expect(res.status).toBe(201);
-      expect(res.body.status).toBe("active");
+      // The comment create response intentionally omits `status`; the actual
+      // status is verified via getCommentStatus below.
 
       await drainModeration();
 

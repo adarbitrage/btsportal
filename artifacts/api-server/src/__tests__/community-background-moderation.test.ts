@@ -102,6 +102,22 @@ beforeAll(async () => {
   categoryId = category.id;
   seededCategoryIds.push(categoryId);
 
+  // Give the member a track record of an approved post so they are "in good
+  // standing" and new posts auto-publish (status="active") rather than being
+  // held for manual approval. This keeps these tests focused on the async
+  // moderation behavior, not the trust gate.
+  const [priorPost] = await db
+    .insert(communityPostsTable)
+    .values({
+      authorId: memberId,
+      categoryId,
+      title: "prior approved post",
+      content: "a previously approved post establishing good standing",
+      status: "active",
+    })
+    .returning({ id: communityPostsTable.id });
+  seededPostIds.push(priorPost.id);
+
   const [wordRow] = await db
     .insert(moderationWordlistTable)
     .values({
@@ -204,10 +220,12 @@ describe("background moderation flow on community create endpoints", () => {
     const res = await request(app)
       .post(`/api/community/posts/${parentPostId}/comments`)
       .set("Cookie", memberCookie)
-      .send({ body: `flagged ${HARD_TRIGGER} comment` });
+      .send({ content: `flagged ${HARD_TRIGGER} comment` });
 
     expect(res.status).toBe(201);
-    expect(res.body.status).toBe("active");
+    // The comment create response intentionally omits `status` (it mirrors the
+    // frontend CommunityComment shape); the actual status is verified via the
+    // DB query below.
     const commentId: number = res.body.id;
     seededCommentIds.push(commentId);
 
@@ -246,9 +264,8 @@ describe("background moderation flow on community create endpoints", () => {
     const commentRes = await request(app)
       .post(`/api/community/posts/${postId}/comments`)
       .set("Cookie", memberCookie)
-      .send({ body: "thanks, this was a helpful and clean comment" });
+      .send({ content: "thanks, this was a helpful and clean comment" });
     expect(commentRes.status).toBe(201);
-    expect(commentRes.body.status).toBe("active");
     const commentId: number = commentRes.body.id;
     seededCommentIds.push(commentId);
 
@@ -287,5 +304,79 @@ describe("background moderation flow on community create endpoints", () => {
         ),
       );
     expect(commentQueueRows).toHaveLength(0);
+  });
+});
+
+describe("post approval gate (auto-approval for members in good standing)", () => {
+  it("holds a brand-new member's first post for manual review (status=pending)", async () => {
+    const passwordHash = await bcrypt.hash("irrelevant", 4);
+    const email = `${TEST_TAG}-newbie@example.test`;
+    const [newbie] = await db
+      .insert(usersTable)
+      .values({
+        email,
+        name: "BG Mod Newbie",
+        passwordHash,
+        role: "member",
+        sourceProduct: "lifetime",
+        emailVerified: true,
+        onboardingComplete: true,
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(newbie.id);
+
+    const [product] = await db
+      .insert(productsTable)
+      .values({
+        slug: `${TEST_TAG}-newbie-product`,
+        name: "BG Mod Newbie Product",
+        type: "backend",
+        entitlementKeys: ["community:access"] as unknown as string[],
+        sortOrder: 98,
+      })
+      .returning({ id: productsTable.id });
+    seededProductIds.push(product.id);
+
+    await db.insert(userProductsTable).values({
+      userId: newbie.id,
+      productId: product.id,
+      status: "active",
+    });
+
+    const newbieCookie = signCookie(newbie.id, email);
+
+    const firstRes = await request(app)
+      .post("/api/community/posts")
+      .set("Cookie", newbieCookie)
+      .send({ title: "my first ever post", body: "hello everyone, excited to be here", categoryId });
+    expect(firstRes.status).toBe(201);
+    expect(firstRes.body.status).toBe("pending");
+    const firstPostId: number = firstRes.body.id;
+    seededPostIds.push(firstPostId);
+
+    await pendingModerationJobs();
+
+    // A clean pending post stays pending until an admin approves it.
+    const [held] = await db
+      .select()
+      .from(communityPostsTable)
+      .where(eq(communityPostsTable.id, firstPostId));
+    expect(held.status).toBe("pending");
+
+    // Once they have an approved post on record, the next post auto-publishes.
+    await db
+      .update(communityPostsTable)
+      .set({ status: "active" })
+      .where(eq(communityPostsTable.id, firstPostId));
+
+    const secondRes = await request(app)
+      .post("/api/community/posts")
+      .set("Cookie", newbieCookie)
+      .send({ title: "my second post", body: "now that I am trusted this should go live", categoryId });
+    expect(secondRes.status).toBe(201);
+    expect(secondRes.body.status).toBe("active");
+    seededPostIds.push(secondRes.body.id);
+
+    await pendingModerationJobs();
   });
 });

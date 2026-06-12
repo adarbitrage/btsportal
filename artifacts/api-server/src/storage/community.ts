@@ -247,12 +247,45 @@ export async function getPostById(
   };
 }
 
+/**
+ * Minimum number of previously approved (active) posts an author needs before
+ * their new posts are auto-published instead of held for manual review.
+ */
+export const GOOD_STANDING_MIN_APPROVED_POSTS = 1;
+
+/**
+ * A member is "in good standing" — and therefore trusted to have new posts
+ * auto-published (then moderated asynchronously) — once they have a track
+ * record of at least one previously approved post.
+ *
+ * Abuse is handled by two other layers, so standing intentionally does NOT
+ * depend on moderation history: the `requireNotBanned` middleware blocks
+ * banned members from posting at all, and the async moderation engine
+ * shadow-hides flagged content regardless of the author's standing. Tying
+ * standing to a current shadow-hidden count would permanently demote an
+ * established member over a single (possibly false-positive) flag and force
+ * every future post back through manual review — the exact friction this gate
+ * is meant to remove.
+ */
+export async function isMemberInGoodStanding(userId: number): Promise<boolean> {
+  const [row] = await db
+    .select({
+      approvedCount: sql<number>`count(*) filter (where ${communityPostsTable.status} = 'active')`,
+    })
+    .from(communityPostsTable)
+    .where(eq(communityPostsTable.authorId, userId));
+
+  const approved = Number(row?.approvedCount ?? 0);
+  return approved >= GOOD_STANDING_MIN_APPROVED_POSTS;
+}
+
 export async function createPostInCategory(
   userId: number,
   title: string,
   body: string,
   categoryId: number,
   mediaUrls: string[] = [],
+  status: Extract<PostStatus, "active" | "pending"> = "pending",
 ): Promise<typeof communityPostsTable.$inferSelect> {
   const [post] = await db
     .insert(communityPostsTable)
@@ -262,7 +295,7 @@ export async function createPostInCategory(
       title,
       content: body,
       mediaUrls,
-      status: "pending",
+      status,
     })
     .returning();
   return post;
