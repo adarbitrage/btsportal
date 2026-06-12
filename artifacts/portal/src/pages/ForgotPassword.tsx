@@ -19,17 +19,23 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaFailed, setCaptchaFailed] = useState(false);
   const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   const handleCaptchaToken = useCallback((token: string) => {
     setCaptchaToken(token);
+    if (token) setCaptchaFailed(false);
+  }, []);
+
+  const handleCaptchaError = useCallback(() => {
+    setCaptchaFailed(true);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (TURNSTILE_SITE_KEY && !captchaToken) {
+    if (TURNSTILE_SITE_KEY && !captchaToken && !captchaFailed) {
       setError("Please complete the challenge below before continuing.");
       return;
     }
@@ -71,8 +77,15 @@ export default function ForgotPassword() {
         // challenge appears instead of leaving the user with a "solved"
         // widget but a disabled submit button.
         if (code !== "RATE_LIMIT_EXCEEDED") {
-          setCaptchaToken("");
-          turnstileRef.current?.reset();
+          // Only reset the widget if a real token was consumed by the server.
+          // When the widget failed to load (captchaFailed=true, captchaToken=""),
+          // there is nothing to reset — clearing captchaFailed here would
+          // re-lock the button with no widget available to unlock it again.
+          if (captchaToken) {
+            setCaptchaToken("");
+            setCaptchaFailed(false);
+            turnstileRef.current?.reset();
+          }
         }
         return;
       }
@@ -82,16 +95,22 @@ export default function ForgotPassword() {
       setError("We couldn't reach the server. Please try again.");
       // Network failure — we don't know whether the request reached the
       // server, let alone whether captcha verification ran, so play it
-      // safe and force a fresh challenge on the next attempt.
-      setCaptchaToken("");
-      turnstileRef.current?.reset();
+      // safe and force a fresh challenge on the next attempt — but only if
+      // a widget actually produced a token. If the widget itself failed to
+      // load, there is nothing to reset and clearing captchaFailed would
+      // re-lock the button with no way to unlock it.
+      if (captchaToken) {
+        setCaptchaToken("");
+        setCaptchaFailed(false);
+        turnstileRef.current?.reset();
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const submitDisabled =
-    loading || (TURNSTILE_SITE_KEY ? !captchaToken : false);
+    loading || (TURNSTILE_SITE_KEY ? (!captchaToken && !captchaFailed) : false);
 
   return (
     <div style={{
@@ -186,12 +205,31 @@ export default function ForgotPassword() {
             </div>
 
             {TURNSTILE_SITE_KEY && (
-              <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+              <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                 <Turnstile
                   ref={turnstileRef}
                   siteKey={TURNSTILE_SITE_KEY}
                   onToken={handleCaptchaToken}
+                  onError={handleCaptchaError}
                 />
+                {captchaFailed && (
+                  <div
+                    data-testid="captcha-failed-notice"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      background: "#fef9c3",
+                      border: "1px solid #fde68a",
+                      borderRadius: 8,
+                      color: "#854d0e",
+                      fontSize: 13,
+                      textAlign: "center",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    The security challenge could not load. You can still request your reset link — your email will be processed as usual.
+                  </div>
+                )}
               </div>
             )}
 
