@@ -183,18 +183,15 @@ export async function fetchPosts(params: {
 }): Promise<PostsResponse> {
   const searchParams = new URLSearchParams();
   if (params.categorySlug && params.categorySlug !== "all") searchParams.set("categorySlug", params.categorySlug);
-  if (params.cursor) searchParams.set("page", params.cursor);
+  if (params.cursor) searchParams.set("cursor", params.cursor);
   if (params.limit) searchParams.set("limit", params.limit.toString());
   const data = await communityFetch(`/community/posts?${searchParams.toString()}`);
   const rawPosts: any[] = data.posts ?? [];
   const posts: CommunityPost[] = rawPosts.map(normalizePost);
-  const pagination = data.pagination ?? {};
-  const currentPage = pagination.page ?? 1;
-  const totalPages = pagination.totalPages ?? 1;
   return {
     posts,
-    nextCursor: currentPage < totalPages ? String(currentPage + 1) : null,
-    totalCount: pagination.total ?? posts.length,
+    nextCursor: data.nextCursor ?? null,
+    totalCount: data.totalCount ?? posts.length,
   };
 }
 
