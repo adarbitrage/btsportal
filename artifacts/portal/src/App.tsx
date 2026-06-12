@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -156,6 +156,8 @@ import CoachDashboard from "@/pages/coaching/CoachDashboard";
 import MenteeDetail from "@/pages/coaching/MenteeDetail";
 import { AdminRoute } from "@/components/auth/AdminRoute";
 import { CoachRoute } from "@/components/auth/CoachRoute";
+import { adminPanelApi } from "@/lib/admin-panel-api";
+import { useToast } from "@/hooks/use-toast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -542,6 +544,49 @@ const CHAT_WIDGET_HIDDEN_EXACT = new Set([
 ]);
 const CHAT_WIDGET_HIDDEN_PREFIXES = ["/onboarding"];
 
+function ImpersonationBanner() {
+  const { user, refreshAuth } = useAuth();
+  const [stopping, setStopping] = useState(false);
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  if (!user?.isImpersonation) return null;
+
+  const handleStop = async () => {
+    setStopping(true);
+    try {
+      await adminPanelApi.stopImpersonation();
+      await refreshAuth();
+      navigate("/admin/members");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to exit impersonation";
+      toast({ title: "Failed to exit impersonation", description: message, variant: "destructive" });
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 bg-amber-400 px-4 py-2 text-amber-950 text-sm font-medium shadow-md"
+      data-testid="impersonation-banner"
+    >
+      <span>
+        Viewing as <strong>{user.name}</strong> ({user.email}) — impersonated by{" "}
+        <strong>{user.impersonatedBy?.name ?? "Admin"}</strong>
+      </span>
+      <button
+        onClick={handleStop}
+        disabled={stopping}
+        className="shrink-0 rounded border border-amber-700 bg-amber-500 px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-600 disabled:opacity-60 transition-colors"
+        data-testid="button-exit-impersonation"
+      >
+        {stopping ? "Exiting…" : "Exit / Stop impersonating"}
+      </button>
+    </div>
+  );
+}
+
 export function isChatWidgetHiddenRoute(location: string) {
   return (
     CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
@@ -566,6 +611,7 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <ImpersonationBanner />
             <ScrollToTop />
             <Router />
             <AuthenticatedChatWidget />

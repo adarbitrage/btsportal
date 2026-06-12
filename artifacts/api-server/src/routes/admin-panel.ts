@@ -6,7 +6,7 @@ import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNo
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
 import { isSignupChallengeEnforced } from "../middleware/captcha";
-import { logAdminAction, redactAuditRowPii } from "../lib/audit-log";
+import { logAdminAction, logAuditEvent, redactAuditRowPii } from "../lib/audit-log";
 import { computeOrderMismatch, parsePortalProductKeys } from "../lib/external-order-mismatch";
 import { CommunicationService } from "../lib/communication-service";
 import {
@@ -2862,6 +2862,125 @@ router.post(
   },
 );
 
+// Stop must be registered BEFORE the /:id catch-all so Express does not
+// match the literal string "stop" as a member id.
+router.post("/admin/impersonate/stop", async (req: Request, res: Response) => {
+  try {
+    const restoreToken = req.cookies?.imp_restore_token;
+    if (!restoreToken) {
+      res.status(400).json({ error: "No active impersonation session" });
+      return;
+    }
+
+    // Security: verify the current access token is an impersonation context.
+    // Without this check a regular user who somehow obtains a stale
+    // imp_restore_token (e.g. from a browser that wasn't fully logged out)
+    // could call stop and be issued admin cookies.
+    if (!req.isImpersonation) {
+      res.status(403).json({ error: "Not in an active impersonation session" });
+      return;
+    }
+
+    const restoreTokenHash = crypto.createHash("sha256").update(restoreToken).digest("hex");
+    const [session] = await db
+      .select({ id: sessionsTable.id, userId: sessionsTable.userId, expiresAt: sessionsTable.expiresAt, revokedAt: sessionsTable.revokedAt })
+      .from(sessionsTable)
+      .where(eq(sessionsTable.refreshTokenHash, restoreTokenHash))
+      .limit(1);
+
+    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+      res.clearCookie("imp_restore_token", { path: "/" });
+      res.status(400).json({ error: "Impersonation restore token is invalid or expired" });
+      return;
+    }
+
+    // Security: the restore session must belong to the admin who initiated
+    // this impersonation. Prevents a user from using another admin's stale
+    // restore token to escalate privileges.
+    if (req.impersonatedBy !== session.userId) {
+      res.clearCookie("imp_restore_token", { path: "/" });
+      res.status(403).json({ error: "Restore token does not match impersonation context" });
+      return;
+    }
+
+    const [adminUser] = await db
+      .select({ id: usersTable.id, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, session.userId))
+      .limit(1);
+
+    if (!adminUser) {
+      res.status(404).json({ error: "Admin user not found" });
+      return;
+    }
+
+    const COOKIE_BASE = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+    };
+
+    if (!JWT_SECRET) {
+      res.status(503).json({ error: "JWT_SECRET not configured" });
+      return;
+    }
+
+    // Consume (single-use revoke) the restore session row so the token cannot
+    // be replayed after a successful stop.
+    await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.id, session.id));
+
+    const newAccessToken = jwt.sign({ userId: adminUser.id, email: adminUser.email }, JWT_SECRET, { expiresIn: "15m" });
+    res.cookie("access_token", newAccessToken, { ...COOKIE_BASE, maxAge: 15 * 60 * 1000 });
+    // Restore session becomes the admin's new refresh token. The prior
+    // admin refresh_token was cleared when impersonation started and the DB
+    // row is now consumed/revoked above — so we issue a brand new session here.
+    const newRefreshRaw = crypto.randomBytes(40).toString("hex");
+    const newRefreshHash = crypto.createHash("sha256").update(newRefreshRaw).digest("hex");
+    await db.insert(sessionsTable).values({
+      userId: adminUser.id,
+      refreshTokenHash: newRefreshHash,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+    res.cookie("refresh_token", newRefreshRaw, {
+      ...COOKIE_BASE,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/api/auth",
+    });
+    const csrfToken = crypto.randomBytes(32).toString("hex");
+    res.cookie("csrf_token", csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.clearCookie("imp_restore_token", { path: "/" });
+
+    // Log the stop action attributed to the restored admin user.
+    // NOTE: We cannot spread `req` to override userId/userEmail because
+    // Express Request properties like `headers` are non-enumerable and lost
+    // during spread. Use logAuditEvent directly with explicit fields instead.
+    const impersonatedUserId = req.userId;
+    await logAuditEvent({
+      actorId: adminUser.id,
+      actorEmail: adminUser.email,
+      actionType: "impersonate_stop",
+      entityType: "user",
+      entityId: impersonatedUserId ? String(impersonatedUserId) : "unknown",
+      description: "Admin stopped impersonation",
+      req,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Admin] Stop impersonation error:", error);
+    res.status(500).json({ error: "Failed to stop impersonation" });
+  }
+});
+
 router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), async (req: Request, res: Response) => {
   try {
     if (!JWT_SECRET) { res.status(503).json({ error: "Impersonation unavailable — JWT_SECRET not configured" }); return; }
@@ -2869,14 +2988,71 @@ router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), 
     const targetId = parseInt(req.params.id, 10);
     if (isNaN(targetId)) { res.status(400).json({ error: "Invalid member ID" }); return; }
 
-    const [target] = await db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+    const [target] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, targetId))
+      .limit(1);
     if (!target) { res.status(404).json({ error: "Member not found" }); return; }
+
+    // Prevent admins from impersonating other admin/super_admin accounts.
+    if (target.role === "admin" || target.role === "super_admin") {
+      res.status(403).json({ error: "Cannot impersonate admin or super_admin accounts" });
+      return;
+    }
+
+    if (!req.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+    // Create a fresh DB-backed restore session for the admin.
+    // We do NOT read req.cookies.refresh_token here — that cookie has
+    // path="/api/auth" and browsers will not send it to /api/admin/* routes.
+    // Instead we mint a new raw token, hash it, and store the row so the
+    // stop endpoint has a verifiable, revokable credential to restore from.
+    const restoreRaw = crypto.randomBytes(40).toString("hex");
+    const restoreHash = crypto.createHash("sha256").update(restoreRaw).digest("hex");
+    await db.insert(sessionsTable).values({
+      userId: req.userId,
+      refreshTokenHash: restoreHash,
+      // Impersonation sessions last 30 minutes — match the access token TTL.
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
 
     const impersonationToken = jwt.sign(
       { userId: target.id, email: target.email, impersonatedBy: req.userId, isImpersonation: true },
       JWT_SECRET,
-      { expiresIn: "30m" }
+      { expiresIn: "30m" },
     );
+
+    const COOKIE_BASE = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+    };
+
+    // Set the impersonation access token — replaces the admin's short-lived
+    // access token for the duration of the session.
+    res.cookie("access_token", impersonationToken, { ...COOKIE_BASE, maxAge: 30 * 60 * 1000 });
+
+    // Store the raw restore token in a root-path cookie so the stop endpoint
+    // (at /api/admin/impersonate/stop) can read it.
+    res.cookie("imp_restore_token", restoreRaw, { ...COOKIE_BASE, maxAge: 30 * 60 * 1000 });
+
+    // CRITICAL: clear the admin's normal refresh_token for the duration of
+    // impersonation. Without this, when the 30-min impersonation access token
+    // expires the browser's /api/auth-scoped refresh_token still works and
+    // customFetch's 401-retry logic would silently swap back to the admin
+    // session — making the admin believe they are still viewing as the member.
+    // Clearing it here means expiry → /auth/refresh 401 → clean re-auth prompt.
+    // The stop endpoint restores the admin's session from the restore DB row.
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/api/auth",
+    });
 
     await logAdminAction(
       req,
@@ -2885,33 +3061,15 @@ router.post("/admin/impersonate/:id", requirePermission("members:impersonate"), 
       String(targetId),
       `Admin started impersonating member ${target.name} (${target.email})`,
       {
-        // Surfaced as structured fields so the audit-log redactor can
-        // scrub the member's name/email from the description for viewers
-        // without `members:pii`. The full description is still persisted
-        // verbatim so PII-cleared admins can investigate.
         memberName: target.name,
         memberEmail: target.email,
       },
     );
 
-    res.json({
-      token: impersonationToken,
-      member: { id: target.id, name: target.name, email: target.email },
-      expiresIn: 1800,
-    });
+    res.json({ member: { id: target.id, name: target.name, email: target.email } });
   } catch (error) {
     console.error("[Admin] Impersonation error:", error);
     res.status(500).json({ error: "Failed to start impersonation" });
-  }
-});
-
-router.post("/admin/impersonate/stop", requirePermission("members:impersonate"), async (req: Request, res: Response) => {
-  try {
-    await logAdminAction(req, "impersonate_stop", "user", String(req.userId), "Admin stopped impersonation");
-    res.json({ success: true });
-  } catch (error) {
-    console.error("[Admin] Stop impersonation error:", error);
-    res.status(500).json({ error: "Failed to stop impersonation" });
   }
 });
 

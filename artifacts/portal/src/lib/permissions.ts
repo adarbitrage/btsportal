@@ -33,7 +33,7 @@ export const ROLE_INFO: Record<AssignableRole, { label: string; impact: string }
   admin: {
     label: "Admin",
     impact:
-      "Grants admin access across members, content, tickets, audit log, and settings — but not role assignment, API key management, or impersonation.",
+      "Grants admin access across members, content, tickets, audit log, and settings, including impersonating members to view the portal as them — but not role assignment or API key management.",
   },
   support_agent: {
     label: "Support Agent",

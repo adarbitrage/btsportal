@@ -11,6 +11,9 @@ interface User {
   // shared temporary password. While set, route guards force the user to the
   // change-password screen before anything else loads.
   mustChangePassword?: boolean;
+  // Set when an admin is impersonating this member's account.
+  isImpersonation?: boolean;
+  impersonatedBy?: { id: number; name: string };
 }
 
 export interface LoginError extends Error {

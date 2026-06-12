@@ -1145,8 +1145,20 @@ export const adminPanelApi = {
 
   async startImpersonation(userId: number) {
     const res = await authFetch(`/admin/impersonate/${userId}`, { method: "POST" });
-    if (!res.ok) throw new Error("Failed to start impersonation");
-    return res.json();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to start impersonation");
+    }
+    return res.json() as Promise<{ member: { id: number; name: string; email: string } }>;
+  },
+
+  async stopImpersonation() {
+    const res = await authFetch("/admin/impersonate/stop", { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to stop impersonation");
+    }
+    return res.json() as Promise<{ success: true }>;
   },
 
   async updateMemberRole(userId: number, role: string) {

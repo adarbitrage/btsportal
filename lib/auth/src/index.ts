@@ -26,10 +26,10 @@ export const PERMISSION_MATRIX = {
   "dashboard:view": ["super_admin", "admin", "support_agent", "content_manager", "compliance_reviewer"],
   "members:view": ["super_admin", "admin", "support_agent"],
   "members:edit": ["super_admin", "admin"],
-  "members:impersonate": ["super_admin"],
+  "members:impersonate": ["super_admin", "admin"],
   // Assigning admin roles to a user is itself a super-power — anyone holding
   // it can grant themselves any other admin role. Restricted to super_admin
-  // only, mirroring members:impersonate / settings:manage / api_keys:manage.
+  // only, mirroring settings:manage / api_keys:manage.
   "members:assign_role": ["super_admin"],
   // Permission to see member PII (emails, phone numbers, etc.) when surfaced
   // outside the dedicated member views — e.g. in queue-fallback audit-log

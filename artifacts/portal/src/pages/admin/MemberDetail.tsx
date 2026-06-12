@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, Link, useSearch } from "wouter";
+import { useParams, Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone, Monitor } from "lucide-react";
+import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone, Monitor, LogIn } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -169,9 +169,13 @@ export default function MemberDetail() {
   const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(null);
   const [attemptDetailRowId, setAttemptDetailRowId] = useState<number | null>(null);
 
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshAuth } = useAuth();
+  const [, navigate] = useLocation();
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
   const canAssignRole = hasPermission(currentUser?.role, "members:assign_role");
+  const canImpersonate = hasPermission(currentUser?.role, "members:impersonate");
+  const [impersonating, setImpersonating] = useState(false);
+  const [impersonateConfirmOpen, setImpersonateConfirmOpen] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
   // Role assignment is destructive (one click can demote an admin), so we
   // intercept the dropdown's selection and stage it as `pendingRole` until
@@ -599,6 +603,20 @@ export default function MemberDetail() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setRevokingSessionId(null);
+    }
+  };
+
+  const handleStartImpersonation = async () => {
+    setImpersonating(true);
+    try {
+      await adminPanelApi.startImpersonation(memberId);
+      setImpersonateConfirmOpen(false);
+      await refreshAuth();
+      navigate("/");
+    } catch (err: any) {
+      toast({ title: "Failed to start impersonation", description: err.message, variant: "destructive" });
+    } finally {
+      setImpersonating(false);
     }
   };
 
@@ -1154,6 +1172,81 @@ export default function MemberDetail() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {canImpersonate && member.role !== "admin" && member.role !== "super_admin" && (
+          <Card data-testid="card-impersonation">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LogIn className="w-4 h-4" />
+                Log in as member
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm">See the portal exactly as this member sees it</p>
+                  <p className="text-xs text-muted-foreground">
+                    Starts a full session as <span className="font-medium">{member.name}</span>. An orange banner will be shown at all times so you know you are impersonating. Use "Exit / Stop impersonating" to return to your admin session.
+                  </p>
+                </div>
+                <Dialog open={impersonateConfirmOpen} onOpenChange={setImpersonateConfirmOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={impersonating}
+                      data-testid="button-impersonate"
+                    >
+                      <LogIn className="w-3 h-3 mr-1" />
+                      Log in as member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent data-testid="dialog-confirm-impersonate">
+                    <DialogHeader>
+                      <DialogTitle>Log in as this member?</DialogTitle>
+                      <DialogDescription asChild>
+                        <div className="space-y-2 text-sm">
+                          <p>
+                            You will be switched to a session as{" "}
+                            <span className="font-medium">{member.name}</span>
+                            {member.email ? (
+                              <>
+                                {" "}(<span className="font-mono">{member.email}</span>)
+                              </>
+                            ) : null}
+                            . You will see and be able to do everything this member can.
+                          </p>
+                          <p className="text-muted-foreground">
+                            An orange banner will always be visible. Click "Exit / Stop impersonating" to return to your admin session. The session expires in 30 minutes.
+                          </p>
+                          <p className="text-muted-foreground">This action is recorded in the audit log.</p>
+                        </div>
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setImpersonateConfirmOpen(false)}
+                        disabled={impersonating}
+                        data-testid="button-cancel-impersonate"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleStartImpersonation}
+                        disabled={impersonating}
+                        data-testid="button-confirm-impersonate"
+                      >
+                        <LogIn className="w-3 h-3 mr-1" />
+                        {impersonating ? "Starting…" : "Log in as member"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardContent>
           </Card>
         )}

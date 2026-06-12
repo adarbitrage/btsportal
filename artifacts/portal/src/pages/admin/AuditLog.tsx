@@ -655,7 +655,8 @@ export default function AuditLog() {
                   <SelectItem value="delete">Delete</SelectItem>
                   <SelectItem value="grant_product">Grant Product</SelectItem>
                   <SelectItem value="revoke_product">Revoke Product</SelectItem>
-                  <SelectItem value="impersonate_start">Impersonation</SelectItem>
+                  <SelectItem value="impersonate_start">Impersonation (start)</SelectItem>
+                  <SelectItem value="impersonate_stop">Impersonation (stop)</SelectItem>
                   <SelectItem value="update_setting">Setting Change</SelectItem>
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>

@@ -15,6 +15,8 @@ declare global {
       userEmail?: string;
       requestId?: string;
       isApiKeyAuth?: boolean;
+      isImpersonation?: boolean;
+      impersonatedBy?: number;
       apiKeyContext?: {
         id: number;
         prefix: string;
@@ -68,10 +70,17 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: number; email: string };
+    const payload = jwt.verify(token, JWT_SECRET) as {
+      userId: number;
+      email: string;
+      isImpersonation?: boolean;
+      impersonatedBy?: number;
+    };
     req.userId = payload.userId;
     req.userEmail = payload.email;
     req.isApiKeyAuth = false;
+    req.isImpersonation = payload.isImpersonation === true;
+    req.impersonatedBy = payload.impersonatedBy;
     next();
   } catch {
     sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Invalid or expired token");

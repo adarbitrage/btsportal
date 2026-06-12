@@ -1064,9 +1064,19 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
     await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.refreshTokenHash, tokenHash));
   }
 
+  // If there is a stale impersonation restore token, revoke its session row
+  // and clear the cookie so it cannot be used after logout to obtain admin
+  // cookies via /admin/impersonate/stop.
+  const restoreToken = req.cookies?.imp_restore_token;
+  if (restoreToken) {
+    const restoreHash = crypto.createHash("sha256").update(restoreToken).digest("hex");
+    await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.refreshTokenHash, restoreHash));
+  }
+
   res.clearCookie("access_token", { path: "/" });
   res.clearCookie("refresh_token", { path: "/api/auth" });
   res.clearCookie("csrf_token", { path: "/" });
+  res.clearCookie("imp_restore_token", { path: "/" });
   res.json({ success: true });
 });
 
@@ -1467,6 +1477,21 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  // Surface impersonation context so the portal can show the banner.
+  if (req.isImpersonation && req.impersonatedBy) {
+    const [adminUser] = await db
+      .select({ id: usersTable.id, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.impersonatedBy))
+      .limit(1);
+    res.json({
+      ...user,
+      isImpersonation: true,
+      impersonatedBy: adminUser ? { id: adminUser.id, name: adminUser.name } : { id: req.impersonatedBy, name: "Admin" },
+    });
     return;
   }
 
