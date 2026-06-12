@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useRecipients, useCreateThread } from "@/hooks/use-dm";
+import { useToast } from "@/hooks/use-toast";
 import { type DMRecipient } from "@/lib/dm-api";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -23,6 +24,7 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
   const [, navigate] = useLocation();
   const { data: recipients, isLoading } = useRecipients();
   const createThread = useCreateThread();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<DMRecipient | null>(null);
@@ -54,6 +56,12 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
           handleClose(false);
           navigate(`${threadBasePath}/${thread.id}`);
         },
+        onError: () =>
+          toast({
+            title: "Couldn't send message",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          }),
       },
     );
   }

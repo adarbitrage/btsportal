@@ -6,6 +6,7 @@ import { MessageComposer } from "@/components/dm/message-composer";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMessages, useSendMessage, useMarkRead, useThreads } from "@/hooks/use-dm";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ArrowLeft, MessageSquare } from "lucide-react";
@@ -35,6 +36,7 @@ export default function DMThread() {
   const { data: threads, isLoading: threadsLoading } = useThreads();
   const sendMessage = useSendMessage();
   const markRead = useMarkRead();
+  const { toast } = useToast();
 
   const thread = threads?.find((t) => t.id === threadId);
   const otherParty = thread?.otherParty;
@@ -59,7 +61,17 @@ export default function DMThread() {
   }, [tabFocused, threadUnreadCount]);
 
   function handleSend(body: string) {
-    sendMessage.mutate({ threadId, body });
+    sendMessage.mutate(
+      { threadId, body },
+      {
+        onError: () =>
+          toast({
+            title: "Couldn't send message",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          }),
+      },
+    );
   }
 
   return (
