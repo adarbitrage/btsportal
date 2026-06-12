@@ -178,10 +178,20 @@ test.describe("Community reactions (member portal)", () => {
     // surfaced purely as this destructive toast.
     await expect(page.getByText("Failed to update reaction")).toHaveCount(0);
 
-    // --- Un-react the post to prove the toggle is bidirectional ---
+    // --- Un-react the POST to prove the toggle is bidirectional ---
+    // Removing the like must decrement the count back to 0 (so the count span
+    // disappears entirely) and un-highlight the button. This shares the same
+    // optimistic-update + refetch path as adding a like, where the post
+    // normalizer once dropped the reacted state, so a regression here would
+    // leave the button stuck "reacted" or the count stuck at 1.
     await postReact.click();
     await expect(postReact).toHaveAttribute("data-reacted", "false", { timeout: 15_000 });
     await expect(page.getByTestId(`button-react-post-${fixture.postId}-count`)).toHaveCount(0);
+
+    // --- Un-react the COMMENT to prove the comment toggle is bidirectional ---
+    await commentReact.click();
+    await expect(commentReact).toHaveAttribute("data-reacted", "false", { timeout: 15_000 });
+    await expect(page.getByTestId(`button-react-comment-${fixture.commentId}-count`)).toHaveCount(0);
 
     await expect(page.getByText("Failed to update reaction")).toHaveCount(0);
   });
