@@ -137,6 +137,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("ensureFoundingSuperAdmins");
   }
 
+  // 6. Update the company contact address from the old Plano address to the
+  //    new Austin address in KB docs and legal documents. Idempotent: rows that
+  //    already have the new address are not touched. This must run at boot so
+  //    that production environments (which cannot be reached by the dev seed)
+  //    also receive the update on next deploy.
+  try {
+    await ensureCompanyAddressUpdated();
+  } catch (err) {
+    console.error("[Bootstrap] ensureCompanyAddressUpdated() threw:", err);
+    missing.push("ensureCompanyAddressUpdated");
+  }
+
   if (missing.length === 0) {
     console.log("[Bootstrap] All critical prerequisites OK");
   }
@@ -220,4 +232,51 @@ async function ensureKBGrounding(): Promise<void> {
   seedKnowledgebaseFromFiles().catch((err) => {
     console.error("[Bootstrap] KB file ingestion failed:", err);
   });
+}
+
+const OLD_COMPANY_ADDRESS = "3000 Custer Road, Suite 270 #1505, Plano, TX 75075";
+const NEW_COMPANY_ADDRESS = "5900 Balcones Drive STE 100, Austin, TX 78731";
+
+async function ensureCompanyAddressUpdated(): Promise<void> {
+  const kbResult = await db.execute(
+    sql`UPDATE knowledgebase_docs
+        SET content = REPLACE(content, ${OLD_COMPANY_ADDRESS}, ${NEW_COMPANY_ADDRESS}),
+            updated_at = NOW()
+        WHERE content LIKE ${"%" + OLD_COMPANY_ADDRESS + "%"}
+        RETURNING id`,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kbUpdated = ((kbResult as any).rows ?? kbResult).length;
+  if (kbUpdated > 0) {
+    console.log(`[Bootstrap] Updated company address in ${kbUpdated} knowledgebase_docs row(s).`);
+  }
+
+  const legalResult = await db.execute(
+    sql`UPDATE legal_documents
+        SET content = REPLACE(content, ${OLD_COMPANY_ADDRESS}, ${NEW_COMPANY_ADDRESS})
+        WHERE content LIKE ${"%" + OLD_COMPANY_ADDRESS + "%"}
+        RETURNING id`,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const legalUpdated = ((legalResult as any).rows ?? legalResult).length;
+  if (legalUpdated > 0) {
+    console.log(`[Bootstrap] Updated company address in ${legalUpdated} legal_documents row(s).`);
+  }
+
+  const tosContactOld = "For questions, contact us at support@buildtestscale.com.";
+  const tosContactNew =
+    "For questions, contact us at support@buildtestscale.com or by mail at Build Test Scale, LLC, 5900 Balcones Drive STE 100, Austin, TX 78731.";
+  const tosResult = await db.execute(
+    sql`UPDATE legal_documents
+        SET content = REPLACE(content, ${tosContactOld}, ${tosContactNew})
+        WHERE type = 'terms_of_service'
+          AND content LIKE ${"%" + tosContactOld + "%"}
+          AND content NOT LIKE ${"%" + NEW_COMPANY_ADDRESS + "%"}
+        RETURNING id`,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tosUpdated = ((tosResult as any).rows ?? tosResult).length;
+  if (tosUpdated > 0) {
+    console.log(`[Bootstrap] Added mailing address to Terms of Service contact section.`);
+  }
 }

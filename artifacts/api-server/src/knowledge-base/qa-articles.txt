@@ -1050,7 +1050,7 @@ Please use the following details when initiating your transfer:
 Company Information:
 
 - Company Name: Build Test Scale, LLC
-- Company Address: 3000 Custer Road, Suite 270 #1505, Plano, TX 75075
+- Company Address: 5900 Balcones Drive STE 100, Austin, TX 78731
 
 Bank Information:
 
@@ -1127,7 +1127,7 @@ Banking Information:
 - Bank Name: Texas Republic Bank
 - Routing Number: 111924538
 - Account Number: 0070906
-- Company Address: 3000 Custer Road, Suite 270 #1505, Plano, TX 75075
+- Company Address: 5900 Balcones Drive STE 100, Austin, TX 78731
 
 Payment Instructions:
 
