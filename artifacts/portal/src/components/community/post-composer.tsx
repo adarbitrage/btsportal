@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useCreatePost, useCommunityCategories } from "@/hooks/use-community";
 import { AuthorAvatar } from "./ProfilePopover";
-import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Send } from "lucide-react";
 
 interface PostComposerProps {
@@ -18,7 +17,6 @@ interface PostComposerProps {
 
 export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -65,13 +63,6 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
           setCategoryId(defaultCategoryId ?? 0);
           setExpanded(false);
           onSuccess?.();
-        },
-        onError: (err: any) => {
-          toast({
-            variant: "destructive",
-            title: "Failed to post",
-            description: err?.message || "Failed to post. Please contact support@buildtestscale.com",
-          });
         },
       }
     );

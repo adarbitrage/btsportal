@@ -19,6 +19,17 @@ import {
   type CommunityPost,
   type CommunityComment,
 } from "@/lib/community-api";
+import { toast } from "@/hooks/use-toast";
+
+function notifyMutationError(title: string) {
+  return (error: unknown) => {
+    const description =
+      error instanceof Error && error.message
+        ? error.message
+        : "Something went wrong. Please try again.";
+    toast({ variant: "destructive", title, description });
+  };
+}
 
 export function useCommunityCategories() {
   return useQuery({
@@ -78,6 +89,7 @@ export function useCreatePost() {
 
       queryClient.invalidateQueries({ queryKey: ["community", "categories"] });
     },
+    onError: notifyMutationError("Failed to post"),
   });
 }
 
@@ -89,6 +101,7 @@ export function useUpdatePost() {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "post", variables.postId] });
     },
+    onError: notifyMutationError("Failed to update post"),
   });
 }
 
@@ -100,6 +113,7 @@ export function useDeletePost() {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "post", postId] });
     },
+    onError: notifyMutationError("Failed to delete post"),
   });
 }
 
@@ -120,6 +134,7 @@ export function useCreateComment() {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "post", variables.postId] });
     },
+    onError: notifyMutationError("Failed to add comment"),
   });
 }
 
@@ -132,6 +147,7 @@ export function useUpdateComment() {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "post", updatedComment.postId] });
     },
+    onError: notifyMutationError("Failed to update comment"),
   });
 }
 
@@ -144,6 +160,7 @@ export function useDeleteComment() {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
       queryClient.invalidateQueries({ queryKey: ["community", "post"] });
     },
+    onError: notifyMutationError("Failed to delete comment"),
   });
 }
 
@@ -243,10 +260,11 @@ export function useToggleReaction() {
 
       return { snapshots };
     },
-    onError: (_err, _variables, context) => {
+    onError: (err, _variables, context) => {
       context?.snapshots.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);
       });
+      notifyMutationError("Failed to update reaction")(err);
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ["community", "posts"] });
@@ -304,5 +322,6 @@ export function useMarkAllNotificationsRead() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["community", "notifications"] });
     },
+    onError: notifyMutationError("Failed to mark notifications read"),
   });
 }
