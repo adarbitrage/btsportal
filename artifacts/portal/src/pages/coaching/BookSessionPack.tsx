@@ -273,7 +273,7 @@ export default function BookSessionPack() {
                         )}
                         <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {coach.bio || "30-minute 1-on-1 session"}
+                          {coach.bio || "1-hour 1-on-1 session"}
                         </p>
                       </div>
                     </CardContent>

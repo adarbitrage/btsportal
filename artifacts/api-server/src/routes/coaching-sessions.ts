@@ -20,7 +20,12 @@ import {
 
 const router: IRouter = Router();
 
-const DURATION_MINUTES = 30;
+// A session is a 1-hour call, but the coach's calendar is reserved for an extra
+// 30-minute buffer afterwards. So a 1pm booking blocks 1:00–2:30pm on the
+// coach's GHL calendar even though the call itself runs 1:00–2:00pm.
+const CALL_DURATION_MINUTES = 60;
+const BUFFER_MINUTES = 30;
+const BLOCK_DURATION_MINUTES = CALL_DURATION_MINUTES + BUFFER_MINUTES;
 // Sessions must be booked at least this far in advance.
 const MIN_LEAD_TIME_MS = 60 * 60 * 1000; // 1 hour
 // Cancelling at least this far ahead refunds the credit.
@@ -181,8 +186,10 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
     return;
   }
 
-  const endAt = new Date(scheduledAt.getTime() + DURATION_MINUTES * 60000);
-  const endTimeIso = isoWithMatchingOffset(endAt, startTime);
+  const endAt = new Date(scheduledAt.getTime() + CALL_DURATION_MINUTES * 60000);
+  // Reserve the call plus the buffer on the coach's calendar.
+  const blockEndAt = new Date(scheduledAt.getTime() + BLOCK_DURATION_MINUTES * 60000);
+  const endTimeIso = isoWithMatchingOffset(blockEndAt, startTime);
 
   const client = await pool.connect();
   let createdAppointmentId: string | null = null;
@@ -226,7 +233,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         ghlContactId: contactId,
         scheduledAt,
         endAt,
-        durationMinutes: DURATION_MINUTES,
+        durationMinutes: CALL_DURATION_MINUTES,
         meetLink: appointment.meetLink,
         status: "booked",
         title,
@@ -454,8 +461,10 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     return;
   }
 
-  const endAt = new Date(scheduledAt.getTime() + DURATION_MINUTES * 60000);
-  const endTimeIso = isoWithMatchingOffset(endAt, startTime);
+  const endAt = new Date(scheduledAt.getTime() + CALL_DURATION_MINUTES * 60000);
+  // Reserve the call plus the buffer on the coach's calendar.
+  const blockEndAt = new Date(scheduledAt.getTime() + BLOCK_DURATION_MINUTES * 60000);
+  const endTimeIso = isoWithMatchingOffset(blockEndAt, startTime);
 
   const client = await pool.connect();
   try {
