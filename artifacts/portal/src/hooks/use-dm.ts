@@ -83,3 +83,13 @@ export function useCreateThread() {
     },
   });
 }
+
+export function useStartThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (recipientId: number) => createThread(recipientId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dm", "threads"] });
+    },
+  });
+}

@@ -1,16 +1,18 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusPill } from "@/components/coaching/StatusPill";
+import { useStartThread } from "@/hooks/use-dm";
 import {
   useGetCoachMenteeDetail,
   type PhaseBreakdown,
   type SectionCompletion,
   type BlitzActivityEvent,
 } from "@workspace/api-client-react";
-import { ArrowLeft, User, Flame, BookOpen, Clock, CheckCircle2, Circle, MinusCircle } from "lucide-react";
+import { ArrowLeft, User, Flame, BookOpen, Clock, CheckCircle2, Circle, MinusCircle, MessageSquare } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 
 // ---------------------------------------------------------------------------
@@ -169,6 +171,7 @@ function ActivityEventRow({ event }: { event: BlitzActivityEvent }) {
 
 export default function MenteeDetail() {
   const params = useParams<{ userId: string }>();
+  const [, navigate] = useLocation();
   const userId = parseInt(params.userId ?? "", 10);
 
   const validUserId = !isNaN(userId) && userId > 0 ? userId : null;
@@ -177,6 +180,15 @@ export default function MenteeDetail() {
     validUserId ?? 0,
     { query: { queryKey: ["coach", "mentee", validUserId], enabled: validUserId !== null } },
   );
+
+  const startThread = useStartThread();
+
+  function handleSendMessage() {
+    if (validUserId === null) return;
+    startThread.mutate(validUserId, {
+      onSuccess: (thread) => navigate(`/coach/messages/${thread.id}`),
+    });
+  }
 
   if (validUserId === null) {
     return (
@@ -252,8 +264,18 @@ export default function MenteeDetail() {
               </div>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            Member since {format(new Date(mentee.joined_at), "MMMM d, yyyy")}
+          <div className="flex flex-col items-start sm:items-end gap-3">
+            <Button
+              onClick={handleSendMessage}
+              disabled={startThread.isPending}
+              className="gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              {startThread.isPending ? "Opening…" : "Send Message"}
+            </Button>
+            <div className="text-sm text-muted-foreground">
+              Member since {format(new Date(mentee.joined_at), "MMMM d, yyyy")}
+            </div>
           </div>
         </div>
 
