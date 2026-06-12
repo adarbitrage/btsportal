@@ -1,5 +1,4 @@
 import { useUnreadCount } from "@/hooks/use-dm";
-import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 interface UnreadBadgeProps {
@@ -7,10 +6,7 @@ interface UnreadBadgeProps {
 }
 
 export function UnreadBadge({ className }: UnreadBadgeProps) {
-  const { user } = useAuth();
   const { data } = useUnreadCount();
-
-  if (user?.role === "coach") return null;
 
   const count = data?.unreadCount ?? 0;
   if (count === 0) return null;

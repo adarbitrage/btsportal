@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import {
   type MenteeStatus,
   type ListCoachMenteesStatus,
 } from "@workspace/api-client-react";
-import { Users, AlertTriangle, Moon, Zap, ChevronUp, ChevronDown, Search, X, Loader2 } from "lucide-react";
+import { useUnreadCount, useThreads } from "@/hooks/use-dm";
+import { Users, AlertTriangle, Moon, Zap, ChevronUp, ChevronDown, Search, X, Loader2, MessageSquare } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 
 // ---------------------------------------------------------------------------
@@ -216,6 +217,11 @@ export default function CoachDashboard() {
 
   const isFirstPageLoading = listLoading && cursor === undefined && allMentees.length === 0;
 
+  const { data: unreadData } = useUnreadCount();
+  const { data: threads } = useThreads();
+  const unreadCount = unreadData?.unreadCount ?? 0;
+  const recentThreads = (threads ?? []).slice(0, 3);
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -224,6 +230,66 @@ export default function CoachDashboard() {
           <h1 className="text-2xl font-bold text-foreground">Coach Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Blitz progress overview for all mentees</p>
         </div>
+
+        {/* Messages inbox strip */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">
+                  Messages
+                  {unreadCount > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {recentThreads.length > 0
+                    ? `${recentThreads.length} conversation${recentThreads.length !== 1 ? "s" : ""}${unreadCount > 0 ? ` · ${unreadCount} unread` : ""}`
+                    : "No conversations yet"}
+                </p>
+              </div>
+            </div>
+            <Link href="/coach/messages">
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                <MessageSquare className="w-4 h-4" />
+                Open Inbox
+              </Button>
+            </Link>
+          </div>
+          {recentThreads.length > 0 && (
+            <div className="mt-3 divide-y border rounded-lg overflow-hidden">
+              {recentThreads.map((t) => (
+                <Link key={t.id} href={`/coach/messages/${t.id}`}>
+                  <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold shrink-0">
+                      {t.otherParty.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-xs font-${t.unreadCount > 0 ? "semibold" : "medium"} truncate block`}>
+                        {t.otherParty.name}
+                      </span>
+                      {t.lastMessagePreview && (
+                        <span className="text-[11px] text-muted-foreground truncate block">
+                          {t.lastMessagePreview}
+                        </span>
+                      )}
+                    </div>
+                    {t.unreadCount > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full text-[10px] font-semibold bg-destructive text-destructive-foreground shrink-0">
+                        {t.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Summary tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

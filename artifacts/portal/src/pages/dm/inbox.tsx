@@ -12,8 +12,7 @@ export default function DMInbox() {
   const { data: threads, isLoading } = useThreads();
   const [showNewConversation, setShowNewConversation] = useState(false);
 
-  if (user?.role === "coach") return null;
-
+  const isCoach = user?.role === "coach";
   const isEmpty = !isLoading && (threads?.length ?? 0) === 0;
 
   return (
@@ -41,7 +40,9 @@ export default function DMInbox() {
               <div>
                 <p className="font-medium text-foreground">No conversations yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Need help? Start a conversation with an admin.
+                  {isCoach
+                    ? "Mentee conversations will appear here. You can also start one."
+                    : "Need help? Start a conversation with a coach or admin."}
                 </p>
               </div>
               <Button

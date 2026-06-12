@@ -1,13 +1,28 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { db, usersTable, dmThreadsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import { isAdminRole } from "./rbac";
 
+/**
+ * Returns true if (senderRole, recipientRole) is a permitted DM pair.
+ *
+ * Permitted:
+ *   member  ↔ admin/support_agent/content_manager/etc  (existing)
+ *   member  ↔ coach                                     (new)
+ *   admin   ↔ member                                    (existing)
+ *   coach   ↔ member                                    (new)
+ *
+ * Forbidden:
+ *   member  ↔ member   (non-negotiable guarantee)
+ *   coach   ↔ coach
+ *   coach   ↔ admin    (not intended)
+ */
 export function canDM(senderRole: string, recipientRole: string): boolean {
-  if (senderRole === "coach" || recipientRole === "coach") return false;
   if (senderRole === "member" && isAdminRole(recipientRole)) return true;
   if (isAdminRole(senderRole) && recipientRole === "member") return true;
+  if (senderRole === "member" && recipientRole === "coach") return true;
+  if (senderRole === "coach" && recipientRole === "member") return true;
   return false;
 }
 
@@ -28,11 +43,6 @@ export function requireDmPermission(
 
     if (!sender) {
       sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "User not found");
-      return;
-    }
-
-    if (sender.role === "coach") {
-      sendError(res, 403, ErrorCodes.FORBIDDEN, "DMs not permitted between these users");
       return;
     }
 
@@ -83,11 +93,6 @@ export async function requireDmThreadParticipant(
     return;
   }
 
-  if (user.role === "coach") {
-    sendError(res, 403, ErrorCodes.FORBIDDEN, "DMs not permitted between these users");
-    return;
-  }
-
   const threadId = parseInt(req.params.id, 10);
   if (isNaN(threadId)) {
     sendError(res, 400, ErrorCodes.BAD_REQUEST, "Invalid thread id");
@@ -105,7 +110,23 @@ export async function requireDmThreadParticipant(
     return;
   }
 
-  if (thread.memberId !== req.userId && thread.adminId !== req.userId) {
+  // Direct participant: member or the staff user who owns the thread.
+  const isDirectParticipant = thread.memberId === req.userId || thread.adminId === req.userId;
+
+  // Coach coverage: any coach may access any member↔coach thread.
+  // Check that the thread's staff side is a coach so admin↔member
+  // threads remain private.
+  let isCoachCoverage = false;
+  if (!isDirectParticipant && user.role === "coach") {
+    const [staffUser] = await db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, thread.adminId), eq(usersTable.role, "coach")))
+      .limit(1);
+    isCoachCoverage = !!staffUser;
+  }
+
+  if (!isDirectParticipant && !isCoachCoverage) {
     sendError(res, 403, ErrorCodes.FORBIDDEN, "Not a participant in this thread");
     return;
   }

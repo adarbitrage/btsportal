@@ -517,6 +517,8 @@ function Router() {
       <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>
       <Route path="/coach/dashboard">{() => <CoachRoute component={CoachDashboard} />}</Route>
       <Route path="/coach/mentees/:userId">{() => <CoachRoute component={MenteeDetail} />}</Route>
+      <Route path="/coach/messages">{() => <CoachRoute component={DMInbox} />}</Route>
+      <Route path="/coach/messages/:threadId">{() => <CoachRoute component={DMThread} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

@@ -11,6 +11,7 @@ import { useRecipients, useCreateThread } from "@/hooks/use-dm";
 import { type DMRecipient } from "@/lib/dm-api";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
+import { isAdminRole } from "@/lib/permissions";
 
 interface NewConversationModalProps {
   open: boolean;
@@ -27,8 +28,9 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
   const [selected, setSelected] = useState<DMRecipient | null>(null);
   const [body, setBody] = useState("");
 
-  const isAdmin = user?.role === "admin" || user?.role === "support_agent";
-  const heading = isAdmin ? "Message a member" : "Message an admin";
+  const isStaff = isAdminRole(user?.role) || user?.role === "coach";
+  const heading = isStaff ? "Message a member" : "Contact a coach or admin";
+  const threadBasePath = user?.role === "coach" ? "/coach/messages" : "/dm";
 
   const filtered = (recipients ?? []).filter((r) =>
     r.name.toLowerCase().includes(search.toLowerCase()),
@@ -50,7 +52,7 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
       {
         onSuccess: (thread) => {
           handleClose(false);
-          navigate(`/dm/${thread.id}`);
+          navigate(`${threadBasePath}/${thread.id}`);
         },
       },
     );
@@ -101,7 +103,12 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold shrink-0">
                         {r.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm font-medium">{r.name}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium">{r.name}</span>
+                        {r.role === "coach" && (
+                          <span className="ml-2 text-xs text-muted-foreground">Coach</span>
+                        )}
+                      </div>
                     </button>
                   ))
                 )}
@@ -115,6 +122,9 @@ export function NewConversationModal({ open, onOpenChange }: NewConversationModa
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{selected.name}</p>
+                  {selected.role === "coach" && (
+                    <p className="text-xs text-muted-foreground">Coach</p>
+                  )}
                 </div>
                 <Button
                   variant="ghost"

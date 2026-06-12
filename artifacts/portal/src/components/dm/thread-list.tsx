@@ -2,6 +2,7 @@ import { type DMThread } from "@/lib/dm-api";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { useAuth } from "@/lib/auth";
 
 interface ThreadListProps {
   threads: DMThread[];
@@ -24,6 +25,9 @@ function formatRelativeTime(iso: string) {
 }
 
 export function ThreadList({ threads, isLoading, activeThreadId }: ThreadListProps) {
+  const { user } = useAuth();
+  const threadBasePath = user?.role === "coach" ? "/coach/messages" : "/dm";
+
   if (isLoading) {
     return (
       <div className="divide-y">
@@ -52,7 +56,7 @@ export function ThreadList({ threads, isLoading, activeThreadId }: ThreadListPro
         const initials = thread.otherParty.name.charAt(0).toUpperCase();
 
         return (
-          <Link key={thread.id} href={`/dm/${thread.id}`}>
+          <Link key={thread.id} href={`${threadBasePath}/${thread.id}`}>
             <div
               className={cn(
                 "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors",

@@ -38,11 +38,6 @@ router.get("/threads", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  if (role === "coach") {
-    sendError(res, 403, ErrorCodes.FORBIDDEN, "DMs not permitted between these users");
-    return;
-  }
-
   const threads = await listThreadsForUser(req.userId, role);
   res.json({ threads });
 });
@@ -82,8 +77,11 @@ router.post(
       return;
     }
 
+    // Coaches occupy the "staff" (adminId) slot in the thread table, the same
+    // way admins do. A member is always on the memberId side.
+    const isStaff = isAdminRole(senderRole) || senderRole === "coach";
     const memberId = senderRole === "member" ? req.userId : recipient_user_id;
-    const adminId = isAdminRole(senderRole) ? req.userId : recipient_user_id;
+    const adminId = isStaff ? req.userId : recipient_user_id;
 
     const { thread, created } = await findOrCreateThread(memberId, adminId);
 
@@ -93,7 +91,7 @@ router.post(
         actionType: "dm_thread_created",
         entityType: "dm_thread",
         entityId: String(thread.id),
-        description: `DM thread created between member ${memberId} and admin ${adminId}`,
+        description: `DM thread created between member ${memberId} and staff ${adminId}`,
         req,
       }).catch((err) => console.error("[DM] audit log error:", err));
     }
@@ -191,11 +189,6 @@ router.get("/recipients", async (req: Request, res: Response): Promise<void> => 
     return;
   }
 
-  if (role === "coach") {
-    sendError(res, 403, ErrorCodes.FORBIDDEN, "DMs not permitted between these users");
-    return;
-  }
-
   const recipients = await listRecipientsForUser(req.userId, role);
   res.json({ recipients });
 });
@@ -206,13 +199,13 @@ router.get("/unread-count", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
-  const role = await getSenderRole(req.userId);
-  if (role === "coach") {
-    sendError(res, 403, ErrorCodes.FORBIDDEN, "DMs not permitted between these users");
-    return;
-  }
+  const [user] = await db
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId))
+    .limit(1);
 
-  const count = await totalUnreadCount(req.userId);
+  const count = await totalUnreadCount(req.userId, user?.role ?? "member");
   res.json({ unreadCount: count });
 });
 

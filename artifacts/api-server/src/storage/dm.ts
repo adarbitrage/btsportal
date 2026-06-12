@@ -1,5 +1,6 @@
 import { db, usersTable, dmThreadsTable, dmMessagesTable } from "@workspace/db";
 import { eq, and, desc, isNull, sql, lt, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { isAdminRole, ADMIN_ROLES } from "../middleware/rbac";
 
 export interface ThreadSummary {
@@ -25,8 +26,6 @@ export interface MessageRow {
 }
 
 export async function listThreadsForUser(userId: number, userRole: string): Promise<ThreadSummary[]> {
-  const member = usersTable;
-
   if (userRole === "member") {
     const rows = await db
       .select({
@@ -61,20 +60,64 @@ export async function listThreadsForUser(userId: number, userRole: string): Prom
     );
   }
 
+  // Admins see only their own threads. Coaches see ALL member↔coach threads
+  // regardless of which coach is in adminId (shared inbox / coverage model —
+  // any coach can pick up any thread, matching the coach-dashboard "every coach
+  // sees every mentee" policy). We join staff to filter to coach-side threads only
+  // so that admin↔member private threads stay invisible to coaches.
   if (isAdminRole(userRole)) {
-    const adminMember = usersTable;
     const rows = await db
       .select({
         threadId: dmThreadsTable.id,
         lastMessageAt: dmThreadsTable.lastMessageAt,
         createdAt: dmThreadsTable.createdAt,
-        otherPartyId: adminMember.id,
-        otherPartyName: adminMember.name,
-        otherPartyRole: adminMember.role,
+        otherPartyId: usersTable.id,
+        otherPartyName: usersTable.name,
+        otherPartyRole: usersTable.role,
       })
       .from(dmThreadsTable)
-      .innerJoin(adminMember, eq(adminMember.id, dmThreadsTable.memberId))
+      .innerJoin(usersTable, eq(usersTable.id, dmThreadsTable.memberId))
       .where(eq(dmThreadsTable.adminId, userId))
+      .orderBy(desc(dmThreadsTable.lastMessageAt));
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const { preview, unreadCount } = await getThreadMeta(row.threadId, userId);
+        return {
+          id: row.threadId,
+          otherParty: {
+            id: row.otherPartyId,
+            name: row.otherPartyName,
+            role: row.otherPartyRole,
+          },
+          lastMessagePreview: preview,
+          lastMessageAt: row.lastMessageAt,
+          unreadCount,
+          createdAt: row.createdAt,
+        };
+      })
+    );
+  }
+
+  if (userRole === "coach") {
+    // Coaches see ALL member↔coach threads (shared inbox / coverage model).
+    // Use Drizzle aliases to join the users table twice: once for the member
+    // side (otherParty) and once to assert the staff side is a coach.
+    const staffUser = alias(usersTable, "staff_user");
+    const memberUser = alias(usersTable, "member_user");
+
+    const rows = await db
+      .select({
+        threadId: dmThreadsTable.id,
+        lastMessageAt: dmThreadsTable.lastMessageAt,
+        createdAt: dmThreadsTable.createdAt,
+        otherPartyId: memberUser.id,
+        otherPartyName: memberUser.name,
+        otherPartyRole: memberUser.role,
+      })
+      .from(dmThreadsTable)
+      .innerJoin(memberUser, eq(memberUser.id, dmThreadsTable.memberId))
+      .innerJoin(staffUser, and(eq(staffUser.id, dmThreadsTable.adminId), eq(staffUser.role, "coach")))
       .orderBy(desc(dmThreadsTable.lastMessageAt));
 
     return Promise.all(
@@ -222,14 +265,15 @@ export async function listRecipientsForUser(
   userRole: string
 ): Promise<RecipientRow[]> {
   if (userRole === "member") {
+    // Members can message admins (existing) and coaches (new).
     return db
       .select({ id: usersTable.id, name: usersTable.name, role: usersTable.role, email: usersTable.email })
       .from(usersTable)
-      .where(inArray(usersTable.role, [...ADMIN_ROLES]))
+      .where(inArray(usersTable.role, [...ADMIN_ROLES, "coach"]))
       .orderBy(usersTable.name);
   }
 
-  if (isAdminRole(userRole)) {
+  if (isAdminRole(userRole) || userRole === "coach") {
     return db
       .select({ id: usersTable.id, name: usersTable.name, role: usersTable.role, email: usersTable.email })
       .from(usersTable)
@@ -240,23 +284,51 @@ export async function listRecipientsForUser(
   return [];
 }
 
-export async function totalUnreadCount(userId: number): Promise<number> {
+export async function totalUnreadCount(userId: number, userRole: string): Promise<number> {
+  // Threads the user participates in directly (member side or staff side).
   const memberThreads = db
     .select({ id: dmThreadsTable.id })
     .from(dmThreadsTable)
     .where(eq(dmThreadsTable.memberId, userId));
 
-  const adminThreads = db
+  const ownAdminThreads = db
     .select({ id: dmThreadsTable.id })
     .from(dmThreadsTable)
     .where(eq(dmThreadsTable.adminId, userId));
+
+  // Coaches use a shared inbox: they can see (and should receive unread
+  // indicators for) ALL member↔coach threads, not just their own.
+  // Build an extra subquery for threads owned by any OTHER coach.
+  let threadScope: ReturnType<typeof sql<number>>;
+
+  if (userRole === "coach") {
+    const staffUser = alias(usersTable, "staff_unread");
+    const allCoachThreads = db
+      .select({ id: dmThreadsTable.id })
+      .from(dmThreadsTable)
+      .innerJoin(staffUser, and(eq(staffUser.id, dmThreadsTable.adminId), eq(staffUser.role, "coach")));
+
+    threadScope = sql`${dmMessagesTable.threadId} IN (
+      ${memberThreads}
+      UNION ALL
+      ${ownAdminThreads}
+      UNION ALL
+      ${allCoachThreads}
+    )`;
+  } else {
+    threadScope = sql`${dmMessagesTable.threadId} IN (
+      ${memberThreads}
+      UNION ALL
+      ${ownAdminThreads}
+    )`;
+  }
 
   const [result] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(dmMessagesTable)
     .where(
       and(
-        sql`${dmMessagesTable.threadId} IN (${memberThreads} UNION ALL ${adminThreads})`,
+        threadScope,
         isNull(dmMessagesTable.readAt),
         sql`${dmMessagesTable.senderId} != ${userId}`
       )

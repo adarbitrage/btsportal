@@ -16,6 +16,9 @@ export default function DMThread() {
   const threadId = Number(threadIdParam ?? 0);
   const isMobile = useIsMobile();
 
+  const isCoach = user?.role === "coach";
+  const inboxPath = isCoach ? "/coach/messages" : "/dm";
+
   const [tabFocused, setTabFocused] = useState(
     typeof document !== "undefined" ? document.visibilityState === "visible" : true,
   );
@@ -55,8 +58,6 @@ export default function DMThread() {
     }
   }, [tabFocused, threadUnreadCount]);
 
-  if (user?.role === "coach") return null;
-
   function handleSend(body: string) {
     sendMessage.mutate({ threadId, body });
   }
@@ -73,7 +74,7 @@ export default function DMThread() {
       >
         <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0 bg-card">
           {isMobile && (
-            <Link href="/dm">
+            <Link href={inboxPath}>
               <Button variant="ghost" size="icon" className="-ml-2">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -97,7 +98,7 @@ export default function DMThread() {
 
           {!isMobile && (
             <div className="ml-auto">
-              <Link href="/dm">
+              <Link href={inboxPath}>
                 <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
                   <ArrowLeft className="w-4 h-4" />
                   Back to inbox

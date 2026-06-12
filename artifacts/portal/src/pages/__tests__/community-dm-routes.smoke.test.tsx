@@ -126,7 +126,7 @@ describe("Community and DM route pages — render smoke", () => {
     expect(getByTestId("app-layout")).toBeInTheDocument();
   });
 
-  it("/dm: DMInbox renders null for coach role (and does not crash)", () => {
+  it("/dm: DMInbox mounts for coach role (coaches can now use DM)", () => {
     authStateMock.mockImplementation(() => ({
       user: {
         id: 2,
@@ -137,12 +137,11 @@ describe("Community and DM route pages — render smoke", () => {
       loading: false,
       logout: vi.fn(),
     }));
-    const { container, queryByTestId } = render(<DMInbox />);
-    expect(queryByTestId("app-layout")).toBeNull();
-    expect(container.firstChild).toBeNull();
+    const { getByTestId } = render(<DMInbox />);
+    expect(getByTestId("app-layout")).toBeInTheDocument();
   });
 
-  it("/dm/:threadId: DMThread renders null for coach role (and does not crash)", () => {
+  it("/dm/:threadId: DMThread mounts for coach role (coaches can now use DM)", () => {
     useParamsMock.mockImplementation(() => ({ threadId: "7" }));
     authStateMock.mockImplementation(() => ({
       user: {
@@ -154,8 +153,7 @@ describe("Community and DM route pages — render smoke", () => {
       loading: false,
       logout: vi.fn(),
     }));
-    const { container, queryByTestId } = render(<DMThread />);
-    expect(queryByTestId("app-layout")).toBeNull();
-    expect(container.firstChild).toBeNull();
+    const { getByTestId } = render(<DMThread />);
+    expect(getByTestId("app-layout")).toBeInTheDocument();
   });
 });
