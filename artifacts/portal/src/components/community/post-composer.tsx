@@ -70,7 +70,7 @@ export function PostComposer({ defaultCategoryId, onSuccess }: PostComposerProps
           toast({
             variant: "destructive",
             title: "Failed to post",
-            description: err?.message ?? "Something went wrong. Please try again.",
+            description: err?.message || "Failed to post. Please contact support@buildtestscale.com",
           });
         },
       }

@@ -9,6 +9,16 @@ export class CommunityApiError extends Error {
   }
 }
 
+function extractApiError(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const err = (data as { error?: unknown }).error;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return undefined;
+}
+
 async function communityFetch(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -20,7 +30,7 @@ async function communityFetch(path: string, options?: RequestInit) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new CommunityApiError(data.error || `Request failed with status ${res.status}`, res.status);
+    throw new CommunityApiError(extractApiError(data) ?? "", res.status);
   }
   return res.json();
 }
