@@ -542,7 +542,7 @@ function NavNodeRow({
   );
 }
 
-function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
+export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location, setLocation] = useLocation();
   const { data: member } = useGetCurrentMember() as { data: MemberProfile | undefined };
   const { user, logout } = useAuth();
