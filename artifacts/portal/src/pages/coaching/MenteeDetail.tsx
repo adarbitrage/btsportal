@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusPill } from "@/components/coaching/StatusPill";
 import { useStartThread } from "@/hooks/use-dm";
+import { useToast } from "@/hooks/use-toast";
 import {
   useGetCoachMenteeDetail,
   type PhaseBreakdown,
@@ -182,11 +183,18 @@ export default function MenteeDetail() {
   );
 
   const startThread = useStartThread();
+  const { toast } = useToast();
 
   function handleSendMessage() {
     if (validUserId === null) return;
     startThread.mutate(validUserId, {
       onSuccess: (thread) => navigate(`/coach/messages/${thread.id}`),
+      onError: () =>
+        toast({
+          title: "Couldn't open message thread",
+          description: "Please try again in a moment.",
+          variant: "destructive",
+        }),
     });
   }
 
