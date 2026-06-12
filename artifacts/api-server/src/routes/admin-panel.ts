@@ -640,6 +640,26 @@ type AuditCursor = { t: string; i: number };
 // a fruitless JSONB path scan or surface "no such outcome" rows.
 const ALERT_OUTCOME_FILTER_VALUES = new Set(["sent", "failed", "throttled", "skipped"]);
 
+// Parse a client-supplied audit-log date-range boundary into a Date, or null
+// when the value is missing/invalid (so the filter is silently dropped rather
+// than failing the whole request). The Audit Log page sends date-only values
+// (`<input type="date">` → "YYYY-MM-DD"), so a naive `new Date("2026-06-12")`
+// lands on UTC midnight. That's fine for the start boundary, but for the end
+// boundary it would exclude the *entire* chosen day — a reviewer who sets the
+// end date to the incident day would see none of that day's rows. To make the
+// range inclusive of the end day we expand a bare date to 23:59:59.999 UTC.
+// Values that already carry a time component (e.g. an ISO timestamp) are used
+// verbatim for both boundaries.
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+function parseAuditDateBoundary(raw: string, boundary: "start" | "end"): Date | null {
+  if (DATE_ONLY_RE.test(raw)) {
+    const d = new Date(`${raw}T${boundary === "end" ? "23:59:59.999" : "00:00:00.000"}Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 // Microsecond-precision ISO of a row's createdAt. Selected as an alias so
 // the value never round-trips through JS's millisecond-only Date type and
 // therefore preserves the column's full timestamptz precision.
@@ -851,8 +871,14 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     if (actionType && typeof actionType === "string") conditions.push(auditActionTypeCondition(actionType));
     if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
     if (actorId && typeof actorId === "string") conditions.push(eq(auditLogTable.actorId, parseInt(actorId, 10)));
-    if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
-    if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
+    if (startDate && typeof startDate === "string") {
+      const start = parseAuditDateBoundary(startDate, "start");
+      if (start) conditions.push(gte(auditLogTable.createdAt, start));
+    }
+    if (endDate && typeof endDate === "string") {
+      const end = parseAuditDateBoundary(endDate, "end");
+      if (end) conditions.push(lte(auditLogTable.createdAt, end));
+    }
     // Alert outcome filter — only meaningful for queue_fallback_alert rows,
     // whose `metadata.outcome` is one of sent/failed/throttled/skipped (see
     // queue-fallback-alerter.ts AlertDeliveryOutcome). Allow-list the value
@@ -1213,8 +1239,14 @@ router.get("/admin/audit-log/export", requirePermission("audit:view"), async (re
   const conditions: any[] = [];
   if (actionType && typeof actionType === "string") conditions.push(auditActionTypeCondition(actionType));
   if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
-  if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
-  if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
+  if (startDate && typeof startDate === "string") {
+    const start = parseAuditDateBoundary(startDate, "start");
+    if (start) conditions.push(gte(auditLogTable.createdAt, start));
+  }
+  if (endDate && typeof endDate === "string") {
+    const end = parseAuditDateBoundary(endDate, "end");
+    if (end) conditions.push(lte(auditLogTable.createdAt, end));
+  }
   // Match the read endpoint's outcome filter so the export is consistent
   // with the row count the UI displays.
   if (outcome && typeof outcome === "string" && ALERT_OUTCOME_FILTER_VALUES.has(outcome)) {
