@@ -16,6 +16,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   fetchMemberPreview,
+  CommunityApiError,
   type CommunityPost,
   type CommunityComment,
 } from "@/lib/community-api";
@@ -23,6 +24,15 @@ import { toast } from "@/hooks/use-toast";
 
 function notifyMutationError(title: string) {
   return (error: unknown) => {
+    if (error instanceof CommunityApiError && error.status === 401) {
+      toast({
+        variant: "destructive",
+        title: "Session expired",
+        description: "Please sign in again to continue.",
+      });
+      window.location.replace("/login");
+      return;
+    }
     const description =
       error instanceof Error && error.message
         ? error.message

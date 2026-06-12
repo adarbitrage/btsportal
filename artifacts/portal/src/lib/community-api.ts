@@ -1,3 +1,5 @@
+import { customFetch, ApiError } from "@workspace/api-client-react";
+
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 export class CommunityApiError extends Error {
@@ -19,20 +21,24 @@ function extractApiError(data: unknown): string | undefined {
   return undefined;
 }
 
-async function communityFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new CommunityApiError(extractApiError(data) ?? "Something went wrong. Please try again.", res.status);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function communityFetch(path: string, options?: RequestInit): Promise<any> {
+  try {
+    return await customFetch<any>(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+      responseType: "auto",
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      const message = extractApiError(err.data) ?? "Something went wrong. Please try again.";
+      throw new CommunityApiError(message, err.status);
+    }
+    throw err;
   }
-  return res.json();
 }
 
 function normalizePost(p: any): CommunityPost {
