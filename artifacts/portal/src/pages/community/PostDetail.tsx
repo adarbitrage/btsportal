@@ -205,6 +205,7 @@ export default function PostDetail() {
                 reactionCount={post.reactionCount}
                 onToggle={() => toggleReaction.mutate({ targetType: "post", targetId: post.id })}
                 disabled={toggleReaction.isPending}
+                testId={`button-react-post-${post.id}`}
               />
               <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <MessageSquare className="w-4 h-4" />

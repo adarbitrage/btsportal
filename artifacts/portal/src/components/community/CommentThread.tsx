@@ -128,6 +128,7 @@ export function CommentThread({ post, showAll: forceShowAll }: CommentThreadProp
                     reactionCount={comment.reactionCount}
                     onToggle={() => toggleReaction.mutate({ targetType: "comment", targetId: comment.id })}
                     size="sm"
+                    testId={`button-react-comment-${comment.id}`}
                   />
                   <button
                     onClick={() => setReplyTo({ commentId: comment.id, name: comment.author.name })}

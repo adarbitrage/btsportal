@@ -54,6 +54,8 @@ function normalizePost(p: any): CommunityPost {
       highestProductSlug: p.highestProductSlug ?? null,
       badges: p.badges ?? [],
     },
+    reactionCount: p.reactionCount ?? 0,
+    hasReacted: p.hasReacted ?? p.viewerHasReacted ?? false,
     isEdited: p.isEdited ?? false,
     isDeleted: p.isDeleted ?? false,
     comments: (p.comments ?? []).map(normalizeComment),

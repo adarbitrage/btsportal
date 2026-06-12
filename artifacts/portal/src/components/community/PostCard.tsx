@@ -184,6 +184,7 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
             reactionCount={post.reactionCount}
             onToggle={() => toggleReaction.mutate({ targetType: "post", targetId: post.id })}
             disabled={toggleReaction.isPending}
+            testId={`button-react-post-${post.id}`}
           />
           <Link href={`/community/${post.id}`}>
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">

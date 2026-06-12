@@ -7,13 +7,16 @@ interface ReactionButtonProps {
   onToggle: () => void;
   disabled?: boolean;
   size?: "sm" | "md";
+  testId?: string;
 }
 
-export function ReactionButton({ hasReacted, reactionCount, onToggle, disabled, size = "md" }: ReactionButtonProps) {
+export function ReactionButton({ hasReacted, reactionCount, onToggle, disabled, size = "md", testId }: ReactionButtonProps) {
   return (
     <button
       onClick={onToggle}
       disabled={disabled}
+      data-testid={testId}
+      data-reacted={hasReacted ? "true" : "false"}
       className={cn(
         "flex items-center gap-1.5 font-medium transition-all select-none",
         size === "sm" ? "text-xs" : "text-sm",
@@ -30,7 +33,7 @@ export function ReactionButton({ hasReacted, reactionCount, onToggle, disabled, 
           hasReacted && "scale-110"
         )}
       />
-      {reactionCount > 0 && <span>{reactionCount}</span>}
+      {reactionCount > 0 && <span data-testid={testId ? `${testId}-count` : undefined}>{reactionCount}</span>}
     </button>
   );
 }
