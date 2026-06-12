@@ -25,6 +25,24 @@ import { useAuth } from "@/lib/auth";
 import { ADMIN_ROLES, ROLE_INFO, getRoleLabel, hasPermission } from "@/lib/permissions";
 import { formatDeviceLabel } from "@/lib/device-label";
 
+// Render an impersonation session length (milliseconds) as a compact, human
+// "1h 4m 12s" / "4m 12s" / "12s" string. Mirrors the helper on the Audit Log
+// page. Returns null for missing/negative values so callers can fall back to
+// an "ongoing / unknown" badge.
+function formatImpersonationDuration(ms: number | null | undefined): string | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds === 0) return "under 1s";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
 interface ProductRow {
   id: number;
   slug: string;
@@ -184,6 +202,36 @@ export default function MemberDetail() {
   // request sent.
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [roleConfirmOpen, setRoleConfirmOpen] = useState(false);
+
+  // Impersonation ("Log in as member") history for the dedicated tab. Lazily
+  // loaded the first time the tab is opened so the member detail page's initial
+  // /full fetch stays lean — most member views never open this compliance tab.
+  type ImpersonationSession = {
+    adminId: number | null;
+    adminEmail: string | null;
+    startId: number | null;
+    startedAt: string | null;
+    stopId: number | null;
+    stoppedAt: string | null;
+    durationMs: number | null;
+  };
+  const [impersonationSessions, setImpersonationSessions] = useState<ImpersonationSession[]>([]);
+  const [impersonationHistoryLoading, setImpersonationHistoryLoading] = useState(false);
+  const [impersonationHistoryLoaded, setImpersonationHistoryLoaded] = useState(false);
+
+  const loadImpersonationHistory = async () => {
+    if (impersonationHistoryLoaded || impersonationHistoryLoading) return;
+    try {
+      setImpersonationHistoryLoading(true);
+      const result = await adminPanelApi.getMemberImpersonationHistory(memberId);
+      setImpersonationSessions(Array.isArray(result?.sessions) ? result.sessions : []);
+      setImpersonationHistoryLoaded(true);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setImpersonationHistoryLoading(false);
+    }
+  };
 
   const openGrantDialog = async () => {
     setGrantProductId("");
@@ -445,6 +493,16 @@ export default function MemberDetail() {
   };
 
   useEffect(() => { if (memberId) load(); }, [memberId]);
+
+  // Reset the lazily-loaded impersonation tab whenever we switch members.
+  // The component stays mounted across member-to-member navigation, so without
+  // this the `impersonationHistoryLoaded` guard would short-circuit and show
+  // the previous member's sessions under the new member (a compliance bug).
+  useEffect(() => {
+    setImpersonationSessions([]);
+    setImpersonationHistoryLoaded(false);
+    setImpersonationHistoryLoading(false);
+  }, [memberId]);
 
   useEffect(() => {
     if (!memberId) return;
@@ -1699,8 +1757,11 @@ export default function MemberDetail() {
           </Card>
         )}
 
-        <Tabs defaultValue="products">
-          <TabsList className="grid w-full grid-cols-9 gap-1">
+        <Tabs
+          defaultValue="products"
+          onValueChange={(v) => { if (v === "impersonation") void loadImpersonationHistory(); }}
+        >
+          <TabsList className="grid w-full grid-cols-10 gap-1">
             <TabsTrigger value="products" className="text-xs"><Package className="w-3 h-3 mr-1" />Products</TabsTrigger>
             <TabsTrigger value="training" className="text-xs"><BookOpen className="w-3 h-3 mr-1" />Training</TabsTrigger>
             <TabsTrigger value="tickets" className="text-xs"><Ticket className="w-3 h-3 mr-1" />Tickets</TabsTrigger>
@@ -1709,6 +1770,7 @@ export default function MemberDetail() {
             <TabsTrigger value="community" className="text-xs"><Users className="w-3 h-3 mr-1" />Community</TabsTrigger>
             <TabsTrigger value="notes" className="text-xs"><StickyNote className="w-3 h-3 mr-1" />Notes</TabsTrigger>
             <TabsTrigger value="password-resets" className="text-xs" data-testid="tab-password-resets"><KeyRound className="w-3 h-3 mr-1" />Password Resets</TabsTrigger>
+            <TabsTrigger value="impersonation" className="text-xs" data-testid="tab-impersonation"><LogIn className="w-3 h-3 mr-1" />Impersonation</TabsTrigger>
             <TabsTrigger value="audit" className="text-xs"><ScrollText className="w-3 h-3 mr-1" />Audit</TabsTrigger>
           </TabsList>
 
@@ -1952,6 +2014,90 @@ export default function MemberDetail() {
                   historyHeaderLabel="All password reset events for this member"
                   showHistoryActorFilter={true}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="impersonation">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Impersonation history</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Every "Log in as member" session opened against this member —
+                  which staff member, when it started and stopped, and how long it
+                  lasted.
+                </p>
+                {impersonationHistoryLoading ? (
+                  <div
+                    className="flex items-center gap-2 text-sm text-muted-foreground py-4"
+                    data-testid="text-impersonation-loading"
+                  >
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading impersonation history...
+                  </div>
+                ) : impersonationSessions.length === 0 ? (
+                  <p
+                    className="text-sm text-muted-foreground"
+                    data-testid="text-impersonation-empty"
+                  >
+                    No impersonation sessions recorded for this member
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {impersonationSessions.map((session, idx) => {
+                      const duration = formatImpersonationDuration(session.durationMs);
+                      const linkId = session.startId ?? session.stopId;
+                      return (
+                        <div
+                          key={`${session.startId ?? "x"}-${session.stopId ?? "x"}-${idx}`}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                          data-testid={`impersonation-session-${linkId ?? idx}`}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className="text-sm font-mono break-all"
+                                data-testid={`impersonation-session-admin-${linkId ?? idx}`}
+                              >
+                                {session.adminEmail ||
+                                  (session.adminId ? `admin #${session.adminId}` : "an admin")}
+                              </span>
+                              {duration ? (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {duration}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  ongoing / unknown
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              Started:{" "}
+                              {session.startedAt
+                                ? format(new Date(session.startedAt), "MMM d, yyyy h:mm a")
+                                : "—"}
+                              {" · "}Stopped:{" "}
+                              {session.stoppedAt
+                                ? format(new Date(session.stoppedAt), "MMM d, yyyy h:mm a")
+                                : "—"}
+                            </div>
+                          </div>
+                          {linkId != null && (
+                            <Link
+                              href={`/admin/audit-log?actionType=impersonation&expand=${linkId}`}
+                              data-testid={`link-impersonation-${linkId}`}
+                            >
+                              <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                            </Link>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

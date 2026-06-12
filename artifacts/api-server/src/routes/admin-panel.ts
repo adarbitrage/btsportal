@@ -757,6 +757,90 @@ async function safeCappedAuditCount(
   }
 }
 
+// The two action types written by the impersonation ("Log in as member")
+// flow. Surfaced together under the synthetic "impersonation" filter value so
+// compliance can pull every login-as-member event — start and stop — in one
+// view rather than toggling between two dropdown entries.
+const IMPERSONATION_ACTION_TYPES = ["impersonate_start", "impersonate_stop"] as const;
+
+// Build the WHERE condition for the audit-log `actionType` filter. The
+// synthetic value "impersonation" matches BOTH impersonate_start and
+// impersonate_stop; every other value is an exact match on the stored
+// action type.
+function auditActionTypeCondition(actionType: string): SQL {
+  if (actionType === "impersonation") {
+    return inArray(auditLogTable.actionType, IMPERSONATION_ACTION_TYPES as unknown as string[]);
+  }
+  return eq(auditLogTable.actionType, actionType);
+}
+
+// Duration enrichment fields attached to impersonate_start rows so the UI can
+// show how long a login-as-member session lasted without a second round-trip.
+type ImpersonationDuration = {
+  impersonationStoppedAt: string | null;
+  impersonationDurationMs: number | null;
+};
+
+// Pair each impersonate_start row in `rows` with its matching impersonate_stop
+// (same admin actor + same member entity, the earliest stop recorded after the
+// start) and attach `impersonationStoppedAt` / `impersonationDurationMs`.
+// Sessions that are still open — or whose stop row falls outside the data we're
+// returning — get no fields and render as "ongoing / unknown" client-side.
+// Only the start rows present on the current page are looked up (≤ page size),
+// each via an index-backed LIMIT 1 probe, so this stays cheap on large logs.
+// The fields are non-PII (durations only) and are added AFTER redaction, so
+// they survive `sanitize` untouched.
+async function attachImpersonationDurations<
+  T extends {
+    id: number;
+    actionType: string | null;
+    actorId: number | null;
+    entityId: string | null;
+    createdAt: Date | null;
+  },
+>(rows: T[]): Promise<(T & Partial<ImpersonationDuration>)[]> {
+  const starts = rows.filter(
+    (r) =>
+      r.actionType === "impersonate_start" &&
+      r.actorId != null &&
+      r.entityId != null &&
+      r.createdAt != null,
+  );
+  if (starts.length === 0) return rows;
+
+  const durationByStartId = new Map<number, ImpersonationDuration>();
+  await Promise.all(
+    starts.map(async (s) => {
+      const [stop] = await db
+        .select({ createdAt: auditLogTable.createdAt })
+        .from(auditLogTable)
+        .where(
+          and(
+            eq(auditLogTable.actionType, "impersonate_stop"),
+            eq(auditLogTable.actorId, s.actorId as number),
+            eq(auditLogTable.entityId, s.entityId as string),
+            gt(auditLogTable.createdAt, s.createdAt as Date),
+          ),
+        )
+        .orderBy(asc(auditLogTable.createdAt), asc(auditLogTable.id))
+        .limit(1);
+      if (stop?.createdAt) {
+        durationByStartId.set(s.id, {
+          impersonationStoppedAt: stop.createdAt.toISOString(),
+          impersonationDurationMs:
+            stop.createdAt.getTime() - (s.createdAt as Date).getTime(),
+        });
+      }
+    }),
+  );
+  if (durationByStartId.size === 0) return rows;
+
+  return rows.map((r) => {
+    const d = durationByStartId.get(r.id);
+    return d ? { ...r, ...d } : r;
+  });
+}
+
 router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Request, res: Response) => {
   try {
     const { actionType, entityType, actorId, startDate, endDate, outcome, page, limit = "50", expand, cursor, direction, jumpTo } = req.query;
@@ -764,7 +848,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
 
     const conditions: any[] = [];
-    if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
+    if (actionType && typeof actionType === "string") conditions.push(auditActionTypeCondition(actionType));
     if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
     if (actorId && typeof actorId === "string") conditions.push(eq(auditLogTable.actorId, parseInt(actorId, 10)));
     if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
@@ -866,7 +950,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
           const cappedTotal = await safeCappedAuditCount(whereClause, exportCap);
 
           res.json({
-            logs: sanitize(logs),
+            logs: await attachImpersonationDurations(sanitize(logs)),
             pagination: {
               page: null,
               limit: limitNum,
@@ -938,7 +1022,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       const cappedTotal = await safeCappedAuditCount(whereClause, exportCap);
 
       res.json({
-        logs: sanitize(window),
+        logs: await attachImpersonationDurations(sanitize(window)),
         pagination: {
           page: null,
           limit: limitNum,
@@ -978,7 +1062,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
         const first = window[0];
         const last = window[window.length - 1];
         res.json({
-          logs: sanitize(window),
+          logs: await attachImpersonationDurations(sanitize(window)),
           pagination: { page: null, limit: limitNum, total: null, totalPages: null },
           exportCap: resolveAuditLogExportHardCap(),
           cursors: {
@@ -1004,7 +1088,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       const first = window[0];
       const last = window[window.length - 1];
       res.json({
-        logs: sanitize(window),
+        logs: await attachImpersonationDurations(sanitize(window)),
         pagination: { page: null, limit: limitNum, total: null, totalPages: null },
         exportCap: resolveAuditLogExportHardCap(),
         cursors: {
@@ -1035,7 +1119,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
       const first = rows[0];
       const last = rows[rows.length - 1];
       res.json({
-        logs: sanitize(rows),
+        logs: await attachImpersonationDurations(sanitize(rows)),
         pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
         exportCap: resolveAuditLogExportHardCap(),
         cursors: {
@@ -1067,7 +1151,7 @@ router.get("/admin/audit-log", requirePermission("audit:view"), async (req: Requ
     const window = hasMoreOlder ? rows.slice(0, limitNum) : rows;
     const last = window[window.length - 1];
     res.json({
-      logs: sanitize(window),
+      logs: await attachImpersonationDurations(sanitize(window)),
       pagination: {
         page: null,
         limit: limitNum,
@@ -1127,7 +1211,7 @@ type ExportCursor = { ts: string; id: number };
 router.get("/admin/audit-log/export", requirePermission("audit:view"), async (req: Request, res: Response) => {
   const { actionType, entityType, startDate, endDate, outcome, format = "csv" } = req.query;
   const conditions: any[] = [];
-  if (actionType && typeof actionType === "string") conditions.push(eq(auditLogTable.actionType, actionType));
+  if (actionType && typeof actionType === "string") conditions.push(auditActionTypeCondition(actionType));
   if (entityType && typeof entityType === "string") conditions.push(eq(auditLogTable.entityType, entityType));
   if (startDate && typeof startDate === "string") conditions.push(gte(auditLogTable.createdAt, new Date(startDate)));
   if (endDate && typeof endDate === "string") conditions.push(lte(auditLogTable.createdAt, new Date(endDate)));
@@ -1453,6 +1537,103 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
   } catch (error) {
     console.error("[Admin] Member detail error:", error);
     res.status(500).json({ error: "Failed to fetch member details" });
+  }
+});
+
+// Full impersonation ("Log in as member") history for a single member. Backs
+// the dedicated "Impersonation" tab on the Member Detail page so compliance can
+// see every staff login-as-member session for this specific person — which
+// admin, when it started, when it stopped, and how long it lasted — without
+// scanning the global audit log. Both impersonate_start and impersonate_stop
+// rows are stored with entityType="user" + entityId=<member id>, so a single
+// filtered query returns the whole session history. We pair them in memory
+// (walking oldest→newest, each stop consumed once) to compute per-session
+// durations, which is more accurate than the per-row heuristic the global
+// audit-log listing uses because the full member-scoped timeline is in hand.
+const MEMBER_IMPERSONATION_HISTORY_LIMIT = 200;
+router.get("/admin/members/:id/impersonation-history", requirePermission("members:view"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const rows = await safeQuery(
+      db.select()
+        .from(auditLogTable)
+        .where(and(
+          eq(auditLogTable.entityType, "user"),
+          eq(auditLogTable.entityId, String(id)),
+          inArray(auditLogTable.actionType, IMPERSONATION_ACTION_TYPES as unknown as string[]),
+        ))
+        .orderBy(desc(auditLogTable.createdAt), desc(auditLogTable.id))
+        .limit(MEMBER_IMPERSONATION_HISTORY_LIMIT)
+    );
+
+    // Pair starts with stops to build discrete sessions. Walk oldest→newest so
+    // each stop is matched to the most recent unpaired start by the same admin.
+    // A stop with no preceding open start (e.g. its start predates the query
+    // window) is still surfaced as a session with no start so the timeline is
+    // complete. Sessions whose start has no stop render as "ongoing / unknown".
+    const chronological = [...rows].reverse();
+    type ImpersonationSession = {
+      adminId: number | null;
+      adminEmail: string | null;
+      startId: number | null;
+      startedAt: string | null;
+      stopId: number | null;
+      stoppedAt: string | null;
+      durationMs: number | null;
+    };
+    const sessions: ImpersonationSession[] = [];
+    const openByAdmin = new Map<number | string, ImpersonationSession>();
+    for (const row of chronological) {
+      const adminKey = row.actorId ?? "unknown";
+      if (row.actionType === "impersonate_start") {
+        const session: ImpersonationSession = {
+          adminId: row.actorId ?? null,
+          adminEmail: row.actorEmail ?? null,
+          startId: row.id,
+          startedAt: row.createdAt ? row.createdAt.toISOString() : null,
+          stopId: null,
+          stoppedAt: null,
+          durationMs: null,
+        };
+        sessions.push(session);
+        openByAdmin.set(adminKey, session);
+      } else {
+        // impersonate_stop
+        const open = openByAdmin.get(adminKey);
+        if (open && !open.stopId) {
+          open.stopId = row.id;
+          open.stoppedAt = row.createdAt ? row.createdAt.toISOString() : null;
+          if (open.startedAt && open.stoppedAt) {
+            open.durationMs = new Date(open.stoppedAt).getTime() - new Date(open.startedAt).getTime();
+          }
+          openByAdmin.delete(adminKey);
+        } else {
+          // A stop with no matching open start in this window.
+          sessions.push({
+            adminId: row.actorId ?? null,
+            adminEmail: row.actorEmail ?? null,
+            startId: null,
+            startedAt: null,
+            stopId: row.id,
+            stoppedAt: row.createdAt ? row.createdAt.toISOString() : null,
+            durationMs: null,
+          });
+        }
+      }
+    }
+    // Newest session first to match the rest of the member detail page.
+    sessions.reverse();
+
+    res.json({
+      sessions,
+      total: sessions.length,
+      limit: MEMBER_IMPERSONATION_HISTORY_LIMIT,
+    });
+  } catch (error) {
+    console.error("[Admin] Member impersonation history error:", error);
+    res.status(500).json({ error: "Failed to fetch impersonation history" });
   }
 });
 

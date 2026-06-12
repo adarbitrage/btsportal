@@ -95,6 +95,24 @@ function writeJumpToToUrl(iso: string | null) {
 
 const PAGE_LIMIT = 50;
 
+// Render an impersonation session length (milliseconds) as a compact, human
+// "1h 4m 12s" / "4m 12s" / "12s" string. Used on impersonate_start rows once
+// they've been paired server-side with their matching stop. Returns null for
+// missing/negative values so callers can fall back to "ongoing / unknown".
+function formatImpersonationDuration(ms: number | null | undefined): string | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds === 0) return "under 1s";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
 // Map an audit row's `entityType` + `entityId` to a portal route, when one
 // exists. Returns null for entity types that don't have a dedicated detail
 // page, or when the id isn't a numeric primary key (templates, settings,
@@ -655,8 +673,7 @@ export default function AuditLog() {
                   <SelectItem value="delete">Delete</SelectItem>
                   <SelectItem value="grant_product">Grant Product</SelectItem>
                   <SelectItem value="revoke_product">Revoke Product</SelectItem>
-                  <SelectItem value="impersonate_start">Impersonation (start)</SelectItem>
-                  <SelectItem value="impersonate_stop">Impersonation (stop)</SelectItem>
+                  <SelectItem value="impersonation">Impersonation</SelectItem>
                   <SelectItem value="update_setting">Setting Change</SelectItem>
                   <SelectItem value="regenerate_password">Password regenerated</SelectItem>
                   <SelectItem value="notify_password">Password notification sent</SelectItem>
@@ -874,6 +891,63 @@ export default function AuditLog() {
                                 <span className="text-muted-foreground">Cancelled by:</span>{" "}
                                 {log.actorEmail || (log.actorId ? `admin #${log.actorId}` : "an admin")}
                               </div>
+                            </>
+                          )}
+                          {(log.actionType === "impersonate_start" || log.actionType === "impersonate_stop") && (
+                            <>
+                              {/* Structured "login-as-member" session summary. The admin
+                                  (actor) and member (entity) are always shown; member name
+                                  / email come from metadata and are PII — the audit-log
+                                  endpoint redacts them for viewers without members:pii, so
+                                  we render "redacted" in their place. impersonate_start rows
+                                  also carry a server-paired duration (matched to the
+                                  earliest impersonate_stop for the same admin + member);
+                                  sessions still open or unpaired show "ongoing / unknown". */}
+                              <div data-testid={`impersonation-admin-${log.id}`}>
+                                <span className="text-muted-foreground">Admin:</span>{" "}
+                                {log.actorEmail || (log.actorId ? `admin #${log.actorId}` : "an admin")}
+                              </div>
+                              <div data-testid={`impersonation-member-${log.id}`}>
+                                <span className="text-muted-foreground">Member:</span>{" "}
+                                {log.metadata?.memberEmail ||
+                                  log.metadata?.memberName ||
+                                  (log.entityId ? `member #${log.entityId}` : (
+                                    <span className="text-muted-foreground italic">redacted</span>
+                                  ))}
+                              </div>
+                              <div data-testid={`impersonation-started-${log.id}`}>
+                                <span className="text-muted-foreground">
+                                  {log.actionType === "impersonate_start" ? "Started:" : "Stopped:"}
+                                </span>{" "}
+                                {log.createdAt
+                                  ? format(new Date(log.createdAt), "MMM d, yyyy h:mm a")
+                                  : "N/A"}
+                              </div>
+                              {log.actionType === "impersonate_start" && (
+                                <div data-testid={`impersonation-duration-${log.id}`}>
+                                  <span className="text-muted-foreground">Duration:</span>{" "}
+                                  {(() => {
+                                    const dur = formatImpersonationDuration(log.impersonationDurationMs);
+                                    if (dur) {
+                                      return (
+                                        <>
+                                          {dur}
+                                          {log.impersonationStoppedAt && (
+                                            <span className="text-muted-foreground">
+                                              {" "}(stopped {format(new Date(log.impersonationStoppedAt), "MMM d, h:mm a")})
+                                            </span>
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <span className="text-muted-foreground italic">
+                                        ongoing / unknown
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                             </>
                           )}
                           {log.actionType === "queue_fallback_alert" && (

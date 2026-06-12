@@ -656,6 +656,24 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getMemberImpersonationHistory(id: number) {
+    const res = await authFetch(`/admin/members/${id}/impersonation-history`);
+    if (!res.ok) throw new Error("Failed to fetch impersonation history");
+    return res.json() as Promise<{
+      sessions: Array<{
+        adminId: number | null;
+        adminEmail: string | null;
+        startId: number | null;
+        startedAt: string | null;
+        stopId: number | null;
+        stoppedAt: string | null;
+        durationMs: number | null;
+      }>;
+      total: number;
+      limit: number;
+    }>;
+  },
+
   async getAdminTicket(ticketId: number) {
     const res = await authFetch(`/admin/tickets/${ticketId}`);
     if (!res.ok) {
