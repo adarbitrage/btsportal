@@ -190,17 +190,24 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
     .set({ postsCount: sql`${communityCategoriesTable.postsCount} + 1` })
     .where(eq(communityCategoriesTable.id, resolvedCategoryId));
 
-  await checkAndAwardBadges(userId);
+  try {
+    await checkAndAwardBadges(userId);
+  } catch (badgeErr) {
+    console.error("[community] checkAndAwardBadges failed (non-fatal):", badgeErr);
+  }
 
   res.status(201).json({
     id: post.id,
     authorId: post.authorId,
+    categoryId: post.categoryId,
     title: post.title,
     body: post.content,
     mediaUrls: post.mediaUrls,
+    isPinned: post.isPinned,
     status: post.status,
     commentCount: post.commentCount,
     reactionCount: post.reactionCount,
+    viewerHasReacted: false,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
   });
@@ -464,7 +471,11 @@ router.post("/community/posts/:id/comments", requireNotBanned, async (req, res):
     });
   }
 
-  await checkAndAwardBadges(userId);
+  try {
+    await checkAndAwardBadges(userId);
+  } catch (badgeErr) {
+    console.error("[community] checkAndAwardBadges failed (non-fatal):", badgeErr);
+  }
 
   let replyToName: string | null = null;
   if (parentId) {
