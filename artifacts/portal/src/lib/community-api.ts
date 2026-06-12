@@ -30,6 +30,7 @@ function normalizePost(p: any): CommunityPost {
     ...p,
     body: p.body ?? p.content ?? "",
     title: p.title ?? "",
+    status: p.status ?? "active",
     author: p.author ?? {
       id: p.authorId ?? 0,
       name: p.authorName ?? "Unknown",
@@ -39,7 +40,30 @@ function normalizePost(p: any): CommunityPost {
     },
     isEdited: p.isEdited ?? false,
     isDeleted: p.isDeleted ?? false,
-    comments: p.comments ?? [],
+    comments: (p.comments ?? []).map(normalizeComment),
+  };
+}
+
+function normalizeComment(c: any): CommunityComment {
+  return {
+    id: c.id,
+    postId: c.postId,
+    author: c.author ?? {
+      id: c.authorId ?? 0,
+      name: c.authorName ?? "Unknown",
+      avatarUrl: c.avatarUrl ?? null,
+      highestProductSlug: c.highestProductSlug ?? null,
+      badges: c.badges ?? [],
+    },
+    body: c.body ?? c.content ?? "",
+    parentCommentId: c.parentCommentId ?? c.parentId ?? null,
+    replyToName: c.replyToName ?? null,
+    reactionCount: c.reactionCount ?? 0,
+    hasReacted: c.hasReacted ?? c.viewerHasReacted ?? false,
+    isEdited: c.isEdited ?? false,
+    isDeleted: c.isDeleted ?? (c.status === "deleted") ?? false,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
   };
 }
 
@@ -90,6 +114,7 @@ export interface CommunityPost {
   commentCount: number;
   isEdited: boolean;
   isDeleted: boolean;
+  status: string;
   createdAt: string;
   updatedAt: string;
   comments: CommunityComment[];
@@ -197,22 +222,24 @@ export function deletePost(postId: number): Promise<void> {
   return communityFetch(`/community/posts/${postId}`, { method: "DELETE" });
 }
 
-export function createComment(data: {
+export async function createComment(data: {
   postId: number;
   body: string;
   parentCommentId?: number;
 }): Promise<CommunityComment> {
-  return communityFetch(`/community/posts/${data.postId}/comments`, {
+  const res = await communityFetch(`/community/posts/${data.postId}/comments`, {
     method: "POST",
     body: JSON.stringify({ content: data.body, parentId: data.parentCommentId }),
   });
+  return normalizeComment(res);
 }
 
-export function updateComment(commentId: number, data: { body: string }): Promise<CommunityComment> {
-  return communityFetch(`/community/comments/${commentId}`, {
+export async function updateComment(commentId: number, data: { body: string }): Promise<CommunityComment> {
+  const res = await communityFetch(`/community/comments/${commentId}`, {
     method: "PATCH",
     body: JSON.stringify({ content: data.body }),
   });
+  return normalizeComment(res);
 }
 
 export function deleteComment(commentId: number): Promise<void> {
@@ -229,8 +256,9 @@ export function toggleReaction(data: {
   });
 }
 
-export function fetchPostComments(postId: number): Promise<CommunityComment[]> {
-  return communityFetch(`/community/posts/${postId}/comments`);
+export async function fetchPostComments(postId: number): Promise<CommunityComment[]> {
+  const data = await communityFetch(`/community/posts/${postId}/comments`);
+  return (data as any[]).map(normalizeComment);
 }
 
 export function fetchMembers(params: {

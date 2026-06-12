@@ -8,8 +8,8 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, lt, or, sql } from "drizzle-orm";
 
-export type PostStatus = "active" | "hidden" | "deleted";
-export type CommentStatus = "active" | "hidden" | "deleted";
+export type PostStatus = "active" | "pending" | "hidden" | "shadow_hidden" | "deleted";
+export type CommentStatus = "active" | "hidden" | "shadow_hidden" | "deleted";
 export type ReactionType = "like";
 export type TargetType = "post" | "comment";
 
@@ -66,7 +66,7 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
 
   const statusCondition = isAdmin
     ? sql`${communityPostsTable.status} != 'deleted'`
-    : sql`(${communityPostsTable.status} = 'active' OR (${communityPostsTable.status} = 'shadow_hidden' AND ${communityPostsTable.authorId} = ${userId}))`;
+    : sql`(${communityPostsTable.status} = 'active' OR (${communityPostsTable.status} = 'shadow_hidden' AND ${communityPostsTable.authorId} = ${userId}) OR (${communityPostsTable.status} = 'pending' AND ${communityPostsTable.authorId} = ${userId}))`;
 
   const cursorCondition = cursor
     ? or(
@@ -181,6 +181,7 @@ export async function getPostById(
   if (row.status === "deleted") return null;
   if (row.status === "hidden" && !isAdmin) return null;
   if (row.status === "shadow_hidden" && !isAdmin && row.authorId !== userId) return null;
+  if (row.status === "pending" && !isAdmin && row.authorId !== userId) return null;
 
   const [reaction] = await db
     .select({ id: communityReactionsTable.id })
@@ -261,10 +262,28 @@ export async function createPostInCategory(
       title,
       content: body,
       mediaUrls,
-      status: "active",
+      status: "pending",
     })
     .returning();
   return post;
+}
+
+export async function approvePost(postId: number): Promise<typeof communityPostsTable.$inferSelect | null> {
+  const [updated] = await db
+    .update(communityPostsTable)
+    .set({ status: "active" })
+    .where(eq(communityPostsTable.id, postId))
+    .returning();
+  return updated ?? null;
+}
+
+export async function rejectPost(postId: number, adminId: number): Promise<typeof communityPostsTable.$inferSelect | null> {
+  const [updated] = await db
+    .update(communityPostsTable)
+    .set({ status: "deleted", isDeleted: true, deletedBy: `admin:${adminId}` })
+    .where(eq(communityPostsTable.id, postId))
+    .returning();
+  return updated ?? null;
 }
 
 export async function updatePost(
@@ -306,6 +325,7 @@ export async function createComment(
   postId: number,
   userId: number,
   body: string,
+  parentId?: number | null,
 ): Promise<typeof communityCommentsTable.$inferSelect> {
   const [comment] = await db
     .insert(communityCommentsTable)
@@ -313,6 +333,7 @@ export async function createComment(
       postId,
       authorId: userId,
       content: body,
+      parentId: parentId ?? null,
       status: "active",
     })
     .returning();

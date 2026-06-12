@@ -23,6 +23,7 @@ import {
   updateComment,
   softDeleteComment,
   toggleReaction,
+  approvePost,
 } from "../storage/community";
 
 const router: IRouter = Router();
@@ -263,13 +264,13 @@ router.patch("/community/posts/:id", async (req, res): Promise<void> => {
     }
   }
 
-  const { body } = req.body;
-  if (!body || typeof body !== "string" || body.length < 1 || body.length > 5000) {
+  const { content: postContent } = req.body;
+  if (!postContent || typeof postContent !== "string" || postContent.length < 1 || postContent.length > 5000) {
     res.status(400).json({ error: "Post body must be between 1 and 5000 characters" });
     return;
   }
 
-  const updated = await updatePost(postId, body);
+  const updated = await updatePost(postId, postContent);
   if (!updated) {
     res.status(404).json({ error: "Post not found" });
     return;
@@ -334,6 +335,10 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
+  if (post.status === "pending" && !isAdmin && post.authorId !== userId) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
 
   const commentStatusCondition = isAdmin
     ? sql`${communityCommentsTable.status} != 'deleted'`
@@ -370,12 +375,30 @@ router.get("/community/posts/:id/comments", async (req, res): Promise<void> => {
     userReactions = new Set(reactions.map(r => r.commentId!).filter(Boolean));
   }
 
-  const commentsWithReacted = comments.map(c => ({
-    ...c,
-    viewerHasReacted: userReactions.has(c.id),
+  const commentIdToAuthorName = new Map(comments.map(c => [c.id, c.authorName]));
+
+  const normalizedComments = comments.map(c => ({
+    id: c.id,
+    postId: c.postId,
+    author: {
+      id: c.authorId,
+      name: c.authorName ?? "Unknown",
+      avatarUrl: null,
+      highestProductSlug: null,
+      badges: [],
+    },
+    body: c.body,
+    parentCommentId: c.parentId ?? null,
+    replyToName: c.parentId ? (commentIdToAuthorName.get(c.parentId) ?? null) : null,
+    reactionCount: c.reactionCount,
+    hasReacted: userReactions.has(c.id),
+    isEdited: false,
+    isDeleted: c.status === "deleted",
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
   }));
 
-  res.json(commentsWithReacted);
+  res.json(normalizedComments);
 });
 
 router.post("/community/posts/:id/comments", requireNotBanned, async (req, res): Promise<void> => {
@@ -387,10 +410,16 @@ router.post("/community/posts/:id/comments", requireNotBanned, async (req, res):
     return;
   }
 
-  const { body } = req.body;
+  const { content, parentId: rawParentId } = req.body;
 
-  if (!body || typeof body !== "string" || body.length < 1 || body.length > 2000) {
+  if (!content || typeof content !== "string" || content.length < 1 || content.length > 2000) {
     res.status(400).json({ error: "Comment body must be between 1 and 2000 characters" });
+    return;
+  }
+
+  const parentId = rawParentId != null ? parseInt(String(rawParentId)) : null;
+  if (parentId !== null && isNaN(parentId)) {
+    res.status(400).json({ error: "Invalid parentId" });
     return;
   }
 
@@ -408,14 +437,18 @@ router.post("/community/posts/:id/comments", requireNotBanned, async (req, res):
     res.status(404).json({ error: "Post not found" });
     return;
   }
+  if (existing.status === "pending" && !commentingIsAdmin && existing.authorId !== userId) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
 
-  const comment = await createComment(postId, userId, body);
+  const comment = await createComment(postId, userId, content, parentId);
 
   enqueueModerationJob({
     targetType: "comment",
     targetId: comment.id,
     authorId: userId,
-    body,
+    body: content,
   });
 
   const [author] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
@@ -433,13 +466,34 @@ router.post("/community/posts/:id/comments", requireNotBanned, async (req, res):
 
   await checkAndAwardBadges(userId);
 
+  let replyToName: string | null = null;
+  if (parentId) {
+    const [parentComment] = await db
+      .select({ authorName: usersTable.name })
+      .from(communityCommentsTable)
+      .innerJoin(usersTable, eq(communityCommentsTable.authorId, usersTable.id))
+      .where(eq(communityCommentsTable.id, parentId))
+      .limit(1);
+    replyToName = parentComment?.authorName ?? null;
+  }
+
   res.status(201).json({
     id: comment.id,
     postId: comment.postId,
-    authorId: comment.authorId,
+    author: {
+      id: comment.authorId,
+      name: author?.name ?? "Unknown",
+      avatarUrl: null,
+      highestProductSlug: null,
+      badges: [],
+    },
     body: comment.content,
-    status: comment.status,
+    parentCommentId: comment.parentId ?? null,
+    replyToName,
     reactionCount: comment.reactionCount,
+    hasReacted: false,
+    isEdited: false,
+    isDeleted: false,
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
   });
@@ -482,25 +536,37 @@ router.patch("/community/comments/:id", async (req, res): Promise<void> => {
     }
   }
 
-  const { body } = req.body;
-  if (!body || typeof body !== "string" || body.length < 1 || body.length > 2000) {
+  const { content: commentContent } = req.body;
+  if (!commentContent || typeof commentContent !== "string" || commentContent.length < 1 || commentContent.length > 2000) {
     res.status(400).json({ error: "Comment body must be between 1 and 2000 characters" });
     return;
   }
 
-  const updated = await updateComment(commentId, body);
+  const updated = await updateComment(commentId, commentContent);
   if (!updated) {
     res.status(404).json({ error: "Comment not found" });
     return;
   }
 
+  const [updatedAuthor] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, updated.authorId));
+
   res.json({
     id: updated.id,
     postId: updated.postId,
-    authorId: updated.authorId,
+    author: {
+      id: updated.authorId,
+      name: updatedAuthor?.name ?? "Unknown",
+      avatarUrl: null,
+      highestProductSlug: null,
+      badges: [],
+    },
     body: updated.content,
-    status: updated.status,
+    parentCommentId: updated.parentId ?? null,
+    replyToName: null,
     reactionCount: updated.reactionCount,
+    hasReacted: false,
+    isEdited: true,
+    isDeleted: false,
     createdAt: updated.createdAt,
     updatedAt: updated.updatedAt,
   });

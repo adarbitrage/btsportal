@@ -76,7 +76,9 @@ export interface Category {
 export interface AdminPost {
   id: number;
   content: string;
+  title: string;
   imageUrl: string | null;
+  status: string;
   isPinned: boolean;
   isFeatured: boolean;
   isDeleted: boolean;
@@ -125,12 +127,18 @@ export const adminApi = {
   reorderCategories: (order: { id: number; sortOrder: number }[]) =>
     adminFetch<Category[]>("/admin/community/categories/reorder", { method: "PATCH", body: JSON.stringify({ order }) }),
 
-  getPosts: (page = 1, limit = 20) =>
-    adminFetch<{ posts: AdminPost[]; total: number; page: number; limit: number }>(`/admin/community/posts?page=${page}&limit=${limit}`),
+  getPosts: (page = 1, limit = 20, status?: string) =>
+    adminFetch<{ posts: AdminPost[]; total: number; page: number; limit: number }>(`/admin/community/posts?page=${page}&limit=${limit}${status ? `&status=${status}` : ""}`),
+  getPendingCount: () =>
+    adminFetch<{ count: number }>("/admin/community/posts/pending-count"),
   togglePin: (id: number) =>
     adminFetch(`/admin/community/posts/${id}/pin`, { method: "PATCH" }),
   toggleFeature: (id: number) =>
     adminFetch(`/admin/community/posts/${id}/feature`, { method: "PATCH" }),
+  approvePost: (id: number) =>
+    adminFetch(`/admin/community/posts/${id}/approve`, { method: "PATCH" }),
+  rejectPost: (id: number) =>
+    adminFetch(`/admin/community/posts/${id}/reject`, { method: "PATCH" }),
   deletePost: (id: number) =>
     adminFetch(`/admin/community/posts/${id}`, { method: "DELETE" }),
   deleteComment: (id: number) =>

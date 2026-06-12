@@ -15,7 +15,7 @@ import { ReactionButton } from "./reaction-button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
-import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare } from "lucide-react";
+import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare, Clock } from "lucide-react";
 import type { CommunityPost } from "@/lib/community-api";
 
 const TRUNCATE_LENGTH = 400;
@@ -52,6 +52,9 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
     );
   };
 
+  const isPending = post.status === "pending";
+  const isOwnPending = isPending && isOwnPost;
+
   if (post.isDeleted) {
     return (
       <Card className="border-border/50 bg-muted/30">
@@ -63,7 +66,7 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
   }
 
   return (
-    <Card className={cn("border-border/50 hover:shadow-sm transition-shadow", post.isPinned && "border-primary/30 bg-primary/[0.02]")}>
+    <Card className={cn("border-border/50 hover:shadow-sm transition-shadow", post.isPinned && "border-primary/30 bg-primary/[0.02]", isOwnPending && "border-amber-200 bg-amber-50/20")}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -120,6 +123,15 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
             </DropdownMenu>
           )}
         </div>
+
+        {isOwnPending && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-700 font-medium">
+              Pending approval — this post is only visible to you until an admin approves it.
+            </p>
+          </div>
+        )}
 
         <div className="mt-3">
           {editing ? (

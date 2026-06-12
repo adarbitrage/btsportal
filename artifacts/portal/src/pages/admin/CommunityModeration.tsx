@@ -3,27 +3,36 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pin, Star, Trash2, ChevronLeft, ChevronRight, MessageCircle, Flame } from "lucide-react";
+import { Pin, Star, Trash2, ChevronLeft, ChevronRight, MessageCircle, Flame, CheckCircle, XCircle, Clock } from "lucide-react";
 import { adminApi, type AdminPost, type AdminComment } from "@/lib/admin-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-type Tab = "posts" | "comments";
+type Tab = "pending" | "posts" | "comments";
 
 export default function CommunityModeration() {
-  const [tab, setTab] = useState<Tab>("posts");
+  const [tab, setTab] = useState<Tab>("pending");
   const [posts, setPosts] = useState<AdminPost[]>([]);
   const [comments, setComments] = useState<AdminComment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
   const limit = 20;
   const { toast } = useToast();
 
-  const loadPosts = async (p = page) => {
+  const loadPendingCount = async () => {
+    try {
+      const data = await adminApi.getPendingCount();
+      setPendingCount(data.count);
+    } catch {
+    }
+  };
+
+  const loadPosts = async (p = page, statusFilter?: string) => {
     try {
       setLoading(true);
-      const data = await adminApi.getPosts(p, limit);
+      const data = await adminApi.getPosts(p, limit, statusFilter);
       setPosts(data.posts);
       setTotal(data.total);
     } catch (err: any) {
@@ -47,19 +56,47 @@ export default function CommunityModeration() {
   };
 
   useEffect(() => {
+    loadPendingCount();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
   }, [tab]);
 
   useEffect(() => {
-    if (tab === "posts") loadPosts(page);
+    if (tab === "pending") loadPosts(page, "pending");
+    else if (tab === "posts") loadPosts(page);
     else loadComments(page);
   }, [page, tab]);
+
+  const handleApprove = async (post: AdminPost) => {
+    try {
+      await adminApi.approvePost(post.id);
+      toast({ title: "Post approved", description: "The post is now live on the forum." });
+      loadPosts(page, "pending");
+      loadPendingCount();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReject = async (post: AdminPost) => {
+    if (!confirm("Reject this post? It will be removed and the author will not see it on the forum.")) return;
+    try {
+      await adminApi.rejectPost(post.id);
+      toast({ title: "Post rejected", description: "The post has been removed." });
+      loadPosts(page, "pending");
+      loadPendingCount();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
 
   const handlePin = async (post: AdminPost) => {
     try {
       await adminApi.togglePin(post.id);
       toast({ title: post.isPinned ? "Post unpinned" : "Post pinned" });
-      loadPosts();
+      loadPosts(page, tab === "pending" ? "pending" : undefined);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -69,7 +106,7 @@ export default function CommunityModeration() {
     try {
       await adminApi.toggleFeature(post.id);
       toast({ title: post.isFeatured ? "Post unfeatured" : "Post featured" });
-      loadPosts();
+      loadPosts(page, tab === "pending" ? "pending" : undefined);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -80,7 +117,12 @@ export default function CommunityModeration() {
     try {
       await adminApi.deletePost(post.id);
       toast({ title: "Post deleted" });
-      loadPosts();
+      if (tab === "pending") {
+        loadPosts(page, "pending");
+        loadPendingCount();
+      } else {
+        loadPosts(page);
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -91,7 +133,7 @@ export default function CommunityModeration() {
     try {
       await adminApi.deleteComment(comment.id);
       toast({ title: "Comment deleted" });
-      loadComments();
+      loadComments(page);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -99,41 +141,100 @@ export default function CommunityModeration() {
 
   const totalPages = Math.ceil(total / limit);
 
+  const tabClass = (t: Tab) =>
+    `px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
+      tab === t
+        ? "bg-primary/10 text-primary border-b-2 border-primary"
+        : "text-muted-foreground hover:text-foreground"
+    }`;
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Content Moderation</h1>
           <p className="text-muted-foreground mt-1">
-            Manage community content — pin, feature, or remove posts and comments
+            Approve, reject, pin, feature, or remove community posts and comments
           </p>
         </div>
 
         <div className="flex gap-2 border-b pb-2">
-          <button
-            onClick={() => setTab("posts")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              tab === "posts"
-                ? "bg-primary/10 text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
+          <button onClick={() => setTab("pending")} className={tabClass("pending")}>
+            <Clock className="w-3.5 h-3.5" />
+            Pending
+            {pendingCount > 0 && (
+              <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0 min-w-[1.25rem] h-5 flex items-center justify-center">
+                {pendingCount}
+              </Badge>
+            )}
+          </button>
+          <button onClick={() => setTab("posts")} className={tabClass("posts")}>
             Posts
           </button>
-          <button
-            onClick={() => setTab("comments")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              tab === "comments"
-                ? "bg-primary/10 text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
+          <button onClick={() => setTab("comments")} className={tabClass("comments")}>
             Comments
           </button>
         </div>
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        ) : tab === "pending" ? (
+          posts.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-60" />
+                No posts awaiting approval.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {posts.map((post) => (
+                <Card key={post.id} className="border-amber-200 bg-amber-50/30">
+                  <CardContent className="py-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <Badge className="bg-amber-100 text-amber-800 text-xs">
+                            <Clock className="w-3 h-3 mr-1" /> Pending approval
+                          </Badge>
+                          <span className="font-medium text-sm">{post.authorName}</span>
+                          <span className="text-xs text-muted-foreground">{post.authorEmail}</span>
+                          <Badge variant="outline" className="text-xs">{post.categoryName}</Badge>
+                        </div>
+                        {post.title && (
+                          <p className="text-sm font-semibold text-foreground mb-0.5">{post.title}</p>
+                        )}
+                        <p className="text-sm text-foreground line-clamp-3">{post.content}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>{format(new Date(post.createdAt), "MMM d, yyyy h:mm a")}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleApprove(post)}
+                          className="bg-green-600 hover:bg-green-700 text-white gap-1"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReject(post)}
+                          className="text-destructive border-destructive/30 hover:bg-destructive/5 gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
         ) : tab === "posts" ? (
           posts.length === 0 ? (
             <Card>

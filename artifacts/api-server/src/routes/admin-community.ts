@@ -12,6 +12,7 @@ import {
 import { eq, and, desc, asc, sql, gte } from "drizzle-orm";
 import { requirePermission, isAdminRole } from "../middleware/rbac";
 import { hasEntitlement } from "../lib/entitlements";
+import { softDeletePost, softDeleteComment, approvePost, rejectPost } from "../storage/community";
 
 async function requireCommunityAccessOrAdmin(req: Request, res: Response): Promise<boolean> {
   if (!req.userId) {
@@ -170,17 +171,36 @@ router.delete("/admin/community/categories/:id", requirePermission("community:mo
   }
 });
 
+router.get("/admin/community/posts/pending-count", requirePermission("community:view"), async (_req: Request, res: Response) => {
+  try {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(communityPostsTable)
+      .where(eq(communityPostsTable.status, "pending"));
+    res.json({ count });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch pending count" });
+  }
+});
+
 router.get("/admin/community/posts", requirePermission("community:view"), async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const offset = (page - 1) * limit;
+    const statusFilter = req.query.status as string | undefined;
+
+    const whereCondition = statusFilter
+      ? eq(communityPostsTable.status, statusFilter)
+      : undefined;
 
     const posts = await db
       .select({
         id: communityPostsTable.id,
         content: communityPostsTable.content,
+        title: communityPostsTable.title,
         imageUrl: communityPostsTable.imageUrl,
+        status: communityPostsTable.status,
         isPinned: communityPostsTable.isPinned,
         isFeatured: communityPostsTable.isFeatured,
         isDeleted: communityPostsTable.isDeleted,
@@ -197,13 +217,15 @@ router.get("/admin/community/posts", requirePermission("community:view"), async 
       .from(communityPostsTable)
       .innerJoin(usersTable, eq(communityPostsTable.authorId, usersTable.id))
       .innerJoin(communityCategoriesTable, eq(communityPostsTable.categoryId, communityCategoriesTable.id))
+      .where(whereCondition)
       .orderBy(desc(communityPostsTable.createdAt))
       .limit(limit)
       .offset(offset);
 
     const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
-      .from(communityPostsTable);
+      .from(communityPostsTable)
+      .where(whereCondition);
 
     res.json({ posts, total, page, limit });
   } catch {
@@ -261,6 +283,38 @@ router.patch("/admin/community/posts/:id/feature", requirePermission("community:
   }
 });
 
+router.patch("/admin/community/posts/:id/approve", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    const post = await approvePost(id);
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+    res.json({ id: post.id, status: post.status });
+  } catch {
+    res.status(500).json({ error: "Failed to approve post" });
+  }
+});
+
+router.patch("/admin/community/posts/:id/reject", requirePermission("community:moderate"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    if (!req.userId) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    const post = await rejectPost(id, req.userId);
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+    res.json({ id: post.id, status: post.status });
+  } catch {
+    res.status(500).json({ error: "Failed to reject post" });
+  }
+});
+
 router.delete("/admin/community/posts/:id", requirePermission("community:moderate"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string);
@@ -275,13 +329,9 @@ router.delete("/admin/community/posts/:id", requirePermission("community:moderat
       return;
     }
 
-    const [updated] = await db
-      .update(communityPostsTable)
-      .set({ isDeleted: true, deletedBy: "admin" })
-      .where(eq(communityPostsTable.id, id))
-      .returning();
+    await softDeletePost(id, "admin");
 
-    res.json(updated);
+    res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Failed to delete post" });
   }
@@ -336,20 +386,9 @@ router.delete("/admin/community/comments/:id", requirePermission("community:mode
       return;
     }
 
-    const [updated] = await db
-      .update(communityCommentsTable)
-      .set({ isDeleted: true, deletedBy: "admin" })
-      .where(eq(communityCommentsTable.id, id))
-      .returning();
+    await softDeleteComment(id, comment.postId, "admin");
 
-    if (!comment.isDeleted) {
-      await db
-        .update(communityPostsTable)
-        .set({ commentCount: sql`${communityPostsTable.commentCount} - 1` })
-        .where(eq(communityPostsTable.id, comment.postId));
-    }
-
-    res.json(updated);
+    res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Failed to delete comment" });
   }
