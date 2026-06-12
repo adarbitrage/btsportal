@@ -12,11 +12,37 @@ import type { ReactNode } from "react";
 const useGetCurrentMemberMock = vi.fn();
 const useAuthMock = vi.fn();
 
+// `hasPermission` is mocked so a single test can drive an admin-role user's
+// permitted admin children down to zero (the empty-state branch). It is kept
+// allow-list-friendly: the factory spreads the real `@workspace/auth` module
+// and the mock defaults to the genuine implementation, so every other test
+// (and the production permission matrix) behaves exactly as before unless a
+// test explicitly overrides it.
+const authMocks = vi.hoisted(() => ({
+  hasPermissionMock: vi.fn(),
+  realHasPermission: undefined as
+    | ((role: unknown, permission: unknown) => boolean)
+    | undefined,
+}));
+
 vi.mock("@workspace/api-client-react", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     useGetCurrentMember: () => useGetCurrentMemberMock(),
+  };
+});
+
+vi.mock("@workspace/auth", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  authMocks.realHasPermission = actual.hasPermission as (
+    role: unknown,
+    permission: unknown,
+  ) => boolean;
+  return {
+    ...actual,
+    hasPermission: (role: unknown, permission: unknown) =>
+      authMocks.hasPermissionMock(role, permission),
   };
 });
 
@@ -62,6 +88,12 @@ const UPGRADE_CARD_TESTID = "upgrade-features-card-sidebar";
 beforeEach(() => {
   useGetCurrentMemberMock.mockReset();
   useAuthMock.mockReset();
+  // Default to the genuine permission matrix so the staff/coach tests keep
+  // exercising real behavior; only the empty-state test overrides this.
+  authMocks.hasPermissionMock.mockReset();
+  authMocks.hasPermissionMock.mockImplementation((role, permission) =>
+    authMocks.realHasPermission!(role, permission),
+  );
 });
 
 afterEach(() => {
@@ -192,5 +224,37 @@ describe("SidebarContent coach section (rendered)", () => {
     expect(screen.getByText("Mentee Progress")).toBeInTheDocument();
     // The member Messages leaf is hidden for coaches.
     expect(screen.queryByText("Messages")).toBeNull();
+  });
+});
+
+describe("SidebarContent admin empty state (rendered)", () => {
+  it("renders the empty-state block when an admin's permissions filter out every admin child", () => {
+    useAuthMock.mockReturnValue({ user: { role: "admin" }, logout: vi.fn() });
+    useGetCurrentMemberMock.mockReturnValue({
+      data: {
+        id: 7,
+        name: "Avery Admin",
+        role: "admin",
+        entitlements: [],
+        highestProductSlug: "free",
+      },
+    });
+    // Force every admin child's permission check to fail. The user is still an
+    // admin (isAdminRole stays real), so the sidebar must fall back to the
+    // empty-state block rather than rendering the Admin folder.
+    authMocks.hasPermissionMock.mockReturnValue(false);
+
+    render(<SidebarContent />);
+
+    // The empty-state container and its "Contact a super admin" support link
+    // both render, with the link pointing at /support.
+    expect(screen.getByTestId("admin-empty-state")).toBeInTheDocument();
+    const supportLink = screen.getByTestId("admin-empty-state-support-link");
+    expect(supportLink).toHaveAttribute("href", "/support");
+    expect(supportLink).toHaveTextContent("Contact a super admin");
+
+    // The normal Admin folder is NOT shown: its collapsible toggle button
+    // (accessible name "Admin") only exists when the folder renders.
+    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
   });
 });
