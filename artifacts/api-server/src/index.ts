@@ -1,5 +1,6 @@
 import app from "./app";
 import { startWorker, shutdown } from "./lib/ghl-queue";
+import { startTicketDeskWorker, shutdownTicketDeskQueue } from "./lib/ticketdesk-queue";
 import { startCommunicationWorkers, stopCommunicationWorkers } from "./lib/communication-worker";
 import { startSequenceEngine, shutdownSequenceEngine } from "./lib/sequence-engine";
 import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-comms";
@@ -66,6 +67,14 @@ if (process.env.REDIS_URL || process.env.GHL_API_KEY) {
   }
 }
 
+if (process.env.REDIS_URL || process.env.TICKETDESK_API_KEY) {
+  try {
+    startTicketDeskWorker();
+  } catch (err) {
+    console.warn("[TicketDesk Worker] Could not start TicketDesk delivery worker:", err);
+  }
+}
+
 if (process.env.REDIS_URL) {
   try {
     startCommunicationWorkers();
@@ -124,6 +133,7 @@ async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received — shutting down gracefully`);
   server?.close();
   await shutdown();
+  await shutdownTicketDeskQueue();
   await stopCommunicationWorkers();
   await shutdownSequenceEngine();
   await shutdownScheduledComms();

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable } from "@workspace/db";
+import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, usersTable } from "@workspace/db";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { queueTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import {
   ListTicketsResponse,
@@ -203,6 +204,36 @@ router.post("/tickets", async (req, res): Promise<void> => {
     category: parsed.data.category,
     subject: parsed.data.subject,
   }).catch(() => {});
+
+  // Mirror the new ticket into TicketDesk so the support team sees it in their
+  // triage queue. Delivery is non-blocking (async queue with retry) so a
+  // TicketDesk outage or missing API key never fails the member's submission.
+  //
+  // For the Contact Us / General Support form the member may have typed a
+  // different name/email in the form body (stored as "From: Name <email>\n\n…"
+  // in the description). We always key the TicketDesk contact off the logged-in
+  // member's account email so tickets group under the right person.
+  (async () => {
+    try {
+      const [member] = await db
+        .select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (member) {
+        await queueTicketDeskDelivery({
+          contactEmail: member.email,
+          contactName: member.name,
+          subject: parsed.data.subject,
+          body: parsed.data.description,
+          btsTicketNumber: ticket.ticketNumber,
+        });
+      }
+    } catch (err) {
+      console.error("[TicketDesk] Failed to queue delivery for ticket", ticket.ticketNumber, err);
+    }
+  })();
 
   res.status(201).json(updatedTicket);
 });

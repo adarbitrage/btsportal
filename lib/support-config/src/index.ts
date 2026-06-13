@@ -30,9 +30,28 @@ export const DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL =
   "https://tickets.buildtestscale.com/widget.js";
 
 /** TicketDesk workspace (account) ID for the customer-facing chat widget. */
-export const DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID =
+export const DEFAULT_TICKETDESK_WORKSPACE_ID =
   "69a3830f-e36b-4c87-91fd-0c9e26b27278";
+
+/**
+ * @deprecated Use DEFAULT_TICKETDESK_WORKSPACE_ID — kept for backward
+ * compatibility with the widget-embed consumers that reference this name.
+ */
+export const DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID =
+  DEFAULT_TICKETDESK_WORKSPACE_ID;
 
 /** TicketDesk API base URL passed to the widget script via `data-api`. */
 export const DEFAULT_TICKETDESK_WIDGET_API_URL =
   "https://tickets.buildtestscale.com/api";
+
+/**
+ * The environment variable name that the backend reads for the TicketDesk
+ * API key used to create conversations programmatically.
+ *
+ * Set this secret in the Replit environment:
+ *   TICKETDESK_API_KEY=<your-api-key>
+ *
+ * Without this key the TicketDesk delivery path is skipped (portal ticket
+ * creation still succeeds; TicketDesk sync is simply no-op).
+ */
+export const TICKETDESK_API_KEY_ENV = "TICKETDESK_API_KEY";
