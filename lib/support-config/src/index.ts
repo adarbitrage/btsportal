@@ -55,3 +55,21 @@ export const DEFAULT_TICKETDESK_WIDGET_API_URL =
  * creation still succeeds; TicketDesk sync is simply no-op).
  */
 export const TICKETDESK_API_KEY_ENV = "TICKETDESK_API_KEY";
+
+/**
+ * The environment variable name that the backend reads for the shared secret
+ * used to verify inbound TicketDesk webhook deliveries (the "new reply" events
+ * that mirror a support agent's reply back into the member's portal ticket).
+ *
+ * Set this secret in the Replit environment and configure the same value as
+ * the signing secret in the TicketDesk workspace webhook settings:
+ *   TICKETDESK_WEBHOOK_SECRET=<shared-secret>
+ *
+ * The inbound webhook endpoint (POST /api/webhooks/ticketdesk) computes an
+ * HMAC-SHA256 of the raw request body keyed by this secret and compares it
+ * (timing-safe) against the `X-TicketDesk-Signature` header. When the secret
+ * is absent the endpoint fails open in non-production (so local/dev testing
+ * works without configuration) but fails closed in production (returns 503)
+ * so a missing secret can never silently accept unauthenticated replies.
+ */
+export const TICKETDESK_WEBHOOK_SECRET_ENV = "TICKETDESK_WEBHOOK_SECRET";

@@ -1,8 +1,14 @@
 import { Router, type IRouter } from "express";
-import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, usersTable } from "@workspace/db";
+import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, usersTable, webhookLogsTable } from "@workspace/db";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { queueTicketDeskDelivery } from "../lib/ticketdesk-queue";
+import {
+  verifyWebhookSignature as verifyTicketDeskSignature,
+  isWebhookConfigured as isTicketDeskWebhookConfigured,
+  parseInboundReply as parseTicketDeskReply,
+  isMemberAuthor as isTicketDeskMemberAuthor,
+} from "../lib/ticketdesk-client";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import {
   ListTicketsResponse,
@@ -12,7 +18,7 @@ import {
   AddTicketMessageParams,
   AddTicketMessageBody,
 } from "@workspace/api-zod";
-import { createSlaForTicket, resumeSla } from "../lib/sla";
+import { createSlaForTicket, resumeSla, recordFirstResponse } from "../lib/sla";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
@@ -237,6 +243,232 @@ router.post("/tickets", async (req, res): Promise<void> => {
 
   res.status(201).json(updatedTicket);
 });
+
+// Inbound webhook from TicketDesk: mirror a support agent's reply back into
+// the member's portal ticket thread so they don't have to check both surfaces.
+//
+// Mounted under /api/webhooks/* so the raw-body middleware in app.ts captures
+// req.rawBody for signature verification and the auth middleware lets it
+// through unauthenticated (see middleware/auth.ts PUBLIC bypass for /webhooks/).
+//
+// Authenticity: when TICKETDESK_WEBHOOK_SECRET is set we require a valid
+// X-TicketDesk-Signature (HMAC-SHA256 of the raw body). Missing secret fails
+// closed in production (503) but open in dev/test so local testing works.
+//
+// Matching: the BTS ticket number is stored in the TicketDesk conversation's
+// `reference` field on outbound delivery, and echoed back here. We look the
+// portal ticket up by that number and append the reply as an "admin" message.
+//
+// Idempotency: each reply is recorded in webhook_logs keyed by the TicketDesk
+// reply id (`ticketdesk_reply_<id>`) so a redelivery never double-posts.
+//
+// All non-actionable cases (unparseable payload, member-side echo, unknown
+// ticket, duplicate) are ACKed with 200 so TicketDesk does not retry forever.
+router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
+  const signature =
+    (req.headers["x-ticketdesk-signature"] as string) ||
+    (req.headers["x-ticketdesk-signature-256"] as string) ||
+    "";
+  const rawBody = req.rawBody ?? JSON.stringify(req.body ?? {});
+
+  if (!isTicketDeskWebhookConfigured() && process.env.NODE_ENV === "production") {
+    console.error(
+      "[TicketDesk Webhook] TICKETDESK_WEBHOOK_SECRET not configured — rejecting in production",
+    );
+    res.status(503).json({ error: "TicketDesk webhook not configured" });
+    return;
+  }
+
+  if (!verifyTicketDeskSignature(rawBody, signature)) {
+    console.error("[TicketDesk Webhook] Invalid signature — rejecting");
+    res.status(401).json({ error: "Invalid signature" });
+    return;
+  }
+
+  const parsed = parseTicketDeskReply(
+    (req.body as Record<string, unknown>) ?? {},
+  );
+
+  if (!parsed) {
+    res.status(200).json({ received: true, ignored: "not_a_reply" });
+    return;
+  }
+
+  // Don't mirror the member's own messages back into their thread — they're
+  // already there, and re-posting them would duplicate and could loop.
+  if (isTicketDeskMemberAuthor(parsed.authorType)) {
+    res.status(200).json({ received: true, ignored: "member_reply" });
+    return;
+  }
+
+  const externalId = parsed.externalId
+    ? `ticketdesk_reply_${parsed.externalId}`
+    : null;
+
+  // Atomically claim the dedup key before doing any work. A read-then-write
+  // check has a race window: two concurrent redeliveries can both pass the
+  // read and both post the reply. Inserting the webhook_logs row up-front with
+  // ON CONFLICT DO NOTHING means exactly one delivery wins the unique key; the
+  // loser gets an empty `returning` and ACKs as a duplicate. On any downstream
+  // failure we release the claim (below) so TicketDesk's retry can reprocess.
+  let claimedLogId: number | null = null;
+
+  try {
+    if (externalId) {
+      const claimed = await db
+        .insert(webhookLogsTable)
+        .values({
+          externalId,
+          eventType: parsed.eventType ?? "ticketdesk.reply",
+          status: "processing",
+          payload: (req.body ?? {}) as Record<string, unknown>,
+          result: {},
+        })
+        .onConflictDoNothing({ target: webhookLogsTable.externalId })
+        .returning({ id: webhookLogsTable.id });
+
+      if (claimed.length === 0) {
+        res.status(200).json({ received: true, duplicate: true });
+        return;
+      }
+      claimedLogId = claimed[0].id;
+    }
+
+    const [ticket] = await db
+      .select()
+      .from(ticketsTable)
+      .where(eq(ticketsTable.ticketNumber, parsed.btsTicketNumber))
+      .limit(1);
+
+    if (!ticket) {
+      console.warn(
+        `[TicketDesk Webhook] No portal ticket matches reference ${parsed.btsTicketNumber} — ignoring`,
+      );
+      await finalizeTicketDeskWebhook(
+        claimedLogId,
+        externalId,
+        parsed.eventType,
+        req.body,
+        {
+          action: "ignored",
+          reason: "ticket_not_found",
+          reference: parsed.btsTicketNumber,
+        },
+      );
+      res.status(200).json({ received: true, ignored: "ticket_not_found" });
+      return;
+    }
+
+    const [message] = await db
+      .insert(ticketMessagesTable)
+      .values({
+        ticketId: ticket.id,
+        senderType: "admin",
+        body: parsed.body,
+        isInternal: false,
+      })
+      .returning();
+
+    // Mirror the side-effects of an in-portal admin reply: stamp first-response
+    // for SLA and move a brand-new ("open") ticket into "in_progress". A ticket
+    // that was paused awaiting the member resumes its SLA clock now that support
+    // has responded again.
+    await recordFirstResponse(ticket.id);
+
+    if (ticket.status === "open") {
+      await db
+        .update(ticketsTable)
+        .set({ status: "in_progress" })
+        .where(eq(ticketsTable.id, ticket.id));
+    } else if (ticket.status === "awaiting_response") {
+      await db
+        .update(ticketsTable)
+        .set({ status: "in_progress" })
+        .where(eq(ticketsTable.id, ticket.id));
+      try {
+        await resumeSla(ticket.id);
+      } catch (err) {
+        console.error(
+          "[TicketDesk Webhook] Failed to resume SLA on inbound reply:",
+          err,
+        );
+      }
+    }
+
+    await finalizeTicketDeskWebhook(
+      claimedLogId,
+      externalId,
+      parsed.eventType,
+      req.body,
+      {
+        action: "appended",
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        messageId: message.id,
+      },
+    );
+
+    console.log(
+      `[TicketDesk Webhook] Appended agent reply to ticket ${ticket.ticketNumber} (message ${message.id})`,
+    );
+    res.status(200).json({ received: true, ticketNumber: ticket.ticketNumber });
+  } catch (err) {
+    console.error("[TicketDesk Webhook] Processing error:", err);
+    // Release the dedup claim so TicketDesk's retry can reprocess this reply
+    // instead of being permanently swallowed as a "duplicate".
+    if (claimedLogId !== null) {
+      try {
+        await db
+          .delete(webhookLogsTable)
+          .where(eq(webhookLogsTable.id, claimedLogId));
+      } catch (cleanupErr) {
+        console.error(
+          "[TicketDesk Webhook] Failed to release dedup claim:",
+          cleanupErr,
+        );
+      }
+    }
+    res.status(500).json({ error: "Failed to process reply" });
+  }
+});
+
+// Finalize the webhook_logs row for an inbound TicketDesk reply.
+//
+// When the reply carried a stable id we already claimed its dedup row up-front
+// (status "processing"); here we just mark it "processed" with the outcome. For
+// payloads with no id to dedup on (claimedLogId === null) we insert a fresh
+// audit row keyed by a random anon id. Best-effort: a logging failure must not
+// fail the webhook, since the reply has already been posted.
+async function finalizeTicketDeskWebhook(
+  claimedLogId: number | null,
+  externalId: string | null,
+  eventType: string | null,
+  payload: unknown,
+  result: Record<string, unknown>,
+): Promise<void> {
+  try {
+    if (claimedLogId !== null) {
+      await db
+        .update(webhookLogsTable)
+        .set({ status: "processed", result, processedAt: new Date() })
+        .where(eq(webhookLogsTable.id, claimedLogId));
+      return;
+    }
+
+    await db.insert(webhookLogsTable).values({
+      externalId:
+        externalId ??
+        `ticketdesk_reply_anon_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      eventType: eventType ?? "ticketdesk.reply",
+      status: "processed",
+      payload: (payload ?? {}) as Record<string, unknown>,
+      result,
+      processedAt: new Date(),
+    });
+  } catch (err) {
+    console.error("[TicketDesk Webhook] Failed to record webhook log:", err);
+  }
+}
 
 router.get("/tickets/:id", async (req, res): Promise<void> => {
   const userId = req.userId!;
