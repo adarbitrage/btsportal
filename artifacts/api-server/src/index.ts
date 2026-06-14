@@ -44,6 +44,7 @@ import {
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
+import { seedCommunityStarterPosts } from "./lib/seed-community-starter-posts";
 
 const rawPort = process.env["PORT"];
 
@@ -120,6 +121,9 @@ let server: ReturnType<typeof app.listen> | null = null;
   }
   await purgeSeedCommunityPosts().catch((err) => {
     console.error("[SeedCleanup] Failed to purge seed posts:", err);
+  });
+  await seedCommunityStarterPosts().catch((err) => {
+    console.error("[StarterPosts] Failed to seed community starter posts:", err);
   });
   server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
