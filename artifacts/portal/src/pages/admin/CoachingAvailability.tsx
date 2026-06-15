@@ -203,11 +203,11 @@ export default function CoachingAvailability() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Session Duration (min)</Label>
-                  <Input type="number" min={15} max={180} value={editSlot.sessionDurationMinutes || 60} onChange={(e) => setEditSlot({ ...editSlot, sessionDurationMinutes: Number(e.target.value) })} />
+                  <Input type="number" min={15} max={180} value={editSlot.sessionDurationMinutes ?? 60} onChange={(e) => setEditSlot({ ...editSlot, sessionDurationMinutes: Number(e.target.value) })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Buffer Between (min)</Label>
-                  <Input type="number" min={0} max={60} value={editSlot.bufferMinutes || 15} onChange={(e) => setEditSlot({ ...editSlot, bufferMinutes: Number(e.target.value) })} />
+                  <Input type="number" min={0} max={60} value={editSlot.bufferMinutes ?? 15} onChange={(e) => setEditSlot({ ...editSlot, bufferMinutes: Number(e.target.value) })} />
                 </div>
               </div>
             </div>

@@ -89,10 +89,14 @@ router.post("/admin/coaching/availability", requirePermission("coaching:manage")
       res.status(400).json({ error: "dayOfWeek must be 0-6" });
       return;
     }
-    const duration = sessionDurationMinutes || 60;
-    const buffer = bufferMinutes || 15;
+    const duration = sessionDurationMinutes ?? 60;
+    const buffer = bufferMinutes ?? 15;
     if (!Number.isInteger(duration) || duration < 15 || duration > 180) {
       res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+      return;
+    }
+    if (!Number.isInteger(buffer) || buffer < 0 || buffer > 60) {
+      res.status(400).json({ error: "bufferMinutes must be 0-60" });
       return;
     }
     const [slot] = await db.insert(coachAvailabilityTable).values({
@@ -113,6 +117,14 @@ router.patch("/admin/coaching/availability/:id", requirePermission("coaching:man
     const { dayOfWeek, startTime, endTime, sessionDurationMinutes, bufferMinutes } = req.body;
     if (dayOfWeek !== undefined && (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6)) {
       res.status(400).json({ error: "dayOfWeek must be 0-6" });
+      return;
+    }
+    if (sessionDurationMinutes !== undefined && (!Number.isInteger(sessionDurationMinutes) || sessionDurationMinutes < 15 || sessionDurationMinutes > 180)) {
+      res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+      return;
+    }
+    if (bufferMinutes !== undefined && (!Number.isInteger(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 60)) {
+      res.status(400).json({ error: "bufferMinutes must be 0-60" });
       return;
     }
     const [updated] = await db.update(coachAvailabilityTable)
