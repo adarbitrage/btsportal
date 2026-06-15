@@ -44,6 +44,10 @@ beforeAll(async () => {
 
   // Recurring availability on every day of the week, 09:00-17:00, so that
   // whichever calendar date the tests land on has a baseline schedule.
+  // Session length / buffer are pinned to 60/0 explicitly (rather than the
+  // schema defaults of 60/15) so slot-count assertions stay deterministic and
+  // so a fallback-to-recurring inheritance is distinguishable from the schema
+  // default buffer of 15.
   for (let dow = 0; dow < 7; dow++) {
     await db.insert(coachAvailabilityTable).values({
       coachId,
@@ -51,6 +55,8 @@ beforeAll(async () => {
       startTime: "09:00",
       endTime: "17:00",
       timezone: TZ,
+      sessionDurationMinutes: 60,
+      bufferMinutes: 0,
     });
   }
 });
@@ -134,6 +140,74 @@ describe("getAvailableSlots day overrides", () => {
     // ...and the recurring morning slots (09:00) must NOT, proving the
     // custom window replaced the recurring schedule.
     expect(localStartHours).not.toContain("09");
+  });
+
+  it("inherits session length / buffer from the recurring window when the override leaves them unset", async () => {
+    const date = targetDateStr();
+
+    // Custom window 14:00-17:00 with no session/buffer set. The recurring
+    // window for this coach is 60-minute sessions with a 0-minute buffer, so
+    // the override should inherit those and produce 14:00, 15:00, 16:00.
+    // (If it had fallen back to the schema default buffer of 15 instead, the
+    // 75-minute increment would yield only 14:00 and 15:15.)
+    await db.insert(coachAvailabilityOverridesTable).values({
+      coachId,
+      overrideDate: date,
+      overrideType: "extra",
+      startTime: "14:00",
+      endTime: "17:00",
+      reason: "override-inherits-recurring regression test",
+    });
+
+    const slots = await getAvailableSlots(coachId, date, date, TZ);
+
+    const localStartHours = slots.map((s) =>
+      new Date(s.startTime).toLocaleString("en-US", {
+        hour: "2-digit",
+        hour12: false,
+        timeZone: TZ,
+      }),
+    );
+    expect(localStartHours).toEqual(["14", "15", "16"]);
+  });
+
+  it("uses a non-60-minute session length and a non-zero buffer set on the override", async () => {
+    const date = targetDateStr();
+
+    // 30-minute sessions with a 15-minute buffer => a 45-minute increment.
+    // Window 14:00-16:00 yields starts at 14:00 (ends 14:30), 14:45 (ends
+    // 15:15) and 15:30 (ends 16:00). The next start, 16:15, would end past
+    // 16:00 and is dropped.
+    await db.insert(coachAvailabilityOverridesTable).values({
+      coachId,
+      overrideDate: date,
+      overrideType: "extra",
+      startTime: "14:00",
+      endTime: "16:00",
+      sessionDurationMinutes: 30,
+      bufferMinutes: 15,
+      reason: "override-custom-session-buffer regression test",
+    });
+
+    const slots = await getAvailableSlots(coachId, date, date, TZ);
+
+    const localStarts = slots.map((s) =>
+      new Date(s.startTime).toLocaleString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: TZ,
+      }),
+    );
+    expect(localStarts).toEqual(["14:00", "14:45", "15:30"]);
+
+    // Each emitted slot is exactly the override's 30-minute session long.
+    for (const s of slots) {
+      const durationMinutes =
+        (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) /
+        60000;
+      expect(durationMinutes).toBe(30);
+    }
   });
 });
 

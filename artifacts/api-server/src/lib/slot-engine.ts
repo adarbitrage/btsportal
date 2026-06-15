@@ -9,11 +9,11 @@ export interface TimeSlot {
   coachId: number;
 }
 
-// Fallback session length / buffer for day overrides, whose table does not
-// carry per-window session-duration or buffer columns. Recurring availability
-// windows always use their own stored `sessionDurationMinutes` / `bufferMinutes`.
+// Schema-level fallbacks for day-override windows that leave session length /
+// buffer unset and have no recurring window to borrow from for that weekday.
+// These mirror the column defaults on `coach_availability`.
 const DEFAULT_SESSION_DURATION = 60;
-const DEFAULT_OVERRIDE_BUFFER = 0;
+const DEFAULT_OVERRIDE_BUFFER = 15;
 
 interface DayWindow {
   startTime: string;
@@ -117,17 +117,26 @@ export async function getAvailableSlots(
 
     const customOverrides = dateOverrides.filter(o => o.overrideType !== "blocked" && o.startTime && o.endTime);
 
+    const recurringSlots = availability.filter(a => a.dayOfWeek === dayOfWeek);
+
     let dayWindows: DayWindow[] = [];
 
     if (customOverrides.length > 0) {
+      // Borrow session length / buffer from the weekday's recurring window when
+      // the override leaves them unset, then fall back to the schema defaults.
+      const recurringFallback = recurringSlots[0];
+      const fallbackSessionDuration =
+        recurringFallback?.sessionDurationMinutes ?? DEFAULT_SESSION_DURATION;
+      const fallbackBuffer =
+        recurringFallback?.bufferMinutes ?? DEFAULT_OVERRIDE_BUFFER;
+
       dayWindows = customOverrides.map(o => ({
         startTime: o.startTime!,
         endTime: o.endTime!,
-        sessionDurationMinutes: DEFAULT_SESSION_DURATION,
-        bufferMinutes: DEFAULT_OVERRIDE_BUFFER,
+        sessionDurationMinutes: o.sessionDurationMinutes ?? fallbackSessionDuration,
+        bufferMinutes: o.bufferMinutes ?? fallbackBuffer,
       }));
     } else {
-      const recurringSlots = availability.filter(a => a.dayOfWeek === dayOfWeek);
       dayWindows = recurringSlots.map(a => ({
         startTime: a.startTime,
         endTime: a.endTime,

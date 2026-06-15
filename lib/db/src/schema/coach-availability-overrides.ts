@@ -8,6 +8,8 @@ export const coachAvailabilityOverridesTable = pgTable("coach_availability_overr
   overrideType: text("override_type").notNull().default("blocked"),
   startTime: time("start_time"),
   endTime: time("end_time"),
+  sessionDurationMinutes: integer("session_duration_minutes"),
+  bufferMinutes: integer("buffer_minutes"),
   reason: text("reason"),
 }, (table) => [
   index("idx_coach_override_coach_date").on(table.coachId, table.overrideDate),
