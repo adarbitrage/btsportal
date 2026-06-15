@@ -51,6 +51,8 @@ export interface AvailabilityOverride {
   startTime: string | null;
   endTime: string | null;
   reason: string | null;
+  sessionDurationMinutes: number | null;
+  bufferMinutes: number | null;
 }
 
 export interface CoachingSessionItem {

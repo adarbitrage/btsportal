@@ -160,7 +160,7 @@ router.delete("/admin/coaching/availability/:id", requirePermission("coaching:ma
 
 router.post("/admin/coaching/overrides", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
-    const { coachId, overrideDate, overrideType, startTime, endTime, reason } = req.body;
+    const { coachId, overrideDate, overrideType, startTime, endTime, reason, sessionDurationMinutes, bufferMinutes } = req.body;
     if (!coachId || !overrideDate || !overrideType) {
       res.status(400).json({ error: "coachId, overrideDate, overrideType are required" });
       return;
@@ -169,11 +169,21 @@ router.post("/admin/coaching/overrides", requirePermission("coaching:manage"), a
       res.status(400).json({ error: "overrideType must be 'blocked' or 'extra'" });
       return;
     }
+    if (sessionDurationMinutes !== undefined && sessionDurationMinutes !== null && (!Number.isInteger(sessionDurationMinutes) || sessionDurationMinutes < 15 || sessionDurationMinutes > 180)) {
+      res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+      return;
+    }
+    if (bufferMinutes !== undefined && bufferMinutes !== null && (!Number.isInteger(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 60)) {
+      res.status(400).json({ error: "bufferMinutes must be 0-60" });
+      return;
+    }
     const [override] = await db.insert(coachAvailabilityOverridesTable).values({
       coachId, overrideDate, overrideType,
       startTime: startTime || null,
       endTime: endTime || null,
       reason: reason || null,
+      sessionDurationMinutes: sessionDurationMinutes ?? null,
+      bufferMinutes: bufferMinutes ?? null,
     }).returning();
     res.status(201).json(override);
   } catch {
@@ -185,9 +195,17 @@ router.patch("/admin/coaching/overrides/:id", requirePermission("coaching:manage
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid override ID" }); return; }
-    const { overrideDate, overrideType, startTime, endTime, reason } = req.body;
+    const { overrideDate, overrideType, startTime, endTime, reason, sessionDurationMinutes, bufferMinutes } = req.body;
     if (overrideType !== undefined && !VALID_OVERRIDE_TYPES.includes(overrideType)) {
       res.status(400).json({ error: "overrideType must be 'blocked' or 'extra'" });
+      return;
+    }
+    if (sessionDurationMinutes !== undefined && sessionDurationMinutes !== null && (!Number.isInteger(sessionDurationMinutes) || sessionDurationMinutes < 15 || sessionDurationMinutes > 180)) {
+      res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+      return;
+    }
+    if (bufferMinutes !== undefined && bufferMinutes !== null && (!Number.isInteger(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 60)) {
+      res.status(400).json({ error: "bufferMinutes must be 0-60" });
       return;
     }
     const [updated] = await db.update(coachAvailabilityOverridesTable)
@@ -197,6 +215,8 @@ router.patch("/admin/coaching/overrides/:id", requirePermission("coaching:manage
         ...(startTime !== undefined && { startTime }),
         ...(endTime !== undefined && { endTime }),
         ...(reason !== undefined && { reason }),
+        ...(sessionDurationMinutes !== undefined && { sessionDurationMinutes }),
+        ...(bufferMinutes !== undefined && { bufferMinutes }),
       })
       .where(eq(coachAvailabilityOverridesTable.id, id))
       .returning();
