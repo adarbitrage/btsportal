@@ -36,7 +36,7 @@ args = "live-chat-widget"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "portal-typecheck"
+args = "typecheck"
 
 [[workflows.workflow]]
 name = "test"
@@ -72,15 +72,15 @@ args = "pnpm --filter @workspace/support-config exec vitest run src/index.test.t
 isValidation = true
 
 [[workflows.workflow]]
-name = "portal-typecheck"
+name = "typecheck"
 author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node_modules/.bin/tsc -p artifacts/portal/tsconfig.json --noEmit > /tmp/ptc.log 2>&1; echo TYPECHECK_EXIT=$? >> /tmp/ptc.log"
-
-[workflows.workflow.metadata]
-outputType = "console"
+args = "pnpm --filter @workspace/portal run typecheck && pnpm --filter @workspace/api-server run typecheck"
 
 [agent]
 stack = "PNPM_WORKSPACE"

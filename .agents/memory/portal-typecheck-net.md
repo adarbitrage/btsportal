@@ -12,13 +12,21 @@ deploy. A dedicated `pnpm --filter @workspace/portal typecheck`
 
 **Why:** the build never type-checks; only an explicit tsc run does.
 
-## How to verify the portal typecheck
-- Full tsc run exceeds the 120s bash limit and tsc only emits output at the end.
-- Use the `portal-typecheck` workflow: it writes to `/tmp/ptc.log` and appends
-  `TYPECHECK_EXIT=$?`. Restart the workflow, wait ~150s, then
-  `grep -c "error TS" /tmp/ptc.log` and check `TYPECHECK_EXIT=0`.
-- Referenced libs must be built/cached; run lib typechecks before/sequentially
-  to avoid the composite-ref cache corruption (see monorepo-typecheck-cache).
+## The net: `typecheck` validation gate
+- A registered validation command named `typecheck` is the CI net:
+  `pnpm --filter @workspace/portal run typecheck && pnpm --filter @workspace/api-server run typecheck`
+  (sequential to avoid the composite-ref cache corruption, see
+  monorepo-typecheck-cache). It gates merges (isValidation) and is also wired
+  into the `Project` run button. The old console-only `portal-typecheck`
+  workflow was removed (it never gated anything).
+- Full tsc run exceeds the 120s bash limit; the validation runner has no such
+  limit (~77s for both). Don't try to run it through the bash tool directly.
+- Do NOT add the root `typecheck:libs` (`tsc --build`) to the gate: the orphaned
+  `lib/integrations-openai-ai-react` fails the composite build (react is only a
+  peerDep, auto-install-peers=false, nothing imports it). Portal+api-server
+  typechecks resolve workspace deps to their TS source via package `exports`, so
+  they already cover every lib that actually reaches users. See
+  orphaned-react-lib for detail.
 
 ## Known generated-type vs backend drift
 - `useGetDashboard` returns the generated `DashboardData`
