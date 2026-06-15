@@ -34,9 +34,11 @@ vi.mock("../lib/ticketdesk-queue", () => ({
 }));
 
 const queueEmailMock = vi.fn(async (_params: unknown) => ({ result: "queued" as const }));
+const queueSmsMock = vi.fn(async (_params: unknown) => ({ result: "queued" as const }));
 vi.mock("../lib/communication-service", () => ({
   CommunicationService: {
     queueEmail: (params: unknown) => queueEmailMock(params),
+    queueSms: (params: unknown) => queueSmsMock(params),
   },
 }));
 
@@ -47,18 +49,21 @@ const TEST_TAG = `td-inbound-${randomUUID().slice(0, 8)}`;
 
 let app: ReturnType<typeof buildTestAppWithRouters>;
 let memberUserId = 0;
+let smsMemberUserId = 0;
+const SMS_MEMBER_PHONE = "+15555550123";
 const seededUserIds: number[] = [];
 const seededTicketIds: number[] = [];
 
 async function createTicket(opts: {
   status?: string;
+  userId?: number;
 } = {}): Promise<{ id: number; ticketNumber: string }> {
   const ticketNumber = `BTS-${Math.floor(100000 + Math.random() * 900000)}`;
   const [ticket] = await db
     .insert(ticketsTable)
     .values({
       ticketNumber,
-      userId: memberUserId,
+      userId: opts.userId ?? memberUserId,
       category: "technical",
       priority: "normal",
       status: opts.status ?? "open",
@@ -88,6 +93,24 @@ beforeAll(async () => {
 
   memberUserId = member.id;
   seededUserIds.push(member.id);
+
+  const [smsMember] = await db
+    .insert(usersTable)
+    .values({
+      email: `${TEST_TAG}-sms@example.test`,
+      name: "SMS Opted-in Member",
+      passwordHash,
+      role: "member",
+      sourceProduct: "lifetime",
+      emailVerified: true,
+      onboardingComplete: true,
+      phone: SMS_MEMBER_PHONE,
+      smsOptIn: true,
+    })
+    .returning({ id: usersTable.id });
+
+  smsMemberUserId = smsMember.id;
+  seededUserIds.push(smsMember.id);
 });
 
 afterAll(async () => {
@@ -175,6 +198,77 @@ describe("POST /api/webhooks/ticketdesk — inbound replies", () => {
         }),
       }),
     );
+  });
+
+  it("also texts an SMS-opted-in member with a deep-linked reply notification", async () => {
+    queueEmailMock.mockClear();
+    queueSmsMock.mockClear();
+    const ticket = await createTicket({ status: "open", userId: smsMemberUserId });
+
+    const res = await request(app)
+      .post("/api/webhooks/ticketdesk")
+      .send({
+        reference: ticket.ticketNumber,
+        reply: {
+          id: `rep_${randomUUID().slice(0, 8)}`,
+          body: "Here is our SMS-worthy answer.",
+          author: { type: "agent" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    expect(queueSmsMock).toHaveBeenCalledTimes(1);
+    expect(queueSmsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateSlug: "ticket_reply",
+        to: SMS_MEMBER_PHONE,
+        userId: smsMemberUserId,
+        variables: expect.objectContaining({
+          ticket_number: ticket.ticketNumber,
+          ticket_id: String(ticket.id),
+        }),
+      }),
+    );
+  });
+
+  it("does not text a member who has not opted into SMS", async () => {
+    queueEmailMock.mockClear();
+    queueSmsMock.mockClear();
+    const ticket = await createTicket({ status: "open" });
+
+    const res = await request(app)
+      .post("/api/webhooks/ticketdesk")
+      .send({
+        reference: ticket.ticketNumber,
+        reply: {
+          id: `rep_${randomUUID().slice(0, 8)}`,
+          body: "Email only, no SMS.",
+          author: { type: "agent" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    expect(queueSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not text twice on a redelivered (duplicate) reply", async () => {
+    queueSmsMock.mockClear();
+    const ticket = await createTicket({ status: "open", userId: smsMemberUserId });
+    const payload = {
+      reference: ticket.ticketNumber,
+      reply: {
+        id: `rep_${randomUUID().slice(0, 8)}`,
+        body: "Dedup SMS body.",
+        author: { type: "agent" },
+      },
+    };
+
+    await request(app).post("/api/webhooks/ticketdesk").send(payload);
+    await request(app).post("/api/webhooks/ticketdesk").send(payload);
+
+    expect(queueSmsMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not email the member for their own echoed reply", async () => {

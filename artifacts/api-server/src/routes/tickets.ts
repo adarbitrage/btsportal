@@ -496,7 +496,12 @@ async function sendTicketReplyNotification(
     if (ticket.userId == null) return;
 
     const [member] = await db
-      .select({ email: usersTable.email, name: usersTable.name })
+      .select({
+        email: usersTable.email,
+        name: usersTable.name,
+        phone: usersTable.phone,
+        smsOptIn: usersTable.smsOptIn,
+      })
       .from(usersTable)
       .where(eq(usersTable.id, ticket.userId))
       .limit(1);
@@ -513,6 +518,25 @@ async function sendTicketReplyNotification(
         ticket_id: String(ticket.id),
       },
     });
+
+    // Members who opted into SMS get a short text nudge in addition to the
+    // email so they hear about the reply faster. queueSms (via sendSmsDirect)
+    // re-checks smsOptIn server-side from userId, so the opt-in gate is the
+    // source of truth even though we pre-check here to avoid queueing a job
+    // for a member with no phone on file. The webhook dedup claim guarantees
+    // this whole block runs at most once per reply, so a redelivered webhook
+    // never sends a duplicate text.
+    if (member.smsOptIn && member.phone) {
+      await CommunicationService.queueSms({
+        templateSlug: "ticket_reply",
+        to: member.phone,
+        userId: ticket.userId,
+        variables: {
+          ticket_number: ticket.ticketNumber,
+          ticket_id: String(ticket.id),
+        },
+      });
+    }
   } catch (err) {
     console.error(
       `[TicketDesk Webhook] Failed to queue reply notification for ticket ${ticket.ticketNumber}:`,

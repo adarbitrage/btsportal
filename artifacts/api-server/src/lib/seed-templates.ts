@@ -693,6 +693,12 @@ const smsTemplates = [
     body: "BTS: Your Flexy password was just reset. Login: {{flexy_email}} / Password: {{flexy_password}}. Change it after you log in.",
     variables: ["flexy_email", "flexy_password"],
   },
+  {
+    slug: "ticket_reply",
+    name: "Support Ticket Reply SMS",
+    body: "BTS: Support just replied to your ticket #{{ticket_number}}. Read it: {{portal_url}}/support/tickets/{{ticket_id}}",
+    variables: ["ticket_number", "ticket_id", "portal_url"],
+  },
 ];
 
 export type StarterEmailTemplate = (typeof transactionalEmailTemplates)[number];
