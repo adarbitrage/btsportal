@@ -351,12 +351,12 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Ticket Reply", `
 <h2 style="color:#1a1a2e;margin-top:0;">New Reply on Your Ticket</h2>
 <p>Hi {{member_name}},</p>
-<p>There's a new reply on your support ticket <strong>#{{ticket_number}}</strong>.</p>
-<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Reply</a></p>
+<p>Our support team just replied to your ticket <strong>#{{ticket_number}}</strong>. Open it in your portal to read the response and continue the conversation.</p>
+<p><a href="{{portal_url}}/support/tickets/{{ticket_id}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Reply</a></p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nNew reply on ticket #{{ticket_number}}. View it at {{portal_url}}/support\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nOur support team just replied to your ticket #{{ticket_number}}. Read it at {{portal_url}}/support/tickets/{{ticket_id}}\n\nThe BTS Team",
     category: "transactional",
-    variables: ["member_name", "ticket_number", "portal_url", "current_year"],
+    variables: ["member_name", "ticket_number", "ticket_id", "portal_url", "current_year"],
   },
   {
     slug: "account_locked",
@@ -750,6 +750,21 @@ export const priorStarterRevisions: Record<string, StarterContent[]> = {
       textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login\nOr reset your password: {{portal_url}}/forgot-password\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
     },
   ],
+  // Earlier copy: linked to the generic /support ticket list instead of a
+  // deep link to the specific ticket, and had no `ticket_id` variable.
+  ticket_reply: [
+    {
+      name: "Support Ticket Reply",
+      subject: "New reply on ticket #{{ticket_number}}",
+      htmlBody: wrapHtml("Ticket Reply", `
+<h2 style="color:#1a1a2e;margin-top:0;">New Reply on Your Ticket</h2>
+<p>Hi {{member_name}},</p>
+<p>There's a new reply on your support ticket <strong>#{{ticket_number}}</strong>.</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Reply</a></p>
+<p>The BTS Team</p>`),
+      textBody: "Hi {{member_name}},\n\nNew reply on ticket #{{ticket_number}}. View it at {{portal_url}}/support\n\nThe BTS Team",
+    },
+  ],
   // Pre-Task #242 copy: pointed members at /settings instead of the dedicated
   // restart link (no `restart_url` variable yet).
   email_change_cancelled_by_admin: [
@@ -781,6 +796,7 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "signup_attempted",
   "new_device_signin",
   "role_changed",
+  "ticket_reply",
 ] as const;
 
 /**

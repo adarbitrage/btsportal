@@ -22,6 +22,7 @@ import { createSlaForTicket, resumeSla, recordFirstResponse } from "../lib/sla";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
+import { CommunicationService } from "../lib/communication-service";
 
 // Stable namespace for the per-user advisory lock used by POST /tickets so
 // concurrent ticket-create requests for the same user are serialized and
@@ -408,6 +409,18 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
       },
     );
 
+    // Notify the member by email that support replied, with a deep link back
+    // to the ticket thread, so they don't have to be watching the portal to
+    // know there's a response. The dedup claim above already guarantees this
+    // block runs at most once per unique reply, so there's no risk of a
+    // redelivered webhook sending a duplicate email.
+    //
+    // Best-effort and fully swallowed: a mailer failure must NOT throw out of
+    // the handler. If it did, the catch block below would release the dedup
+    // claim and return 500, prompting TicketDesk to retry and re-post the
+    // reply (a duplicate message) — far worse than a missed notification.
+    await sendTicketReplyNotification(ticket);
+
     console.log(
       `[TicketDesk Webhook] Appended agent reply to ticket ${ticket.ticketNumber} (message ${message.id})`,
     );
@@ -467,6 +480,44 @@ async function finalizeTicketDeskWebhook(
     });
   } catch (err) {
     console.error("[TicketDesk Webhook] Failed to record webhook log:", err);
+  }
+}
+
+// Queue the "support replied" notification email for the member who owns the
+// ticket. Looks up the member's current email + name so the deep link and
+// greeting are correct, then hands off to CommunicationService.queueEmail
+// (which has its own Redis-down direct-send fallback and template/portal-url
+// skip handling). Fully best-effort: every failure path is logged and
+// swallowed so the inbound webhook handler never throws on a mailer problem.
+async function sendTicketReplyNotification(
+  ticket: typeof ticketsTable.$inferSelect,
+): Promise<void> {
+  try {
+    if (ticket.userId == null) return;
+
+    const [member] = await db
+      .select({ email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, ticket.userId))
+      .limit(1);
+
+    if (!member) return;
+
+    await CommunicationService.queueEmail({
+      templateSlug: "ticket_reply",
+      to: member.email,
+      userId: ticket.userId,
+      variables: {
+        member_name: member.name,
+        ticket_number: ticket.ticketNumber,
+        ticket_id: String(ticket.id),
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[TicketDesk Webhook] Failed to queue reply notification for ticket ${ticket.ticketNumber}:`,
+      err,
+    );
   }
 }
 

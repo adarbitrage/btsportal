@@ -33,6 +33,13 @@ vi.mock("../lib/ticketdesk-queue", () => ({
   queueTicketDeskDelivery: vi.fn(async () => "td_job_id"),
 }));
 
+const queueEmailMock = vi.fn(async (_params: unknown) => ({ result: "queued" as const }));
+vi.mock("../lib/communication-service", () => ({
+  CommunicationService: {
+    queueEmail: (params: unknown) => queueEmailMock(params),
+  },
+}));
+
 import { buildTestAppWithRouters } from "./test-app";
 import ticketsRouter from "../routes/tickets";
 
@@ -138,6 +145,72 @@ describe("POST /api/webhooks/ticketdesk — inbound replies", () => {
       .from(ticketsTable)
       .where(eq(ticketsTable.id, ticket.id));
     expect(updated.status).toBe("in_progress");
+  });
+
+  it("emails the member a deep-linked reply notification when an agent replies", async () => {
+    queueEmailMock.mockClear();
+    const ticket = await createTicket({ status: "open" });
+
+    const res = await request(app)
+      .post("/api/webhooks/ticketdesk")
+      .send({
+        reference: ticket.ticketNumber,
+        reply: {
+          id: `rep_${randomUUID().slice(0, 8)}`,
+          body: "Here is our answer.",
+          author: { type: "agent" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    expect(queueEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateSlug: "ticket_reply",
+        to: `${TEST_TAG}@example.test`,
+        userId: memberUserId,
+        variables: expect.objectContaining({
+          ticket_number: ticket.ticketNumber,
+          ticket_id: String(ticket.id),
+        }),
+      }),
+    );
+  });
+
+  it("does not email the member for their own echoed reply", async () => {
+    queueEmailMock.mockClear();
+    const ticket = await createTicket({ status: "in_progress" });
+
+    await request(app)
+      .post("/api/webhooks/ticketdesk")
+      .send({
+        reference: ticket.ticketNumber,
+        reply: {
+          id: `rep_${randomUUID().slice(0, 8)}`,
+          body: "Member talking, no email expected.",
+          author: { type: "contact" },
+        },
+      });
+
+    expect(queueEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("does not email twice on a redelivered (duplicate) reply", async () => {
+    queueEmailMock.mockClear();
+    const ticket = await createTicket({ status: "open" });
+    const payload = {
+      reference: ticket.ticketNumber,
+      reply: {
+        id: `rep_${randomUUID().slice(0, 8)}`,
+        body: "Dedup email body.",
+        author: { type: "agent" },
+      },
+    };
+
+    await request(app).post("/api/webhooks/ticketdesk").send(payload);
+    await request(app).post("/api/webhooks/ticketdesk").send(payload);
+
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("resumes a paused SLA when replying to an awaiting_response ticket", async () => {
