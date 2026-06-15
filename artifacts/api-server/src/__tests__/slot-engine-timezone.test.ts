@@ -5,6 +5,7 @@ import {
   db,
   coachesTable,
   coachAvailabilityTable,
+  coachAvailabilityOverridesTable,
   coachingSessionsTable,
   coachingCallsTable,
   usersTable,
@@ -59,6 +60,7 @@ let memberId = 0;
 let hoursCoachId = 0; // NY coach viewed from an LA member.
 let spanCoachId = 0; // Tokyo coach, high cap — exercises the day straddle.
 let capCoachId = 0; // Tokyo coach, low cap — exercises coach-day grouping.
+let overrideCoachId = 0; // Tokyo coach, high cap — exercises date overrides.
 
 async function insertFullWeekCoach(
   suffix: string,
@@ -114,10 +116,11 @@ beforeAll(async () => {
   hoursCoachId = await insertFullWeekCoach("hours", COACH_TZ_1, SPAN_CAP);
   spanCoachId = await insertFullWeekCoach("span", COACH_TZ_2, SPAN_CAP);
   capCoachId = await insertFullWeekCoach("cap", COACH_TZ_2, TZ_CAP);
+  overrideCoachId = await insertFullWeekCoach("override", COACH_TZ_2, SPAN_CAP);
 });
 
 afterEach(async () => {
-  for (const id of [hoursCoachId, spanCoachId, capCoachId]) {
+  for (const id of [hoursCoachId, spanCoachId, capCoachId, overrideCoachId]) {
     if (id) {
       await db
         .delete(coachingSessionsTable)
@@ -125,12 +128,15 @@ afterEach(async () => {
       await db
         .delete(coachingCallsTable)
         .where(eq(coachingCallsTable.coachId, id));
+      await db
+        .delete(coachAvailabilityOverridesTable)
+        .where(eq(coachAvailabilityOverridesTable.coachId, id));
     }
   }
 });
 
 afterAll(async () => {
-  for (const id of [hoursCoachId, spanCoachId, capCoachId]) {
+  for (const id of [hoursCoachId, spanCoachId, capCoachId, overrideCoachId]) {
     if (!id) continue;
     await db
       .delete(coachingSessionsTable)
@@ -138,6 +144,9 @@ afterAll(async () => {
     await db
       .delete(coachingCallsTable)
       .where(eq(coachingCallsTable.coachId, id));
+    await db
+      .delete(coachAvailabilityOverridesTable)
+      .where(eq(coachAvailabilityOverridesTable.coachId, id));
     await db
       .delete(coachAvailabilityTable)
       .where(eq(coachAvailabilityTable.coachId, id));
@@ -274,5 +283,107 @@ describe("getAvailableSlots cross-timezone daily cap", () => {
 
     // And all remaining slots are still the one coach-local day.
     expect(distinctDays(after, COACH_TZ_2).size).toBe(1);
+  });
+});
+
+// Date-specific overrides (a blocked day or custom hours for one calendar
+// date) are matched against the COACH's local day inside the engine. The
+// override-only suite keeps coach and member in the same timezone, so a
+// regression where the override landed on the wrong calendar day for an
+// out-of-timezone member would slip past it. These tests pin the coach to
+// Asia/Tokyo and the member to America/Los_Angeles (whose offset is large
+// enough that a Tokyo working day straddles the member's midnight) and assert
+// the override applies to the coach-local date — not the member-local date.
+describe("getAvailableSlots cross-timezone date overrides", () => {
+  // Three consecutive coach-local dates. With the X->X member/coach day
+  // mapping the engine uses for this offset, querying the member range
+  // [prev, next] builds exactly these three coach-local days.
+  function overrideDates() {
+    return {
+      prev: format(addDays(new Date(), 29), "yyyy-MM-dd"),
+      mid: format(addDays(new Date(), 30), "yyyy-MM-dd"),
+      next: format(addDays(new Date(), 31), "yyyy-MM-dd"),
+    };
+  }
+
+  it("blocks the coach-local override date without affecting neighbouring days", async () => {
+    const { prev, mid, next } = overrideDates();
+
+    // Baseline: all three coach-local days produce their full 8-slot schedule
+    // for the out-of-timezone member before anything is blocked.
+    const before = await getAvailableSlots(
+      overrideCoachId,
+      prev,
+      next,
+      MEMBER_TZ_2,
+    );
+    expect(distinctDays(before, COACH_TZ_2)).toEqual(
+      new Set([prev, mid, next]),
+    );
+
+    // Block the MIDDLE coach-local day.
+    await db.insert(coachAvailabilityOverridesTable).values({
+      coachId: overrideCoachId,
+      overrideDate: mid,
+      overrideType: "blocked",
+      reason: `${TAG} blocked-day cross-tz`,
+    });
+
+    const after = await getAvailableSlots(
+      overrideCoachId,
+      prev,
+      next,
+      MEMBER_TZ_2,
+    );
+
+    // The blocked coach-local day produces no slots at all...
+    const afterCoachDays = distinctDays(after, COACH_TZ_2);
+    expect(afterCoachDays.has(mid)).toBe(false);
+    // ...while the neighbouring coach-local days keep their full schedule,
+    // proving the block was scoped to a single coach-local calendar date and
+    // not smeared onto the wrong day by the member's offset.
+    expect(afterCoachDays).toEqual(new Set([prev, next]));
+    for (const day of [prev, next]) {
+      const onDay = after.filter(
+        (s) => formatInTimeZone(new Date(s.startTime), COACH_TZ_2, "yyyy-MM-dd") === day,
+      );
+      expect(onDay).toHaveLength(8);
+    }
+  });
+
+  it("applies a custom-hours override on the coach-local date for an out-of-timezone member", async () => {
+    const { mid } = overrideDates();
+
+    // Custom afternoon window in the COACH's timezone: 13:00-15:00 with the
+    // 60-minute override default yields 13:00 and 14:00 starts.
+    await db.insert(coachAvailabilityOverridesTable).values({
+      coachId: overrideCoachId,
+      overrideDate: mid,
+      overrideType: "extra",
+      startTime: "13:00",
+      endTime: "15:00",
+      reason: `${TAG} custom-hours cross-tz`,
+    });
+
+    const slots = await getAvailableSlots(
+      overrideCoachId,
+      mid,
+      mid,
+      MEMBER_TZ_2,
+    );
+
+    // Exactly the two custom-window slots, on the coach's local 13:00/14:00...
+    expect(slots).toHaveLength(2);
+    expect(startHoursIn(slots, COACH_TZ_2)).toEqual(["13", "14"]);
+    // ...and the recurring 09:00-17:00 morning window is gone, proving the
+    // override replaced the recurring schedule for that day only.
+    expect(startHoursIn(slots, COACH_TZ_2)).not.toContain("09");
+
+    // The override hours are anchored to the COACH's local date even though,
+    // in the member's timezone, that Tokyo afternoon falls on the PREVIOUS
+    // member calendar day — a real conversion happened, not a verbatim echo.
+    expect(distinctDays(slots, COACH_TZ_2)).toEqual(new Set([mid]));
+    const memberDays = distinctDays(slots, MEMBER_TZ_2);
+    expect([...memberDays].every((d) => d < mid)).toBe(true);
   });
 });
