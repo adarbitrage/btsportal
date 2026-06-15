@@ -480,6 +480,18 @@ export const GetDashboardResponse = zod.object({
     }),
   ),
   ticketLimit: zod.number(),
+  recentTools: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        slug: zod.string(),
+        name: zod.string(),
+        shortDescription: zod.string(),
+        icon: zod.string().nullable(),
+        isFeatured: zod.boolean(),
+      }),
+    )
+    .optional(),
 });
 
 /**

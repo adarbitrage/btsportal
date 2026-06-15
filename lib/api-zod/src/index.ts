@@ -322,6 +322,7 @@ export type {
   RateSessionRequest,
   ReactionToggleResult,
   ReactionToggleResultToggled,
+  RecentTool,
   ReferralLink,
   ReferralRedirectParams,
   RegisterBody,

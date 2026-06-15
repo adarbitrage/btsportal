@@ -758,6 +758,15 @@ export interface Announcement {
   createdAt: string;
 }
 
+export interface RecentTool {
+  id: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  icon: string | null;
+  isFeatured: boolean;
+}
+
 export interface DashboardData {
   memberName: string;
   highestProductName: string;
@@ -776,6 +785,7 @@ export interface DashboardData {
   upcomingCalls: CoachingCall[];
   recentAnnouncements: Announcement[];
   ticketLimit: number;
+  recentTools?: RecentTool[];
 }
 
 export interface ModuleSummary {

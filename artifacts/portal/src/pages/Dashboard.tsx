@@ -50,9 +50,7 @@ export default function Dashboard() {
   }
 
   const ticketLimitText = dashboard.ticketLimit === -1 ? "Unlimited" : `${dashboard.ticketLimit}/month`;
-  const recentTools = (dashboard as typeof dashboard & {
-    recentTools?: Array<{ id: number; slug: string; name: string; shortDescription: string; icon: string | null; isFeatured: boolean }>;
-  }).recentTools;
+  const recentTools = dashboard.recentTools;
 
   return (
     <AppLayout>

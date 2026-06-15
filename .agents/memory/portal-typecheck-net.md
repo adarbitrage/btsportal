@@ -28,11 +28,19 @@ deploy. A dedicated `pnpm --filter @workspace/portal typecheck`
   they already cover every lib that actually reaches users. See
   orphaned-react-lib for detail.
 
-## Known generated-type vs backend drift
-- `useGetDashboard` returns the generated `DashboardData`
-  (`lib/api-zod` / `lib/api-client-react`, source `lib/api-spec/openapi.yaml`).
-- The dashboard handler (`artifacts/api-server/src/routes/dashboard.ts`)
-  returns a `recentTools` array that is NOT in the OpenAPI/Zod schema.
-- Portal currently patches this with a local typed cast in `Dashboard.tsx`.
-  The real fix is to add `recentTools` (optional array of
-  {id,slug,name,shortDescription,icon,isFeatured}) to the spec and regenerate.
+## Regenerating types must also rebuild lib dist .d.ts
+- The portal consumes `@workspace/api-client-react` via TS project references,
+  which read the package's emitted `dist/**/*.d.ts` — NOT its `src`.
+- So after editing `lib/api-spec/openapi.yaml` + running api-spec `codegen`,
+  the portal typecheck still fails (e.g. TS2339 "X does not exist on
+  DashboardData") until you rebuild the lib declarations:
+  `tsc -b lib/api-client-react --force`. Then restart `portal-typecheck`.
+- **Why:** codegen only updates the lib's source; the stale dist .d.ts is what
+  the portal actually sees.
+- codegen (orval) and the lib declaration build each exceed the 120s bash
+  limit; run them detached (setsid + poll) — detached jobs DO survive here.
+
+## (resolved) DashboardData recentTools drift
+- `recentTools` is now declared in the spec (`RecentTool` schema) and the
+  Dashboard.tsx local cast was removed. Field is optional array of
+  {id,slug,name,shortDescription,icon(nullable),isFeatured}.

@@ -7426,6 +7426,10 @@ components:
             $ref: "#/components/schemas/Announcement"
         ticketLimit:
           type: integer
+        recentTools:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentTool"
       required:
         - memberName
         - highestProductName
@@ -7443,6 +7447,30 @@ components:
         - upcomingCalls
         - recentAnnouncements
         - ticketLimit
+
+    RecentTool:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        icon:
+          type: string
+          nullable: true
+        isFeatured:
+          type: boolean
+      required:
+        - id
+        - slug
+        - name
+        - shortDescription
+        - icon
+        - isFeatured
 
     NextLesson:
       type: object

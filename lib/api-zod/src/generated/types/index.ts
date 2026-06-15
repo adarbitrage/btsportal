@@ -321,6 +321,7 @@ export * from "./progress";
 export * from "./rateSessionRequest";
 export * from "./reactionToggleResult";
 export * from "./reactionToggleResultToggled";
+export * from "./recentTool";
 export * from "./referralLink";
 export * from "./referralRedirectParams";
 export * from "./registerBody";
