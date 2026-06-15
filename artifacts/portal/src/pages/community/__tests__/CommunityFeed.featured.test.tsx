@@ -65,7 +65,7 @@ import CommunityFeed from "@/pages/community/CommunityFeed";
 function makePost(overrides: Partial<CommunityPost>): CommunityPost {
   return {
     id: 0,
-    author: { id: 1, name: "Author", avatarUrl: null, highestProductSlug: null } as CommunityPost["author"],
+    author: { id: 1, name: "Author", avatarUrl: null, highestProductSlug: "free", badges: [] } as CommunityPost["author"],
     categoryId: 1,
     categorySlug: "general",
     categoryName: "General",
