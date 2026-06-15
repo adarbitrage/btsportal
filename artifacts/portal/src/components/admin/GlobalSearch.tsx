@@ -23,7 +23,7 @@ export function GlobalSearch() {
   const [, navigate] = useLocation();
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

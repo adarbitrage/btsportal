@@ -2197,7 +2197,7 @@ export default function Blitz() {
     if (!Number.isFinite(seekTo) || seekTo <= 0) return;
 
     // Wait for the section content to settle, then auto-open the first video.
-    let seekTimer: ReturnType<typeof window.setInterval> | undefined;
+    let seekTimer: number | undefined;
     const openTimer = window.setTimeout(() => {
       const firstSlot = contentEl.querySelector<HTMLElement>(
         ".video-slot[data-vidalytics-id]",

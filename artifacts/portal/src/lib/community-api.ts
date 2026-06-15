@@ -79,7 +79,7 @@ function normalizeComment(c: any): CommunityComment {
     reactionCount: c.reactionCount ?? 0,
     hasReacted: c.hasReacted ?? c.viewerHasReacted ?? false,
     isEdited: c.isEdited ?? false,
-    isDeleted: c.isDeleted ?? (c.status === "deleted") ?? false,
+    isDeleted: c.isDeleted ?? (c.status === "deleted"),
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };

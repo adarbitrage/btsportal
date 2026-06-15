@@ -9,7 +9,7 @@ vi.mock("@/components/layout/AdminLayout", () => ({
   ),
 }));
 
-const flexyPanelStub = vi.fn(() => <div data-testid="stub-flexy" />);
+const flexyPanelStub = vi.fn((_props: Record<string, unknown>) => <div data-testid="stub-flexy" />);
 const fetchFlexyLookup = vi.fn().mockResolvedValue(null);
 vi.mock("@/components/admin/FlexyRegeneratePanel", () => ({
   FlexyRegeneratePanel: (props: Record<string, unknown>) => flexyPanelStub(props),

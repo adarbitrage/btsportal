@@ -50,6 +50,9 @@ export default function Dashboard() {
   }
 
   const ticketLimitText = dashboard.ticketLimit === -1 ? "Unlimited" : `${dashboard.ticketLimit}/month`;
+  const recentTools = (dashboard as typeof dashboard & {
+    recentTools?: Array<{ id: number; slug: string; name: string; shortDescription: string; icon: string | null; isFeatured: boolean }>;
+  }).recentTools;
 
   return (
     <AppLayout>
@@ -199,7 +202,7 @@ export default function Dashboard() {
             {(Array.from(memberEntitlements).some((e: string) => e.startsWith("coaching:one_on_one:"))) && (
               <CoachingDashboardWidget />
             )}
-            {dashboard.recentTools && dashboard.recentTools.length > 0 && (
+            {recentTools && recentTools.length > 0 && (
               <Card>
                 <CardHeader className="pb-4 border-b border-border/50">
                   <div className="flex items-center gap-2 text-foreground font-semibold">
@@ -209,7 +212,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="pt-0 px-0">
                   <div className="divide-y divide-border">
-                    {dashboard.recentTools.map((tool: any) => (
+                    {recentTools.map((tool) => (
                       <Link key={tool.id} href={`/tools/${tool.slug}`}>
                         <div className="p-4 hover:bg-secondary/50 transition-colors cursor-pointer">
                           <h4 className="font-semibold text-sm text-foreground">{tool.name}</h4>

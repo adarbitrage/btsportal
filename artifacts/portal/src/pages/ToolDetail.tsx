@@ -17,7 +17,7 @@ function getIcon(name: string | null | undefined) {
   return iconMap[name] || Rocket;
 }
 
-const componentRegistry: Record<string, React.LazyExoticComponent<any>> = {
+const componentRegistry: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
   HeadlineGenerator: lazy(() => import("@/components/tools/HeadlineGenerator")),
   CampaignCalculator: lazy(() => import("@/components/tools/CampaignCalculator")),
   TrackingUrlBuilder: lazy(() => import("@/components/tools/TrackingUrlBuilder")),

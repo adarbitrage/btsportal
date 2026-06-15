@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "outline" | "bronze" | "silver" | "gold" | "diamond" | "success" | "warning" | "frontend" | "launchpad" | "3month" | "6month" | "1year" | "lifetime" | "locked" | "free";
+  variant?: "default" | "secondary" | "outline" | "destructive" | "bronze" | "silver" | "gold" | "diamond" | "success" | "warning" | "frontend" | "launchpad" | "3month" | "6month" | "1year" | "lifetime" | "locked" | "free";
 }
 
 const productLabels: Record<string, string> = {
@@ -20,6 +20,7 @@ function Badge({ className, variant = "default", children, ...props }: BadgeProp
     default: "border-transparent bg-primary text-primary-foreground",
     secondary: "border-transparent bg-secondary text-secondary-foreground",
     outline: "text-foreground border-border",
+    destructive: "border-transparent bg-destructive text-destructive-foreground",
     bronze: "border-transparent bg-[#92400e] text-white",
     silver: "border-transparent bg-[#6b7280] text-white",
     gold: "border-transparent bg-[#b45309] text-white",

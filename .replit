@@ -34,6 +34,10 @@ args = "db-drift"
 task = "workflow.run"
 args = "live-chat-widget"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "portal-typecheck"
+
 [[workflows.workflow]]
 name = "test"
 author = "agent"
@@ -66,6 +70,17 @@ args = "pnpm --filter @workspace/support-config exec vitest run src/index.test.t
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "portal-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node_modules/.bin/tsc -p artifacts/portal/tsconfig.json --noEmit > /tmp/ptc.log 2>&1; echo TYPECHECK_EXIT=$? >> /tmp/ptc.log"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"

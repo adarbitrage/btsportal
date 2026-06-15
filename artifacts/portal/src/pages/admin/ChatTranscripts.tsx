@@ -127,7 +127,7 @@ export default function ChatTranscripts() {
                         </div>
                       )}
                     </div>
-                    {editingNote?.messageId === msg.id && (
+                    {editingNote && editingNote.messageId === msg.id && (
                       <div className="mt-3 space-y-2">
                         <Textarea
                           value={editingNote.notes}

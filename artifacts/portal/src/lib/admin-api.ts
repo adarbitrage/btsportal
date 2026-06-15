@@ -18,20 +18,60 @@ async function adminFetch<T = unknown>(path: string, options: RequestInit = {}):
   return res.json();
 }
 
+export interface GhlStatus {
+  lastSuccessfulSync: string | null;
+  queueDepth: number;
+  failedJobCount: number;
+  syncEnabled: boolean;
+}
+
+export interface GhlActivityLog {
+  id: number;
+  direction: string;
+  action: string;
+  status: string;
+  userId: number | null;
+  ghlContactId: string | null;
+  createdAt: string | null;
+}
+
+export interface GhlFailedJob {
+  id: number;
+  action: string;
+  userId: number | null;
+  errorMessage: string | null;
+  attempts: number;
+  createdAt: string | null;
+}
+
 export function fetchGhlStatus() {
-  return adminFetch("/admin/ghl/status");
+  return adminFetch<GhlStatus>("/admin/ghl/status");
 }
 
 export function fetchGhlRecentActivity(limit = 50) {
-  return adminFetch(`/admin/ghl/recent-activity?limit=${limit}`);
+  return adminFetch<GhlActivityLog[]>(`/admin/ghl/recent-activity?limit=${limit}`);
 }
 
 export function fetchGhlFailedJobs() {
-  return adminFetch("/admin/ghl/failed-jobs");
+  return adminFetch<GhlFailedJob[]>("/admin/ghl/failed-jobs");
 }
 
 export function retryGhlJob(jobId: string | number) {
   return adminFetch(`/admin/ghl/retry/${jobId}`, { method: "POST" });
+}
+
+export interface GhlContactRow {
+  id: number;
+  name?: string;
+  email?: string;
+  ghlContactId?: string | null;
+  lastSyncDate?: string | null;
+  memberSince?: string | null;
+}
+
+export interface GhlContactsResponse {
+  contacts: GhlContactRow[];
+  pagination: { page: number; totalPages: number; total: number };
 }
 
 export function fetchGhlContacts(params: { search?: string; filter?: string; page?: number; limit?: number }) {
@@ -40,7 +80,7 @@ export function fetchGhlContacts(params: { search?: string; filter?: string; pag
   if (params.filter) qs.set("filter", params.filter);
   if (params.page) qs.set("page", String(params.page));
   if (params.limit) qs.set("limit", String(params.limit));
-  return adminFetch(`/admin/ghl/contacts?${qs.toString()}`);
+  return adminFetch<GhlContactsResponse>(`/admin/ghl/contacts?${qs.toString()}`);
 }
 
 export function syncMember(userId: number) {
@@ -51,8 +91,18 @@ export function bulkSync() {
   return adminFetch("/admin/ghl/bulk-sync", { method: "POST" });
 }
 
+export interface GhlConfigData {
+  apiKey?: string;
+  locationId?: string;
+  webhookSecret?: string;
+  tagPrefix?: string;
+  syncEnabled?: boolean;
+  pipelineStageMapping?: Record<string, string> | null;
+  customFieldMapping?: Record<string, string> | null;
+}
+
 export function fetchGhlConfig() {
-  return adminFetch("/admin/ghl/config");
+  return adminFetch<GhlConfigData>("/admin/ghl/config");
 }
 
 export function updateGhlConfig(config: Record<string, any>) {
@@ -487,8 +537,49 @@ export function useAdminImportContent() {
   });
 }
 
+export interface ChatAnalyticsData {
+  messages: { today: number; week: number; month: number; total: number };
+  totalSessions: number;
+  avgMessagesPerUserPerDay: number;
+  flaggedMessages: number;
+  tierBreakdown: Array<{ tier: string; totalMessages: number; uniqueUsers: number }>;
+  peakHours: Array<{ hour: number; count: number }>;
+}
+
 export function fetchChatAnalytics() {
-  return adminFetch("/admin/chat/analytics");
+  return adminFetch<ChatAnalyticsData>("/admin/chat/analytics");
+}
+
+export interface ChatSessionRow {
+  id: number;
+  title: string;
+  userName: string;
+  userEmail: string;
+  messageCount: number;
+  flaggedCount: number;
+  createdAt: string;
+}
+
+export interface ChatSessionsResponse {
+  sessions: ChatSessionRow[];
+  pagination: { total: number; totalPages: number };
+}
+
+export interface ChatMessageRow {
+  id: number;
+  role: string;
+  content: string;
+  createdAt: string;
+  flagged?: boolean;
+  adminNotes?: string | null;
+}
+
+export interface ChatSessionDetail {
+  title: string;
+  userName: string;
+  userEmail: string;
+  createdAt: string;
+  messages: ChatMessageRow[];
 }
 
 export function fetchChatSessions(params: {
@@ -505,11 +596,11 @@ export function fetchChatSessions(params: {
   if (params.dateTo) qs.set("dateTo", params.dateTo);
   if (params.flagged) qs.set("flagged", "true");
   if (params.ticketCreated) qs.set("ticketCreated", "true");
-  return adminFetch(`/admin/chat/sessions?${qs.toString()}`);
+  return adminFetch<ChatSessionsResponse>(`/admin/chat/sessions?${qs.toString()}`);
 }
 
 export function fetchChatSessionDetail(sessionId: number) {
-  return adminFetch(`/admin/chat/sessions/${sessionId}`);
+  return adminFetch<ChatSessionDetail>(`/admin/chat/sessions/${sessionId}`);
 }
 
 export function flagChatMessage(messageId: number, flagged: boolean) {
@@ -526,8 +617,17 @@ export function updateMessageNotes(messageId: number, notes: string) {
   });
 }
 
+export interface SystemPrompt {
+  id: number;
+  version: number;
+  name: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export function fetchSystemPrompts() {
-  return adminFetch("/admin/chat/system-prompts");
+  return adminFetch<SystemPrompt[]>("/admin/chat/system-prompts");
 }
 
 export function createSystemPrompt(data: { name: string; content: string }) {
@@ -542,17 +642,26 @@ export function activateSystemPrompt(id: number) {
 }
 
 export function previewSystemPrompt(data: { content: string; testMessage: string }) {
-  return adminFetch("/admin/chat/system-prompts/preview", {
+  return adminFetch<{ response: string }>("/admin/chat/system-prompts/preview", {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+export interface KnowledgebaseDoc {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  chunkCount: number;
+  updatedAt: string;
 }
 
 export function fetchKnowledgebaseDocs(params?: { category?: string; search?: string }) {
   const qs = new URLSearchParams();
   if (params?.category) qs.set("category", params.category);
   if (params?.search) qs.set("search", params.search);
-  return adminFetch(`/admin/chat/knowledgebase?${qs.toString()}`);
+  return adminFetch<KnowledgebaseDoc[]>(`/admin/chat/knowledgebase?${qs.toString()}`);
 }
 
 export function createKnowledgebaseDoc(data: { title: string; category: string; content: string }) {
@@ -573,8 +682,14 @@ export function deleteKnowledgebaseDoc(id: number) {
   return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
 }
 
+export interface RateLimitTier {
+  tier: string;
+  dailyLimit: number;
+  maxOutputTokens: number;
+}
+
 export function fetchRateLimits() {
-  return adminFetch("/admin/chat/rate-limits");
+  return adminFetch<RateLimitTier[]>("/admin/chat/rate-limits");
 }
 
 export function updateRateLimits(limits: Array<{ tier: string; dailyLimit: number; maxOutputTokens: number }>) {

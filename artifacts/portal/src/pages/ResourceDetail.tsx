@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useParams } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
