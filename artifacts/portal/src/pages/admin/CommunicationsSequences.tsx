@@ -24,7 +24,7 @@ export default function CommunicationsSequences() {
   const [form, setForm] = useState({ name: "", description: "", triggerEvent: "" });
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
-  const [stepForm, setStepForm] = useState({ channel: "email", templateSlug: "", subject: "", body: "", delayMinutes: "0" });
+  const [stepForm, setStepForm] = useState({ channel: "email", templateSlug: "", subject: "", delayMinutes: "0" });
   const [addStepOpen, setAddStepOpen] = useState(false);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [enrollUserId, setEnrollUserId] = useState("");
@@ -257,7 +257,7 @@ export default function CommunicationsSequences() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold">Steps ({detail.steps?.length || 0})</h3>
-                  <Button size="sm" onClick={() => { setStepForm({ channel: "email", templateSlug: "", subject: "", body: "", delayMinutes: "0" }); setAddStepOpen(true); }}>
+                  <Button size="sm" onClick={() => { setStepForm({ channel: "email", templateSlug: "", subject: "", delayMinutes: "0" }); setAddStepOpen(true); }}>
                     <Plus className="w-3 h-3 mr-1" />Add Step
                   </Button>
                 </div>
@@ -350,10 +350,6 @@ export default function CommunicationsSequences() {
             <div>
               <label className="text-sm font-medium">Subject (if no template)</label>
               <Input value={stepForm.subject} onChange={e => setStepForm(f => ({ ...f, subject: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Body (if no template)</label>
-              <Textarea value={stepForm.body} onChange={e => setStepForm(f => ({ ...f, body: e.target.value }))} rows={3} />
             </div>
             <div>
               <label className="text-sm font-medium">Delay (minutes)</label>
