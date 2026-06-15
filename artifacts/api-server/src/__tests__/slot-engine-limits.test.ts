@@ -40,13 +40,31 @@ let memberId = 0;
 let capCoachId = 0;
 let conflictCoachId = 0;
 let leadCoachId = 0;
+let durationCoachId = 0;
+let bufferCoachId = 0;
 
 const CAP = 3;
 
 async function insertFullWeekCoach(
   suffix: string,
   maxDailySessions: number,
+  opts: {
+    sessionDurationMinutes?: number;
+    bufferMinutes?: number;
+    startTime?: string;
+    endTime?: string;
+  } = {},
 ): Promise<number> {
+  const {
+    // Default to hourly, buffer-free windows so the cap/conflict/lead-time
+    // suites keep their original on-the-hour expectations. The session-length
+    // and buffer behavior is exercised by dedicated coaches below.
+    sessionDurationMinutes = 60,
+    bufferMinutes = 0,
+    startTime = "09:00",
+    endTime = "17:00",
+  } = opts;
+
   const [coach] = await db
     .insert(coachesTable)
     .values({
@@ -59,15 +77,17 @@ async function insertFullWeekCoach(
     })
     .returning({ id: coachesTable.id });
 
-  // Recurring availability on every day of the week, 09:00-17:00, so that
-  // whichever calendar date the tests land on has a baseline schedule.
+  // Recurring availability on every day of the week so that whichever calendar
+  // date the tests land on has a baseline schedule.
   for (let dow = 0; dow < 7; dow++) {
     await db.insert(coachAvailabilityTable).values({
       coachId: coach.id,
       dayOfWeek: dow,
-      startTime: "09:00",
-      endTime: "17:00",
+      startTime,
+      endTime,
       timezone: TZ,
+      sessionDurationMinutes,
+      bufferMinutes,
     });
   }
   return coach.id;
@@ -90,10 +110,30 @@ beforeAll(async () => {
   capCoachId = await insertFullWeekCoach("cap", CAP);
   conflictCoachId = await insertFullWeekCoach("conflict", 10);
   leadCoachId = await insertFullWeekCoach("lead", 10);
+
+  // Honors a 30-minute session length over a narrow 09:00-11:00 window.
+  durationCoachId = await insertFullWeekCoach("duration", 10, {
+    sessionDurationMinutes: 30,
+    bufferMinutes: 0,
+    startTime: "09:00",
+    endTime: "11:00",
+  });
+
+  // 60-minute sessions with a 30-minute gap between them.
+  bufferCoachId = await insertFullWeekCoach("buffer", 10, {
+    sessionDurationMinutes: 60,
+    bufferMinutes: 30,
+  });
 });
 
 afterEach(async () => {
-  for (const id of [capCoachId, conflictCoachId, leadCoachId]) {
+  for (const id of [
+    capCoachId,
+    conflictCoachId,
+    leadCoachId,
+    durationCoachId,
+    bufferCoachId,
+  ]) {
     if (id) {
       await db
         .delete(coachingSessionsTable)
@@ -106,7 +146,13 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  for (const id of [capCoachId, conflictCoachId, leadCoachId]) {
+  for (const id of [
+    capCoachId,
+    conflictCoachId,
+    leadCoachId,
+    durationCoachId,
+    bufferCoachId,
+  ]) {
     if (!id) continue;
     await db
       .delete(coachingSessionsTable)
@@ -162,6 +208,95 @@ async function insertGroupCall(
     durationMinutes: 60,
   });
 }
+
+// The coach-local "HH:mm" start of each returned slot.
+function localStartTimes(slots: { startTime: string }[]): string[] {
+  return slots.map((s) => formatInTimeZone(new Date(s.startTime), TZ, "HH:mm"));
+}
+
+// The length in minutes of a returned slot (end - start).
+function slotDurationMinutes(slot: { startTime: string; endTime: string }): number {
+  return (
+    (new Date(slot.endTime).getTime() - new Date(slot.startTime).getTime()) /
+    60000
+  );
+}
+
+describe("getAvailableSlots session length", () => {
+  it("uses the window's sessionDurationMinutes for slot length and spacing", async () => {
+    const date = targetDateStr();
+    // 09:00-11:00 with 30-minute sessions and no buffer -> four slots, each
+    // 30 minutes long and spaced 30 minutes apart.
+    const slots = await getAvailableSlots(durationCoachId, date, date, TZ);
+
+    expect(localStartTimes(slots)).toEqual([
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+    ]);
+    // Every offered slot is exactly the configured 30-minute length, not the
+    // legacy hard-coded 60 minutes.
+    for (const slot of slots) {
+      expect(slotDurationMinutes(slot)).toBe(30);
+    }
+  });
+});
+
+describe("getAvailableSlots buffer between sessions", () => {
+  it("spaces slots by session + buffer so back-to-back calls keep a gap", async () => {
+    const date = targetDateStr();
+    // 09:00-17:00 with 60-minute sessions and a 30-minute buffer -> starts
+    // every 90 minutes: 09:00, 10:30, 12:00, 13:30, 15:00 (16:30 would end at
+    // 17:30, past the window).
+    const slots = await getAvailableSlots(bufferCoachId, date, date, TZ);
+
+    expect(localStartTimes(slots)).toEqual([
+      "09:00",
+      "10:30",
+      "12:00",
+      "13:30",
+      "15:00",
+    ]);
+    // Each slot is still a full 60-minute session...
+    for (const slot of slots) {
+      expect(slotDurationMinutes(slot)).toBe(60);
+    }
+    // ...and consecutive starts are 90 minutes apart (60 session + 30 buffer).
+    for (let i = 1; i < slots.length; i++) {
+      const gap =
+        (new Date(slots[i].startTime).getTime() -
+          new Date(slots[i - 1].startTime).getTime()) /
+        60000;
+      expect(gap).toBe(90);
+    }
+  });
+
+  it("pads conflict checks by the buffer so a new slot can't sit flush against a booking", async () => {
+    const date = targetDateStr();
+
+    // Baseline: 12:00 and 13:30 are both offered before anything is booked.
+    const before = localStartTimes(
+      await getAvailableSlots(bufferCoachId, date, date, TZ),
+    );
+    expect(before).toContain("12:00");
+    expect(before).toContain("13:30");
+
+    // A group call from 12:30-13:30 directly overlaps the 12:00 slot and sits
+    // flush against the start of the 13:30 slot. With a 30-minute buffer, both
+    // must disappear: 13:30 would otherwise survive without padding.
+    await insertGroupCall(bufferCoachId, date, "12:30");
+
+    const after = localStartTimes(
+      await getAvailableSlots(bufferCoachId, date, date, TZ),
+    );
+    expect(after).not.toContain("12:00"); // direct overlap
+    expect(after).not.toContain("13:30"); // removed only because of the buffer
+    // Slots a full buffer clear of the booking remain available.
+    expect(after).toContain("10:30");
+    expect(after).toContain("15:00");
+  });
+});
 
 describe("getAvailableSlots maxDailySessions cap", () => {
   it("never returns more slots in a day than the coach's cap", async () => {

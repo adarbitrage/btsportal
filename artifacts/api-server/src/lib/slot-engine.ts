@@ -9,8 +9,18 @@ export interface TimeSlot {
   coachId: number;
 }
 
-const SESSION_DURATION = 60;
-const SLOT_INCREMENT = 60;
+// Fallback session length / buffer for day overrides, whose table does not
+// carry per-window session-duration or buffer columns. Recurring availability
+// windows always use their own stored `sessionDurationMinutes` / `bufferMinutes`.
+const DEFAULT_SESSION_DURATION = 60;
+const DEFAULT_OVERRIDE_BUFFER = 0;
+
+interface DayWindow {
+  startTime: string;
+  endTime: string;
+  sessionDurationMinutes: number;
+  bufferMinutes: number;
+}
 
 export async function getAvailableSlots(
   coachId: number,
@@ -107,18 +117,35 @@ export async function getAvailableSlots(
 
     const customOverrides = dateOverrides.filter(o => o.overrideType !== "blocked" && o.startTime && o.endTime);
 
-    let dayWindows: { startTime: string; endTime: string }[] = [];
+    let dayWindows: DayWindow[] = [];
 
     if (customOverrides.length > 0) {
-      dayWindows = customOverrides.map(o => ({ startTime: o.startTime!, endTime: o.endTime! }));
+      dayWindows = customOverrides.map(o => ({
+        startTime: o.startTime!,
+        endTime: o.endTime!,
+        sessionDurationMinutes: DEFAULT_SESSION_DURATION,
+        bufferMinutes: DEFAULT_OVERRIDE_BUFFER,
+      }));
     } else {
       const recurringSlots = availability.filter(a => a.dayOfWeek === dayOfWeek);
-      dayWindows = recurringSlots.map(a => ({ startTime: a.startTime, endTime: a.endTime }));
+      dayWindows = recurringSlots.map(a => ({
+        startTime: a.startTime,
+        endTime: a.endTime,
+        sessionDurationMinutes: a.sessionDurationMinutes,
+        bufferMinutes: a.bufferMinutes,
+      }));
     }
 
     for (const window of dayWindows) {
       const [startH, startM] = window.startTime.split(":").map(Number);
       const [endH, endM] = window.endTime.split(":").map(Number);
+
+      const sessionDuration = window.sessionDurationMinutes;
+      const buffer = window.bufferMinutes;
+      // Back-to-back offered slots are spaced a full session plus the buffer
+      // apart, leaving a real gap between consecutive bookings.
+      const slotIncrement = sessionDuration + buffer;
+      const bufferMs = buffer * 60 * 1000;
 
       const windowStartCoach = fromZonedTime(
         new Date(coachDate.getFullYear(), coachDate.getMonth(), coachDate.getDate(), startH, startM),
@@ -130,16 +157,18 @@ export async function getAvailableSlots(
       );
 
       let slotStart = windowStartCoach;
-      while (addMinutes(slotStart, SESSION_DURATION).getTime() <= windowEndCoach.getTime()) {
-        const slotEnd = addMinutes(slotStart, SESSION_DURATION);
+      while (addMinutes(slotStart, sessionDuration).getTime() <= windowEndCoach.getTime()) {
+        const slotEnd = addMinutes(slotStart, sessionDuration);
 
         if (isBefore(slotStart, minBookingTime)) {
-          slotStart = addMinutes(slotStart, SLOT_INCREMENT);
+          slotStart = addMinutes(slotStart, slotIncrement);
           continue;
         }
 
-        const slotStartMs = slotStart.getTime();
-        const slotEndMs = slotEnd.getTime();
+        // Pad the candidate slot by the buffer on both sides so a new booking
+        // can never sit flush against an existing session or group call.
+        const slotStartMs = slotStart.getTime() - bufferMs;
+        const slotEndMs = slotEnd.getTime() + bufferMs;
         const hasConflict = blockedRanges.some(
           br => slotStartMs < br.end && slotEndMs > br.start
         );
@@ -152,7 +181,7 @@ export async function getAvailableSlots(
           });
         }
 
-        slotStart = addMinutes(slotStart, SLOT_INCREMENT);
+        slotStart = addMinutes(slotStart, slotIncrement);
       }
     }
 
