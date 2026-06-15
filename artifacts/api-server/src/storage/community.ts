@@ -23,6 +23,7 @@ export interface FeedPost {
   mediaUrls: unknown;
   status: string;
   isPinned: boolean;
+  isFeatured: boolean;
   commentCount: number;
   reactionCount: number;
   viewerHasReacted: boolean;
@@ -50,7 +51,7 @@ export interface FeedComment {
 
 export interface ListPostsOptions {
   userId: number;
-  cursor?: { isPinned: boolean; createdAt: Date; id: number } | null;
+  cursor?: { isFeatured: boolean; isPinned: boolean; createdAt: Date; id: number } | null;
   limit?: number;
   isAdmin?: boolean;
   categorySlug?: string;
@@ -71,12 +72,18 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
 
   const cursorCondition = cursor
     ? or(
-        sql`${communityPostsTable.isPinned} < ${cursor.isPinned}`,
+        sql`${communityPostsTable.isFeatured} < ${cursor.isFeatured}`,
         and(
+          eq(communityPostsTable.isFeatured, cursor.isFeatured),
+          sql`${communityPostsTable.isPinned} < ${cursor.isPinned}`,
+        ),
+        and(
+          eq(communityPostsTable.isFeatured, cursor.isFeatured),
           eq(communityPostsTable.isPinned, cursor.isPinned),
           lt(communityPostsTable.createdAt, cursor.createdAt),
         ),
         and(
+          eq(communityPostsTable.isFeatured, cursor.isFeatured),
           eq(communityPostsTable.isPinned, cursor.isPinned),
           eq(communityPostsTable.createdAt, cursor.createdAt),
           lt(communityPostsTable.id, cursor.id),
@@ -108,6 +115,7 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
       mediaUrls: communityPostsTable.mediaUrls,
       status: communityPostsTable.status,
       isPinned: communityPostsTable.isPinned,
+      isFeatured: communityPostsTable.isFeatured,
       commentCount: communityPostsTable.commentCount,
       reactionCount: communityPostsTable.reactionCount,
       createdAt: communityPostsTable.createdAt,
@@ -116,7 +124,12 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
     .from(communityPostsTable)
     .innerJoin(usersTable, eq(communityPostsTable.authorId, usersTable.id))
     .where(conditions)
-    .orderBy(desc(communityPostsTable.isPinned), desc(communityPostsTable.createdAt), desc(communityPostsTable.id))
+    .orderBy(
+      desc(communityPostsTable.isFeatured),
+      desc(communityPostsTable.isPinned),
+      desc(communityPostsTable.createdAt),
+      desc(communityPostsTable.id),
+    )
     .limit(take);
 
   const postIds = rows.map((r) => r.id);
@@ -144,17 +157,17 @@ export async function listPosts(opts: ListPostsOptions): Promise<{ posts: FeedPo
   const lastRow = rows[rows.length - 1];
   const nextCursor =
     rows.length === take && lastRow
-      ? Buffer.from(JSON.stringify({ isPinned: lastRow.isPinned, createdAt: lastRow.createdAt, id: lastRow.id })).toString("base64")
+      ? Buffer.from(JSON.stringify({ isFeatured: lastRow.isFeatured, isPinned: lastRow.isPinned, createdAt: lastRow.createdAt, id: lastRow.id })).toString("base64")
       : null;
 
   return { posts, nextCursor };
 }
 
-export function parseCursor(raw: string): { isPinned: boolean; createdAt: Date; id: number } | null {
+export function parseCursor(raw: string): { isFeatured: boolean; isPinned: boolean; createdAt: Date; id: number } | null {
   try {
     const decoded = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
     if (!decoded.createdAt || !decoded.id) return null;
-    return { isPinned: Boolean(decoded.isPinned), createdAt: new Date(decoded.createdAt), id: Number(decoded.id) };
+    return { isFeatured: Boolean(decoded.isFeatured), isPinned: Boolean(decoded.isPinned), createdAt: new Date(decoded.createdAt), id: Number(decoded.id) };
   } catch {
     return null;
   }
@@ -175,6 +188,7 @@ export async function getPostById(
       mediaUrls: communityPostsTable.mediaUrls,
       status: communityPostsTable.status,
       isPinned: communityPostsTable.isPinned,
+      isFeatured: communityPostsTable.isFeatured,
       commentCount: communityPostsTable.commentCount,
       reactionCount: communityPostsTable.reactionCount,
       createdAt: communityPostsTable.createdAt,

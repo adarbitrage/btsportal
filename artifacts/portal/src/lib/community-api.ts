@@ -54,6 +54,8 @@ function normalizePost(p: any): CommunityPost {
       highestProductSlug: p.highestProductSlug ?? null,
       badges: p.badges ?? [],
     },
+    isPinned: p.isPinned ?? false,
+    isFeatured: p.isFeatured ?? false,
     reactionCount: p.reactionCount ?? 0,
     hasReacted: p.hasReacted ?? p.viewerHasReacted ?? false,
     isEdited: p.isEdited ?? false,
@@ -127,6 +129,7 @@ export interface CommunityPost {
   body: string;
   imageUrl: string | null;
   isPinned: boolean;
+  isFeatured: boolean;
   reactionCount: number;
   hasReacted: boolean;
   commentCount: number;

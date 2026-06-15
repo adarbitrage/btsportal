@@ -8,7 +8,7 @@ import { useCommunityCategories, useCommunityPosts } from "@/hooks/use-community
 import { PostCard } from "@/components/community/PostCard";
 import { PostComposer } from "@/components/community/post-composer";
 import { CommunityApiError } from "@/lib/community-api";
-import { Users, Loader2, Lock } from "lucide-react";
+import { Users, Loader2, Lock, Star } from "lucide-react";
 import { Link } from "wouter";
 
 function PaywallCard() {
@@ -45,8 +45,9 @@ export default function CommunityFeed() {
   const is403 = postsError instanceof CommunityApiError && postsError.status === 403;
 
   const allPosts = postsData?.pages.flatMap((p) => p.posts) ?? [];
-  const pinnedPosts = allPosts.filter((p) => p.isPinned);
-  const regularPosts = allPosts.filter((p) => !p.isPinned);
+  const featuredPosts = allPosts.filter((p) => p.isFeatured);
+  const pinnedPosts = allPosts.filter((p) => p.isPinned && !p.isFeatured);
+  const regularPosts = allPosts.filter((p) => !p.isPinned && !p.isFeatured);
 
   const selectedCategory = categories?.find((c) => c.slug === activeCategory);
 
@@ -152,6 +153,17 @@ export default function CommunityFeed() {
               </div>
             ) : (
               <div className="space-y-3">
+                {featuredPosts.length > 0 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 space-y-3" data-testid="featured-strip">
+                    <div className="flex items-center gap-1.5 px-1">
+                      <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                      <h2 className="text-sm font-semibold text-amber-700">Featured</h2>
+                    </div>
+                    {featuredPosts.map((post) => (
+                      <PostCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                )}
                 {pinnedPosts.map((post) => (
                   <PostCard key={post.id} post={post} />
                 ))}

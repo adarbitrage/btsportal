@@ -219,6 +219,7 @@ router.post("/community/posts", requireNotBanned, async (req, res): Promise<void
     body: post.content,
     mediaUrls: post.mediaUrls,
     isPinned: post.isPinned,
+    isFeatured: post.isFeatured,
     status: post.status,
     commentCount: post.commentCount,
     reactionCount: post.reactionCount,

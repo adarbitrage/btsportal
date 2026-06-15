@@ -15,7 +15,7 @@ import { ReactionButton } from "./reaction-button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
-import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare, Clock } from "lucide-react";
+import { Pin, Star, MoreHorizontal, Pencil, Trash2, MessageSquare, Clock } from "lucide-react";
 import type { CommunityPost } from "@/lib/community-api";
 
 const TRUNCATE_LENGTH = 400;
@@ -66,7 +66,7 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
   }
 
   return (
-    <Card className={cn("border-border/50 hover:shadow-sm transition-shadow", post.isPinned && "border-primary/30 bg-primary/[0.02]", isOwnPending && "border-amber-200 bg-amber-50/20")}>
+    <Card className={cn("border-border/50 hover:shadow-sm transition-shadow", post.isFeatured && "border-amber-300 bg-amber-50/30", post.isPinned && !post.isFeatured && "border-primary/30 bg-primary/[0.02]", isOwnPending && "border-amber-200 bg-amber-50/20")}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -83,6 +83,15 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
                   </button>
                 </ProfilePopover>
                 <TierBadge slug={author.highestProductSlug} />
+                {post.isFeatured && (
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] px-1.5 py-0 gap-0.5 text-amber-600 border-amber-300 bg-amber-50"
+                    data-testid={`badge-featured-post-${post.id}`}
+                  >
+                    <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />Featured
+                  </Badge>
+                )}
                 {post.isPinned && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 text-primary border-primary/30">
                     <Pin className="w-2.5 h-2.5" />Pinned
