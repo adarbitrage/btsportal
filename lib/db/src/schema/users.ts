@@ -17,6 +17,7 @@ export const usersTable = pgTable("users", {
   experienceLevel: text("experience_level"),
   primaryGoal: text("primary_goal"),
   smsOptIn: boolean("sms_opt_in").notNull().default(false),
+  ticketReplySmsOptIn: boolean("ticket_reply_sms_opt_in").notNull().default(true),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifyToken: text("email_verify_token"),
   emailVerifyExpires: timestamp("email_verify_expires", { withTimezone: true }),

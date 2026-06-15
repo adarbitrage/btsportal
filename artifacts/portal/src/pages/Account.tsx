@@ -66,6 +66,7 @@ export default function Account() {
   const [phone, setPhone] = useState("");
   const [timezone, setTimezone] = useState("");
   const [smsOptIn, setSmsOptIn] = useState(false);
+  const [ticketReplySmsOptIn, setTicketReplySmsOptIn] = useState(true);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
 
   const [profileSaving, setProfileSaving] = useState(false);
@@ -94,6 +95,7 @@ export default function Account() {
         member.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       );
       setSmsOptIn(member.smsOptIn ?? false);
+      setTicketReplySmsOptIn(member.ticketReplySmsOptIn ?? true);
       setMarketingOptIn(member.marketingOptIn ?? true);
     }
   }, [member]);
@@ -168,6 +170,7 @@ export default function Account() {
   const notifDirty =
     !!member &&
     (smsOptIn !== (member.smsOptIn ?? false) ||
+      ticketReplySmsOptIn !== (member.ticketReplySmsOptIn ?? true) ||
       marketingOptIn !== (member.marketingOptIn ?? true));
 
   const handleProfileSave = async () => {
@@ -201,6 +204,7 @@ export default function Account() {
       await patchProfile.mutateAsync({
         data: {
           smsOptIn,
+          ticketReplySmsOptIn,
           marketingOptIn,
         },
       });
@@ -812,6 +816,23 @@ export default function Account() {
                 checked={smsOptIn}
                 onCheckedChange={setSmsOptIn}
                 aria-label="Toggle SMS notifications"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Support reply texts</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Get a text whenever our support team replies to one of your
+                  tickets. Turn this off to silence ticket-reply texts while
+                  keeping your other SMS alerts. You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && ticketReplySmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setTicketReplySmsOptIn}
+                aria-label="Toggle support reply texts"
               />
             </div>
 

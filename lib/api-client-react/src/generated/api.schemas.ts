@@ -623,6 +623,13 @@ cancelled themselves, or has a newer attempt in flight).
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  /** Per-category SMS preference for support ticket-reply texts.
+When false, the member receives no SMS when support replies to
+a ticket, even if the master smsOptIn is on. Other SMS categories
+(account/security, billing, reminders) are unaffected. Email
+ticket-reply notifications always send regardless of this flag.
+ */
+  ticketReplySmsOptIn: boolean;
   marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;
@@ -1004,6 +1011,7 @@ export interface PatchMemberProfileBody {
   experienceLevel?: string;
   primaryGoal?: string;
   smsOptIn?: boolean;
+  ticketReplySmsOptIn?: boolean;
   marketingOptIn?: boolean;
 }
 
@@ -1018,6 +1026,7 @@ export interface PatchMemberProfileResponse {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  ticketReplySmsOptIn: boolean;
   marketingOptIn: boolean;
 }
 

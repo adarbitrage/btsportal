@@ -61,6 +61,11 @@ export const GetCurrentMemberResponse = zod.object({
   experienceLevel: zod.string().nullish(),
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
+  ticketReplySmsOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category SMS preference for support ticket-reply texts.\nWhen false, the member receives no SMS when support replies to\na ticket, even if the master smsOptIn is on. Other SMS categories\n(account\/security, billing, reminders) are unaffected. Email\nticket-reply notifications always send regardless of this flag.\n",
+    ),
   marketingOptIn: zod.boolean(),
   currentStreak: zod.number(),
   memberSince: zod.string(),
@@ -170,6 +175,7 @@ export const PatchMemberProfileBody = zod.object({
   experienceLevel: zod.string().optional(),
   primaryGoal: zod.string().optional(),
   smsOptIn: zod.boolean().optional(),
+  ticketReplySmsOptIn: zod.boolean().optional(),
   marketingOptIn: zod.boolean().optional(),
 });
 
@@ -180,6 +186,7 @@ export const PatchMemberProfileResponse = zod.object({
   experienceLevel: zod.string().nullish(),
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
+  ticketReplySmsOptIn: zod.boolean(),
   marketingOptIn: zod.boolean(),
 });
 

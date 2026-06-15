@@ -131,6 +131,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     experienceLevel: user.experienceLevel,
     primaryGoal: user.primaryGoal,
     smsOptIn: user.smsOptIn,
+    ticketReplySmsOptIn: user.ticketReplySmsOptIn,
     marketingOptIn: user.marketingOptIn,
     currentStreak: user.currentStreak,
     memberSince: user.memberSince.toISOString().split("T")[0],

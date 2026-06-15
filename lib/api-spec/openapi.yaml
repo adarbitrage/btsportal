@@ -7186,6 +7186,14 @@ components:
           type: ["string", "null"]
         smsOptIn:
           type: boolean
+        ticketReplySmsOptIn:
+          type: boolean
+          description: |
+            Per-category SMS preference for support ticket-reply texts.
+            When false, the member receives no SMS when support replies to
+            a ticket, even if the master smsOptIn is on. Other SMS categories
+            (account/security, billing, reminders) are unaffected. Email
+            ticket-reply notifications always send regardless of this flag.
         marketingOptIn:
           type: boolean
         currentStreak:
@@ -7206,7 +7214,7 @@ components:
             $ref: "#/components/schemas/OwnedProduct"
         ticketLimit:
           type: integer
-      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
 
     AdminCancelledEmailChange:
       type: object
@@ -7834,6 +7842,8 @@ components:
           type: string
         smsOptIn:
           type: boolean
+        ticketReplySmsOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
 
@@ -7852,9 +7862,11 @@ components:
           type: ["string", "null"]
         smsOptIn:
           type: boolean
+        ticketReplySmsOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
-      required: [name, smsOptIn, marketingOptIn]
+      required: [name, smsOptIn, ticketReplySmsOptIn, marketingOptIn]
 
     ChangeMemberPasswordBody:
       type: object

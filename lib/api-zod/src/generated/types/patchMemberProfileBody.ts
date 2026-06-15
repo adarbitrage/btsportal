@@ -14,5 +14,6 @@ export interface PatchMemberProfileBody {
   experienceLevel?: string;
   primaryGoal?: string;
   smsOptIn?: boolean;
+  ticketReplySmsOptIn?: boolean;
   marketingOptIn?: boolean;
 }

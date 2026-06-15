@@ -17,5 +17,6 @@ export interface PatchMemberProfileResponse {
   /** @nullable */
   primaryGoal?: string | null;
   smsOptIn: boolean;
+  ticketReplySmsOptIn: boolean;
   marketingOptIn: boolean;
 }

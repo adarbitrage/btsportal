@@ -50,7 +50,9 @@ const TEST_TAG = `td-inbound-${randomUUID().slice(0, 8)}`;
 let app: ReturnType<typeof buildTestAppWithRouters>;
 let memberUserId = 0;
 let smsMemberUserId = 0;
+let ticketSmsOptOutUserId = 0;
 const SMS_MEMBER_PHONE = "+15555550123";
+const TICKET_OPTOUT_PHONE = "+15555550199";
 const seededUserIds: number[] = [];
 const seededTicketIds: number[] = [];
 
@@ -111,6 +113,27 @@ beforeAll(async () => {
 
   smsMemberUserId = smsMember.id;
   seededUserIds.push(smsMember.id);
+
+  // Master SMS on, but opted OUT of the ticket-reply SMS category. Should
+  // still get the email, never the text.
+  const [ticketOptOut] = await db
+    .insert(usersTable)
+    .values({
+      email: `${TEST_TAG}-ticketoptout@example.test`,
+      name: "Ticket SMS Opt-out Member",
+      passwordHash,
+      role: "member",
+      sourceProduct: "lifetime",
+      emailVerified: true,
+      onboardingComplete: true,
+      phone: TICKET_OPTOUT_PHONE,
+      smsOptIn: true,
+      ticketReplySmsOptIn: false,
+    })
+    .returning({ id: usersTable.id });
+
+  ticketSmsOptOutUserId = ticketOptOut.id;
+  seededUserIds.push(ticketOptOut.id);
 });
 
 afterAll(async () => {
@@ -230,6 +253,27 @@ describe("POST /api/webhooks/ticketdesk — inbound replies", () => {
         }),
       }),
     );
+  });
+
+  it("does not text a member who opted out of ticket-reply texts but still emails them", async () => {
+    queueEmailMock.mockClear();
+    queueSmsMock.mockClear();
+    const ticket = await createTicket({ status: "open", userId: ticketSmsOptOutUserId });
+
+    const res = await request(app)
+      .post("/api/webhooks/ticketdesk")
+      .send({
+        reference: ticket.ticketNumber,
+        reply: {
+          id: `rep_${randomUUID().slice(0, 8)}`,
+          body: "Email yes, ticket-reply text no.",
+          author: { type: "agent" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    expect(queueSmsMock).not.toHaveBeenCalled();
   });
 
   it("does not text a member who has not opted into SMS", async () => {

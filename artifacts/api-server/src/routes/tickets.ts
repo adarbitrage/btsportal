@@ -501,6 +501,7 @@ async function sendTicketReplyNotification(
         name: usersTable.name,
         phone: usersTable.phone,
         smsOptIn: usersTable.smsOptIn,
+        ticketReplySmsOptIn: usersTable.ticketReplySmsOptIn,
       })
       .from(usersTable)
       .where(eq(usersTable.id, ticket.userId))
@@ -521,12 +522,20 @@ async function sendTicketReplyNotification(
 
     // Members who opted into SMS get a short text nudge in addition to the
     // email so they hear about the reply faster. queueSms (via sendSmsDirect)
-    // re-checks smsOptIn server-side from userId, so the opt-in gate is the
-    // source of truth even though we pre-check here to avoid queueing a job
-    // for a member with no phone on file. The webhook dedup claim guarantees
-    // this whole block runs at most once per reply, so a redelivered webhook
-    // never sends a duplicate text.
-    if (member.smsOptIn && member.phone) {
+    // re-checks the master smsOptIn server-side from userId, so that gate is
+    // the source of truth even though we pre-check here to avoid queueing a
+    // job for a member with no phone on file. The webhook dedup claim
+    // guarantees this whole block runs at most once per reply, so a
+    // redelivered webhook never sends a duplicate text.
+    //
+    // ticketReplySmsOptIn is the finer-grained, per-category preference: a
+    // member can keep the master SMS opt-in on (so they still get
+    // account-security/billing texts) while silencing the text they get on
+    // every support reply. Email always sends regardless — this only gates
+    // the SMS nudge. There is no server-side re-check of this category flag
+    // in queueSms (which is channel-generic), so this caller is the sole
+    // enforcement point for the ticket-reply category.
+    if (member.smsOptIn && member.ticketReplySmsOptIn && member.phone) {
       await CommunicationService.queueSms({
         templateSlug: "ticket_reply",
         to: member.phone,
