@@ -93,7 +93,11 @@ export function PostCard({ post, showFullComments }: { post: CommunityPost; show
                   </Badge>
                 )}
                 {post.isPinned && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 text-primary border-primary/30">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] px-1.5 py-0 gap-0.5 text-primary border-primary/30"
+                    data-testid={`badge-pinned-post-${post.id}`}
+                  >
                     <Pin className="w-2.5 h-2.5" />Pinned
                   </Badge>
                 )}
