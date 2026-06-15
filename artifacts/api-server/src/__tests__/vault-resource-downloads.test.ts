@@ -10,6 +10,8 @@ import {
   vaultResourcesTable,
   vaultResourceRelationsTable,
   vaultFavoritesTable,
+  productsTable,
+  userProductsTable,
 } from "@workspace/db";
 import { eq, inArray, like, or } from "drizzle-orm";
 
@@ -130,6 +132,120 @@ describe("POST /vault/resources/:id/download", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/not downloadable/i);
+  });
+});
+
+describe("POST /vault/resources/:id/download access control", () => {
+  // Guards the 403 branch in vault.ts: a member lacking the resource's
+  // requiredEntitlement must be refused, and the download counter must NOT
+  // move (otherwise paid-only files would both leak and inflate metrics).
+  // A member who owns an active product granting that entitlement gets 200.
+  const ENTITLEMENT = "content:advanced";
+  const PRODUCT_SLUG = `__vault_dl_prod__${randomUUID().slice(0, 8)}`;
+  let app: ReturnType<typeof buildTestAppWithRouters>;
+  let noAccessCookie: string;
+  let withAccessCookie: string;
+  let noAccessUserId: number;
+  let withAccessUserId: number;
+  let productId: number;
+  let lockedResourceId: number;
+  const userProductIds: number[] = [];
+
+  beforeAll(async () => {
+    app = buildTestAppWithRouters([vaultRouter]);
+
+    const noAccess = await insertUser("locked-no-access");
+    noAccessUserId = noAccess.id;
+    noAccessCookie = signCookie(noAccess.id, noAccess.email);
+
+    const withAccess = await insertUser("locked-with-access");
+    withAccessUserId = withAccess.id;
+    withAccessCookie = signCookie(withAccess.id, withAccess.email);
+
+    // A product whose entitlement_keys unlock the locked resource.
+    const [product] = await db
+      .insert(productsTable)
+      .values({
+        slug: PRODUCT_SLUG,
+        name: "Vault DL Test Product",
+        type: "frontend",
+        entitlementKeys: [ENTITLEMENT],
+      })
+      .returning({ id: productsTable.id });
+    productId = product.id;
+
+    // Only the with-access user owns it (active, no expiry).
+    const [up] = await db
+      .insert(userProductsTable)
+      .values({
+        userId: withAccessUserId,
+        productId,
+        status: "active",
+        expiresAt: null,
+      })
+      .returning({ id: userProductsTable.id });
+    userProductIds.push(up.id);
+
+    // A downloadable file resource gated behind that entitlement.
+    const [resource] = await db
+      .insert(vaultResourcesTable)
+      .values({
+        title: `__vault_dl_locked__${randomUUID().slice(0, 8)}`,
+        resourceType: "file",
+        fileUrl: "/vault/locked-download.pdf",
+        fileType: "application/pdf",
+        requiredEntitlement: ENTITLEMENT,
+      })
+      .returning({ id: vaultResourcesTable.id });
+    lockedResourceId = resource.id;
+  });
+
+  afterAll(async () => {
+    if (userProductIds.length > 0) {
+      await db.delete(userProductsTable).where(inArray(userProductsTable.id, userProductIds));
+    }
+    if (lockedResourceId) {
+      await db.delete(vaultResourcesTable).where(eq(vaultResourcesTable.id, lockedResourceId));
+    }
+    if (productId) {
+      await db.delete(productsTable).where(eq(productsTable.id, productId));
+    }
+    await db
+      .delete(usersTable)
+      .where(inArray(usersTable.id, [noAccessUserId, withAccessUserId]));
+  });
+
+  it("returns 403 and does NOT increment download_count for a member without the entitlement", async () => {
+    const res = await request(app)
+      .post(`/api/vault/resources/${lockedResourceId}/download`)
+      .set("Cookie", noAccessCookie)
+      .send({});
+
+    expect(res.status).toBe(403);
+    expect(res.body.downloadUrl).toBeUndefined();
+
+    const [row] = await db
+      .select({ downloadCount: vaultResourcesTable.downloadCount })
+      .from(vaultResourcesTable)
+      .where(eq(vaultResourcesTable.id, lockedResourceId));
+    expect(row?.downloadCount).toBe(0);
+  });
+
+  it("returns 200 with a downloadUrl for a member with an active entitling product", async () => {
+    const res = await request(app)
+      .post(`/api/vault/resources/${lockedResourceId}/download`)
+      .set("Cookie", withAccessCookie)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.downloadUrl).toBe("/vault/locked-download.pdf");
+    expect(res.body.fileType).toBe("application/pdf");
+
+    const [row] = await db
+      .select({ downloadCount: vaultResourcesTable.downloadCount })
+      .from(vaultResourcesTable)
+      .where(eq(vaultResourcesTable.id, lockedResourceId));
+    expect(row?.downloadCount).toBe(1);
   });
 });
 
