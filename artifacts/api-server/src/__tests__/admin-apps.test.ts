@@ -482,6 +482,35 @@ describe("POST /api/admin/apps/flexy/regenerate-password/:userId", () => {
         reason: "no_phone_on_file",
       });
     });
+
+    it("does not call queueSms when the member opted out of the account & security SMS category, even with master SMS on (skipped: category_opted_out)", async () => {
+      const securityOptOut = await insertUser("member", "sms-security-optout");
+      await db
+        .update(usersTable)
+        .set({ phone: "+15555550200", smsOptIn: true, securitySmsOptIn: false })
+        .where(eq(usersTable.id, securityOptOut.id));
+      await db.insert(memberAppInstancesTable).values({
+        userId: securityOptOut.id,
+        appName: "flexy",
+        status: "installed",
+        providerLocationId: "loc_test_789",
+        providerStaffUserId: "staff_test_789",
+        providerStaffEmail: `${TEST_TAG}-flexy-staff-security-optout@example.test`,
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/apps/flexy/regenerate-password/${securityOptOut.id}`)
+        .set("Cookie", signCookie(adminUser.id, adminUser.email))
+        .send({ notifySms: true });
+
+      expect(res.status).toBe(200);
+      expect(queueSmsMock).not.toHaveBeenCalled();
+      expect(res.body.notifications.sms).toEqual({
+        requested: true,
+        status: "skipped",
+        reason: "category_opted_out",
+      });
+    });
   });
 });
 

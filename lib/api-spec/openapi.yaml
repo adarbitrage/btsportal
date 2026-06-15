@@ -7194,6 +7194,30 @@ components:
             a ticket, even if the master smsOptIn is on. Other SMS categories
             (account/security, billing, reminders) are unaffected. Email
             ticket-reply notifications always send regardless of this flag.
+        securitySmsOptIn:
+          type: boolean
+          description: |
+            Per-category SMS preference for account & security texts (e.g.
+            password resets, login credentials). Gated under the master
+            smsOptIn. Defaults on. Email always sends regardless.
+        billingSmsOptIn:
+          type: boolean
+          description: |
+            Per-category SMS preference for billing texts (e.g. purchase
+            confirmations, failed-payment notices). Gated under the master
+            smsOptIn. Defaults on. Email always sends regardless.
+        coachingSmsOptIn:
+          type: boolean
+          description: |
+            Per-category SMS preference for coaching-call reminder texts.
+            Gated under the master smsOptIn. Defaults on. Email always sends
+            regardless.
+        contentSmsOptIn:
+          type: boolean
+          description: |
+            Per-category SMS preference for new-content alert texts. Gated
+            under the master smsOptIn. Defaults off (marketing-ish). Email
+            always sends regardless.
         marketingOptIn:
           type: boolean
         currentStreak:
@@ -7214,7 +7238,7 @@ components:
             $ref: "#/components/schemas/OwnedProduct"
         ticketLimit:
           type: integer
-      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
 
     AdminCancelledEmailChange:
       type: object
@@ -7872,6 +7896,14 @@ components:
           type: boolean
         ticketReplySmsOptIn:
           type: boolean
+        securitySmsOptIn:
+          type: boolean
+        billingSmsOptIn:
+          type: boolean
+        coachingSmsOptIn:
+          type: boolean
+        contentSmsOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
 
@@ -7892,9 +7924,17 @@ components:
           type: boolean
         ticketReplySmsOptIn:
           type: boolean
+        securitySmsOptIn:
+          type: boolean
+        billingSmsOptIn:
+          type: boolean
+        coachingSmsOptIn:
+          type: boolean
+        contentSmsOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
-      required: [name, smsOptIn, ticketReplySmsOptIn, marketingOptIn]
+      required: [name, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, marketingOptIn]
 
     ChangeMemberPasswordBody:
       type: object

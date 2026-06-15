@@ -67,6 +67,10 @@ export default function Account() {
   const [timezone, setTimezone] = useState("");
   const [smsOptIn, setSmsOptIn] = useState(false);
   const [ticketReplySmsOptIn, setTicketReplySmsOptIn] = useState(true);
+  const [securitySmsOptIn, setSecuritySmsOptIn] = useState(true);
+  const [billingSmsOptIn, setBillingSmsOptIn] = useState(true);
+  const [coachingSmsOptIn, setCoachingSmsOptIn] = useState(true);
+  const [contentSmsOptIn, setContentSmsOptIn] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
 
   const [profileSaving, setProfileSaving] = useState(false);
@@ -96,6 +100,10 @@ export default function Account() {
       );
       setSmsOptIn(member.smsOptIn ?? false);
       setTicketReplySmsOptIn(member.ticketReplySmsOptIn ?? true);
+      setSecuritySmsOptIn(member.securitySmsOptIn ?? true);
+      setBillingSmsOptIn(member.billingSmsOptIn ?? true);
+      setCoachingSmsOptIn(member.coachingSmsOptIn ?? true);
+      setContentSmsOptIn(member.contentSmsOptIn ?? false);
       setMarketingOptIn(member.marketingOptIn ?? true);
     }
   }, [member]);
@@ -171,6 +179,10 @@ export default function Account() {
     !!member &&
     (smsOptIn !== (member.smsOptIn ?? false) ||
       ticketReplySmsOptIn !== (member.ticketReplySmsOptIn ?? true) ||
+      securitySmsOptIn !== (member.securitySmsOptIn ?? true) ||
+      billingSmsOptIn !== (member.billingSmsOptIn ?? true) ||
+      coachingSmsOptIn !== (member.coachingSmsOptIn ?? true) ||
+      contentSmsOptIn !== (member.contentSmsOptIn ?? false) ||
       marketingOptIn !== (member.marketingOptIn ?? true));
 
   const handleProfileSave = async () => {
@@ -205,6 +217,10 @@ export default function Account() {
         data: {
           smsOptIn,
           ticketReplySmsOptIn,
+          securitySmsOptIn,
+          billingSmsOptIn,
+          coachingSmsOptIn,
+          contentSmsOptIn,
           marketingOptIn,
         },
       });
@@ -833,6 +849,74 @@ export default function Account() {
                 disabled={!smsOptIn}
                 onCheckedChange={setTicketReplySmsOptIn}
                 aria-label="Toggle support reply texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Account &amp; security texts</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Texts for password resets and login credentials. Turn this
+                  off to silence security texts while keeping your other SMS
+                  alerts. You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && securitySmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setSecuritySmsOptIn}
+                aria-label="Toggle account and security texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Billing texts</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Texts for purchase confirmations and failed-payment notices.
+                  Turn this off to silence billing texts while keeping your
+                  other SMS alerts. You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && billingSmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setBillingSmsOptIn}
+                aria-label="Toggle billing texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Coaching reminders</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Texts reminding you about upcoming coaching calls. Turn this
+                  off to silence reminder texts while keeping your other SMS
+                  alerts. You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && coachingSmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setCoachingSmsOptIn}
+                aria-label="Toggle coaching reminder texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">New content alerts</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Texts when new training or content drops. Off by default —
+                  turn this on to get a text when there's something new.
+                  You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && contentSmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setContentSmsOptIn}
+                aria-label="Toggle new content alert texts"
               />
             </div>
 

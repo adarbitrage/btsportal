@@ -66,6 +66,26 @@ export const GetCurrentMemberResponse = zod.object({
     .describe(
       "Per-category SMS preference for support ticket-reply texts.\nWhen false, the member receives no SMS when support replies to\na ticket, even if the master smsOptIn is on. Other SMS categories\n(account\/security, billing, reminders) are unaffected. Email\nticket-reply notifications always send regardless of this flag.\n",
     ),
+  securitySmsOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category SMS preference for account & security texts (e.g.\npassword resets, login credentials). Gated under the master\nsmsOptIn. Defaults on. Email always sends regardless.\n",
+    ),
+  billingSmsOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category SMS preference for billing texts (e.g. purchase\nconfirmations, failed-payment notices). Gated under the master\nsmsOptIn. Defaults on. Email always sends regardless.\n",
+    ),
+  coachingSmsOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category SMS preference for coaching-call reminder texts.\nGated under the master smsOptIn. Defaults on. Email always sends\nregardless.\n",
+    ),
+  contentSmsOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category SMS preference for new-content alert texts. Gated\nunder the master smsOptIn. Defaults off (marketing-ish). Email\nalways sends regardless.\n",
+    ),
   marketingOptIn: zod.boolean(),
   currentStreak: zod.number(),
   memberSince: zod.string(),
@@ -176,6 +196,10 @@ export const PatchMemberProfileBody = zod.object({
   primaryGoal: zod.string().optional(),
   smsOptIn: zod.boolean().optional(),
   ticketReplySmsOptIn: zod.boolean().optional(),
+  securitySmsOptIn: zod.boolean().optional(),
+  billingSmsOptIn: zod.boolean().optional(),
+  coachingSmsOptIn: zod.boolean().optional(),
+  contentSmsOptIn: zod.boolean().optional(),
   marketingOptIn: zod.boolean().optional(),
 });
 
@@ -187,6 +211,10 @@ export const PatchMemberProfileResponse = zod.object({
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
   ticketReplySmsOptIn: zod.boolean(),
+  securitySmsOptIn: zod.boolean(),
+  billingSmsOptIn: zod.boolean(),
+  coachingSmsOptIn: zod.boolean(),
+  contentSmsOptIn: zod.boolean(),
   marketingOptIn: zod.boolean(),
 });
 

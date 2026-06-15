@@ -381,6 +381,7 @@ router.post(
           email: usersTable.email,
           phone: usersTable.phone,
           smsOptIn: usersTable.smsOptIn,
+          securitySmsOptIn: usersTable.securitySmsOptIn,
         })
         .from(usersTable)
         .where(eq(usersTable.id, userId))
@@ -467,6 +468,9 @@ router.post(
           } else if (!user.smsOptIn) {
             notifications.sms.status = "skipped";
             notifications.sms.reason = "not_opted_in";
+          } else if (!user.securitySmsOptIn) {
+            notifications.sms.status = "skipped";
+            notifications.sms.reason = "category_opted_out";
           } else {
             try {
               const outcome = await CommunicationService.queueSms({

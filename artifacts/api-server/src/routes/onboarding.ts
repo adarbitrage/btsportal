@@ -148,7 +148,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, ticketReplySmsOptIn, marketingOptIn } = parsed.data;
+  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, marketingOptIn } = parsed.data;
 
   const updateData: Record<string, any> = {};
   if (name !== undefined) updateData.name = name;
@@ -158,6 +158,10 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
   if (primaryGoal !== undefined) updateData.primaryGoal = primaryGoal;
   if (smsOptIn !== undefined) updateData.smsOptIn = smsOptIn;
   if (ticketReplySmsOptIn !== undefined) updateData.ticketReplySmsOptIn = ticketReplySmsOptIn;
+  if (securitySmsOptIn !== undefined) updateData.securitySmsOptIn = securitySmsOptIn;
+  if (billingSmsOptIn !== undefined) updateData.billingSmsOptIn = billingSmsOptIn;
+  if (coachingSmsOptIn !== undefined) updateData.coachingSmsOptIn = coachingSmsOptIn;
+  if (contentSmsOptIn !== undefined) updateData.contentSmsOptIn = contentSmsOptIn;
   if (marketingOptIn !== undefined) updateData.marketingOptIn = marketingOptIn;
 
   if (Object.keys(updateData).length === 0) {
@@ -197,6 +201,10 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
       primaryGoal: updated.primaryGoal,
       smsOptIn: updated.smsOptIn,
       ticketReplySmsOptIn: updated.ticketReplySmsOptIn,
+      securitySmsOptIn: updated.securitySmsOptIn,
+      billingSmsOptIn: updated.billingSmsOptIn,
+      coachingSmsOptIn: updated.coachingSmsOptIn,
+      contentSmsOptIn: updated.contentSmsOptIn,
       marketingOptIn: updated.marketingOptIn,
     })
   );

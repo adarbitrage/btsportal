@@ -46,6 +46,26 @@ a ticket, even if the master smsOptIn is on. Other SMS categories
 ticket-reply notifications always send regardless of this flag.
  */
   ticketReplySmsOptIn: boolean;
+  /** Per-category SMS preference for account & security texts (e.g.
+password resets, login credentials). Gated under the master
+smsOptIn. Defaults on. Email always sends regardless.
+ */
+  securitySmsOptIn: boolean;
+  /** Per-category SMS preference for billing texts (e.g. purchase
+confirmations, failed-payment notices). Gated under the master
+smsOptIn. Defaults on. Email always sends regardless.
+ */
+  billingSmsOptIn: boolean;
+  /** Per-category SMS preference for coaching-call reminder texts.
+Gated under the master smsOptIn. Defaults on. Email always sends
+regardless.
+ */
+  coachingSmsOptIn: boolean;
+  /** Per-category SMS preference for new-content alert texts. Gated
+under the master smsOptIn. Defaults off (marketing-ish). Email
+always sends regardless.
+ */
+  contentSmsOptIn: boolean;
   marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;

@@ -300,8 +300,8 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
     variables: { member_name: name, product_name: product.name },
     userId,
   });
-  const [purchaseUser] = await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (purchaseUser?.phone) {
+  const [purchaseUser] = await db.select({ phone: usersTable.phone, smsOptIn: usersTable.smsOptIn, billingSmsOptIn: usersTable.billingSmsOptIn }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (purchaseUser?.phone && purchaseUser.smsOptIn && purchaseUser.billingSmsOptIn) {
     CommunicationService.queueSms({
       templateSlug: "purchase_confirmation",
       to: purchaseUser.phone,
@@ -566,14 +566,14 @@ async function handlePaymentFailed(payload: ThrivecartPayload, body: Record<stri
     .returning();
 
   console.log(`[Webhook] Payment failed for "${product.name}" for user ${email}, grace period until ${graceExpiresAt.toISOString()}`);
-  const [failedPaymentUser] = await db.select({ phone: usersTable.phone, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+  const [failedPaymentUser] = await db.select({ phone: usersTable.phone, name: usersTable.name, smsOptIn: usersTable.smsOptIn, billingSmsOptIn: usersTable.billingSmsOptIn }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
   CommunicationService.queueEmail({
     templateSlug: "payment_failed",
     to: email,
     variables: { member_name: failedPaymentUser?.name || email, product_name: product.name, grace_date: graceExpiresAt.toLocaleDateString() },
     userId: user.id,
   });
-  if (failedPaymentUser?.phone) {
+  if (failedPaymentUser?.phone && failedPaymentUser.smsOptIn && failedPaymentUser.billingSmsOptIn) {
     CommunicationService.queueSms({
       templateSlug: "payment_failed",
       to: failedPaymentUser.phone,
