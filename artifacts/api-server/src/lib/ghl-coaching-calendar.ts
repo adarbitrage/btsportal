@@ -378,11 +378,14 @@ export async function cancelAppointment(eventId: string): Promise<void> {
 }
 
 /**
- * Add a note to a contact in the coaching sub-account. The contact is the one
- * tied to the appointment, so this is visible from the appointment's contact
- * record (same GHL location). The location is implied by the location-scoped
- * token, so no locationId is sent.
+ * Add an internal note to a GHL appointment (calendar event). This populates the
+ * "Internal Note(s)" section of the appointment detail view; GHL also mirrors the
+ * note onto the linked Contact/Opportunity/Conversation records automatically.
+ * The location is implied by the location-scoped token. Verified against the
+ * coaching sub-account with the existing Version header (note body <= 5000 chars).
  */
-export async function addContactNote(contactId: string, body: string): Promise<void> {
-  await ghlRequest("POST", `/contacts/${encodeURIComponent(contactId)}/notes`, { body });
+export async function createAppointmentNote(appointmentId: string, body: string): Promise<void> {
+  await ghlRequest("POST", `/calendars/appointments/${encodeURIComponent(appointmentId)}/notes`, {
+    body,
+  });
 }

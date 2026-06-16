@@ -16,7 +16,8 @@ import {
   createAppointment,
   cancelAppointment,
   updateAppointment,
-  addContactNote,
+  createAppointmentNote,
+  COACHING_TIMEZONE,
 } from "../lib/ghl-coaching-calendar";
 
 const router: IRouter = Router();
@@ -70,16 +71,6 @@ function isoWithMatchingOffset(date: Date, reference: string): string {
   const om = parseInt(offset.slice(4, 6), 10);
   const shifted = new Date(date.getTime() + sign * (oh * 60 + om) * 60000);
   return shifted.toISOString().slice(0, 19) + offset;
-}
-
-// Surface the member's topic on the GHL appointment title itself so it shows
-// directly on the calendar event. The DB `title` stays clean for the member; the
-// full topic also lives in a coaching-sub-account contact note.
-function buildGhlTitle(title: string, discussionTopic: string | null | undefined): string {
-  const topic = discussionTopic?.trim();
-  if (!topic) return title;
-  const preview = topic.length > 60 ? `${topic.slice(0, 57)}…` : topic;
-  return `${title} — ${preview}`;
 }
 
 function splitName(name: string): { firstName: string; lastName: string } {
@@ -259,7 +250,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
       contactId,
       startTime,
       endTime: endTimeIso,
-      title: buildGhlTitle(title, discussionTopic),
+      title,
     });
     createdAppointmentId = appointment.id;
 
@@ -290,19 +281,26 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
 
     await client.query("COMMIT");
 
-    // Mirror the member's topic onto the GHL contact in the COACHING sub-account
-    // (same location as the appointment) so the coach sees the full text on the
-    // contact tied to this booking. Fire-and-forget: never block the booking.
+    // Write the member's topic into the GHL appointment's Internal Notes so the
+    // coach sees it on the appointment detail view. The note is self-labeling
+    // (coach + session time) because GHL also mirrors appointment notes onto the
+    // linked contact, where multiple bookings would otherwise be ambiguous.
+    // Fire-and-forget: never block the booking on a GHL note hiccup.
     if (discussionTopic) {
       const whenStr = scheduledAt.toLocaleString("en-US", {
-        dateStyle: "medium",
-        timeStyle: "short",
+        timeZone: COACHING_TIMEZONE,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
       });
-      void addContactNote(
-        contactId,
-        `1-on-1 coaching booked — ${coach.name} — ${whenStr}\n\nWhat the member wants to discuss on the call:\n${discussionTopic}`,
+      void createAppointmentNote(
+        appointment.id,
+        `1-on-1 with ${coach.name} — ${whenStr}\nWhat the member wants to discuss:\n${discussionTopic}`,
       ).catch((err) => {
-        console.error("[coaching-sessions] discussion-topic contact-note failed:", err);
+        console.error("[coaching-sessions] discussion-topic appointment-note failed:", err);
       });
     }
 
@@ -489,7 +487,6 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
-      discussionTopic: sessionPackBookingsTable.discussionTopic,
     })
     .from(sessionPackBookingsTable)
     .where(
@@ -553,9 +550,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
         calendarId: existing.ghlCalendarId,
         startTime,
         endTime: endTimeIso,
-        title: existing.title
-          ? buildGhlTitle(existing.title, existing.discussionTopic)
-          : undefined,
+        title: existing.title ?? undefined,
       });
       meetLink = updated.meetLink;
     } catch (err) {
