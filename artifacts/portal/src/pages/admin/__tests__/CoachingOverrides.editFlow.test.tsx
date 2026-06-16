@@ -81,6 +81,8 @@ beforeEach(() => {
   useCoachingCoach.mockReset();
 
   updateOverride.mockResolvedValue({ ...existingOverride, bufferMinutes: 25 });
+  createOverride.mockResolvedValue({ ...existingOverride, id: 99 });
+  deleteOverride.mockResolvedValue(undefined);
   useCoachingCoaches.mockReturnValue({
     data: [
       { id: COACH_ID, name: "Coach Jane", oneOnOneEnabled: true },
@@ -150,5 +152,82 @@ describe("CoachingOverrides — edit existing override", () => {
       expect.objectContaining({ id: OVERRIDE_ID, bufferMinutes: 25 }),
     );
     expect(createOverride).not.toHaveBeenCalled();
+  });
+});
+
+describe("CoachingOverrides — add new override", () => {
+  it("opens a blank dialog in add mode (no edit-mode copy)", async () => {
+    renderPage();
+    await selectCoach();
+
+    await userEvent.click(await screen.findByText("Add Override"));
+
+    const dialog = await screen.findByRole("dialog");
+    // Title and primary button use add-mode copy, not edit-mode copy.
+    expect(
+      within(dialog).getByRole("heading", { name: "Add Override" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Add Override" }),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText("Edit Override")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Save Changes")).not.toBeInTheDocument();
+
+    // Dialog is blank, not pre-filled with the existing override's values.
+    expect(
+      within(dialog).queryByDisplayValue("Extra hours"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Save calls createOverride(...) with the entered values and never updateOverride", async () => {
+    renderPage();
+    await selectCoach();
+
+    await userEvent.click(await screen.findByText("Add Override"));
+
+    const dialog = await screen.findByRole("dialog");
+    const dateInput = within(dialog).getByDisplayValue(
+      new Date().toISOString().split("T")[0],
+    );
+    await userEvent.clear(dateInput);
+    await userEvent.type(dateInput, "2026-12-25");
+
+    const reasonInput = within(dialog).getByPlaceholderText(
+      "e.g., Public holiday, Vacation",
+    );
+    await userEvent.type(reasonInput, "Christmas");
+
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add Override" }),
+    );
+
+    await waitFor(() => {
+      expect(createOverride).toHaveBeenCalledTimes(1);
+    });
+    expect(createOverride).toHaveBeenCalledWith(
+      expect.objectContaining({
+        coachId: COACH_ID,
+        overrideDate: "2026-12-25",
+        overrideType: "blocked",
+        reason: "Christmas",
+      }),
+    );
+    expect(updateOverride).not.toHaveBeenCalled();
+  });
+});
+
+describe("CoachingOverrides — delete existing override", () => {
+  it("delete button calls deleteOverride(id)", async () => {
+    renderPage();
+    await selectCoach();
+
+    await userEvent.click(
+      await screen.findByTestId(`button-delete-override-${OVERRIDE_ID}`),
+    );
+
+    await waitFor(() => {
+      expect(deleteOverride).toHaveBeenCalledTimes(1);
+    });
+    expect(deleteOverride).toHaveBeenCalledWith(OVERRIDE_ID);
   });
 });
