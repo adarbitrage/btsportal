@@ -4,6 +4,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Calendar,
   Clock,
   UserCheck,
@@ -13,13 +19,9 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   FileText,
   Ticket,
   PlayCircle,
-  Sparkles,
-  ListChecks,
-  MessageSquare,
 } from "lucide-react";
 import { format, addMinutes, isBefore } from "date-fns";
 import { Link } from "wouter";
@@ -46,9 +48,17 @@ const DESIGN_PREVIEW_EMAIL = "sasha@cherringtonmedia.com";
 
 interface PastSessionView extends SessionBookingType {
   recordingUrl?: string | null;
-  summaryText?: string | null;
-  summaryHighlights?: string[];
-  actionItems?: string[];
+  summaryUrl?: string | null;
+}
+
+/**
+ * Google Drive "view" links (…/file/d/<id>/view) can't be embedded directly;
+ * the embeddable player URL is …/file/d/<id>/preview. Returns null when the
+ * URL isn't a recognizable Drive file link (caller falls back to opening it).
+ */
+function toDriveEmbedUrl(url: string): string | null {
+  const match = url.match(/\/file\/d\/([^/]+)/);
+  return match ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
 }
 
 function buildDesignPreviewSession(): PastSessionView {
@@ -69,19 +79,10 @@ function buildDesignPreviewSession(): PastSessionView {
     discussionTopic: "Scaling my Media Mavens campaign past $500/day in spend",
     cancelledAt: null,
     createdAt: scheduledAt.toISOString(),
-    recordingUrl: "https://meet.google.com/abc-defg-hij",
-    summaryText:
-      "We reviewed your current Media Mavens campaign and pinpointed why scaling stalls around $300/day. The core issue is ad fatigue on your top creative paired with too-narrow audience targeting. Michael walked through a creative-refresh cadence and a structured budget-scaling plan that protects ROAS while you push past $500/day.",
-    summaryHighlights: [
-      "Your top creative is fatiguing — frequency is above 3.0 on the main audience.",
-      "Audience is too narrow to support $500/day; broaden before scaling budget.",
-      "Scale budget in 20% steps every 48 hours rather than doubling overnight.",
-    ],
-    actionItems: [
-      "Launch 3 new creative variations this week to combat ad fatigue.",
-      "Build one broad interest-stacked audience to expand reach.",
-      "Increase daily budget by 20% every 2 days while ROAS holds above target.",
-    ],
+    recordingUrl:
+      "https://drive.google.com/file/d/10-fqBrcbFGDH6xe32PFOGd3n5Y_ZQZnR/view?usp=drive_link",
+    summaryUrl:
+      "https://docs.google.com/document/d/1LQj1czlZo0jnc5je3-qDPTwGtq-sQw2iyw4zGbAbwXE/edit?usp=drive_link",
   };
 }
 
@@ -116,7 +117,8 @@ export default function SessionBooking() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pastPage, setPastPage] = useState(0);
-  const [expandedPastId, setExpandedPastId] = useState<number | null>(-1);
+  const [activeRecording, setActiveRecording] =
+    useState<PastSessionView | null>(null);
 
   const { data: balanceData, isLoading: balanceLoading } = useSessionBalance();
   const { data: bookings, isLoading: bookingsLoading } = useMySessionBookings();
@@ -425,16 +427,14 @@ export default function SessionBooking() {
               ) : paginatedPast.sessions.length > 0 ? (
                 <div className="space-y-3">
                   {paginatedPast.sessions.map((booking) => {
-                    const hasRecap = Boolean(
-                      booking.recordingUrl ||
-                        booking.summaryText ||
-                        (booking.summaryHighlights?.length ?? 0) > 0 ||
-                        (booking.actionItems?.length ?? 0) > 0,
-                    );
-                    const isExpanded = expandedPastId === booking.id;
+                    const recordingUrl = booking.recordingUrl ?? null;
+                    const summaryUrl = booking.summaryUrl ?? null;
+                    const recordingEmbedUrl = recordingUrl
+                      ? toDriveEmbedUrl(recordingUrl)
+                      : null;
                     return (
-                    <Card key={booking.id} className="overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <Card key={booking.id}>
+                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center gap-4 min-w-0">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
                             {booking.status === "cancelled" ? (
@@ -459,118 +459,48 @@ export default function SessionBooking() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
                           {statusBadge(booking.status)}
-                          {hasRecap && (
+                          {recordingUrl && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="gap-1.5"
                               onClick={() =>
-                                setExpandedPastId(isExpanded ? null : booking.id)
+                                recordingEmbedUrl
+                                  ? setActiveRecording(booking)
+                                  : window.open(
+                                      recordingUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    )
                               }
-                              data-testid={`recap-toggle-${booking.id}`}
+                              data-testid={`watch-recording-${booking.id}`}
                             >
-                              <Sparkles className="w-3.5 h-3.5 text-primary" />
-                              Recording & Notes
-                              <ChevronDown
-                                className={`w-3.5 h-3.5 transition-transform ${
-                                  isExpanded ? "rotate-180" : ""
-                                }`}
-                              />
+                              <PlayCircle className="w-3.5 h-3.5 text-primary" />
+                              Watch Recording
+                            </Button>
+                          )}
+                          {summaryUrl && (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              <a
+                                href={summaryUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-testid={`meeting-notes-${booking.id}`}
+                              >
+                                <FileText className="w-3.5 h-3.5 text-primary" />
+                                See Meeting Notes
+                              </a>
                             </Button>
                           )}
                         </div>
                       </CardContent>
-
-                      {hasRecap && isExpanded && (
-                        <div className="border-t border-border bg-muted/30 p-4 space-y-5">
-                          {booking.discussionTopic && (
-                            <div className="flex items-start gap-2 text-sm">
-                              <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                              <p className="text-muted-foreground">
-                                <span className="font-medium text-foreground">
-                                  Topic:
-                                </span>{" "}
-                                {booking.discussionTopic}
-                              </p>
-                            </div>
-                          )}
-
-                          {booking.recordingUrl && (
-                            <div>
-                              <div className="aspect-video w-full rounded-lg bg-foreground/5 border border-border flex items-center justify-center">
-                                <a
-                                  href={booking.recordingUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex flex-col items-center gap-2 text-primary hover:opacity-80 transition-opacity"
-                                  data-testid={`recording-link-${booking.id}`}
-                                >
-                                  <PlayCircle className="w-12 h-12" />
-                                  <span className="text-sm font-medium">
-                                    Watch session recording
-                                  </span>
-                                </a>
-                              </div>
-                            </div>
-                          )}
-
-                          {(booking.summaryText ||
-                            (booking.summaryHighlights?.length ?? 0) > 0) && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                                <h5 className="font-semibold text-foreground text-sm">
-                                  AI Session Summary
-                                </h5>
-                              </div>
-                              {booking.summaryText && (
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                  {booking.summaryText}
-                                </p>
-                              )}
-                              {(booking.summaryHighlights?.length ?? 0) > 0 && (
-                                <ul className="space-y-1.5 mt-2">
-                                  {booking.summaryHighlights!.map((point, i) => (
-                                    <li
-                                      key={i}
-                                      className="flex items-start gap-2 text-sm text-muted-foreground"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                                      <span>{point}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          )}
-
-                          {(booking.actionItems?.length ?? 0) > 0 && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <ListChecks className="w-4 h-4 text-primary" />
-                                <h5 className="font-semibold text-foreground text-sm">
-                                  Your Action Items
-                                </h5>
-                              </div>
-                              <ul className="space-y-1.5">
-                                {booking.actionItems!.map((item, i) => (
-                                  <li
-                                    key={i}
-                                    className="flex items-start gap-2 text-sm text-muted-foreground"
-                                  >
-                                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                                      {i + 1}
-                                    </span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </Card>
                     );
                   })}
@@ -641,6 +571,35 @@ export default function SessionBooking() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!activeRecording}
+        onOpenChange={(open) => {
+          if (!open) setActiveRecording(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle>
+              {activeRecording
+                ? `Session with ${activeRecording.coachName}`
+                : "Session recording"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="aspect-video w-full bg-black">
+            {activeRecording?.recordingUrl &&
+              toDriveEmbedUrl(activeRecording.recordingUrl) && (
+                <iframe
+                  src={toDriveEmbedUrl(activeRecording.recordingUrl)!}
+                  title="Session recording"
+                  className="w-full h-full border-0"
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                />
+              )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
