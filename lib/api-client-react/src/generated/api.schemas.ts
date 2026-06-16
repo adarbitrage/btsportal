@@ -1039,6 +1039,24 @@ export interface CreateTicketMessage {
   body: string;
 }
 
+export type CreateAnnouncementRequestType =
+  (typeof CreateAnnouncementRequestType)[keyof typeof CreateAnnouncementRequestType];
+
+export const CreateAnnouncementRequestType = {
+  new_content: "new_content",
+  event: "event",
+  milestone: "milestone",
+  general: "general",
+} as const;
+
+export interface CreateAnnouncementRequest {
+  /** @minLength 1 */
+  title: string;
+  /** @minLength 1 */
+  body: string;
+  type?: CreateAnnouncementRequestType;
+}
+
 export interface SignedDocumentSummary {
   documentType: string;
   signedAt: string;
@@ -2909,6 +2927,10 @@ export type AdminDeleteRoutingRule200 = {
 };
 
 export type ListAnnouncementsParams = {
+  limit?: number;
+};
+
+export type ListAdminAnnouncementsParams = {
   limit?: number;
 };
 

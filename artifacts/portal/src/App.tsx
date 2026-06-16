@@ -124,6 +124,7 @@ import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
 import CommunicationsSmsTemplates from "@/pages/admin/CommunicationsSmsTemplates";
 import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
 import CommunicationsBroadcasts from "@/pages/admin/CommunicationsBroadcasts";
+import CommunicationsAnnouncements from "@/pages/admin/CommunicationsAnnouncements";
 import CommunicationsLog from "@/pages/admin/CommunicationsLog";
 import CommunicationsAnalytics from "@/pages/admin/CommunicationsAnalytics";
 import ToolManagement from "@/pages/admin/ToolManagement";
@@ -493,6 +494,7 @@ function Router() {
       <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/broadcasts">{() => <AdminRoute component={CommunicationsBroadcasts} permission="communications:manage" />}</Route>
+      <Route path="/admin/communications/announcements">{() => <AdminRoute component={CommunicationsAnnouncements} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/log">{() => <AdminRoute component={CommunicationsLog} permission="communications:view" />}</Route>
       <Route path="/admin/communications/analytics">{() => <AdminRoute component={CommunicationsAnalytics} permission="communications:view" />}</Route>
       <Route path="/admin/tools">{() => <AdminRoute component={ToolManagement} permission="apps:manage" />}</Route>

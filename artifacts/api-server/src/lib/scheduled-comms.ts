@@ -142,13 +142,21 @@ export async function processNewContentAlerts(): Promise<void> {
   // texted at most once per announcement even though this runs every 15 min.
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+  // Only "new_content" announcements drive these texts — event/milestone/general
+  // posts are surfaced in-app but must not fire the new-content SMS (matches the
+  // admin announcements UI copy and the contentSmsOptIn category semantics).
   const recentAnnouncements = await db
     .select({
       id: announcementsTable.id,
       title: announcementsTable.title,
     })
     .from(announcementsTable)
-    .where(gte(announcementsTable.createdAt, twentyFourHoursAgo));
+    .where(
+      and(
+        gte(announcementsTable.createdAt, twentyFourHoursAgo),
+        eq(announcementsTable.type, "new_content")
+      )
+    );
 
   if (recentAnnouncements.length === 0) return;
 

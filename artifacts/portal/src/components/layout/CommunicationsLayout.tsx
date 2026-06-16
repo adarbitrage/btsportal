@@ -6,6 +6,7 @@ import {
   MessageSquare,
   GitBranch,
   Megaphone,
+  Bell,
   ScrollText,
   BarChart3,
   ArrowLeft,
@@ -18,6 +19,7 @@ const commsNav = [
   { href: "/admin/communications/sms-templates", label: "SMS Templates", icon: MessageSquare },
   { href: "/admin/communications/sequences", label: "Sequences", icon: GitBranch },
   { href: "/admin/communications/broadcasts", label: "Broadcasts", icon: Megaphone },
+  { href: "/admin/communications/announcements", label: "Announcements", icon: Bell },
   { href: "/admin/communications/log", label: "Communication Log", icon: ScrollText },
   { href: "/admin/communications/analytics", label: "Analytics", icon: BarChart3 },
 ];

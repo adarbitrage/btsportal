@@ -1195,6 +1195,44 @@ paths:
                 items:
                   $ref: "#/components/schemas/Announcement"
 
+  /admin/announcements:
+    get:
+      operationId: listAdminAnnouncements
+      tags: [announcements]
+      summary: List announcements (admin)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Announcement"
+    post:
+      operationId: createAnnouncement
+      tags: [announcements]
+      summary: Create an announcement (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnouncementRequest"
+      responses:
+        "201":
+          description: Created announcement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+
   /community/categories:
     get:
       operationId: listCommunityCategories
@@ -7846,6 +7884,20 @@ components:
           type: string
           format: date-time
       required: [id, title, body, type, createdAt]
+
+    CreateAnnouncementRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        body:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [new_content, event, milestone, general]
+      required: [title, body]
 
     OnboardingState:
       type: object

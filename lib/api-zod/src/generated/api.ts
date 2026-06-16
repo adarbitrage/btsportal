@@ -1277,6 +1277,34 @@ export const ListAnnouncementsResponse = zod.array(
 );
 
 /**
+ * @summary List announcements (admin)
+ */
+export const ListAdminAnnouncementsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListAdminAnnouncementsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  type: zod.enum(["new_content", "event", "milestone", "general"]),
+  createdAt: zod.date(),
+});
+export const ListAdminAnnouncementsResponse = zod.array(
+  ListAdminAnnouncementsResponseItem,
+);
+
+/**
+ * @summary Create an announcement (admin)
+ */
+
+export const CreateAnnouncementBody = zod.object({
+  title: zod.string().min(1),
+  body: zod.string().min(1),
+  type: zod.enum(["new_content", "event", "milestone", "general"]).optional(),
+});
+
+/**
  * @summary List active community categories with post counts
  */
 export const ListCommunityCategoriesResponseItem = zod.object({

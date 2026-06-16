@@ -112,6 +112,29 @@ export function updateGhlConfig(config: Record<string, any>) {
   });
 }
 
+export interface AdminAnnouncement {
+  id: number;
+  title: string;
+  body: string;
+  type: string;
+  createdAt: string;
+}
+
+export function listAdminAnnouncements() {
+  return adminFetch<AdminAnnouncement[]>("/admin/announcements");
+}
+
+export function createAnnouncement(data: {
+  title: string;
+  body: string;
+  type?: string;
+}) {
+  return adminFetch<AdminAnnouncement>("/admin/announcements", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export interface Category {
   id: number;
   name: string;

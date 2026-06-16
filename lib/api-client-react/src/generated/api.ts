@@ -150,6 +150,7 @@ import type {
   CommunityPostRaw,
   ContentExport,
   CreateAffiliateResource,
+  CreateAnnouncementRequest,
   CreateApiKey,
   CreateCannedResponse,
   CreateChatPromptBody,
@@ -198,6 +199,7 @@ import type {
   Lesson,
   LessonResource,
   LessonVersion,
+  ListAdminAnnouncementsParams,
   ListAnnouncementsParams,
   ListChatSessionsParams,
   ListCoachMenteesParams,
@@ -4966,6 +4968,193 @@ export function useListAnnouncements<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List announcements (admin)
+ */
+export const getListAdminAnnouncementsUrl = (
+  params?: ListAdminAnnouncementsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/announcements?${stringifiedParams}`
+    : `/api/admin/announcements`;
+};
+
+export const listAdminAnnouncements = async (
+  params?: ListAdminAnnouncementsParams,
+  options?: RequestInit,
+): Promise<Announcement[]> => {
+  return customFetch<Announcement[]>(getListAdminAnnouncementsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminAnnouncementsQueryKey = (
+  params?: ListAdminAnnouncementsParams,
+) => {
+  return [`/api/admin/announcements`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminAnnouncementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminAnnouncements>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminAnnouncementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminAnnouncements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminAnnouncementsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminAnnouncements>>
+  > = ({ signal }) =>
+    listAdminAnnouncements(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminAnnouncements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminAnnouncementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminAnnouncements>>
+>;
+export type ListAdminAnnouncementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List announcements (admin)
+ */
+
+export function useListAdminAnnouncements<
+  TData = Awaited<ReturnType<typeof listAdminAnnouncements>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminAnnouncementsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminAnnouncements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminAnnouncementsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an announcement (admin)
+ */
+export const getCreateAnnouncementUrl = () => {
+  return `/api/admin/announcements`;
+};
+
+export const createAnnouncement = async (
+  createAnnouncementRequest: CreateAnnouncementRequest,
+  options?: RequestInit,
+): Promise<Announcement> => {
+  return customFetch<Announcement>(getCreateAnnouncementUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAnnouncementRequest),
+  });
+};
+
+export const getCreateAnnouncementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnouncement>>,
+    TError,
+    { data: BodyType<CreateAnnouncementRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAnnouncement>>,
+  TError,
+  { data: BodyType<CreateAnnouncementRequest> },
+  TContext
+> => {
+  const mutationKey = ["createAnnouncement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAnnouncement>>,
+    { data: BodyType<CreateAnnouncementRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAnnouncement(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAnnouncementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAnnouncement>>
+>;
+export type CreateAnnouncementMutationBody =
+  BodyType<CreateAnnouncementRequest>;
+export type CreateAnnouncementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an announcement (admin)
+ */
+export const useCreateAnnouncement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAnnouncement>>,
+    TError,
+    { data: BodyType<CreateAnnouncementRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAnnouncement>>,
+  TError,
+  { data: BodyType<CreateAnnouncementRequest> },
+  TContext
+> => {
+  return useMutation(getCreateAnnouncementMutationOptions(options));
+};
 
 /**
  * @summary List active community categories with post counts
