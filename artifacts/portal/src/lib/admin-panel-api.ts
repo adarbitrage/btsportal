@@ -767,6 +767,11 @@ export const adminPanelApi = {
       createdAt: string;
       updatedAt: string;
       resolvedAt: string | null;
+      // Outbound delivery state for the ticket's notification (email/SMS).
+      // "failed"/"skipped" mean the member was never reached, so the queue
+      // surfaces an inline badge + filter so agents can spot undelivered
+      // tickets without opening each one.
+      deliveryStatus: "pending" | "delivered" | "skipped" | "failed";
       member: { id: number; name: string; email: string } | null;
       assignee: { id: number; name: string; email: string } | null;
       // Service tier the SLA was sized against (e.g. "lifetime", "1year",

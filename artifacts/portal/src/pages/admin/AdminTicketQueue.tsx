@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, X } from "lucide-react";
+import { Search, X, MailX, AlertTriangle } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ type AdminTicket = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[num
 type TicketPriority = AdminTicket["priority"];
 type TicketStatus = AdminTicket["status"];
 type SlaStatus = NonNullable<AdminTicket["slaStatus"]>;
+type DeliveryStatus = AdminTicket["deliveryStatus"];
 type Assignee = { id: number; name: string; email: string };
 
 function PriorityBadge({ priority }: { priority: TicketPriority }) {
@@ -94,6 +95,38 @@ function TierBadge({ tier }: { tier: string | null }) {
   );
 }
 
+// Inline delivery-failure flag for the queue. Only "failed" / "skipped"
+// render anything — those mean the member was never reached, so agents need
+// to spot them while scanning. "delivered" / "pending" are the happy/neutral
+// path and stay silent to keep the row uncluttered.
+function DeliveryBadge({ status }: { status: DeliveryStatus }) {
+  if (status === "failed") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border border-red-200 bg-red-100 text-red-800"
+        title="Notification delivery failed"
+        data-testid="queue-delivery-badge"
+        data-delivery-status="failed"
+      >
+        <MailX className="w-3 h-3" />Delivery failed
+      </span>
+    );
+  }
+  if (status === "skipped") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border border-orange-200 bg-orange-100 text-orange-800"
+        title="Notification delivery skipped"
+        data-testid="queue-delivery-badge"
+        data-delivery-status="skipped"
+      >
+        <AlertTriangle className="w-3 h-3" />Delivery skipped
+      </span>
+    );
+  }
+  return null;
+}
+
 function sortTickets(tickets: AdminTicket[]): AdminTicket[] {
   // Default sort: SLA urgency → tier → priority → createdAt (newest first).
   // Triage needs the most-at-risk rows up top, then the highest-paying
@@ -141,6 +174,7 @@ export default function AdminTicketQueue() {
   const [agentFilter, setAgentFilter] = useState("all");
   const [slaFilter, setSlaFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [deliveryFilter, setDeliveryFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [bulkPending, setBulkPending] = useState(false);
@@ -233,8 +267,11 @@ export default function AdminTicketQueue() {
         result = result.filter((t) => t.tier === tierFilter);
       }
     }
+    if (deliveryFilter !== "all") {
+      result = result.filter((t) => t.deliveryStatus === deliveryFilter);
+    }
     return sortTickets(result);
-  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter, slaFilter, tierFilter]);
+  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter, slaFilter, tierFilter, deliveryFilter]);
 
   const filteredIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
   const selectedVisibleCount = useMemo(
@@ -274,6 +311,7 @@ export default function AdminTicketQueue() {
     setAgentFilter("all");
     setSlaFilter("all");
     setTierFilter("all");
+    setDeliveryFilter("all");
     setSearchQuery("");
   };
 
@@ -284,6 +322,7 @@ export default function AdminTicketQueue() {
     agentFilter !== "all" ||
     slaFilter !== "all" ||
     tierFilter !== "all" ||
+    deliveryFilter !== "all" ||
     searchQuery !== "";
 
   const stats = useMemo(() => ({
@@ -421,6 +460,16 @@ export default function AdminTicketQueue() {
                     <SelectItem key={t} value={t}>{TIER_LABELS[t] ?? t}</SelectItem>
                   ))}
                   <SelectItem value="__none">No tier</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={deliveryFilter} onValueChange={setDeliveryFilter}>
+                <SelectTrigger className="w-[150px]" data-testid="delivery-filter"><SelectValue placeholder="Delivery" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Delivery</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="skipped">Skipped</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -563,6 +612,7 @@ export default function AdminTicketQueue() {
                           {ticket.member?.name && (
                             <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
                           )}
+                          <DeliveryBadge status={ticket.deliveryStatus} />
                         </div>
                         <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
                       </div>

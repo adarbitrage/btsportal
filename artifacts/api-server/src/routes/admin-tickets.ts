@@ -410,6 +410,7 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
         createdAt: ticketsTable.createdAt,
         updatedAt: ticketsTable.updatedAt,
         resolvedAt: ticketsTable.resolvedAt,
+        deliveryStatus: ticketsTable.deliveryStatus,
         memberName: usersTable.name,
         memberEmail: usersTable.email,
         assignedAgentName: assignedAgent.name,
@@ -457,6 +458,7 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         resolvedAt: row.resolvedAt,
+        deliveryStatus: row.deliveryStatus,
         member: row.memberName
           ? { id: row.userId, name: row.memberName, email: row.memberEmail }
           : null,
