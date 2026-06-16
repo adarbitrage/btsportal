@@ -7,6 +7,7 @@ import {
   UpdateAnnouncementBody,
 } from "@workspace/api-zod";
 import { requirePermission } from "../middleware/rbac";
+import { logAdminAction } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -115,6 +116,14 @@ router.put(
       return;
     }
 
+    await logAdminAction(
+      req,
+      "update_announcement",
+      "announcement",
+      String(updated.id),
+      `Edited announcement "${updated.title}"`,
+    );
+
     res.json(updated);
   }
 );
@@ -139,6 +148,14 @@ router.delete(
       res.status(404).json({ error: "Announcement not found" });
       return;
     }
+
+    await logAdminAction(
+      req,
+      "delete_announcement",
+      "announcement",
+      String(deleted.id),
+      `Deleted announcement "${deleted.title}"`,
+    );
 
     res.status(204).end();
   }
