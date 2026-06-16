@@ -141,8 +141,10 @@ export default function SessionBooking() {
               <UserCheck className="w-6 h-6 text-primary" />
               <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
             </div>
-            <p className="text-muted-foreground">
-              Private coaching sessions tailored to your goals.
+            <p className="text-muted-foreground max-w-2xl">
+              Feeling stuck? Book private 1-on-1 time with the coach of your choice to get
+              unstuck fast — real-time answers, stronger creatives and strategy, and a clear
+              next step. Each 60-minute session is focused entirely on your specific challenges.
             </p>
           </div>
           {hasCredits && (
