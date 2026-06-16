@@ -46,6 +46,27 @@ function getQueue(): Queue {
   return queue;
 }
 
+// Coaching calls don't carry a per-call timezone, so format the reminder's
+// human-readable date/time in the product's default timezone (America/New_York)
+// for a stable, sensible value across every recipient's email.
+const CALL_DISPLAY_TIMEZONE = "America/New_York";
+
+function formatCallDateTime(scheduledAt: Date): { date: string; time: string } {
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: CALL_DISPLAY_TIMEZONE,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(scheduledAt);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: CALL_DISPLAY_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(scheduledAt);
+  return { date, time };
+}
+
 export async function processCoachingCallReminders(): Promise<void> {
   const now = new Date();
   const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
@@ -67,10 +88,52 @@ export async function processCoachingCallReminders(): Promise<void> {
     );
 
   for (const call of calls24h) {
-    const sendKey = `coaching_reminder_24h_${call.id}`;
-    const isNew = await checkAndRecordSend(sendKey, "email");
-    if (isNew) {
-      console.log(`[STUB:EMAIL] Would send 24h coaching call reminder for "${call.title}" (${call.scheduledAt.toISOString()})`);
+    // Email recipients are entitlement-based (same as the 1h SMS branch below)
+    // but with no SMS/phone gating — every member entitled to the call gets the
+    // reminder email. Email opt-out is handled separately via the unsubscribe
+    // suppression list inside CommunicationService, not the coachingSmsOptIn
+    // toggle (that toggle only governs the text).
+    const recipients = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
+      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+      .where(
+        and(
+          eq(userProductsTable.status, "active"),
+          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`
+        )
+      );
+
+    const { date: callDate, time: callTime } = formatCallDateTime(call.scheduledAt);
+
+    const seen = new Set<number>();
+    for (const member of recipients) {
+      if (seen.has(member.id) || !member.email) continue;
+      seen.add(member.id);
+
+      const sendKey = `coaching_reminder_24h_email_${call.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "email");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueEmail({
+          templateSlug: "coaching_reminder",
+          to: member.email,
+          variables: {
+            member_name: member.name,
+            call_title: call.title,
+            call_date: callDate,
+            call_time: callTime,
+          },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue coaching reminder email for user ${member.id}, call ${call.id}:`,
+          err
+        );
+      }
     }
   }
 
@@ -149,6 +212,7 @@ export async function processNewContentAlerts(): Promise<void> {
     .select({
       id: announcementsTable.id,
       title: announcementsTable.title,
+      body: announcementsTable.body,
     })
     .from(announcementsTable)
     .where(
@@ -160,10 +224,49 @@ export async function processNewContentAlerts(): Promise<void> {
 
   if (recentAnnouncements.length === 0) return;
 
-  // Gate in the caller: master smsOptIn + the content category toggle + phone.
-  // contentSmsOptIn defaults to false, so only members who explicitly opted in
-  // receive these texts. Email announcements are unaffected.
-  const recipients = await db
+  // EMAIL: every member gets the new-content email regardless of SMS prefs —
+  // contentSmsOptIn defaults to false, so without the email path members who
+  // keep texts off would never hear about new lessons. Email opt-out is handled
+  // by the unsubscribe suppression list inside CommunicationService, not the
+  // contentSmsOptIn toggle. Restrict to members (role) so admins/staff aren't
+  // emailed about member-facing content drops.
+  const emailRecipients = await db
+    .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.role, "member"));
+
+  for (const announcement of recentAnnouncements) {
+    for (const member of emailRecipients) {
+      if (!member.email) continue;
+
+      const sendKey = `content_alert_email_${announcement.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "email");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueEmail({
+          templateSlug: "new_content_alert",
+          to: member.email,
+          variables: {
+            member_name: member.name,
+            content_title: announcement.title,
+            content_description: announcement.body,
+          },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue new-content email for user ${member.id}, announcement ${announcement.id}:`,
+          err
+        );
+      }
+    }
+  }
+
+  // SMS: gated in the caller on master smsOptIn + the content category toggle +
+  // phone. contentSmsOptIn defaults to false, so only members who explicitly
+  // opted in receive these texts.
+  const smsRecipients = await db
     .select({ id: usersTable.id, phone: usersTable.phone })
     .from(usersTable)
     .where(
@@ -174,10 +277,10 @@ export async function processNewContentAlerts(): Promise<void> {
       )
     );
 
-  if (recipients.length === 0) return;
+  if (smsRecipients.length === 0) return;
 
   for (const announcement of recentAnnouncements) {
-    for (const member of recipients) {
+    for (const member of smsRecipients) {
       if (!member.phone) continue;
 
       const sendKey = `content_alert_sms_${announcement.id}_${member.id}`;

@@ -145,6 +145,13 @@ function smsCallsFor(templateSlug: string, userId: number) {
   });
 }
 
+function emailCallsFor(templateSlug: string, userId: number) {
+  return queueEmailMock.mock.calls.filter((c: unknown[]) => {
+    const arg = c[0] as { templateSlug: string; userId: number };
+    return arg.templateSlug === templateSlug && arg.userId === userId;
+  });
+}
+
 // --- Coaching members (master SMS on except where noted) ---
 let coachingEntitledOptedIn = 0; // entitlement + smsOptIn + coachingSmsOptIn + phone -> SHOULD text
 let coachingCategoryOff = 0; // coachingSmsOptIn=false -> skip
@@ -345,20 +352,43 @@ describe("processCoachingCallReminders — coaching SMS gating", () => {
     expect(smsCallsFor("coaching_reminder", coachingNoEntitlement)).toHaveLength(0);
   });
 
-  it("never queues an email and leaves the 24h email reminder path intact (records its email-channel dedup key)", async () => {
+  it("queues the 24h reminder EMAIL to entitled members (no SMS gating) and records a per-member email dedup key", async () => {
     await processCoachingCallReminders();
 
-    // The SMS senders must never reach the email queue.
-    expect(queueEmailMock).not.toHaveBeenCalled();
-
     // The 3h-out call sits in the 24h EMAIL window but outside the 1h SMS
-    // window: it records an email-channel dedup key and queues no SMS for any
-    // member, proving the email reminder logic is unaffected by SMS gating.
-    const emailKey = `coaching_reminder_24h_${seeded24hCallId}`;
+    // window, so it drives emails (not SMS). The fully-eligible member gets the
+    // real coaching_reminder email with the call title.
+    const calls = emailCallsFor("coaching_reminder", coachingEntitledOptedIn).filter(
+      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toMatchObject({
+      templateSlug: "coaching_reminder",
+      to: `${TAG}-coach-yes@example.test`,
+      userId: coachingEntitledOptedIn,
+      variables: { call_title: `${TAG} tomorrow call` },
+    });
+
+    // Per-member email dedup key (not the old per-call key).
+    const emailKey = `coaching_reminder_24h_email_${seeded24hCallId}_${coachingEntitledOptedIn}`;
     const recorded = sentChannels.find((c) => c.sendKey === emailKey);
     expect(recorded).toBeDefined();
     expect(recorded!.channel).toBe("email");
 
+    // Email is NOT gated by SMS prefs: a member with coaching texts off (but
+    // still entitled) still receives the reminder email.
+    const catOffEmail = emailCallsFor("coaching_reminder", coachingCategoryOff).filter(
+      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
+    );
+    expect(catOffEmail).toHaveLength(1);
+
+    // A member lacking the call's required entitlement gets no email.
+    const noEntEmail = emailCallsFor("coaching_reminder", coachingNoEntitlement).filter(
+      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
+    );
+    expect(noEntEmail).toHaveLength(0);
+
+    // The 24h email path never queues an SMS for the tomorrow call.
     for (const userId of [
       coachingEntitledOptedIn,
       coachingCategoryOff,
@@ -376,6 +406,16 @@ describe("processCoachingCallReminders — coaching SMS gating", () => {
       });
       expect(smsForTomorrowCall).toHaveLength(0);
     }
+  });
+
+  it("dedups the 24h reminder email per member across repeated scheduler runs", async () => {
+    await processCoachingCallReminders();
+    await processCoachingCallReminders();
+
+    const calls = emailCallsFor("coaching_reminder", coachingEntitledOptedIn).filter(
+      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
+    );
+    expect(calls).toHaveLength(1);
   });
 });
 
@@ -424,8 +464,36 @@ describe("processNewContentAlerts — content SMS gating", () => {
     expect(recordedForMember[0].channel).toBe("sms");
   });
 
-  it("never queues an email for the content alerts (SMS-only path)", async () => {
+  it("queues the new-content EMAIL to every member regardless of SMS prefs, with the right slug + variables", async () => {
     await processNewContentAlerts();
-    expect(queueEmailMock).not.toHaveBeenCalled();
+
+    // Email is NOT gated by contentSmsOptIn — even members with content texts
+    // off (or no phone) still receive the email about the new lesson.
+    for (const userId of [
+      contentOptedIn,
+      contentCategoryOff,
+      contentMasterOff,
+      contentNoPhone,
+    ]) {
+      const calls = emailCallsFor("new_content_alert", userId);
+      expect(calls).toHaveLength(1);
+      expect(calls[0][0]).toMatchObject({
+        templateSlug: "new_content_alert",
+        userId,
+        variables: { content_title: `${TAG} new lesson drop` },
+      });
+    }
+  });
+
+  it("dedups the new-content email per member across repeated scheduler runs", async () => {
+    await processNewContentAlerts();
+    await processNewContentAlerts();
+
+    expect(emailCallsFor("new_content_alert", contentOptedIn)).toHaveLength(1);
+
+    const expectedKey = `content_alert_email_${seededAnnouncementId}_${contentOptedIn}`;
+    const recordedForMember = sentChannels.filter((c) => c.sendKey === expectedKey);
+    expect(recordedForMember.length).toBeGreaterThanOrEqual(1);
+    expect(recordedForMember[0].channel).toBe("email");
   });
 });
