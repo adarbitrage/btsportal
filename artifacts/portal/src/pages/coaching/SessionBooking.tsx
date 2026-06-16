@@ -30,19 +30,19 @@ const PAST_PAGE_SIZE = 5;
 
 const PACKAGE_PLACEHOLDERS = [
   {
-    name: "Single Session",
-    sessions: "1 session",
-    blurb: "A focused 1-on-1 to unblock a specific challenge.",
+    name: "1-Session (60 minutes)",
+    price: "$135",
+    blurb: "A single session for targeted guidance.",
   },
   {
-    name: "Starter Pack",
-    sessions: "5 sessions",
-    blurb: "Build momentum with regular coaching touchpoints.",
+    name: "3-Pack (60 minutes)",
+    price: "$375",
+    blurb: "A short-term package for focused support.",
   },
   {
-    name: "Pro Pack",
-    sessions: "10 sessions",
-    blurb: "Go all-in with ongoing accountability and strategy.",
+    name: "5-Pack (60 minutes)",
+    price: "$600",
+    blurb: "A comprehensive package for continued strategic development.",
   },
 ];
 
@@ -445,7 +445,7 @@ export default function SessionBooking() {
                     <p className="font-semibold">{pkg.name}</p>
                     <Badge variant="secondary">Coming soon</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{pkg.sessions}</p>
+                  <p className="text-sm text-muted-foreground">{pkg.price}</p>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{pkg.blurb}</p>
