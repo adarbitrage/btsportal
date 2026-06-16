@@ -32,6 +32,7 @@ import {
   ScrollText,
   ExternalLink,
   MailX,
+  RefreshCw,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
@@ -383,6 +384,7 @@ export default function AdminTicketDetail() {
   // brief moment of the network round-trip.
   const [savingField, setSavingField] = useState<null | "status" | "priority" | "assignee">(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [retryingDelivery, setRetryingDelivery] = useState(false);
 
   const loadTicket = useCallback(async () => {
     if (!Number.isFinite(ticketId)) {
@@ -498,6 +500,20 @@ export default function AdminTicketDetail() {
       setSaveError(err instanceof Error ? err.message : "Failed to update assignee");
     } finally {
       setSavingField(null);
+    }
+  };
+
+  const handleRetryDelivery = async () => {
+    if (!ticket || retryingDelivery) return;
+    setRetryingDelivery(true);
+    setSaveError(null);
+    try {
+      await adminPanelApi.retryTicketDelivery(ticket.id);
+      await Promise.all([loadTicket(), loadAuditHistory()]);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to retry delivery");
+    } finally {
+      setRetryingDelivery(false);
     }
   };
 
@@ -642,6 +658,21 @@ export default function AdminTicketDetail() {
                   <Badge variant="outline" className="border-muted-foreground text-muted-foreground gap-1">
                     <Clock className="w-3 h-3" />Delivery Pending
                   </Badge>
+                )}
+                {(ticket.deliveryStatus === "failed" || ticket.deliveryStatus === "skipped") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="ml-2 h-7 gap-1"
+                    onClick={handleRetryDelivery}
+                    disabled={retryingDelivery}
+                    data-testid="ticket-retry-delivery-button"
+                    title="Retry notification delivery"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", retryingDelivery && "animate-spin")} />
+                    {retryingDelivery ? "Retrying…" : "Retry delivery"}
+                  </Button>
                 )}
               </div>
             </div>
