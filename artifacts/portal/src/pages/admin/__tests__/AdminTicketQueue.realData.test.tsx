@@ -459,4 +459,58 @@ describe("AdminTicketQueue — real-data wiring", () => {
       });
     });
   });
+
+  describe("free-text search box", () => {
+    function searchInput(): HTMLElement {
+      return screen.getByPlaceholderText("Search tickets...");
+    }
+
+    it("narrows rows by matching subject text", async () => {
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      const user = userEvent.setup();
+      await user.type(searchInput(), "refund");
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000012"]);
+      });
+    });
+
+    it("narrows rows by matching ticket number", async () => {
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      const user = userEvent.setup();
+      await user.type(searchInput(), "BTS-000013");
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000013"]);
+      });
+    });
+
+    it("narrows rows by matching member name", async () => {
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      const user = userEvent.setup();
+      await user.type(searchInput(), "alice");
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000011"]);
+      });
+    });
+
+    it("shows zero rows for a non-matching query", async () => {
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      const user = userEvent.setup();
+      await user.type(searchInput(), "zzz-no-such-ticket");
+
+      await waitFor(() => {
+        expect(screen.queryAllByTestId("ticket-link")).toHaveLength(0);
+      });
+    });
+  });
 });
