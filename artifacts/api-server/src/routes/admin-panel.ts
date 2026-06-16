@@ -89,6 +89,11 @@ import {
   evaluateModerationPodSilentAlert,
   getModerationPodSilentAlertingState,
 } from "../lib/moderation/failure-alerter";
+import { getStuckTicketDeliveryStats } from "../lib/ticketdesk-queue";
+import {
+  evaluateTicketDeskDeliveryAlert,
+  getTicketDeskDeliveryAlertingState,
+} from "../lib/ticketdesk-delivery-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import {
   getLiveChatEmbedProbeState,
@@ -3414,6 +3419,34 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       alerter: getModerationFailureAlertingState(),
     };
 
+    // Snapshot the stuck-ticket delivery backlog for the System Health card.
+    // Counts tickets stuck undelivered (pending/failed) past the configured
+    // age. The alerter state mirrors what's actually paging on-call so the
+    // page and the page-on-call never disagree. A DB error here degrades to a
+    // zeroed snapshot so the rest of the panel still renders.
+    let ticketDeskDelivery: {
+      stuck: Awaited<ReturnType<typeof getStuckTicketDeliveryStats>>;
+      alerter: ReturnType<typeof getTicketDeskDeliveryAlertingState>;
+    };
+    try {
+      ticketDeskDelivery = {
+        stuck: await getStuckTicketDeliveryStats(),
+        alerter: getTicketDeskDeliveryAlertingState(),
+      };
+    } catch (err) {
+      console.error("[Admin] system/health: failed to read ticketdesk delivery stats:", err);
+      ticketDeskDelivery = {
+        stuck: {
+          count: 0,
+          byStatus: { pending: 0, failed: 0 },
+          oldestCreatedAt: null,
+          lastError: null,
+          stuckMinutes: 30,
+        },
+        alerter: getTicketDeskDeliveryAlertingState(),
+      };
+    }
+
     // Active probe of the embedded Live Chat (TicketDesk). If that URL starts
     // sending framing-blocking headers (X-Frame-Options / CSP frame-ancestors)
     // the in-portal iframe silently breaks and members get bounced to a new
@@ -3421,7 +3454,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // banner to degraded the moment the embed is blocked.
     const liveChatEmbed = getLiveChatEmbedProbeState();
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting
       ? "degraded"
       : "healthy";
 
@@ -3456,6 +3489,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         machineMismatchDigestWatchdog: await getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,
         moderationFailures,
+        ticketDeskDelivery,
         liveChatEmbed,
         missingCriticalSecrets,
         portalUrl,
@@ -4005,6 +4039,26 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
     // threshold, even if the in-process poll interval has stalled.
     evaluateModerationPodSilentAlert().catch((err) => {
       console.error("[Admin] moderation pod-silent alerter dispatch failed:", err);
+    });
+
+    // Surface the TicketDesk delivery alerter in the bell so an admin sees
+    // that ticket delivery is backing up without first opening System Health.
+    // Mirrors the moderation-failure block above; the kick below also doubles
+    // as a backstop for the in-process poll interval.
+    const ticketDeskDeliveryAlerting = getTicketDeskDeliveryAlertingState();
+    if (ticketDeskDeliveryAlerting.alerting) {
+      notifications.push({
+        id: "ticketdesk-delivery-backlog",
+        type: "ticketdesk_delivery_backlog",
+        severity: "high",
+        title: "TicketDesk ticket delivery is failing",
+        message: `${ticketDeskDeliveryAlerting.lastSeenCount} support ticket(s) are stuck undelivered to TicketDesk — the origin whitelist may have expired, the secret rotated, or TicketDesk may be down. Members will start emailing directly.`,
+        link: "/admin/system",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    evaluateTicketDeskDeliveryAlert().catch((err) => {
+      console.error("[Admin] ticketdesk-delivery alerter dispatch failed:", err);
     });
 
     // Production-only: surface a missing Turnstile secret as a high-severity

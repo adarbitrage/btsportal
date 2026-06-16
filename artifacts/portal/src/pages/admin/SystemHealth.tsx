@@ -1128,6 +1128,34 @@ export default function SystemHealth() {
               );
             })()}
 
+            {(health.services?.ticketDeskDelivery as { alerter?: { alerting?: boolean } } | undefined)?.alerter?.alerting && (() => {
+              const td = health.services.ticketDeskDelivery as {
+                stuck: { count: number; byStatus: { pending: number; failed: number }; stuckMinutes: number; lastError: string | null };
+              };
+              return (
+                <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="ticketdesk-delivery-banner">
+                  <CardContent className="py-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-red-900 dark:text-red-200">
+                        TicketDesk ticket delivery is failing
+                      </p>
+                      <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                        {td.stuck.count} ticket{td.stuck.count === 1 ? "" : "s"} stuck undelivered for
+                        over {td.stuck.stuckMinutes}m
+                        {td.stuck.byStatus.failed > 0 ? ` (${td.stuck.byStatus.failed} failed after all retries)` : ""}
+                        {td.stuck.byStatus.pending > 0 ? `${td.stuck.byStatus.failed > 0 ? "," : " ("}${td.stuck.byStatus.pending} never left the queue)` : td.stuck.byStatus.failed > 0 ? "" : ""}.
+                        On-call has been paged. The TicketDesk origin whitelist may have expired, the
+                        secret may have rotated, or TicketDesk may be down. See the
+                        "TicketDesk delivery" card below
+                        {td.stuck.lastError ? <> — last error: <code>{td.stuck.lastError}</code></> : null}.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {Array.isArray(health.services?.missingCriticalSecrets) && health.services.missingCriticalSecrets.length > 0 && (
               <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="missing-critical-secrets-banner">
                 <CardContent className="py-4 flex items-start gap-3">
@@ -2345,6 +2373,85 @@ export default function SystemHealth() {
                               ))}
                             </div>
                           </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.ticketDeskDelivery && (() => {
+                const td = health.services.ticketDeskDelivery as {
+                  stuck: {
+                    count: number;
+                    byStatus: { pending: number; failed: number };
+                    oldestCreatedAt: string | null;
+                    lastError: string | null;
+                    stuckMinutes: number;
+                  };
+                  alerter: { alerting: boolean; lastSeenCount: number };
+                };
+                const stuck = td.stuck;
+                const alerting = td.alerter?.alerting;
+                return (
+                  <Card data-testid="card-ticketdesk-delivery">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        TicketDesk delivery
+                        <Badge
+                          variant={alerting ? "destructive" : stuck.count > 0 ? "warning" : "outline"}
+                          className="ml-2 font-normal"
+                          data-testid="ticketdesk-delivery-status"
+                        >
+                          {alerting ? "paging on-call" : stuck.count > 0 ? "backlog building" : "healthy"}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            Stuck &gt;{stuck.stuckMinutes}m (pending/failed)
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${stuck.count > 0 ? "text-red-600" : ""}`}
+                            data-testid="ticketdesk-delivery-stuck-count"
+                          >
+                            {stuck.count}
+                          </span>
+                        </div>
+                        <div className="space-y-1 pt-2 border-t">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Failed (retries exhausted)</span>
+                            <span className="font-medium">{stuck.byStatus.failed}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Pending (never delivered)</span>
+                            <span className="font-medium">{stuck.byStatus.pending}</span>
+                          </div>
+                        </div>
+                        {stuck.oldestCreatedAt && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Oldest stuck ticket</span>
+                            <span className="text-sm font-medium">
+                              {new Date(stuck.oldestCreatedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {stuck.lastError ? (
+                          <div className="pt-2 border-t">
+                            <p className="text-[11px] uppercase text-muted-foreground mb-1">
+                              Last delivery error
+                            </p>
+                            <p className="text-xs font-mono break-words text-red-600">
+                              {stuck.lastError}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No delivery errors recorded.
+                          </p>
                         )}
                       </div>
                     </CardContent>

@@ -30,6 +30,10 @@ import {
   stopModerationFailureAlerter,
 } from "./lib/moderation/failure-alerter";
 import {
+  startTicketDeskDeliveryAlerter,
+  stopTicketDeskDeliveryAlerter,
+} from "./lib/ticketdesk-delivery-alerter";
+import {
   startMachineMismatchDigestJob,
   stopMachineMismatchDigestJob,
 } from "./lib/machine-mismatch-daily-digest";
@@ -104,6 +108,7 @@ startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
 startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
+startTicketDeskDeliveryAlerter();
 startLiveChatEmbedProbe();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
@@ -153,6 +158,7 @@ async function gracefulShutdown(signal: string) {
   stopMachineMismatchDigestJob();
   stopMachineMismatchDigestAlerter();
   stopModerationFailureAlerter();
+  stopTicketDeskDeliveryAlerter();
   stopLiveChatEmbedProbe();
   process.exit(0);
 }

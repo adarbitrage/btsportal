@@ -29,7 +29,7 @@ import * as ticketDesk from "./ticketdesk-client";
 import { type TicketDeskConversationInput } from "./ticketdesk-client";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 import { db, ticketsTable, usersTable, ticketMessagesTable } from "@workspace/db";
-import { eq, and, isNull, lt, asc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, lt, asc, desc, inArray, sql } from "drizzle-orm";
 
 const EXPLICIT_REDIS_URL = process.env.REDIS_URL;
 const REDIS_URL = EXPLICIT_REDIS_URL || "redis://localhost:6379";
@@ -425,6 +425,101 @@ export async function backfillUndeliveredTickets(): Promise<void> {
   } catch (err) {
     console.error("[TicketDesk Backfill] Failed:", err);
   }
+}
+
+/**
+ * Default age (minutes) past which an undelivered ticket is considered
+ * "stuck". A ticket created more than this long ago that is still 'pending'
+ * (never delivered) or has gone terminal 'failed' is a delivery the team
+ * has lost visibility into. 30 min is comfortably past the exponential
+ * back-off retry window (~15 min for 5 attempts), so a stuck ticket means a
+ * sustained problem (whitelist expired, secret rotated, TicketDesk down)
+ * rather than a transient retry in flight.
+ */
+export const TICKETDESK_STUCK_MINUTES_DEFAULT = 30;
+
+export interface StuckTicketDeliveryStats {
+  /** Total tickets stuck in 'pending' or 'failed' past the age cutoff. */
+  count: number;
+  /** Per-status breakdown of the stuck tickets. */
+  byStatus: { pending: number; failed: number };
+  /** ISO timestamp of the oldest stuck ticket's createdAt, or null. */
+  oldestCreatedAt: string | null;
+  /** Most recent delivery error recorded among the stuck tickets, or null. */
+  lastError: string | null;
+  /** Age threshold (minutes) used to decide a ticket is "stuck". */
+  stuckMinutes: number;
+}
+
+/**
+ * Counts support tickets whose TicketDesk delivery is stuck — i.e. still
+ * 'pending' (never delivered) or terminal 'failed' — and that were created
+ * longer than `stuckMinutes` ago. 'skipped' is excluded on purpose: it means
+ * TicketDesk is intentionally unconfigured (fallback email already sent), not
+ * that delivery is failing. Surfaced on System Health and consumed by the
+ * delivery alerter so on-call is paged before a delivery outage piles up
+ * silently.
+ */
+export async function getStuckTicketDeliveryStats(
+  stuckMinutes: number = TICKETDESK_STUCK_MINUTES_DEFAULT,
+  now: Date = new Date(),
+): Promise<StuckTicketDeliveryStats> {
+  const cutoff = new Date(now.getTime() - stuckMinutes * 60 * 1000);
+
+  const rows = await db
+    .select({
+      status: ticketsTable.deliveryStatus,
+      count: sql<number>`count(*)::int`,
+      oldest: sql<string | null>`min(${ticketsTable.createdAt})`,
+    })
+    .from(ticketsTable)
+    .where(
+      and(
+        inArray(ticketsTable.deliveryStatus, ["pending", "failed"]),
+        lt(ticketsTable.createdAt, cutoff),
+      ),
+    )
+    .groupBy(ticketsTable.deliveryStatus);
+
+  let pending = 0;
+  let failed = 0;
+  let oldest: Date | null = null;
+  for (const row of rows) {
+    const c = Number(row.count) || 0;
+    if (row.status === "pending") pending = c;
+    else if (row.status === "failed") failed = c;
+    if (row.oldest) {
+      const d = new Date(row.oldest as unknown as string);
+      if (!Number.isNaN(d.getTime()) && (!oldest || d < oldest)) oldest = d;
+    }
+  }
+
+  const count = pending + failed;
+
+  let lastError: string | null = null;
+  if (count > 0) {
+    const [errRow] = await db
+      .select({ err: ticketsTable.deliveryLastError })
+      .from(ticketsTable)
+      .where(
+        and(
+          inArray(ticketsTable.deliveryStatus, ["pending", "failed"]),
+          lt(ticketsTable.createdAt, cutoff),
+          isNotNull(ticketsTable.deliveryLastError),
+        ),
+      )
+      .orderBy(desc(ticketsTable.deliveryLastAttemptAt))
+      .limit(1);
+    lastError = errRow?.err ?? null;
+  }
+
+  return {
+    count,
+    byStatus: { pending, failed },
+    oldestCreatedAt: oldest ? oldest.toISOString() : null,
+    lastError,
+    stuckMinutes,
+  };
 }
 
 export async function shutdownTicketDeskQueue(): Promise<void> {
