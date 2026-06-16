@@ -135,26 +135,16 @@ export default function SessionBooking() {
     <AppLayout>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <UserCheck className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
-            </div>
-            <p className="text-muted-foreground max-w-2xl">
-              Feeling stuck? Book private 1-on-1 time with the coach of your choice to get
-              unstuck fast — real-time answers, stronger creatives and strategy, and a clear
-              next step. Each 60-minute session is focused entirely on your specific challenges.
-            </p>
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <UserCheck className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
           </div>
-          {hasCredits && (
-            <Link href="/coaching/book-session/book">
-              <Button size="lg" className="shadow-lg shadow-primary/20">
-                <Calendar className="w-5 h-5 mr-2" />
-                Book a Session
-              </Button>
-            </Link>
-          )}
+          <p className="text-muted-foreground">
+            Feeling stuck? Book private sessions with the coach of your choice to get unstuck
+            fast — real-time answers, stronger creatives and strategy, and a clear next step.
+            Each 60-minute session is focused entirely on your specific challenges.
+          </p>
         </div>
 
         {/* Session credits summary */}
@@ -197,9 +187,17 @@ export default function SessionBooking() {
         <div className="space-y-8">
           {/* Upcoming session */}
             <div>
-              <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-6">
-                Upcoming Session
-              </h2>
+              <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-6">
+                <h2 className="text-xl font-bold text-foreground">Upcoming Session</h2>
+                {hasCredits && (
+                  <Link href="/coaching/book-session/book">
+                    <Button size="sm" className="shadow-lg shadow-primary/20">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Book a Session
+                    </Button>
+                  </Link>
+                )}
+              </div>
               {bookingsLoading ? (
                 <div className="animate-pulse h-40 bg-card rounded-xl" />
               ) : nextSession ? (
