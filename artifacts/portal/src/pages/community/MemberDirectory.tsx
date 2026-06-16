@@ -1,12 +1,33 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCommunityMembers } from "@/hooks/use-community";
+import { CommunityApiError } from "@/lib/community-api";
 import { MemberCard } from "@/components/community/MemberCard";
-import { Search, Users, ArrowLeft, Loader2 } from "lucide-react";
+import { Search, Users, ArrowLeft, Loader2, Lock } from "lucide-react";
 import { Link } from "wouter";
+
+function PaywallCard() {
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardContent className="py-16 flex flex-col items-center text-center">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+          <Lock className="w-8 h-8 text-primary/60" />
+        </div>
+        <h2 className="text-xl font-semibold text-foreground mb-2">Community Access Required</h2>
+        <p className="text-muted-foreground text-sm max-w-sm mb-6">
+          Community access requires 3-Month Mentorship or higher. Upgrade your plan to join the conversation.
+        </p>
+        <Link href="/plans">
+          <Button className="shadow-sm">View Plans & Upgrade</Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function MemberDirectory() {
   const [search, setSearch] = useState("");
@@ -17,10 +38,13 @@ export default function MemberDirectory() {
   const {
     data: membersData,
     isLoading,
+    error: membersError,
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
   } = useCommunityMembers({ search: search || undefined, tier: tier || undefined, badge: badge || undefined, sort });
+
+  const is403 = membersError instanceof CommunityApiError && membersError.status === 403;
 
   const allMembers = membersData?.pages.flatMap((p) => p.members) ?? [];
 
@@ -42,6 +66,10 @@ export default function MemberDirectory() {
           </div>
         </div>
 
+        {is403 ? (
+          <PaywallCard />
+        ) : (
+          <>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -133,6 +161,8 @@ export default function MemberDirectory() {
               )}
             </Button>
           </div>
+        )}
+          </>
         )}
       </div>
     </AppLayout>
