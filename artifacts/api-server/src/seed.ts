@@ -15,7 +15,6 @@ import {
   winMilestonesTable, winsTable,
   toolCategoriesTable, toolsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable,
   chatRateLimitsTable,
-  coachAvailabilityTable, coachAvailabilityOverridesTable, coachingSessionsTable, coachingRatingsTable,
 } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -45,8 +44,6 @@ async function seed() {
     { key: "software:expanded", description: "Expanded software/tool suite", category: "software" },
     { key: "coaching:group", description: "Live group coaching calls", category: "coaching" },
     { key: "coaching:mastermind", description: "Advanced mastermind sessions", category: "coaching" },
-    { key: "coaching:one_on_one:monthly", description: "Monthly 1-on-1 coaching", category: "coaching" },
-    { key: "coaching:one_on_one:weekly", description: "Weekly 1-on-1 coaching", category: "coaching" },
     { key: "community:access", description: "Mentorship community access", category: "community" },
     { key: "commissions:entry", description: "Entry-level affiliate commissions", category: "commissions" },
     { key: "commissions:mid", description: "Mid-tier affiliate commissions", category: "commissions" },
@@ -115,14 +112,14 @@ async function seed() {
     {
       slug: "1year", name: "BTS 1-Year Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_1year",
-      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:monthly", "community:access", "commissions:premium", "support:unlimited", "chat:full"],
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:premium", "support:unlimited", "chat:full"],
       durationDays: 365, priceDisplay: "TBD", sortOrder: 7,
       checkoutUrl: "https://bts.thrivecart.com/bts-1-year-mentorship/",
     },
     {
       slug: "lifetime", name: "BTS Lifetime Mentorship", type: "backend",
       thrivecartProductId: "thrivecart_lifetime",
-      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "coaching:one_on_one:weekly", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime"],
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime"],
       priceDisplay: "TBD", sortOrder: 8,
       checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
     },
@@ -388,31 +385,6 @@ async function seed() {
     timezone: "America/Chicago",
   }).returning();
 
-  await db.insert(coachAvailabilityTable).values([
-    { coachId: coach1.id, dayOfWeek: 1, startTime: "09:00", endTime: "12:00", timezone: "America/New_York" },
-    { coachId: coach1.id, dayOfWeek: 1, startTime: "14:00", endTime: "17:00", timezone: "America/New_York" },
-    { coachId: coach1.id, dayOfWeek: 3, startTime: "09:00", endTime: "12:00", timezone: "America/New_York" },
-    { coachId: coach1.id, dayOfWeek: 3, startTime: "14:00", endTime: "17:00", timezone: "America/New_York" },
-    { coachId: coach1.id, dayOfWeek: 5, startTime: "10:00", endTime: "14:00", timezone: "America/New_York" },
-    { coachId: coach2.id, dayOfWeek: 2, startTime: "08:00", endTime: "12:00", timezone: "America/Los_Angeles" },
-    { coachId: coach2.id, dayOfWeek: 2, startTime: "13:00", endTime: "16:00", timezone: "America/Los_Angeles" },
-    { coachId: coach2.id, dayOfWeek: 4, startTime: "09:00", endTime: "13:00", timezone: "America/Los_Angeles" },
-    { coachId: coach2.id, dayOfWeek: 4, startTime: "14:00", endTime: "17:00", timezone: "America/Los_Angeles" },
-  ]);
-
-  const nextMonday = new Date();
-  nextMonday.setDate(nextMonday.getDate() + ((1 + 7 - nextMonday.getDay()) % 7 || 7));
-  const nextMondayStr = nextMonday.toISOString().split("T")[0];
-
-  const overrideDate = new Date(nextMonday);
-  overrideDate.setDate(overrideDate.getDate() + 14);
-  const overrideDateStr = overrideDate.toISOString().split("T")[0];
-
-  await db.insert(coachAvailabilityOverridesTable).values([
-    { coachId: coach1.id, overrideDate: nextMondayStr, overrideType: "blocked", reason: "Personal day off" },
-    { coachId: coach2.id, overrideDate: overrideDateStr, overrideType: "extra", startTime: "10:00", endTime: "12:00", reason: "Shortened schedule - dentist appointment" },
-  ]);
-
   const now = new Date();
   const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(14, 0, 0, 0);
   const nextWeek = new Date(now); nextWeek.setDate(nextWeek.getDate() + 6); nextWeek.setHours(11, 0, 0, 0);
@@ -428,72 +400,6 @@ async function seed() {
     { title: "Weekly Q&A Recap", description: "Last week's Q&A recording.", callType: "weekly_qa", coachId: coach1.id, scheduledAt: lastWeek, durationMinutes: 60, requiredEntitlement: "coaching:group", registeredCount: 35, recordingUrl: "https://example.com/recording/1" },
   ]);
 
-  const twoMonthsAgo = new Date(now); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2); twoMonthsAgo.setHours(10, 0, 0, 0);
-  const sixWeeksAgo = new Date(now); sixWeeksAgo.setDate(sixWeeksAgo.getDate() - 42); sixWeeksAgo.setHours(14, 0, 0, 0);
-  const oneMonthAgo = new Date(now); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1); oneMonthAgo.setHours(11, 0, 0, 0);
-  const twoWeeksAgo = new Date(now); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14); twoWeeksAgo.setHours(15, 0, 0, 0);
-  const upcomingSession = new Date(now); upcomingSession.setDate(upcomingSession.getDate() + 5); upcomingSession.setHours(10, 0, 0, 0);
-
-  const [session1] = await db.insert(coachingSessionsTable).values({
-    coachId: coach1.id, memberId: admin.id, scheduledAt: twoMonthsAgo, durationMinutes: 60,
-    status: "completed", meetLink: "https://meet.google.com/abc-defg-hij",
-    memberNotes: "Discussed Facebook Ads strategy for Q1. Sarah recommended focusing on lookalike audiences and testing 3 ad creatives per campaign.",
-    actionItems: [
-      { id: "ai-1", text: "Set up 3 lookalike audiences based on top 10% customers", completed: true, completedAt: new Date(twoMonthsAgo.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: "ai-2", text: "Create 3 ad creative variations for each campaign", completed: true, completedAt: new Date(twoMonthsAgo.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: "ai-3", text: "Review campaign performance after 7 days and report back", completed: false },
-    ],
-  }).returning();
-
-  const [session2] = await db.insert(coachingSessionsTable).values({
-    coachId: coach2.id, memberId: admin.id, scheduledAt: sixWeeksAgo, durationMinutes: 60,
-    status: "completed", meetLink: "https://meet.google.com/klm-nopq-rst",
-    memberNotes: "Went over scaling framework. David suggested starting with $50/day budget increase every 3 days if ROAS stays above 2x.",
-    actionItems: [
-      { id: "ai-4", text: "Implement gradual budget scaling on top 3 campaigns", completed: true, completedAt: new Date(sixWeeksAgo.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: "ai-5", text: "Set up automated rules for budget pausing at negative ROAS", completed: false },
-    ],
-  }).returning();
-
-  const [session3] = await db.insert(coachingSessionsTable).values({
-    coachId: coach1.id, memberId: admin.id, scheduledAt: oneMonthAgo, durationMinutes: 60,
-    status: "cancelled", meetLink: "https://meet.google.com/abc-defg-hij",
-    cancelledAt: new Date(oneMonthAgo.getTime() - 48 * 60 * 60 * 1000),
-    cancelledBy: "member", cancellationReason: "Schedule conflict with client meeting",
-    creditReturned: true,
-  }).returning();
-
-  const [session4] = await db.insert(coachingSessionsTable).values({
-    coachId: coach2.id, memberId: admin.id, scheduledAt: twoWeeksAgo, durationMinutes: 60,
-    status: "no_show", meetLink: "https://meet.google.com/klm-nopq-rst",
-  }).returning();
-
-  const [session5] = await db.insert(coachingSessionsTable).values({
-    coachId: coach1.id, memberId: admin.id, scheduledAt: upcomingSession, durationMinutes: 60,
-    status: "scheduled", meetLink: "https://meet.google.com/abc-defg-hij",
-  }).returning();
-
-  const [session6] = await db.insert(coachingSessionsTable).values({
-    coachId: coach1.id, memberId: marcus.id, scheduledAt: new Date(twoMonthsAgo.getTime() + 7 * 24 * 60 * 60 * 1000), durationMinutes: 60,
-    status: "completed", meetLink: "https://meet.google.com/abc-defg-hij",
-    memberNotes: "Great session on niche selection and initial campaign setup.",
-    actionItems: [
-      { id: "ai-6", text: "Research 5 potential niches using the framework discussed", completed: true, completedAt: new Date(twoMonthsAgo.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString() },
-    ],
-  }).returning();
-
-  const [session7] = await db.insert(coachingSessionsTable).values({
-    coachId: coach2.id, memberId: marcus.id, scheduledAt: new Date(sixWeeksAgo.getTime() + 7 * 24 * 60 * 60 * 1000), durationMinutes: 60,
-    status: "completed", meetLink: "https://meet.google.com/klm-nopq-rst",
-    memberNotes: "Covered data analysis and tracking setup. David helped set up proper conversion tracking.",
-  }).returning();
-
-  await db.insert(coachingRatingsTable).values([
-    { sessionId: session1.id, coachId: coach1.id, memberId: admin.id, rating: 5, comment: "Sarah was incredibly helpful. She gave me a clear action plan that I could implement right away." },
-    { sessionId: session6.id, coachId: coach1.id, memberId: marcus.id, rating: 5, comment: "Excellent guidance on niche selection. Very practical advice." },
-    { sessionId: session2.id, coachId: coach2.id, memberId: admin.id, rating: 4, comment: "Good scaling strategies but would have liked more time to discuss automation." },
-    { sessionId: session7.id, coachId: coach2.id, memberId: marcus.id, rating: 5, comment: "David is amazing at tracking and analytics. Super detailed session." },
-  ]);
 
   const [ticket1] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100234", userId: marcus.id, category: "billing", priority: "normal", status: "awaiting_response", subject: "Question about tier upgrade pricing" }).returning();
   await db.insert(ticketMessagesTable).values([

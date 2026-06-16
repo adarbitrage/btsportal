@@ -24,7 +24,6 @@ import adminPanelRouter from "../routes/admin-panel";
 import adminTicketsRouter from "../routes/admin-tickets";
 import adminTracksRouter from "../routes/admin-tracks";
 import adminCommunityRouter from "../routes/admin-community";
-import adminCoachingRouter from "../routes/admin-coaching";
 import adminCommissionsRouter from "../routes/admin-commissions";
 import adminChatRouter from "../routes/admin-chat";
 import adminCommunicationsRouter from "../routes/admin-communications";
@@ -99,7 +98,6 @@ beforeAll(async () => {
     adminTicketsRouter,
     adminTracksRouter,
     adminCommunityRouter,
-    adminCoachingRouter,
     adminCommissionsRouter,
     adminChatRouter,
     adminCommunicationsRouter,
@@ -207,11 +205,6 @@ function rbacCases(): RbacCase[] {
       resource: "community",
       permission: "community:view",
       buildPath: () => "/api/admin/community/categories",
-    },
-    {
-      resource: "coaching",
-      permission: "coaching:view",
-      buildPath: () => "/api/admin/coaching/coaches",
     },
     {
       resource: "commissions",
@@ -482,14 +475,6 @@ function rbacWriteCases(): RbacWriteCase[] {
       method: "post",
       // Empty body -> 400 ("Name and slug are required").
       buildPath: () => "/api/admin/community/categories",
-      body: {},
-    },
-    {
-      resource: "coaching_manage",
-      permission: "coaching:manage",
-      method: "post",
-      // Empty body -> 400 ("coachId, dayOfWeek, startTime, endTime ...").
-      buildPath: () => "/api/admin/coaching/availability",
       body: {},
     },
     {

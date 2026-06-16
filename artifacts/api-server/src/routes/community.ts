@@ -74,11 +74,6 @@ async function checkAndAwardBadges(userId: number) {
     badgesToAward.push("contributor");
   }
 
-  const entitlements = await getUserEntitlements(userId);
-  if (entitlements.has("coaching:one_on_one:monthly") || entitlements.has("coaching:one_on_one:weekly")) {
-    badgesToAward.push("mentor");
-  }
-
   const [user] = await db.select({ currentStreak: usersTable.currentStreak }).from(usersTable).where(eq(usersTable.id, userId));
   if (user && user.currentStreak >= 7) {
     badgesToAward.push("streak");

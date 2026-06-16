@@ -54,18 +54,6 @@ const ORIENTATION_ITEMS: OrientationItem[] = [
     icon: "🧠",
   },
   {
-    entitlementKey: "coaching:one_on_one:monthly",
-    title: "1-on-1 Coaching (Monthly)",
-    description: "Monthly personalized coaching sessions tailored to your specific business needs.",
-    icon: "🎯",
-  },
-  {
-    entitlementKey: "coaching:one_on_one:weekly",
-    title: "1-on-1 Coaching (Weekly)",
-    description: "Weekly personalized coaching for maximum accountability and accelerated growth.",
-    icon: "🚀",
-  },
-  {
     entitlementKey: "community:access",
     title: "Community Access",
     description: "Connect with fellow members, share wins, and collaborate in our private community.",

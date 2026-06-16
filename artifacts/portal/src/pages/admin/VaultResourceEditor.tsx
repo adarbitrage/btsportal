@@ -52,7 +52,6 @@ const ENTITLEMENTS = [
   { value: "content:advanced", label: "LaunchPad" },
   { value: "coaching:group", label: "3-Month Mentorship" },
   { value: "coaching:mastermind", label: "6-Month Mentorship" },
-  { value: "coaching:one_on_one:monthly", label: "1-Year Mentorship" },
   { value: "access:lifetime", label: "Lifetime Mentorship" },
 ];
 

@@ -12,17 +12,7 @@ import { useState } from "react";
 function getFirstMission(slug: string): { title: string; description: string } {
   switch (slug) {
     case "lifetime":
-      return {
-        title: "Schedule Your First 1-on-1 Coaching Call",
-        description:
-          "As a Lifetime member, you have access to weekly 1-on-1 coaching. Head to the Coaching section and book your first session to create a personalized growth plan with your coach.",
-      };
     case "1year":
-      return {
-        title: "Book Your Monthly Coaching Session",
-        description:
-          "As a 1-Year Mentorship member, you have monthly 1-on-1 coaching available. Schedule your first session to map out your 90-day action plan.",
-      };
     case "6month":
     case "3month":
       return {

@@ -35,8 +35,6 @@ const COMPARISON_FEATURES: Array<{ key: string; label: string }> = [
   { key: "software:expanded", label: "Expanded software access" },
   { key: "coaching:group", label: "Group coaching calls" },
   { key: "coaching:mastermind", label: "Mastermind coaching" },
-  { key: "coaching:one_on_one:monthly", label: "Monthly 1-on-1 coaching" },
-  { key: "coaching:one_on_one:weekly", label: "Weekly 1-on-1 coaching" },
   { key: "community:access", label: "Member community" },
   { key: "commissions:entry", label: "Affiliate commissions" },
   { key: "support:unlimited", label: "Unlimited support" },

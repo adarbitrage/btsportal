@@ -106,20 +106,11 @@ import VaultResourceEditor from "@/pages/admin/VaultResourceEditor";
 import VaultCollections from "@/pages/admin/VaultCollections";
 import VaultAnalytics from "@/pages/admin/VaultAnalytics";
 import AdminWins from "@/pages/admin/AdminWins";
-import OneOnOneCoaching from "@/pages/coaching/OneOnOneCoaching";
-import BookCoaching from "@/pages/coaching/BookCoaching";
 import SessionBooking from "@/pages/coaching/SessionBooking";
 import BookSessionPack from "@/pages/coaching/BookSessionPack";
-import CoachingSessionDetail from "@/pages/coaching/CoachingSessionDetail";
 import PackSessions from "@/pages/admin/PackSessions";
 import PackCredits from "@/pages/admin/PackCredits";
 import PackCoaches from "@/pages/admin/PackCoaches";
-import CoachingCoaches from "@/pages/admin/CoachingCoaches";
-import CoachingAvailability from "@/pages/admin/CoachingAvailability";
-import CoachingOverrides from "@/pages/admin/CoachingOverrides";
-import CoachingSessions from "@/pages/admin/CoachingSessions";
-import CoachingNotes from "@/pages/admin/CoachingNotes";
-import CoachingAnalytics from "@/pages/admin/CoachingAnalytics";
 import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
 import CommunicationsSmsTemplates from "@/pages/admin/CommunicationsSmsTemplates";
 import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
@@ -426,9 +417,6 @@ function Router() {
       <Route path="/wins/mine">{() => <ProtectedRoute component={MyWins} />}</Route>
       <Route path="/wins/:id/testimonial">{() => <ProtectedRoute component={TestimonialSubmit} />}</Route>
       <Route path="/wins/:id">{() => <ProtectedRoute component={WinDetail} />}</Route>
-      <Route path="/coaching/one-on-one/book">{() => <EntitlementRoute component={BookCoaching} entitlement="coaching:one_on_one:*" />}</Route>
-      <Route path="/coaching/one-on-one/sessions/:id">{() => <EntitlementRoute component={CoachingSessionDetail} entitlement="coaching:one_on_one:*" />}</Route>
-      <Route path="/coaching/one-on-one">{() => <EntitlementRoute component={OneOnOneCoaching} entitlement="coaching:one_on_one:*" />}</Route>
       <Route path="/coaching/book-session/book">{() => <ProtectedRoute component={BookSessionPack} />}</Route>
       <Route path="/coaching/book-session">{() => <ProtectedRoute component={SessionBooking} />}</Route>
       <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
@@ -482,14 +470,9 @@ function Router() {
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
-      <Route path="/admin/coaching">{() => <AdminRoute component={CoachingCoaches} permission="coaching:view" />}</Route>
-      <Route path="/admin/coaching/availability">{() => <AdminRoute component={CoachingAvailability} permission="coaching:manage" />}</Route>
-      <Route path="/admin/coaching/overrides">{() => <AdminRoute component={CoachingOverrides} permission="coaching:manage" />}</Route>
       <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PackSessions} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/credits">{() => <AdminRoute component={PackCredits} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/roster">{() => <AdminRoute component={PackCoaches} permission="coaching:view" />}</Route>
-      <Route path="/admin/coaching/notes">{() => <AdminRoute component={CoachingNotes} permission="coaching:view" />}</Route>
-      <Route path="/admin/coaching/analytics">{() => <AdminRoute component={CoachingAnalytics} permission="coaching:view" />}</Route>
       <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} permission="communications:manage" />}</Route>

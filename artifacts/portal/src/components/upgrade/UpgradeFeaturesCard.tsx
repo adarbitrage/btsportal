@@ -5,7 +5,6 @@ import {
   Crown,
   Users,
   Video,
-  UserCheck,
   DollarSign,
   AppWindow,
   ShieldCheck,
@@ -45,13 +44,6 @@ const FEATURE_CATALOG: LockedFeature[] = [
     description: "Live group coaching calls with BTS coaches.",
     icon: Video,
     matches: (e) => !e.has("coaching:group"),
-  },
-  {
-    key: "coaching-1on1",
-    label: "1-on-1 Coaching",
-    description: "Private monthly sessions with a dedicated coach.",
-    icon: UserCheck,
-    matches: (e) => !hasPrefix(e, "coaching:one_on_one:"),
   },
   {
     key: "community",

@@ -9,7 +9,6 @@ import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, Mes
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
-import { CoachingDashboardWidget } from "@/components/coaching/CoachingDashboardWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
 import { BlitzContinueCard } from "@/components/blitz/BlitzContinueCard";
@@ -197,9 +196,6 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-8">
-            {(Array.from(memberEntitlements).some((e: string) => e.startsWith("coaching:one_on_one:"))) && (
-              <CoachingDashboardWidget />
-            )}
             {recentTools && recentTools.length > 0 && (
               <Card>
                 <CardHeader className="pb-4 border-b border-border/50">

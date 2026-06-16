@@ -65,7 +65,7 @@ export async function getUserProducts(userId: number) {
 
 export function getHighestProductLabel(entitlements: Set<string>): { name: string; slug: string } {
   if (entitlements.has("access:lifetime")) return { name: "Lifetime Mentorship", slug: "lifetime" };
-  if (entitlements.has("coaching:one_on_one:monthly")) return { name: "1-Year Mentorship", slug: "1year" };
+  if (entitlements.has("commissions:premium")) return { name: "1-Year Mentorship", slug: "1year" };
   if (entitlements.has("coaching:mastermind")) return { name: "6-Month Mentorship", slug: "6month" };
   if (entitlements.has("coaching:group")) return { name: "3-Month Mentorship", slug: "3month" };
   if (entitlements.has("content:advanced")) return { name: "LaunchPad", slug: "launchpad" };
@@ -87,7 +87,7 @@ export function getEntitlementsList(entitlements: Set<string>): string[] {
 
 export async function getEditWindowMinutes(userId: number): Promise<number> {
   const entitlements = await getUserEntitlements(userId);
-  if (entitlements.has("access:lifetime") || entitlements.has("coaching:one_on_one:monthly")) {
+  if (entitlements.has("access:lifetime") || entitlements.has("commissions:premium")) {
     return 30;
   }
   return 15;

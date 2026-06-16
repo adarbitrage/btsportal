@@ -71,6 +71,17 @@ if [ -n "$DATABASE_URL" ]; then
       END \$\$;
     " >/dev/null
   fi
+
+  # 4. Drop the legacy entitlement-based 1-on-1 coaching tables.
+  #    Their schema definitions were removed, but `drizzle-kit push` only runs
+  #    when the live-schema-drift test FAILS, and that test asserts schema ⊆ DB
+  #    (it does not flag tables that exist in the DB but not in the schema). So a
+  #    pure table REMOVAL leaves the drift test green, push is skipped, and these
+  #    tables would otherwise linger in prod forever. Drop them explicitly here.
+  #    The file is idempotent (DROP TABLE IF EXISTS … CASCADE), so on a fresh DB
+  #    that never had these tables it is a harmless no-op.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0045_drop_legacy_one_on_one_coaching.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

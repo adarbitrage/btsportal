@@ -66,7 +66,7 @@ interface StaticGroupSpec {
 //   reserve_income  → content:frontend access
 //   launchpad       → software:base access
 //   3month          → coaching:group, community:access, commissions:entry
-//   1year           → coaching:one_on_one:monthly, commissions:premium
+//   1year           → commissions:premium
 //   lifetime        → commissions:top
 //   6month          → software:expanded, commissions:mid
 
@@ -109,9 +109,9 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
         title: "1-on-1 Coaching",
         description: "Booking and managing your personal coaching sessions.",
         icon: "UserCheck",
-        // Nav leaf: requiredEntitlement: "coaching:one_on_one:*"
-        entitlementKey: "coaching:one_on_one:monthly",
-        upgradeProductSlug: "1year",
+        // Nav leaf: /coaching/book-session (credit-based session packs, open to all)
+        entitlementKey: null,
+        upgradeProductSlug: null,
         sortOrder: 3,
       },
       {
