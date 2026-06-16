@@ -10,6 +10,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Calendar,
   Clock,
   UserCheck,
@@ -35,6 +50,15 @@ import {
 } from "@/lib/session-packs-api";
 
 const PAST_PAGE_SIZE = 5;
+
+// Sessions can be cancelled/rescheduled freely up to this far ahead; inside the
+// window a cancel uses the credit (no refund) and rescheduling is closed. Mirrors
+// REFUND_WINDOW_MS on the server, which is the source of truth.
+const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isLockedWithin24h(scheduledAt: string, nowMs: number): boolean {
+  return new Date(scheduledAt).getTime() - nowMs < REFUND_WINDOW_MS;
+}
 
 /**
  * TEMPORARY DESIGN PREVIEW — remove once the Google Meet recording/notes
@@ -86,6 +110,32 @@ function buildDesignPreviewSession(): PastSessionView {
   };
 }
 
+/**
+ * TEMPORARY DESIGN PREVIEW — an upcoming session scheduled inside the 24-hour
+ * window so the cancellation-policy UI (locked reschedule + "credit will be
+ * used" warning) can be previewed. Local fixture only (negative id); it is
+ * never sent to the API or GHL.
+ */
+function buildDesignPreviewUpcomingSession(): SessionBookingType {
+  const scheduledAt = new Date(Date.now() + 6 * 60 * 60 * 1000);
+  const endAt = addMinutes(scheduledAt, 60);
+  return {
+    id: -2,
+    coachId: 0,
+    coachName: "Michael",
+    coachPhotoUrl: null,
+    scheduledAt: scheduledAt.toISOString(),
+    endAt: endAt.toISOString(),
+    durationMinutes: 60,
+    meetLink: "https://meet.google.com/abc-defg-hij",
+    status: "booked",
+    title: "1-on-1 Coaching with Michael",
+    discussionTopic: "Reviewing my Q3 funnel and scaling plan",
+    cancelledAt: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 const PACKAGE_PLACEHOLDERS = [
   {
     name: "1-Session (60 minutes)",
@@ -113,12 +163,113 @@ function coachInitials(name: string): string {
     .toUpperCase();
 }
 
+function SessionPolicyNote({
+  scheduledAt,
+  locked,
+}: {
+  scheduledAt: string;
+  locked: boolean;
+}) {
+  if (locked) {
+    return (
+      <p className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+        <span>
+          Within 24 hours — cancelling now uses your credit, and rescheduling is
+          closed.
+        </span>
+      </p>
+    );
+  }
+  const deadline = new Date(new Date(scheduledAt).getTime() - REFUND_WINDOW_MS);
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+      <Clock className="h-3.5 w-3.5 shrink-0 mt-px" />
+      <span>
+        Free to cancel or reschedule until{" "}
+        {format(deadline, "EEE, MMM d 'at' h:mm a")}.
+      </span>
+    </p>
+  );
+}
+
+function RescheduleButton({
+  bookingId,
+  locked,
+  size,
+}: {
+  bookingId: number;
+  locked: boolean;
+  size?: "default" | "sm";
+}) {
+  const btn = (
+    <Button
+      variant="ghost"
+      size={size}
+      className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400"
+      disabled={locked}
+      data-testid={`reschedule-${bookingId}`}
+    >
+      Reschedule
+      <Clock className="w-4 h-4 ml-2" />
+    </Button>
+  );
+  if (locked) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0} className="inline-flex cursor-not-allowed">
+            {btn}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Rescheduling is closed within 24 hours of the session.
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  return (
+    <Link href={`/coaching/book-session/book?reschedule=${bookingId}`}>
+      {btn}
+    </Link>
+  );
+}
+
+function CancelButton({
+  bookingId,
+  pending,
+  onClick,
+  size,
+}: {
+  bookingId: number;
+  pending: boolean;
+  onClick: () => void;
+  size?: "default" | "sm";
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size={size}
+      className="text-destructive hover:text-destructive"
+      onClick={onClick}
+      disabled={pending}
+      data-testid={`cancel-${bookingId}`}
+    >
+      <XCircle className="w-4 h-4 mr-2" />
+      Cancel
+    </Button>
+  );
+}
+
 export default function SessionBooking() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pastPage, setPastPage] = useState(0);
   const [activeRecording, setActiveRecording] =
     useState<PastSessionView | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<SessionBookingType | null>(
+    null,
+  );
 
   const { data: balanceData, isLoading: balanceLoading } = useSessionBalance();
   const { data: bookings, isLoading: bookingsLoading } = useMySessionBookings();
@@ -130,18 +281,21 @@ export default function SessionBooking() {
   const hasCredits = balance > 0;
   const now = new Date();
 
-  const upcoming = useMemo(
-    () =>
-      (bookings ?? [])
-        .filter(
-          (b) => b.status === "booked" && new Date(b.scheduledAt).getTime() >= now.getTime(),
-        )
-        .sort(
-          (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
-        ),
-    [bookings],
-  );
+  const upcoming = useMemo(() => {
+    const real = (bookings ?? []).filter(
+      (b) => b.status === "booked" && new Date(b.scheduledAt).getTime() >= now.getTime(),
+    );
+    const combined = showDesignPreview
+      ? [...real, buildDesignPreviewUpcomingSession()]
+      : real;
+    return combined.sort(
+      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    );
+  }, [bookings, showDesignPreview]);
   const nextSession = upcoming[0];
+  const nextLocked = nextSession
+    ? isLockedWithin24h(nextSession.scheduledAt, now.getTime())
+    : false;
 
   const past = useMemo<PastSessionView[]>(
     () => {
@@ -165,8 +319,28 @@ export default function SessionBooking() {
     return { sessions: past.slice(start, start + PAST_PAGE_SIZE), totalPages };
   }, [past, pastPage]);
 
-  async function handleCancel(booking: SessionBookingType) {
-    if (!window.confirm("Are you sure you want to cancel this session?")) return;
+  const cancelLocked = cancelTarget
+    ? isLockedWithin24h(cancelTarget.scheduledAt, Date.now())
+    : false;
+
+  function openCancelDialog(booking: SessionBookingType) {
+    setCancelTarget(booking);
+  }
+
+  async function confirmCancel() {
+    const booking = cancelTarget;
+    setCancelTarget(null);
+    if (!booking) return;
+    // The design-preview session is a local fixture (negative id); never call
+    // the API for it.
+    if (booking.id < 0) {
+      toast({
+        title: "Preview only",
+        description:
+          "This is a sample session for design preview — nothing was changed.",
+      });
+      return;
+    }
     try {
       const result = await cancelMutation.mutateAsync({ bookingId: booking.id });
       toast({
@@ -299,6 +473,12 @@ export default function SessionBooking() {
                       <p className="text-sm text-muted-foreground mb-4 mt-1">
                         {nextSession.durationMinutes} minute session
                       </p>
+                      <div className="mb-3">
+                        <SessionPolicyNote
+                          scheduledAt={nextSession.scheduledAt}
+                          locked={nextLocked}
+                        />
+                      </div>
                       <div className="flex flex-wrap gap-3">
                         {(() => {
                           const sessionStart = new Date(nextSession.scheduledAt);
@@ -328,19 +508,15 @@ export default function SessionBooking() {
                                   Join (opens 5 min before)
                                 </Button>
                               )}
-                              <Link href={`/coaching/book-session/book?reschedule=${nextSession.id}`}>
-                                <Button variant="outline">Reschedule</Button>
-                              </Link>
-                              <Button
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleCancel(nextSession)}
-                                disabled={cancelMutation.isPending}
-                                data-testid={`cancel-${nextSession.id}`}
-                              >
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Cancel
-                              </Button>
+                              <RescheduleButton
+                                bookingId={nextSession.id}
+                                locked={nextLocked}
+                              />
+                              <CancelButton
+                                bookingId={nextSession.id}
+                                pending={cancelMutation.isPending}
+                                onClick={() => openCancelDialog(nextSession)}
+                              />
                             </>
                           );
                         })()}
@@ -374,7 +550,12 @@ export default function SessionBooking() {
 
               {upcoming.length > 1 && (
                 <div className="mt-4 space-y-3">
-                  {upcoming.slice(1).map((booking) => (
+                  {upcoming.slice(1).map((booking) => {
+                    const locked = isLockedWithin24h(
+                      booking.scheduledAt,
+                      now.getTime(),
+                    );
+                    return (
                     <Card key={booking.id} data-testid={`upcoming-${booking.id}`}>
                       <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-4">
@@ -387,28 +568,31 @@ export default function SessionBooking() {
                               <Clock className="h-3 w-3" />
                               {format(new Date(booking.scheduledAt), "EEE, MMM d 'at' h:mm a")}
                             </p>
+                            <div className="mt-1">
+                              <SessionPolicyNote
+                                scheduledAt={booking.scheduledAt}
+                                locked={locked}
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Link href={`/coaching/book-session/book?reschedule=${booking.id}`}>
-                            <Button variant="outline" size="sm">
-                              Reschedule
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
+                          <RescheduleButton
+                            bookingId={booking.id}
+                            locked={locked}
                             size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleCancel(booking)}
-                            disabled={cancelMutation.isPending}
-                            data-testid={`cancel-${booking.id}`}
-                          >
-                            Cancel
-                          </Button>
+                          />
+                          <CancelButton
+                            bookingId={booking.id}
+                            pending={cancelMutation.isPending}
+                            onClick={() => openCancelDialog(booking)}
+                            size="sm"
+                          />
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -600,6 +784,33 @@ export default function SessionBooking() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={cancelTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelLocked
+                ? "This session is within 24 hours of its start time. Cancelling now will count as a used credit — it will not be refunded."
+                : "Your credit will be refunded and the session will be removed from your calendar."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep session</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelLocked ? "Cancel & use credit" : "Cancel session"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

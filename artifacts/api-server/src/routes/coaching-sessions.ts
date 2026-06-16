@@ -483,6 +483,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     .select({
       id: sessionPackBookingsTable.id,
       status: sessionPackBookingsTable.status,
+      scheduledAt: sessionPackBookingsTable.scheduledAt,
       ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
       ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
       coachId: sessionPackBookingsTable.coachId,
@@ -505,6 +506,16 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
   }
   if (!existing.ghlAppointmentId) {
     res.status(409).json({ error: "This session cannot be rescheduled" });
+    return;
+  }
+  // Enforce the 24-hour policy: a session can only be rescheduled while it is
+  // still at least 24 hours away. Inside the window the member must keep or
+  // cancel it (cancelling that late uses the credit).
+  if (existing.scheduledAt.getTime() - Date.now() < REFUND_WINDOW_MS) {
+    res.status(409).json({
+      error:
+        "Sessions can only be rescheduled at least 24 hours before the scheduled time.",
+    });
     return;
   }
 
