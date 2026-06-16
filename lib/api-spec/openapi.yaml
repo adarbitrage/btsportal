@@ -7781,6 +7781,16 @@ components:
           type: ["integer", "null"]
         assignedTo:
           type: ["integer", "null"]
+        deliveryStatus:
+          type: string
+          enum: [pending, delivered, skipped, failed]
+          description: |
+            TicketDesk delivery pipeline status, surfaced to the member so
+            they can see whether their request reached the support team.
+            "delivered" means the support team has it in their queue;
+            "failed" means automatic delivery exhausted its retries (the
+            team was still notified by email as a fallback). "pending" and
+            "skipped" are treated as in-progress on the member-facing UI.
         createdAt:
           type: string
           format: date-time
@@ -7794,7 +7804,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TicketMessage"
-      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt, messages]
+      required: [id, ticketNumber, userId, category, priority, status, subject, deliveryStatus, createdAt, updatedAt, messages]
 
     TicketMessage:
       type: object

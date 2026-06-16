@@ -370,6 +370,7 @@ export type {
   TicketSlaDetail,
   TicketStatus,
   TicketWithMessages,
+  TicketWithMessagesDeliveryStatus,
   TimeSlot,
   ToggleCommunityReaction,
   TooManyRequestsResponse,

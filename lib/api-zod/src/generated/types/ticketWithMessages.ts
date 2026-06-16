@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { TicketMessage } from "./ticketMessage";
+import type { TicketWithMessagesDeliveryStatus } from "./ticketWithMessagesDeliveryStatus";
 
 export interface TicketWithMessages {
   id: number;
@@ -21,6 +22,14 @@ export interface TicketWithMessages {
   sourceReferenceId?: number | null;
   /** @nullable */
   assignedTo?: number | null;
+  /** TicketDesk delivery pipeline status, surfaced to the member so
+they can see whether their request reached the support team.
+"delivered" means the support team has it in their queue;
+"failed" means automatic delivery exhausted its retries (the
+team was still notified by email as a fallback). "pending" and
+"skipped" are treated as in-progress on the member-facing UI.
+ */
+  deliveryStatus: TicketWithMessagesDeliveryStatus;
   createdAt: Date;
   updatedAt: Date;
   /** @nullable */

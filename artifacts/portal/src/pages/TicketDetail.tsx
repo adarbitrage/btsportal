@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot, Info } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject } from "@/lib/support-topics";
@@ -36,6 +36,15 @@ export default function TicketDetail() {
 
   const topicPreset = getTopicPresetForSubject(ticket.subject);
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+
+  const deliveryStatus = ticket.deliveryStatus;
+  // "delivered" gets a confirming green badge. "failed" means automatic
+  // delivery exhausted its retries — the team was still notified by email,
+  // so we reassure the member rather than alarm them. "pending"/"skipped"
+  // are treated as in-progress: the request is filed and on its way, so we
+  // show a neutral "being delivered" badge instead of internal jargon.
+  const isDelivered = deliveryStatus === "delivered";
+  const isDeliveryFailed = deliveryStatus === "failed";
 
   const isSystemMessage = (body: string) => {
     const systemPatterns = [
@@ -93,9 +102,26 @@ export default function TicketDetail() {
                 <span className="capitalize">{ticket.category}</span>
               </div>
             </div>
-            <Badge variant={ticket.status === 'open' ? 'warning' : 'default'} className="text-sm px-3 py-1">
-              {ticket.status.replace('_', ' ')}
-            </Badge>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <Badge variant={ticket.status === 'open' ? 'warning' : 'default'} className="text-sm px-3 py-1">
+                {ticket.status.replace('_', ' ')}
+              </Badge>
+              <div data-testid="ticket-delivery-badge">
+                {isDelivered ? (
+                  <Badge variant="outline" className="gap-1 border-green-500 bg-green-50 text-green-700">
+                    <CheckCircle2 className="w-3 h-3" /> Delivered to support team
+                  </Badge>
+                ) : isDeliveryFailed ? (
+                  <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-900">
+                    <AlertTriangle className="w-3 h-3" /> Team notified by email
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700">
+                    <Clock className="w-3 h-3" /> Delivering to support team
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
           {topicPreset && (
             <div
@@ -105,6 +131,20 @@ export default function TicketDetail() {
             >
               <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
               <p>{topicPreset.notice}</p>
+            </div>
+          )}
+          {isDeliveryFailed && (
+            <div
+              role="status"
+              data-testid="ticket-delivery-failed-notice"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+              <p>
+                We couldn't deliver this ticket to our support queue automatically, but
+                don't worry — the team was notified by email and will follow up with you
+                here. You can keep replying below; no need to resubmit.
+              </p>
             </div>
           )}
         </div>

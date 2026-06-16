@@ -830,6 +830,11 @@ export const GetTicketResponse = zod.object({
   source: zod.string().nullish(),
   sourceReferenceId: zod.number().nullish(),
   assignedTo: zod.number().nullish(),
+  deliveryStatus: zod
+    .enum(["pending", "delivered", "skipped", "failed"])
+    .describe(
+      'TicketDesk delivery pipeline status, surfaced to the member so\nthey can see whether their request reached the support team.\n\"delivered\" means the support team has it in their queue;\n\"failed\" means automatic delivery exhausted its retries (the\nteam was still notified by email as a fallback). \"pending\" and\n\"skipped\" are treated as in-progress on the member-facing UI.\n',
+    ),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   resolvedAt: zod.date().nullish(),

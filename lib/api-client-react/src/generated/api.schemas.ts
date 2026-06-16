@@ -971,6 +971,25 @@ history.
   sourceReferenceId?: number;
 }
 
+/**
+ * TicketDesk delivery pipeline status, surfaced to the member so
+they can see whether their request reached the support team.
+"delivered" means the support team has it in their queue;
+"failed" means automatic delivery exhausted its retries (the
+team was still notified by email as a fallback). "pending" and
+"skipped" are treated as in-progress on the member-facing UI.
+
+ */
+export type TicketWithMessagesDeliveryStatus =
+  (typeof TicketWithMessagesDeliveryStatus)[keyof typeof TicketWithMessagesDeliveryStatus];
+
+export const TicketWithMessagesDeliveryStatus = {
+  pending: "pending",
+  delivered: "delivered",
+  skipped: "skipped",
+  failed: "failed",
+} as const;
+
 export type TicketMessageSenderType =
   (typeof TicketMessageSenderType)[keyof typeof TicketMessageSenderType];
 
@@ -1001,6 +1020,14 @@ export interface TicketWithMessages {
   sourceReferenceId?: number | null;
   /** @nullable */
   assignedTo?: number | null;
+  /** TicketDesk delivery pipeline status, surfaced to the member so
+they can see whether their request reached the support team.
+"delivered" means the support team has it in their queue;
+"failed" means automatic delivery exhausted its retries (the
+team was still notified by email as a fallback). "pending" and
+"skipped" are treated as in-progress on the member-facing UI.
+ */
+  deliveryStatus: TicketWithMessagesDeliveryStatus;
   createdAt: string;
   updatedAt: string;
   /** @nullable */
