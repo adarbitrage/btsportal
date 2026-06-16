@@ -148,10 +148,10 @@ export default function CoachingOverrides() {
                           <p className="text-sm text-muted-foreground mt-1">{override.reason}</p>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(override)}>
+                      <Button variant="ghost" size="sm" data-testid={`button-edit-override-${override.id}`} onClick={() => handleEdit(override)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(override.id)}>
+                      <Button variant="ghost" size="sm" data-testid={`button-delete-override-${override.id}`} onClick={() => handleDelete(override.id)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
