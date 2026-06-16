@@ -292,6 +292,100 @@ describe("AdminTicketQueue — real-data wiring", () => {
     });
   });
 
+  describe("SLA filter", () => {
+    const SLA_TICKETS: Ticket[] = [
+      makeTicket({ id: 31, ticketNumber: "BTS-000031", slaStatus: "breached" }),
+      makeTicket({ id: 32, ticketNumber: "BTS-000032", slaStatus: "approaching" }),
+      makeTicket({ id: 33, ticketNumber: "BTS-000033", slaStatus: "within" }),
+      makeTicket({ id: 34, ticketNumber: "BTS-000034", slaStatus: null }),
+    ];
+
+    async function waitForSlaRows() {
+      await waitFor(() => {
+        expect(screen.getAllByTestId("ticket-link")).toHaveLength(
+          SLA_TICKETS.length,
+        );
+      });
+    }
+
+    it.each([
+      ["Breached", /^Breached$/, "BTS-000031"],
+      ["Approaching", /^Approaching$/, "BTS-000032"],
+      ["Within", /^Within$/, "BTS-000033"],
+    ] as const)(
+      "narrows the visible rows to slaStatus=%s",
+      async (_label, optionName, expectedNumber) => {
+        getAdminTickets.mockResolvedValue(SLA_TICKETS);
+        render(<AdminTicketQueue />);
+        await waitForSlaRows();
+
+        await pickFromSelect(/SLA/i, optionName);
+
+        await waitFor(() => {
+          expect(visibleTicketNumbers()).toEqual([expectedNumber]);
+        });
+      },
+    );
+
+    it("'No SLA' narrows to tickets with slaStatus == null", async () => {
+      getAdminTickets.mockResolvedValue(SLA_TICKETS);
+      render(<AdminTicketQueue />);
+      await waitForSlaRows();
+
+      await pickFromSelect(/SLA/i, /^No SLA$/);
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000034"]);
+      });
+    });
+  });
+
+  describe("Tier filter", () => {
+    const TIER_TICKETS: Ticket[] = [
+      makeTicket({ id: 41, ticketNumber: "BTS-000041", tier: "lifetime" }),
+      makeTicket({ id: 42, ticketNumber: "BTS-000042", tier: "free" }),
+      makeTicket({ id: 43, ticketNumber: "BTS-000043", tier: null }),
+    ];
+
+    async function waitForTierRows() {
+      await waitFor(() => {
+        expect(screen.getAllByTestId("ticket-link")).toHaveLength(
+          TIER_TICKETS.length,
+        );
+      });
+    }
+
+    it.each([
+      ["Lifetime", /^Lifetime$/, "BTS-000041"],
+      ["Free", /^Free$/, "BTS-000042"],
+    ] as const)(
+      "narrows the visible rows to tier=%s",
+      async (_label, optionName, expectedNumber) => {
+        getAdminTickets.mockResolvedValue(TIER_TICKETS);
+        render(<AdminTicketQueue />);
+        await waitForTierRows();
+
+        await pickFromSelect(/Tier/i, optionName);
+
+        await waitFor(() => {
+          expect(visibleTicketNumbers()).toEqual([expectedNumber]);
+        });
+      },
+    );
+
+    it("'No tier' narrows to tickets with tier == null", async () => {
+      getAdminTickets.mockResolvedValue(TIER_TICKETS);
+      render(<AdminTicketQueue />);
+      await waitForTierRows();
+
+      await pickFromSelect(/Tier/i, /^No tier$/);
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000043"]);
+      });
+    });
+  });
+
   describe("delivery-failure badge + filter", () => {
     const DELIVERY_TICKETS: Ticket[] = [
       makeTicket({ id: 21, ticketNumber: "BTS-000021", deliveryStatus: "failed" }),
