@@ -233,6 +233,65 @@ describe("AdminTicketQueue — real-data wiring", () => {
     });
   });
 
+  describe("bulk assign / close actions", () => {
+    const ASSIGNEES = [
+      { id: 901, name: "Riley Agent", email: "riley@example.test" },
+      { id: 902, name: "Sam Agent", email: "sam@example.test" },
+    ];
+
+    async function selectRows(...ids: number[]) {
+      const user = userEvent.setup();
+      for (const id of ids) {
+        await user.click(screen.getByTestId(`bulk-select-row-${id}`));
+      }
+      // The action bar only mounts once at least one row is selected.
+      await screen.findByTestId("bulk-action-bar");
+    }
+
+    it("bulk-assigns the selected tickets to the chosen agent", async () => {
+      getTicketAssignees.mockResolvedValue(ASSIGNEES);
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      await selectRows(11, 12);
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("bulk-assign-trigger"));
+      await user.click(await screen.findByRole("option", { name: /^Riley Agent$/ }));
+
+      await waitFor(() => {
+        expect(updateTicketAssignee).toHaveBeenCalledTimes(2);
+      });
+      const assignedIds = updateTicketAssignee.mock.calls.map((c) => c[0]).sort();
+      expect(assignedIds).toEqual([11, 12]);
+      updateTicketAssignee.mock.calls.forEach((c) => {
+        expect(c[1]).toBe(901);
+      });
+      // Close should not have been triggered by an assign.
+      expect(updateTicketStatus).not.toHaveBeenCalled();
+    });
+
+    it("bulk-closes the selected tickets", async () => {
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      await selectRows(11, 13);
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("bulk-close-button"));
+
+      await waitFor(() => {
+        expect(updateTicketStatus).toHaveBeenCalledTimes(2);
+      });
+      const closeCalls = updateTicketStatus.mock.calls;
+      expect(closeCalls.map((c) => c[0]).sort()).toEqual([11, 13]);
+      closeCalls.forEach((c) => {
+        expect(c[1]).toBe("closed");
+      });
+      expect(updateTicketAssignee).not.toHaveBeenCalled();
+    });
+  });
+
   describe("delivery-failure badge + filter", () => {
     const DELIVERY_TICKETS: Ticket[] = [
       makeTicket({ id: 21, ticketNumber: "BTS-000021", deliveryStatus: "failed" }),
