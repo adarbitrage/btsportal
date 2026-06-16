@@ -67,6 +67,18 @@ function formatCallDateTime(scheduledAt: Date): { date: string; time: string } {
   return { date, time };
 }
 
+// Human-readable calendar date (no time component) for mentorship expiration
+// emails, formatted in the product's default timezone for a stable value
+// across every recipient.
+function formatExpirationDate(expiresAt: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: CALL_DISPLAY_TIMEZONE,
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(expiresAt);
+}
+
 export async function processCoachingCallReminders(): Promise<void> {
   const now = new Date();
   const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
@@ -304,7 +316,7 @@ export async function processNewContentAlerts(): Promise<void> {
   }
 }
 
-async function processMentorshipExpirationWarnings(): Promise<void> {
+export async function processMentorshipExpirationWarnings(): Promise<void> {
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -316,6 +328,7 @@ async function processMentorshipExpirationWarnings(): Promise<void> {
       productName: productsTable.name,
       expiresAt: userProductsTable.expiresAt,
       userEmail: usersTable.email,
+      userName: usersTable.name,
     })
     .from(userProductsTable)
     .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
@@ -331,16 +344,33 @@ async function processMentorshipExpirationWarnings(): Promise<void> {
     );
 
   for (const item of expiring30d) {
+    if (!item.userEmail) continue;
     const isUrgent = item.expiresAt && item.expiresAt <= sevenDaysFromNow;
     const tier = isUrgent ? "7d" : "30d";
     const sendKey = `mentorship_expiration_${tier}_${item.userProductId}`;
     const isNew = await checkAndRecordSend(sendKey, "email");
-    if (isNew) {
-      if (isUrgent) {
-        console.log(`[STUB:EMAIL] Would send 7-day mentorship expiration warning to ${item.userEmail} for "${item.productName}"`);
-      } else {
-        console.log(`[STUB:EMAIL] Would send 30-day mentorship expiration warning to ${item.userEmail} for "${item.productName}"`);
-      }
+    if (!isNew) continue;
+
+    // The 7-day window is a strict subset of the 30-day window, so a member
+    // who first received the 30d warning will later cross into the 7d window
+    // and receive the urgent one too (distinct dedup keys, by design).
+    const templateSlug = isUrgent ? "mentorship_expiring_urgent" : "mentorship_expiring_warning";
+    try {
+      await CommunicationService.queueEmail({
+        templateSlug,
+        to: item.userEmail,
+        variables: {
+          member_name: item.userName,
+          product_name: item.productName,
+          expiration_date: item.expiresAt ? formatExpirationDate(item.expiresAt) : "",
+        },
+        userId: item.userId,
+      });
+    } catch (err) {
+      console.error(
+        `[Scheduled Comms] Failed to queue ${tier} mentorship expiration email for user ${item.userId}, userProduct ${item.userProductId}:`,
+        err
+      );
     }
   }
 
@@ -351,6 +381,7 @@ async function processMentorshipExpirationWarnings(): Promise<void> {
       productName: productsTable.name,
       expiresAt: userProductsTable.expiresAt,
       userEmail: usersTable.email,
+      userName: usersTable.name,
     })
     .from(userProductsTable)
     .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
@@ -365,15 +396,32 @@ async function processMentorshipExpirationWarnings(): Promise<void> {
     );
 
   for (const item of expired) {
+    if (!item.userEmail) continue;
     const sendKey = `mentorship_expired_${item.userProductId}`;
     const isNew = await checkAndRecordSend(sendKey, "email");
-    if (isNew) {
-      console.log(`[STUB:EMAIL] Would send mentorship EXPIRED notice to ${item.userEmail} for "${item.productName}"`);
+    if (!isNew) continue;
+
+    try {
+      await CommunicationService.queueEmail({
+        templateSlug: "mentorship_expired",
+        to: item.userEmail,
+        variables: {
+          member_name: item.userName,
+          product_name: item.productName,
+          expiration_date: item.expiresAt ? formatExpirationDate(item.expiresAt) : "",
+        },
+        userId: item.userId,
+      });
+    } catch (err) {
+      console.error(
+        `[Scheduled Comms] Failed to queue mentorship EXPIRED email for user ${item.userId}, userProduct ${item.userProductId}:`,
+        err
+      );
     }
   }
 }
 
-async function processSessionFeedbackPrompts(): Promise<void> {
+export async function processSessionFeedbackPrompts(): Promise<void> {
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
@@ -383,6 +431,7 @@ async function processSessionFeedbackPrompts(): Promise<void> {
       id: coachingCallsTable.id,
       title: coachingCallsTable.title,
       scheduledAt: coachingCallsTable.scheduledAt,
+      requiredEntitlement: coachingCallsTable.requiredEntitlement,
     })
     .from(coachingCallsTable)
     .where(
@@ -394,10 +443,50 @@ async function processSessionFeedbackPrompts(): Promise<void> {
     );
 
   for (const call of completedCalls) {
-    const sendKey = `session_feedback_${call.id}`;
-    const isNew = await checkAndRecordSend(sendKey, "email");
-    if (isNew) {
-      console.log(`[STUB:EMAIL] Would send session feedback prompt for "${call.title}" (ended ~24h ago)`);
+    // No per-call attendance is tracked, so the feedback prompt fans out to the
+    // same entitlement-based audience as the coaching reminder email (every
+    // member with an active product granting the call's requiredEntitlement).
+    // Email opt-out is handled by the unsubscribe suppression list inside
+    // CommunicationService, not an SMS toggle.
+    const recipients = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
+      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+      .where(
+        and(
+          eq(userProductsTable.status, "active"),
+          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`
+        )
+      );
+
+    const seen = new Set<number>();
+    for (const member of recipients) {
+      if (seen.has(member.id) || !member.email) continue;
+      seen.add(member.id);
+
+      // Per-member dedup key so each entitled member is prompted at most once
+      // per call even as the 15-minute scheduler re-runs inside the window.
+      const sendKey = `session_feedback_email_${call.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "email");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueEmail({
+          templateSlug: "session_feedback",
+          to: member.email,
+          variables: {
+            member_name: member.name,
+            call_title: call.title,
+          },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue session feedback email for user ${member.id}, call ${call.id}:`,
+          err
+        );
+      }
     }
   }
 }

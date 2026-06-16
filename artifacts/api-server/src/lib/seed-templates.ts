@@ -513,6 +513,21 @@ const marketingEmailTemplates = [
     variables: ["member_name", "call_title", "call_date", "call_time", "portal_url", "current_year"],
   },
   {
+    slug: "session_feedback",
+    name: "Session Feedback Prompt",
+    subject: "How was {{call_title}}? We'd love your feedback",
+    htmlBody: wrapHtml("Session Feedback", `
+<h2 style="color:#1a1a2e;margin-top:0;">How Was Your Session?</h2>
+<p>Hi {{member_name}},</p>
+<p>Thanks for being part of <strong>{{call_title}}</strong>. We'd love to hear how it went — your feedback helps us make every coaching session better.</p>
+<p>It only takes a minute, and the recording is also available if you'd like to revisit anything.</p>
+<p><a href="{{portal_url}}/coaching" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Share Your Feedback</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nThanks for being part of {{call_title}}. We'd love your feedback — it helps us make every coaching session better. The recording is also available if you'd like to revisit anything.\n\nShare your feedback: {{portal_url}}/coaching\n\nThe BTS Team",
+    category: "marketing",
+    variables: ["member_name", "call_title", "portal_url", "current_year"],
+  },
+  {
     slug: "new_content_alert",
     name: "New Content Available",
     subject: "New content just dropped: {{content_title}}",
