@@ -235,6 +235,7 @@ router.post("/tickets", async (req, res): Promise<void> => {
           subject: parsed.data.subject,
           body: parsed.data.description,
           btsTicketNumber: ticket.ticketNumber,
+          ticketId: ticket.id,
         });
       }
     } catch (err) {

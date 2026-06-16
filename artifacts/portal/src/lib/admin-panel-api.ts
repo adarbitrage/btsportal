@@ -699,6 +699,9 @@ export const adminPanelApi = {
       createdAt: string;
       updatedAt: string;
       resolvedAt: string | null;
+      deliveryStatus: "pending" | "delivered" | "skipped" | "failed";
+      deliveryLastAttemptAt: string | null;
+      deliveryLastError: string | null;
       member: { id: number; name: string; email: string } | null;
       assignee: { id: number; name: string; email: string } | null;
       tier: string | null;
@@ -711,6 +714,18 @@ export const adminPanelApi = {
         isInternal: boolean;
         createdAt: string;
       }>;
+    }>;
+  },
+
+  async getTicketDeliveryHealth() {
+    const res = await authFetch("/admin/tickets/delivery-health");
+    if (!res.ok) throw new Error("Failed to fetch ticket delivery health");
+    return res.json() as Promise<{
+      delivered: number;
+      pending: number;
+      skipped: number;
+      failed: number;
+      undelivered: number;
     }>;
   },
 

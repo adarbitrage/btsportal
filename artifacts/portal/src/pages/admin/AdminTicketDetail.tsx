@@ -610,16 +610,40 @@ export default function AdminTicketDetail() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 shrink-0" data-testid="ticket-sla-badge">
-              {slaStatus === "breached" && (
-                <Badge className="bg-red-600 text-white gap-1"><AlertTriangle className="w-3 h-3" />SLA Breached</Badge>
-              )}
-              {slaStatus === "approaching" && (
-                <Badge className="bg-orange-500 gap-1"><Clock className="w-3 h-3" />SLA Approaching</Badge>
-              )}
-              {slaStatus === "within" && (
-                <Badge className="bg-green-600 gap-1"><CheckCircle2 className="w-3 h-3" />Within SLA</Badge>
-              )}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <div data-testid="ticket-sla-badge" className="flex items-center gap-2">
+                {slaStatus === "breached" && (
+                  <Badge className="bg-red-600 text-white gap-1"><AlertTriangle className="w-3 h-3" />SLA Breached</Badge>
+                )}
+                {slaStatus === "approaching" && (
+                  <Badge className="bg-orange-500 gap-1"><Clock className="w-3 h-3" />SLA Approaching</Badge>
+                )}
+                {slaStatus === "within" && (
+                  <Badge className="bg-green-600 gap-1"><CheckCircle2 className="w-3 h-3" />Within SLA</Badge>
+                )}
+              </div>
+              <div data-testid="ticket-delivery-badge" className="flex items-center">
+                {ticket.deliveryStatus === "delivered" && (
+                  <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-400 gap-1">
+                    <CheckCircle2 className="w-3 h-3" />TicketDesk Delivered
+                  </Badge>
+                )}
+                {ticket.deliveryStatus === "failed" && (
+                  <Badge variant="outline" className="border-red-500 text-red-700 dark:text-red-400 gap-1" title={ticket.deliveryLastError ?? undefined}>
+                    <MailX className="w-3 h-3" />Delivery Failed
+                  </Badge>
+                )}
+                {ticket.deliveryStatus === "skipped" && (
+                  <Badge variant="outline" className="border-orange-500 text-orange-700 dark:text-orange-400 gap-1" title={ticket.deliveryLastError ?? undefined}>
+                    <AlertTriangle className="w-3 h-3" />Delivery Skipped
+                  </Badge>
+                )}
+                {ticket.deliveryStatus === "pending" && (
+                  <Badge variant="outline" className="border-muted-foreground text-muted-foreground gap-1">
+                    <Clock className="w-3 h-3" />Delivery Pending
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 

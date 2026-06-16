@@ -27,6 +27,14 @@ export const ticketsTable = pgTable("tickets", {
   // upstream row is later deleted.
   sourceReferenceId: integer("source_reference_id"),
   assignedTo: integer("assigned_to").references(() => usersTable.id),
+  // TicketDesk delivery pipeline status — tracks whether the ticket reached the
+  // external support platform. Values: 'pending' (not yet attempted), 'delivered'
+  // (successfully mirrored to TicketDesk), 'skipped' (no API key configured),
+  // 'failed' (all retries exhausted). All three non-pending outcomes trigger a
+  // fallback email to the support inbox so no member request is ever lost.
+  deliveryStatus: text("delivery_status").notNull().default("pending"),
+  deliveryLastAttemptAt: timestamp("delivery_last_attempt_at", { withTimezone: true }),
+  deliveryLastError: text("delivery_last_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),

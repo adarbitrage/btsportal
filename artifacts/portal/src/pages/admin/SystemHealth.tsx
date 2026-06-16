@@ -280,6 +280,7 @@ export default function SystemHealth() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
   const [refreshInFlight, setRefreshInFlight] = useState(0);
+  const [ticketDeliveryHealth, setTicketDeliveryHealth] = useState<{ delivered: number; pending: number; skipped: number; failed: number; undelivered: number } | null>(null);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
   const [recentNewEventCount, setRecentNewEventCount] = useState(0);
@@ -734,6 +735,15 @@ export default function SystemHealth() {
     }
   }, []);
 
+  const loadTicketDeliveryHealth = useCallback(async () => {
+    try {
+      const data = await adminPanelApi.getTicketDeliveryHealth();
+      setTicketDeliveryHealth(data);
+    } catch {
+      // non-critical — don't block the rest of the page
+    }
+  }, []);
+
   const load = useCallback(async (silent = false) => {
     if (inFlightRef.current > 0) return;
     inFlightRef.current += 1;
@@ -746,6 +756,7 @@ export default function SystemHealth() {
         loadAlerterHealth(silent),
         loadOnCallHistory(silent),
         loadYseGrantSummary(),
+        loadTicketDeliveryHealth(),
       ]);
       const allOk = healthOk && eventsOk && alertEventsOk && alerterHealthOk && oncallHistoryOk;
       if (silent) {
@@ -761,7 +772,7 @@ export default function SystemHealth() {
       inFlightRef.current = Math.max(0, inFlightRef.current - 1);
       setRefreshInFlight(inFlightRef.current);
     }
-  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth, loadOnCallHistory, loadYseGrantSummary]);
+  }, [loadHealth, loadFallbackEvents, loadAlertEvents, loadAlerterHealth, loadOnCallHistory, loadYseGrantSummary, loadTicketDeliveryHealth]);
 
   // Once we've loaded an alerter snapshot with at least one active throttle
   // slot, tick a counter every second so the "remaining" labels update in
@@ -1060,6 +1071,26 @@ export default function SystemHealth() {
                       under-report attacks until the underlying write error clears.
                       Check database health and recent server logs for{" "}
                       <code>[AbuseRateLimit][AuditFailure]</code>.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {ticketDeliveryHealth && ticketDeliveryHealth.undelivered > 0 && (
+              <Card className="border-orange-500/40 bg-orange-50 dark:bg-orange-950/30" data-testid="ticket-delivery-health-banner">
+                <CardContent className="py-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-orange-900 dark:text-orange-200">
+                      {ticketDeliveryHealth.undelivered} support ticket{ticketDeliveryHealth.undelivered === 1 ? "" : "s"} not delivered to TicketDesk
+                    </p>
+                    <p className="text-sm text-orange-800/80 dark:text-orange-200/80">
+                      {ticketDeliveryHealth.failed > 0 && <>{ticketDeliveryHealth.failed} failed after all retries. </>}
+                      {ticketDeliveryHealth.skipped > 0 && <>{ticketDeliveryHealth.skipped} skipped (TicketDesk not configured). </>}
+                      {ticketDeliveryHealth.pending > 0 && <>{ticketDeliveryHealth.pending} pending (may still be in queue). </>}
+                      Fallback notification emails have been sent to the support inbox.{" "}
+                      <Link to="/admin/tickets" className="underline font-medium">View ticket queue</Link>.
                     </p>
                   </div>
                 </CardContent>

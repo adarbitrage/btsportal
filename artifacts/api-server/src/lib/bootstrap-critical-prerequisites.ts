@@ -15,6 +15,7 @@ import {
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
+import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -41,6 +42,27 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     console.error("[Bootstrap] runTapfiliateColumnMigration() threw:", err);
     missing.push("tapfiliateColumnMigration");
   }
+
+  // 0a. Add ticket delivery-status columns (IF NOT EXISTS — idempotent).
+  //     These columns track whether each portal ticket was successfully mirrored
+  //     to TicketDesk; they power the admin UI delivery badge and the System
+  //     Health undelivered-ticket counter. Added at boot so production picks
+  //     them up on the next deploy without a separate migration run.
+  try {
+    await runTicketDeliveryColumnMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runTicketDeliveryColumnMigration() threw:", err);
+    missing.push("ticketDeliveryColumnMigration");
+  }
+
+  // 0b. Backfill undelivered tickets — runs in the background after the HTTP
+  //     server starts so it doesn't delay boot.  The backfill is idempotent
+  //     (delivery_last_attempt_at IS NULL guard) and only touches tickets
+  //     created more than 15 minutes ago so in-flight queue jobs are not
+  //     double-notified.
+  backfillUndeliveredTickets().catch((err) => {
+    console.error("[Bootstrap] backfillUndeliveredTickets() threw:", err);
+  });
 
   // 1. YSE product seeding — endpoint returns UNKNOWN_SLUGS / 500 without it.
   try {
@@ -232,6 +254,21 @@ async function ensureKBGrounding(): Promise<void> {
   seedKnowledgebaseFromFiles().catch((err) => {
     console.error("[Bootstrap] KB file ingestion failed:", err);
   });
+}
+
+async function runTicketDeliveryColumnMigration(): Promise<void> {
+  await db.execute(
+    sql`ALTER TABLE tickets
+        ADD COLUMN IF NOT EXISTS delivery_status text NOT NULL DEFAULT 'pending'`,
+  );
+  await db.execute(
+    sql`ALTER TABLE tickets
+        ADD COLUMN IF NOT EXISTS delivery_last_attempt_at timestamp with time zone`,
+  );
+  await db.execute(
+    sql`ALTER TABLE tickets
+        ADD COLUMN IF NOT EXISTS delivery_last_error text`,
+  );
 }
 
 const OLD_COMPANY_ADDRESS = "3000 Custer Road, Suite 270 #1505, Plano, TX 75075";

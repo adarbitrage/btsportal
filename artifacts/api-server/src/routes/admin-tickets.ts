@@ -554,6 +554,37 @@ router.post("/admin/tickets/merge", requirePermission("tickets:manage"), async (
   }
 });
 
+router.get("/admin/tickets/delivery-health", requirePermission("tickets:view"), async (_req: Request, res: Response) => {
+  try {
+    const stats = await db
+      .select({
+        deliveryStatus: ticketsTable.deliveryStatus,
+        count: sql<number>`count(*)`,
+      })
+      .from(ticketsTable)
+      .groupBy(ticketsTable.deliveryStatus);
+
+    const counts: Record<string, number> = {};
+    for (const row of stats) {
+      counts[row.deliveryStatus] = Number(row.count);
+    }
+
+    const pending = counts["pending"] ?? 0;
+    const skipped = counts["skipped"] ?? 0;
+    const failed = counts["failed"] ?? 0;
+
+    res.json({
+      delivered: counts["delivered"] ?? 0,
+      pending,
+      skipped,
+      failed,
+      undelivered: pending + skipped + failed,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch ticket delivery health" });
+  }
+});
+
 router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: Request, res: Response) => {
   try {
     const ticketId = parseInt(getParam(req.params.id));

@@ -68,6 +68,10 @@ export interface TicketDeskConversationInput {
   body: string;
   /** BTS portal ticket number (e.g. "BTS-123456") for cross-reference. */
   btsTicketNumber: string;
+  /** Internal DB id of the portal ticket row — used by the queue worker to
+   * update the delivery_status column after each attempt. Optional for
+   * backward compatibility with any callers that don't yet supply it. */
+  ticketId?: number;
 }
 
 export interface TicketDeskConversationResult {
