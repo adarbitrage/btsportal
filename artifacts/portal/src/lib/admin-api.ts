@@ -15,6 +15,9 @@ async function adminFetch<T = unknown>(path: string, options: RequestInit = {}):
     const data = await res.json().catch(() => ({ error: "Request failed" }));
     throw new Error(data.error || `Request failed with status ${res.status}`);
   }
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
   return res.json();
 }
 
@@ -132,6 +135,22 @@ export function createAnnouncement(data: {
   return adminFetch<AdminAnnouncement>("/admin/announcements", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export function updateAnnouncement(
+  id: number,
+  data: { title: string; body: string; type?: string }
+) {
+  return adminFetch<AdminAnnouncement>(`/admin/announcements/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAnnouncement(id: number) {
+  return adminFetch<void>(`/admin/announcements/${id}`, {
+    method: "DELETE",
   });
 }
 

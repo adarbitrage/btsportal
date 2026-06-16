@@ -392,6 +392,8 @@ export * from "./unauthorizedResponse";
 export * from "./upcomingOneOnOne";
 export * from "./updateActionItemRequest";
 export * from "./updateAffiliateProfile";
+export * from "./updateAnnouncementRequest";
+export * from "./updateAnnouncementRequestType";
 export * from "./updateApiKey";
 export * from "./updateChatPromptBody";
 export * from "./updateProductMapping";

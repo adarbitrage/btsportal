@@ -1305,6 +1305,34 @@ export const CreateAnnouncementBody = zod.object({
 });
 
 /**
+ * @summary Update an announcement (admin)
+ */
+export const UpdateAnnouncementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAnnouncementBody = zod.object({
+  title: zod.string().min(1),
+  body: zod.string().min(1),
+  type: zod.enum(["new_content", "event", "milestone", "general"]).optional(),
+});
+
+export const UpdateAnnouncementResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  type: zod.enum(["new_content", "event", "milestone", "general"]),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete an announcement (admin)
+ */
+export const DeleteAnnouncementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List active community categories with post counts
  */
 export const ListCommunityCategoriesResponseItem = zod.object({

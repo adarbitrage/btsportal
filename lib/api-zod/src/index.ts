@@ -393,6 +393,8 @@ export type {
   UpcomingOneOnOne,
   UpdateActionItemRequest,
   UpdateAffiliateProfile,
+  UpdateAnnouncementRequest,
+  UpdateAnnouncementRequestType,
   UpdateApiKey,
   UpdateChatPromptBody,
   UpdateProductMapping,

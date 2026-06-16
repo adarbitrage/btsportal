@@ -1057,6 +1057,24 @@ export interface CreateAnnouncementRequest {
   type?: CreateAnnouncementRequestType;
 }
 
+export type UpdateAnnouncementRequestType =
+  (typeof UpdateAnnouncementRequestType)[keyof typeof UpdateAnnouncementRequestType];
+
+export const UpdateAnnouncementRequestType = {
+  new_content: "new_content",
+  event: "event",
+  milestone: "milestone",
+  general: "general",
+} as const;
+
+export interface UpdateAnnouncementRequest {
+  /** @minLength 1 */
+  title: string;
+  /** @minLength 1 */
+  body: string;
+  type?: UpdateAnnouncementRequestType;
+}
+
 export interface SignedDocumentSummary {
   documentType: string;
   signedAt: string;
