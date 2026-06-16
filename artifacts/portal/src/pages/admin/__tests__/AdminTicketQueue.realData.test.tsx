@@ -232,4 +232,78 @@ describe("AdminTicketQueue — real-data wiring", () => {
       expect(visibleTicketNumbers()).toEqual(["BTS-000012"]);
     });
   });
+
+  describe("delivery-failure badge + filter", () => {
+    const DELIVERY_TICKETS: Ticket[] = [
+      makeTicket({ id: 21, ticketNumber: "BTS-000021", deliveryStatus: "failed" }),
+      makeTicket({ id: 22, ticketNumber: "BTS-000022", deliveryStatus: "skipped" }),
+      makeTicket({ id: 23, ticketNumber: "BTS-000023", deliveryStatus: "delivered" }),
+      makeTicket({ id: 24, ticketNumber: "BTS-000024", deliveryStatus: "pending" }),
+    ];
+
+    async function waitForDeliveryRows() {
+      await waitFor(() => {
+        expect(screen.getAllByTestId("ticket-link")).toHaveLength(
+          DELIVERY_TICKETS.length,
+        );
+      });
+    }
+
+    function rowByNumber(ticketNumber: string): HTMLElement {
+      const row = screen
+        .getAllByTestId("ticket-link")
+        .find((link) => within(link).queryByText(ticketNumber));
+      if (!row) throw new Error(`No row for ${ticketNumber}`);
+      return row;
+    }
+
+    it("renders the badge only for failed/skipped, with the matching status", async () => {
+      getAdminTickets.mockResolvedValue(DELIVERY_TICKETS);
+      render(<AdminTicketQueue />);
+      await waitForDeliveryRows();
+
+      // Only the failed + skipped rows surface a badge.
+      const badges = screen.getAllByTestId("queue-delivery-badge");
+      expect(badges).toHaveLength(2);
+      expect(
+        badges.map((b) => b.getAttribute("data-delivery-status")).sort(),
+      ).toEqual(["failed", "skipped"]);
+
+      // …and each badge is attached to the correct row.
+      expect(
+        within(rowByNumber("BTS-000021")).getByTestId("queue-delivery-badge"),
+      ).toHaveAttribute("data-delivery-status", "failed");
+      expect(
+        within(rowByNumber("BTS-000022")).getByTestId("queue-delivery-badge"),
+      ).toHaveAttribute("data-delivery-status", "skipped");
+      expect(
+        within(rowByNumber("BTS-000023")).queryByTestId("queue-delivery-badge"),
+      ).toBeNull();
+      expect(
+        within(rowByNumber("BTS-000024")).queryByTestId("queue-delivery-badge"),
+      ).toBeNull();
+    });
+
+    it("the Delivery filter narrows the visible rows to the chosen status", async () => {
+      getAdminTickets.mockResolvedValue(DELIVERY_TICKETS);
+      render(<AdminTicketQueue />);
+      await waitForDeliveryRows();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("delivery-filter"));
+      await user.click(await screen.findByRole("option", { name: /^Failed$/ }));
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000021"]);
+      });
+
+      // Switching the filter re-narrows to the other status.
+      await user.click(screen.getByTestId("delivery-filter"));
+      await user.click(await screen.findByRole("option", { name: /^Skipped$/ }));
+
+      await waitFor(() => {
+        expect(visibleTicketNumbers()).toEqual(["BTS-000022"]);
+      });
+    });
+  });
 });
