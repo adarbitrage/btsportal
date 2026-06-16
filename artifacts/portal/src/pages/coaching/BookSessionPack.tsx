@@ -513,19 +513,22 @@ export default function BookSessionPack() {
                 <CardContent className="p-6">
                   <label
                     htmlFor="discussion-topic"
-                    className="block font-bold text-foreground mb-1"
+                    className="block font-bold text-foreground mb-3"
                   >
                     What would you like to discuss on this call?
+                    <span className="text-destructive ml-1" aria-hidden="true">
+                      *
+                    </span>
+                    <span className="sr-only">(required)</span>
                   </label>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Optional — give your coach a heads-up so they can prepare.
-                  </p>
                   <Textarea
                     id="discussion-topic"
                     value={discussionTopic}
                     onChange={(e) => setDiscussionTopic(e.target.value)}
                     rows={4}
                     maxLength={2000}
+                    required
+                    aria-required="true"
                     placeholder="e.g. I want to review my ad creative and figure out why my CTR dropped."
                     data-testid="discussion-topic"
                   />
@@ -553,7 +556,7 @@ export default function BookSessionPack() {
               <Button
                 className="flex-1"
                 onClick={handleConfirm}
-                disabled={isMutating}
+                disabled={isMutating || (!isReschedule && !discussionTopic.trim())}
                 data-testid="confirm-booking"
               >
                 {isMutating
