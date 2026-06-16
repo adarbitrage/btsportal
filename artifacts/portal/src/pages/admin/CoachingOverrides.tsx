@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { useCoachingCoaches, useCoachingCoach, coachingAdminApi, type AvailabilityOverride } from "@/lib/coaching-admin-api";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, CalendarOff, CalendarPlus } from "lucide-react";
+import { Plus, Trash2, Pencil, CalendarOff, CalendarPlus } from "lucide-react";
 
 export default function CoachingOverrides() {
   const [selectedCoachId, setSelectedCoachId] = useState<number>(0);
@@ -22,6 +22,8 @@ export default function CoachingOverrides() {
   const qc = useQueryClient();
 
   const enabledCoaches = useMemo(() => coaches?.filter(c => c.oneOnOneEnabled) || [], [coaches]);
+
+  const isEditing = editOverride != null && editOverride.id != null;
 
   const handleAdd = () => {
     setEditOverride({
@@ -36,13 +38,22 @@ export default function CoachingOverrides() {
     });
   };
 
+  const handleEdit = (override: AvailabilityOverride) => {
+    setEditOverride({ ...override });
+  };
+
   const handleSave = async () => {
     if (!editOverride) return;
     setSaving(true);
     try {
-      await coachingAdminApi.createOverride(editOverride as Omit<AvailabilityOverride, "id">);
+      if (editOverride.id != null) {
+        await coachingAdminApi.updateOverride(editOverride.id, editOverride);
+        toast({ title: "Override updated" });
+      } else {
+        await coachingAdminApi.createOverride(editOverride as Omit<AvailabilityOverride, "id">);
+        toast({ title: "Override added" });
+      }
       qc.invalidateQueries({ queryKey: ["/admin/coaching/coaches", selectedCoachId] });
-      toast({ title: "Override added" });
       setEditOverride(null);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -137,6 +148,9 @@ export default function CoachingOverrides() {
                           <p className="text-sm text-muted-foreground mt-1">{override.reason}</p>
                         )}
                       </div>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(override)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(override.id)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -160,7 +174,7 @@ export default function CoachingOverrides() {
       <Dialog open={!!editOverride} onOpenChange={() => setEditOverride(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Override</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit Override" : "Add Override"}</DialogTitle>
           </DialogHeader>
           {editOverride && (
             <div className="space-y-4 py-4">
@@ -225,7 +239,7 @@ export default function CoachingOverrides() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOverride(null)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Add Override"}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Override"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

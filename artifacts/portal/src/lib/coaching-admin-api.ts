@@ -53,8 +53,6 @@ export interface AvailabilityOverride {
   sessionDurationMinutes: number | null;
   bufferMinutes: number | null;
   reason: string | null;
-  sessionDurationMinutes: number | null;
-  bufferMinutes: number | null;
 }
 
 export interface CoachingSessionItem {
