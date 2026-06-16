@@ -16,8 +16,8 @@ import {
   createAppointment,
   cancelAppointment,
   updateAppointment,
+  addContactNote,
 } from "../lib/ghl-coaching-calendar";
-import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 
@@ -70,6 +70,16 @@ function isoWithMatchingOffset(date: Date, reference: string): string {
   const om = parseInt(offset.slice(4, 6), 10);
   const shifted = new Date(date.getTime() + sign * (oh * 60 + om) * 60000);
   return shifted.toISOString().slice(0, 19) + offset;
+}
+
+// Surface the member's topic on the GHL appointment title itself so it shows
+// directly on the calendar event. The DB `title` stays clean for the member; the
+// full topic also lives in a coaching-sub-account contact note.
+function buildGhlTitle(title: string, discussionTopic: string | null | undefined): string {
+  const topic = discussionTopic?.trim();
+  if (!topic) return title;
+  const preview = topic.length > 60 ? `${topic.slice(0, 57)}…` : topic;
+  return `${title} — ${preview}`;
 }
 
 function splitName(name: string): { firstName: string; lastName: string } {
@@ -249,7 +259,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
       contactId,
       startTime,
       endTime: endTimeIso,
-      title,
+      title: buildGhlTitle(title, discussionTopic),
     });
     createdAppointmentId = appointment.id;
 
@@ -280,20 +290,19 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
 
     await client.query("COMMIT");
 
-    // Mirror the member's discussion topic onto their GHL contact card so the
-    // coach sees it ahead of the call. Fire-and-forget: never block the booking.
+    // Mirror the member's topic onto the GHL contact in the COACHING sub-account
+    // (same location as the appointment) so the coach sees the full text on the
+    // contact tied to this booking. Fire-and-forget: never block the booking.
     if (discussionTopic) {
       const whenStr = scheduledAt.toLocaleString("en-US", {
         dateStyle: "medium",
         timeStyle: "short",
       });
-      void queueGHLSync({
-        action: "add_note",
-        userId,
-        noteBody: `1-on-1 coaching booked — ${coach.name} — ${whenStr}\n\nWhat the member wants to discuss on the call:\n${discussionTopic}`,
-        metadata: { source: "pack-coaching-booking-topic" },
-      }).catch((err) => {
-        console.error("[coaching-sessions] discussion-topic GHL sync failed:", err);
+      void addContactNote(
+        contactId,
+        `1-on-1 coaching booked — ${coach.name} — ${whenStr}\n\nWhat the member wants to discuss on the call:\n${discussionTopic}`,
+      ).catch((err) => {
+        console.error("[coaching-sessions] discussion-topic contact-note failed:", err);
       });
     }
 
@@ -480,6 +489,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
+      discussionTopic: sessionPackBookingsTable.discussionTopic,
     })
     .from(sessionPackBookingsTable)
     .where(
@@ -543,7 +553,9 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
         calendarId: existing.ghlCalendarId,
         startTime,
         endTime: endTimeIso,
-        title: existing.title ?? undefined,
+        title: existing.title
+          ? buildGhlTitle(existing.title, existing.discussionTopic)
+          : undefined,
       });
       meetLink = updated.meetLink;
     } catch (err) {

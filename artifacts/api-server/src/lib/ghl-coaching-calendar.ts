@@ -376,3 +376,13 @@ export async function updateAppointment(input: {
 export async function cancelAppointment(eventId: string): Promise<void> {
   await ghlRequest("DELETE", `/calendars/events/${encodeURIComponent(eventId)}`);
 }
+
+/**
+ * Add a note to a contact in the coaching sub-account. The contact is the one
+ * tied to the appointment, so this is visible from the appointment's contact
+ * record (same GHL location). The location is implied by the location-scoped
+ * token, so no locationId is sent.
+ */
+export async function addContactNote(contactId: string, body: string): Promise<void> {
+  await ghlRequest("POST", `/contacts/${encodeURIComponent(contactId)}/notes`, { body });
+}
