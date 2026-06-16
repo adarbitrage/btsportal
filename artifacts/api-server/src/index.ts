@@ -68,7 +68,7 @@ if (process.env.REDIS_URL || process.env.GHL_API_KEY) {
   }
 }
 
-if (process.env.REDIS_URL || process.env.TICKETDESK_API_KEY) {
+if (process.env.REDIS_URL) {
   try {
     startTicketDeskWorker();
   } catch (err) {

@@ -48,13 +48,30 @@ export const DEFAULT_TICKETDESK_WIDGET_API_URL =
  * The environment variable name that the backend reads for the TicketDesk
  * API key used to create conversations programmatically.
  *
- * Set this secret in the Replit environment:
- *   TICKETDESK_API_KEY=<your-api-key>
- *
- * Without this key the TicketDesk delivery path is skipped (portal ticket
- * creation still succeeds; TicketDesk sync is simply no-op).
+ * @deprecated The chat session API (POST /api/chat/session) does not require
+ * an API key.  This constant is kept for backward compatibility with any code
+ * that references it, but the key itself is no longer read or required.
  */
 export const TICKETDESK_API_KEY_ENV = "TICKETDESK_API_KEY";
+
+/**
+ * The environment variable name that sets the HTTP `Origin` header sent with
+ * every TicketDesk chat API request.
+ *
+ * TicketDesk validates the Origin header against the workspace's configured
+ * allowed-origin list (set in TicketDesk workspace → Settings → Chat Config).
+ * The portal domain must appear in that list, or delivery will fail with
+ * 403 "Origin not allowed".
+ *
+ * Default: https://portal.buildtestscale.com (or PORTAL_URL if set)
+ *
+ * ## One-time account-owner setup
+ * 1. Log in to TicketDesk as a workspace admin.
+ * 2. Go to Settings → Chat Config.
+ * 3. Add the value of this env var (the portal domain) to the allowed-origins
+ *    list.  Delivery will succeed from that point on with no code changes.
+ */
+export const TICKETDESK_CHAT_ORIGIN_ENV = "TICKETDESK_CHAT_ORIGIN";
 
 /**
  * The environment variable name that the backend reads for the shared secret
