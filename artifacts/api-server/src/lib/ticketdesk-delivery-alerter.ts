@@ -37,10 +37,19 @@
  *     (`ticketdesk-delivery:backlog`) so re-triggers fold into the existing
  *     incident and a "resolve" event auto-closes it.
  *
+ * Beyond the count threshold, the alert also factors in how long delivery has
+ * been failing — the age of the oldest stuck ticket. A short burst that briefly
+ * crosses the count threshold should not page on-call with the same urgency as
+ * a multi-hour outage. So once the oldest stuck ticket is older than the
+ * escalation cutoff, the PagerDuty severity is raised from "error" to
+ * "critical" and every channel's message calls out "down for ~Xh" so on-call
+ * can triage urgency at a glance.
+ *
  * Thresholds are env-tunable (with sensible defaults) so a noisy environment
  * can raise the bar without a code change:
  *   - TICKETDESK_DELIVERY_BACKLOG_ALERT_THRESHOLD    (default 5)
  *   - TICKETDESK_DELIVERY_STUCK_MINUTES              (default 30)
+ *   - TICKETDESK_DELIVERY_ESCALATE_MINUTES           (default 120 — 2h)
  *   - TICKETDESK_DELIVERY_NOTIFICATION_THROTTLE_MS   (default 15 min)
  *   - TICKETDESK_DELIVERY_ALERTER_POLL_MS            (default 60s)
  */
@@ -79,6 +88,23 @@ function getAlertThreshold(): number {
   return raw > 0 ? raw : 5;
 }
 
+/**
+ * Age (minutes) past which a sustained outage escalates: PagerDuty severity is
+ * bumped from "error" to "critical" and the messages call out the long
+ * duration. Defaults to 120 (2h) — long enough that a brief burst that crosses
+ * the count threshold and clears does NOT escalate, but a genuine multi-hour
+ * delivery outage does. Configurable so a team can tune the urgency bar.
+ */
+const TICKETDESK_DELIVERY_ESCALATE_MINUTES_DEFAULT = 120;
+
+function getEscalateMinutes(): number {
+  const raw = parseEnvInt(
+    "TICKETDESK_DELIVERY_ESCALATE_MINUTES",
+    TICKETDESK_DELIVERY_ESCALATE_MINUTES_DEFAULT,
+  );
+  return raw > 0 ? raw : TICKETDESK_DELIVERY_ESCALATE_MINUTES_DEFAULT;
+}
+
 function getNotificationThrottleMs(): number {
   return parseEnvInt(
     "TICKETDESK_DELIVERY_NOTIFICATION_THROTTLE_MS",
@@ -93,6 +119,12 @@ interface AlertState {
   alerting: boolean;
   /** Last stuck-ticket count observed by `evaluate`. */
   lastSeenCount: number;
+  /** oldestCreatedAt (ISO) of the backlog at the most recent `evaluate`, or null. */
+  lastOldestCreatedAt: string | null;
+  /** Outage age (ms) of the oldest stuck ticket at the most recent `evaluate`, or null. */
+  lastOutageAgeMs: number | null;
+  /** True if the most recent `evaluate` considered the outage escalated (age past the cutoff). */
+  lastEscalated: boolean;
   /** Per-delivery-channel timestamp of the last successful "fire" send. */
   lastFireAt: Partial<Record<DeliveryChannel, number>>;
   /** Per-delivery-channel timestamp of the last successful "clear" send. */
@@ -102,6 +134,9 @@ interface AlertState {
 const alertState: AlertState = {
   alerting: false,
   lastSeenCount: 0,
+  lastOldestCreatedAt: null,
+  lastOutageAgeMs: null,
+  lastEscalated: false,
   lastFireAt: {},
   lastClearAt: {},
 };
@@ -115,6 +150,18 @@ export interface TicketDeskDeliveryAlertPayload {
   stuckMinutes: number;
   /** Snapshot of the stuck-ticket backlog at transition time. */
   stats: StuckTicketDeliveryStats;
+  /**
+   * How long delivery has been failing — `now` minus the oldest stuck ticket's
+   * createdAt, in ms. null when there is no stuck ticket (e.g. a "clear").
+   */
+  outageAgeMs: number | null;
+  /** Age (minutes) past which the outage escalates, in force at transition. */
+  escalateMinutes: number;
+  /**
+   * True when the outage age has crossed the escalation cutoff. Raises the
+   * PagerDuty severity to "critical" and flags the long duration in messages.
+   */
+  escalated: boolean;
 }
 
 export interface DeliveryResult {
@@ -138,6 +185,23 @@ function describeBacklog(stats: StuckTicketDeliveryStats): string {
   return parts.length > 0 ? parts.join("; ") : "(no breakdown)";
 }
 
+/**
+ * Render an outage age (ms) as a compact, human-readable "~Xh" string used in
+ * alert summaries and the System Health card. Returns null when the age is
+ * unknown so callers can omit the clause entirely.
+ */
+export function formatOutageAge(ms: number | null | undefined): string | null {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return null;
+  const totalMinutes = Math.floor(ms / 60000);
+  if (totalMinutes < 60) return `~${Math.max(1, totalMinutes)}m`;
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (hours < 24) return mins > 0 ? `~${hours}h ${mins}m` : `~${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours > 0 ? `~${days}d ${remHours}h` : `~${days}d`;
+}
+
 const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
   pagerduty: async (p) => {
     const key = process.env.PAGERDUTY_INTEGRATION_KEY;
@@ -150,9 +214,11 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
       };
     }
     const dedupKey = "ticketdesk-delivery:backlog";
+    const outageAge = formatOutageAge(p.outageAgeMs);
+    const downForClause = outageAge ? `, down for ${outageAge}` : "";
     const summary =
       p.kind === "fire"
-        ? `TicketDesk delivery is failing — ${p.stats.count} ticket(s) stuck >${p.stuckMinutes}m (threshold ${p.threshold}); ${describeBacklog(p.stats)}`
+        ? `TicketDesk delivery is failing — ${p.stats.count} ticket(s) stuck >${p.stuckMinutes}m (threshold ${p.threshold})${downForClause}; ${describeBacklog(p.stats)}`
         : "TicketDesk delivery backlog cleared";
     const body =
       p.kind === "fire"
@@ -161,8 +227,11 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             event_action: "trigger",
             dedup_key: dedupKey,
             payload: {
+              // Escalate severity once the outage has dragged on past the
+              // cutoff so on-call can triage a multi-hour outage above a brief
+              // burst that merely crossed the count threshold.
               summary,
-              severity: "error",
+              severity: p.escalated ? "critical" : "error",
               source: process.env.HOSTNAME ?? "api-server",
               component: "ticketdesk-delivery",
               class: "ticketdesk_delivery_failure",
@@ -172,6 +241,10 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
                 stuckCount: p.stats.count,
                 byStatus: p.stats.byStatus,
                 oldestCreatedAt: p.stats.oldestCreatedAt,
+                outageAge: outageAge ?? "unknown",
+                outageAgeMs: p.outageAgeMs,
+                escalateMinutes: p.escalateMinutes,
+                escalated: p.escalated,
                 lastError: p.stats.lastError,
                 link: "/admin/system",
               },
@@ -219,15 +292,21 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
       "noreply@buildtestscale.com";
+    const outageAge = formatOutageAge(p.outageAgeMs);
     const subject =
       p.kind === "fire"
-        ? "[ALERT] TicketDesk ticket delivery is failing"
+        ? p.escalated
+          ? `[CRITICAL] TicketDesk ticket delivery has been down for ${outageAge}`
+          : "[ALERT] TicketDesk ticket delivery is failing"
         : "[RESOLVED] TicketDesk ticket delivery recovered";
     const text =
       p.kind === "fire"
         ? [
             `${p.stats.count} support ticket(s) have been stuck undelivered to TicketDesk for over ${p.stuckMinutes} minute(s),`,
             `crossing the configured threshold of ${p.threshold}.`,
+            outageAge
+              ? `Delivery has been failing for ${outageAge} (since the oldest stuck ticket was created)${p.escalated ? ` — past the ${p.escalateMinutes}-minute escalation cutoff, so this has been raised to CRITICAL` : ""}.`
+              : "",
             "",
             `Breakdown: ${describeBacklog(p.stats)}.`,
             "'failed' tickets exhausted all delivery retries; 'pending' tickets never left the queue.",
@@ -260,9 +339,15 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "not_configured",
       };
     }
+    const outageAge = formatOutageAge(p.outageAgeMs);
+    const downForClause = outageAge ? ` (down for ${outageAge})` : "";
+    const icon = p.escalated ? ":fire:" : ":rotating_light:";
+    const headline = p.escalated
+      ? `*TicketDesk ticket delivery has been DOWN for ${outageAge}*`
+      : "*TicketDesk ticket delivery is failing*";
     const text =
       p.kind === "fire"
-        ? `:rotating_light: *TicketDesk ticket delivery is failing* — ${p.stats.count} ticket(s) stuck >${p.stuckMinutes}m (threshold ${p.threshold}). Breakdown: ${describeBacklog(p.stats)}. Check the TicketDesk whitelist/secret and /admin/system.`
+        ? `${icon} ${headline} — ${p.stats.count} ticket(s) stuck >${p.stuckMinutes}m (threshold ${p.threshold})${downForClause}. Breakdown: ${describeBacklog(p.stats)}. Check the TicketDesk whitelist/secret and /admin/system.`
         : `:white_check_mark: *TicketDesk delivery recovered* — backlog drained below threshold (${p.stats.count} still stuck).`;
     const res = await fetch(url, {
       method: "POST",
@@ -304,6 +389,9 @@ export function __setTicketDeskDeliveryStatsReaderForTests(
 export function __resetTicketDeskDeliveryAlerterForTests(): void {
   alertState.alerting = false;
   alertState.lastSeenCount = 0;
+  alertState.lastOldestCreatedAt = null;
+  alertState.lastOutageAgeMs = null;
+  alertState.lastEscalated = false;
   alertState.lastFireAt = {};
   alertState.lastClearAt = {};
   deliveryOverrides = null;
@@ -377,6 +465,21 @@ export async function evaluateTicketDeskDeliveryAlert(
   }
   alertState.lastSeenCount = stats.count;
 
+  // How long delivery has been failing: now minus the oldest stuck ticket's
+  // createdAt. Clamped to >= 0 so a clock skew (oldest "in the future") can't
+  // produce a negative age. null when nothing is stuck.
+  const escalateMinutes = getEscalateMinutes();
+  let outageAgeMs: number | null = null;
+  if (stats.oldestCreatedAt) {
+    const oldestMs = Date.parse(stats.oldestCreatedAt);
+    if (Number.isFinite(oldestMs)) outageAgeMs = Math.max(0, now - oldestMs);
+  }
+  const escalated =
+    outageAgeMs != null && outageAgeMs >= escalateMinutes * 60 * 1000;
+  alertState.lastOldestCreatedAt = stats.oldestCreatedAt;
+  alertState.lastOutageAgeMs = outageAgeMs;
+  alertState.lastEscalated = escalated;
+
   // Fire when the backlog is at or above the threshold. We attempt dispatch
   // both on the first transition into alerting AND while already alerting (so
   // a sustained outage gets one fire per throttle window, not just one per
@@ -393,7 +496,16 @@ export async function evaluateTicketDeskDeliveryAlert(
       alertState.lastFireAt = {};
       alertState.lastClearAt = {};
     }
-    return dispatchAll({ kind: "fire", now, threshold, stuckMinutes, stats });
+    return dispatchAll({
+      kind: "fire",
+      now,
+      threshold,
+      stuckMinutes,
+      stats,
+      outageAgeMs,
+      escalateMinutes,
+      escalated,
+    });
   }
 
   // Auto-clear: we're alerting and the backlog has drained below the
@@ -405,7 +517,16 @@ export async function evaluateTicketDeskDeliveryAlert(
     // a slot consumed during the outage we're now resolving.
     alertState.lastFireAt = {};
     alertState.lastClearAt = {};
-    return dispatchAll({ kind: "clear", now, threshold, stuckMinutes, stats });
+    return dispatchAll({
+      kind: "clear",
+      now,
+      threshold,
+      stuckMinutes,
+      stats,
+      outageAgeMs,
+      escalateMinutes,
+      escalated,
+    });
   }
 
   return [];
@@ -419,10 +540,22 @@ export async function evaluateTicketDeskDeliveryAlert(
 export function getTicketDeskDeliveryAlertingState(): {
   alerting: boolean;
   lastSeenCount: number;
+  /** oldestCreatedAt (ISO) of the most recent backlog snapshot, or null. */
+  oldestCreatedAt: string | null;
+  /** How long delivery has been failing (ms), or null when nothing is stuck. */
+  outageAgeMs: number | null;
+  /** Human-readable outage age (e.g. "~3h"), or null when unknown. */
+  outageAge: string | null;
+  /** True when the outage has crossed the escalation cutoff. */
+  escalated: boolean;
 } {
   return {
     alerting: alertState.alerting,
     lastSeenCount: alertState.lastSeenCount,
+    oldestCreatedAt: alertState.lastOldestCreatedAt,
+    outageAgeMs: alertState.lastOutageAgeMs,
+    outageAge: formatOutageAge(alertState.lastOutageAgeMs),
+    escalated: alertState.lastEscalated,
   };
 }
 

@@ -4056,12 +4056,17 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
     // as a backstop for the in-process poll interval.
     const ticketDeskDeliveryAlerting = getTicketDeskDeliveryAlertingState();
     if (ticketDeskDeliveryAlerting.alerting) {
+      const downForClause = ticketDeskDeliveryAlerting.outageAge
+        ? ` (delivery has been down for ${ticketDeskDeliveryAlerting.outageAge})`
+        : "";
       notifications.push({
         id: "ticketdesk-delivery-backlog",
         type: "ticketdesk_delivery_backlog",
         severity: "high",
-        title: "TicketDesk ticket delivery is failing",
-        message: `${ticketDeskDeliveryAlerting.lastSeenCount} support ticket(s) are stuck undelivered to TicketDesk — the origin whitelist may have expired, the secret rotated, or TicketDesk may be down. Members will start emailing directly.`,
+        title: ticketDeskDeliveryAlerting.escalated
+          ? `TicketDesk ticket delivery has been down for ${ticketDeskDeliveryAlerting.outageAge}`
+          : "TicketDesk ticket delivery is failing",
+        message: `${ticketDeskDeliveryAlerting.lastSeenCount} support ticket(s) are stuck undelivered to TicketDesk${downForClause} — the origin whitelist may have expired, the secret rotated, or TicketDesk may be down. Members will start emailing directly.`,
         link: "/admin/system",
         createdAt: new Date().toISOString(),
       });

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 import {
   evaluateTicketDeskDeliveryAlert,
+  formatOutageAge,
   getTicketDeskDeliveryAlertingState,
   __resetTicketDeskDeliveryAlerterForTests,
   __setTicketDeskDeliveryAlerterDeliveriesForTests,
@@ -330,5 +331,96 @@ describe("ticketdesk-delivery-alerter", () => {
     expect(results).toEqual([]);
     expect(pd.calls).toHaveLength(0);
     expect(getTicketDeskDeliveryAlertingState().alerting).toBe(false);
+  });
+
+  it("includes the outage age (oldest-stuck-ticket age) in the fire payload", async () => {
+    const oldest = "2026-06-16T00:00:00.000Z";
+    // 90 minutes after the oldest stuck ticket — under the 2h escalate cutoff.
+    const now = Date.parse(oldest) + 90 * 60 * 1000;
+    currentStats = stats(5, { oldestCreatedAt: oldest });
+
+    await evaluateTicketDeskDeliveryAlert(now);
+
+    expect(pd.calls).toHaveLength(1);
+    expect(pd.calls[0].outageAgeMs).toBe(90 * 60 * 1000);
+    expect(pd.calls[0].escalateMinutes).toBe(120);
+    expect(pd.calls[0].escalated).toBe(false);
+  });
+
+  it("escalates once the oldest stuck ticket is past the escalation cutoff", async () => {
+    const oldest = "2026-06-16T00:00:00.000Z";
+    // 3 hours later — well past the default 2h cutoff.
+    const now = Date.parse(oldest) + 3 * 60 * 60 * 1000;
+    currentStats = stats(6, { oldestCreatedAt: oldest });
+
+    await evaluateTicketDeskDeliveryAlert(now);
+
+    expect(pd.calls).toHaveLength(1);
+    expect(pd.calls[0].escalated).toBe(true);
+    expect(pd.calls[0].outageAgeMs).toBe(3 * 60 * 60 * 1000);
+  });
+
+  it("respects a custom TICKETDESK_DELIVERY_ESCALATE_MINUTES", async () => {
+    const prev = process.env.TICKETDESK_DELIVERY_ESCALATE_MINUTES;
+    process.env.TICKETDESK_DELIVERY_ESCALATE_MINUTES = "30";
+    try {
+      const oldest = "2026-06-16T00:00:00.000Z";
+      const now = Date.parse(oldest) + 45 * 60 * 1000; // 45m > 30m cutoff
+      currentStats = stats(5, { oldestCreatedAt: oldest });
+
+      await evaluateTicketDeskDeliveryAlert(now);
+
+      expect(pd.calls[0].escalateMinutes).toBe(30);
+      expect(pd.calls[0].escalated).toBe(true);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.TICKETDESK_DELIVERY_ESCALATE_MINUTES;
+      } else {
+        process.env.TICKETDESK_DELIVERY_ESCALATE_MINUTES = prev;
+      }
+    }
+  });
+
+  it("exposes the outage age + escalation in the public alerting state", async () => {
+    const oldest = "2026-06-16T00:00:00.000Z";
+    const now = Date.parse(oldest) + 3 * 60 * 60 * 1000;
+    currentStats = stats(6, { oldestCreatedAt: oldest });
+
+    await evaluateTicketDeskDeliveryAlert(now);
+
+    const state = getTicketDeskDeliveryAlertingState();
+    expect(state.alerting).toBe(true);
+    expect(state.oldestCreatedAt).toBe(oldest);
+    expect(state.outageAgeMs).toBe(3 * 60 * 60 * 1000);
+    expect(state.outageAge).toBe("~3h");
+    expect(state.escalated).toBe(true);
+  });
+
+  it("clamps a negative outage age (oldest ticket clock-skewed into the future) to 0", async () => {
+    const oldest = "2026-06-16T01:00:00.000Z";
+    const now = Date.parse(oldest) - 5 * 60 * 1000; // now is before oldest
+    currentStats = stats(5, { oldestCreatedAt: oldest });
+
+    await evaluateTicketDeskDeliveryAlert(now);
+
+    expect(pd.calls[0].outageAgeMs).toBe(0);
+    expect(pd.calls[0].escalated).toBe(false);
+  });
+
+  describe("formatOutageAge", () => {
+    it("returns null for unknown/zero/negative ages", () => {
+      expect(formatOutageAge(null)).toBeNull();
+      expect(formatOutageAge(undefined)).toBeNull();
+      expect(formatOutageAge(0)).toBeNull();
+      expect(formatOutageAge(-1000)).toBeNull();
+    });
+
+    it("formats minutes, hours, and days", () => {
+      expect(formatOutageAge(5 * 60 * 1000)).toBe("~5m");
+      expect(formatOutageAge(90 * 60 * 1000)).toBe("~1h 30m");
+      expect(formatOutageAge(3 * 60 * 60 * 1000)).toBe("~3h");
+      expect(formatOutageAge(26 * 60 * 60 * 1000)).toBe("~1d 2h");
+      expect(formatOutageAge(48 * 60 * 60 * 1000)).toBe("~2d");
+    });
   });
 });

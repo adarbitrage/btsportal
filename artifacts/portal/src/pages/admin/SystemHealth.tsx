@@ -862,6 +862,25 @@ export default function SystemHealth() {
     return `${day}d ago`;
   };
 
+  // Render how long delivery has been failing as a compact "~Xh" string from
+  // the oldest stuck ticket's createdAt. Used as a client-side fallback when
+  // the server's pre-formatted outageAge isn't present.
+  const formatOutageAge = (iso: string | null): string | null => {
+    if (!iso) return null;
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return null;
+    const diffMs = Date.now() - then;
+    if (diffMs <= 0) return null;
+    const totalMinutes = Math.floor(diffMs / 60000);
+    if (totalMinutes < 60) return `~${Math.max(1, totalMinutes)}m`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (hours < 24) return mins > 0 ? `~${hours}h ${mins}m` : `~${hours}h`;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return remHours > 0 ? `~${days}d ${remHours}h` : `~${days}d`;
+  };
+
   const formatThrottleRemaining = (expiresAt: string) => {
     const ms = new Date(expiresAt).getTime() - Date.now();
     if (!Number.isFinite(ms) || ms <= 0) return "expiring";
@@ -1130,15 +1149,21 @@ export default function SystemHealth() {
 
             {(health.services?.ticketDeskDelivery as { alerter?: { alerting?: boolean } } | undefined)?.alerter?.alerting && (() => {
               const td = health.services.ticketDeskDelivery as {
-                stuck: { count: number; byStatus: { pending: number; failed: number }; stuckMinutes: number; lastError: string | null };
+                stuck: { count: number; byStatus: { pending: number; failed: number }; stuckMinutes: number; lastError: string | null; oldestCreatedAt: string | null };
+                alerter: { alerting: boolean; outageAge?: string | null; escalated?: boolean };
               };
+              const outageAge = td.alerter?.outageAge ?? formatOutageAge(td.stuck.oldestCreatedAt);
+              const escalated = td.alerter?.escalated;
               return (
                 <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="ticketdesk-delivery-banner">
                   <CardContent className="py-4 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-medium text-red-900 dark:text-red-200">
-                        TicketDesk ticket delivery is failing
+                        {outageAge
+                          ? `TicketDesk ticket delivery has been down for ${outageAge}`
+                          : "TicketDesk ticket delivery is failing"}
+                        {escalated ? " (critical)" : ""}
                       </p>
                       <p className="text-sm text-red-800/80 dark:text-red-200/80">
                         {td.stuck.count} ticket{td.stuck.count === 1 ? "" : "s"} stuck undelivered for
@@ -2389,10 +2414,21 @@ export default function SystemHealth() {
                     lastError: string | null;
                     stuckMinutes: number;
                   };
-                  alerter: { alerting: boolean; lastSeenCount: number };
+                  alerter: {
+                    alerting: boolean;
+                    lastSeenCount: number;
+                    outageAge?: string | null;
+                    escalated?: boolean;
+                  };
                 };
                 const stuck = td.stuck;
                 const alerting = td.alerter?.alerting;
+                const escalated = td.alerter?.escalated;
+                // Prefer the alerter's server-computed outage age (single source
+                // of truth with what's paging on-call); fall back to deriving it
+                // from the oldest stuck ticket if it isn't present.
+                const outageAge =
+                  td.alerter?.outageAge ?? formatOutageAge(stuck.oldestCreatedAt);
                 return (
                   <Card data-testid="card-ticketdesk-delivery">
                     <CardHeader>
@@ -2410,6 +2446,16 @@ export default function SystemHealth() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
+                        {alerting && outageAge && (
+                          <div
+                            className={`rounded-md px-3 py-2 text-sm font-medium ${escalated ? "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200" : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"}`}
+                            data-testid="ticketdesk-delivery-outage-age"
+                          >
+                            {escalated ? "Delivery has been down for " : "Delivery has been failing for "}
+                            <span className="font-bold">{outageAge}</span>
+                            {escalated ? " — escalated to critical." : "."}
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
                             Stuck &gt;{stuck.stuckMinutes}m (pending/failed)
