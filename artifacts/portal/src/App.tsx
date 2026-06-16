@@ -150,6 +150,7 @@ import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
+import PackCoachDashboard from "@/pages/coaching/PackCoachDashboard";
 import MenteeDetail from "@/pages/coaching/MenteeDetail";
 import { AdminRoute } from "@/components/auth/AdminRoute";
 import { CoachRoute } from "@/components/auth/CoachRoute";
@@ -510,6 +511,7 @@ function Router() {
       <Route path="/admin/assistant/groups/:groupId/cards">{() => <AdminRoute component={AdminAssistantCards} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>
       <Route path="/coach/dashboard">{() => <CoachRoute component={CoachDashboard} />}</Route>
+      <Route path="/coach/sessions">{() => <CoachRoute component={PackCoachDashboard} />}</Route>
       <Route path="/coach/mentees/:userId">{() => <CoachRoute component={MenteeDetail} />}</Route>
       <Route path="/coach/messages">{() => <CoachRoute component={DMInbox} />}</Route>
       <Route path="/coach/messages/:threadId">{() => <CoachRoute component={DMThread} />}</Route>

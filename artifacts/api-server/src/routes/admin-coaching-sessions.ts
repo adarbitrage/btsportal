@@ -7,13 +7,38 @@ import {
   sessionPackCoachesTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, or, asc, desc, ilike, gte, lte, sql, type SQL } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { requirePermission } from "../middleware/rbac";
 import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
+import { queryPackBookings } from "../lib/pack-bookings";
+import { normalizeActionItems, syncBookingCoachingToGHL } from "../lib/coaching-notes";
+import type { SessionPackBooking } from "@workspace/db";
 
 const router: IRouter = Router();
+
+/**
+ * After a booking's notes/action items change, mirror them to the member's GHL
+ * contact card. Best-effort/fire-and-forget — never blocks or fails the save.
+ */
+async function mirrorBookingToGHL(booking: SessionPackBooking): Promise<void> {
+  try {
+    const [coach] = await db
+      .select({ name: sessionPackCoachesTable.name })
+      .from(sessionPackCoachesTable)
+      .where(eq(sessionPackCoachesTable.id, booking.coachId));
+    syncBookingCoachingToGHL({
+      memberId: booking.memberId,
+      coachName: coach?.name ?? null,
+      scheduledAt: booking.scheduledAt,
+      coachNotes: booking.coachNotes,
+      actionItems: booking.actionItems,
+    });
+  } catch (err) {
+    console.error("[admin-coaching-sessions] GHL mirror lookup failed:", err);
+  }
+}
 
 function parseId(value: unknown): number | null {
   const str = Array.isArray(value) ? value[0] : value;
@@ -25,8 +50,6 @@ function firstString(value: unknown): string | undefined {
   const str = Array.isArray(value) ? value[0] : value;
   return typeof str === "string" && str.trim() ? str.trim() : undefined;
 }
-
-const VALID_STATUSES = new Set(["booked", "cancelled", "completed", "no_show"]);
 
 // ---------------------------------------------------------------------------
 // Grant (or deduct) session credits for a member.
@@ -145,95 +168,20 @@ router.get(
   "/admin/coaching/pack/sessions",
   requirePermission("coaching:view"),
   async (req: Request, res: Response): Promise<void> => {
-    const status = firstString(req.query.status);
-    const coachId = parseId(req.query.coachId as string | undefined);
-    const q = firstString(req.query.q);
-    const from = firstString(req.query.from);
-    const to = firstString(req.query.to);
     const limitRaw = parseInt(firstString(req.query.limit) ?? "50", 10);
     const offsetRaw = parseInt(firstString(req.query.offset) ?? "0", 10);
-    const limit = Number.isInteger(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
-    const offset = Number.isInteger(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0;
 
-    const conditions: SQL[] = [];
-    if (status && VALID_STATUSES.has(status)) {
-      conditions.push(eq(sessionPackBookingsTable.status, status));
-    }
-    if (coachId) {
-      conditions.push(eq(sessionPackBookingsTable.coachId, coachId));
-    }
-    if (q) {
-      const like = `%${q}%`;
-      conditions.push(or(ilike(usersTable.name, like), ilike(usersTable.email, like))!);
-    }
-    if (from) {
-      const fromMs = Date.parse(`${from}T00:00:00Z`);
-      if (!Number.isNaN(fromMs)) conditions.push(gte(sessionPackBookingsTable.scheduledAt, new Date(fromMs)));
-    }
-    if (to) {
-      const toMs = Date.parse(`${to}T23:59:59.999Z`);
-      if (!Number.isNaN(toMs)) conditions.push(lte(sessionPackBookingsTable.scheduledAt, new Date(toMs)));
-    }
-    const where = conditions.length ? and(...conditions) : undefined;
-
-    const [rows, countRows, statRows] = await Promise.all([
-      db
-        .select({
-          id: sessionPackBookingsTable.id,
-          memberId: sessionPackBookingsTable.memberId,
-          memberName: usersTable.name,
-          memberEmail: usersTable.email,
-          coachId: sessionPackBookingsTable.coachId,
-          coachName: sessionPackCoachesTable.name,
-          scheduledAt: sessionPackBookingsTable.scheduledAt,
-          endAt: sessionPackBookingsTable.endAt,
-          durationMinutes: sessionPackBookingsTable.durationMinutes,
-          meetLink: sessionPackBookingsTable.meetLink,
-          status: sessionPackBookingsTable.status,
-          title: sessionPackBookingsTable.title,
-          coachNotes: sessionPackBookingsTable.coachNotes,
-          outcomeAt: sessionPackBookingsTable.outcomeAt,
-          cancelledAt: sessionPackBookingsTable.cancelledAt,
-          createdAt: sessionPackBookingsTable.createdAt,
-        })
-        .from(sessionPackBookingsTable)
-        .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
-        .innerJoin(
-          sessionPackCoachesTable,
-          eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
-        )
-        .where(where)
-        .orderBy(desc(sessionPackBookingsTable.scheduledAt))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(sessionPackBookingsTable)
-        .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
-        .where(where),
-      db
-        .select({
-          status: sessionPackBookingsTable.status,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(sessionPackBookingsTable)
-        .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
-        .where(where)
-        .groupBy(sessionPackBookingsTable.status),
-    ]);
-
-    const stats: Record<string, number> = { booked: 0, cancelled: 0, completed: 0, no_show: 0 };
-    for (const s of statRows) {
-      if (s.status) stats[s.status] = Number(s.count);
-    }
-
-    res.json({
-      bookings: rows,
-      total: Number(countRows[0]?.count ?? 0),
-      limit,
-      offset,
-      stats,
+    const result = await queryPackBookings({
+      status: firstString(req.query.status),
+      coachId: parseId(req.query.coachId as string | undefined) ?? undefined,
+      q: firstString(req.query.q),
+      from: firstString(req.query.from),
+      to: firstString(req.query.to),
+      limit: Number.isInteger(limitRaw) ? limitRaw : undefined,
+      offset: Number.isInteger(offsetRaw) ? offsetRaw : undefined,
     });
+
+    res.json(result);
   },
 );
 
@@ -337,6 +285,8 @@ router.patch(
       return;
     }
     const coachNotes = typeof req.body?.coachNotes === "string" ? req.body.coachNotes.trim() || null : undefined;
+    const actionItems =
+      req.body?.actionItems !== undefined ? normalizeActionItems(req.body.actionItems) : undefined;
 
     const updated = await db
       .update(sessionPackBookingsTable)
@@ -344,6 +294,7 @@ router.patch(
         status: "completed",
         outcomeAt: new Date(),
         ...(coachNotes !== undefined ? { coachNotes } : {}),
+        ...(actionItems !== undefined ? { actionItems } : {}),
       })
       .where(
         and(
@@ -363,6 +314,7 @@ router.patch(
         .json({ error: exists ? "Only a booked session can be completed" : "Session not found" });
       return;
     }
+    await mirrorBookingToGHL(updated[0]);
     res.json({ ok: true, booking: updated[0] });
   },
 );
@@ -382,6 +334,8 @@ router.patch(
     }
     const returnCredit = req.body?.returnCredit === true;
     const coachNotes = typeof req.body?.coachNotes === "string" ? req.body.coachNotes.trim() || null : undefined;
+    const actionItems =
+      req.body?.actionItems !== undefined ? normalizeActionItems(req.body.actionItems) : undefined;
 
     const [existing] = await db
       .select({ memberId: sessionPackBookingsTable.memberId, status: sessionPackBookingsTable.status })
@@ -405,6 +359,7 @@ router.patch(
           status: "no_show",
           outcomeAt: new Date(),
           ...(coachNotes !== undefined ? { coachNotes } : {}),
+          ...(actionItems !== undefined ? { actionItems } : {}),
         })
         .where(
           and(
@@ -434,6 +389,7 @@ router.patch(
       }
 
       await client.query("COMMIT");
+      await mirrorBookingToGHL(updated[0]);
       const balance = await getCreditBalance(memberId);
       res.json({ ok: true, creditReturned: returnCredit, balance, booking: updated[0] });
     } catch (err) {
@@ -459,21 +415,26 @@ router.patch(
       res.status(400).json({ error: "Invalid booking id" });
       return;
     }
-    if (typeof req.body?.coachNotes !== "string") {
-      res.status(400).json({ error: "coachNotes is required" });
+    const hasNotes = typeof req.body?.coachNotes === "string";
+    const hasActionItems = req.body?.actionItems !== undefined;
+    if (!hasNotes && !hasActionItems) {
+      res.status(400).json({ error: "coachNotes or actionItems is required" });
       return;
     }
-    const coachNotes = req.body.coachNotes.trim() || null;
+    const set: Partial<typeof sessionPackBookingsTable.$inferInsert> = {};
+    if (hasNotes) set.coachNotes = req.body.coachNotes.trim() || null;
+    if (hasActionItems) set.actionItems = normalizeActionItems(req.body.actionItems);
 
     const updated = await db
       .update(sessionPackBookingsTable)
-      .set({ coachNotes })
+      .set(set)
       .where(eq(sessionPackBookingsTable.id, bookingId))
       .returning();
     if (updated.length === 0) {
       res.status(404).json({ error: "Session not found" });
       return;
     }
+    await mirrorBookingToGHL(updated[0]);
     res.json({ ok: true, booking: updated[0] });
   },
 );

@@ -15,10 +15,17 @@
  */
 
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
-import { requirePermission } from "../middleware/rbac";
+import {
+  db,
+  sessionPackBookingsTable,
+  sessionPackCoachesTable,
+  usersTable,
+} from "@workspace/db";
+import { sql, eq, desc } from "drizzle-orm";
+import { requirePermission, requireCoachOrCoachingView } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import { queryPackBookings } from "../lib/pack-bookings";
+import { normalizeActionItems, syncBookingCoachingToGHL } from "../lib/coaching-notes";
 import {
   BLITZ_PHASES,
   BLITZ_SECTIONS,
@@ -469,6 +476,153 @@ router.get(
     } catch (err) {
       console.error("[CoachDashboard] mentee detail error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load mentee detail");
+    }
+  },
+);
+
+// ===========================================================================
+// Pack 1-on-1 coach surface — sessions list, member cross-coach history, and
+// notes/action-item editing. Gated to coaches OR admins with coaching:view.
+//
+// Cross-coach visibility is intentional: every coach sees ALL prior notes and
+// action items for a member, regardless of which coach authored them. Notes and
+// action items are COACH/ADMIN-FACING ONLY and are never returned to members.
+// ===========================================================================
+
+function parsePositiveInt(value: unknown): number | null {
+  const str = Array.isArray(value) ? value[0] : value;
+  const num = parseInt(typeof str === "string" ? str : "", 10);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+// GET /api/coach/dashboard/pack/sessions — filtered list of pack bookings.
+router.get(
+  "/coach/dashboard/pack/sessions",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    try {
+      const q = req.query as Record<string, string | undefined>;
+      const limitRaw = parseInt(q.limit ?? "50", 10);
+      const offsetRaw = parseInt(q.offset ?? "0", 10);
+      const result = await queryPackBookings({
+        status: q.status,
+        coachId: parsePositiveInt(q.coachId) ?? undefined,
+        q: q.q,
+        from: q.from,
+        to: q.to,
+        limit: Number.isInteger(limitRaw) ? limitRaw : undefined,
+        offset: Number.isInteger(offsetRaw) ? offsetRaw : undefined,
+      });
+      res.json(result);
+    } catch (err) {
+      console.error("[CoachDashboard] pack sessions error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load sessions");
+    }
+  },
+);
+
+// GET /api/coach/dashboard/pack/member/:memberId — a member's full cross-coach
+// session history (all coaches, all notes + action items).
+router.get(
+  "/coach/dashboard/pack/member/:memberId",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const memberId = parsePositiveInt(req.params["memberId"]);
+    if (!memberId) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid memberId");
+      return;
+    }
+    try {
+      const [member] = await db
+        .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, memberId));
+      if (!member) {
+        sendError(res, 404, ErrorCodes.NOT_FOUND, "Member not found");
+        return;
+      }
+
+      const sessions = await db
+        .select({
+          id: sessionPackBookingsTable.id,
+          coachId: sessionPackBookingsTable.coachId,
+          coachName: sessionPackCoachesTable.name,
+          scheduledAt: sessionPackBookingsTable.scheduledAt,
+          endAt: sessionPackBookingsTable.endAt,
+          durationMinutes: sessionPackBookingsTable.durationMinutes,
+          status: sessionPackBookingsTable.status,
+          title: sessionPackBookingsTable.title,
+          coachNotes: sessionPackBookingsTable.coachNotes,
+          actionItems: sessionPackBookingsTable.actionItems,
+          outcomeAt: sessionPackBookingsTable.outcomeAt,
+          createdAt: sessionPackBookingsTable.createdAt,
+        })
+        .from(sessionPackBookingsTable)
+        .innerJoin(
+          sessionPackCoachesTable,
+          eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+        )
+        .where(eq(sessionPackBookingsTable.memberId, memberId))
+        .orderBy(desc(sessionPackBookingsTable.scheduledAt));
+
+      res.json({ member, sessions });
+    } catch (err) {
+      console.error("[CoachDashboard] pack member history error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load member history");
+    }
+  },
+);
+
+// PATCH /api/coach/dashboard/pack/sessions/:id — update coach notes and/or
+// action items for a booking; mirrors to the member's GHL contact card.
+router.patch(
+  "/coach/dashboard/pack/sessions/:id",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const bookingId = parsePositiveInt(req.params["id"]);
+    if (!bookingId) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid booking id");
+      return;
+    }
+    const hasNotes = typeof req.body?.coachNotes === "string";
+    const hasActionItems = req.body?.actionItems !== undefined;
+    if (!hasNotes && !hasActionItems) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "coachNotes or actionItems is required");
+      return;
+    }
+
+    const set: Partial<typeof sessionPackBookingsTable.$inferInsert> = {};
+    if (hasNotes) set.coachNotes = (req.body.coachNotes as string).trim() || null;
+    if (hasActionItems) set.actionItems = normalizeActionItems(req.body.actionItems);
+
+    try {
+      const updated = await db
+        .update(sessionPackBookingsTable)
+        .set(set)
+        .where(eq(sessionPackBookingsTable.id, bookingId))
+        .returning();
+      if (updated.length === 0) {
+        sendError(res, 404, ErrorCodes.NOT_FOUND, "Session not found");
+        return;
+      }
+      const booking = updated[0];
+
+      const [coach] = await db
+        .select({ name: sessionPackCoachesTable.name })
+        .from(sessionPackCoachesTable)
+        .where(eq(sessionPackCoachesTable.id, booking.coachId));
+      syncBookingCoachingToGHL({
+        memberId: booking.memberId,
+        coachName: coach?.name ?? null,
+        scheduledAt: booking.scheduledAt,
+        coachNotes: booking.coachNotes,
+        actionItems: booking.actionItems,
+      });
+
+      res.json({ ok: true, booking });
+    } catch (err) {
+      console.error("[CoachDashboard] pack notes update error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save");
     }
   },
 );

@@ -20,6 +20,28 @@ import {
 
 const router: IRouter = Router();
 
+// Member-facing booking columns. Deliberately EXCLUDES coachNotes + actionItems,
+// which are COACH/ADMIN-FACING ONLY and must never be returned to members. Use
+// this for any `.returning()` whose response is sent to a member.
+const MEMBER_BOOKING_COLUMNS = {
+  id: sessionPackBookingsTable.id,
+  memberId: sessionPackBookingsTable.memberId,
+  coachId: sessionPackBookingsTable.coachId,
+  ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
+  ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
+  ghlContactId: sessionPackBookingsTable.ghlContactId,
+  scheduledAt: sessionPackBookingsTable.scheduledAt,
+  endAt: sessionPackBookingsTable.endAt,
+  durationMinutes: sessionPackBookingsTable.durationMinutes,
+  meetLink: sessionPackBookingsTable.meetLink,
+  status: sessionPackBookingsTable.status,
+  title: sessionPackBookingsTable.title,
+  outcomeAt: sessionPackBookingsTable.outcomeAt,
+  createdAt: sessionPackBookingsTable.createdAt,
+  updatedAt: sessionPackBookingsTable.updatedAt,
+  cancelledAt: sessionPackBookingsTable.cancelledAt,
+} as const;
+
 // A session is a 1-hour call, but the coach's calendar is reserved for an extra
 // 30-minute buffer afterwards. So a 1pm booking blocks 1:00–2:30pm on the
 // coach's GHL calendar even though the call itself runs 1:00–2:00pm.
@@ -238,7 +260,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         status: "booked",
         title,
       })
-      .returning();
+      .returning(MEMBER_BOOKING_COLUMNS);
 
     await txDb.insert(coachingCreditLedgerTable).values({
       memberId: userId,
@@ -512,7 +534,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
         ...(meetLink ? { meetLink } : {}),
       })
       .where(eq(sessionPackBookingsTable.id, bookingId))
-      .returning();
+      .returning(MEMBER_BOOKING_COLUMNS);
 
     await client.query("COMMIT");
     res.json({ ok: true, booking });

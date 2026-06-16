@@ -17,6 +17,7 @@ import {
   Network,
   MessageSquare,
   Users2,
+  CalendarDays,
   PieChart,
   DollarSign,
   Key,
@@ -344,6 +345,12 @@ export const COACH_NAV_NODES: NavNode[] = [
     href: "/coach/dashboard",
     label: "Mentee Progress",
     icon: Users2,
+  },
+  {
+    kind: "leaf",
+    href: "/coach/sessions",
+    label: "1-on-1 Sessions",
+    icon: CalendarDays,
   },
 ];
 

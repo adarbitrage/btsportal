@@ -37,6 +37,14 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>) {
 // Bookings list
 // ---------------------------------------------------------------------------
 
+export interface PackActionItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 export interface AdminPackBooking {
   id: number;
   memberId: number;
@@ -51,6 +59,7 @@ export interface AdminPackBooking {
   status: string;
   title: string | null;
   coachNotes: string | null;
+  actionItems: PackActionItem[];
   outcomeAt: string | null;
   cancelledAt: string | null;
   createdAt: string;
@@ -111,12 +120,15 @@ export function useAdminCompleteBooking() {
   return useMutation<
     { ok: boolean; booking: AdminPackBooking },
     Error,
-    { bookingId: number; coachNotes?: string }
+    { bookingId: number; coachNotes?: string; actionItems?: PackActionItem[] }
   >({
-    mutationFn: ({ bookingId, coachNotes }) =>
+    mutationFn: ({ bookingId, coachNotes, actionItems }) =>
       adminFetch(`/admin/coaching/pack/sessions/${bookingId}/complete`, {
         method: "PATCH",
-        body: JSON.stringify(coachNotes !== undefined ? { coachNotes } : {}),
+        body: JSON.stringify({
+          ...(coachNotes !== undefined ? { coachNotes } : {}),
+          ...(actionItems !== undefined ? { actionItems } : {}),
+        }),
       }),
     onSuccess: () => invalidateAll(queryClient),
   });
@@ -127,12 +139,16 @@ export function useAdminNoShowBooking() {
   return useMutation<
     { ok: boolean; creditReturned: boolean; balance: number; booking: AdminPackBooking },
     Error,
-    { bookingId: number; returnCredit: boolean; coachNotes?: string }
+    { bookingId: number; returnCredit: boolean; coachNotes?: string; actionItems?: PackActionItem[] }
   >({
-    mutationFn: ({ bookingId, returnCredit, coachNotes }) =>
+    mutationFn: ({ bookingId, returnCredit, coachNotes, actionItems }) =>
       adminFetch(`/admin/coaching/pack/sessions/${bookingId}/no-show`, {
         method: "PATCH",
-        body: JSON.stringify({ returnCredit, ...(coachNotes !== undefined ? { coachNotes } : {}) }),
+        body: JSON.stringify({
+          returnCredit,
+          ...(coachNotes !== undefined ? { coachNotes } : {}),
+          ...(actionItems !== undefined ? { actionItems } : {}),
+        }),
       }),
     onSuccess: () => invalidateAll(queryClient),
   });
@@ -143,12 +159,15 @@ export function useAdminSaveNotes() {
   return useMutation<
     { ok: boolean; booking: AdminPackBooking },
     Error,
-    { bookingId: number; coachNotes: string }
+    { bookingId: number; coachNotes?: string; actionItems?: PackActionItem[] }
   >({
-    mutationFn: ({ bookingId, coachNotes }) =>
+    mutationFn: ({ bookingId, coachNotes, actionItems }) =>
       adminFetch(`/admin/coaching/pack/sessions/${bookingId}/notes`, {
         method: "PATCH",
-        body: JSON.stringify({ coachNotes }),
+        body: JSON.stringify({
+          ...(coachNotes !== undefined ? { coachNotes } : {}),
+          ...(actionItems !== undefined ? { actionItems } : {}),
+        }),
       }),
     onSuccess: () => invalidateAll(queryClient),
   });

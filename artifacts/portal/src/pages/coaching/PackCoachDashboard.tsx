@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -21,23 +28,19 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ActionItemsEditor } from "@/components/coaching/ActionItemsEditor";
-import { useAdminPackCoaches } from "@/lib/session-coaching-admin-api";
+import { useAdminPackCoaches, type PackActionItem } from "@/lib/session-coaching-admin-api";
+import type { AdminPackBooking } from "@/lib/session-coaching-admin-api";
 import {
-  useAdminPackSessions,
-  useAdminCancelBooking,
-  useAdminCompleteBooking,
-  useAdminNoShowBooking,
-  useAdminSaveNotes,
-  type AdminPackBooking,
-  type PackActionItem,
-} from "@/lib/session-coaching-admin-api";
+  useCoachPackSessions,
+  useCoachPackMemberHistory,
+  useCoachSavePackNotes,
+  type CoachPackMemberSession,
+} from "@/lib/coach-pack-api";
 
 const PAGE_SIZE = 25;
-type ActionType = "cancel" | "complete" | "no_show" | "notes" | null;
 
 function statusBadge(status: string) {
   switch (status) {
@@ -54,109 +57,81 @@ function statusBadge(status: string) {
   }
 }
 
-export default function PackSessions() {
+export default function PackCoachDashboard() {
   const { toast } = useToast();
   const [status, setStatus] = useState("all");
   const [coachId, setCoachId] = useState("all");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
 
   const { data: coaches } = useAdminPackCoaches();
-  const { data, isLoading } = useAdminPackSessions({
+  const { data, isLoading } = useCoachPackSessions({
     status: status === "all" ? undefined : status,
     coachId: coachId === "all" ? undefined : Number(coachId),
     q: search || undefined,
-    from: from || undefined,
-    to: to || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
 
-  const [activeBooking, setActiveBooking] = useState<AdminPackBooking | null>(null);
-  const [action, setAction] = useState<ActionType>(null);
-  const [refund, setRefund] = useState(true);
-  const [returnCredit, setReturnCredit] = useState(false);
+  // Member history drawer
+  const [historyMemberId, setHistoryMemberId] = useState<number | null>(null);
+  const { data: history, isLoading: historyLoading } =
+    useCoachPackMemberHistory(historyMemberId);
+
+  // Notes / action-items editor
+  const [editing, setEditing] = useState<AdminPackBooking | CoachPackMemberSession | null>(null);
+  const [editMember, setEditMember] = useState<string>("");
   const [coachNotes, setCoachNotes] = useState("");
   const [actionItems, setActionItems] = useState<PackActionItem[]>([]);
-
-  const cancelMutation = useAdminCancelBooking();
-  const completeMutation = useAdminCompleteBooking();
-  const noShowMutation = useAdminNoShowBooking();
-  const notesMutation = useAdminSaveNotes();
+  const saveMutation = useCoachSavePackNotes();
 
   const bookings = data?.bookings ?? [];
   const stats = data?.stats ?? {};
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  function openAction(booking: AdminPackBooking, type: ActionType) {
-    setActiveBooking(booking);
-    setAction(type);
-    setRefund(true);
-    setReturnCredit(false);
+  function openEditor(
+    booking: AdminPackBooking | CoachPackMemberSession,
+    memberLabel: string,
+  ) {
+    setEditing(booking);
+    setEditMember(memberLabel);
     setCoachNotes(booking.coachNotes ?? "");
     setActionItems(booking.actionItems ?? []);
   }
 
-  function closeAction() {
-    setActiveBooking(null);
-    setAction(null);
+  function closeEditor() {
+    setEditing(null);
   }
 
-  async function confirmAction() {
-    if (!activeBooking || !action) return;
+  async function saveEditor() {
+    if (!editing) return;
     try {
-      if (action === "cancel") {
-        await cancelMutation.mutateAsync({ bookingId: activeBooking.id, refund });
-        toast({ title: "Session cancelled" });
-      } else if (action === "complete") {
-        await completeMutation.mutateAsync({
-          bookingId: activeBooking.id,
-          coachNotes: coachNotes.trim() || undefined,
-          actionItems,
-        });
-        toast({ title: "Session marked completed" });
-      } else if (action === "no_show") {
-        await noShowMutation.mutateAsync({
-          bookingId: activeBooking.id,
-          returnCredit,
-          coachNotes: coachNotes.trim() || undefined,
-          actionItems,
-        });
-        toast({ title: "Session marked no-show" });
-      } else if (action === "notes") {
-        await notesMutation.mutateAsync({
-          bookingId: activeBooking.id,
-          coachNotes,
-          actionItems,
-        });
-        toast({ title: "Notes saved" });
-      }
-      closeAction();
+      await saveMutation.mutateAsync({
+        bookingId: editing.id,
+        coachNotes,
+        actionItems,
+      });
+      toast({ title: "Saved" });
+      closeEditor();
     } catch (err) {
       toast({
-        title: "Action failed",
+        title: "Could not save",
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
     }
   }
 
-  const isMutating =
-    cancelMutation.isPending ||
-    completeMutation.isPending ||
-    noShowMutation.isPending ||
-    notesMutation.isPending;
-
   return (
-    <PackCoachingAdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">1-on-1 Sessions</h1>
-          <p className="text-muted-foreground">All credit-based coaching bookings.</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Notes and action items are shared across all coaches and never shown to members.
+          </p>
         </div>
 
         {/* Stats */}
@@ -178,7 +153,7 @@ export default function PackSessions() {
 
         {/* Filters */}
         <Card>
-          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <div>
               <Label className="text-xs">Status</Label>
               <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
@@ -210,15 +185,7 @@ export default function PackSessions() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">From</Label>
-              <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(0); }} />
-            </div>
-            <div>
-              <Label className="text-xs">To</Label>
-              <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(0); }} />
-            </div>
-            <div className="flex gap-2">
+            <div className="md:col-span-2 flex gap-2">
               <div className="flex-1">
                 <Label className="text-xs">Member</Label>
                 <Input
@@ -268,12 +235,12 @@ export default function PackSessions() {
                   ) : bookings.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                        No bookings match these filters.
+                        No sessions match these filters.
                       </td>
                     </tr>
                   ) : (
                     bookings.map((b) => (
-                      <tr key={b.id} className="border-b border-border/50" data-testid={`booking-row-${b.id}`}>
+                      <tr key={b.id} className="border-b border-border/50" data-testid={`session-row-${b.id}`}>
                         <td className="p-3">
                           <p className="font-medium text-foreground">{b.memberName}</p>
                           <p className="text-xs text-muted-foreground">{b.memberEmail}</p>
@@ -285,25 +252,14 @@ export default function PackSessions() {
                         <td className="p-3">{statusBadge(b.status)}</td>
                         <td className="p-3">
                           <div className="flex justify-end gap-1 flex-wrap">
-                            {b.status === "booked" && (
-                              <>
-                                <Button size="sm" variant="outline" onClick={() => openAction(b, "complete")}>
-                                  Complete
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => openAction(b, "no_show")}>
-                                  No-show
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => openAction(b, "cancel")}
-                                >
-                                  Cancel
-                                </Button>
-                              </>
-                            )}
-                            <Button size="sm" variant="ghost" onClick={() => openAction(b, "notes")}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setHistoryMemberId(b.memberId)}
+                            >
+                              History
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => openEditor(b, `${b.memberName}`)}>
                               Notes
                             </Button>
                           </div>
@@ -342,68 +298,117 @@ export default function PackSessions() {
         )}
       </div>
 
-      <Dialog open={!!action} onOpenChange={(open) => !open && closeAction()}>
+      {/* Member cross-coach history drawer */}
+      <Sheet open={historyMemberId !== null} onOpenChange={(open) => !open && setHistoryMemberId(null)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{history?.member.name ?? "Session history"}</SheetTitle>
+            <SheetDescription>
+              {history?.member.email
+                ? `All ${history.sessions.length} session${history.sessions.length !== 1 ? "s" : ""} across coaches`
+                : "Every coach sees all prior notes and action items."}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4 space-y-4">
+            {historyLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : !history || history.sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sessions yet.</p>
+            ) : (
+              history.sessions.map((s) => (
+                <Card key={s.id} data-testid={`history-session-${s.id}`}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {format(new Date(s.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">with {s.coachName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {statusBadge(s.status)}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditor(s, history.member.name)}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                    {s.coachNotes && (
+                      <p className="text-sm text-foreground whitespace-pre-wrap">{s.coachNotes}</p>
+                    )}
+                    {s.actionItems.length > 0 && (
+                      <ul className="space-y-1">
+                        {s.actionItems.map((item) => (
+                          <li key={item.id} className="text-xs flex items-center gap-2">
+                            <span
+                              className={`inline-block h-2 w-2 rounded-full ${
+                                item.completed ? "bg-green-500" : "bg-muted-foreground/40"
+                              }`}
+                            />
+                            <span className={item.completed ? "line-through text-muted-foreground" : "text-foreground"}>
+                              {item.text}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {!s.coachNotes && s.actionItems.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic">No notes recorded.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Notes / action-items editor */}
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {action === "cancel" && "Cancel Session"}
-              {action === "complete" && "Mark Completed"}
-              {action === "no_show" && "Mark No-show"}
-              {action === "notes" && "Coach Notes"}
-            </DialogTitle>
-            {activeBooking && (
-              <DialogDescription>
-                {activeBooking.memberName} · {activeBooking.coachName} ·{" "}
-                {format(new Date(activeBooking.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
-              </DialogDescription>
-            )}
+            <DialogTitle>Session notes</DialogTitle>
+            <DialogDescription>
+              {editMember}
+              {editing && (
+                <>
+                  {" · "}
+                  {format(new Date(editing.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                </>
+              )}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {action === "cancel" && (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={refund} onCheckedChange={(c) => setRefund(c === true)} />
-                Refund the member's session credit
-              </label>
-            )}
-            {action === "no_show" && (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={returnCredit}
-                  onCheckedChange={(c) => setReturnCredit(c === true)}
-                />
-                Return the session credit to the member
-              </label>
-            )}
-            {(action === "complete" || action === "no_show" || action === "notes") && (
-              <>
-                <div>
-                  <Label className="text-xs">Coach notes {action !== "notes" && "(optional)"}</Label>
-                  <Textarea
-                    value={coachNotes}
-                    onChange={(e) => setCoachNotes(e.target.value)}
-                    rows={4}
-                    placeholder="Internal notes about this session"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Action items</Label>
-                  <ActionItemsEditor items={actionItems} onChange={setActionItems} />
-                </div>
-              </>
-            )}
+            <div>
+              <Label className="text-xs">Coach notes</Label>
+              <Textarea
+                value={coachNotes}
+                onChange={(e) => setCoachNotes(e.target.value)}
+                rows={4}
+                placeholder="Internal notes about this session"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Action items</Label>
+              <ActionItemsEditor items={actionItems} onChange={setActionItems} />
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeAction} disabled={isMutating}>
+            <Button variant="outline" onClick={closeEditor} disabled={saveMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={confirmAction} disabled={isMutating}>
-              {isMutating ? "Saving…" : "Confirm"}
+            <Button onClick={saveEditor} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PackCoachingAdminLayout>
+    </AppLayout>
   );
 }
