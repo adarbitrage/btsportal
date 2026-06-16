@@ -74,6 +74,10 @@ export interface CoachPackMemberSession {
   title: string | null;
   coachNotes: string | null;
   actionItems: PackActionItem[];
+  recordingUrl: string | null;
+  summaryUrl: string | null;
+  transcriptUrl: string | null;
+  recordingIngestStatus: string;
   outcomeAt: string | null;
   createdAt: string;
 }

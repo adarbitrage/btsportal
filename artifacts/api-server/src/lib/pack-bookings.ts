@@ -45,6 +45,10 @@ export interface PackBookingRow {
   title: string | null;
   coachNotes: string | null;
   actionItems: SessionPackActionItem[];
+  recordingUrl: string | null;
+  summaryUrl: string | null;
+  transcriptUrl: string | null;
+  recordingIngestStatus: string;
   outcomeAt: Date | null;
   cancelledAt: Date | null;
   createdAt: Date;
@@ -116,6 +120,10 @@ export async function queryPackBookings(
         title: sessionPackBookingsTable.title,
         coachNotes: sessionPackBookingsTable.coachNotes,
         actionItems: sessionPackBookingsTable.actionItems,
+        recordingUrl: sessionPackBookingsTable.recordingUrl,
+        summaryUrl: sessionPackBookingsTable.summaryUrl,
+        transcriptUrl: sessionPackBookingsTable.transcriptUrl,
+        recordingIngestStatus: sessionPackBookingsTable.recordingIngestStatus,
         outcomeAt: sessionPackBookingsTable.outcomeAt,
         cancelledAt: sessionPackBookingsTable.cancelledAt,
         createdAt: sessionPackBookingsTable.createdAt,

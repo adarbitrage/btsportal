@@ -11,14 +11,29 @@ import {
 import { eq, inArray } from "drizzle-orm";
 
 // coachNotes + actionItems on a pack booking are COACH/ADMIN-FACING ONLY and
-// must NEVER reach a member. The member-facing booking endpoints return rows
-// straight from `.returning()`, so a naive `.returning()` (no projection)
-// silently leaks both fields once a coach has written them. This guard pins the
-// member-safe projection on the two write endpoints that echo a booking back:
+// must NEVER reach a member. The same applies to the auto-ingested Google Meet
+// recording + Gemini notes/transcript links (recordingUrl/summaryUrl/
+// transcriptUrl) and their ingest bookkeeping. The member-facing booking
+// endpoints return rows straight from `.returning()`, so a naive `.returning()`
+// (no projection) silently leaks these fields once they are populated. This
+// guard pins the member-safe projection on the two write endpoints that echo a
+// booking back:
 //   - POST  /api/coaching/sessions            (book)
 //   - PATCH /api/coaching/sessions/:id/reschedule
 // `/coaching/sessions/mine` already uses an explicit safe select; it is covered
-// implicitly here by asserting the same two fields never appear.
+// implicitly here by asserting the same fields never appear.
+
+// Coach/admin-only fields that must never appear on any member-facing booking.
+const MEMBER_FORBIDDEN_FIELDS = [
+  "coachNotes",
+  "actionItems",
+  "recordingUrl",
+  "summaryUrl",
+  "transcriptUrl",
+  "recordingIngestStatus",
+  "recordingIngestAt",
+  "recordingIngestAttempts",
+];
 
 // The reschedule path confirms the slot on the coach's GHL calendar and moves
 // the GHL appointment; stub the calendar client so the test is hermetic.
@@ -62,6 +77,9 @@ const SECRET_NOTE = "INTERNAL: member is behind on homework — do not surface."
 const SECRET_ACTION_ITEMS = [
   { id: "ai-1", text: "Review funnel metrics", completed: false, completedAt: null, createdAt: new Date().toISOString() },
 ];
+const SECRET_RECORDING_URL = "https://drive.google.com/file/SECRET_REC/view";
+const SECRET_SUMMARY_URL = "https://drive.google.com/file/SECRET_SUM/view";
+const SECRET_TRANSCRIPT_URL = "https://drive.google.com/file/SECRET_TR/view";
 
 let app: ReturnType<typeof buildTestApp>;
 let memberId = 0;
@@ -134,6 +152,12 @@ async function seedBookingWithNotes(): Promise<number> {
       title: "Strategy call",
       coachNotes: SECRET_NOTE,
       actionItems: SECRET_ACTION_ITEMS,
+      recordingUrl: SECRET_RECORDING_URL,
+      summaryUrl: SECRET_SUMMARY_URL,
+      transcriptUrl: SECRET_TRANSCRIPT_URL,
+      recordingIngestStatus: "found",
+      recordingIngestAt: new Date(),
+      recordingIngestAttempts: 1,
     })
     .returning({ id: sessionPackBookingsTable.id });
   bookingIds.push(row.id);
@@ -152,11 +176,16 @@ describe("member coaching-sessions responses never leak coach notes/action items
     expect(res.status).toBe(200);
     expect(res.body.booking).toBeDefined();
     expect(res.body.booking.id).toBe(id);
-    expect(Object.keys(res.body.booking)).not.toContain("coachNotes");
-    expect(Object.keys(res.body.booking)).not.toContain("actionItems");
-    // Belt-and-suspenders: the secret value must not appear anywhere in the body.
-    expect(JSON.stringify(res.body)).not.toContain(SECRET_NOTE);
-    expect(JSON.stringify(res.body)).not.toContain("Review funnel metrics");
+    for (const field of MEMBER_FORBIDDEN_FIELDS) {
+      expect(Object.keys(res.body.booking)).not.toContain(field);
+    }
+    // Belt-and-suspenders: no secret value may appear anywhere in the body.
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain(SECRET_NOTE);
+    expect(body).not.toContain("Review funnel metrics");
+    expect(body).not.toContain(SECRET_RECORDING_URL);
+    expect(body).not.toContain(SECRET_SUMMARY_URL);
+    expect(body).not.toContain(SECRET_TRANSCRIPT_URL);
   });
 
   it("GET /coaching/sessions/mine omits coachNotes and actionItems", async () => {
@@ -170,10 +199,15 @@ describe("member coaching-sessions responses never leak coach notes/action items
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThan(0);
     for (const booking of res.body) {
-      expect(Object.keys(booking)).not.toContain("coachNotes");
-      expect(Object.keys(booking)).not.toContain("actionItems");
+      for (const field of MEMBER_FORBIDDEN_FIELDS) {
+        expect(Object.keys(booking)).not.toContain(field);
+      }
     }
-    expect(JSON.stringify(res.body)).not.toContain(SECRET_NOTE);
-    expect(JSON.stringify(res.body)).not.toContain("Review funnel metrics");
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain(SECRET_NOTE);
+    expect(body).not.toContain("Review funnel metrics");
+    expect(body).not.toContain(SECRET_RECORDING_URL);
+    expect(body).not.toContain(SECRET_SUMMARY_URL);
+    expect(body).not.toContain(SECRET_TRANSCRIPT_URL);
   });
 });

@@ -554,6 +554,10 @@ router.get(
           title: sessionPackBookingsTable.title,
           coachNotes: sessionPackBookingsTable.coachNotes,
           actionItems: sessionPackBookingsTable.actionItems,
+          recordingUrl: sessionPackBookingsTable.recordingUrl,
+          summaryUrl: sessionPackBookingsTable.summaryUrl,
+          transcriptUrl: sessionPackBookingsTable.transcriptUrl,
+          recordingIngestStatus: sessionPackBookingsTable.recordingIngestStatus,
           outcomeAt: sessionPackBookingsTable.outcomeAt,
           createdAt: sessionPackBookingsTable.createdAt,
         })

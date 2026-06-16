@@ -50,6 +50,19 @@ export const sessionPackBookingsTable = pgTable(
       .$type<SessionPackActionItem[]>()
       .notNull()
       .default([]),
+    // Google Drive links to this call's outcome, discovered automatically after
+    // the session ends (Meet recording video + Gemini "Take notes for me"
+    // summary doc + transcript doc). COACH/ADMIN-FACING ONLY — these must never
+    // be returned to members. Null until the ingest matcher finds them.
+    recordingUrl: text("recording_url"),
+    summaryUrl: text("summary_url"),
+    transcriptUrl: text("transcript_url"),
+    // Recording-ingest lifecycle: pending (not yet found) | found | not_found
+    // (window exhausted without a match) | error. COACH/ADMIN-FACING ONLY.
+    recordingIngestStatus: text("recording_ingest_status").notNull().default("pending"),
+    // When the matcher last ran for this booking, and how many times it has run.
+    recordingIngestAt: timestamp("recording_ingest_at", { withTimezone: true }),
+    recordingIngestAttempts: integer("recording_ingest_attempts").notNull().default(0),
     // When an admin finalized the outcome (status -> completed | no_show).
     outcomeAt: timestamp("outcome_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

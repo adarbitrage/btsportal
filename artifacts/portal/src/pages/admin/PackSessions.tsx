@@ -39,6 +39,44 @@ import {
 const PAGE_SIZE = 25;
 type ActionType = "cancel" | "complete" | "no_show" | "notes" | null;
 
+// Coach/admin-only: links to the auto-ingested Meet recording + Gemini notes.
+// Never rendered on any member-facing surface.
+function RecordingLinks({ booking }: { booking: AdminPackBooking }) {
+  const links = [
+    { href: booking.recordingUrl, label: "Recording" },
+    { href: booking.summaryUrl, label: "Notes" },
+    { href: booking.transcriptUrl, label: "Transcript" },
+  ].filter((l) => !!l.href);
+
+  if (links.length > 0) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {links.map((l) => (
+          <a
+            key={l.label}
+            href={l.href!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary underline underline-offset-2 hover:opacity-80"
+          >
+            {l.label}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  if (booking.status === "cancelled") {
+    return <span className="text-xs text-muted-foreground/60">—</span>;
+  }
+  const hint =
+    booking.recordingIngestStatus === "not_found" ||
+    booking.recordingIngestStatus === "error"
+      ? "No recording found"
+      : "Pending…";
+  return <span className="text-xs text-muted-foreground/60 italic">{hint}</span>;
+}
+
 function statusBadge(status: string) {
   switch (status) {
     case "booked":
@@ -255,19 +293,20 @@ export default function PackSessions() {
                     <th className="p-3 font-medium">Coach</th>
                     <th className="p-3 font-medium">When</th>
                     <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium">Recording</th>
                     <th className="p-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
                         Loading…
                       </td>
                     </tr>
                   ) : bookings.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
                         No bookings match these filters.
                       </td>
                     </tr>
@@ -283,6 +322,9 @@ export default function PackSessions() {
                           {format(new Date(b.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
                         </td>
                         <td className="p-3">{statusBadge(b.status)}</td>
+                        <td className="p-3">
+                          <RecordingLinks booking={b} />
+                        </td>
                         <td className="p-3">
                           <div className="flex justify-end gap-1 flex-wrap">
                             {b.status === "booked" && (
