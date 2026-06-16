@@ -158,7 +158,7 @@ export default function SessionBooking() {
                 <div>
                   <h3 className="font-bold text-foreground">Session Credits</h3>
                   <p className="text-sm text-muted-foreground">
-                    Each credit books one 1-hour 1-on-1 session.
+                    Each credit books one private 1-hour session.
                   </p>
                 </div>
               </div>

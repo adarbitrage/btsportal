@@ -148,9 +148,8 @@ export default function CoachingSession() {
                 <CardContent className="p-6 text-center space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground font-medium">
-                      {pkg.sessions}-Session{pkg.sessions > 1 ? " Pack" : ""}
+                      {pkg.sessions === 1 ? "1-Session" : `${pkg.sessions}-Pack`} (60 minutes)
                     </p>
-                    <p className="text-sm text-muted-foreground">(60 minutes each)</p>
                   </div>
                   <p className="text-4xl font-bold text-foreground">{pkg.price}</p>
                   <p className="text-sm text-muted-foreground">{pkg.description}</p>
