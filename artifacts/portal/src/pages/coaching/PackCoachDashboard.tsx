@@ -37,8 +37,14 @@ import {
   useCoachPackSessions,
   useCoachPackMemberHistory,
   useCoachSavePackNotes,
+  useCoachSetRecording,
   type CoachPackMemberSession,
 } from "@/lib/coach-pack-api";
+import {
+  RecordingLinksEditor,
+  EMPTY_RECORDING_LINKS,
+  type RecordingLinkValues,
+} from "@/components/coaching/RecordingLinksEditor";
 
 const PAGE_SIZE = 25;
 
@@ -61,7 +67,7 @@ function RecordingLinks({ booking }: { booking: RecordingFields }) {
 
   if (links.length > 0) {
     return (
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {links.map((l) => (
           <a
             key={l.label}
@@ -73,6 +79,11 @@ function RecordingLinks({ booking }: { booking: RecordingFields }) {
             {l.label}
           </a>
         ))}
+        {booking.recordingIngestStatus === "manual" && (
+          <Badge variant="outline" className="text-[10px]" data-testid="badge-manual-recording">
+            Manual
+          </Badge>
+        )}
       </div>
     );
   }
@@ -133,6 +144,14 @@ export default function PackCoachDashboard() {
   const [actionItems, setActionItems] = useState<PackActionItem[]>([]);
   const saveMutation = useCoachSavePackNotes();
 
+  // Manual recording-link editor
+  const [recordingEditing, setRecordingEditing] = useState<
+    AdminPackBooking | CoachPackMemberSession | null
+  >(null);
+  const [recordingMember, setRecordingMember] = useState<string>("");
+  const [recordingLinks, setRecordingLinks] = useState<RecordingLinkValues>(EMPTY_RECORDING_LINKS);
+  const recordingMutation = useCoachSetRecording();
+
   const bookings = data?.bookings ?? [];
   const stats = data?.stats ?? {};
   const total = data?.total ?? 0;
@@ -150,6 +169,43 @@ export default function PackCoachDashboard() {
 
   function closeEditor() {
     setEditing(null);
+  }
+
+  function openRecording(
+    booking: AdminPackBooking | CoachPackMemberSession,
+    memberLabel: string,
+  ) {
+    setRecordingEditing(booking);
+    setRecordingMember(memberLabel);
+    setRecordingLinks({
+      recordingUrl: booking.recordingUrl ?? "",
+      summaryUrl: booking.summaryUrl ?? "",
+      transcriptUrl: booking.transcriptUrl ?? "",
+    });
+  }
+
+  function closeRecording() {
+    setRecordingEditing(null);
+  }
+
+  async function saveRecording() {
+    if (!recordingEditing) return;
+    try {
+      await recordingMutation.mutateAsync({
+        bookingId: recordingEditing.id,
+        recordingUrl: recordingLinks.recordingUrl.trim() || null,
+        summaryUrl: recordingLinks.summaryUrl.trim() || null,
+        transcriptUrl: recordingLinks.transcriptUrl.trim() || null,
+      });
+      toast({ title: "Recording links saved" });
+      closeRecording();
+    } catch (err) {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   async function saveEditor() {
@@ -313,6 +369,9 @@ export default function PackCoachDashboard() {
                             <Button size="sm" variant="outline" onClick={() => openEditor(b, `${b.memberName}`)}>
                               Notes
                             </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openRecording(b, `${b.memberName}`)}>
+                              Recording
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -385,6 +444,13 @@ export default function PackCoachDashboard() {
                           onClick={() => openEditor(s, history.member.name)}
                         >
                           Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openRecording(s, history.member.name)}
+                        >
+                          Recording
                         </Button>
                       </div>
                     </div>
@@ -459,6 +525,35 @@ export default function PackCoachDashboard() {
             </Button>
             <Button onClick={saveEditor} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual recording-link editor */}
+      <Dialog open={recordingEditing !== null} onOpenChange={(open) => !open && closeRecording()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recording links</DialogTitle>
+            <DialogDescription>
+              {recordingMember}
+              {recordingEditing && (
+                <>
+                  {" · "}
+                  {format(new Date(recordingEditing.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <RecordingLinksEditor values={recordingLinks} onChange={setRecordingLinks} />
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeRecording} disabled={recordingMutation.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={saveRecording} disabled={recordingMutation.isPending}>
+              {recordingMutation.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

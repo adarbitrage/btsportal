@@ -177,6 +177,27 @@ export function useAdminSaveNotes() {
   });
 }
 
+// Manually attach (or clear) the recording / summary / transcript links for a
+// booking when auto-matching missed. Coach/admin only; never shown to members.
+export interface ManualRecordingInput {
+  bookingId: number;
+  recordingUrl?: string | null;
+  summaryUrl?: string | null;
+  transcriptUrl?: string | null;
+}
+
+export function useAdminSetRecording() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean; booking: AdminPackBooking }, Error, ManualRecordingInput>({
+    mutationFn: ({ bookingId, ...links }) =>
+      adminFetch(`/admin/coaching/pack/sessions/${bookingId}/recording`, {
+        method: "PATCH",
+        body: JSON.stringify(links),
+      }),
+    onSuccess: () => invalidateAll(queryClient),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Credits + ledger
 // ---------------------------------------------------------------------------

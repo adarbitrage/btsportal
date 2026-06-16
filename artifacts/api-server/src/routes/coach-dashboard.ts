@@ -24,7 +24,11 @@ import {
 import { sql, eq, desc } from "drizzle-orm";
 import { requirePermission, requireCoachOrCoachingView } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
-import { queryPackBookings } from "../lib/pack-bookings";
+import {
+  queryPackBookings,
+  parseManualRecordingLinks,
+  resolveManualRecordingFields,
+} from "../lib/pack-bookings";
 import { normalizeActionItems, syncBookingCoachingToGHL } from "../lib/coaching-notes";
 import {
   BLITZ_PHASES,
@@ -626,6 +630,56 @@ router.patch(
       res.json({ ok: true, booking });
     } catch (err) {
       console.error("[CoachDashboard] pack notes update error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save");
+    }
+  },
+);
+
+// PATCH /api/coach/dashboard/pack/sessions/:id/recording — manually attach (or
+// clear) the recording / summary / transcript links for a booking when
+// auto-matching missed. Flips the ingest status to "manual" so the next ingest
+// pass never overwrites the hand-entered links. COACH/ADMIN-FACING ONLY.
+router.patch(
+  "/coach/dashboard/pack/sessions/:id/recording",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const bookingId = parsePositiveInt(req.params["id"]);
+    if (!bookingId) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid booking id");
+      return;
+    }
+    const parsed = parseManualRecordingLinks(req.body);
+    if ("error" in parsed) {
+      sendError(res, 400, ErrorCodes.VALIDATION_ERROR, parsed.error);
+      return;
+    }
+
+    try {
+      const [existing] = await db
+        .select({
+          recordingUrl: sessionPackBookingsTable.recordingUrl,
+          summaryUrl: sessionPackBookingsTable.summaryUrl,
+          transcriptUrl: sessionPackBookingsTable.transcriptUrl,
+        })
+        .from(sessionPackBookingsTable)
+        .where(eq(sessionPackBookingsTable.id, bookingId));
+      if (!existing) {
+        sendError(res, 404, ErrorCodes.NOT_FOUND, "Session not found");
+        return;
+      }
+
+      const [booking] = await db
+        .update(sessionPackBookingsTable)
+        .set({
+          ...parsed.links,
+          ...resolveManualRecordingFields(existing, parsed.links),
+          recordingIngestAt: new Date(),
+        })
+        .where(eq(sessionPackBookingsTable.id, bookingId))
+        .returning();
+      res.json({ ok: true, booking });
+    } catch (err) {
+      console.error("[CoachDashboard] pack recording update error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save");
     }
   },

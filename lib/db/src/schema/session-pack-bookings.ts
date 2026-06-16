@@ -58,7 +58,9 @@ export const sessionPackBookingsTable = pgTable(
     summaryUrl: text("summary_url"),
     transcriptUrl: text("transcript_url"),
     // Recording-ingest lifecycle: pending (not yet found) | found | not_found
-    // (window exhausted without a match) | error. COACH/ADMIN-FACING ONLY.
+    // (window exhausted without a match) | error | manual (a coach/admin pasted
+    // the links by hand — the auto-ingest pass must never overwrite these).
+    // COACH/ADMIN-FACING ONLY.
     recordingIngestStatus: text("recording_ingest_status").notNull().default("pending"),
     // When the matcher last ran for this booking, and how many times it has run.
     recordingIngestAt: timestamp("recording_ingest_at", { withTimezone: true }),

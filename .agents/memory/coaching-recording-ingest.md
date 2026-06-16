@@ -34,3 +34,24 @@ configured.
 
 **Booking title format** is "1-on-1 Coaching with <Coach>"; the search needle is
 derived from the "coaching" substring so Meet's "<title> (date)" filenames match.
+
+## Manual override interacts with TWO ingest gates, not one
+Coaches/admins can hand-paste recording links when auto-matching misses. The
+ingest scheduler's eligibility is `recordingIngestStatus="pending" AND
+recordingIngestAttempts < MAX_INGEST_ATTEMPTS` — **two** conditions, and the
+manual flow must respect both:
+- Setting any link → status "manual": there is no special case in the ingest
+  job, the non-"pending" status alone is what stops the next pass from
+  clobbering hand-entered links.
+- Clearing every link → status back to "pending" **AND attempts reset to 0**.
+  Resetting attempts is mandatory: real "no recording found" rows are usually
+  `not_found` sitting at the attempts cap, so reverting status alone leaves them
+  permanently ineligible and auto-ingest never resumes.
+
+**Why:** this exact attempts-reset omission was caught in review — flipping only
+the status looked correct but silently failed for the common (capped) case.
+**How to apply:** any code path that re-enables auto-ingest for a booking must
+clear BOTH gates (status + attempts), not just the status. Keep the status/
+attempts computation single-sourced in `lib/pack-bookings.ts` so the coach and
+admin PATCH routes can't drift. Still coach/admin-only — no member route exposes
+the recording fields.

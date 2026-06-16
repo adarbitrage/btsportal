@@ -117,3 +117,31 @@ export function useCoachSavePackNotes() {
     onSuccess: () => invalidateAll(queryClient),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Manually attach (or clear) recording / summary / transcript links when
+// auto-matching missed. Coach/admin only; never shown to members.
+// ---------------------------------------------------------------------------
+
+export interface CoachManualRecordingInput {
+  bookingId: number;
+  recordingUrl?: string | null;
+  summaryUrl?: string | null;
+  transcriptUrl?: string | null;
+}
+
+export function useCoachSetRecording() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { ok: boolean; booking: AdminPackBooking },
+    Error,
+    CoachManualRecordingInput
+  >({
+    mutationFn: ({ bookingId, ...links }) =>
+      coachFetch(`/coach/dashboard/pack/sessions/${bookingId}/recording`, {
+        method: "PATCH",
+        body: JSON.stringify(links),
+      }),
+    onSuccess: () => invalidateAll(queryClient),
+  });
+}

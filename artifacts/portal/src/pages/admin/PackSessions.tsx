@@ -25,6 +25,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ActionItemsEditor } from "@/components/coaching/ActionItemsEditor";
+import {
+  RecordingLinksEditor,
+  EMPTY_RECORDING_LINKS,
+  type RecordingLinkValues,
+} from "@/components/coaching/RecordingLinksEditor";
 import { useAdminPackCoaches } from "@/lib/session-coaching-admin-api";
 import {
   useAdminPackSessions,
@@ -32,12 +37,13 @@ import {
   useAdminCompleteBooking,
   useAdminNoShowBooking,
   useAdminSaveNotes,
+  useAdminSetRecording,
   type AdminPackBooking,
   type PackActionItem,
 } from "@/lib/session-coaching-admin-api";
 
 const PAGE_SIZE = 25;
-type ActionType = "cancel" | "complete" | "no_show" | "notes" | null;
+type ActionType = "cancel" | "complete" | "no_show" | "notes" | "recording" | null;
 
 // Coach/admin-only: links to the auto-ingested Meet recording + Gemini notes.
 // Never rendered on any member-facing surface.
@@ -50,7 +56,7 @@ function RecordingLinks({ booking }: { booking: AdminPackBooking }) {
 
   if (links.length > 0) {
     return (
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {links.map((l) => (
           <a
             key={l.label}
@@ -62,6 +68,11 @@ function RecordingLinks({ booking }: { booking: AdminPackBooking }) {
             {l.label}
           </a>
         ))}
+        {booking.recordingIngestStatus === "manual" && (
+          <Badge variant="outline" className="text-[10px]" data-testid="badge-manual-recording">
+            Manual
+          </Badge>
+        )}
       </div>
     );
   }
@@ -119,11 +130,13 @@ export default function PackSessions() {
   const [returnCredit, setReturnCredit] = useState(false);
   const [coachNotes, setCoachNotes] = useState("");
   const [actionItems, setActionItems] = useState<PackActionItem[]>([]);
+  const [recordingLinks, setRecordingLinks] = useState<RecordingLinkValues>(EMPTY_RECORDING_LINKS);
 
   const cancelMutation = useAdminCancelBooking();
   const completeMutation = useAdminCompleteBooking();
   const noShowMutation = useAdminNoShowBooking();
   const notesMutation = useAdminSaveNotes();
+  const recordingMutation = useAdminSetRecording();
 
   const bookings = data?.bookings ?? [];
   const stats = data?.stats ?? {};
@@ -137,6 +150,11 @@ export default function PackSessions() {
     setReturnCredit(false);
     setCoachNotes(booking.coachNotes ?? "");
     setActionItems(booking.actionItems ?? []);
+    setRecordingLinks({
+      recordingUrl: booking.recordingUrl ?? "",
+      summaryUrl: booking.summaryUrl ?? "",
+      transcriptUrl: booking.transcriptUrl ?? "",
+    });
   }
 
   function closeAction() {
@@ -172,6 +190,14 @@ export default function PackSessions() {
           actionItems,
         });
         toast({ title: "Notes saved" });
+      } else if (action === "recording") {
+        await recordingMutation.mutateAsync({
+          bookingId: activeBooking.id,
+          recordingUrl: recordingLinks.recordingUrl.trim() || null,
+          summaryUrl: recordingLinks.summaryUrl.trim() || null,
+          transcriptUrl: recordingLinks.transcriptUrl.trim() || null,
+        });
+        toast({ title: "Recording links saved" });
       }
       closeAction();
     } catch (err) {
@@ -187,7 +213,8 @@ export default function PackSessions() {
     cancelMutation.isPending ||
     completeMutation.isPending ||
     noShowMutation.isPending ||
-    notesMutation.isPending;
+    notesMutation.isPending ||
+    recordingMutation.isPending;
 
   return (
     <PackCoachingAdminLayout>
@@ -348,6 +375,9 @@ export default function PackSessions() {
                             <Button size="sm" variant="ghost" onClick={() => openAction(b, "notes")}>
                               Notes
                             </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openAction(b, "recording")}>
+                              Recording
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -392,6 +422,7 @@ export default function PackSessions() {
               {action === "complete" && "Mark Completed"}
               {action === "no_show" && "Mark No-show"}
               {action === "notes" && "Coach Notes"}
+              {action === "recording" && "Recording Links"}
             </DialogTitle>
             {activeBooking && (
               <DialogDescription>
@@ -433,6 +464,9 @@ export default function PackSessions() {
                   <ActionItemsEditor items={actionItems} onChange={setActionItems} />
                 </div>
               </>
+            )}
+            {action === "recording" && (
+              <RecordingLinksEditor values={recordingLinks} onChange={setRecordingLinks} />
             )}
           </div>
 

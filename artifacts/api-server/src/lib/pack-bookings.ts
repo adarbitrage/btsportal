@@ -20,6 +20,105 @@ export const VALID_PACK_STATUSES = new Set([
   "no_show",
 ]);
 
+// ---------------------------------------------------------------------------
+// Manual recording-link override (coach/admin only).
+//
+// Auto-matching links a Meet recording to a booking by meeting title +
+// scheduled-time window. When a call is renamed, started late, or recorded
+// ad-hoc, nothing matches and the booking shows "No recording found". A coach
+// or admin can then paste the recording / summary / transcript URLs by hand.
+//
+// Once any link is set manually the booking's ingest status is flipped to
+// "manual" so the 15-min auto-ingest pass (which only selects rows in the
+// "pending" state) never clobbers the hand-entered links. Clearing every link
+// reverts the status to "pending" so auto-ingest can resume.
+// ---------------------------------------------------------------------------
+
+export const MANUAL_RECORDING_STATUS = "manual";
+
+const RECORDING_URL_FIELDS = ["recordingUrl", "summaryUrl", "transcriptUrl"] as const;
+type RecordingUrlField = (typeof RECORDING_URL_FIELDS)[number];
+
+export type ManualRecordingLinks = Partial<Record<RecordingUrlField, string | null>>;
+
+function isValidHttpUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === "http:" || url.protocol === "https:";
+}
+
+/**
+ * Parse + validate a manual recording-link payload. Each of recordingUrl /
+ * summaryUrl / transcriptUrl may be:
+ *   - omitted        → field left unchanged
+ *   - "" or null     → field cleared
+ *   - an http(s) URL → field set
+ * At least one field must be present. Returns the normalized set of provided
+ * fields, or a human-readable error message.
+ */
+export function parseManualRecordingLinks(
+  body: unknown,
+): { links: ManualRecordingLinks } | { error: string } {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const links: ManualRecordingLinks = {};
+  let provided = false;
+
+  for (const field of RECORDING_URL_FIELDS) {
+    if (!(field in b)) continue;
+    provided = true;
+    const raw = b[field];
+    if (raw === null || (typeof raw === "string" && raw.trim() === "")) {
+      links[field] = null;
+      continue;
+    }
+    if (typeof raw !== "string") {
+      return { error: `${field} must be a URL string or null` };
+    }
+    const trimmed = raw.trim();
+    if (trimmed.length > 2000) {
+      return { error: `${field} is too long` };
+    }
+    if (!isValidHttpUrl(trimmed)) {
+      return { error: `${field} must be a valid http(s) URL` };
+    }
+    links[field] = trimmed;
+  }
+
+  if (!provided) {
+    return { error: "At least one of recordingUrl, summaryUrl, transcriptUrl is required" };
+  }
+  return { links };
+}
+
+/**
+ * Given the booking's existing recording links and the validated set of
+ * provided links, compute the ingest-bookkeeping fields to persist:
+ *   - any link remains  → status "manual" (so the pending-only auto-ingest
+ *     pass never overwrites the hand-entered links).
+ *   - all links cleared → status "pending" AND recordingIngestAttempts reset to
+ *     0 so the booking is eligible for auto-ingest again. Real "no recording
+ *     found" rows typically sit at status="not_found" with attempts at the cap
+ *     (MAX_INGEST_ATTEMPTS); without resetting attempts they would stay
+ *     ineligible and auto-ingest would never resume.
+ */
+export function resolveManualRecordingFields(
+  existing: ManualRecordingLinks,
+  provided: ManualRecordingLinks,
+): { recordingIngestStatus: typeof MANUAL_RECORDING_STATUS | "pending"; recordingIngestAttempts?: number } {
+  const anyLink = RECORDING_URL_FIELDS.some((field) => {
+    const next = field in provided ? provided[field] : existing[field];
+    return !!next;
+  });
+  if (anyLink) {
+    return { recordingIngestStatus: MANUAL_RECORDING_STATUS };
+  }
+  return { recordingIngestStatus: "pending", recordingIngestAttempts: 0 };
+}
+
 export interface PackBookingFilters {
   status?: string;
   coachId?: number;

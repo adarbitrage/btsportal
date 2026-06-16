@@ -12,7 +12,11 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { requirePermission } from "../middleware/rbac";
 import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
-import { queryPackBookings } from "../lib/pack-bookings";
+import {
+  queryPackBookings,
+  parseManualRecordingLinks,
+  resolveManualRecordingFields,
+} from "../lib/pack-bookings";
 import { normalizeActionItems, syncBookingCoachingToGHL } from "../lib/coaching-notes";
 import type { SessionPackBooking } from "@workspace/db";
 
@@ -436,6 +440,53 @@ router.patch(
     }
     await mirrorBookingToGHL(updated[0]);
     res.json({ ok: true, booking: updated[0] });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Manually attach (or clear) the recording / summary / transcript links when
+// auto-matching missed. Flips the ingest status to "manual" so the next ingest
+// pass never overwrites the hand-entered links. COACH/ADMIN-FACING ONLY.
+// ---------------------------------------------------------------------------
+
+router.patch(
+  "/admin/coaching/pack/sessions/:id/recording",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const bookingId = parseId(req.params.id);
+    if (!bookingId) {
+      res.status(400).json({ error: "Invalid booking id" });
+      return;
+    }
+    const parsed = parseManualRecordingLinks(req.body);
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const [existing] = await db
+      .select({
+        recordingUrl: sessionPackBookingsTable.recordingUrl,
+        summaryUrl: sessionPackBookingsTable.summaryUrl,
+        transcriptUrl: sessionPackBookingsTable.transcriptUrl,
+      })
+      .from(sessionPackBookingsTable)
+      .where(eq(sessionPackBookingsTable.id, bookingId));
+    if (!existing) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const [booking] = await db
+      .update(sessionPackBookingsTable)
+      .set({
+        ...parsed.links,
+        ...resolveManualRecordingFields(existing, parsed.links),
+        recordingIngestAt: new Date(),
+      })
+      .where(eq(sessionPackBookingsTable.id, bookingId))
+      .returning();
+    res.json({ ok: true, booking });
   },
 );
 
