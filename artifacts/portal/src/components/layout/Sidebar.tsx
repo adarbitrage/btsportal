@@ -69,8 +69,8 @@ import {
   filterNavByRole,
   getSidebarTierLabel,
   isLifetimeSlug,
-  leafMatchesLocation,
-  nodeContainsLocation,
+  findActiveHref,
+  nodeContainsActiveHref,
   resolveAdminRole,
   shouldShowUpgradeCard,
   type NavFolder,
@@ -387,13 +387,13 @@ function useFolderState(key: string, defaultOpen: boolean) {
 
 interface LeafRowProps {
   leaf: NavLeaf;
-  location: string;
+  activeHref: string | null;
   onNavClick?: () => void;
   indent?: number;
 }
 
-function LeafRow({ leaf, location, onNavClick, indent = 0 }: LeafRowProps) {
-  const isActive = leafMatchesLocation(leaf, location);
+function LeafRow({ leaf, activeHref, onNavClick, indent = 0 }: LeafRowProps) {
+  const isActive = leaf.href === activeHref;
 
   return (
     <Link href={leaf.href}>
@@ -424,7 +424,7 @@ function LeafRow({ leaf, location, onNavClick, indent = 0 }: LeafRowProps) {
 
 interface FolderRowProps {
   folder: NavFolder;
-  location: string;
+  activeHref: string | null;
   onNavClick?: () => void;
   indent?: number;
   isAdminNode?: boolean;
@@ -433,13 +433,13 @@ interface FolderRowProps {
 
 function FolderRow({
   folder,
-  location,
+  activeHref,
   onNavClick,
   indent = 0,
   isAdminNode = false,
   onCollapseAdmin,
 }: FolderRowProps) {
-  const containsCurrent = nodeContainsLocation(folder, location);
+  const containsCurrent = nodeContainsActiveHref(folder, activeHref);
   const [open, setOpen] = useFolderState(
     folder.storageKey,
     containsCurrent ? true : (folder.defaultOpen ?? true)
@@ -447,7 +447,7 @@ function FolderRow({
 
   useEffect(() => {
     if (containsCurrent) setOpen(true);
-  }, [location, containsCurrent]);
+  }, [containsCurrent]);
 
   return (
     <div>
@@ -482,7 +482,7 @@ function FolderRow({
             <NavNodeRow
               key={child.kind === "leaf" ? child.href : child.storageKey + i}
               node={child}
-              location={location}
+              activeHref={activeHref}
               onNavClick={onNavClick}
               indent={indent + 1}
               isAdminNode={isAdminNode}
@@ -509,7 +509,7 @@ function FolderRow({
 
 interface NavNodeRowProps {
   node: NavNode;
-  location: string;
+  activeHref: string | null;
   onNavClick?: () => void;
   indent?: number;
   isAdminNode?: boolean;
@@ -518,7 +518,7 @@ interface NavNodeRowProps {
 
 function NavNodeRow({
   node,
-  location,
+  activeHref,
   onNavClick,
   indent = 0,
   isAdminNode = false,
@@ -528,7 +528,7 @@ function NavNodeRow({
     return (
       <LeafRow
         leaf={node}
-        location={location}
+        activeHref={activeHref}
         onNavClick={onNavClick}
         indent={indent}
       />
@@ -538,7 +538,7 @@ function NavNodeRow({
   return (
     <FolderRow
       folder={node}
-      location={location}
+      activeHref={activeHref}
       onNavClick={onNavClick}
       indent={indent}
       isAdminNode={isAdminNode}
@@ -579,6 +579,15 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const showAdminSection = isAdminUser && filteredAdminChildren.length > 0;
   const showAdminEmptyState = isAdminUser && filteredAdminChildren.length === 0;
 
+  const activeHref = findActiveHref(
+    [
+      ...filteredMemberNav,
+      ...(showCoachSection ? COACH_NAV_NODES : []),
+      ...(showAdminSection ? [adminFolder] : []),
+    ],
+    location,
+  );
+
   const collapseAdminFolder = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, []);
@@ -608,7 +617,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           <NavNodeRow
             key={node.kind === "leaf" ? node.href : node.storageKey + i}
             node={node}
-            location={location}
+            activeHref={activeHref}
             onNavClick={onNavClick}
             indent={0}
             isAdminNode={false}
@@ -626,7 +635,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                 <NavNodeRow
                   key={node.kind === "leaf" ? node.href : node.storageKey}
                   node={node}
-                  location={location}
+                  activeHref={activeHref}
                   onNavClick={onNavClick}
                   indent={0}
                 />
@@ -644,7 +653,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             <div className="pl-1 border-l-2 border-primary/20 ml-1 space-y-0.5 bg-primary/[0.02] rounded-r-lg">
               <FolderRow
                 folder={adminFolder}
-                location={location}
+                activeHref={activeHref}
                 onNavClick={onNavClick}
                 indent={0}
                 isAdminNode={true}

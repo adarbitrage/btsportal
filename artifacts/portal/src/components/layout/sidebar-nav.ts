@@ -146,6 +146,52 @@ export function nodeContainsLocation(
   return node.children.some((child) => nodeContainsLocation(child, location));
 }
 
+/**
+ * Segment-boundary prefix match: the location is the href, or a sub-path of it
+ * (so "/admin/members" matches "/admin/members/123" but NOT "/administrators").
+ */
+function hrefBoundaryMatch(href: string, location: string): boolean {
+  return location === href || (href !== "/" && location.startsWith(href + "/"));
+}
+
+function collectLeafHrefs(nodes: NavNode[]): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") out.push(node.href);
+    else out.push(...collectLeafHrefs(node.children));
+  }
+  return out;
+}
+
+/**
+ * Pick the single nav leaf to highlight for the current location. A leaf
+ * qualifies when the location equals or is a sub-path of its href; when several
+ * qualify (e.g. sibling routes "/coaching" and "/coaching/book-session", where
+ * one href is a prefix of the other), the MOST SPECIFIC (longest) href wins so
+ * only one row lights up.
+ */
+export function findActiveHref(
+  nodes: NavNode[],
+  location: string,
+): string | null {
+  let best: string | null = null;
+  for (const href of collectLeafHrefs(nodes)) {
+    if (!hrefBoundaryMatch(href, location)) continue;
+    if (best === null || href.length > best.length) best = href;
+  }
+  return best;
+}
+
+/** True when the node is, or contains, the leaf whose href is the active one. */
+export function nodeContainsActiveHref(
+  node: NavNode,
+  activeHref: string | null,
+): boolean {
+  if (activeHref === null) return false;
+  if (node.kind === "leaf") return node.href === activeHref;
+  return node.children.some((child) => nodeContainsActiveHref(child, activeHref));
+}
+
 export const PRODUCT_DISPLAY_NAMES: Record<string, string> = {
   frontend: "Front-End Member",
   launchpad: "LaunchPad Member",

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   filterNavByEntitlements,
   filterNavByRole,
+  findActiveHref,
   getProductDisplayName,
   hasEntitlementCheck,
   isLifetimeSlug,
   leafMatchesLocation,
+  nodeContainsActiveHref,
   nodeContainsLocation,
   PRODUCT_DISPLAY_NAMES,
   resolveAdminRole,
@@ -408,6 +410,79 @@ describe("nodeContainsLocation", () => {
   it("returns false for an empty folder", () => {
     const node = folder("empty", []);
     expect(nodeContainsLocation(node, "/anything")).toBe(false);
+  });
+});
+
+describe("findActiveHref", () => {
+  it("returns the exact leaf href when the location matches it", () => {
+    const nav = [leaf("/dashboard"), leaf("/wins")];
+    expect(findActiveHref(nav, "/dashboard")).toBe("/dashboard");
+  });
+
+  it("picks the most-specific sibling when one href is a prefix of another", () => {
+    // Regression: "/coaching" (Coaching Calls) used to also light up when on
+    // "/coaching/book-session" (1-on-1 Coaching) because of loose prefix
+    // matching. The longest boundary match must win so only one row activates.
+    const nav = [
+      leaf("/coaching"),
+      leaf("/coaching/book-session"),
+      leaf("/coaching/recruitment"),
+    ];
+    expect(findActiveHref(nav, "/coaching/book-session")).toBe(
+      "/coaching/book-session",
+    );
+    expect(findActiveHref(nav, "/coaching")).toBe("/coaching");
+  });
+
+  it("falls back to the parent leaf for unlisted detail routes", () => {
+    const nav = [leaf("/admin/members"), leaf("/admin/tickets")];
+    expect(findActiveHref(nav, "/admin/members/123")).toBe("/admin/members");
+  });
+
+  it("does not match on a non-boundary prefix", () => {
+    const nav = [leaf("/admin")];
+    expect(findActiveHref(nav, "/administrators")).toBeNull();
+  });
+
+  it("treats href '/' as matching only the root location", () => {
+    const nav = [leaf("/"), leaf("/dashboard")];
+    expect(findActiveHref(nav, "/")).toBe("/");
+    expect(findActiveHref(nav, "/dashboard")).toBe("/dashboard");
+  });
+
+  it("descends into folders to find the active leaf", () => {
+    const nav = [
+      folder("training", [leaf("/blitz"), leaf("/core-training")]),
+    ];
+    expect(findActiveHref(nav, "/core-training/module-2")).toBe(
+      "/core-training",
+    );
+  });
+
+  it("returns null when nothing matches", () => {
+    const nav = [leaf("/dashboard"), leaf("/wins")];
+    expect(findActiveHref(nav, "/community")).toBeNull();
+  });
+});
+
+describe("nodeContainsActiveHref", () => {
+  it("returns false when there is no active href", () => {
+    expect(nodeContainsActiveHref(leaf("/dashboard"), null)).toBe(false);
+  });
+
+  it("matches a leaf only on exact href equality", () => {
+    expect(nodeContainsActiveHref(leaf("/coaching"), "/coaching")).toBe(true);
+    expect(
+      nodeContainsActiveHref(leaf("/coaching"), "/coaching/book-session"),
+    ).toBe(false);
+  });
+
+  it("returns true for a folder containing the active leaf", () => {
+    const node = folder("outer", [
+      folder("inner", [leaf("/deep/page")]),
+    ]);
+    expect(nodeContainsActiveHref(node, "/deep/page")).toBe(true);
+    expect(nodeContainsActiveHref(node, "/deep/page/sub")).toBe(false);
   });
 });
 
