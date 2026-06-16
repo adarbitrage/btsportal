@@ -528,6 +528,20 @@ const marketingEmailTemplates = [
     variables: ["member_name", "call_title", "portal_url", "current_year"],
   },
   {
+    slug: "recording_ready",
+    name: "Coaching Recording Ready",
+    subject: "The recording for {{call_title}} is ready",
+    htmlBody: wrapHtml("Recording Ready", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Recording Is Ready</h2>
+<p>Hi {{member_name}},</p>
+<p>The recording for <strong>{{call_title}}</strong> is now available. Couldn't make it live, or want to revisit something? You can watch it any time.</p>
+<p><a href="{{portal_url}}/coaching" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Watch the Recording</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nThe recording for {{call_title}} is now available. Watch it any time: {{portal_url}}/coaching\n\nThe BTS Team",
+    category: "marketing",
+    variables: ["member_name", "call_title", "portal_url", "current_year"],
+  },
+  {
     slug: "new_content_alert",
     name: "New Content Available",
     subject: "New content just dropped: {{content_title}}",

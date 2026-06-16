@@ -6,6 +6,7 @@ import {
   userProductsTable,
   productsTable,
   coachingCallsTable,
+  coachingCallAttendanceTable,
   announcementsTable,
   sequenceEnrollmentsTable,
   sequencesTable,
@@ -443,22 +444,33 @@ export async function processSessionFeedbackPrompts(): Promise<void> {
     );
 
   for (const call of completedCalls) {
-    // No per-call attendance is tracked, so the feedback prompt fans out to the
-    // same entitlement-based audience as the coaching reminder email (every
-    // member with an active product granting the call's requiredEntitlement).
-    // Email opt-out is handled by the unsubscribe suppression list inside
-    // CommunicationService, not an SMS toggle.
-    const recipients = await db
+    // Prefer per-call attendance: only members who actually registered/joined
+    // the live call OR opened the recording (any attendance row) are asked for
+    // feedback. If NO attendance was recorded for this call (e.g. tracking
+    // wasn't wired for it), fall back to the old entitlement-based audience so
+    // the prompt is never silently dropped. Email opt-out is handled by the
+    // unsubscribe suppression list inside CommunicationService, not an SMS
+    // toggle.
+    const attendees = await db
       .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
-      .from(usersTable)
-      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
-      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
-      .where(
-        and(
-          eq(userProductsTable.status, "active"),
-          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`
-        )
-      );
+      .from(coachingCallAttendanceTable)
+      .innerJoin(usersTable, eq(coachingCallAttendanceTable.userId, usersTable.id))
+      .where(eq(coachingCallAttendanceTable.callId, call.id));
+
+    const recipients =
+      attendees.length > 0
+        ? attendees
+        : await db
+            .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+            .from(usersTable)
+            .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
+            .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+            .where(
+              and(
+                eq(userProductsTable.status, "active"),
+                sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`
+              )
+            );
 
     const seen = new Set<number>();
     for (const member of recipients) {
@@ -491,6 +503,74 @@ export async function processSessionFeedbackPrompts(): Promise<void> {
   }
 }
 
+export async function processRecordingReadyNotifications(): Promise<void> {
+  // "Your recording is ready" emails. We notify the members who REGISTERED for
+  // a call (registered_at set) once its recording is available — these are the
+  // people who intended to attend and most want to catch up, rather than every
+  // member merely entitled to the call. Recording-only viewers are deliberately
+  // excluded (they already have the recording). Per-member dedup means each
+  // registrant is told at most once per call even as the 15-minute scheduler
+  // re-runs.
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Bound to recently-finished calls so a freshly-populated table can't blast
+  // the entire back-catalogue; dedup still guards against repeats within it.
+  const callsWithRecording = await db
+    .select({
+      id: coachingCallsTable.id,
+      title: coachingCallsTable.title,
+    })
+    .from(coachingCallsTable)
+    .where(
+      and(
+        lt(coachingCallsTable.scheduledAt, now),
+        gte(coachingCallsTable.scheduledAt, sevenDaysAgo),
+        isNotNull(coachingCallsTable.recordingUrl)
+      )
+    );
+
+  for (const call of callsWithRecording) {
+    const recipients = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(coachingCallAttendanceTable)
+      .innerJoin(usersTable, eq(coachingCallAttendanceTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(coachingCallAttendanceTable.callId, call.id),
+          isNotNull(coachingCallAttendanceTable.registeredAt)
+        )
+      );
+
+    const seen = new Set<number>();
+    for (const member of recipients) {
+      if (seen.has(member.id) || !member.email) continue;
+      seen.add(member.id);
+
+      const sendKey = `recording_ready_email_${call.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "email");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueEmail({
+          templateSlug: "recording_ready",
+          to: member.email,
+          variables: {
+            member_name: member.name,
+            call_title: call.title,
+          },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue recording-ready email for user ${member.id}, call ${call.id}:`,
+          err
+        );
+      }
+    }
+  }
+}
+
 async function processCommissionNotifications(): Promise<void> {
   console.log("[Scheduled Comms] Commission notifications check — no commission table yet, skipping");
 }
@@ -502,6 +582,7 @@ async function processScheduledComms(): Promise<void> {
   await processNewContentAlerts();
   await processMentorshipExpirationWarnings();
   await processSessionFeedbackPrompts();
+  await processRecordingReadyNotifications();
   await processCommissionNotifications();
 
   console.log("[Scheduled Comms] Scheduled communications check complete");
