@@ -154,15 +154,6 @@ const PACKAGE_PLACEHOLDERS = [
   },
 ];
 
-function coachInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 function SessionPolicyNote({
   scheduledAt,
   locked,
@@ -206,12 +197,12 @@ function RescheduleButton({
     <Button
       variant="ghost"
       size={size}
-      className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400"
+      className="text-green-700 hover:text-green-800 dark:text-green-500 dark:hover:text-green-400"
       disabled={locked}
       data-testid={`reschedule-${bookingId}`}
     >
+      <Clock className="w-4 h-4 mr-2" />
       Reschedule
-      <Clock className="w-4 h-4 ml-2" />
     </Button>
   );
   if (locked) {
@@ -258,6 +249,97 @@ function CancelButton({
       <XCircle className="w-4 h-4 mr-2" />
       Cancel
     </Button>
+  );
+}
+
+function UpcomingSessionCard({
+  booking,
+  locked,
+  now,
+  cancelPending,
+  onCancel,
+}: {
+  booking: SessionBookingType;
+  locked: boolean;
+  now: Date;
+  cancelPending: boolean;
+  onCancel: () => void;
+}) {
+  const sessionStart = new Date(booking.scheduledAt);
+  const joinWindow = addMinutes(sessionStart, -5);
+  const sessionEnd = addMinutes(sessionStart, booking.durationMinutes);
+  const canJoin = !isBefore(now, joinWindow) && isBefore(now, sessionEnd);
+  return (
+    <Card className="overflow-hidden" data-testid={`upcoming-${booking.id}`}>
+      <div className="flex flex-col sm:flex-row">
+        <div className="bg-primary/5 p-6 flex flex-col items-center justify-center sm:w-40 border-b sm:border-b-0 sm:border-r border-border shrink-0">
+          <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+            {format(sessionStart, "MMM")}
+          </span>
+          <span className="text-4xl font-bold text-foreground my-1">
+            {format(sessionStart, "dd")}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {format(sessionStart, "EEEE")}
+          </span>
+        </div>
+        <div className="p-6 flex-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge
+                variant="secondary"
+                className="bg-primary/10 text-primary uppercase text-[10px] tracking-widest"
+              >
+                1-on-1
+              </Badge>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                {format(sessionStart, "h:mm a")}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-foreground mt-2">
+              Session with {booking.coachName}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {booking.durationMinutes} minute session
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:items-end shrink-0">
+            <div className="sm:text-right sm:max-w-xs">
+              <SessionPolicyNote
+                scheduledAt={booking.scheduledAt}
+                locked={locked}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              {canJoin && booking.meetLink ? (
+                <a
+                  href={booking.meetLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button>
+                    <Video className="w-4 h-4 mr-2" />
+                    Join Session
+                  </Button>
+                </a>
+              ) : (
+                <Button variant="outline" disabled>
+                  <Video className="w-4 h-4 mr-2" />
+                  Join (opens 5 min before)
+                </Button>
+              )}
+              <RescheduleButton bookingId={booking.id} locked={locked} />
+              <CancelButton
+                bookingId={booking.id}
+                pending={cancelPending}
+                onClick={onCancel}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -441,89 +523,13 @@ export default function SessionBooking() {
               {bookingsLoading ? (
                 <div className="animate-pulse h-40 bg-card rounded-xl" />
               ) : nextSession ? (
-                <Card className="overflow-hidden" data-testid={`upcoming-${nextSession.id}`}>
-                  <div className="flex flex-col sm:flex-row">
-                    <div className="bg-primary/5 p-6 flex flex-col items-center justify-center sm:w-40 border-b sm:border-b-0 sm:border-r border-border shrink-0">
-                      <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
-                        {format(new Date(nextSession.scheduledAt), "MMM")}
-                      </span>
-                      <span className="text-4xl font-bold text-foreground my-1">
-                        {format(new Date(nextSession.scheduledAt), "dd")}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(nextSession.scheduledAt), "EEEE")}
-                      </span>
-                    </div>
-                    <div className="p-6 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge
-                          variant="secondary"
-                          className="bg-primary/10 text-primary uppercase text-[10px] tracking-widest"
-                        >
-                          1-on-1
-                        </Badge>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          {format(new Date(nextSession.scheduledAt), "h:mm a")}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-foreground mt-2">
-                        Session with {nextSession.coachName}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4 mt-1">
-                        {nextSession.durationMinutes} minute session
-                      </p>
-                      <div className="mb-3">
-                        <SessionPolicyNote
-                          scheduledAt={nextSession.scheduledAt}
-                          locked={nextLocked}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        {(() => {
-                          const sessionStart = new Date(nextSession.scheduledAt);
-                          const joinWindow = addMinutes(sessionStart, -5);
-                          const sessionEnd = addMinutes(
-                            sessionStart,
-                            nextSession.durationMinutes,
-                          );
-                          const canJoin =
-                            !isBefore(now, joinWindow) && isBefore(now, sessionEnd);
-                          return (
-                            <>
-                              {canJoin && nextSession.meetLink ? (
-                                <a
-                                  href={nextSession.meetLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <Button>
-                                    <Video className="w-4 h-4 mr-2" />
-                                    Join Session
-                                  </Button>
-                                </a>
-                              ) : (
-                                <Button variant="outline" disabled>
-                                  <Video className="w-4 h-4 mr-2" />
-                                  Join (opens 5 min before)
-                                </Button>
-                              )}
-                              <RescheduleButton
-                                bookingId={nextSession.id}
-                                locked={nextLocked}
-                              />
-                              <CancelButton
-                                bookingId={nextSession.id}
-                                pending={cancelMutation.isPending}
-                                onClick={() => openCancelDialog(nextSession)}
-                              />
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <UpcomingSessionCard
+                  booking={nextSession}
+                  locked={nextLocked}
+                  now={now}
+                  cancelPending={cancelMutation.isPending}
+                  onCancel={() => openCancelDialog(nextSession)}
+                />
               ) : (
                 <Card>
                   <CardContent className="p-8 text-center">
@@ -556,41 +562,14 @@ export default function SessionBooking() {
                       now.getTime(),
                     );
                     return (
-                    <Card key={booking.id} data-testid={`upcoming-${booking.id}`}>
-                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                            {coachInitials(booking.coachName)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{booking.coachName}</p>
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(booking.scheduledAt), "EEE, MMM d 'at' h:mm a")}
-                            </p>
-                            <div className="mt-1">
-                              <SessionPolicyNote
-                                scheduledAt={booking.scheduledAt}
-                                locked={locked}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RescheduleButton
-                            bookingId={booking.id}
-                            locked={locked}
-                            size="sm"
-                          />
-                          <CancelButton
-                            bookingId={booking.id}
-                            pending={cancelMutation.isPending}
-                            onClick={() => openCancelDialog(booking)}
-                            size="sm"
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <UpcomingSessionCard
+                        key={booking.id}
+                        booking={booking}
+                        locked={locked}
+                        now={now}
+                        cancelPending={cancelMutation.isPending}
+                        onCancel={() => openCancelDialog(booking)}
+                      />
                     );
                   })}
                 </div>
