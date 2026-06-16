@@ -676,6 +676,12 @@ const smsTemplates = [
     variables: ["product_name", "expiration_date", "portal_url"],
   },
   {
+    slug: "new_content_alert",
+    name: "New Content Alert SMS",
+    body: "BTS: New content just dropped — {{content_title}}. Check it out: {{portal_url}}/training",
+    variables: ["content_title", "portal_url"],
+  },
+  {
     slug: "verification_code",
     name: "Verification Code SMS",
     body: "Your BTS verification code is {{code}}. It expires in 10 minutes.",

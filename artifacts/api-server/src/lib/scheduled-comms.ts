@@ -6,12 +6,14 @@ import {
   userProductsTable,
   productsTable,
   coachingCallsTable,
+  announcementsTable,
   sequenceEnrollmentsTable,
   sequencesTable,
 } from "@workspace/db";
-import { eq, and, lt, lte, gte, gt, isNotNull } from "drizzle-orm";
+import { eq, and, lt, lte, gte, gt, isNotNull, sql } from "drizzle-orm";
 import { enrollInSequence } from "./sequence-helpers";
 import { checkAndRecordSend } from "./comms-dedup";
+import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
@@ -77,6 +79,7 @@ async function processCoachingCallReminders(): Promise<void> {
       id: coachingCallsTable.id,
       title: coachingCallsTable.title,
       scheduledAt: coachingCallsTable.scheduledAt,
+      requiredEntitlement: coachingCallsTable.requiredEntitlement,
     })
     .from(coachingCallsTable)
     .where(
@@ -87,10 +90,105 @@ async function processCoachingCallReminders(): Promise<void> {
     );
 
   for (const call of calls1h) {
-    const sendKey = `coaching_reminder_1h_${call.id}`;
-    const isNew = await checkAndRecordSend(sendKey, "sms");
-    if (isNew) {
-      console.log(`[STUB:SMS] Would send 1h coaching call reminder SMS for "${call.title}" (${call.scheduledAt.toISOString()})`);
+    // Members eligible for a call are entitlement-based: anyone with an active
+    // product whose entitlement_keys grant the call's requiredEntitlement.
+    // Gate the text in the caller — queueSms only re-checks the master
+    // smsOptIn, never the per-category coachingSmsOptIn — so select all three
+    // (master + category + phone) here before queueing.
+    const recipients = await db
+      .select({ id: usersTable.id, phone: usersTable.phone })
+      .from(usersTable)
+      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
+      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+      .where(
+        and(
+          eq(userProductsTable.status, "active"),
+          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`,
+          eq(usersTable.smsOptIn, true),
+          eq(usersTable.coachingSmsOptIn, true),
+          isNotNull(usersTable.phone)
+        )
+      );
+
+    const seen = new Set<number>();
+    for (const member of recipients) {
+      if (seen.has(member.id) || !member.phone) continue;
+      seen.add(member.id);
+
+      const sendKey = `coaching_reminder_1h_sms_${call.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "sms");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueSms({
+          templateSlug: "coaching_reminder",
+          to: member.phone,
+          variables: { call_title: call.title },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue coaching reminder SMS for user ${member.id}, call ${call.id}:`,
+          err
+        );
+      }
+    }
+  }
+}
+
+async function processNewContentAlerts(): Promise<void> {
+  // "New content" is surfaced to members as announcements. Scan announcements
+  // created in the last 24h; per-member dedup (below) guarantees each member is
+  // texted at most once per announcement even though this runs every 15 min.
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const recentAnnouncements = await db
+    .select({
+      id: announcementsTable.id,
+      title: announcementsTable.title,
+    })
+    .from(announcementsTable)
+    .where(gte(announcementsTable.createdAt, twentyFourHoursAgo));
+
+  if (recentAnnouncements.length === 0) return;
+
+  // Gate in the caller: master smsOptIn + the content category toggle + phone.
+  // contentSmsOptIn defaults to false, so only members who explicitly opted in
+  // receive these texts. Email announcements are unaffected.
+  const recipients = await db
+    .select({ id: usersTable.id, phone: usersTable.phone })
+    .from(usersTable)
+    .where(
+      and(
+        eq(usersTable.smsOptIn, true),
+        eq(usersTable.contentSmsOptIn, true),
+        isNotNull(usersTable.phone)
+      )
+    );
+
+  if (recipients.length === 0) return;
+
+  for (const announcement of recentAnnouncements) {
+    for (const member of recipients) {
+      if (!member.phone) continue;
+
+      const sendKey = `content_alert_sms_${announcement.id}_${member.id}`;
+      const isNew = await checkAndRecordSend(sendKey, "sms");
+      if (!isNew) continue;
+
+      try {
+        await CommunicationService.queueSms({
+          templateSlug: "new_content_alert",
+          to: member.phone,
+          variables: { content_title: announcement.title },
+          userId: member.id,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue new-content SMS for user ${member.id}, announcement ${announcement.id}:`,
+          err
+        );
+      }
     }
   }
 }
@@ -201,6 +299,7 @@ async function processScheduledComms(): Promise<void> {
   console.log("[Scheduled Comms] Running scheduled communications check");
 
   await processCoachingCallReminders();
+  await processNewContentAlerts();
   await processMentorshipExpirationWarnings();
   await processSessionFeedbackPrompts();
   await processCommissionNotifications();
