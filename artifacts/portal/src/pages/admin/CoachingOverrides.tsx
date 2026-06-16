@@ -30,9 +30,9 @@ export default function CoachingOverrides() {
       overrideType: "blocked",
       startTime: null,
       endTime: null,
-      reason: "",
       sessionDurationMinutes: null,
       bufferMinutes: null,
+      reason: "",
     });
   };
 
@@ -127,6 +127,12 @@ export default function CoachingOverrides() {
                         {(override.startTime || override.endTime) && (
                           <p className="text-sm text-muted-foreground">{override.startTime} – {override.endTime}</p>
                         )}
+                        {override.overrideType === "extra" && (override.sessionDurationMinutes || override.bufferMinutes != null) && (
+                          <p className="text-sm text-muted-foreground">
+                            {override.sessionDurationMinutes ? `${override.sessionDurationMinutes}-min sessions` : "Default-length sessions"}
+                            {override.bufferMinutes != null ? `, ${override.bufferMinutes}-min buffer` : ""}
+                          </p>
+                        )}
                         {override.reason && (
                           <p className="text-sm text-muted-foreground mt-1">{override.reason}</p>
                         )}
@@ -160,7 +166,7 @@ export default function CoachingOverrides() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Override Type</Label>
-                <Select value={editOverride.overrideType || "blocked"} onValueChange={(v) => setEditOverride({ ...editOverride, overrideType: v })}>
+                <Select value={editOverride.overrideType || "blocked"} onValueChange={(v) => setEditOverride({ ...editOverride, overrideType: v, ...(v === "blocked" ? { startTime: null, endTime: null, sessionDurationMinutes: null, bufferMinutes: null } : {}) })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="blocked">Blocked (Holiday/Vacation)</SelectItem>
@@ -186,28 +192,28 @@ export default function CoachingOverrides() {
               {editOverride.overrideType === "extra" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Session Duration (min)</Label>
+                    <Label>Session Length (min, optional)</Label>
                     <Input
                       type="number"
                       min={15}
                       max={180}
-                      placeholder="60"
+                      placeholder="Default"
                       value={editOverride.sessionDurationMinutes ?? ""}
                       onChange={(e) => setEditOverride({ ...editOverride, sessionDurationMinutes: e.target.value === "" ? null : Number(e.target.value) })}
                     />
-                    <p className="text-xs text-muted-foreground">Leave blank for default (60)</p>
+                    <p className="text-xs text-muted-foreground">Blank = use the coach's normal schedule</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Buffer Between (min)</Label>
+                    <Label>Buffer (min, optional)</Label>
                     <Input
                       type="number"
                       min={0}
                       max={60}
-                      placeholder="0"
+                      placeholder="Default"
                       value={editOverride.bufferMinutes ?? ""}
                       onChange={(e) => setEditOverride({ ...editOverride, bufferMinutes: e.target.value === "" ? null : Number(e.target.value) })}
                     />
-                    <p className="text-xs text-muted-foreground">Leave blank for default (0)</p>
+                    <p className="text-xs text-muted-foreground">Gap between back-to-back calls</p>
                   </div>
                 </div>
               )}

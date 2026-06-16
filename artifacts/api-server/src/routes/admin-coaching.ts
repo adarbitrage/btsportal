@@ -23,6 +23,32 @@ function parseId(value: string | string[]): number | null {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
+// Validate an optional minutes value sent for an override window. Returns
+// `undefined` when omitted (inherit recurring/default downstream), `null` when
+// explicitly cleared, a non-negative integer when valid, or the string "invalid"
+// when the caller sent something nonsensical.
+function parseOverrideMinutes(
+  value: unknown,
+  { allowZero, min, max }: { allowZero: boolean; min?: number; max?: number }
+): number | null | undefined | "invalid" {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const num = typeof value === "number" ? value : parseInt(String(value), 10);
+  if (!Number.isInteger(num)) return "invalid";
+  if (num < 0) return "invalid";
+  if (num === 0 && !allowZero) return "invalid";
+  if (min !== undefined && num < min) return "invalid";
+  if (max !== undefined && num > max) return "invalid";
+  return num;
+}
+
+// Product bounds for an override window's session length / buffer, mirrored in
+// the admin UI (CoachingOverrides.tsx) so the form and server agree.
+const OVERRIDE_SESSION_MIN = 15;
+const OVERRIDE_SESSION_MAX = 180;
+const OVERRIDE_BUFFER_MIN = 0;
+const OVERRIDE_BUFFER_MAX = 60;
+
 router.get("/admin/coaching/coaches", requirePermission("coaching:view"), async (_req: Request, res: Response) => {
   try {
     const coaches = await db.select().from(coachesTable).orderBy(asc(coachesTable.name));
@@ -160,7 +186,7 @@ router.delete("/admin/coaching/availability/:id", requirePermission("coaching:ma
 
 router.post("/admin/coaching/overrides", requirePermission("coaching:manage"), async (req: Request, res: Response) => {
   try {
-    const { coachId, overrideDate, overrideType, startTime, endTime, reason, sessionDurationMinutes, bufferMinutes } = req.body;
+    const { coachId, overrideDate, overrideType, startTime, endTime, sessionDurationMinutes, bufferMinutes, reason } = req.body;
     if (!coachId || !overrideDate || !overrideType) {
       res.status(400).json({ error: "coachId, overrideDate, overrideType are required" });
       return;
@@ -169,21 +195,23 @@ router.post("/admin/coaching/overrides", requirePermission("coaching:manage"), a
       res.status(400).json({ error: "overrideType must be 'blocked' or 'extra'" });
       return;
     }
-    if (sessionDurationMinutes !== undefined && sessionDurationMinutes !== null && (!Number.isInteger(sessionDurationMinutes) || sessionDurationMinutes < 15 || sessionDurationMinutes > 180)) {
-      res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+    const parsedSession = parseOverrideMinutes(sessionDurationMinutes, { allowZero: false, min: OVERRIDE_SESSION_MIN, max: OVERRIDE_SESSION_MAX });
+    if (parsedSession === "invalid") {
+      res.status(400).json({ error: `sessionDurationMinutes must be a whole number of minutes between ${OVERRIDE_SESSION_MIN} and ${OVERRIDE_SESSION_MAX}` });
       return;
     }
-    if (bufferMinutes !== undefined && bufferMinutes !== null && (!Number.isInteger(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 60)) {
-      res.status(400).json({ error: "bufferMinutes must be 0-60" });
+    const parsedBuffer = parseOverrideMinutes(bufferMinutes, { allowZero: true, min: OVERRIDE_BUFFER_MIN, max: OVERRIDE_BUFFER_MAX });
+    if (parsedBuffer === "invalid") {
+      res.status(400).json({ error: `bufferMinutes must be a whole number of minutes between ${OVERRIDE_BUFFER_MIN} and ${OVERRIDE_BUFFER_MAX}` });
       return;
     }
     const [override] = await db.insert(coachAvailabilityOverridesTable).values({
       coachId, overrideDate, overrideType,
       startTime: startTime || null,
       endTime: endTime || null,
+      sessionDurationMinutes: parsedSession ?? null,
+      bufferMinutes: parsedBuffer ?? null,
       reason: reason || null,
-      sessionDurationMinutes: sessionDurationMinutes ?? null,
-      bufferMinutes: bufferMinutes ?? null,
     }).returning();
     res.status(201).json(override);
   } catch {
@@ -195,17 +223,19 @@ router.patch("/admin/coaching/overrides/:id", requirePermission("coaching:manage
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid override ID" }); return; }
-    const { overrideDate, overrideType, startTime, endTime, reason, sessionDurationMinutes, bufferMinutes } = req.body;
+    const { overrideDate, overrideType, startTime, endTime, sessionDurationMinutes, bufferMinutes, reason } = req.body;
     if (overrideType !== undefined && !VALID_OVERRIDE_TYPES.includes(overrideType)) {
       res.status(400).json({ error: "overrideType must be 'blocked' or 'extra'" });
       return;
     }
-    if (sessionDurationMinutes !== undefined && sessionDurationMinutes !== null && (!Number.isInteger(sessionDurationMinutes) || sessionDurationMinutes < 15 || sessionDurationMinutes > 180)) {
-      res.status(400).json({ error: "sessionDurationMinutes must be 15-180" });
+    const parsedSession = parseOverrideMinutes(sessionDurationMinutes, { allowZero: false, min: OVERRIDE_SESSION_MIN, max: OVERRIDE_SESSION_MAX });
+    if (parsedSession === "invalid") {
+      res.status(400).json({ error: `sessionDurationMinutes must be a whole number of minutes between ${OVERRIDE_SESSION_MIN} and ${OVERRIDE_SESSION_MAX}` });
       return;
     }
-    if (bufferMinutes !== undefined && bufferMinutes !== null && (!Number.isInteger(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 60)) {
-      res.status(400).json({ error: "bufferMinutes must be 0-60" });
+    const parsedBuffer = parseOverrideMinutes(bufferMinutes, { allowZero: true, min: OVERRIDE_BUFFER_MIN, max: OVERRIDE_BUFFER_MAX });
+    if (parsedBuffer === "invalid") {
+      res.status(400).json({ error: `bufferMinutes must be a whole number of minutes between ${OVERRIDE_BUFFER_MIN} and ${OVERRIDE_BUFFER_MAX}` });
       return;
     }
     const [updated] = await db.update(coachAvailabilityOverridesTable)
@@ -214,9 +244,9 @@ router.patch("/admin/coaching/overrides/:id", requirePermission("coaching:manage
         ...(overrideType !== undefined && { overrideType }),
         ...(startTime !== undefined && { startTime }),
         ...(endTime !== undefined && { endTime }),
+        ...(sessionDurationMinutes !== undefined && { sessionDurationMinutes: parsedSession ?? null }),
+        ...(bufferMinutes !== undefined && { bufferMinutes: parsedBuffer ?? null }),
         ...(reason !== undefined && { reason }),
-        ...(sessionDurationMinutes !== undefined && { sessionDurationMinutes }),
-        ...(bufferMinutes !== undefined && { bufferMinutes }),
       })
       .where(eq(coachAvailabilityOverridesTable.id, id))
       .returning();

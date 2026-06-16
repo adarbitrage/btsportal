@@ -50,6 +50,8 @@ export interface AvailabilityOverride {
   overrideType: string;
   startTime: string | null;
   endTime: string | null;
+  sessionDurationMinutes: number | null;
+  bufferMinutes: number | null;
   reason: string | null;
   sessionDurationMinutes: number | null;
   bufferMinutes: number | null;

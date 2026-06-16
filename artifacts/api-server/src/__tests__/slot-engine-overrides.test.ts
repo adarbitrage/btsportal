@@ -211,21 +211,22 @@ describe("getAvailableSlots day overrides", () => {
   });
 });
 
-// When an "extra" override omits its own session-duration / buffer, the slot
-// engine inherits the weekday's recurring-window values (falling back to
-// DEFAULT_SESSION_DURATION / DEFAULT_OVERRIDE_BUFFER only when the coach has no
-// recurring window that day). The guard below seeds a coach whose recurring
-// windows use deliberately non-default values (30-minute sessions, 30-minute
-// buffer) and proves an override day with no length/buffer of its own inherits
-// those 30-minute sessions rather than the fixed 60-minute default.
-describe("getAvailableSlots override day inherits recurring session length and buffer", () => {
+// An "extra" override window resolves its session length / buffer in this
+// order: the override's own value -> the weekday's recurring-window value ->
+// the schema fallback (DEFAULT_SESSION_DURATION / DEFAULT_OVERRIDE_BUFFER). The
+// guard below seeds a coach whose recurring windows use deliberately
+// non-default values (30-minute sessions, 30-minute buffer) and covers both
+// ends of that order:
+//   - an override with NO length/buffer of its own inherits the recurring 30/30
+//   - an override that sets its OWN 60/0 uses those, ignoring the recurring 30/30
+describe("getAvailableSlots override day session length and buffer (non-default recurring coach)", () => {
   let customCoachId = 0;
 
   beforeAll(async () => {
     const [coach] = await db
       .insert(coachesTable)
       .values({
-        name: "slot-engine-override-defaults fixture coach",
+        name: "slot-engine-override-own-values fixture coach",
         bio: "fixture",
         specialties: "fixture",
         timezone: TZ,
@@ -237,8 +238,8 @@ describe("getAvailableSlots override day inherits recurring session length and b
 
     // Recurring availability on every day, 09:00-17:00, with NON-default
     // 30-minute sessions and a 30-minute buffer (the schema defaults are
-    // 60 / 15). If the override day ever read these recurring values, the
-    // assertions below would fail.
+    // 60 / 15). If the override day read these recurring values instead of
+    // its own, the assertions below would fail.
     for (let dow = 0; dow < 7; dow++) {
       await db.insert(coachAvailabilityTable).values({
         coachId: customCoachId,
@@ -310,6 +311,57 @@ describe("getAvailableSlots override day inherits recurring session length and b
 
     // Consecutive starts must be exactly 60 minutes apart (30 session + 30
     // buffer, both inherited from the recurring window).
+    const startMs = slots.map((s) => new Date(s.startTime).getTime());
+    for (let i = 1; i < startMs.length; i++) {
+      expect((startMs[i] - startMs[i - 1]) / 60000).toBe(60);
+    }
+  });
+
+  it("uses the override's own 60-minute slots spaced 60 minutes apart, ignoring the recurring window's length/buffer", async () => {
+    const date = targetDateStr();
+
+    // Custom window 14:00-17:00 with the override's OWN 60-min session and
+    // 0 buffer (a 60-min increment) -> starts at 14:00, 15:00, 16:00. If the
+    // recurring 30/30 values were (incorrectly) used, session length would be
+    // 30 min, producing 30-minute slots.
+    await db.insert(coachAvailabilityOverridesTable).values({
+      coachId: customCoachId,
+      overrideDate: date,
+      overrideType: "extra",
+      startTime: "14:00",
+      endTime: "17:00",
+      sessionDurationMinutes: 60,
+      bufferMinutes: 0,
+      reason: "override-own session length/buffer regression test",
+    });
+
+    const slots = await getAvailableSlots(customCoachId, date, date, TZ);
+
+    // 60-min sessions on a 60-min stride across 14:00-17:00 -> exactly 3.
+    expect(slots).toHaveLength(3);
+
+    const localStartHours = slots.map((s) =>
+      new Date(s.startTime).toLocaleString("en-US", {
+        hour: "2-digit",
+        hour12: false,
+        timeZone: TZ,
+      }),
+    );
+    expect(localStartHours).toEqual(["14", "15", "16"]);
+
+    // Each slot must be exactly 60 minutes long (the override's own value),
+    // not the recurring window's 30 minutes.
+    for (const slot of slots) {
+      const durationMinutes =
+        (new Date(slot.endTime).getTime() - new Date(slot.startTime).getTime()) /
+        60000;
+      expect(durationMinutes).toBe(60);
+    }
+
+    // Consecutive starts must be exactly 60 minutes apart (the override's
+    // 60-min session + 0 buffer). The combination of a 60-minute duration AND
+    // a 60-minute stride is only satisfiable by the override's own values, not
+    // the recurring 30/30.
     const startMs = slots.map((s) => new Date(s.startTime).getTime());
     for (let i = 1; i < startMs.length; i++) {
       expect((startMs[i] - startMs[i - 1]) / 60000).toBe(60);
