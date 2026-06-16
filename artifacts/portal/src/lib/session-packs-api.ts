@@ -41,6 +41,7 @@ export interface SessionBooking {
   meetLink: string | null;
   status: string;
   title: string | null;
+  discussionTopic: string | null;
   cancelledAt: string | null;
   createdAt: string;
 }
@@ -96,7 +97,7 @@ export function useBookSessionPack() {
   return useMutation<
     { booking: SessionBooking; balance: number },
     Error,
-    { coachId: number; startTime: string }
+    { coachId: number; startTime: string; discussionTopic?: string }
   >({
     mutationFn: (data) =>
       sessionFetch("/coaching/sessions/book", {

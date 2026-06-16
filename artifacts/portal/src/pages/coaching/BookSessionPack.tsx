@@ -40,9 +40,10 @@ import {
   type SessionSlot,
 } from "@/lib/session-packs-api";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const SESSION_DURATION_MINUTES = 30;
+const SESSION_DURATION_MINUTES = 60;
 
 type WizardStep = 1 | 2 | 3;
 
@@ -69,6 +70,7 @@ export default function BookSessionPack() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<SessionSlot | null>(null);
+  const [discussionTopic, setDiscussionTopic] = useState("");
 
   const memberTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -144,6 +146,7 @@ export default function BookSessionPack() {
         await bookSession.mutateAsync({
           coachId: selectedCoach.id,
           startTime: selectedSlot.startTime,
+          discussionTopic: discussionTopic.trim() || undefined,
         });
         toast({ title: "Session booked!" });
       }
@@ -272,9 +275,7 @@ export default function BookSessionPack() {
                           </div>
                         )}
                         <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {coach.bio || "1-hour 1-on-1 session"}
-                        </p>
+                        <p className="text-sm text-muted-foreground">1-hour session</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -506,6 +507,31 @@ export default function BookSessionPack() {
                 </div>
               </CardContent>
             </Card>
+
+            {!isReschedule && (
+              <Card className="mb-6">
+                <CardContent className="p-6">
+                  <label
+                    htmlFor="discussion-topic"
+                    className="block font-bold text-foreground mb-1"
+                  >
+                    What would you like to discuss on this call?
+                  </label>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Optional — give your coach a heads-up so they can prepare.
+                  </p>
+                  <Textarea
+                    id="discussion-topic"
+                    value={discussionTopic}
+                    onChange={(e) => setDiscussionTopic(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="e.g. I want to review my ad creative and figure out why my CTR dropped."
+                    data-testid="discussion-topic"
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="mb-6 border-amber-200 bg-amber-50/50">
               <CardContent className="p-4 flex items-start gap-3">

@@ -17,6 +17,7 @@ import {
   cancelAppointment,
   updateAppointment,
 } from "../lib/ghl-coaching-calendar";
+import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ const MEMBER_BOOKING_COLUMNS = {
   meetLink: sessionPackBookingsTable.meetLink,
   status: sessionPackBookingsTable.status,
   title: sessionPackBookingsTable.title,
+  discussionTopic: sessionPackBookingsTable.discussionTopic,
   outcomeAt: sessionPackBookingsTable.outcomeAt,
   createdAt: sessionPackBookingsTable.createdAt,
   updatedAt: sessionPackBookingsTable.updatedAt,
@@ -147,9 +149,13 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
 
   try {
     const slots = await getFreeSlots(coach.ghlCalendarId, startMs, endMs);
-    // Never surface slots inside the lead-time window.
+    // Never surface slots inside the lead-time window, and only offer
+    // top-of-the-hour starts so members book clean 1-hour blocks (GHL exposes
+    // 30-minute slot granularity; the minute lives in the offset-aware ISO).
     const cutoff = Date.now() + MIN_LEAD_TIME_MS;
-    const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
+    const usable = slots.filter(
+      (s) => new Date(s.startTime).getTime() >= cutoff && /T\d{2}:00/.test(s.startTime),
+    );
     res.json({ coachId, slots: usable });
   } catch (err) {
     console.error("[coaching-sessions] free-slots failed:", err);
@@ -163,8 +169,12 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
 
 router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const { coachId: rawCoachId, startTime } = req.body || {};
+  const { coachId: rawCoachId, startTime, discussionTopic: rawDiscussionTopic } = req.body || {};
   const coachId = typeof rawCoachId === "number" ? rawCoachId : parseInt(rawCoachId, 10);
+  const discussionTopic =
+    typeof rawDiscussionTopic === "string" && rawDiscussionTopic.trim()
+      ? rawDiscussionTopic.trim().slice(0, 2000)
+      : null;
 
   if (!Number.isInteger(coachId) || coachId <= 0) {
     res.status(400).json({ error: "Invalid coach id" });
@@ -259,6 +269,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         meetLink: appointment.meetLink,
         status: "booked",
         title,
+        discussionTopic,
       })
       .returning(MEMBER_BOOKING_COLUMNS);
 
@@ -270,6 +281,24 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
     });
 
     await client.query("COMMIT");
+
+    // Mirror the member's discussion topic onto their GHL contact card so the
+    // coach sees it ahead of the call. Fire-and-forget: never block the booking.
+    if (discussionTopic) {
+      const whenStr = scheduledAt.toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      void queueGHLSync({
+        action: "add_note",
+        userId,
+        noteBody: `1-on-1 coaching booked — ${coach.name} — ${whenStr}\n\nWhat the member wants to discuss on the call:\n${discussionTopic}`,
+        metadata: { source: "pack-coaching-booking-topic" },
+      }).catch((err) => {
+        console.error("[coaching-sessions] discussion-topic GHL sync failed:", err);
+      });
+    }
+
     res.status(201).json({ booking, balance: balance - 1 });
   } catch (err) {
     await client.query("ROLLBACK");

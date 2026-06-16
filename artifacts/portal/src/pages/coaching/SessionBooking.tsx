@@ -192,9 +192,8 @@ export default function SessionBooking() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Upcoming session */}
+        <div className="space-y-8">
+          {/* Upcoming session */}
             <div>
               <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-6">
                 Upcoming Session
@@ -431,24 +430,6 @@ export default function SessionBooking() {
                 </Card>
               )}
             </div>
-          </div>
-
-          {/* Right rail */}
-          <div className="space-y-6">
-            <Card className="bg-gradient-to-b from-primary/5 to-transparent border-primary/20">
-              <CardContent className="p-6">
-                <h3 className="font-bold text-lg mb-2">Prepare for Success</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Prepare your questions and goals before your next session for maximum impact.
-                </p>
-                <Link href="/support">
-                  <Button variant="outline" className="w-full">
-                    Contact Support
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Coaching packages */}

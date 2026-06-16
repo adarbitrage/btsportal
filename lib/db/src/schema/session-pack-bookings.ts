@@ -37,6 +37,10 @@ export const sessionPackBookingsTable = pgTable(
     // booked | cancelled | completed | no_show
     status: text("status").notNull().default("booked"),
     title: text("title"),
+    // Member-provided topic captured at booking time ("What would you like to
+    // discuss on the call?"). Member-authored, so member-safe to surface; also
+    // synced to the member's GHL contact card when the session is booked.
+    discussionTopic: text("discussion_topic"),
     // Admin-authored notes about the session outcome (lifecycle management).
     // COACH/ADMIN-FACING ONLY — never returned to members.
     coachNotes: text("coach_notes"),
