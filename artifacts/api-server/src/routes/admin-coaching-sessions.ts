@@ -33,7 +33,7 @@ const VALID_STATUSES = new Set(["booked", "cancelled", "completed", "no_show"]);
 // ---------------------------------------------------------------------------
 
 router.post(
-  "/admin/coaching/session-credits/grant",
+  "/admin/coaching/pack/session-credits/grant",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const memberId = parseId(req.body?.memberId);
@@ -77,7 +77,7 @@ router.post(
 // ---------------------------------------------------------------------------
 
 router.get(
-  "/admin/coaching/session-credits/:memberId",
+  "/admin/coaching/pack/session-credits/:memberId",
   requirePermission("coaching:view"),
   async (req: Request, res: Response): Promise<void> => {
     const memberId = parseId(req.params.memberId);
@@ -118,7 +118,7 @@ router.get(
 // ---------------------------------------------------------------------------
 
 router.get(
-  "/admin/coaching/members/search",
+  "/admin/coaching/pack/members/search",
   requirePermission("coaching:view"),
   async (req: Request, res: Response): Promise<void> => {
     const q = firstString(req.query.q);
@@ -142,7 +142,7 @@ router.get(
 // ---------------------------------------------------------------------------
 
 router.get(
-  "/admin/coaching/sessions",
+  "/admin/coaching/pack/sessions",
   requirePermission("coaching:view"),
   async (req: Request, res: Response): Promise<void> => {
     const status = firstString(req.query.status);
@@ -242,7 +242,7 @@ router.get(
 // ---------------------------------------------------------------------------
 
 router.patch(
-  "/admin/coaching/sessions/:id/cancel",
+  "/admin/coaching/pack/sessions/:id/cancel",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const bookingId = parseId(req.params.id);
@@ -328,7 +328,7 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.patch(
-  "/admin/coaching/sessions/:id/complete",
+  "/admin/coaching/pack/sessions/:id/complete",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const bookingId = parseId(req.params.id);
@@ -372,7 +372,7 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.patch(
-  "/admin/coaching/sessions/:id/no-show",
+  "/admin/coaching/pack/sessions/:id/no-show",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const bookingId = parseId(req.params.id);
@@ -451,7 +451,7 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.patch(
-  "/admin/coaching/sessions/:id/notes",
+  "/admin/coaching/pack/sessions/:id/notes",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const bookingId = parseId(req.params.id);
@@ -483,7 +483,7 @@ router.patch(
 // ---------------------------------------------------------------------------
 
 router.get(
-  "/admin/coaching/coaches",
+  "/admin/coaching/pack/coaches",
   requirePermission("coaching:view"),
   async (_req: Request, res: Response): Promise<void> => {
     const coaches = await db
@@ -495,7 +495,7 @@ router.get(
 );
 
 router.post(
-  "/admin/coaching/coaches",
+  "/admin/coaching/pack/coaches",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
@@ -537,7 +537,7 @@ router.post(
 );
 
 router.patch(
-  "/admin/coaching/coaches/:id",
+  "/admin/coaching/pack/coaches/:id",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
     const coachId = parseId(req.params.id);

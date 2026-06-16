@@ -86,7 +86,7 @@ export function useAdminPackSessions(filters: AdminPackSessionFilters = {}) {
   const qs = search.toString();
   return useQuery<AdminPackSessionsResponse>({
     queryKey: [`${ROOT_KEY}/sessions`, filters],
-    queryFn: () => adminFetch(`/admin/coaching/sessions${qs ? `?${qs}` : ""}`),
+    queryFn: () => adminFetch(`/admin/coaching/pack/sessions${qs ? `?${qs}` : ""}`),
   });
 }
 
@@ -98,7 +98,7 @@ export function useAdminCancelBooking() {
     { bookingId: number; refund: boolean }
   >({
     mutationFn: ({ bookingId, refund }) =>
-      adminFetch(`/admin/coaching/sessions/${bookingId}/cancel`, {
+      adminFetch(`/admin/coaching/pack/sessions/${bookingId}/cancel`, {
         method: "PATCH",
         body: JSON.stringify({ refund }),
       }),
@@ -114,7 +114,7 @@ export function useAdminCompleteBooking() {
     { bookingId: number; coachNotes?: string }
   >({
     mutationFn: ({ bookingId, coachNotes }) =>
-      adminFetch(`/admin/coaching/sessions/${bookingId}/complete`, {
+      adminFetch(`/admin/coaching/pack/sessions/${bookingId}/complete`, {
         method: "PATCH",
         body: JSON.stringify(coachNotes !== undefined ? { coachNotes } : {}),
       }),
@@ -130,7 +130,7 @@ export function useAdminNoShowBooking() {
     { bookingId: number; returnCredit: boolean; coachNotes?: string }
   >({
     mutationFn: ({ bookingId, returnCredit, coachNotes }) =>
-      adminFetch(`/admin/coaching/sessions/${bookingId}/no-show`, {
+      adminFetch(`/admin/coaching/pack/sessions/${bookingId}/no-show`, {
         method: "PATCH",
         body: JSON.stringify({ returnCredit, ...(coachNotes !== undefined ? { coachNotes } : {}) }),
       }),
@@ -146,7 +146,7 @@ export function useAdminSaveNotes() {
     { bookingId: number; coachNotes: string }
   >({
     mutationFn: ({ bookingId, coachNotes }) =>
-      adminFetch(`/admin/coaching/sessions/${bookingId}/notes`, {
+      adminFetch(`/admin/coaching/pack/sessions/${bookingId}/notes`, {
         method: "PATCH",
         body: JSON.stringify({ coachNotes }),
       }),
@@ -185,7 +185,7 @@ export interface MemberCreditDetail {
 export function useMemberSearch(q: string) {
   return useQuery<AdminMemberSummary[]>({
     queryKey: [`${ROOT_KEY}/members/search`, q],
-    queryFn: () => adminFetch(`/admin/coaching/members/search?q=${encodeURIComponent(q)}`),
+    queryFn: () => adminFetch(`/admin/coaching/pack/members/search?q=${encodeURIComponent(q)}`),
     enabled: q.trim().length >= 2,
   });
 }
@@ -193,7 +193,7 @@ export function useMemberSearch(q: string) {
 export function useMemberCreditDetail(memberId: number | null) {
   return useQuery<MemberCreditDetail>({
     queryKey: [`${ROOT_KEY}/session-credits`, memberId],
-    queryFn: () => adminFetch(`/admin/coaching/session-credits/${memberId}`),
+    queryFn: () => adminFetch(`/admin/coaching/pack/session-credits/${memberId}`),
     enabled: !!memberId && memberId > 0,
   });
 }
@@ -206,7 +206,7 @@ export function useGrantCredits() {
     { memberId: number; amount: number; note?: string }
   >({
     mutationFn: (data) =>
-      adminFetch("/admin/coaching/session-credits/grant", {
+      adminFetch("/admin/coaching/pack/session-credits/grant", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -242,7 +242,7 @@ export interface PackCoachInput {
 export function useAdminPackCoaches() {
   return useQuery<PackCoach[]>({
     queryKey: [`${ROOT_KEY}/coaches`],
-    queryFn: () => adminFetch("/admin/coaching/coaches"),
+    queryFn: () => adminFetch("/admin/coaching/pack/coaches"),
   });
 }
 
@@ -250,7 +250,7 @@ export function useCreatePackCoach() {
   const queryClient = useQueryClient();
   return useMutation<PackCoach, Error, PackCoachInput>({
     mutationFn: (data) =>
-      adminFetch("/admin/coaching/coaches", {
+      adminFetch("/admin/coaching/pack/coaches", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -262,7 +262,7 @@ export function useUpdatePackCoach() {
   const queryClient = useQueryClient();
   return useMutation<PackCoach, Error, { id: number } & Partial<PackCoachInput>>({
     mutationFn: ({ id, ...data }) =>
-      adminFetch(`/admin/coaching/coaches/${id}`, {
+      adminFetch(`/admin/coaching/pack/coaches/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),

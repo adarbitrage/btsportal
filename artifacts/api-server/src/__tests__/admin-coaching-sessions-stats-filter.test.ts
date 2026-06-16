@@ -127,10 +127,10 @@ afterAll(async () => {
   }
 });
 
-describe("GET /api/admin/coaching/sessions — stats honour the same filters as rows", () => {
+describe("GET /api/admin/coaching/pack/sessions — stats honour the same filters as rows", () => {
   it("returns global-but-test-scoped stats when filtering only to this test's members", async () => {
     const res = await request(app)
-      .get("/api/admin/coaching/sessions")
+      .get("/api/admin/coaching/pack/sessions")
       .query({ q: TAG, limit: 200 })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
@@ -145,7 +145,7 @@ describe("GET /api/admin/coaching/sessions — stats honour the same filters as 
 
   it("scopes stats to a single coach when coachId is applied", async () => {
     const res = await request(app)
-      .get("/api/admin/coaching/sessions")
+      .get("/api/admin/coaching/pack/sessions")
       .query({ coachId: coach1Id, limit: 200 })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
@@ -160,7 +160,7 @@ describe("GET /api/admin/coaching/sessions — stats honour the same filters as 
 
   it("scopes stats to a member-search query (join-dependent filter)", async () => {
     const res = await request(app)
-      .get("/api/admin/coaching/sessions")
+      .get("/api/admin/coaching/pack/sessions")
       .query({ q: memberBEmail, limit: 200 })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
@@ -175,7 +175,7 @@ describe("GET /api/admin/coaching/sessions — stats honour the same filters as 
 
   it("scopes stats to a single status filter", async () => {
     const res = await request(app)
-      .get("/api/admin/coaching/sessions")
+      .get("/api/admin/coaching/pack/sessions")
       .query({ status: "booked", q: TAG, limit: 200 })
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
