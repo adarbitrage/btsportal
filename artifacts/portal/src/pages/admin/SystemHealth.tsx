@@ -2855,6 +2855,150 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {health.services?.ticketDeskDeliveryGate && (() => {
+                const dg = health.services.ticketDeskDeliveryGate as {
+                  origin: string;
+                  status: "ok" | "blocked" | "unreachable" | "unknown";
+                  alerting: boolean;
+                  threshold: number;
+                  consecutiveBlocked: number;
+                  consecutiveUnreachable: number;
+                  reasons: string[];
+                  lastCheckedAt: string | null;
+                  lastOkAt: string | null;
+                  lastBlockedAt: string | null;
+                  lastUnreachableAt: string | null;
+                  lastError: string | null;
+                };
+                const badge =
+                  dg.status === "blocked"
+                    ? { variant: "destructive" as const, label: "blocked" }
+                    : dg.status === "unreachable"
+                      ? { variant: "warning" as const, label: "unreachable" }
+                      : dg.status === "ok"
+                        ? { variant: "default" as const, label: "ok" }
+                        : { variant: "outline" as const, label: "unknown" };
+                return (
+                  <Card data-testid="card-ticketdesk-delivery-gate">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Ticket delivery gate
+                        <Badge
+                          variant={badge.variant}
+                          className="ml-2 font-normal"
+                          data-testid="ticketdesk-delivery-gate-status"
+                          title={
+                            dg.status === "blocked"
+                              ? "TicketDesk is rejecting the portal origin (403 Origin not allowed) — support tickets are silently failing to deliver and piling up undelivered."
+                              : dg.status === "unreachable"
+                                ? "The last probe could not conclusively reach the delivery gate (transient). The blocked streak is unchanged."
+                                : dg.status === "ok"
+                                  ? "TicketDesk accepts the portal origin — support tickets are reaching the help desk."
+                                  : "No probe has run yet (the delivery-gate probe runs in production)."
+                          }
+                        >
+                          {badge.label}
+                        </Badge>
+                        {dg.alerting && (
+                          <Badge
+                            variant="destructive"
+                            className="font-normal"
+                            data-testid="ticketdesk-delivery-gate-alerting"
+                            title="On-call has been paged: the delivery gate has been blocked for the configured number of consecutive probes."
+                          >
+                            alerting
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Origin</span>
+                          <span
+                            className="text-sm font-medium truncate max-w-[60%] text-right"
+                            title={dg.origin}
+                          >
+                            {dg.origin}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            Consecutive blocked
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${dg.consecutiveBlocked > 0 ? "text-red-600" : ""}`}
+                            data-testid="ticketdesk-delivery-gate-consecutive-blocked"
+                          >
+                            {dg.consecutiveBlocked} / {dg.threshold}
+                          </span>
+                        </div>
+                        {dg.consecutiveUnreachable > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              Consecutive unreachable
+                            </span>
+                            <span className="text-sm font-medium text-amber-600">
+                              {dg.consecutiveUnreachable}
+                            </span>
+                          </div>
+                        )}
+                        {dg.reasons.length > 0 && (
+                          <div
+                            className="text-xs text-muted-foreground pt-2 border-t"
+                            data-testid="ticketdesk-delivery-gate-reasons"
+                          >
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Block reason
+                            </span>
+                            {dg.reasons.map((r, i) => (
+                              <code key={i} className="block break-all">
+                                {r}
+                              </code>
+                            ))}
+                          </div>
+                        )}
+                        {dg.lastError && dg.status === "unreachable" && (
+                          <div className="text-xs text-muted-foreground pt-2 border-t">
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Last probe error
+                            </span>
+                            <code className="break-all">{dg.lastError}</code>
+                          </div>
+                        )}
+                        <div className="space-y-1 pt-2 border-t text-xs">
+                          {dg.lastCheckedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last checked</span>
+                              <span className="font-medium">
+                                {new Date(dg.lastCheckedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {dg.lastOkAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last OK</span>
+                              <span className="font-medium">
+                                {new Date(dg.lastOkAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {dg.lastBlockedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last blocked</span>
+                              <span className="font-medium">
+                                {new Date(dg.lastBlockedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.redis && (
                 <Card>
                   <CardHeader><CardTitle className="text-base flex items-center gap-2"><Zap className="w-4 h-4" />Redis / Comms Queue</CardTitle></CardHeader>

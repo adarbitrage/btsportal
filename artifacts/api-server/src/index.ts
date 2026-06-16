@@ -45,6 +45,10 @@ import {
   startLiveChatEmbedProbe,
   stopLiveChatEmbedProbe,
 } from "./lib/live-chat-embed-probe";
+import {
+  startTicketDeskDeliveryProbe,
+  stopTicketDeskDeliveryProbe,
+} from "./lib/ticketdesk-delivery-probe";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
@@ -110,6 +114,7 @@ startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
 startTicketDeskDeliveryAlerter();
 startLiveChatEmbedProbe();
+startTicketDeskDeliveryProbe();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
 // BEFORE accepting traffic so a fresh deploy can never race the
@@ -160,6 +165,7 @@ async function gracefulShutdown(signal: string) {
   stopModerationFailureAlerter();
   stopTicketDeskDeliveryAlerter();
   stopLiveChatEmbedProbe();
+  stopTicketDeskDeliveryProbe();
   process.exit(0);
 }
 

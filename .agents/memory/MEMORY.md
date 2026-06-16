@@ -54,3 +54,4 @@
 - [Additive columns skip companion migration](additive-column-no-migration.md) — a new NOT NULL col WITH a DEFAULT needs only schema field + dev ALTER; post-merge push-force (gated on live-schema-drift test) adds it to prod cleanly. Companion .sql only for backfills/renames/constraints.
 - [Per-category SMS prefs](per-category-sms-prefs.md) — ticket-reply SMS gated by ticketReplySmsOptIn in sendTicketReplyNotification (the SOLE enforcement point; queueSms is channel-generic, only re-checks master smsOptIn). Email always sends.
 - [Vitest forks pool hangs in agent env](vitest-forks-pool-hang.md) — running vitest from bash hangs forever on the default `forks`/singleFork pool here; add `--pool=threads --no-file-parallelism` to run DB-backed suites.
+- [TicketDesk delivery probes](ticketdesk-delivery-probes.md) — 3 distinct signals: widget-embed (liveChatEmbed) vs stuck-backlog (ticketDeskDelivery) vs origin-gate (ticketDeskDeliveryGate); don't conflate the health keys.

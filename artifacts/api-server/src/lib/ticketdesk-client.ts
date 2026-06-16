@@ -70,11 +70,21 @@ import {
   DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID,
 } from "@workspace/support-config";
 
-const TICKETDESK_API_URL =
-  process.env.TICKETDESK_API_URL || DEFAULT_TICKETDESK_WIDGET_API_URL;
+/**
+ * Resolve the TicketDesk config fresh from the environment on each call so the
+ * delivery path (`createConversation`) and the health probe (`probeDeliveryGate`)
+ * can never disagree about which API URL / workspace / Origin they use — a
+ * divergence would make the probe's verdict meaningless.
+ */
+function resolveApiUrl(): string {
+  return process.env.TICKETDESK_API_URL || DEFAULT_TICKETDESK_WIDGET_API_URL;
+}
 
-const TICKETDESK_WORKSPACE_ID =
-  process.env.TICKETDESK_WORKSPACE_ID || DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID;
+function resolveWorkspaceId(): string {
+  return (
+    process.env.TICKETDESK_WORKSPACE_ID || DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID
+  );
+}
 
 /**
  * Origin header sent with every chat API request. Must match an entry in the
@@ -83,10 +93,18 @@ const TICKETDESK_WORKSPACE_ID =
  * Default: https://portal.buildtestscale.com
  * Override via: TICKETDESK_CHAT_ORIGIN=<url>
  */
-const TICKETDESK_CHAT_ORIGIN =
-  process.env.TICKETDESK_CHAT_ORIGIN ||
-  process.env.PORTAL_URL ||
-  "https://portal.buildtestscale.com";
+function resolveChatOrigin(): string {
+  return (
+    process.env.TICKETDESK_CHAT_ORIGIN ||
+    process.env.PORTAL_URL ||
+    "https://portal.buildtestscale.com"
+  );
+}
+
+/** The Origin header value delivery (and the health probe) send to TicketDesk. */
+export function getTicketDeskChatOrigin(): string {
+  return resolveChatOrigin();
+}
 
 // Shared secret used to verify inbound TicketDesk webhook deliveries.
 function getWebhookSecret(): string {
@@ -140,11 +158,13 @@ export function isConfigured(): boolean {
 export async function createConversation(
   input: TicketDeskConversationInput,
 ): Promise<TicketDeskConversationResult> {
-  const sessionUrl = `${TICKETDESK_API_URL}/chat/session`;
-  const portalTicketUrl = `${TICKETDESK_CHAT_ORIGIN}/support/tickets/${input.btsTicketNumber}`;
+  const apiUrl = resolveApiUrl();
+  const chatOrigin = resolveChatOrigin();
+  const sessionUrl = `${apiUrl}/chat/session`;
+  const portalTicketUrl = `${chatOrigin}/support/tickets/${input.btsTicketNumber}`;
 
   const sessionPayload = {
-    workspaceId: TICKETDESK_WORKSPACE_ID,
+    workspaceId: resolveWorkspaceId(),
     email: input.contactEmail,
     name: input.contactName,
     externalId: input.btsTicketNumber,
@@ -156,7 +176,7 @@ export async function createConversation(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Origin: TICKETDESK_CHAT_ORIGIN,
+      Origin: chatOrigin,
     },
     body: JSON.stringify(sessionPayload),
   });
@@ -165,7 +185,7 @@ export async function createConversation(
     const errorText = await sessionResponse.text().catch(() => "(no body)");
     if (sessionResponse.status === 403 && errorText.includes("Origin not allowed")) {
       throw new Error(
-        `TicketDesk rejected origin "${TICKETDESK_CHAT_ORIGIN}" (403 Origin not allowed). ` +
+        `TicketDesk rejected origin "${chatOrigin}" (403 Origin not allowed). ` +
           `The portal domain must be added to the TicketDesk workspace's allowed-origins list ` +
           `in Settings → Chat Config. ` +
           `Override the origin via TICKETDESK_CHAT_ORIGIN if the API server uses a different domain.`,
@@ -196,14 +216,14 @@ export async function createConversation(
     input.body,
   ].join("\n");
 
-  const messageUrl = `${TICKETDESK_API_URL}/chat/messages`;
+  const messageUrl = `${apiUrl}/chat/messages`;
 
   const messageResponse = await fetch(messageUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${sessionToken}`,
-      Origin: TICKETDESK_CHAT_ORIGIN,
+      Origin: chatOrigin,
     },
     body: JSON.stringify({ bodyText: messageBody }),
   });
@@ -221,6 +241,159 @@ export async function createConversation(
     id: sessionToken,
     conversationNumber: String(messageData.id ?? messageData.threadId ?? ""),
   };
+}
+
+/* ------------------------------------------------------------------------- *
+ * Delivery-gate health probe
+ *
+ * Programmatic ticket delivery (createConversation) only works while the portal
+ * domain stays on TicketDesk's allowed-origins list. If that entry is removed
+ * (or the portal domain changes) the session POST starts failing with a 403
+ * "Origin not allowed" and every member ticket silently piles up undelivered,
+ * retrying forever. The widget-embed probe (live-chat-embed-probe.ts) only
+ * GETs widget.js — it never exercises this origin gate.
+ *
+ * `probeDeliveryGate` POSTs to /api/chat/session with the EXACT same Origin
+ * header, API URL, and workspace that createConversation sends, so its verdict
+ * always matches what real delivery would experience:
+ *
+ *   - 403 "Origin not allowed"  → `blocked`     (delivery is broken — page on-call)
+ *   - 2xx                        → `ok`          (gate open; session created/reused)
+ *   - other 4xx                  → `ok`          (origin accepted; we reached request
+ *                                                 validation, so the gate is NOT the problem)
+ *   - 5xx / network / timeout / other 403 → `unreachable` (inconclusive; never alarms)
+ *
+ * Minimal footprint: the probe uses a dedicated, clearly-labelled probe contact
+ * (stable email + non-BTS externalId). TicketDesk's chat session API is
+ * get-or-create by contact, so every run reuses the SAME single thread instead
+ * of spawning a fresh one in the agent inbox, and the non-BTS externalId can
+ * never collide with a real portal ticket's inbound-reply matching. Only the
+ * session step runs — no message is posted.
+ * ------------------------------------------------------------------------- */
+
+/** Stable reference for the probe's session — deliberately NOT a BTS-\d+ id so
+ * the inbound-reply parser can never mis-match it to a real portal ticket. */
+const DELIVERY_PROBE_EXTERNAL_ID = "SYSTEM-HEALTH-PROBE";
+
+function resolveProbeEmail(): string {
+  return (
+    process.env.TICKETDESK_DELIVERY_PROBE_EMAIL ||
+    "system-health-probe@buildtestscale.com"
+  );
+}
+
+function resolveProbeName(): string {
+  return (
+    process.env.TICKETDESK_DELIVERY_PROBE_NAME ||
+    "BTS System Health Probe (automated — ignore)"
+  );
+}
+
+export type DeliveryGateStatus = "ok" | "blocked" | "unreachable";
+
+export interface DeliveryGateProbeResult {
+  status: DeliveryGateStatus;
+  /** Final HTTP status when a response arrived, else null. */
+  httpStatus: number | null;
+  /** Short human reason when blocked (e.g. "Origin not allowed"), else null. */
+  reason: string | null;
+  /** Short error description when unreachable, else null. */
+  error: string | null;
+  /** The Origin header the probe sent — identical to what delivery sends. */
+  origin: string;
+}
+
+function describeProbeError(err: unknown): string {
+  if (err instanceof Error) return err.message || err.name;
+  return String(err);
+}
+
+/**
+ * Run a single probe of the TicketDesk chat-session origin gate. Mirrors the
+ * session step of `createConversation` so a 403 "Origin not allowed" here means
+ * real delivery is currently blocked.
+ */
+export async function probeDeliveryGate(opts?: {
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}): Promise<DeliveryGateProbeResult> {
+  const origin = resolveChatOrigin();
+  const sessionUrl = `${resolveApiUrl()}/chat/session`;
+  const doFetch = opts?.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts?.timeoutMs ?? 8_000);
+  try {
+    const res = await doFetch(sessionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: origin,
+      },
+      body: JSON.stringify({
+        workspaceId: resolveWorkspaceId(),
+        email: resolveProbeEmail(),
+        name: resolveProbeName(),
+        externalId: DELIVERY_PROBE_EXTERNAL_ID,
+        pageUrl: `${origin}/admin/system`,
+        locale: "en",
+      }),
+      signal: controller.signal,
+    });
+
+    if (res.status === 403) {
+      const text = await res.text().catch(() => "");
+      if (/origin not allowed/i.test(text)) {
+        return {
+          status: "blocked",
+          httpStatus: 403,
+          reason: "Origin not allowed",
+          error: null,
+          origin,
+        };
+      }
+      // Some other 403 (auth, rate-limit, etc.) — not the origin gate; hold
+      // inconclusive so we never false-alarm the delivery-blocked alert.
+      return {
+        status: "unreachable",
+        httpStatus: 403,
+        reason: null,
+        error: "http_403",
+        origin,
+      };
+    }
+
+    if (res.status >= 500) {
+      // Server error — likely transient; inconclusive.
+      return {
+        status: "unreachable",
+        httpStatus: res.status,
+        reason: null,
+        error: `http_${res.status}`,
+        origin,
+      };
+    }
+
+    // 2xx, or any non-403 4xx: either the session was created/reused, or we
+    // reached request validation — both prove the origin gate let us through,
+    // so programmatic delivery is NOT origin-blocked.
+    return {
+      status: "ok",
+      httpStatus: res.status,
+      reason: null,
+      error: null,
+      origin,
+    };
+  } catch (err) {
+    return {
+      status: "unreachable",
+      httpStatus: null,
+      reason: null,
+      error: describeProbeError(err),
+      origin,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ------------------------------------------------------------------------- *

@@ -99,6 +99,7 @@ import {
   getLiveChatEmbedProbeState,
   getLiveChatEmbedProbeUrl,
 } from "../lib/live-chat-embed-probe";
+import { getTicketDeskDeliveryProbeState } from "../lib/ticketdesk-delivery-probe";
 import {
   DEFAULT_TICKETDESK_URL,
   DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
@@ -3454,7 +3455,14 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // banner to degraded the moment the embed is blocked.
     const liveChatEmbed = getLiveChatEmbedProbeState();
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting
+    // Active probe of the programmatic ticket-delivery origin gate. If the
+    // portal domain is dropped from TicketDesk's allowed-origins list, every
+    // support ticket silently fails to deliver (403 "Origin not allowed") and
+    // retries forever. Surface the probe state and flip the banner to degraded
+    // the moment delivery is blocked — distinct from the widget-embed probe.
+    const ticketDeskDeliveryGate = getTicketDeskDeliveryProbeState();
+
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting
       ? "degraded"
       : "healthy";
 
@@ -3491,6 +3499,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         moderationFailures,
         ticketDeskDelivery,
         liveChatEmbed,
+        ticketDeskDeliveryGate,
         missingCriticalSecrets,
         portalUrl,
       },
