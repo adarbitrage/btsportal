@@ -46,7 +46,7 @@ function getQueue(): Queue {
   return queue;
 }
 
-async function processCoachingCallReminders(): Promise<void> {
+export async function processCoachingCallReminders(): Promise<void> {
   const now = new Date();
   const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
   const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -136,7 +136,7 @@ async function processCoachingCallReminders(): Promise<void> {
   }
 }
 
-async function processNewContentAlerts(): Promise<void> {
+export async function processNewContentAlerts(): Promise<void> {
   // "New content" is surfaced to members as announcements. Scan announcements
   // created in the last 24h; per-member dedup (below) guarantees each member is
   // texted at most once per announcement even though this runs every 15 min.
