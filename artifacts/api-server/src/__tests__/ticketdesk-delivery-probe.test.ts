@@ -1,4 +1,13 @@
-import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+  vi,
+} from "vitest";
+import sgMail from "@sendgrid/mail";
 
 import {
   evaluateTicketDeskDeliveryProbe,
@@ -9,6 +18,7 @@ import {
   type DeliveryResult,
   type TicketDeskDeliveryAlertPayload,
 } from "../lib/ticketdesk-delivery-probe";
+import { __resetSendGridInitForTests } from "../lib/oncall-dispatcher";
 
 /** Build a fetch stub that returns the given status + body once per call. */
 function fetchReturning(status: number, body = "ok"): typeof fetch {
@@ -185,5 +195,204 @@ describe("TicketDesk delivery-gate probe state machine", () => {
     await evaluateTicketDeskDeliveryProbe();
     await evaluateTicketDeskDeliveryProbe();
     expect(pd.calls.length).toBe(1);
+  });
+});
+
+/**
+ * End-to-end on-call wiring: this suite does NOT stub the delivery functions.
+ * It drives the probe to a real "blocked" verdict and lets the SHARED
+ * `oncall-dispatcher` build and "send" the actual PagerDuty / email / Slack
+ * payloads, intercepting only the transport (global `fetch` for PagerDuty +
+ * Slack, `sgMail.send` for email). This is the test that fails if the
+ * dispatcher config drifts (wrong dedupKey, severity, subject, or throttle
+ * behavior) — the gap the stubbed state-machine suite above can't catch.
+ */
+describe("TicketDesk delivery-gate probe — real on-call dispatcher payloads", () => {
+  const SLACK_WEBHOOK = "https://hooks.slack.test/services/T000/B000/XXX";
+  const OPS_EMAIL = "oncall@buildtestscale.com";
+  const PD_KEY = "pd-routing-key-test";
+
+  let pagerdutyBodies: any[];
+  let slackBodies: any[];
+  let emailSends: Array<{ to: unknown; from: unknown; subject: unknown; text: unknown }>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errSpy: ReturnType<typeof vi.spyOn>;
+  let sendSpy: ReturnType<typeof vi.spyOn>;
+  let setApiKeySpy: ReturnType<typeof vi.spyOn>;
+
+  const savedEnv: Record<string, string | undefined> = {};
+  function setEnv(name: string, value: string): void {
+    savedEnv[name] = process.env[name];
+    process.env[name] = value;
+  }
+
+  beforeEach(() => {
+    __resetTicketDeskDeliveryProbeForTests();
+    // Use the real default delivery functions (no override).
+    __setTicketDeskDeliveryProbeDeliveriesForTests(null);
+    __resetSendGridInitForTests();
+
+    setEnv("PAGERDUTY_INTEGRATION_KEY", PD_KEY);
+    setEnv("OPS_ALERT_EMAIL", OPS_EMAIL);
+    setEnv("OPS_ALERT_SLACK_WEBHOOK_URL", SLACK_WEBHOOK);
+    setEnv("SENDGRID_API_KEY", "SG.test-key");
+
+    pagerdutyBodies = [];
+    slackBodies = [];
+    emailSends = [];
+
+    // Intercept ONLY the dispatcher transport. The probe itself reads its own
+    // fetch override (set per-test), so global fetch never sees probe traffic.
+    const fetchMock = vi.fn(
+      async (input: any, init?: any): Promise<Response> => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+        if (url.includes("events.pagerduty.com")) {
+          pagerdutyBodies.push(body);
+          return new Response(JSON.stringify({ status: "success" }), {
+            status: 202,
+          });
+        }
+        if (url === SLACK_WEBHOOK) {
+          slackBodies.push(body);
+          return new Response("ok", { status: 200 });
+        }
+        throw new Error(`unexpected fetch to ${url}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    setApiKeySpy = vi
+      .spyOn(sgMail, "setApiKey")
+      .mockImplementation(() => undefined);
+    sendSpy = vi.spyOn(sgMail, "send").mockImplementation((async (msg: any) => {
+      emailSends.push({
+        to: msg.to,
+        from: msg.from,
+        subject: msg.subject,
+        text: msg.text,
+      });
+      return [{ statusCode: 202 }, {}] as any;
+    }) as any);
+
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sendSpy.mockRestore();
+    setApiKeySpy.mockRestore();
+    logSpy.mockRestore();
+    errSpy.mockRestore();
+    __resetSendGridInitForTests();
+    for (const [name, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  afterAll(() => {
+    __resetTicketDeskDeliveryProbeForTests();
+  });
+
+  /** Drive the probe to a confirmed "blocked" fire (threshold = 3). */
+  async function driveToBlockedFire(): Promise<void> {
+    __setTicketDeskDeliveryProbeFetchForTests(
+      fetchReturning(403, "Origin not allowed"),
+    );
+    await evaluateTicketDeskDeliveryProbe();
+    await evaluateTicketDeskDeliveryProbe();
+    await evaluateTicketDeskDeliveryProbe(); // crosses threshold -> fires
+  }
+
+  it("emits a correctly-formed PagerDuty trigger when delivery is blocked past threshold", async () => {
+    await driveToBlockedFire();
+
+    expect(pagerdutyBodies).toHaveLength(1);
+    const pd = pagerdutyBodies[0];
+    expect(pd.routing_key).toBe(PD_KEY);
+    expect(pd.event_action).toBe("trigger");
+    expect(pd.dedup_key).toBe("ticketdesk-delivery-gate:blocked");
+    expect(pd.payload.severity).toBe("critical");
+    expect(pd.payload.component).toBe("ticketdesk-delivery-gate");
+    expect(pd.payload.class).toBe("support_ticket_delivery_blocked");
+    expect(pd.payload.summary).toMatch(/BLOCKED/);
+    expect(pd.payload.custom_details.consecutiveBlocked).toBe(3);
+    expect(pd.payload.custom_details.threshold).toBe(3);
+    expect(pd.payload.custom_details.link).toBe("/admin/system");
+    expect(
+      String(pd.payload.custom_details.reasons.join(" ")),
+    ).toMatch(/origin not allowed/i);
+  });
+
+  it("emits the expected ops email (subject + recipient) when blocked", async () => {
+    await driveToBlockedFire();
+
+    expect(emailSends).toHaveLength(1);
+    const mail = emailSends[0];
+    expect(mail.to).toBe(OPS_EMAIL);
+    expect(mail.subject).toBe(
+      "[ALERT] Support tickets are not reaching TicketDesk (origin blocked)",
+    );
+    expect(String(mail.text)).toMatch(/no longer reaching the TicketDesk/i);
+    expect(String(mail.text)).toMatch(/Origin not allowed/);
+  });
+
+  it("emits the expected Slack message when blocked", async () => {
+    await driveToBlockedFire();
+
+    expect(slackBodies).toHaveLength(1);
+    expect(String(slackBodies[0].text)).toMatch(
+      /Support ticket delivery BLOCKED/,
+    );
+    expect(String(slackBodies[0].text)).toContain("/admin/system");
+  });
+
+  it("emits a PagerDuty resolve + recovered email/Slack when delivery recovers", async () => {
+    await driveToBlockedFire();
+    expect(pagerdutyBodies).toHaveLength(1);
+
+    // Recover: origin gate now accepts the session.
+    __setTicketDeskDeliveryProbeFetchForTests(fetchReturning(201));
+    await evaluateTicketDeskDeliveryProbe();
+
+    // PagerDuty: a resolve for the SAME dedup key (no severity payload).
+    expect(pagerdutyBodies).toHaveLength(2);
+    const resolve = pagerdutyBodies[1];
+    expect(resolve.event_action).toBe("resolve");
+    expect(resolve.dedup_key).toBe("ticketdesk-delivery-gate:blocked");
+    expect(resolve.routing_key).toBe(PD_KEY);
+    expect(resolve.payload).toBeUndefined();
+
+    // Email + Slack carry the recovered/resolved copy.
+    expect(emailSends).toHaveLength(2);
+    expect(emailSends[1].subject).toBe(
+      "[RESOLVED] Support ticket delivery recovered",
+    );
+    expect(slackBodies).toHaveLength(2);
+    expect(String(slackBodies[1].text)).toMatch(/recovered/i);
+  });
+
+  it("does not re-page on every poll while still blocked (real dispatcher throttle)", async () => {
+    await driveToBlockedFire();
+    expect(pagerdutyBodies).toHaveLength(1);
+    expect(emailSends).toHaveLength(1);
+    expect(slackBodies).toHaveLength(1);
+
+    // Still blocked on the next polls — inside the throttle window, so no new
+    // transport calls go out on any channel, and the dispatcher reports the
+    // suppressed sends as throttled skips.
+    const { deliveries: d4 } = await evaluateTicketDeskDeliveryProbe();
+    const { deliveries: d5 } = await evaluateTicketDeskDeliveryProbe();
+
+    expect(pagerdutyBodies).toHaveLength(1);
+    expect(emailSends).toHaveLength(1);
+    expect(slackBodies).toHaveLength(1);
+    for (const d of [d4, d5]) {
+      expect(
+        d.filter((r) => r.skipped && r.reason === "throttled"),
+      ).toHaveLength(3);
+    }
   });
 });
