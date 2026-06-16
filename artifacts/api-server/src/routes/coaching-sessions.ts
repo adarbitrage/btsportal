@@ -149,13 +149,11 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
 
   try {
     const slots = await getFreeSlots(coach.ghlCalendarId, startMs, endMs);
-    // Never surface slots inside the lead-time window, and only offer
-    // top-of-the-hour starts so members book clean 1-hour blocks (GHL exposes
-    // 30-minute slot granularity; the minute lives in the offset-aware ISO).
+    // Never surface slots inside the lead-time window. Half-hour starts (e.g.
+    // 1:30pm) are allowed — each call is a 1-hour block and GHL's free-slots +
+    // the 30-min appointment buffer already keep bookings spaced correctly.
     const cutoff = Date.now() + MIN_LEAD_TIME_MS;
-    const usable = slots.filter(
-      (s) => new Date(s.startTime).getTime() >= cutoff && /T\d{2}:00/.test(s.startTime),
-    );
+    const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
     res.json({ coachId, slots: usable });
   } catch (err) {
     console.error("[coaching-sessions] free-slots failed:", err);
