@@ -281,6 +281,103 @@ export async function queueTicketDeskDelivery(
   }
 }
 
+/**
+ * Re-queue (or re-attempt) TicketDesk delivery for a ticket whose previous
+ * delivery failed or was skipped.  Powers the admin Ticket Queue's "Retry
+ * delivery" row action and bulk retry.
+ *
+ * Reconstructs the original delivery payload from the ticket row, its owning
+ * member, and the first member message (the same shape the create-ticket path
+ * and the startup backfill build), resets the row to 'pending' (clearing the
+ * stale last-error), and re-enqueues a delivery job.  Only tickets currently in
+ * 'failed' or 'skipped' are retryable — anything else is a no-op so a stray
+ * retry can't clobber an in-flight or already-delivered ticket.
+ *
+ * Returns a discriminated result the route layer can map onto an HTTP status.
+ */
+export type RetryDeliveryResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "not_retryable" | "enqueue_failed" };
+
+export async function retryTicketDeskDelivery(
+  ticketId: number,
+): Promise<RetryDeliveryResult> {
+  const [ticket] = await db
+    .select({
+      id: ticketsTable.id,
+      ticketNumber: ticketsTable.ticketNumber,
+      subject: ticketsTable.subject,
+      userId: ticketsTable.userId,
+      deliveryStatus: ticketsTable.deliveryStatus,
+    })
+    .from(ticketsTable)
+    .where(eq(ticketsTable.id, ticketId))
+    .limit(1);
+
+  if (!ticket) return { ok: false, reason: "not_found" };
+
+  if (ticket.deliveryStatus !== "failed" && ticket.deliveryStatus !== "skipped") {
+    return { ok: false, reason: "not_retryable" };
+  }
+
+  const [member] = await db
+    .select({ email: usersTable.email, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, ticket.userId))
+    .limit(1);
+
+  const [firstMsg] = await db
+    .select({ body: ticketMessagesTable.body })
+    .from(ticketMessagesTable)
+    .where(
+      and(
+        eq(ticketMessagesTable.ticketId, ticket.id),
+        eq(ticketMessagesTable.senderType, "member"),
+      ),
+    )
+    .orderBy(asc(ticketMessagesTable.createdAt))
+    .limit(1);
+
+  const data: TicketDeskDeliveryJobData = {
+    contactEmail: member?.email ?? "unknown",
+    contactName: member?.name ?? "Unknown Member",
+    subject: ticket.subject,
+    body:
+      firstMsg?.body ??
+      "(original message not found; open the admin portal to view the full ticket)",
+    btsTicketNumber: ticket.ticketNumber,
+    ticketId: ticket.id,
+  };
+
+  // Reset to 'pending' and clear the stale error so the queue badge reflects
+  // the in-flight retry immediately. queueTicketDeskDelivery rewrites the
+  // status again on its own terminal outcome (delivered/skipped/failed).
+  try {
+    await db
+      .update(ticketsTable)
+      .set({ deliveryStatus: "pending", deliveryLastError: null })
+      .where(eq(ticketsTable.id, ticket.id));
+  } catch (err) {
+    console.error(
+      `[TicketDesk Queue] Failed to reset delivery_status for ${ticket.ticketNumber} before retry:`,
+      err,
+    );
+  }
+
+  const jobId = await queueTicketDeskDelivery(data);
+
+  // queueTicketDeskDelivery returns null for three reasons: the queue is
+  // disabled (test env), TicketDesk is unconfigured (handled as a 'skipped'
+  // terminal outcome + support email), or the enqueue genuinely threw. Only
+  // the last leaves the row stuck at 'pending' with no job — surface that as a
+  // failure so the route returns a 5xx instead of a false-positive success.
+  if (jobId === null && !QUEUE_DISABLED && ticketDesk.isConfigured()) {
+    return { ok: false, reason: "enqueue_failed" };
+  }
+
+  return { ok: true };
+}
+
 export function startTicketDeskWorker(): void {
   if (QUEUE_DISABLED) {
     warnDisabledOnce();

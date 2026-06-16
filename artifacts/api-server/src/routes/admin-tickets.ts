@@ -14,6 +14,7 @@ import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
 import { emitWebhookEvent } from "../lib/webhook-events";
+import { retryTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
@@ -584,6 +585,43 @@ router.get("/admin/tickets/delivery-health", requirePermission("tickets:view"), 
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch ticket delivery health" });
+  }
+});
+
+// Re-attempt TicketDesk delivery for a single undelivered ticket (deliveryStatus
+// = "failed" | "skipped"). Powers the admin Ticket Queue's "Retry delivery" row
+// action and bulk retry — the frontend fans a bulk retry out over this endpoint
+// one ticket at a time, reusing the existing bulk-action bar.
+router.post("/admin/tickets/:id/retry-delivery", requirePermission("tickets:manage"), async (req: Request, res: Response) => {
+  try {
+    const ticketId = parseInt(getParam(req.params.id));
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: "Invalid ticket ID" });
+      return;
+    }
+
+    const result = await retryTicketDeskDelivery(ticketId);
+    if (result.ok) {
+      res.json({ success: true, deliveryStatus: "pending" });
+      return;
+    }
+
+    switch (result.reason) {
+      case "not_found":
+        res.status(404).json({ error: "Ticket not found" });
+        return;
+      case "not_retryable":
+        res.status(409).json({ error: "Only failed or skipped deliveries can be retried" });
+        return;
+      case "enqueue_failed":
+        res.status(503).json({ error: "Delivery queue is unavailable; please try again shortly" });
+        return;
+      default:
+        res.status(500).json({ error: "Failed to retry delivery" });
+        return;
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Failed to retry delivery" });
   }
 });
 

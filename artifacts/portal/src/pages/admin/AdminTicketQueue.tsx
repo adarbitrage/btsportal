@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, X, MailX, AlertTriangle } from "lucide-react";
+import { Search, X, MailX, AlertTriangle, RefreshCw } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -178,6 +178,7 @@ export default function AdminTicketQueue() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [bulkPending, setBulkPending] = useState(false);
+  const [retryingIds, setRetryingIds] = useState<Set<number>>(new Set());
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -387,6 +388,49 @@ export default function AdminTicketQueue() {
     void runBulk("Closed", ids, (id) => adminPanelApi.updateTicketStatus(id, "closed"));
   };
 
+  // Selected tickets that are actually retryable (failed/skipped delivery).
+  // The bulk "Retry delivery" button only acts on these so a mixed selection
+  // doesn't fire no-op retries against already-delivered tickets.
+  const selectedUndelivered = useMemo(
+    () =>
+      tickets
+        .filter(
+          (t) =>
+            selectedIds.has(t.id) &&
+            (t.deliveryStatus === "failed" || t.deliveryStatus === "skipped"),
+        )
+        .map((t) => t.id),
+    [tickets, selectedIds],
+  );
+
+  const handleBulkRetry = () => {
+    if (selectedUndelivered.length === 0) return;
+    void runBulk("Retried delivery for", selectedUndelivered, (id) =>
+      adminPanelApi.retryTicketDelivery(id),
+    );
+  };
+
+  const handleRetryDelivery = async (id: number) => {
+    setRetryingIds((prev) => new Set(prev).add(id));
+    try {
+      await adminPanelApi.retryTicketDelivery(id);
+      toast({ title: "Delivery retry queued" });
+      await loadTickets();
+    } catch (err) {
+      toast({
+        title: "Failed to retry delivery",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -542,6 +586,17 @@ export default function AdminTicketQueue() {
                 >
                   Close
                 </Button>
+                {selectedUndelivered.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkRetry}
+                    disabled={bulkPending}
+                    data-testid="bulk-retry-delivery-button"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" /> Retry delivery ({selectedUndelivered.length})
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -613,6 +668,24 @@ export default function AdminTicketQueue() {
                             <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
                           )}
                           <DeliveryBadge status={ticket.deliveryStatus} />
+                          {(ticket.deliveryStatus === "failed" || ticket.deliveryStatus === "skipped") && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void handleRetryDelivery(ticket.id);
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              disabled={retryingIds.has(ticket.id) || bulkPending}
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded border border-border bg-white hover:bg-secondary/40 text-foreground disabled:opacity-50"
+                              data-testid={`queue-retry-delivery-${ticket.id}`}
+                              title="Retry notification delivery"
+                            >
+                              <RefreshCw className={cn("w-3 h-3", retryingIds.has(ticket.id) && "animate-spin")} />
+                              {retryingIds.has(ticket.id) ? "Retrying…" : "Retry"}
+                            </button>
+                          )}
                         </div>
                         <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
                       </div>

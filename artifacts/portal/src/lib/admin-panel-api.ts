@@ -870,6 +870,26 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  // Re-attempt TicketDesk notification delivery for a ticket whose delivery
+  // failed or was skipped. The server resets the row to "pending" and
+  // re-enqueues a delivery job; the queue then refetches to update the badge.
+  async retryTicketDelivery(ticketId: number) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/retry-delivery`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      let message = "Failed to retry delivery";
+      try {
+        const body = await res.json();
+        if (body?.error) message = typeof body.error === "string" ? body.error : body.error.message ?? message;
+      } catch {
+        /* keep default message */
+      }
+      throw new Error(message);
+    }
+    return res.json() as Promise<{ success: boolean; deliveryStatus: "pending" }>;
+  },
+
   async updateTicketAssignee(ticketId: number, assignedTo: number | null) {
     const res = await authFetch(`/admin/tickets/${ticketId}/assign`, {
       method: "PUT",
