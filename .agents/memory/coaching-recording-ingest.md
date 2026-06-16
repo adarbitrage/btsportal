@@ -21,6 +21,18 @@ only `{ok,refunded,balance}`. The leak guard test pins this.
 NOT add it to `MEMBER_BOOKING_COLUMNS`, and extend the leak-guard test's
 `MEMBER_FORBIDDEN_FIELDS` list.
 
+## Member visibility is under product reconsideration
+The coach/admin-only rule above is a *current* enforcement default, not a
+settled product stance. There is an active request to design a **member-facing**
+Past Sessions presentation that shows the recording + AI summary + action items.
+A TEMPORARY frontend-only design preview lives in `SessionBooking.tsx`, gated to
+one email (`DESIGN_PREVIEW_EMAIL`), injecting a mock completed session — it does
+NOT change the backend allow-list. If the decision lands as "members can see
+their own recording/summary", the member exposure must be added deliberately to
+`MEMBER_BOOKING_COLUMNS` and the leak-guard test updated; until then keep the
+preview frontend-only and remove it once real data flows. Don't treat the
+coach-only note as immutable without checking the latest product decision.
+
 ## Drive access is pluggable + no-ops without creds
 No Google Meet REST connector exists, so ingest scans Google **Drive** and
 matches files by meeting title + scheduled-time window (pure matcher is
