@@ -772,6 +772,11 @@ export const adminPanelApi = {
       // surfaces an inline badge + filter so agents can spot undelivered
       // tickets without opening each one.
       deliveryStatus: "pending" | "delivered" | "skipped" | "failed";
+      // Last failure/skip reason for the outbound notification. Surfaced
+      // inline next to the Retry action so agents can tell a transient
+      // outage from a misconfig that a blind retry won't fix. Null when
+      // delivery never failed or no reason was recorded.
+      deliveryLastError: string | null;
       member: { id: number; name: string; email: string } | null;
       assignee: { id: number; name: string; email: string } | null;
       // Service tier the SLA was sized against (e.g. "lifetime", "1year",

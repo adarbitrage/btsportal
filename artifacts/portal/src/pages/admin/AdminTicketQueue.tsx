@@ -686,6 +686,16 @@ export default function AdminTicketQueue() {
                               {retryingIds.has(ticket.id) ? "Retrying…" : "Retry"}
                             </button>
                           )}
+                          {(ticket.deliveryStatus === "failed" || ticket.deliveryStatus === "skipped") &&
+                            ticket.deliveryLastError && (
+                              <span
+                                className="text-[10px] text-red-700 max-w-[24rem] truncate"
+                                title={ticket.deliveryLastError}
+                                data-testid={`queue-delivery-error-${ticket.id}`}
+                              >
+                                {ticket.deliveryLastError}
+                              </span>
+                            )}
                         </div>
                         <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
                       </div>

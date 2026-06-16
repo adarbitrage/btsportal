@@ -412,6 +412,7 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
         updatedAt: ticketsTable.updatedAt,
         resolvedAt: ticketsTable.resolvedAt,
         deliveryStatus: ticketsTable.deliveryStatus,
+        deliveryLastError: ticketsTable.deliveryLastError,
         memberName: usersTable.name,
         memberEmail: usersTable.email,
         assignedAgentName: assignedAgent.name,
@@ -460,6 +461,10 @@ router.get("/admin/tickets", requirePermission("tickets:view"), async (req: Requ
         updatedAt: row.updatedAt,
         resolvedAt: row.resolvedAt,
         deliveryStatus: row.deliveryStatus,
+        // Last failure/skip reason (e.g. transient TicketDesk outage vs.
+        // a misconfigured origin) so agents can read it next to the Retry
+        // action and decide whether a blind retry is worth it.
+        deliveryLastError: row.deliveryLastError,
         member: row.memberName
           ? { id: row.userId, name: row.memberName, email: row.memberEmail }
           : null,
