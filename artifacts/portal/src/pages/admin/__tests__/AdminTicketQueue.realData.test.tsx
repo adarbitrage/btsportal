@@ -15,6 +15,7 @@ const getAdminTickets = vi.fn();
 const getTicketAssignees = vi.fn();
 const updateTicketStatus = vi.fn();
 const updateTicketAssignee = vi.fn();
+const retryTicketDelivery = vi.fn();
 
 vi.mock("@/lib/admin-panel-api", () => ({
   adminPanelApi: {
@@ -22,6 +23,7 @@ vi.mock("@/lib/admin-panel-api", () => ({
     getTicketAssignees: (...args: unknown[]) => getTicketAssignees(...args),
     updateTicketStatus: (...args: unknown[]) => updateTicketStatus(...args),
     updateTicketAssignee: (...args: unknown[]) => updateTicketAssignee(...args),
+    retryTicketDelivery: (...args: unknown[]) => retryTicketDelivery(...args),
   },
 }));
 
@@ -49,6 +51,7 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     updatedAt: new Date("2026-05-01T12:00:00Z").toISOString(),
     resolvedAt: null,
     deliveryStatus: "delivered",
+    deliveryLastError: null,
     member: { id: 100, name: "Default Member", email: "default@example.test" },
     assignee: null,
     tier: null,
@@ -99,6 +102,7 @@ beforeEach(() => {
   getTicketAssignees.mockReset().mockResolvedValue([]);
   updateTicketStatus.mockReset().mockResolvedValue({ success: true });
   updateTicketAssignee.mockReset().mockResolvedValue({ success: true });
+  retryTicketDelivery.mockReset().mockResolvedValue({ success: true });
 });
 
 afterEach(() => {
@@ -289,6 +293,67 @@ describe("AdminTicketQueue — real-data wiring", () => {
         expect(c[1]).toBe("closed");
       });
       expect(updateTicketAssignee).not.toHaveBeenCalled();
+    });
+
+    it("bulk-retries delivery only for the failed/skipped tickets in the selection", async () => {
+      // Mix of delivered (11), failed (12), skipped (13). The retry button
+      // should only fire for the two undelivered rows, never the delivered one.
+      getAdminTickets.mockResolvedValue([
+        makeTicket({ id: 11, ticketNumber: "BTS-000011", deliveryStatus: "delivered" }),
+        makeTicket({ id: 12, ticketNumber: "BTS-000012", deliveryStatus: "failed" }),
+        makeTicket({ id: 13, ticketNumber: "BTS-000013", deliveryStatus: "skipped" }),
+      ]);
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      await selectRows(11, 12, 13);
+
+      const user = userEvent.setup();
+      const retryButton = screen.getByTestId("bulk-retry-delivery-button");
+      // The button label reflects only the undelivered count.
+      expect(retryButton).toHaveTextContent("(2)");
+      await user.click(retryButton);
+
+      await waitFor(() => {
+        expect(retryTicketDelivery).toHaveBeenCalledTimes(2);
+      });
+      const retriedIds = retryTicketDelivery.mock.calls.map((c) => c[0]).sort();
+      expect(retriedIds).toEqual([12, 13]);
+      // The delivered ticket was never retried, and no status/assignee writes fired.
+      expect(retriedIds).not.toContain(11);
+      expect(updateTicketStatus).not.toHaveBeenCalled();
+      expect(updateTicketAssignee).not.toHaveBeenCalled();
+    });
+
+    it("keeps only the failed id selected when one bulk close rejects", async () => {
+      // Closing 11 succeeds, closing 13 rejects. The failed id must stay
+      // selected so the admin can retry; the successful one is cleared.
+      updateTicketStatus.mockImplementation((id: number) =>
+        id === 13
+          ? Promise.reject(new Error("boom"))
+          : Promise.resolve({ success: true }),
+      );
+      render(<AdminTicketQueue />);
+      await waitForAllRows();
+
+      await selectRows(11, 13);
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("bulk-close-button"));
+
+      await waitFor(() => {
+        expect(updateTicketStatus).toHaveBeenCalledTimes(2);
+      });
+
+      // The action bar still shows exactly the failed id (1 selected),
+      // and the failed row's checkbox stays checked while the successful
+      // one is cleared.
+      const bar = await screen.findByTestId("bulk-action-bar");
+      await waitFor(() => {
+        expect(within(bar).getByText(/1 selected/i)).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("bulk-select-row-13")).toBeChecked();
+      expect(screen.getByTestId("bulk-select-row-11")).not.toBeChecked();
     });
   });
 

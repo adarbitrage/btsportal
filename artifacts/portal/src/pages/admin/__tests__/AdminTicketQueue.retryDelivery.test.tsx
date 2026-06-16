@@ -56,6 +56,7 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     updatedAt: new Date("2026-05-01T12:00:00Z").toISOString(),
     resolvedAt: null,
     deliveryStatus: "delivered",
+    deliveryLastError: null,
     member: { id: 100, name: "Default Member", email: "default@example.test" },
     assignee: null,
     tier: null,
