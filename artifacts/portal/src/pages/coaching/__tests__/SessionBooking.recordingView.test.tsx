@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import type { SessionBooking as SessionBookingType } from "@/lib/session-packs-api";
 
@@ -171,5 +172,62 @@ describe("SessionBooking — member recording controls", () => {
     expect(screen.queryByText(COACH_NOTES_TEXT)).not.toBeInTheDocument();
     expect(screen.queryByText(ACTION_ITEMS_TEXT)).not.toBeInTheDocument();
     expect(screen.queryByText(/coach only/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the in-page recording dialog with the Drive /preview embed URL", async () => {
+    const user = userEvent.setup();
+    const completed = makeBooking({
+      id: 505,
+      status: "completed",
+      recordingUrl: "https://drive.google.com/file/d/REC505/view",
+    });
+    useMySessionBookings.mockReturnValue(bookingsResult([completed]));
+
+    render(<SessionBooking />);
+
+    // The dialog (and its iframe) must not exist until the button is clicked.
+    expect(screen.queryByTitle("Session recording")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("watch-recording-505"));
+
+    // Clicking opens the in-page dialog with an embedded iframe pointing at the
+    // Drive .../preview URL (NOT the original .../view link, which can't embed).
+    const iframe = await screen.findByTitle("Session recording");
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute(
+      "src",
+      "https://drive.google.com/file/d/REC505/preview",
+    );
+  });
+
+  it("opens a non-Drive recording link in a new tab instead of the dialog", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockReturnValue(null as unknown as Window);
+    const nonDriveUrl = "https://example.com/recordings/session-606.mp4";
+    const completed = makeBooking({
+      id: 606,
+      status: "completed",
+      recordingUrl: nonDriveUrl,
+    });
+    useMySessionBookings.mockReturnValue(bookingsResult([completed]));
+
+    render(<SessionBooking />);
+
+    await user.click(screen.getByTestId("watch-recording-606"));
+
+    // A non-Drive link can't be embedded, so it must open in a new tab and the
+    // in-page recording dialog must NOT appear.
+    expect(openSpy).toHaveBeenCalledWith(
+      nonDriveUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    await waitFor(() => {
+      expect(screen.queryByTitle("Session recording")).not.toBeInTheDocument();
+    });
+
+    openSpy.mockRestore();
   });
 });
