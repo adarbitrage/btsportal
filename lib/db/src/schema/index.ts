@@ -14,6 +14,7 @@ export * from "./coaches";
 export * from "./coaching-calls";
 export * from "./session-pack-coaches";
 export * from "./session-pack-bookings";
+export * from "./coach-google-connections";
 export * from "./coaching-credit-ledger";
 export * from "./tickets";
 export * from "./announcements";

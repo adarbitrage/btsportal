@@ -12,7 +12,7 @@ import {
   matchBookingFiles,
   type DriveFileMeta,
 } from "./coaching-recording-matcher";
-import { searchDriveFiles, isDriveConfigured } from "./google-drive-client";
+import { searchDriveFiles, hasAnyDriveSource } from "./google-drive-client";
 
 // Don't start looking until a session has had time to end + Google to process.
 export const INGEST_DELAY_MS = 30 * 60 * 1000; // 30 min after endAt
@@ -121,7 +121,7 @@ export function deriveSearchNeedle(title: string | null): string | null {
 // (no-op, no attempt increment) when Drive is not configured, so once the
 // integration is connected the backlog is picked up automatically.
 export async function runCoachingRecordingIngest(): Promise<void> {
-  if (!isDriveConfigured()) {
+  if (!(await hasAnyDriveSource())) {
     return;
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,8 +45,118 @@ import {
   EMPTY_RECORDING_LINKS,
   type RecordingLinkValues,
 } from "@/components/coaching/RecordingLinksEditor";
+import {
+  useCoachGoogleStatus,
+  useCoachGoogleDisconnect,
+  startGoogleConnect,
+} from "@/lib/coach-google-api";
 
 const PAGE_SIZE = 25;
+
+const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
+  invalid_state: "Your connect link expired. Please try again.",
+  no_email: "Google did not share your email. Please try again.",
+  not_configured: "Google sign-in isn't configured yet. Contact an admin.",
+  exchange_failed: "Google sign-in failed. Please try again.",
+  access_denied: "You declined access. Connect again to enable recordings.",
+};
+
+// Coach-facing card to connect their own Google Drive so the ingest can find
+// their Meet recordings + Gemini notes. Per-coach OAuth — no Workspace admin.
+function GoogleDriveCard() {
+  const { toast } = useToast();
+  const { data, isLoading } = useCoachGoogleStatus();
+  const disconnect = useCoachGoogleDisconnect();
+
+  // Surface the result of the OAuth round-trip (?google=connected|error).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("google");
+    if (!result) return;
+    if (result === "connected") {
+      toast({ title: "Google Drive connected" });
+    } else if (result === "error") {
+      const reason = params.get("reason") ?? "";
+      toast({
+        title: "Could not connect Google Drive",
+        description: GOOGLE_ERROR_MESSAGES[reason] ?? "Please try again.",
+        variant: "destructive",
+      });
+    }
+    params.delete("google");
+    params.delete("reason");
+    const qs = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (qs ? `?${qs}` : ""),
+    );
+  }, [toast]);
+
+  async function handleDisconnect() {
+    try {
+      await disconnect.mutateAsync();
+      toast({ title: "Google Drive disconnected" });
+    } catch (err) {
+      toast({
+        title: "Could not disconnect",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  if (isLoading) return null;
+
+  const connected = data?.connected;
+  const notConfigured = data && !data.configured;
+
+  return (
+    <Card>
+      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-foreground">Google Drive</p>
+            {connected ? (
+              <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/10">
+                Connected
+              </Badge>
+            ) : (
+              <Badge variant="outline">Not connected</Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {connected
+              ? `Recordings & notes from ${data?.email ?? "your account"} link automatically.`
+              : notConfigured
+                ? "Google sign-in isn't set up yet. Ask an admin to add the Google credentials."
+                : "Connect your Google account so your Meet recordings and notes link to each session automatically."}
+          </p>
+        </div>
+        <div className="shrink-0">
+          {connected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDisconnect}
+              disabled={disconnect.isPending}
+            >
+              {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={startGoogleConnect}
+              disabled={notConfigured}
+            >
+              Connect Google Drive
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface RecordingFields {
   recordingUrl: string | null;
@@ -236,6 +346,9 @@ export default function PackCoachDashboard() {
             Notes and action items are shared across all coaches and never shown to members.
           </p>
         </div>
+
+        {/* Google Drive connection */}
+        <GoogleDriveCard />
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

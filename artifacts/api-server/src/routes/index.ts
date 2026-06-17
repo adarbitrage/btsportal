@@ -69,6 +69,7 @@ import adminAssistantGeneratorRouter from "./admin/assistant-generator.js";
 import assistantCardsRouter from "./assistant-cards";
 import adminAssistantCardsRouter from "./admin-assistant-cards";
 import coachDashboardRouter from "./coach-dashboard";
+import coachGoogleRouter from "./coach-google";
 import mediaMavensLinksRouter from "./media-mavens-links";
 import tapfiliateSSORrouter from "./tapfiliate-sso";
 
@@ -144,6 +145,7 @@ router.use(adminAssistantGeneratorRouter);
 router.use(assistantCardsRouter);
 router.use(adminAssistantCardsRouter);
 router.use(coachDashboardRouter);
+router.use(coachGoogleRouter);
 router.use(mediaMavensLinksRouter);
 router.use(tapfiliateSSORrouter);
 

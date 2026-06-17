@@ -47,6 +47,10 @@ const PUBLIC_PATHS = [
   "/v1/health",
   "/integrations/machine-purchase",
   "/integrations/bootstrap-superadmin",
+  // Google OAuth callback: a cross-site redirect from accounts.google.com does
+  // not carry the SameSite=Strict auth cookie. The handler authenticates the
+  // user via the HMAC-signed `state` it issued at connect time instead.
+  "/coach/google/callback",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
