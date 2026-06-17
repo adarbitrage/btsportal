@@ -41,6 +41,7 @@ import adminResourcesRouter from "../routes/admin-resources";
 import adminWebhooksRouter from "../routes/admin-webhooks";
 import adminOutgoingWebhooksRouter from "../routes/admin-outgoing-webhooks";
 import adminExpirationRouter from "../routes/admin-expiration";
+import adminCoachingCallsRouter from "../routes/admin-coaching-calls";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
@@ -115,6 +116,7 @@ beforeAll(async () => {
     adminWebhooksRouter,
     adminOutgoingWebhooksRouter,
     adminExpirationRouter,
+    adminCoachingCallsRouter,
   ]);
 
   for (const role of ADMIN_ROLES) {
@@ -277,6 +279,11 @@ function rbacCases(): RbacCase[] {
       resource: "revenue",
       permission: "revenue:view",
       buildPath: () => "/api/admin/revenue/overview",
+    },
+    {
+      resource: "coaching_calls",
+      permission: "coaching:view",
+      buildPath: () => "/api/admin/coaching/calls",
     },
     // ----- Per-router coverage for admin-bulk / admin-modules / admin-lessons
     // / admin-resources / admin-tools / admin-webhooks /
@@ -516,6 +523,14 @@ function rbacWriteCases(): RbacWriteCase[] {
       // Non-existent win id -> 404 ("Win not found"). Selected over POST so
       // we don't depend on having a real win row to operate on.
       buildPath: () => "/api/admin/wins/9999999/feature",
+    },
+    {
+      resource: "coaching_calls_manage",
+      permission: "coaching:manage",
+      method: "post",
+      // Empty body -> 400 ("Title is required") before any DB write.
+      buildPath: () => "/api/admin/coaching/calls",
+      body: {},
     },
     {
       resource: "ghl_manage",
