@@ -126,3 +126,15 @@ id = "PBJE3uZag2E0TggihxanK"
 uri = "file://exports/BTS_Mentorship_Agreement_Preview.pdf"
 type = "pdf"
 title = "BTS Mentorship Agreement — with Initials & Signatures"
+
+[[outputs]]
+id = "KJ8CPOwfE6aUF-3b28Pby"
+uri = "file://screenshots/lifetime_agreement_full.png"
+type = "image"
+title = "BTS Lifetime Mentorship Mentee Agreement — Preview"
+
+[[outputs]]
+id = "8vub3WdEjz_u5O7P6B_qe"
+uri = "file://BTS_Lifetime_Mentorship_Agreement_DRAFT.md"
+type = "text"
+title = "Lifetime Mentorship Agreement (editable Markdown source)"
