@@ -83,6 +83,7 @@ export default function Coaching() {
                 {upcomingCalls.map((call, i) => (
                   <div
                     key={call.id}
+                    data-testid={`upcoming-call-${call.id}`}
                     className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
                       i !== upcomingCalls.length - 1 ? "border-b border-border/60" : ""
                     } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
