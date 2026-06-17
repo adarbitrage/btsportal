@@ -514,6 +514,7 @@ router.get(
         q: q.q,
         from: q.from,
         to: q.to,
+        likelyNoShow: q.likelyNoShow === "true",
         limit: Number.isInteger(limitRaw) ? limitRaw : undefined,
         offset: Number.isInteger(offsetRaw) ? offsetRaw : undefined,
       });

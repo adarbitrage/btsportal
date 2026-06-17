@@ -127,7 +127,20 @@ export interface PackBookingFilters {
   to?: string;
   limit?: number;
   offset?: number;
+  /** When true, return only rows where the derived likelyNoShow flag is set. */
+  likelyNoShow?: boolean;
 }
+
+// Derived "likely no-show" predicate: a past session still marked "booked"
+// whose recording ingest finished (status no longer "pending") without finding
+// a recording — strong evidence the call never happened. Single-sourced here so
+// the select projection, the filter condition, and the stat count never drift.
+const LIKELY_NO_SHOW_SQL = sql`(
+  ${sessionPackBookingsTable.status} = 'booked'
+  AND ${sessionPackBookingsTable.endAt} < now()
+  AND ${sessionPackBookingsTable.recordingUrl} IS NULL
+  AND ${sessionPackBookingsTable.recordingIngestStatus} <> 'pending'
+)`;
 
 export interface PackBookingRow {
   id: number;
@@ -191,6 +204,9 @@ function buildConditions(filters: PackBookingFilters): SQL[] {
       conditions.push(lte(sessionPackBookingsTable.scheduledAt, new Date(toMs)));
     }
   }
+  if (filters.likelyNoShow) {
+    conditions.push(LIKELY_NO_SHOW_SQL);
+  }
   return conditions;
 }
 
@@ -208,7 +224,19 @@ export async function queryPackBookings(
   const conditions = buildConditions(filters);
   const where = conditions.length ? and(...conditions) : undefined;
 
-  const [rows, countRows, statRows] = await Promise.all([
+  // Count of likely-no-show rows for the review badge — scoped to the same
+  // coach/member/date filters but deliberately ignoring the status and
+  // likelyNoShow filters so the "needs review" count stays visible regardless
+  // of how the list is currently filtered.
+  const likelyConditions = buildConditions({
+    ...filters,
+    status: undefined,
+    likelyNoShow: false,
+  });
+  likelyConditions.push(LIKELY_NO_SHOW_SQL);
+  const likelyWhere = and(...likelyConditions);
+
+  const [rows, countRows, statRows, likelyCountRows] = await Promise.all([
     db
       .select({
         id: sessionPackBookingsTable.id,
@@ -229,12 +257,7 @@ export async function queryPackBookings(
         summaryUrl: sessionPackBookingsTable.summaryUrl,
         transcriptUrl: sessionPackBookingsTable.transcriptUrl,
         recordingIngestStatus: sessionPackBookingsTable.recordingIngestStatus,
-        likelyNoShow: sql<boolean>`(
-          ${sessionPackBookingsTable.status} = 'booked'
-          AND ${sessionPackBookingsTable.endAt} < now()
-          AND ${sessionPackBookingsTable.recordingUrl} IS NULL
-          AND ${sessionPackBookingsTable.recordingIngestStatus} <> 'pending'
-        )`,
+        likelyNoShow: sql<boolean>`${LIKELY_NO_SHOW_SQL}`,
         outcomeAt: sessionPackBookingsTable.outcomeAt,
         cancelledAt: sessionPackBookingsTable.cancelledAt,
         createdAt: sessionPackBookingsTable.createdAt,
@@ -263,6 +286,11 @@ export async function queryPackBookings(
       .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
       .where(where)
       .groupBy(sessionPackBookingsTable.status),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(sessionPackBookingsTable)
+      .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
+      .where(likelyWhere),
   ]);
 
   const stats: Record<string, number> = {
@@ -270,10 +298,12 @@ export async function queryPackBookings(
     cancelled: 0,
     completed: 0,
     no_show: 0,
+    likely_no_show: 0,
   };
   for (const s of statRows) {
     if (s.status) stats[s.status] = Number(s.count);
   }
+  stats.likely_no_show = Number(likelyCountRows[0]?.count ?? 0);
 
   return {
     bookings: rows as PackBookingRow[],

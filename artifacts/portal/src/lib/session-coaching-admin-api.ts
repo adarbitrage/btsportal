@@ -64,6 +64,9 @@ export interface AdminPackBooking {
   summaryUrl: string | null;
   transcriptUrl: string | null;
   recordingIngestStatus: string;
+  // Derived: a past session still "booked" whose recording ingest finished
+  // without finding a recording — strong "likely no-show" signal for review.
+  likelyNoShow: boolean;
   outcomeAt: string | null;
   cancelledAt: string | null;
   createdAt: string;
@@ -83,6 +86,7 @@ export interface AdminPackSessionFilters {
   q?: string;
   from?: string;
   to?: string;
+  likelyNoShow?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -94,6 +98,7 @@ export function useAdminPackSessions(filters: AdminPackSessionFilters = {}) {
   if (filters.q) search.set("q", filters.q);
   if (filters.from) search.set("from", filters.from);
   if (filters.to) search.set("to", filters.to);
+  if (filters.likelyNoShow) search.set("likelyNoShow", "true");
   if (filters.limit) search.set("limit", String(filters.limit));
   if (filters.offset) search.set("offset", String(filters.offset));
   const qs = search.toString();

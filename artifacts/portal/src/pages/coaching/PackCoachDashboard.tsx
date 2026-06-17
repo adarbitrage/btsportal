@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -250,12 +251,29 @@ function statusBadge(status: string) {
   }
 }
 
+// Derived review hint: a past, still-"booked" session whose recording ingest
+// found nothing. Surfaced so coaches can confirm the real outcome via the
+// manual mark-completed / no-show controls — never auto-applied.
+function LikelyNoShowBadge() {
+  return (
+    <Badge
+      variant="warning"
+      className="text-[10px] whitespace-nowrap"
+      data-testid="badge-likely-no-show"
+      title="Past session still booked with no recording found — likely a no-show. Confirm the real outcome with an admin."
+    >
+      Likely no-show
+    </Badge>
+  );
+}
+
 export default function PackCoachDashboard() {
   const { toast } = useToast();
   const [status, setStatus] = useState("all");
   const [coachId, setCoachId] = useState("all");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
+  const [likelyOnly, setLikelyOnly] = useState(false);
   const [page, setPage] = useState(0);
 
   const { data: coaches } = useAdminPackCoaches();
@@ -263,6 +281,7 @@ export default function PackCoachDashboard() {
     status: status === "all" ? undefined : status,
     coachId: coachId === "all" ? undefined : Number(coachId),
     q: search || undefined,
+    likelyNoShow: likelyOnly || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -449,6 +468,19 @@ export default function PackCoachDashboard() {
                 Search
               </Button>
             </div>
+            <label className="flex items-center gap-2 text-sm md:col-span-4">
+              <Checkbox
+                checked={likelyOnly}
+                onCheckedChange={(c) => { setLikelyOnly(c === true); setPage(0); }}
+                data-testid="checkbox-likely-no-show-only"
+              />
+              <span>
+                Show only likely no-shows to review
+                {(stats.likely_no_show ?? 0) > 0 && (
+                  <span className="ml-1 text-muted-foreground">({stats.likely_no_show})</span>
+                )}
+              </span>
+            </label>
           </CardContent>
         </Card>
 
@@ -491,7 +523,12 @@ export default function PackCoachDashboard() {
                         <td className="p-3 text-foreground">
                           {format(new Date(b.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
                         </td>
-                        <td className="p-3">{statusBadge(b.status)}</td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {statusBadge(b.status)}
+                            {b.likelyNoShow && <LikelyNoShowBadge />}
+                          </div>
+                        </td>
                         <td className="p-3">
                           <RecordingLinks booking={b} />
                         </td>

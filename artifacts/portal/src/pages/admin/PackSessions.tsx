@@ -103,6 +103,22 @@ function statusBadge(status: string) {
   }
 }
 
+// Derived review hint: a past, still-"booked" session whose recording ingest
+// found nothing. Surfaced so coaches/admins can confirm the real outcome via
+// the manual mark-completed / no-show controls — never auto-applied.
+function LikelyNoShowBadge() {
+  return (
+    <Badge
+      variant="warning"
+      className="text-[10px] whitespace-nowrap"
+      data-testid="badge-likely-no-show"
+      title="Past session still booked with no recording found — likely a no-show. Confirm with the Complete or No-show actions."
+    >
+      Likely no-show
+    </Badge>
+  );
+}
+
 export default function PackSessions() {
   const { toast } = useToast();
   const [status, setStatus] = useState("all");
@@ -111,6 +127,7 @@ export default function PackSessions() {
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [likelyOnly, setLikelyOnly] = useState(false);
   const [page, setPage] = useState(0);
 
   const { data: coaches } = useAdminPackCoaches();
@@ -120,6 +137,7 @@ export default function PackSessions() {
     q: search || undefined,
     from: from || undefined,
     to: to || undefined,
+    likelyNoShow: likelyOnly || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -306,6 +324,19 @@ export default function PackSessions() {
                 Search
               </Button>
             </div>
+            <label className="flex items-center gap-2 text-sm md:col-span-5">
+              <Checkbox
+                checked={likelyOnly}
+                onCheckedChange={(c) => { setLikelyOnly(c === true); setPage(0); }}
+                data-testid="checkbox-likely-no-show-only"
+              />
+              <span>
+                Show only likely no-shows to review
+                {(stats.likely_no_show ?? 0) > 0 && (
+                  <span className="ml-1 text-muted-foreground">({stats.likely_no_show})</span>
+                )}
+              </span>
+            </label>
           </CardContent>
         </Card>
 
@@ -348,7 +379,12 @@ export default function PackSessions() {
                         <td className="p-3 text-foreground">
                           {format(new Date(b.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
                         </td>
-                        <td className="p-3">{statusBadge(b.status)}</td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {statusBadge(b.status)}
+                            {b.likelyNoShow && <LikelyNoShowBadge />}
+                          </div>
+                        </td>
                         <td className="p-3">
                           <RecordingLinks booking={b} />
                         </td>

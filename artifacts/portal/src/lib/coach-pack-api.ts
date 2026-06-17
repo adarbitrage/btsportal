@@ -50,6 +50,7 @@ export function useCoachPackSessions(filters: AdminPackSessionFilters = {}) {
   if (filters.q) search.set("q", filters.q);
   if (filters.from) search.set("from", filters.from);
   if (filters.to) search.set("to", filters.to);
+  if (filters.likelyNoShow) search.set("likelyNoShow", "true");
   if (filters.limit) search.set("limit", String(filters.limit));
   if (filters.offset) search.set("offset", String(filters.offset));
   const qs = search.toString();

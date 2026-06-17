@@ -181,6 +181,7 @@ router.get(
       q: firstString(req.query.q),
       from: firstString(req.query.from),
       to: firstString(req.query.to),
+      likelyNoShow: firstString(req.query.likelyNoShow) === "true",
       limit: Number.isInteger(limitRaw) ? limitRaw : undefined,
       offset: Number.isInteger(offsetRaw) ? offsetRaw : undefined,
     });
