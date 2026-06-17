@@ -75,6 +75,12 @@ describe("GET /dashboard tool shortcut entitlement gating", () => {
   const userProductIds: number[] = [];
   let categoryId: number;
   let toolId: number;
+  // A tool that requires a HIGHER tier (`software:expanded`) than the entitled
+  // member owns (`software:base`). It is also featured + recently used, so it
+  // would surface in `recentTools` if the handler did not re-check each tool's
+  // own `requiredEntitlement`.
+  let higherTierToolId: number;
+  const toolIds: number[] = [];
   const usageLogIds: number[] = [];
 
   beforeAll(async () => {
@@ -137,27 +143,46 @@ describe("GET /dashboard tool shortcut entitlement gating", () => {
       })
       .returning({ id: toolsTable.id });
     toolId = tool.id;
+    toolIds.push(toolId);
 
-    // Seed a recent usage record for the entitled member so this exact tool is
-    // guaranteed to surface in `recentTools` regardless of any other tools the
-    // shared dev DB might have seeded.
-    const [usage] = await db
-      .insert(toolUsageLogTable)
+    // A second tool that requires a HIGHER tier than the entitled member owns.
+    // The member holds `software:base` but this tool demands
+    // `software:expanded`, so it must NOT surface in `recentTools` even though
+    // it is active, featured, and recently used by the member.
+    const [higherTierTool] = await db
+      .insert(toolsTable)
       .values({
-        userId: entitledUserId,
-        toolId,
-        action: "launch",
+        slug: `${PREFIX}-tool-expanded`,
+        name: `${PREFIX}-tool-expanded`,
+        shortDescription: "Higher-tier test tool shortcut",
+        categoryId,
+        requiredEntitlement: "software:expanded",
+        status: "active",
+        isFeatured: 1,
       })
+      .returning({ id: toolsTable.id });
+    higherTierToolId = higherTierTool.id;
+    toolIds.push(higherTierToolId);
+
+    // Seed recent usage records for the entitled member so these exact tools are
+    // guaranteed to be candidates for `recentTools` regardless of any other
+    // tools the shared dev DB might have seeded.
+    const usageRows = await db
+      .insert(toolUsageLogTable)
+      .values([
+        { userId: entitledUserId, toolId, action: "launch" },
+        { userId: entitledUserId, toolId: higherTierToolId, action: "launch" },
+      ])
       .returning({ id: toolUsageLogTable.id });
-    usageLogIds.push(usage.id);
+    usageLogIds.push(...usageRows.map((u) => u.id));
   });
 
   afterAll(async () => {
     if (usageLogIds.length > 0) {
       await db.delete(toolUsageLogTable).where(inArray(toolUsageLogTable.id, usageLogIds));
     }
-    if (toolId) {
-      await db.delete(toolsTable).where(eq(toolsTable.id, toolId));
+    if (toolIds.length > 0) {
+      await db.delete(toolsTable).where(inArray(toolsTable.id, toolIds));
     }
     if (categoryId) {
       await db.delete(toolCategoriesTable).where(eq(toolCategoriesTable.id, categoryId));
@@ -195,5 +220,23 @@ describe("GET /dashboard tool shortcut entitlement gating", () => {
     const tool = res.body.recentTools.find((t: any) => t.id === toolId);
     expect(tool).toBeDefined();
     expect(tool.slug).toBe(`${PREFIX}-tool`);
+  });
+
+  it("omits a recently-used tool that requires a higher tier than the member owns", async () => {
+    const res = await request(app)
+      .get("/api/dashboard")
+      .set("Cookie", entitledCookie);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.recentTools)).toBe(true);
+    // The member owns only `software:base`. Even though the higher-tier tool is
+    // active, featured, and recently used by this member, the handler must
+    // re-check each tool's own `requiredEntitlement` and exclude it.
+    const higherTier = res.body.recentTools.find((t: any) => t.id === higherTierToolId);
+    expect(higherTier).toBeUndefined();
+    // The base-tier tool is still shown, proving the filter is per-tool and not
+    // an all-or-nothing block.
+    const baseTier = res.body.recentTools.find((t: any) => t.id === toolId);
+    expect(baseTier).toBeDefined();
   });
 });

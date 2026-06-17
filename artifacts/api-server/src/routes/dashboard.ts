@@ -116,14 +116,15 @@ router.get("/dashboard", async (req, res): Promise<void> => {
           shortDescription: toolsTable.shortDescription,
           icon: toolsTable.icon,
           isFeatured: toolsTable.isFeatured,
+          requiredEntitlement: toolsTable.requiredEntitlement,
         })
         .from(toolsTable)
         .where(sql`${toolsTable.id} IN (${sql.join(toolIds.map(id => sql`${id}`), sql`, `)})`);
 
       recentTools = toolIds
         .map((id) => tools.find((t) => t.id === id))
-        .filter(Boolean)
-        .map((t: any) => ({ ...t, isFeatured: t.isFeatured === 1 }));
+        .filter((t): t is NonNullable<typeof t> => Boolean(t) && entitlements.has(t!.requiredEntitlement))
+        .map(({ requiredEntitlement, ...t }) => ({ ...t, isFeatured: t.isFeatured === 1 }));
     }
 
     if (recentTools.length < 3) {
@@ -135,6 +136,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
           shortDescription: toolsTable.shortDescription,
           icon: toolsTable.icon,
           isFeatured: toolsTable.isFeatured,
+          requiredEntitlement: toolsTable.requiredEntitlement,
         })
         .from(toolsTable)
         .where(and(eq(toolsTable.status, "active"), eq(toolsTable.isFeatured, 1)))
@@ -143,8 +145,13 @@ router.get("/dashboard", async (req, res): Promise<void> => {
 
       const existingIds = new Set(recentTools.map((t: any) => t.id));
       for (const ft of featuredTools) {
-        if (!existingIds.has(ft.id) && recentTools.length < 3) {
-          recentTools.push({ ...ft, isFeatured: ft.isFeatured === 1 });
+        if (
+          !existingIds.has(ft.id) &&
+          recentTools.length < 3 &&
+          entitlements.has(ft.requiredEntitlement)
+        ) {
+          const { requiredEntitlement, ...rest } = ft;
+          recentTools.push({ ...rest, isFeatured: ft.isFeatured === 1 });
         }
       }
     }
