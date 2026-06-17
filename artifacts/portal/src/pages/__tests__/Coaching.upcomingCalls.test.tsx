@@ -25,9 +25,11 @@ vi.mock("wouter", () => ({
 
 const useListCoachingCalls = vi.fn();
 const useGetCurrentMember = vi.fn();
+const useListCoaches = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useListCoachingCalls: (...args: unknown[]) => useListCoachingCalls(...args),
   useGetCurrentMember: (...args: unknown[]) => useGetCurrentMember(...args),
+  useListCoaches: (...args: unknown[]) => useListCoaches(...args),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -56,6 +58,10 @@ beforeEach(() => {
   navigate.mockReset();
   useListCoachingCalls.mockReset();
   useGetCurrentMember.mockReset();
+  useListCoaches.mockReset();
+  // The "Your Coaches" grid is independent of these assertions; default to an
+  // empty roster so the section simply doesn't render.
+  useListCoaches.mockReturnValue({ data: [] });
   // The Upcoming Calls section gates per-call on `call.isAccessible`, not on the
   // member's entitlements. Grant `coaching:group` so the separate weekly
   // schedule renders Join Call links (not its own Unlock buttons), keeping the

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Users, Lock, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useListCoachingCalls, type CoachingCall } from "@workspace/api-client-react";
+import { useListCoachingCalls, useListCoaches, type CoachingCall } from "@workspace/api-client-react";
 
 type AvatarTint = {
   bg: string;
@@ -13,12 +13,28 @@ type AvatarTint = {
   text: string;
 };
 
-const coaches: { name: string; initials: string; tint: AvatarTint }[] = [
-  { name: "Sasha", initials: "SB", tint: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" } },
-  { name: "Bruce", initials: "BC", tint: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" } },
-  { name: "Michael", initials: "MW", tint: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" } },
-  { name: "Todd", initials: "TR", tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" } },
+// Tints are assigned per-coach by position so the grid stays visually varied
+// no matter which coaches the backend returns. Order matches the original
+// hand-picked palette and cycles for any additional coaches.
+const avatarTints: AvatarTint[] = [
+  { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+  { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
+  { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" },
+  { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
+  { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" },
+  { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" },
 ];
+
+// Derive up to two uppercase initials from a coach's name (e.g. "Sarah
+// Mitchell" -> "SM", "Sasha" -> "SA"), so initials track the real roster.
+function coachInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 // Renders the per-call action shared by the "Upcoming Calls" list and the
 // recurring weekly schedule. Both sections gate identically off the call's
@@ -70,6 +86,7 @@ function weekdayOrder(d: Date): number {
 export default function Coaching() {
   const [, navigate] = useLocation();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
+  const { data: coaches } = useListCoaches();
 
   // The recurring "Live Coaching Calls 6 Days/Week" schedule is the set of
   // upcoming weekly group Q&A calls, sourced from the same backend the Upcoming
@@ -207,23 +224,32 @@ export default function Coaching() {
           </CardContent>
         </Card>
 
-        <div>
-          <h2 className="text-xl font-bold text-foreground mb-5">Your Coaches</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {coaches.map((coach) => (
-              <Card key={coach.name} className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6 text-center">
-                  <div
-                    className={`w-20 h-20 rounded-full ${coach.tint.bg} ${coach.tint.text} border ${coach.tint.border} mx-auto mb-4 flex items-center justify-center text-2xl font-bold`}
+        {coaches && coaches.length > 0 && (
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-5">Your Coaches</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {coaches.map((coach, i) => {
+                const tint = avatarTints[i % avatarTints.length];
+                return (
+                  <Card
+                    key={coach.id}
+                    data-testid={`coach-${coach.id}`}
+                    className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
                   >
-                    {coach.initials}
-                  </div>
-                  <h3 className="text-sm font-bold text-foreground">{coach.name}</h3>
-                </CardContent>
-              </Card>
-            ))}
+                    <CardContent className="p-6 text-center">
+                      <div
+                        className={`w-20 h-20 rounded-full ${tint.bg} ${tint.text} border ${tint.border} mx-auto mb-4 flex items-center justify-center text-2xl font-bold`}
+                      >
+                        {coachInitials(coach.name)}
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground">{coach.name}</h3>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
