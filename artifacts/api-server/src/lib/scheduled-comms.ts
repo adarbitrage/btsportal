@@ -47,6 +47,28 @@ function getQueue(): Queue {
   return queue;
 }
 
+// Claim a send slot via the dedup store, distinguishing the three outcomes that
+// matter to a scheduler: a fresh send (proceed), an already-recorded send (skip
+// quietly), and a dedup-store failure. The last case is logged LOUDLY so a
+// broken `comms_send_log` table surfaces as an error rather than silently
+// suppressing every scheduled email. We still skip on error (rather than send
+// blindly) so a transient outage can't trigger uncontrolled double-sends every
+// 15 minutes — but the failure is now observable instead of swallowed.
+async function reserveSend(
+  sendKey: string,
+  channel: string,
+  context: string
+): Promise<boolean> {
+  const outcome = await checkAndRecordSend(sendKey, channel);
+  if (outcome === "error") {
+    console.error(
+      `[Scheduled Comms] Dedup store unavailable while reserving "${sendKey}" (${context}); skipping this send to avoid uncontrolled double-sends. The comms_send_log dedup store appears broken — investigate, as scheduled emails are being suppressed.`
+    );
+    return false;
+  }
+  return outcome === "recorded";
+}
+
 // Coaching calls don't carry a per-call timezone, so format the reminder's
 // human-readable date/time in the product's default timezone (America/New_York)
 // for a stable, sensible value across every recipient's email.
@@ -126,7 +148,7 @@ export async function processCoachingCallReminders(): Promise<void> {
       seen.add(member.id);
 
       const sendKey = `coaching_reminder_24h_email_${call.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "email");
+      const isNew = await reserveSend(sendKey, "email", "coaching reminder 24h email");
       if (!isNew) continue;
 
       try {
@@ -192,7 +214,7 @@ export async function processCoachingCallReminders(): Promise<void> {
       seen.add(member.id);
 
       const sendKey = `coaching_reminder_1h_sms_${call.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "sms");
+      const isNew = await reserveSend(sendKey, "sms", "coaching reminder 1h SMS");
       if (!isNew) continue;
 
       try {
@@ -253,7 +275,7 @@ export async function processNewContentAlerts(): Promise<void> {
       if (!member.email) continue;
 
       const sendKey = `content_alert_email_${announcement.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "email");
+      const isNew = await reserveSend(sendKey, "email", "new-content email");
       if (!isNew) continue;
 
       try {
@@ -297,7 +319,7 @@ export async function processNewContentAlerts(): Promise<void> {
       if (!member.phone) continue;
 
       const sendKey = `content_alert_sms_${announcement.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "sms");
+      const isNew = await reserveSend(sendKey, "sms", "new-content SMS");
       if (!isNew) continue;
 
       try {
@@ -349,7 +371,7 @@ export async function processMentorshipExpirationWarnings(): Promise<void> {
     const isUrgent = item.expiresAt && item.expiresAt <= sevenDaysFromNow;
     const tier = isUrgent ? "7d" : "30d";
     const sendKey = `mentorship_expiration_${tier}_${item.userProductId}`;
-    const isNew = await checkAndRecordSend(sendKey, "email");
+    const isNew = await reserveSend(sendKey, "email", `mentorship expiration ${tier} email`);
     if (!isNew) continue;
 
     // The 7-day window is a strict subset of the 30-day window, so a member
@@ -399,7 +421,7 @@ export async function processMentorshipExpirationWarnings(): Promise<void> {
   for (const item of expired) {
     if (!item.userEmail) continue;
     const sendKey = `mentorship_expired_${item.userProductId}`;
-    const isNew = await checkAndRecordSend(sendKey, "email");
+    const isNew = await reserveSend(sendKey, "email", "mentorship expired email");
     if (!isNew) continue;
 
     try {
@@ -480,7 +502,7 @@ export async function processSessionFeedbackPrompts(): Promise<void> {
       // Per-member dedup key so each entitled member is prompted at most once
       // per call even as the 15-minute scheduler re-runs inside the window.
       const sendKey = `session_feedback_email_${call.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "email");
+      const isNew = await reserveSend(sendKey, "email", "session feedback email");
       if (!isNew) continue;
 
       try {
@@ -548,7 +570,7 @@ export async function processRecordingReadyNotifications(): Promise<void> {
       seen.add(member.id);
 
       const sendKey = `recording_ready_email_${call.id}_${member.id}`;
-      const isNew = await checkAndRecordSend(sendKey, "email");
+      const isNew = await reserveSend(sendKey, "email", "recording-ready email");
       if (!isNew) continue;
 
       try {

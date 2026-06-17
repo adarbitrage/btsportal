@@ -27,9 +27,9 @@ const { queueEmailMock, sentKeys, sentChannels, checkAndRecordSendMock } =
       queueEmailMock: vi.fn(async (..._args: any[]) => ({ result: "queued" as const })),
       checkAndRecordSendMock: vi.fn(async (sendKey: string, channel: string) => {
         sentChannels.push({ sendKey, channel });
-        if (sentKeys.has(sendKey)) return false;
+        if (sentKeys.has(sendKey)) return "duplicate";
         sentKeys.add(sendKey);
-        return true;
+        return "recorded";
       }),
     };
   });

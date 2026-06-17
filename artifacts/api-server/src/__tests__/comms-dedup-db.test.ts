@@ -30,13 +30,13 @@ describe("checkAndRecordSend — real comms_send_log dedup", () => {
 
     // First call: nothing recorded yet -> records the row, returns "new".
     expect(await wasSent(key)).toBe(false);
-    expect(await checkAndRecordSend(key, "email")).toBe(true);
+    expect(await checkAndRecordSend(key, "email")).toBe("recorded");
 
     // The row is now persisted in the real table.
     expect(await wasSent(key)).toBe(true);
 
     // Second call with the SAME key: ON CONFLICT DO NOTHING -> "already sent".
-    expect(await checkAndRecordSend(key, "email")).toBe(false);
+    expect(await checkAndRecordSend(key, "email")).toBe("duplicate");
 
     // Exactly one row exists for this key — the conflict did not insert a dup.
     const rows = await db.execute(
@@ -49,13 +49,13 @@ describe("checkAndRecordSend — real comms_send_log dedup", () => {
     const keyA = `${TAG}-independent-a`;
     const keyB = `${TAG}-independent-b`;
 
-    expect(await checkAndRecordSend(keyA, "email")).toBe(true);
+    expect(await checkAndRecordSend(keyA, "email")).toBe("recorded");
     // A distinct key is unaffected by keyA already being recorded.
-    expect(await checkAndRecordSend(keyB, "email")).toBe(true);
+    expect(await checkAndRecordSend(keyB, "email")).toBe("recorded");
 
     // And each still dedups on its own.
-    expect(await checkAndRecordSend(keyA, "email")).toBe(false);
-    expect(await checkAndRecordSend(keyB, "email")).toBe(false);
+    expect(await checkAndRecordSend(keyA, "email")).toBe("duplicate");
+    expect(await checkAndRecordSend(keyB, "email")).toBe("duplicate");
   });
 
   it("dedups on send_key regardless of channel (key is the conflict target)", async () => {
@@ -64,8 +64,8 @@ describe("checkAndRecordSend — real comms_send_log dedup", () => {
     // the channel into the send_key when it wants per-channel dedup.
     const key = `${TAG}-channel-shared`;
 
-    expect(await checkAndRecordSend(key, "email")).toBe(true);
-    expect(await checkAndRecordSend(key, "sms")).toBe(false);
+    expect(await checkAndRecordSend(key, "email")).toBe("recorded");
+    expect(await checkAndRecordSend(key, "sms")).toBe("duplicate");
 
     const rows = await db.execute(
       sql`SELECT count(*)::int AS n FROM comms_send_log WHERE send_key = ${key}`,
@@ -80,11 +80,11 @@ describe("checkAndRecordSend — real comms_send_log dedup", () => {
     const emailKey = `${base}_email`;
     const smsKey = `${base}_sms`;
 
-    expect(await checkAndRecordSend(emailKey, "email")).toBe(true);
-    expect(await checkAndRecordSend(smsKey, "sms")).toBe(true);
+    expect(await checkAndRecordSend(emailKey, "email")).toBe("recorded");
+    expect(await checkAndRecordSend(smsKey, "sms")).toBe("recorded");
 
     // Each is independently deduped.
-    expect(await checkAndRecordSend(emailKey, "email")).toBe(false);
-    expect(await checkAndRecordSend(smsKey, "sms")).toBe(false);
+    expect(await checkAndRecordSend(emailKey, "email")).toBe("duplicate");
+    expect(await checkAndRecordSend(smsKey, "sms")).toBe("duplicate");
   });
 });
