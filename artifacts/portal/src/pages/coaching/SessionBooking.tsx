@@ -42,7 +42,6 @@ import {
 import { format, addMinutes, isBefore } from "date-fns";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
 import {
   useSessionBalance,
   useMySessionBookings,
@@ -62,12 +61,6 @@ function isLockedWithin24h(scheduledAt: string, nowMs: number): boolean {
 }
 
 /**
- * TEMPORARY DESIGN PREVIEW — used only for the upcoming-session cancellation
- * policy UI below. Active for the account below.
- */
-const DESIGN_PREVIEW_EMAIL = "sasha@cherringtonmedia.com";
-
-/**
  * Google Drive "view" links (…/file/d/<id>/view) can't be embedded directly;
  * the embeddable player URL is …/file/d/<id>/preview. Returns null when the
  * URL isn't a recognizable Drive file link (caller falls back to opening it).
@@ -75,32 +68,6 @@ const DESIGN_PREVIEW_EMAIL = "sasha@cherringtonmedia.com";
 function toDriveEmbedUrl(url: string): string | null {
   const match = url.match(/\/file\/d\/([^/]+)/);
   return match ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
-}
-
-/**
- * TEMPORARY DESIGN PREVIEW — an upcoming session scheduled inside the 24-hour
- * window so the cancellation-policy UI (locked reschedule + "credit will be
- * used" warning) can be previewed. Local fixture only (negative id); it is
- * never sent to the API or GHL.
- */
-function buildDesignPreviewUpcomingSession(): SessionBookingType {
-  const scheduledAt = new Date(Date.now() + 6 * 60 * 60 * 1000);
-  const endAt = addMinutes(scheduledAt, 60);
-  return {
-    id: -2,
-    coachId: 0,
-    coachName: "Michael",
-    coachPhotoUrl: null,
-    scheduledAt: scheduledAt.toISOString(),
-    endAt: endAt.toISOString(),
-    durationMinutes: 60,
-    meetLink: "https://meet.google.com/abc-defg-hij",
-    status: "booked",
-    title: "1-on-1 Coaching with Michael",
-    discussionTopic: "Reviewing my Q3 funnel and scaling plan",
-    cancelledAt: null,
-    createdAt: new Date().toISOString(),
-  };
 }
 
 const PACKAGE_PLACEHOLDERS = [
@@ -308,7 +275,6 @@ function UpcomingSessionCard({
 
 export default function SessionBooking() {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [pastPage, setPastPage] = useState(0);
   const [activeRecording, setActiveRecording] =
     useState<SessionBookingType | null>(null);
@@ -320,8 +286,6 @@ export default function SessionBooking() {
   const { data: bookings, isLoading: bookingsLoading } = useMySessionBookings();
   const cancelMutation = useCancelSessionBooking();
 
-  const showDesignPreview = user?.email === DESIGN_PREVIEW_EMAIL;
-
   const balance = balanceData?.balance ?? 0;
   const hasCredits = balance > 0;
   const now = new Date();
@@ -330,13 +294,10 @@ export default function SessionBooking() {
     const real = (bookings ?? []).filter(
       (b) => b.status === "booked" && new Date(b.scheduledAt).getTime() >= now.getTime(),
     );
-    const combined = showDesignPreview
-      ? [...real, buildDesignPreviewUpcomingSession()]
-      : real;
-    return combined.sort(
+    return [...real].sort(
       (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
     );
-  }, [bookings, showDesignPreview]);
+  }, [bookings]);
   const nextSession = upcoming[0];
   const nextLocked = nextSession
     ? isLockedWithin24h(nextSession.scheduledAt, now.getTime())
@@ -373,16 +334,6 @@ export default function SessionBooking() {
     const booking = cancelTarget;
     setCancelTarget(null);
     if (!booking) return;
-    // The design-preview session is a local fixture (negative id); never call
-    // the API for it.
-    if (booking.id < 0) {
-      toast({
-        title: "Preview only",
-        description:
-          "This is a sample session for design preview — nothing was changed.",
-      });
-      return;
-    }
     try {
       const result = await cancelMutation.mutateAsync({ bookingId: booking.id });
       toast({
