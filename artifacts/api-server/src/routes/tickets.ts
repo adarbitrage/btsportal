@@ -1,13 +1,15 @@
 import { Router, type IRouter } from "express";
 import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, usersTable, webhookLogsTable } from "@workspace/db";
-import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, sql, asc } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { queueTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import {
   verifyWebhookSignature as verifyTicketDeskSignature,
   isWebhookConfigured as isTicketDeskWebhookConfigured,
   parseInboundReply as parseTicketDeskReply,
+  parseInboundClosure as parseTicketDeskClosure,
   isMemberAuthor as isTicketDeskMemberAuthor,
+  signalResolutionToTicketDesk,
 } from "../lib/ticketdesk-client";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import {
@@ -71,19 +73,24 @@ router.get("/tickets", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const status = req.query.status as string | undefined;
 
+  // Sort: active tickets first (open/in_progress/awaiting_response), then
+  // resolved/closed, both groups ordered by most-recently-updated first.
+  // We use a CASE expression to assign a sort group: active = 0, rest = 1.
+  const activeGroup = sql<number>`CASE WHEN ${ticketsTable.status} IN ('open','in_progress','awaiting_response') THEN 0 ELSE 1 END`;
+
   let tickets;
   if (status) {
     tickets = await db
       .select()
       .from(ticketsTable)
       .where(and(eq(ticketsTable.userId, userId), eq(ticketsTable.status, status)))
-      .orderBy(desc(ticketsTable.createdAt));
+      .orderBy(asc(activeGroup), desc(ticketsTable.updatedAt));
   } else {
     tickets = await db
       .select()
       .from(ticketsTable)
       .where(eq(ticketsTable.userId, userId))
-      .orderBy(desc(ticketsTable.createdAt));
+      .orderBy(asc(activeGroup), desc(ticketsTable.updatedAt));
   }
 
   res.json(ListTicketsResponse.parse(tickets));
@@ -287,12 +294,67 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = parseTicketDeskReply(
-    (req.body as Record<string, unknown>) ?? {},
-  );
+  const payload = (req.body as Record<string, unknown>) ?? {};
+
+  // --- Step 1: closure-event detection (independent of reply parsing) ------
+  // Handles "conversation.resolved", "conversation.closed", etc. — events that
+  // may carry no reply body so parseInboundReply returns null, but which still
+  // need to mirror the resolution back to the portal ticket.
+  const closureTicketNumber = parseTicketDeskClosure(payload);
+  if (closureTicketNumber) {
+    const closureExternalId = `ticketdesk_closure_${closureTicketNumber}_${Date.now()}`;
+    try {
+      const [closureTicket] = await db
+        .select()
+        .from(ticketsTable)
+        .where(eq(ticketsTable.ticketNumber, closureTicketNumber))
+        .limit(1);
+
+      if (
+        closureTicket &&
+        closureTicket.status !== "resolved" &&
+        closureTicket.status !== "closed"
+      ) {
+        await db
+          .update(ticketsTable)
+          .set({ status: "resolved", resolvedAt: new Date() })
+          .where(eq(ticketsTable.id, closureTicket.id));
+
+        await db.insert(webhookLogsTable).values({
+          externalId: closureExternalId,
+          eventType: "ticketdesk.closure",
+          status: "processed",
+          payload: payload as Record<string, unknown>,
+          result: {
+            action: "resolved",
+            ticketId: closureTicket.id,
+            ticketNumber: closureTicket.ticketNumber,
+          },
+          processedAt: new Date(),
+        }).onConflictDoNothing({ target: webhookLogsTable.externalId });
+
+        console.log(
+          `[TicketDesk Webhook] Resolved ticket ${closureTicket.ticketNumber} from closure event`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[TicketDesk Webhook] Failed to process closure for ${closureTicketNumber}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  // --- Step 2: reply processing (existing logic) ----------------------------
+  const parsed = parseTicketDeskReply(payload);
 
   if (!parsed) {
-    res.status(200).json({ received: true, ignored: "not_a_reply" });
+    // Not a reply (may have been a pure closure event handled above, or
+    // an unrecognised event type). ACK so TicketDesk doesn't retry forever.
+    res.status(200).json({
+      received: true,
+      ignored: closureTicketNumber ? "closure_only" : "not_a_reply",
+    });
     return;
   }
 
@@ -323,7 +385,7 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
           externalId,
           eventType: parsed.eventType ?? "ticketdesk.reply",
           status: "processing",
-          payload: (req.body ?? {}) as Record<string, unknown>,
+          payload: payload as Record<string, unknown>,
           result: {},
         })
         .onConflictDoNothing({ target: webhookLogsTable.externalId })
@@ -375,6 +437,8 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
     // for SLA and move a brand-new ("open") ticket into "in_progress". A ticket
     // that was paused awaiting the member resumes its SLA clock now that support
     // has responded again.
+    // Only advance status if the ticket is still active — it may have already
+    // been resolved by the closure-event branch above (Step 1).
     await recordFirstResponse(ticket.id);
 
     if (ticket.status === "open") {
@@ -554,6 +618,74 @@ async function sendTicketReplyNotification(
     );
   }
 }
+
+// Member-initiated ticket resolution.
+// POST /tickets/:id/resolve sets the portal ticket to "resolved" and signals
+// TicketDesk so both surfaces agree.  It is:
+//   - Member-only (enforced by userId ownership check)
+//   - Idempotent: no-op when ticket is already resolved/closed
+//   - Best-effort TicketDesk notification: a TicketDesk failure never blocks
+//     the portal status change
+router.post("/tickets/:id/resolve", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const ticketId = parseInt(req.params.id as string);
+  if (isNaN(ticketId)) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const [ticket] = await db
+    .select()
+    .from(ticketsTable)
+    .where(and(eq(ticketsTable.id, ticketId), eq(ticketsTable.userId, userId)));
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  // Idempotent: already resolved or closed — just return current state
+  if (ticket.status === "resolved" || ticket.status === "closed") {
+    res.json(ticket);
+    return;
+  }
+
+  // Update the portal ticket
+  const [updated] = await db
+    .update(ticketsTable)
+    .set({ status: "resolved", resolvedAt: new Date() })
+    .where(eq(ticketsTable.id, ticketId))
+    .returning();
+
+  // Signal TicketDesk best-effort — never block or fail the response
+  ;(async () => {
+    try {
+      const [member] = await db
+        .select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (member && ticket.deliveryStatus === "delivered") {
+        await signalResolutionToTicketDesk({
+          email: member.email,
+          btsTicketNumber: ticket.ticketNumber,
+          memberName: member.name,
+        });
+        console.log(
+          `[Tickets] Signalled resolution to TicketDesk for ticket ${ticket.ticketNumber}`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[Tickets] Failed to signal resolution to TicketDesk for ticket ${ticket.ticketNumber}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  })();
+
+  res.json(updated);
+});
 
 router.get("/tickets/:id", async (req, res): Promise<void> => {
   const userId = req.userId!;

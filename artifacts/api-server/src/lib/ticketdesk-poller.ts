@@ -69,7 +69,8 @@ import {
 } from "drizzle-orm";
 import {
   createSessionForPolling,
-  fetchThreadMessages,
+  fetchThreadMessagesWithMeta,
+  detectThreadClosed,
   isAgentMessage,
   type TicketDeskThreadMessage,
 } from "./ticketdesk-client";
@@ -109,13 +110,41 @@ async function pollSingleTicket(
   }
 
   let messages: TicketDeskThreadMessage[];
+  let rawData: Record<string, unknown> = {};
   try {
-    messages = await fetchThreadMessages(sessionToken);
+    const result = await fetchThreadMessagesWithMeta(sessionToken);
+    messages = result.messages;
+    rawData = result.rawData;
   } catch (err) {
     console.warn(
       `[TicketDesk Poller] Could not fetch messages for ticket ${ticket.ticketNumber}: ${err instanceof Error ? err.message : String(err)}`,
     );
     return { appended: 0, skipped: 0 };
+  }
+
+  // Check whether TicketDesk has closed/resolved this conversation.
+  // When closure is detected:
+  //   1. Set the portal ticket to "resolved" (best-effort, idempotent on ticket.id).
+  //   2. Do NOT return early — any newly-seen agent messages in this same poll
+  //      must still be appended so members see the final support response.
+  //   3. The threadClosed flag is used below to skip the "in_progress" status
+  //      promotion (which would overwrite "resolved" using the stale ticket.status).
+  const threadClosed = detectThreadClosed(messages, rawData);
+  if (threadClosed && ACTIVE_STATUSES.includes(ticket.status)) {
+    try {
+      await db
+        .update(ticketsTable)
+        .set({ status: "resolved", resolvedAt: new Date() })
+        .where(eq(ticketsTable.id, ticket.id));
+      console.log(
+        `[TicketDesk Poller] Marked ticket ${ticket.ticketNumber} as resolved (TicketDesk closed the conversation)`,
+      );
+    } catch (err) {
+      console.error(
+        `[TicketDesk Poller] Failed to resolve ticket ${ticket.ticketNumber} from TicketDesk closure:`,
+        err,
+      );
+    }
   }
 
   const agentMessages = messages.filter((m) => isAgentMessage(m));
@@ -196,7 +225,13 @@ async function pollSingleTicket(
       );
     }
 
-    if (ticket.status === "open" || ticket.status === "awaiting_response") {
+    // Only promote to "in_progress" when the thread was NOT already closed.
+    // If threadClosed is true the ticket has already been set to "resolved"
+    // above; promoting it again using the stale ticket.status would revert it.
+    if (
+      !threadClosed &&
+      (ticket.status === "open" || ticket.status === "awaiting_response")
+    ) {
       try {
         await db
           .update(ticketsTable)
@@ -210,7 +245,7 @@ async function pollSingleTicket(
       }
     }
 
-    if (ticket.status === "awaiting_response") {
+    if (!threadClosed && ticket.status === "awaiting_response") {
       try {
         await resumeSla(ticket.id);
       } catch (err) {

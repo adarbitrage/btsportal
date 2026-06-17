@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetTicket, useAddTicketMessage, getGetTicketQueryKey } from "@workspace/api-client-react";
+import { useGetTicket, useAddTicketMessage, useResolveTicket, getGetTicketQueryKey, getListTicketsQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,10 @@ export default function TicketDetail() {
   const ticketId = parseInt(id || "1", 10);
   const { data: ticket, isLoading } = useGetTicket(ticketId);
   const addMessage = useAddTicketMessage();
+  const resolveTicket = useResolveTicket();
   const queryClient = useQueryClient();
   const [reply, setReply] = useState("");
+  const [resolving, setResolving] = useState(false);
 
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
@@ -32,19 +34,36 @@ export default function TicketDetail() {
     });
   };
 
+  const handleMarkResolved = () => {
+    if (resolving) return;
+    if (!window.confirm("Mark this ticket as resolved? You can still reply to re-open it.")) return;
+    setResolving(true);
+    resolveTicket.mutate({ id: ticketId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTicketQueryKey(ticketId) });
+        queryClient.invalidateQueries({ queryKey: getListTicketsQueryKey() });
+      },
+      onSettled: () => {
+        setResolving(false);
+      },
+    });
+  };
+
   const visibleMessages = ticket.messages.filter((msg: any) => !msg.isInternal);
 
   const topicPreset = getTopicPresetForSubject(ticket.subject);
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+  const isActive = !isResolved;
 
   const deliveryStatus = ticket.deliveryStatus;
-  // "delivered" gets a confirming green badge. "failed" means automatic
-  // delivery exhausted its retries — the team was still notified by email,
-  // so we reassure the member rather than alarm them. "pending"/"skipped"
-  // are treated as in-progress: the request is filed and on its way, so we
-  // show a neutral "being delivered" badge instead of internal jargon.
   const isDelivered = deliveryStatus === "delivered";
   const isDeliveryFailed = deliveryStatus === "failed";
+
+  const statusBadgeVariant = () => {
+    if (ticket.status === "resolved" || ticket.status === "closed") return "success";
+    if (ticket.status === "open" || ticket.status === "in_progress") return "warning";
+    return "secondary";
+  };
 
   const isSystemMessage = (body: string) => {
     const systemPatterns = [
@@ -103,7 +122,8 @@ export default function TicketDetail() {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
-              <Badge variant={ticket.status === 'open' ? 'warning' : 'default'} className="text-sm px-3 py-1">
+              <Badge variant={statusBadgeVariant()} className="text-sm px-3 py-1 gap-1.5">
+                {isResolved && <CheckCircle2 className="w-3.5 h-3.5" />}
                 {ticket.status.replace('_', ' ')}
               </Badge>
               <div data-testid="ticket-delivery-badge">
@@ -123,6 +143,23 @@ export default function TicketDetail() {
               </div>
             </div>
           </div>
+
+          {isActive && (
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800 hover:border-green-400"
+                onClick={handleMarkResolved}
+                disabled={resolving}
+                data-testid="mark-resolved-btn"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {resolving ? "Resolving..." : "Mark this issue resolved"}
+              </Button>
+            </div>
+          )}
+
           {topicPreset && (
             <div
               role="status"
@@ -181,10 +218,10 @@ export default function TicketDetail() {
 
         {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
           <Card className="mt-8 overflow-hidden border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
-            <textarea 
+            <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              className="w-full p-4 border-none outline-none resize-none bg-transparent min-h-[120px]" 
+              className="w-full p-4 border-none outline-none resize-none bg-transparent min-h-[120px]"
               placeholder="Type your reply here..."
             />
             <div className="bg-secondary/50 p-3 border-t border-border flex justify-end">

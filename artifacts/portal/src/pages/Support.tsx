@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useListTickets, useCreateTicket, getListTicketsQueryKey, ApiError } from "@workspace/api-client-react";
+import { useListTickets, useCreateTicket, useResolveTicket, getListTicketsQueryKey, ApiError } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info } from "lucide-react";
+import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2 } from "lucide-react";
 import { getTopicPresetForSubject } from "@/lib/support-topics";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,11 +37,23 @@ function parseLimitReachedError(err: unknown): LimitReachedDetails | null {
 const inputClass =
   "w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/40";
 
+const ACTIVE_STATUSES = new Set(["open", "in_progress", "awaiting_response"]);
+
+const statusColors: Record<string, string> = {
+  open: "warning",
+  in_progress: "warning",
+  awaiting_response: "secondary",
+  resolved: "success",
+  closed: "default"
+};
+
 export default function Support() {
   const [isCreating, setIsCreating] = useState(false);
   const [limitReached, setLimitReached] = useState<LimitReachedDetails | null>(null);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
   const { data: tickets, isLoading } = useListTickets();
   const createTicket = useCreateTicket();
+  const resolveTicket = useResolveTicket();
   const queryClient = useQueryClient();
 
   const form = useForm<z.infer<typeof ticketSchema>>({
@@ -66,12 +78,20 @@ export default function Support() {
     });
   };
 
-  const statusColors: Record<string, string> = {
-    open: "warning",
-    in_progress: "warning",
-    awaiting_response: "secondary",
-    resolved: "success",
-    closed: "default"
+  const handleMarkResolved = (e: React.MouseEvent, ticketId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (resolvingId !== null) return;
+    if (!window.confirm("Mark this ticket as resolved? You can still reply to re-open it.")) return;
+    setResolvingId(ticketId);
+    resolveTicket.mutate({ id: ticketId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListTicketsQueryKey() });
+      },
+      onSettled: () => {
+        setResolvingId(null);
+      },
+    });
   };
 
   return (
@@ -171,36 +191,61 @@ export default function Support() {
                 <p>No support tickets yet.</p>
               </div>
             ) : (
-              tickets?.map(ticket => (
-                <Link key={ticket.id} href={`/support/tickets/${ticket.id}`}>
-                  <div className="p-5 hover:bg-muted/40 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1 flex-wrap">
-                        <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
-                        <Badge variant={statusColors[ticket.status] as any}>{ticket.status.replace('_', ' ')}</Badge>
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{ticket.category}</span>
-                        {(() => {
-                          const preset = getTopicPresetForSubject(ticket.subject);
-                          if (!preset) return null;
-                          return (
-                            <span
-                              data-testid={`ticket-topic-badge-${ticket.id}`}
-                              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-900"
-                            >
-                              <Info className="w-3 h-3 text-blue-600" />
-                              {preset.badgeLabel}
-                            </span>
-                          );
-                        })()}
+              tickets?.map(ticket => {
+                const isActive = ACTIVE_STATUSES.has(ticket.status);
+                const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+                return (
+                  <Link key={ticket.id} href={`/support/tickets/${ticket.id}`}>
+                    <div className={`p-5 hover:bg-muted/40 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group${isResolved ? " opacity-70" : ""}`}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1 flex-wrap">
+                          <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
+                          <Badge variant={statusColors[ticket.status] as any}>
+                            {isResolved ? (
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {ticket.status.replace('_', ' ')}
+                              </span>
+                            ) : ticket.status.replace('_', ' ')}
+                          </Badge>
+                          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{ticket.category}</span>
+                          {(() => {
+                            const preset = getTopicPresetForSubject(ticket.subject);
+                            if (!preset) return null;
+                            return (
+                              <span
+                                data-testid={`ticket-topic-badge-${ticket.id}`}
+                                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-900"
+                              >
+                                <Info className="w-3 h-3 text-blue-600" />
+                                {preset.badgeLabel}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">{ticket.subject}</h4>
                       </div>
-                      <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">{ticket.subject}</h4>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isActive && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs gap-1.5 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800 hover:border-green-400"
+                            disabled={resolvingId === ticket.id}
+                            onClick={(e) => handleMarkResolved(e, ticket.id)}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {resolvingId === ticket.id ? "Resolving..." : "Mark Resolved"}
+                          </Button>
+                        )}
+                        <div className="text-sm text-muted-foreground text-right">
+                          Updated {format(new Date(ticket.updatedAt), 'MMM d, yyyy')}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground shrink-0 text-right">
-                      Updated {format(new Date(ticket.updatedAt), 'MMM d, yyyy')}
-                    </div>
-                  </div>
-                </Link>
-              ))
+                  </Link>
+                );
+              })
             )}
           </div>
         </Card>

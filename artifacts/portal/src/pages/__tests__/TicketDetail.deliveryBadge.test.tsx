@@ -43,9 +43,11 @@ vi.mock("@tanstack/react-query", () => ({
 
 const useGetTicket = vi.fn();
 const addMessageMutate = vi.fn();
+const resolveTicketMutate = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useGetTicket: (...args: unknown[]) => useGetTicket(...args),
   useAddTicketMessage: () => ({ mutate: addMessageMutate, isPending: false }),
+  useResolveTicket: () => ({ mutate: resolveTicketMutate, isPending: false }),
   getGetTicketQueryKey: (id: number) => ["/tickets", id],
 }));
 
