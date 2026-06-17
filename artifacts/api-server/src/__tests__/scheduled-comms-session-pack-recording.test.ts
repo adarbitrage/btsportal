@@ -71,6 +71,14 @@ let smsCategoryOffMemberId = 0;
 let noRecordingBookingId = 0;
 // booking WITH a recording but still status "booked" — must NOT notify.
 let notCompletedBookingId = 0;
+// completed booking whose SESSION is >7 days old but whose recording was
+// INGESTED recently (within the window) — must STILL notify.
+let lateIngestBookingId = 0;
+let lateIngestMemberId = 0;
+// completed booking WITH a recording whose ingest is >7 days old — must NOT
+// notify (no back-catalogue blast).
+let staleIngestBookingId = 0;
+let staleIngestMemberId = 0;
 
 let emailOnlyMemberId = 0;
 
@@ -106,9 +114,19 @@ async function seedBooking(opts: {
   memberId: number;
   status: string;
   recording: boolean;
+  scheduledAt?: Date;
+  recordingIngestAt?: Date | null;
 }): Promise<number> {
-  const scheduledAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const scheduledAt = opts.scheduledAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
   const endAt = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
+  // When a recording is present, default its ingest time to ~1h ago (inside the
+  // 7-day notification window) unless the caller overrides it. The query now
+  // bounds on recordingIngestAt, so this must be set for recording bookings.
+  const recordingIngestAt = opts.recording
+    ? opts.recordingIngestAt !== undefined
+      ? opts.recordingIngestAt
+      : new Date(Date.now() - 60 * 60 * 1000)
+    : null;
   const [booking] = await db
     .insert(sessionPackBookingsTable)
     .values({
@@ -122,6 +140,7 @@ async function seedBooking(opts: {
       title: `${TAG} 1-on-1`,
       recordingUrl: opts.recording ? "https://drive.google.com/file/d/abc123/view" : null,
       recordingIngestStatus: opts.recording ? "found" : "pending",
+      recordingIngestAt,
     })
     .returning({ id: sessionPackBookingsTable.id });
   seededBookingIds.push(booking.id);
@@ -164,6 +183,8 @@ beforeAll(async () => {
     smsOptIn: true,
     coachingSmsOptIn: false,
   });
+  lateIngestMemberId = await seedUser("late-ingest");
+  staleIngestMemberId = await seedUser("stale-ingest");
 
   completedBookingId = await seedBooking({
     memberId: emailOnlyMemberId,
@@ -189,6 +210,24 @@ beforeAll(async () => {
     memberId: emailOnlyMemberId,
     status: "booked",
     recording: true,
+  });
+  // Session 30 days ago, but the recording was ingested only 2 days ago — the
+  // late-arriving case this task fixes. Must still notify.
+  lateIngestBookingId = await seedBooking({
+    memberId: lateIngestMemberId,
+    status: "completed",
+    recording: true,
+    scheduledAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    recordingIngestAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+  });
+  // Recording ingested 30 days ago (outside the window) — must NOT notify, so a
+  // freshly-populated column can't blast the back-catalogue.
+  staleIngestBookingId = await seedBooking({
+    memberId: staleIngestMemberId,
+    status: "completed",
+    recording: true,
+    scheduledAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+    recordingIngestAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
   });
 });
 
@@ -287,5 +326,25 @@ describe("processSessionPackRecordingReadyNotifications", () => {
     await processSessionPackRecordingReadyNotifications();
     await processSessionPackRecordingReadyNotifications();
     expect(smsCallsFor("session_recording_ready", smsMemberId)).toHaveLength(1);
+  });
+
+  it("STILL notifies when the recording was ingested >7 days after the session", async () => {
+    await processSessionPackRecordingReadyNotifications();
+    const calls = emailCallsFor("session_recording_ready", lateIngestMemberId);
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toMatchObject({
+      templateSlug: "session_recording_ready",
+      userId: lateIngestMemberId,
+      variables: {
+        recording_path: `/coaching/book-session?recording=${lateIngestBookingId}`,
+      },
+    });
+  });
+
+  it("does NOT notify when the recording was ingested outside the 7-day window", async () => {
+    await processSessionPackRecordingReadyNotifications();
+    expect(emailCallsFor("session_recording_ready", staleIngestMemberId)).toHaveLength(0);
+    const key = `session_pack_recording_ready_email_${staleIngestBookingId}`;
+    expect(sentChannels.some((c) => c.sendKey === key)).toBe(false);
   });
 });

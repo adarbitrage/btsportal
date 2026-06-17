@@ -654,9 +654,17 @@ export async function processSessionPackRecordingReadyNotifications(): Promise<v
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // Bound to recently-scheduled sessions (mirrors the group version) so a
-  // freshly-populated table can't blast the entire back-catalogue; dedup still
-  // guards against repeats within the window.
+  // Bound on when the recording actually became AVAILABLE (recordingIngestAt),
+  // not on the session date. Drive ingest of a Meet recording can land days —
+  // occasionally more than a week — after the session itself; bounding on
+  // scheduledAt (as the group-call version does) would silently drop those
+  // late-arriving recordings and the member would never be notified. Keying the
+  // window on recordingIngestAt instead means a recording ingested within the
+  // last 7 days always notifies, however old the underlying session is. The
+  // back-catalogue is still protected: recordingIngestAt is only set the moment
+  // ingest succeeds, so first populating the column can't fire for old
+  // recordings whose ingest timestamp predates the window, and per-booking
+  // dedup still guards against repeats within it.
   const bookingsWithRecording = await db
     .select({
       id: sessionPackBookingsTable.id,
@@ -673,8 +681,8 @@ export async function processSessionPackRecordingReadyNotifications(): Promise<v
       and(
         eq(sessionPackBookingsTable.status, "completed"),
         isNotNull(sessionPackBookingsTable.recordingUrl),
-        lt(sessionPackBookingsTable.scheduledAt, now),
-        gte(sessionPackBookingsTable.scheduledAt, sevenDaysAgo)
+        isNotNull(sessionPackBookingsTable.recordingIngestAt),
+        gte(sessionPackBookingsTable.recordingIngestAt, sevenDaysAgo)
       )
     );
 
