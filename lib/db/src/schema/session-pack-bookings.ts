@@ -52,8 +52,10 @@ export const sessionPackBookingsTable = pgTable(
       .default([]),
     // Google Drive links to this call's outcome, discovered automatically after
     // the session ends (Meet recording video + Gemini "Take notes for me"
-    // summary doc + transcript doc). COACH/ADMIN-FACING ONLY — these must never
-    // be returned to members. Null until the ingest matcher finds them.
+    // summary doc + transcript doc). Surfaced to the member ONLY on their own
+    // COMPLETED sessions (via /coaching/sessions/mine); hidden on every other
+    // status and never echoed by the booking write endpoints. Null until the
+    // ingest matcher finds them.
     recordingUrl: text("recording_url"),
     summaryUrl: text("summary_url"),
     transcriptUrl: text("transcript_url"),

@@ -335,7 +335,7 @@ router.get("/coaching/sessions/mine", async (req, res): Promise<void> => {
     conditions.push(eq(sessionPackBookingsTable.status, status));
   }
 
-  const bookings = await db
+  const rows = await db
     .select({
       id: sessionPackBookingsTable.id,
       coachId: sessionPackBookingsTable.coachId,
@@ -349,6 +349,13 @@ router.get("/coaching/sessions/mine", async (req, res): Promise<void> => {
       title: sessionPackBookingsTable.title,
       cancelledAt: sessionPackBookingsTable.cancelledAt,
       createdAt: sessionPackBookingsTable.createdAt,
+      // Recording-ingest outputs. Surfaced to the member ONLY on completed
+      // sessions (gated below). coachNotes/actionItems + ingest bookkeeping
+      // (recordingIngestStatus/At/Attempts) are deliberately NOT selected, so
+      // they can never leak — see memory pack-booking-member-leak.
+      recordingUrl: sessionPackBookingsTable.recordingUrl,
+      summaryUrl: sessionPackBookingsTable.summaryUrl,
+      transcriptUrl: sessionPackBookingsTable.transcriptUrl,
     })
     .from(sessionPackBookingsTable)
     .innerJoin(
@@ -357,6 +364,16 @@ router.get("/coaching/sessions/mine", async (req, res): Promise<void> => {
     )
     .where(and(...conditions))
     .orderBy(desc(sessionPackBookingsTable.scheduledAt));
+
+  // The Meet recording + Gemini notes/transcript links only make sense after a
+  // session has actually happened, so they are exposed exclusively on completed
+  // sessions. For every other status the keys are stripped entirely.
+  const bookings = rows.map(
+    ({ recordingUrl, summaryUrl, transcriptUrl, ...rest }) =>
+      rest.status === "completed"
+        ? { ...rest, recordingUrl, summaryUrl, transcriptUrl }
+        : rest,
+  );
 
   res.json(bookings);
 });

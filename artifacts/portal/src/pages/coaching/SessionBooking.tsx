@@ -35,6 +35,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  ScrollText,
   Ticket,
   PlayCircle,
 } from "lucide-react";
@@ -61,19 +62,10 @@ function isLockedWithin24h(scheduledAt: string, nowMs: number): boolean {
 }
 
 /**
- * TEMPORARY DESIGN PREVIEW — remove once the Google Meet recording/notes
- * ingest task is live and real recording + summary data flows to members.
- *
- * The member API intentionally strips recordingUrl/summaryUrl/notes for
- * privacy, so to design the completed-session presentation we inject a
- * fake "already happened" session, only for the account below.
+ * TEMPORARY DESIGN PREVIEW — used only for the upcoming-session cancellation
+ * policy UI below. Active for the account below.
  */
 const DESIGN_PREVIEW_EMAIL = "sasha@cherringtonmedia.com";
-
-interface PastSessionView extends SessionBookingType {
-  recordingUrl?: string | null;
-  summaryUrl?: string | null;
-}
 
 /**
  * Google Drive "view" links (…/file/d/<id>/view) can't be embedded directly;
@@ -83,31 +75,6 @@ interface PastSessionView extends SessionBookingType {
 function toDriveEmbedUrl(url: string): string | null {
   const match = url.match(/\/file\/d\/([^/]+)/);
   return match ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
-}
-
-function buildDesignPreviewSession(): PastSessionView {
-  const scheduledAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  scheduledAt.setHours(14, 0, 0, 0);
-  const endAt = addMinutes(scheduledAt, 60);
-  return {
-    id: -1,
-    coachId: 0,
-    coachName: "Michael",
-    coachPhotoUrl: null,
-    scheduledAt: scheduledAt.toISOString(),
-    endAt: endAt.toISOString(),
-    durationMinutes: 60,
-    meetLink: "https://meet.google.com/abc-defg-hij",
-    status: "completed",
-    title: "1-on-1 Coaching with Michael",
-    discussionTopic: "Scaling my Media Mavens campaign past $500/day in spend",
-    cancelledAt: null,
-    createdAt: scheduledAt.toISOString(),
-    recordingUrl:
-      "https://drive.google.com/file/d/10-fqBrcbFGDH6xe32PFOGd3n5Y_ZQZnR/view?usp=drive_link",
-    summaryUrl:
-      "https://docs.google.com/document/d/1LQj1czlZo0jnc5je3-qDPTwGtq-sQw2iyw4zGbAbwXE/edit?usp=drive_link",
-  };
 }
 
 /**
@@ -344,7 +311,7 @@ export default function SessionBooking() {
   const { user } = useAuth();
   const [pastPage, setPastPage] = useState(0);
   const [activeRecording, setActiveRecording] =
-    useState<PastSessionView | null>(null);
+    useState<SessionBookingType | null>(null);
   const [cancelTarget, setCancelTarget] = useState<SessionBookingType | null>(
     null,
   );
@@ -375,19 +342,16 @@ export default function SessionBooking() {
     ? isLockedWithin24h(nextSession.scheduledAt, now.getTime())
     : false;
 
-  const past = useMemo<PastSessionView[]>(
+  const past = useMemo<SessionBookingType[]>(
     () => {
-      const real: PastSessionView[] = (bookings ?? []).filter(
+      const real: SessionBookingType[] = (bookings ?? []).filter(
         (b) => b.status !== "booked" || new Date(b.scheduledAt).getTime() < now.getTime(),
       );
-      const combined = showDesignPreview
-        ? [...real, buildDesignPreviewSession()]
-        : real;
-      return combined.sort(
+      return [...real].sort(
         (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
       );
     },
-    [bookings, showDesignPreview],
+    [bookings],
   );
   const completedCount = past.filter((b) => b.status === "completed").length;
 
@@ -588,6 +552,7 @@ export default function SessionBooking() {
                   {paginatedPast.sessions.map((booking) => {
                     const recordingUrl = booking.recordingUrl ?? null;
                     const summaryUrl = booking.summaryUrl ?? null;
+                    const transcriptUrl = booking.transcriptUrl ?? null;
                     const recordingEmbedUrl = recordingUrl
                       ? toDriveEmbedUrl(recordingUrl)
                       : null;
@@ -655,6 +620,24 @@ export default function SessionBooking() {
                               >
                                 <FileText className="w-3.5 h-3.5 text-primary" />
                                 See Meeting Notes
+                              </a>
+                            </Button>
+                          )}
+                          {transcriptUrl && (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              <a
+                                href={transcriptUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-testid={`transcript-${booking.id}`}
+                              >
+                                <ScrollText className="w-3.5 h-3.5 text-primary" />
+                                Read Transcript
                               </a>
                             </Button>
                           )}

@@ -44,6 +44,11 @@ export interface SessionBooking {
   discussionTopic: string | null;
   cancelledAt: string | null;
   createdAt: string;
+  // Recording-ingest outputs. Only present on completed sessions; the API
+  // strips them on every other status (and never returns coach-only notes).
+  recordingUrl?: string | null;
+  summaryUrl?: string | null;
+  transcriptUrl?: string | null;
 }
 
 const ROOT_KEY = "/api/coaching/sessions";
