@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight } from "lucide-react";
+import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
@@ -261,7 +261,15 @@ export default function Dashboard() {
                           {call.isAccessible ? (
                             <Button size="sm" variant="default" className="h-7 text-xs px-3">RSVP</Button>
                           ) : (
-                            <Badge variant="locked" className="text-[10px]">Locked</Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs px-3 gap-1.5"
+                              onClick={() => navigate(call.upgradeUrl ?? "/plans")}
+                            >
+                              <Lock className="w-3 h-3" />
+                              Unlock
+                            </Button>
                           )}
                         </div>
                       </div>

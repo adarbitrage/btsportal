@@ -496,6 +496,7 @@ export const GetDashboardResponse = zod.object({
       recordingUrl: zod.string().nullish(),
       registeredCount: zod.number(),
       isAccessible: zod.boolean(),
+      upgradeUrl: zod.string().nullable(),
     }),
   ),
   recentAnnouncements: zod.array(
@@ -743,6 +744,7 @@ export const ListCoachingCallsResponseItem = zod.object({
   recordingUrl: zod.string().nullish(),
   registeredCount: zod.number(),
   isAccessible: zod.boolean(),
+  upgradeUrl: zod.string().nullable(),
 });
 export const ListCoachingCallsResponse = zod.array(
   ListCoachingCallsResponseItem,

@@ -7764,7 +7764,9 @@ components:
           type: integer
         isAccessible:
           type: boolean
-      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, isAccessible]
+        upgradeUrl:
+          type: ["string", "null"]
+      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, isAccessible, upgradeUrl]
 
     Coach:
       type: object

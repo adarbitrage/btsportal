@@ -3,6 +3,7 @@ import { db, coachingCallsTable, coachesTable, coachingCallAttendanceTable } fro
 import { eq, gte, sql } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
+import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
@@ -43,6 +44,7 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
       isAccessible,
       meetLink: isAccessible ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
+      upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),
     };
   });
 

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
 import { eq, count, gte, and, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
+import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 
 const router: IRouter = Router();
 
@@ -62,6 +63,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       isAccessible,
       meetLink: isAccessible ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
+      upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),
     };
   });
 

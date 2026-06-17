@@ -301,6 +301,25 @@ describe("GET /api/coaching-calls — meet link & recording scrub", () => {
     }
   });
 
+  it("attaches an upgrade deep-link to locked calls and null to accessible ones", async () => {
+    // The 3-Month member can join the group call (coaching:group) but not the
+    // mastermind call (coaching:mastermind). Locked calls must carry an
+    // upgradeUrl deep-linking to the plan that unlocks them; accessible calls
+    // carry upgradeUrl: null. Keeps the card from being a dead-end (Task: Hide
+    // upcoming-call shortcuts members can't actually join).
+    const res = await request(app)
+      .get("/api/coaching-calls")
+      .set("Cookie", fixtures.threeMonth.cookie);
+    expect(res.status).toBe(200);
+
+    const group = pick(res.body, groupCallId) as unknown as { upgradeUrl: string | null };
+    const master = pick(res.body, mastermindCallId) as unknown as { upgradeUrl: string | null };
+
+    expect(group.upgradeUrl).toBeNull();
+    // coaching:mastermind is first granted by the 6-month mentorship.
+    expect(master.upgradeUrl).toBe("/plans?highlight=6month");
+  });
+
   it("non-display fields (title, description, scheduledAt, coachName, duration) are still present on locked calls", async () => {
     const res = await request(app)
       .get("/api/coaching-calls")
