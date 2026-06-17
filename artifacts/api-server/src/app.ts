@@ -39,6 +39,7 @@ import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // endpoint hard-depends on the `yse_front_end` product row existing). It is
 // awaited from index.ts as part of bootstrapCriticalPrerequisites().
 import { startOutgoingWebhookWorker } from "./lib/outgoing-webhook-queue";
+import { startTicketDeskPoller } from "./lib/ticketdesk-poller";
 import { createSwaggerRouter } from "./middleware/swagger-ui";
 
 declare global {
@@ -174,5 +175,6 @@ startYseGrantRetryJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }
+startTicketDeskPoller();
 
 export default app;

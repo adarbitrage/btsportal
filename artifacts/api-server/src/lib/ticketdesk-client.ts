@@ -397,6 +397,170 @@ export async function probeDeliveryGate(opts?: {
 }
 
 /* ------------------------------------------------------------------------- *
+ * Polling helpers: fetch messages from an existing TicketDesk thread.
+ *
+ * TicketDesk does not expose an outgoing webhook registration API — the admin
+ * webhook endpoints (e.g. /api/admin/webhooks) return 404 on the live instance.
+ * The platform delivers messages to the browser widget via WebSocket and a REST
+ * polling API.  We reuse that polling API server-side:
+ *
+ *   POST /api/chat/session  (with email + externalId = BTS ticket number)
+ *     → idempotent get-or-create: always returns the same thread for the same
+ *       (email, externalId) pair, so we never need to store the session token
+ *       between polls.
+ *
+ *   GET /api/chat/messages?limit=N   (Authorization: Bearer <sessionToken>)
+ *     → returns all messages in the thread.  Agent messages have
+ *       type "chat_outbound" or "outbound"; contact messages are "chat_inbound".
+ * -------------------------------------------------------------------------- */
+
+/** A single message as returned by GET /api/chat/messages. */
+export interface TicketDeskThreadMessage {
+  /** TicketDesk's stable message id — used as the dedup key. */
+  id: string;
+  /**
+   * Message direction from TicketDesk's perspective.
+   * Agent (support staff) messages: "chat_outbound" | "outbound"
+   * Contact (member) messages:      "chat_inbound"  | "inbound"
+   */
+  type: string;
+  /** Message body text (may be in bodyText or body). */
+  body: string;
+  /** ISO timestamp from TicketDesk, if present. */
+  createdAt?: string;
+}
+
+/**
+ * The author/type values that indicate a message came from the agent (support
+ * staff) side of the conversation.  Contact-side messages (the member's own
+ * messages echoed from the widget) must be skipped to avoid re-appending them
+ * to the portal thread.
+ */
+const AGENT_MESSAGE_TYPES = new Set([
+  "chat_outbound",
+  "outbound",
+  "agent_message",
+]);
+
+/**
+ * Returns true when a thread message came from the support-agent side.
+ * Excludes contact/member messages and any unknown types.
+ */
+export function isAgentMessage(msg: TicketDeskThreadMessage): boolean {
+  return AGENT_MESSAGE_TYPES.has(msg.type?.toLowerCase?.() ?? "");
+}
+
+/**
+ * Re-creates (or re-uses) a TicketDesk chat session for the given member +
+ * BTS ticket number and returns the session token.
+ *
+ * The chat session API is get-or-create keyed by (email, externalId), so
+ * calling this multiple times for the same ticket always returns a token that
+ * grants access to the same underlying thread — no stored credential required.
+ *
+ * Throws on any non-2xx response so callers can skip the ticket gracefully.
+ */
+export async function createSessionForPolling(opts: {
+  email: string;
+  btsTicketNumber: string;
+}): Promise<string> {
+  const apiUrl = resolveApiUrl();
+  const chatOrigin = resolveChatOrigin();
+
+  const res = await fetch(`${apiUrl}/chat/session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: chatOrigin,
+    },
+    body: JSON.stringify({
+      workspaceId: resolveWorkspaceId(),
+      email: opts.email,
+      name: "",
+      externalId: opts.btsTicketNumber,
+      pageUrl: `${chatOrigin}/support/tickets/${opts.btsTicketNumber}`,
+      locale: "en",
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "(no body)");
+    throw new Error(
+      `TicketDesk session POST failed (${res.status}): ${text.slice(0, 200)}`,
+    );
+  }
+
+  const data = (await res.json()) as Record<string, unknown>;
+  const token = data.sessionToken as string | undefined;
+  if (!token) {
+    throw new Error(
+      `TicketDesk session response missing sessionToken: ${JSON.stringify(data).slice(0, 200)}`,
+    );
+  }
+  return token;
+}
+
+/**
+ * Fetches all messages from the TicketDesk thread associated with the given
+ * session token, normalised into TicketDeskThreadMessage objects.
+ *
+ * Tolerates multiple possible field layouts:
+ *   - bodyText  (the field used when sending messages)
+ *   - body      (common alternate)
+ *   - text      (another common alias)
+ */
+export async function fetchThreadMessages(
+  sessionToken: string,
+  limit = 100,
+): Promise<TicketDeskThreadMessage[]> {
+  const apiUrl = resolveApiUrl();
+  const chatOrigin = resolveChatOrigin();
+
+  const res = await fetch(`${apiUrl}/chat/messages?limit=${limit}`, {
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      Origin: chatOrigin,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "(no body)");
+    throw new Error(
+      `TicketDesk GET messages failed (${res.status}): ${text.slice(0, 200)}`,
+    );
+  }
+
+  const data = (await res.json()) as Record<string, unknown>;
+  const raw = Array.isArray(data.messages)
+    ? (data.messages as Record<string, unknown>[])
+    : Array.isArray(data)
+      ? (data as Record<string, unknown>[])
+      : [];
+
+  return raw
+    .map((m): TicketDeskThreadMessage | null => {
+      const id = String(m.id ?? "").trim();
+      const type = String(m.type ?? "").trim();
+      const body = String(
+        m.bodyText ?? m.body ?? m.text ?? m.content ?? "",
+      ).trim();
+      if (!id || !body) return null;
+      return {
+        id,
+        type,
+        body,
+        createdAt:
+          typeof m.createdAt === "string"
+            ? m.createdAt
+            : typeof m.timestamp === "string"
+              ? m.timestamp
+              : undefined,
+      };
+    })
+    .filter((m): m is TicketDeskThreadMessage => m !== null);
+}
+
+/* ------------------------------------------------------------------------- *
  * Inbound webhook: mirror TicketDesk replies back into the portal ticket.
  *
  * TicketDesk posts a "new reply" event to POST /api/webhooks/ticketdesk every
