@@ -148,6 +148,12 @@ export interface PackBookingRow {
   summaryUrl: string | null;
   transcriptUrl: string | null;
   recordingIngestStatus: string;
+  // Derived (not a column): the session is over, ingest finished looking and
+  // found no recording, yet the booking is still "booked". Strong "likely
+  // no-show" signal for coach review — but deliberately NOT auto-set to
+  // no_show, because no_show triggers a credit refund. Coaches confirm the
+  // outcome via the manual mark-completed / no-show override.
+  likelyNoShow: boolean;
   outcomeAt: Date | null;
   cancelledAt: Date | null;
   createdAt: Date;
@@ -223,6 +229,12 @@ export async function queryPackBookings(
         summaryUrl: sessionPackBookingsTable.summaryUrl,
         transcriptUrl: sessionPackBookingsTable.transcriptUrl,
         recordingIngestStatus: sessionPackBookingsTable.recordingIngestStatus,
+        likelyNoShow: sql<boolean>`(
+          ${sessionPackBookingsTable.status} = 'booked'
+          AND ${sessionPackBookingsTable.endAt} < now()
+          AND ${sessionPackBookingsTable.recordingUrl} IS NULL
+          AND ${sessionPackBookingsTable.recordingIngestStatus} <> 'pending'
+        )`,
         outcomeAt: sessionPackBookingsTable.outcomeAt,
         cancelledAt: sessionPackBookingsTable.cancelledAt,
         createdAt: sessionPackBookingsTable.createdAt,

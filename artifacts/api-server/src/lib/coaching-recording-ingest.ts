@@ -85,6 +85,23 @@ export async function ingestBookingRecording(
       })
       .where(eq(sessionPackBookingsTable.id, booking.id));
 
+    // A linked recording is strong evidence the call actually happened, so
+    // auto-complete the booking. Guarded to booked -> completed only and
+    // idempotent: the status='booked' filter means we never override an
+    // existing terminal status (completed / no_show / cancelled), so a manual
+    // admin outcome always wins and a later partial re-scan is a no-op.
+    if (foundRecording) {
+      await db
+        .update(sessionPackBookingsTable)
+        .set({ status: "completed", outcomeAt: new Date() })
+        .where(
+          and(
+            eq(sessionPackBookingsTable.id, booking.id),
+            eq(sessionPackBookingsTable.status, "booked"),
+          ),
+        );
+    }
+
     return status;
   } catch (err) {
     console.error(
