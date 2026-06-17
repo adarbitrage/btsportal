@@ -27,7 +27,13 @@
  *
  * Footprint: `probeDeliveryGate` uses a dedicated, clearly-labelled probe
  * contact whose chat session is get-or-create, so every run reuses ONE thread
- * rather than spawning a fresh one in the live agent inbox.
+ * rather than spawning a fresh one in the live agent inbox. The probe posts no
+ * message, so that thread stays empty. After a successful probe we additionally
+ * make a best-effort attempt to archive/close the probe thread so agents never
+ * see it in their active queue — but the live TicketDesk exposes no REST
+ * endpoint for this today, so the cleanup is a no-op until one is configured.
+ * See `archiveDeliveryProbeThread` in ticketdesk-client.ts for the full,
+ * verified rationale. Do NOT "fix" the probe contact by deleting it.
  *
  * Delivery, throttling, and SendGrid lazy init are owned by the shared
  * `oncall-dispatcher.ts`. Delivery channels use the same env vars as every
@@ -46,6 +52,7 @@
 
 import {
   probeDeliveryGate,
+  archiveDeliveryProbeThread,
   getTicketDeskChatOrigin,
   type DeliveryGateStatus,
 } from "./ticketdesk-client";
@@ -111,6 +118,11 @@ export interface ProbeOutcome {
   error: string | null;
   /** Final HTTP status when a response arrived, else null. */
   httpStatus: number | null;
+  /** Session token from a successful (ok) session creation — used for the
+   * best-effort probe-thread cleanup. Null otherwise. */
+  sessionToken: string | null;
+  /** Thread id from a successful (ok) session creation, else null. */
+  threadId: string | null;
 }
 
 let fetchOverride: typeof fetch | null = null;
@@ -139,7 +151,14 @@ export async function performTicketDeskDeliveryProbe(): Promise<ProbeOutcome> {
   if (result.status === "blocked") {
     const code = result.httpStatus ? `http_${result.httpStatus}` : "blocked";
     const reason = result.reason ? `${code}: ${result.reason}` : code;
-    return { status: "blocked", reasons: [reason], error: null, httpStatus: result.httpStatus };
+    return {
+      status: "blocked",
+      reasons: [reason],
+      error: null,
+      httpStatus: result.httpStatus,
+      sessionToken: null,
+      threadId: null,
+    };
   }
   if (result.status === "unreachable") {
     return {
@@ -147,9 +166,51 @@ export async function performTicketDeskDeliveryProbe(): Promise<ProbeOutcome> {
       reasons: [],
       error: result.error,
       httpStatus: result.httpStatus,
+      sessionToken: null,
+      threadId: null,
     };
   }
-  return { status: "ok", reasons: [], error: null, httpStatus: result.httpStatus };
+  return {
+    status: "ok",
+    reasons: [],
+    error: null,
+    httpStatus: result.httpStatus,
+    sessionToken: result.sessionToken,
+    threadId: result.threadId,
+  };
+}
+
+/**
+ * Best-effort cleanup of the dedicated probe thread after a successful probe.
+ *
+ * This is a no-op unless TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH points at a real
+ * TicketDesk archive/close endpoint (none exists on the live instance today —
+ * see `archiveDeliveryProbeThread` in ticketdesk-client.ts). It NEVER throws and
+ * NEVER affects the probe's health verdict: any failure is swallowed here.
+ */
+async function cleanupProbeThread(outcome: ProbeOutcome): Promise<void> {
+  if (outcome.status !== "ok" || !outcome.sessionToken) return;
+  try {
+    const result = await archiveDeliveryProbeThread({
+      sessionToken: outcome.sessionToken,
+      threadId: outcome.threadId,
+      timeoutMs: getTimeoutMs(),
+      fetchImpl: fetchOverride ?? undefined,
+    });
+    if (result.attempted && !result.ok) {
+      console.warn(
+        `[TicketDeskDeliveryProbe] probe-thread cleanup did not succeed (${result.error ?? "unknown"})`,
+      );
+    }
+  } catch (err) {
+    // Defensive: archiveDeliveryProbeThread already swallows errors, but never
+    // let cleanup bubble into the probe verdict.
+    console.warn(
+      `[TicketDeskDeliveryProbe] probe-thread cleanup threw unexpectedly: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -329,6 +390,9 @@ export async function evaluateTicketDeskDeliveryProbe(
     probeState.consecutiveUnreachable = 0;
     probeState.reasons = [];
     probeState.lastError = null;
+    // Best-effort: keep the dedicated probe thread out of the agent inbox.
+    // No-op unless an archive endpoint is configured; never affects the verdict.
+    await cleanupProbeThread(outcome);
     if (probeState.alerting) {
       probeState.alerting = false;
       const deliveries = await dispatcher.dispatch(

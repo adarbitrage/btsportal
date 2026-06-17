@@ -33,3 +33,16 @@ The widget probe cannot see this, and the backlog alerter only fires after damag
   delete that probe contact.
 - Poll is prod-only by default (env override exists); tests drive the evaluate
   function directly with a stubbed fetch.
+
+**No contact-side close/archive endpoint exists (verified against live TicketDesk).**
+All candidates 404: POST `/chat/session/{resolve,close,archive,end}`, PATCH/DELETE
+`/chat/session`, `/chat/threads/{id}/*`. Closing a thread is agent-side over the
+WebSocket only — there is no REST way for the probe (a contact/external system) to
+resolve its own thread. The probe thread therefore stays empty (no message posted)
+and does not surface in the active agent queue, so auto-cleanup is best-effort/opt-in:
+`archiveDeliveryProbeThread()` in ticketdesk-client.ts is a NO-OP unless
+`TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH` (+ optional `_RESOLVE_METHOD`, default POST)
+is set, so it never spams 404s every poll against the live system. It never throws
+and never affects the probe verdict. If TicketDesk later ships a real
+contact-side resolve endpoint, just set that env var to enable cleanup — don't go
+deleting the probe contact.

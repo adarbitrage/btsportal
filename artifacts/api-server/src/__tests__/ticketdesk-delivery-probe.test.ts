@@ -396,3 +396,144 @@ describe("TicketDesk delivery-gate probe — real on-call dispatcher payloads", 
     }
   });
 });
+
+/**
+ * Build a fetch stub that records every request and routes the response by URL:
+ *   - .../chat/session       → the configured session response
+ *   - everything else (the cleanup endpoint) → the configured cleanup response
+ */
+function routingFetch(opts: {
+  sessionStatus: number;
+  sessionBody: string;
+  cleanupStatus?: number;
+  cleanupBody?: string;
+  cleanupThrows?: string;
+}): { fn: typeof fetch; calls: { url: string; method: string }[] } {
+  const calls: { url: string; method: string }[] = [];
+  const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, method: (init?.method ?? "GET").toUpperCase() });
+    if (url.endsWith("/chat/session")) {
+      return new Response(opts.sessionBody, { status: opts.sessionStatus });
+    }
+    if (opts.cleanupThrows) throw new Error(opts.cleanupThrows);
+    return new Response(opts.cleanupBody ?? "{}", {
+      status: opts.cleanupStatus ?? 200,
+    });
+  }) as unknown as typeof fetch;
+  return { fn, calls };
+}
+
+const SESSION_OK_BODY = JSON.stringify({
+  sessionToken: "tok-123",
+  threadId: "thread-abc",
+});
+
+describe("TicketDesk delivery-probe thread cleanup (best-effort, opt-in)", () => {
+  const ORIGINAL = process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH;
+
+  beforeEach(() => {
+    __resetTicketDeskDeliveryProbeForTests();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    if (ORIGINAL === undefined) delete process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH;
+    else process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = ORIGINAL;
+    __resetTicketDeskDeliveryProbeForTests();
+  });
+
+  it("does NOT call any cleanup endpoint when none is configured (default)", async () => {
+    delete process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH;
+    const stub = routingFetch({ sessionStatus: 201, sessionBody: SESSION_OK_BODY });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("ok");
+    // Only the session POST — no cleanup request.
+    expect(stub.calls.length).toBe(1);
+    expect(stub.calls[0].url.endsWith("/chat/session")).toBe(true);
+  });
+
+  it("archives the probe thread after an ok probe when an endpoint is configured", async () => {
+    process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = "/chat/session/resolve";
+    const stub = routingFetch({
+      sessionStatus: 201,
+      sessionBody: SESSION_OK_BODY,
+      cleanupStatus: 200,
+    });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("ok");
+
+    const cleanup = stub.calls.find((c) =>
+      c.url.endsWith("/chat/session/resolve"),
+    );
+    expect(cleanup).toBeDefined();
+    expect(cleanup?.method).toBe("POST");
+  });
+
+  it("does not attempt cleanup when the ok response carried no session token", async () => {
+    process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = "/chat/session/resolve";
+    // Non-JSON 2xx body (e.g. a 400-classified-ok or empty body) → no token.
+    const stub = routingFetch({ sessionStatus: 200, sessionBody: "ok" });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("ok");
+    expect(stub.calls.some((c) => c.url.endsWith("/chat/session/resolve"))).toBe(
+      false,
+    );
+  });
+
+  it("never lets a failing cleanup affect the ok verdict", async () => {
+    process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = "/chat/session/resolve";
+    const stub = routingFetch({
+      sessionStatus: 201,
+      sessionBody: SESSION_OK_BODY,
+      cleanupStatus: 404,
+    });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome, deliveries } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("ok");
+    expect(deliveries).toEqual([]);
+    expect(getTicketDeskDeliveryProbeState().status).toBe("ok");
+    // Cleanup was attempted despite the 404.
+    expect(stub.calls.some((c) => c.url.endsWith("/chat/session/resolve"))).toBe(
+      true,
+    );
+  });
+
+  it("swallows a cleanup network error without affecting the probe", async () => {
+    process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = "/chat/session/resolve";
+    const stub = routingFetch({
+      sessionStatus: 201,
+      sessionBody: SESSION_OK_BODY,
+      cleanupThrows: "ECONNRESET",
+    });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("ok");
+    expect(getTicketDeskDeliveryProbeState().status).toBe("ok");
+  });
+
+  it("does not attempt cleanup on a blocked probe", async () => {
+    process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH = "/chat/session/resolve";
+    const stub = routingFetch({
+      sessionStatus: 403,
+      sessionBody: "Origin not allowed",
+    });
+    __setTicketDeskDeliveryProbeFetchForTests(stub.fn);
+
+    const { outcome } = await evaluateTicketDeskDeliveryProbe();
+    expect(outcome.status).toBe("blocked");
+    expect(stub.calls.some((c) => c.url.endsWith("/chat/session/resolve"))).toBe(
+      false,
+    );
+  });
+});

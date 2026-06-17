@@ -301,6 +301,14 @@ export interface DeliveryGateProbeResult {
   error: string | null;
   /** The Origin header the probe sent — identical to what delivery sends. */
   origin: string;
+  /**
+   * Session token returned by a successful (2xx) chat-session creation, used by
+   * the best-effort thread cleanup. Null on any non-2xx result, or when the 2xx
+   * body carried no parseable token (e.g. a stubbed test response).
+   */
+  sessionToken: string | null;
+  /** Thread id returned alongside the session token on a 2xx, else null. */
+  threadId: string | null;
 }
 
 function describeProbeError(err: unknown): string {
@@ -349,6 +357,8 @@ export async function probeDeliveryGate(opts?: {
           reason: "Origin not allowed",
           error: null,
           origin,
+          sessionToken: null,
+          threadId: null,
         };
       }
       // Some other 403 (auth, rate-limit, etc.) — not the origin gate; hold
@@ -359,6 +369,8 @@ export async function probeDeliveryGate(opts?: {
         reason: null,
         error: "http_403",
         origin,
+        sessionToken: null,
+        threadId: null,
       };
     }
 
@@ -370,18 +382,41 @@ export async function probeDeliveryGate(opts?: {
         reason: null,
         error: `http_${res.status}`,
         origin,
+        sessionToken: null,
+        threadId: null,
       };
     }
 
     // 2xx, or any non-403 4xx: either the session was created/reused, or we
     // reached request validation — both prove the origin gate let us through,
     // so programmatic delivery is NOT origin-blocked.
+    //
+    // On a real 2xx the body carries { sessionToken, threadId, ... }; capture
+    // them so the caller can best-effort archive the probe thread. Parse
+    // defensively — a non-2xx-but-ok (non-403 4xx) or a stubbed test body may
+    // not be JSON, in which case we simply have no token and cleanup no-ops.
+    let sessionToken: string | null = null;
+    let threadId: string | null = null;
+    if (res.status >= 200 && res.status < 300) {
+      try {
+        const data = (await res.text().then((t) => JSON.parse(t))) as Record<
+          string,
+          unknown
+        >;
+        if (typeof data.sessionToken === "string") sessionToken = data.sessionToken;
+        if (typeof data.threadId === "string") threadId = data.threadId;
+      } catch {
+        // Non-JSON / empty body — leave token null; cleanup will no-op.
+      }
+    }
     return {
       status: "ok",
       httpStatus: res.status,
       reason: null,
       error: null,
       origin,
+      sessionToken,
+      threadId,
     };
   } catch (err) {
     return {
@@ -390,6 +425,126 @@ export async function probeDeliveryGate(opts?: {
       reason: null,
       error: describeProbeError(err),
       origin,
+      sessionToken: null,
+      threadId: null,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * Delivery-probe thread cleanup (best-effort, opt-in)
+ *
+ * The delivery-gate probe creates/reuses ONE dedicated chat session/thread for
+ * the probe contact (system-health-probe@buildtestscale.com) every run. That
+ * thread lingers in the TicketDesk agent inbox. Ideally we would archive/close
+ * it automatically so agents never see it in their active queue.
+ *
+ * VERIFIED (2026-06-16, direct calls to the live tickets.buildtestscale.com
+ * instance with the portal Origin): the external TicketDesk chat API exposes NO
+ * REST endpoint that a contact / external system can use to resolve, close, or
+ * archive a thread. Every candidate 404s —
+ *   POST /chat/session/{resolve,close,archive,end}, PATCH /chat/session,
+ *   DELETE /chat/session, POST|PATCH /chat/threads/{id}{,/resolve,/close} —
+ * and the live widget drives close/typing/status purely over a WebSocket agent
+ * channel. Closing a conversation is an AGENT-side action; there is nothing for
+ * us to call today.
+ *
+ * Mitigating footprint that already exists (do NOT "fix" by deleting the
+ * contact — the probe just recreates it, and a stable contact is exactly what
+ * keeps every run on ONE thread instead of flooding the inbox with new ones):
+ *   - the probe posts NO message (GET /chat/messages on the probe thread
+ *     returns an empty list), so the thread stays empty;
+ *   - the contact is clearly labelled "BTS System Health Probe (automated —
+ *     ignore)";
+ *   - get-or-create reuses the same single thread across all runs.
+ *
+ * This function is therefore a ready-to-enable hook: it is a no-op unless an
+ * operator sets TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH to a real archive/close
+ * endpoint (should TicketDesk ever expose one). When configured it POSTs to
+ * `${apiUrl}${path}` with the probe's session token, swallowing every failure —
+ * it never throws and never affects the probe's health verdict.
+ * ------------------------------------------------------------------------- */
+
+/** Path (relative to the TicketDesk API base) of a thread archive/close/resolve
+ * endpoint. Empty by default because the live instance exposes none; set this to
+ * enable automatic probe-thread cleanup if TicketDesk later adds one. */
+function resolveProbeResolvePath(): string {
+  return (process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH || "").trim();
+}
+
+/** HTTP method used for the cleanup call (default POST). */
+function resolveProbeResolveMethod(): string {
+  const raw = (process.env.TICKETDESK_DELIVERY_PROBE_RESOLVE_METHOD || "").trim();
+  return raw.length > 0 ? raw.toUpperCase() : "POST";
+}
+
+export interface DeliveryProbeCleanupResult {
+  /** Whether a cleanup request was actually issued (false when unconfigured). */
+  attempted: boolean;
+  /** Whether the cleanup request returned a 2xx. */
+  ok: boolean;
+  /** Final HTTP status when a response arrived, else null. */
+  httpStatus: number | null;
+  /** Short error/skip reason, else null. */
+  error: string | null;
+}
+
+/**
+ * Best-effort archive/close of the dedicated delivery-probe thread.
+ *
+ * No-op (attempted: false) unless TICKETDESK_DELIVERY_PROBE_RESOLVE_PATH is set
+ * and a session token is available. Never throws — any failure (missing token,
+ * 4xx/5xx, network/timeout) is captured in the result so the probe's verdict is
+ * never affected.
+ */
+export async function archiveDeliveryProbeThread(opts: {
+  sessionToken: string | null | undefined;
+  threadId?: string | null;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}): Promise<DeliveryProbeCleanupResult> {
+  const path = resolveProbeResolvePath();
+  if (!path) {
+    return { attempted: false, ok: false, httpStatus: null, error: "no_endpoint_configured" };
+  }
+  if (!opts.sessionToken) {
+    return { attempted: false, ok: false, httpStatus: null, error: "no_session_token" };
+  }
+
+  const url = `${resolveApiUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const origin = resolveChatOrigin();
+  const doFetch = opts.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 8_000);
+  try {
+    const res = await doFetch(url, {
+      method: resolveProbeResolveMethod(),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${opts.sessionToken}`,
+        Origin: origin,
+      },
+      body: JSON.stringify({
+        status: "resolved",
+        archived: true,
+        threadId: opts.threadId ?? undefined,
+      }),
+      signal: controller.signal,
+    });
+    return {
+      attempted: true,
+      ok: res.ok,
+      httpStatus: res.status,
+      error: res.ok ? null : `http_${res.status}`,
+    };
+  } catch (err) {
+    return {
+      attempted: true,
+      ok: false,
+      httpStatus: null,
+      error: describeProbeError(err),
     };
   } finally {
     clearTimeout(timer);
