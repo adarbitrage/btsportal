@@ -237,12 +237,38 @@ export default function Coaching() {
                     className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <CardContent className="p-6 text-center">
-                      <div
-                        className={`w-20 h-20 rounded-full ${tint.bg} ${tint.text} border ${tint.border} mx-auto mb-4 flex items-center justify-center text-2xl font-bold`}
-                      >
-                        {coachInitials(coach.name)}
-                      </div>
+                      {coach.photoUrl ? (
+                        <img
+                          src={coach.photoUrl}
+                          alt={coach.name}
+                          data-testid={`coach-photo-${coach.id}`}
+                          className={`w-20 h-20 rounded-full object-cover border ${tint.border} mx-auto mb-4`}
+                        />
+                      ) : (
+                        <div
+                          data-testid={`coach-initials-${coach.id}`}
+                          className={`w-20 h-20 rounded-full ${tint.bg} ${tint.text} border ${tint.border} mx-auto mb-4 flex items-center justify-center text-2xl font-bold`}
+                        >
+                          {coachInitials(coach.name)}
+                        </div>
+                      )}
                       <h3 className="text-sm font-bold text-foreground">{coach.name}</h3>
+                      {coach.specialties && (
+                        <p
+                          data-testid={`coach-specialty-${coach.id}`}
+                          className="text-xs font-medium text-primary mt-1"
+                        >
+                          {coach.specialties}
+                        </p>
+                      )}
+                      {coach.bio && (
+                        <p
+                          data-testid={`coach-bio-${coach.id}`}
+                          className="text-xs text-muted-foreground mt-2 leading-relaxed"
+                        >
+                          {coach.bio}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 );
