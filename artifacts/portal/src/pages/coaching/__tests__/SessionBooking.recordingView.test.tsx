@@ -174,6 +174,46 @@ describe("SessionBooking — member recording controls", () => {
     expect(screen.queryByText(/coach only/i)).not.toBeInTheDocument();
   });
 
+  it("links See Meeting Notes to the booking's summaryUrl in a new tab", () => {
+    const summaryUrl = "https://drive.google.com/file/d/SUM707/view";
+    const completed = makeBooking({
+      id: 707,
+      status: "completed",
+      recordingUrl: "https://drive.google.com/file/d/REC707/view",
+      summaryUrl,
+      transcriptUrl: "https://drive.google.com/file/d/TRN707/view",
+    });
+    useMySessionBookings.mockReturnValue(bookingsResult([completed]));
+
+    render(<SessionBooking />);
+
+    const notes = screen.getByTestId("meeting-notes-707");
+    expect(notes.tagName).toBe("A");
+    expect(notes).toHaveAttribute("href", summaryUrl);
+    expect(notes).toHaveAttribute("target", "_blank");
+    expect(notes).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("links Read Transcript to the booking's transcriptUrl in a new tab", () => {
+    const transcriptUrl = "https://drive.google.com/file/d/TRN808/view";
+    const completed = makeBooking({
+      id: 808,
+      status: "completed",
+      recordingUrl: "https://drive.google.com/file/d/REC808/view",
+      summaryUrl: "https://drive.google.com/file/d/SUM808/view",
+      transcriptUrl,
+    });
+    useMySessionBookings.mockReturnValue(bookingsResult([completed]));
+
+    render(<SessionBooking />);
+
+    const transcript = screen.getByTestId("transcript-808");
+    expect(transcript.tagName).toBe("A");
+    expect(transcript).toHaveAttribute("href", transcriptUrl);
+    expect(transcript).toHaveAttribute("target", "_blank");
+    expect(transcript).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   it("opens the in-page recording dialog with the Drive /preview embed URL", async () => {
     const user = userEvent.setup();
     const completed = makeBooking({
