@@ -5,9 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Users, Lock, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useListCoachingCalls } from "@workspace/api-client-react";
+import { useListCoachingCalls, useGetCurrentMember } from "@workspace/api-client-react";
 
 const GOOGLE_MEET_LINK = "https://meet.google.com/adz-axqj-pjm";
+
+// The weekly recurring group calls require the same entitlement the dynamic
+// "Upcoming Calls" section gates on. Members without it must see an upgrade CTA
+// instead of a working Join Call link. `coaching:group` is first granted by the
+// 3-month mentorship (mirrors CALL_ENTITLEMENT_TO_PLAN on the API).
+const GROUP_COACHING_ENTITLEMENT = "coaching:group";
+const GROUP_COACHING_UPGRADE_URL = "/plans?highlight=3month";
 
 const liveSchedule = [
   { day: "Mondays", time: "8 - 9am CST", coach: "Todd" },
@@ -37,6 +44,10 @@ const coaches: { name: string; initials: string; tint: AvatarTint }[] = [
 export default function Coaching() {
   const [, navigate] = useLocation();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
+  const { data: member } = useGetCurrentMember();
+  const hasGroupCoaching = (member?.entitlements ?? []).includes(
+    GROUP_COACHING_ENTITLEMENT,
+  );
 
   return (
     <AppLayout>
@@ -155,11 +166,23 @@ export default function Coaching() {
                       {session.coach}
                     </span>
                   </div>
-                  <Button asChild size="sm" className="font-semibold">
-                    <a href={GOOGLE_MEET_LINK} target="_blank" rel="noopener noreferrer">
-                      Join Call
-                    </a>
-                  </Button>
+                  {hasGroupCoaching ? (
+                    <Button asChild size="sm" className="font-semibold">
+                      <a href={GOOGLE_MEET_LINK} target="_blank" rel="noopener noreferrer">
+                        Join Call
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="font-semibold shrink-0 gap-1.5"
+                      onClick={() => navigate(GROUP_COACHING_UPGRADE_URL)}
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      Unlock
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
