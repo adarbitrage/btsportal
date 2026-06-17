@@ -47,7 +47,13 @@ type ActionType = "cancel" | "complete" | "no_show" | "notes" | "recording" | nu
 
 // Coach/admin-only: links to the auto-ingested Meet recording + Gemini notes.
 // Never rendered on any member-facing surface.
-function RecordingLinks({ booking }: { booking: AdminPackBooking }) {
+function RecordingLinks({
+  booking,
+  onAddRecording,
+}: {
+  booking: AdminPackBooking;
+  onAddRecording?: () => void;
+}) {
   const links = [
     { href: booking.recordingUrl, label: "Recording" },
     { href: booking.summaryUrl, label: "Notes" },
@@ -80,6 +86,23 @@ function RecordingLinks({ booking }: { booking: AdminPackBooking }) {
   if (booking.status === "cancelled") {
     return <span className="text-xs text-muted-foreground/60">—</span>;
   }
+
+  // Flagged likely no-show: nudge the admin to paste the recording link first
+  // (which clears the badge) before confirming a no-show outcome.
+  if (booking.likelyNoShow && onAddRecording) {
+    return (
+      <button
+        type="button"
+        onClick={onAddRecording}
+        className="text-xs text-primary underline underline-offset-2 hover:opacity-80"
+        title="Call actually happen? Paste the recording link to clear the likely no-show flag before marking an outcome."
+        data-testid="button-add-recording-link"
+      >
+        Add recording link
+      </button>
+    );
+  }
+
   const hint =
     booking.recordingIngestStatus === "not_found" ||
     booking.recordingIngestStatus === "error"
@@ -386,7 +409,10 @@ export default function PackSessions() {
                           </div>
                         </td>
                         <td className="p-3">
-                          <RecordingLinks booking={b} />
+                          <RecordingLinks
+                            booking={b}
+                            onAddRecording={() => openAction(b, "recording")}
+                          />
                         </td>
                         <td className="p-3">
                           <div className="flex justify-end gap-1 flex-wrap">
