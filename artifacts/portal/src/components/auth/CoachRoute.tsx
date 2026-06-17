@@ -1,5 +1,6 @@
 import type React from "react";
 import { Redirect } from "wouter";
+import { isCoachRole } from "@workspace/auth";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -47,7 +48,7 @@ export function CoachRoute({ component: Component }: CoachRouteProps) {
   const memberRole = (member as { role?: string } | undefined)?.role;
   const { userRole, isAdminUser } = resolveAdminRole(user.role, memberRole);
 
-  const isCoach = userRole === "coach" || memberRole === "coach" || user.role === "coach";
+  const isCoach = isCoachRole(userRole) || isCoachRole(memberRole) || isCoachRole(user.role);
   const isAdminWithCoachingView = isAdminUser && hasPermission(userRole, "coaching:view");
 
   if (!isCoach && !isAdminWithCoachingView) {

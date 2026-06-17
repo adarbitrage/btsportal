@@ -52,6 +52,18 @@ describe("getSidebarTierLabel staff vs member", () => {
     ).toBe("Free Member");
   });
 
+  it("shows 'Coach' for a coach and never a product tier", () => {
+    // A coach holds no purchased products (empty entitlements / "free" slug)
+    // but must read as "Coach", not "Free Member".
+    const label = getSidebarTierLabel({
+      isAdminUser: false,
+      userRole: "coach",
+      highestProductSlug: "free",
+    });
+    expect(label).toBe("Coach");
+    expect(label).not.toBe("Free Member");
+  });
+
   it("derives a paying member's label from highestProductSlug", () => {
     expect(
       getSidebarTierLabel({
@@ -99,6 +111,16 @@ describe("shouldShowUpgradeCard", () => {
 
   it("shows the upgrade card for non-admin members", () => {
     expect(shouldShowUpgradeCard(false)).toBe(true);
+  });
+
+  it("hides the upgrade card for coaches (staff, never upsell targets)", () => {
+    expect(shouldShowUpgradeCard(false, true)).toBe(false);
+    // Admin OR coach both suppress it.
+    expect(shouldShowUpgradeCard(true, true)).toBe(false);
+  });
+
+  it("still shows the upgrade card for a plain member (isCoach=false)", () => {
+    expect(shouldShowUpgradeCard(false, false)).toBe(true);
   });
 });
 

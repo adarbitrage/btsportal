@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, or, isNull, gte, ilike } from "drizzle-orm";
 import { hasEntitlement, getHighestProductLabel, getUserEntitlements } from "../lib/entitlements";
-import { isAdminRole } from "../middleware/rbac";
+import { isAdminRole, isCoachRole } from "../middleware/rbac";
 import { requireNotBanned } from "../middleware/postingBan";
 import { enqueueModerationJob } from "../lib/moderation/queue";
 import {
@@ -39,11 +39,23 @@ async function requireCommunityAccess(req: any, res: any): Promise<boolean> {
     return false;
   }
   const has = await hasEntitlement(userId, "community:access");
-  if (!has && !(await getIsAdmin(userId))) {
+  if (!has && !(await getHasMemberBypass(userId))) {
     res.status(403).json({ error: "Community access required. Upgrade to a mentorship tier." });
     return false;
   }
   return true;
+}
+
+// Admins (member-feature support) and coaches (full member experience) bypass
+// the community:access entitlement gate. Kept SEPARATE from getIsAdmin so that
+// coaches do NOT inherit admin moderation powers — getIsAdmin stays admin-only.
+async function getHasMemberBypass(userId: number): Promise<boolean> {
+  const [user] = await db
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  return !!user && (isAdminRole(user.role) || isCoachRole(user.role));
 }
 
 async function getIsAdmin(userId: number): Promise<boolean> {

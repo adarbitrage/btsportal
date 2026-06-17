@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_ROLES,
+  COACH_ROLE,
   PERMISSION_MATRIX,
   getPermissionsForRole,
   hasPermission,
   isAdminRole,
+  isCoachRole,
   type AdminRole,
   type Permission,
 } from "./index.js";
@@ -151,6 +153,34 @@ describe("isAdminRole", () => {
   it("returns false for null and undefined", () => {
     expect(isAdminRole(null)).toBe(false);
     expect(isAdminRole(undefined)).toBe(false);
+  });
+});
+
+describe("coach role", () => {
+  it("exposes the coach role as the literal 'coach'", () => {
+    expect(COACH_ROLE).toBe("coach");
+  });
+
+  it("isCoachRole returns true only for the coach role", () => {
+    expect(isCoachRole("coach")).toBe(true);
+    expect(isCoachRole(COACH_ROLE)).toBe(true);
+  });
+
+  it("isCoachRole returns false for members, admins, and junk", () => {
+    expect(isCoachRole("member")).toBe(false);
+    expect(isCoachRole("free_member")).toBe(false);
+    expect(isCoachRole("super_admin")).toBe(false);
+    expect(isCoachRole("Coach")).toBe(false);
+    expect(isCoachRole("")).toBe(false);
+    expect(isCoachRole(null)).toBe(false);
+    expect(isCoachRole(undefined)).toBe(false);
+  });
+
+  it("coach is NOT an admin role and holds no admin permissions", () => {
+    expect(isAdminRole(COACH_ROLE)).toBe(false);
+    expect(hasPermission(COACH_ROLE, "community:moderate")).toBe(false);
+    expect(hasPermission(COACH_ROLE, "members:view")).toBe(false);
+    expect(hasPermission(COACH_ROLE, "dashboard:view")).toBe(false);
   });
 });
 

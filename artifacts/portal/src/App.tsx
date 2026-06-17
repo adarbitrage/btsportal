@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { isAdminRole } from "@workspace/auth";
+import { isAdminRole, isCoachRole } from "@workspace/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
@@ -213,7 +213,7 @@ export function ProtectedRoute({ component: Component }: { component: React.Comp
     return <Redirect to="/change-password" />;
   }
 
-  if (!user.onboardingComplete) {
+  if (!user.onboardingComplete && !isCoachRole(user.role)) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
   }
@@ -260,17 +260,18 @@ export function EntitlementRoute({ component: Component, entitlement }: { compon
     return <Redirect to="/change-password" />;
   }
 
-  if (!user.onboardingComplete) {
+  if (!user.onboardingComplete && !isCoachRole(user.role)) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
   }
 
   const isAdmin = isAdminRole(user?.role) || isAdminRole(member?.role);
+  const isCoach = isCoachRole(user?.role) || isCoachRole(member?.role);
   const entitlements = new Set(member?.entitlements ?? []);
   const hasEntitlement = entitlement.endsWith(":*")
     ? Array.from(entitlements).some((e: string) => e.startsWith(entitlement.replace(":*", ":")))
     : entitlements.has(entitlement);
-  if (!isAdmin && !hasEntitlement) {
+  if (!isAdmin && !isCoach && !hasEntitlement) {
     return <Redirect to="/" />;
   }
 
@@ -332,7 +333,7 @@ export function GuestRoute({ component: Component }: { component: React.Componen
     if (user.mustChangePassword) {
       return <Redirect to="/change-password" />;
     }
-    if (!user.onboardingComplete) {
+    if (!user.onboardingComplete && !isCoachRole(user.role)) {
       const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
       return <Redirect to={stepRoute} />;
     }

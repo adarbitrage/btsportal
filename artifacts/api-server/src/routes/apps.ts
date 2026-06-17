@@ -21,7 +21,7 @@ import {
   FLEXY_DOMAIN,
 } from "../lib/flexy-provision";
 import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
-import { isAdminRole } from "../middleware/rbac";
+import { isAdminRole, isCoachRole } from "../middleware/rbac";
 
 const isFlexy = (appName: string): boolean => appName === "flexy";
 
@@ -35,7 +35,7 @@ async function requireActiveMember(userId: number, res: import("express").Respon
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1);
-    if (u && isAdminRole(u.role)) return true;
+    if (u && (isAdminRole(u.role) || isCoachRole(u.role))) return true;
     res.status(403).json({ error: "An active membership is required to use this app." });
     return false;
   }

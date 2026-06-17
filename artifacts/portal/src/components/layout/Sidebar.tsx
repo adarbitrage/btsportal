@@ -60,6 +60,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
+import { isCoachRole } from "@workspace/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
 import { UnreadBadge } from "@/components/dm/unread-badge";
@@ -174,11 +175,11 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
-      { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus },
+      { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus, hiddenForRoles: ["coach"] },
     ],
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
-  { kind: "leaf", href: "/account/products", label: "My Products", icon: Package },
+  { kind: "leaf", href: "/account/products", label: "My Products", icon: Package, hiddenForRoles: ["coach"] },
 ];
 
 export const ADMIN_CHILDREN: NavNode[] = [
@@ -359,7 +360,7 @@ export function shouldShowCoachSection(
   memberRole: string | undefined | null,
 ): boolean {
   const { userRole, isAdminUser } = resolveAdminRole(authRole, memberRole);
-  const isCoach = authRole === "coach" || memberRole === "coach";
+  const isCoach = isCoachRole(authRole) || isCoachRole(memberRole);
   return isCoach || (isAdminUser && hasPermission(userRole, "coaching:view"));
 }
 
@@ -557,13 +558,15 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const { userRole, isAdminUser } = resolveAdminRole(user?.role, member?.role);
 
+  const isCoach = isCoachRole(user?.role) || isCoachRole(member?.role);
+
   const showCoachSection = shouldShowCoachSection(user?.role, member?.role);
 
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
   const filteredMemberNav = filterNavByHiddenRoles(
-    filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser),
+    filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
     userRole,
   );
 
@@ -688,7 +691,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 mt-auto">
-        {shouldShowUpgradeCard(isAdminUser) && (
+        {shouldShowUpgradeCard(isAdminUser, isCoach) && (
           <UpgradeFeaturesCard
             entitlements={entitlements}
             hasLifetime={hasLifetime}
@@ -717,7 +720,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               })}
             </p>
           </div>
-          {(isAdminUser || entitlements.has("community:access")) && <NotificationBell />}
+          {(isAdminUser || isCoach || entitlements.has("community:access")) && <NotificationBell />}
           <button
             onClick={() => logout()}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"

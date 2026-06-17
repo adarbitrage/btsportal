@@ -6,6 +6,7 @@ import {
   type Permission,
   hasPermission,
   isAdminRole,
+  isCoachRole,
 } from "@workspace/auth";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 
@@ -15,6 +16,7 @@ export {
   getPermissionsForRole,
   hasPermission,
   isAdminRole,
+  isCoachRole,
 } from "@workspace/auth";
 export type { AdminRole, Permission } from "@workspace/auth";
 

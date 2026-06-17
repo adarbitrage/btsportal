@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { hasPermission, isAdminRole, type Permission } from "@workspace/auth";
+import { hasPermission, isAdminRole, isCoachRole, type Permission } from "@workspace/auth";
 
 export type NavIcon = ComponentType<{ className?: string }>;
 
@@ -221,9 +221,13 @@ export function getSidebarTierLabel(params: {
   highestProductSlug: string | undefined | null;
 }): string {
   if (params.isAdminUser) return getStaffLabel(params.userRole);
+  if (isCoachRole(params.userRole)) return "Coach";
   return getProductDisplayName(params.highestProductSlug);
 }
 
-export function shouldShowUpgradeCard(isAdminUser: boolean): boolean {
-  return !isAdminUser;
+export function shouldShowUpgradeCard(
+  isAdminUser: boolean,
+  isCoach = false,
+): boolean {
+  return !isAdminUser && !isCoach;
 }

@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
+import { isCoachRole } from "@workspace/auth";
 import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
 import { BlitzContinueCard } from "@/components/blitz/BlitzContinueCard";
 import { BlitzStreakWidget } from "@/components/blitz/BlitzStreakWidget";
@@ -160,17 +161,19 @@ export default function Dashboard() {
               </Card>
             )}
 
-            <UpgradeFeaturesCard
-              entitlements={memberEntitlements}
-              hasLifetime={hasLifetime}
-              variant="dashboard"
-              sourceTier={member ? (member.sourceProduct ?? "free") : null}
-              onCtaClick={() => navigate("/plans")}
-              onFeatureClick={(featureKey) => {
-                const planSlug = FEATURE_TO_PLAN_SLUG[featureKey];
-                navigate(planSlug ? `/plans?highlight=${planSlug}` : "/plans");
-              }}
-            />
+            {!isCoachRole(member?.role) && (
+              <UpgradeFeaturesCard
+                entitlements={memberEntitlements}
+                hasLifetime={hasLifetime}
+                variant="dashboard"
+                sourceTier={member ? (member.sourceProduct ?? "free") : null}
+                onCtaClick={() => navigate("/plans")}
+                onFeatureClick={(featureKey) => {
+                  const planSlug = FEATURE_TO_PLAN_SLUG[featureKey];
+                  navigate(planSlug ? `/plans?highlight=${planSlug}` : "/plans");
+                }}
+              />
+            )}
 
             {dashboard.recentAnnouncements.length > 0 && (
               <div>

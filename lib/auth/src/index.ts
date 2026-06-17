@@ -80,6 +80,16 @@ export function isAdminRole(
   return !!role && (ADMIN_ROLES as readonly string[]).includes(role);
 }
 
+// The `coach` role is NOT an admin role — coaches get the full member
+// experience (granted by role at the consumer layers, NOT by injecting
+// entitlements), plus a coach panel. Single-sourced here so every layer
+// (sidebar, route guards, server guards) agrees on what "coach" means.
+export const COACH_ROLE = "coach";
+
+export function isCoachRole(role: string | undefined | null): boolean {
+  return role === COACH_ROLE;
+}
+
 export function hasPermission(
   role: string | undefined | null,
   permission: Permission,

@@ -4,6 +4,7 @@ import {
   communityPostsTable
 } from "@workspace/db";
 import { eq, and, gte, desc, count, sql } from "drizzle-orm";
+import { COACH_ROLE } from "@workspace/auth";
 
 export interface ChurnRisk {
   userId: number;
@@ -145,7 +146,10 @@ export async function computeUpgradeCandidates(): Promise<UpgradeCandidate[]> {
     .where(
       and(
         eq(userProductsTable.status, "active"),
-        sql`${productsTable.type} IN ('frontend', 'launchpad')`
+        sql`${productsTable.type} IN ('frontend', 'launchpad')`,
+        // Coaches are staff, never upsell prospects — exclude even if a coach
+        // happens to also hold a frontend/launchpad product.
+        sql`${usersTable.role} <> ${COACH_ROLE}`
       )
     );
 
