@@ -66,3 +66,4 @@
 - [Prod SMS/Twilio config](prod-sms-twilio-config.md) — SMS disabled unless TWILIO_ACCOUNT_SID starts with "AC" (+matching token) AND a republish; construction only checks SID format, not auth; bash/sandbox don't get secrets, only workflows do.
 - [Private Coaching rename](private-coaching-rename.md) — deferred until recording task merges; label-only, keep /coaching URLs + DB names, EXCLUDE Concierge VA 1-on-1.
 - [migration-drift baseline](migration-drift-baseline.md) — a schema-only new table fails db-drift (onlyInPush); refresh expected-drift.json via UPDATE_DRIFT_BASELINE=1; live-schema-drift passing ≠ migration-drift passing.
+- [comms-dedup string outcome](comms-dedup-string-outcome.md) — checkAndRecordSend returns "recorded"/"duplicate"/"error"; reserveSend proceeds only on "recorded"; a boolean mock silently suppresses ALL sends and fakes a passing test.
