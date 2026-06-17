@@ -64,7 +64,7 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 
 // Coach-facing card to connect their own Google Drive so the ingest can find
 // their Meet recordings + Gemini notes. Per-coach OAuth — no Workspace admin.
-function GoogleDriveCard() {
+export function GoogleDriveCard() {
   const { toast } = useToast();
   const { data, isLoading } = useCoachGoogleStatus();
   const disconnect = useCoachGoogleDisconnect();
