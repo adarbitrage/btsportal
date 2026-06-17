@@ -240,6 +240,7 @@ function CancelButton({
     <Button
       variant="destructive"
       size={size}
+      className="hover:bg-destructive/70"
       onClick={onClick}
       disabled={pending}
       data-testid={`cancel-${bookingId}`}
@@ -716,7 +717,7 @@ export default function SessionBooking() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-3">
             {PACKAGE_PLACEHOLDERS.map((pkg) => (
-              <Card key={pkg.name} className="opacity-90">
+              <Card key={pkg.name} className="opacity-90 flex flex-col h-full">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold">{pkg.name}</p>
@@ -724,9 +725,9 @@ export default function SessionBooking() {
                   </div>
                   <p className="text-sm text-muted-foreground">{pkg.price}</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-1 flex-col">
                   <p className="text-sm text-muted-foreground">{pkg.blurb}</p>
-                  <Button className="mt-4 w-full" disabled>
+                  <Button className="mt-auto w-full" disabled>
                     Coming soon
                   </Button>
                 </CardContent>
