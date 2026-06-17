@@ -8,7 +8,7 @@ description: How session-feedback / recording-ready emails pick recipients via p
 `coaching_call_attendance` (UNIQUE(call_id,user_id), `registered_at` + `recording_viewed_at` both nullable) is the per-call recipient source for the scheduled comms emails.
 
 - **session-feedback**: targets members with ANY attendance row for the call (registered OR viewed). If a call has ZERO attendance rows it FALLS BACK to the old entitlement audience.
-- **recording-ready** (new): targets ONLY registrants (`registered_at` set), no fallback; bounded to calls finished in the last 7 days.
+- **recording-ready** (new): targets ONLY registrants (`registered_at` set), no fallback; bounded to calls finished in the last 7 days. Also sends an opt-in SMS (template slug `recording_ready`, also added to the SMS templates list) in addition to the email, gated on master `smsOptIn` + per-category `coachingSmsOptIn` + phone — recording-ready is treated as the coaching category (same as the live-call reminder). The SMS has its OWN dedup key/channel so it fires independently of the email.
 
 **Why the feedback fallback exists:** the portal `Coaching.tsx` is fully static and does NOT call the coaching-calls API, so nothing populates attendance yet. Without the fallback, every existing call (no rows) would silently send zero feedback emails — a regression. Remove the fallback only once the portal is dynamic and reliably records attendance.
 

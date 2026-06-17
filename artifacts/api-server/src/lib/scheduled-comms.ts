@@ -562,7 +562,14 @@ export async function processRecordingReadyNotifications(): Promise<void> {
 
   for (const call of callsWithRecording) {
     const recipients = await db
-      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        name: usersTable.name,
+        phone: usersTable.phone,
+        smsOptIn: usersTable.smsOptIn,
+        coachingSmsOptIn: usersTable.coachingSmsOptIn,
+      })
       .from(coachingCallAttendanceTable)
       .innerJoin(usersTable, eq(coachingCallAttendanceTable.userId, usersTable.id))
       .where(
@@ -579,23 +586,55 @@ export async function processRecordingReadyNotifications(): Promise<void> {
 
       const sendKey = `recording_ready_email_${call.id}_${member.id}`;
       const isNew = await reserveSend(sendKey, "email", "recording-ready email");
-      if (!isNew) continue;
+      if (isNew) {
+        try {
+          await CommunicationService.queueEmail({
+            templateSlug: "recording_ready",
+            to: member.email,
+            variables: {
+              member_name: member.name,
+              call_title: call.title,
+            },
+            userId: member.id,
+          });
+        } catch (err) {
+          console.error(
+            `[Scheduled Comms] Failed to queue recording-ready email for user ${member.id}, call ${call.id}:`,
+            err
+          );
+        }
+      }
 
-      try {
-        await CommunicationService.queueEmail({
-          templateSlug: "recording_ready",
-          to: member.email,
-          variables: {
-            member_name: member.name,
-            call_title: call.title,
-          },
-          userId: member.id,
-        });
-      } catch (err) {
-        console.error(
-          `[Scheduled Comms] Failed to queue recording-ready email for user ${member.id}, call ${call.id}:`,
-          err
-        );
+      // Members who opted into SMS get a short text nudge in addition to the
+      // email so they hear the recording is ready faster. Recording-ready is a
+      // coaching notification, so it is gated on the per-category
+      // coachingSmsOptIn (same category as the live-call reminder) on top of
+      // the master smsOptIn — a member can silence coaching texts while still
+      // receiving the email. queueSms re-checks the master smsOptIn server-side
+      // but NOT the per-category flag, so this caller is the sole enforcement
+      // point for the coaching category. A separate dedup key (channel "sms")
+      // means the text fires at most once per call per member, independently of
+      // the email, even as the 15-minute scheduler re-runs.
+      if (member.smsOptIn && member.coachingSmsOptIn && member.phone) {
+        const smsSendKey = `recording_ready_sms_${call.id}_${member.id}`;
+        const smsIsNew = await reserveSend(smsSendKey, "sms", "recording-ready SMS");
+        if (smsIsNew) {
+          try {
+            await CommunicationService.queueSms({
+              templateSlug: "recording_ready",
+              to: member.phone,
+              variables: {
+                call_title: call.title,
+              },
+              userId: member.id,
+            });
+          } catch (err) {
+            console.error(
+              `[Scheduled Comms] Failed to queue recording-ready SMS for user ${member.id}, call ${call.id}:`,
+              err
+            );
+          }
+        }
       }
     }
   }

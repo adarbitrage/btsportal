@@ -16,7 +16,7 @@ import { inArray } from "drizzle-orm";
 // session-feedback prompt and the new "recording ready" notification. Email
 // sender + the Postgres dedup helper are mocked (in-memory Set keyed on the
 // sendKey) so repeated scheduler runs exercise dedup for real, no Redis.
-const { queueEmailMock, sentKeys, sentChannels, checkAndRecordSendMock } =
+const { queueEmailMock, queueSmsMock, sentKeys, sentChannels, checkAndRecordSendMock } =
   vi.hoisted(() => {
     const sentKeys = new Set<string>();
     const sentChannels: Array<{ sendKey: string; channel: string }> = [];
@@ -24,6 +24,7 @@ const { queueEmailMock, sentKeys, sentChannels, checkAndRecordSendMock } =
       sentKeys,
       sentChannels,
       queueEmailMock: vi.fn(async (..._args: any[]) => ({ result: "queued" as const })),
+      queueSmsMock: vi.fn(async (..._args: any[]) => ({ result: "queued" as const })),
       checkAndRecordSendMock: vi.fn(async (sendKey: string, channel: string) => {
         sentChannels.push({ sendKey, channel });
         if (sentKeys.has(sendKey)) return "duplicate";
@@ -36,7 +37,7 @@ const { queueEmailMock, sentKeys, sentChannels, checkAndRecordSendMock } =
 vi.mock("../lib/communication-service", () => ({
   CommunicationService: {
     queueEmail: queueEmailMock,
-    queueSms: vi.fn(async () => ({ result: "queued" as const })),
+    queueSms: queueSmsMock,
   },
 }));
 
@@ -78,8 +79,15 @@ let viewerOnlyUserId = 0; // only opened the recording (never registered)
 let entitledNonAttendeeUserId = 0; // entitled, but no attendance row
 // untrackedCall cohort (entitled member, no attendance anywhere).
 let fallbackUserId = 0;
+// Registered for the attended call, master smsOptIn + coaching category on.
+let smsRegisteredUserId = 0;
+// Registered, master smsOptIn on but coaching category OFF (email-only).
+let smsCategoryOffUserId = 0;
 
-async function seedUser(suffix: string): Promise<number> {
+async function seedUser(
+  suffix: string,
+  sms?: { phone: string; smsOptIn: boolean; coachingSmsOptIn: boolean }
+): Promise<number> {
   const passwordHash = await bcrypt.hash("irrelevant-test-password", 4);
   const [user] = await db
     .insert(usersTable)
@@ -91,6 +99,13 @@ async function seedUser(suffix: string): Promise<number> {
       sourceProduct: "lifetime",
       emailVerified: true,
       onboardingComplete: true,
+      ...(sms
+        ? {
+            phone: sms.phone,
+            smsOptIn: sms.smsOptIn,
+            coachingSmsOptIn: sms.coachingSmsOptIn,
+          }
+        : {}),
     })
     .returning({ id: usersTable.id });
   seededUserIds.push(user.id);
@@ -141,6 +156,13 @@ function emailCallsFor(templateSlug: string, userId: number) {
   });
 }
 
+function smsCallsFor(templateSlug: string, userId: number) {
+  return queueSmsMock.mock.calls.filter((c: unknown[]) => {
+    const arg = c[0] as { templateSlug: string; userId: number };
+    return arg.templateSlug === templateSlug && arg.userId === userId;
+  });
+}
+
 function emailCallsForCall(templateSlug: string, userId: number, callTitle: string) {
   return queueEmailMock.mock.calls.filter((c: unknown[]) => {
     const arg = c[0] as {
@@ -174,8 +196,24 @@ beforeAll(async () => {
   viewerOnlyUserId = await seedUser("viewer");
   entitledNonAttendeeUserId = await seedUser("entitled-no-att");
   fallbackUserId = await seedUser("fallback");
+  smsRegisteredUserId = await seedUser("sms-on", {
+    phone: "+15555550101",
+    smsOptIn: true,
+    coachingSmsOptIn: true,
+  });
+  smsCategoryOffUserId = await seedUser("sms-cat-off", {
+    phone: "+15555550102",
+    smsOptIn: true,
+    coachingSmsOptIn: false,
+  });
 
-  for (const uid of [registeredUserId, viewerOnlyUserId, entitledNonAttendeeUserId]) {
+  for (const uid of [
+    registeredUserId,
+    viewerOnlyUserId,
+    entitledNonAttendeeUserId,
+    smsRegisteredUserId,
+    smsCategoryOffUserId,
+  ]) {
     await grantEntitlement(uid, `att-${uid}`);
   }
   await grantEntitlement(fallbackUserId, `fb-${fallbackUserId}`);
@@ -183,10 +221,13 @@ beforeAll(async () => {
   attendedCallId = await seedCall(`${TAG} attended call`, true);
   untrackedCallId = await seedCall(`${TAG} untracked call`, true);
 
-  // Attendance for the attended call: one registrant + one recording-only viewer.
+  // Attendance for the attended call: registrants (incl. the two SMS cohorts)
+  // plus one recording-only viewer.
   await db.insert(coachingCallAttendanceTable).values([
     { callId: attendedCallId, userId: registeredUserId, registeredAt: new Date() },
     { callId: attendedCallId, userId: viewerOnlyUserId, recordingViewedAt: new Date() },
+    { callId: attendedCallId, userId: smsRegisteredUserId, registeredAt: new Date() },
+    { callId: attendedCallId, userId: smsCategoryOffUserId, registeredAt: new Date() },
   ]);
 });
 
@@ -213,6 +254,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   queueEmailMock.mockClear();
+  queueSmsMock.mockClear();
   checkAndRecordSendMock.mockClear();
   sentKeys.clear();
   sentChannels.length = 0;
@@ -290,5 +332,43 @@ describe("processRecordingReadyNotifications", () => {
     await processRecordingReadyNotifications();
     await processRecordingReadyNotifications();
     expect(emailCallsFor("recording_ready", registeredUserId)).toHaveLength(1);
+  });
+
+  it("also texts an opted-in registrant (master + coaching category on)", async () => {
+    await processRecordingReadyNotifications();
+    // Still gets the email...
+    expect(emailCallsFor("recording_ready", smsRegisteredUserId)).toHaveLength(1);
+    // ...plus the SMS, on its own dedup key (channel "sms").
+    const sms = smsCallsFor("recording_ready", smsRegisteredUserId);
+    expect(sms).toHaveLength(1);
+    expect(sms[0][0]).toMatchObject({
+      templateSlug: "recording_ready",
+      to: "+15555550101",
+      userId: smsRegisteredUserId,
+      variables: { call_title: `${TAG} attended call` },
+    });
+    const smsKey = `recording_ready_sms_${attendedCallId}_${smsRegisteredUserId}`;
+    const recorded = sentChannels.find((c) => c.sendKey === smsKey);
+    expect(recorded).toBeDefined();
+    expect(recorded!.channel).toBe("sms");
+  });
+
+  it("does NOT text a registrant who opted out of the coaching SMS category", async () => {
+    await processRecordingReadyNotifications();
+    // Email still sends (category gate only suppresses the text)...
+    expect(emailCallsFor("recording_ready", smsCategoryOffUserId)).toHaveLength(1);
+    // ...but no SMS.
+    expect(smsCallsFor("recording_ready", smsCategoryOffUserId)).toHaveLength(0);
+  });
+
+  it("does NOT text a registrant with no SMS opt-in / no phone on file", async () => {
+    await processRecordingReadyNotifications();
+    expect(smsCallsFor("recording_ready", registeredUserId)).toHaveLength(0);
+  });
+
+  it("dedups the recording-ready SMS per member across repeated runs", async () => {
+    await processRecordingReadyNotifications();
+    await processRecordingReadyNotifications();
+    expect(smsCallsFor("recording_ready", smsRegisteredUserId)).toHaveLength(1);
   });
 });

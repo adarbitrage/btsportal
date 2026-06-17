@@ -699,6 +699,12 @@ const smsTemplates = [
     variables: ["call_title", "portal_url"],
   },
   {
+    slug: "recording_ready",
+    name: "Coaching Recording Ready SMS",
+    body: "BTS: The recording for {{call_title}} is ready. Watch it any time: {{portal_url}}/coaching",
+    variables: ["call_title", "portal_url"],
+  },
+  {
     slug: "mentorship_expiring",
     name: "Mentorship Expiring SMS",
     body: "BTS: Your {{product_name}} expires on {{expiration_date}}. Renew now to keep access: {{portal_url}}/settings",
