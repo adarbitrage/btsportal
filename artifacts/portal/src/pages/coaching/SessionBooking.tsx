@@ -284,15 +284,9 @@ function UpcomingSessionCard({
         </div>
         <div className="p-6 flex-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge
-                variant="secondary"
-                className="bg-primary/10 text-primary uppercase text-[10px] tracking-widest"
-              >
-                1-on-1
-              </Badge>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-1.5 mb-1 text-foreground">
+              <Clock className="w-5 h-5 text-primary" />
+              <span className="text-xl font-bold tracking-tight">
                 {format(sessionStart, "h:mm a")}
               </span>
             </div>

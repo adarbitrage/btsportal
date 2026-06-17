@@ -63,3 +63,4 @@
 - [Pack coaching recording ingest](coaching-recording-ingest.md) — Meet recording + Gemini notes/transcript auto-linked to a booking; COACH/ADMIN-ONLY (MEMBER_BOOKING_COLUMNS allow-list); Drive-pluggable via env, no-ops without creds.
 - [1-on-1 coach roster boot-seeded](session-pack-coaches-roster.md) — real coaches (Sasha/Bruce/Michael/Todd) live in session_pack_coaches via an idempotent app.ts boot seed; legacy fakes (Sarah Mitchell/David Chen/Amara Williams) removed by exact name. Separate from old coachesTable group system.
 - [Prod SMS/Twilio config](prod-sms-twilio-config.md) — SMS disabled unless TWILIO_ACCOUNT_SID starts with "AC" (+matching token) AND a republish; construction only checks SID format, not auth; bash/sandbox don't get secrets, only workflows do.
+- [Private Coaching rename](private-coaching-rename.md) — deferred until recording task merges; label-only, keep /coaching URLs + DB names, EXCLUDE Concierge VA 1-on-1.
