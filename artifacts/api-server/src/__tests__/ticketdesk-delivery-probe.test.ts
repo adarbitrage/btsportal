@@ -410,7 +410,7 @@ function routingFetch(opts: {
   cleanupThrows?: string;
 }): { fn: typeof fetch; calls: { url: string; method: string }[] } {
   const calls: { url: string; method: string }[] = [];
-  const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fn = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = String(input);
     calls.push({ url, method: (init?.method ?? "GET").toUpperCase() });
     if (url.endsWith("/chat/session")) {
