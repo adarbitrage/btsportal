@@ -20,6 +20,7 @@ vi.mock("@/components/layout/PackCoachingAdminLayout", () => ({
 }));
 
 const useAdminPackSessions = vi.fn();
+const setRecordingMutate = vi.fn();
 vi.mock("@/lib/session-coaching-admin-api", () => ({
   useAdminPackCoaches: () => ({ data: [] }),
   useAdminPackSessions: (...args: unknown[]) => useAdminPackSessions(...args),
@@ -27,7 +28,7 @@ vi.mock("@/lib/session-coaching-admin-api", () => ({
   useAdminCompleteBooking: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAdminNoShowBooking: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAdminSaveNotes: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useAdminSetRecording: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useAdminSetRecording: () => ({ mutateAsync: setRecordingMutate, isPending: false }),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -72,6 +73,7 @@ const plainBooking = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setRecordingMutate.mockResolvedValue(undefined);
   useAdminPackSessions.mockReturnValue({
     data: {
       bookings: [likelyNoShowBooking, plainBooking],
@@ -109,5 +111,65 @@ describe("PackSessions — likely no-show recording shortcut", () => {
     );
     expect(screen.getByTestId("input-summaryUrl")).toBeInTheDocument();
     expect(screen.getByTestId("input-transcriptUrl")).toBeInTheDocument();
+  });
+
+  it("saves the pasted links and clears the likely no-show flag", async () => {
+    const recordingUrl = "https://drive.google.com/file/rec";
+    const summaryUrl = "https://docs.google.com/document/sum";
+    const transcriptUrl = "https://docs.google.com/document/tx";
+
+    // On save, the set-recording query refetches with the recording now
+    // attached and the likely-no-show flag cleared — mirror that here.
+    setRecordingMutate.mockImplementation(async () => {
+      useAdminPackSessions.mockReturnValue({
+        data: {
+          bookings: [
+            {
+              ...likelyNoShowBooking,
+              recordingUrl,
+              summaryUrl,
+              transcriptUrl,
+              recordingIngestStatus: "manual",
+              likelyNoShow: false,
+            },
+            plainBooking,
+          ],
+          stats: {},
+          total: 2,
+        },
+        isLoading: false,
+      });
+    });
+
+    render(<PackSessions />);
+
+    const likelyRow = screen.getByTestId(`booking-row-${likelyNoShowBooking.id}`);
+    expect(within(likelyRow).getByTestId("badge-likely-no-show")).toBeInTheDocument();
+    await userEvent.click(within(likelyRow).getByTestId("button-add-recording-link"));
+
+    await userEvent.type(screen.getByTestId("input-recordingUrl"), recordingUrl);
+    await userEvent.type(screen.getByTestId("input-summaryUrl"), summaryUrl);
+    await userEvent.type(screen.getByTestId("input-transcriptUrl"), transcriptUrl);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    // The set-recording mutation runs with the booking id + the pasted URLs.
+    await waitFor(() => expect(setRecordingMutate).toHaveBeenCalledTimes(1));
+    expect(setRecordingMutate).toHaveBeenCalledWith({
+      bookingId: likelyNoShowBooking.id,
+      recordingUrl,
+      summaryUrl,
+      transcriptUrl,
+    });
+
+    // After the save the refetched row drops the flag + shortcut and shows the
+    // now-attached recording, so the session can no longer be mis-marked.
+    await waitFor(() => {
+      const refreshed = screen.getByTestId(`booking-row-${likelyNoShowBooking.id}`);
+      expect(within(refreshed).queryByTestId("badge-likely-no-show")).toBeNull();
+      expect(within(refreshed).queryByTestId("button-add-recording-link")).toBeNull();
+    });
+    const refreshed = screen.getByTestId(`booking-row-${likelyNoShowBooking.id}`);
+    expect(within(refreshed).getByTestId("badge-manual-recording")).toBeInTheDocument();
   });
 });
