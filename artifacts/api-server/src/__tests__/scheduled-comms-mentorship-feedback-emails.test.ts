@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import {
@@ -25,12 +25,17 @@ const { queueEmailMock, sentKeys, sentChannels, checkAndRecordSendMock } =
       sentKeys,
       sentChannels,
       queueEmailMock: vi.fn(async (..._args: any[]) => ({ result: "queued" as const })),
-      checkAndRecordSendMock: vi.fn(async (sendKey: string, channel: string) => {
-        sentChannels.push({ sendKey, channel });
-        if (sentKeys.has(sendKey)) return "duplicate";
-        sentKeys.add(sendKey);
-        return "recorded";
-      }),
+      checkAndRecordSendMock: vi.fn(
+        async (
+          sendKey: string,
+          channel: string,
+        ): Promise<"recorded" | "duplicate" | "error"> => {
+          sentChannels.push({ sendKey, channel });
+          if (sentKeys.has(sendKey)) return "duplicate";
+          sentKeys.add(sendKey);
+          return "recorded";
+        },
+      ),
     };
   });
 
@@ -336,5 +341,88 @@ describe("processSessionFeedbackPrompts — feedback emails", () => {
     await processSessionFeedbackPrompts();
 
     expect(emailCallsFor("session_feedback", feedbackEntitledUserId)).toHaveLength(1);
+  });
+});
+
+// End-to-end coverage of the scheduler's dedup-store-FAILURE branch. The path
+// tests above mock checkAndRecordSend to always succeed, so the "error" outcome
+// (reserveSend returns false and logs loudly) was previously exercised only at
+// the helper level (comms-dedup-failure.test.ts). Here we drive a REAL
+// scheduler pass with eligible recipients seeded and the dedup store reporting
+// "error", asserting the scheduler (a) queues NO email and (b) logs the loud
+// "[Scheduled Comms] Dedup store unavailable ..." message — and crucially that
+// this differs from the silent "duplicate -> skip" behavior.
+describe("scheduled comms — dedup store unavailable (returns \"error\")", () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  // Restore the default in-memory dedup behavior (matches the vi.hoisted impl)
+  // so a failing run here can't leak into other suites.
+  function restoreDefaultDedup() {
+    checkAndRecordSendMock.mockImplementation(async (sendKey: string, channel: string) => {
+      sentChannels.push({ sendKey, channel });
+      if (sentKeys.has(sendKey)) return "duplicate";
+      sentKeys.add(sendKey);
+      return "recorded";
+    });
+  }
+
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // Simulate a broken/unreachable comms_send_log: every reservation fails.
+    checkAndRecordSendMock.mockImplementation(
+      async (sendKey: string, channel: string): Promise<"recorded" | "duplicate" | "error"> => {
+        sentChannels.push({ sendKey, channel });
+        return "error";
+      },
+    );
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+    restoreDefaultDedup();
+  });
+
+  it("queues NO mentorship email and logs the dedup-store-unavailable error", async () => {
+    await processMentorshipExpirationWarnings();
+
+    // The dedup store failed for every reservation, so nothing is sent.
+    expect(emailCallsFor("mentorship_expiring_warning", mentorship30dUserId)).toHaveLength(0);
+    expect(emailCallsFor("mentorship_expiring_urgent", mentorship7dUserId)).toHaveLength(0);
+    expect(emailCallsFor("mentorship_expired", mentorshipExpiredUserId)).toHaveLength(0);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+
+    // The reservation was attempted (not skipped before checking the store).
+    expect(checkAndRecordSendMock).toHaveBeenCalled();
+
+    // ...and the failure surfaced LOUDLY rather than being swallowed.
+    const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("[Scheduled Comms] Dedup store unavailable");
+  });
+
+  it("queues NO session-feedback email and logs the dedup-store-unavailable error", async () => {
+    await processSessionFeedbackPrompts();
+
+    expect(emailCallsFor("session_feedback", feedbackEntitledUserId)).toHaveLength(0);
+    expect(queueEmailMock).not.toHaveBeenCalled();
+    expect(checkAndRecordSendMock).toHaveBeenCalled();
+
+    const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("[Scheduled Comms] Dedup store unavailable");
+  });
+
+  it("distinguishes a store ERROR (loud skip) from a DUPLICATE (silent skip)", async () => {
+    // Re-point the store at the "duplicate" outcome: the scheduler must still
+    // queue nothing, but this time WITHOUT the loud unavailable error — that
+    // message is reserved for genuine store failures, not already-sent mail.
+    checkAndRecordSendMock.mockImplementation(async (sendKey: string, channel: string) => {
+      sentChannels.push({ sendKey, channel });
+      return "duplicate";
+    });
+
+    await processMentorshipExpirationWarnings();
+
+    expect(queueEmailMock).not.toHaveBeenCalled();
+    const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).not.toContain("Dedup store unavailable");
   });
 });
