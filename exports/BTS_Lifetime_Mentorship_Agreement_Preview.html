@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BTS Lifetime Mentorship Mentee Agreement</title>
+<style>
+  :root{
+    --primary:#1a56db;
+    --primary-dark:#1e40af;
+    --ink:#0f172a;
+    --body:#1f2937;
+    --muted:#64748b;
+    --line:rgba(15,23,42,0.10);
+    --bg:#f8fafc;
+    --card:#ffffff;
+    --accent-bg:#eff6ff;
+    --accent-border:#bfdbfe;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--body);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 64px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);overflow:hidden}
+  header.brand{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    color:#fff;padding:28px 36px;display:flex;align-items:center;gap:16px}
+  header.brand img{height:44px;width:auto;background:#fff;border-radius:8px;padding:6px}
+  header.brand .b-title{font-size:20px;font-weight:700;letter-spacing:.2px;line-height:1.2}
+  header.brand .b-sub{font-size:13px;opacity:.85;margin-top:2px}
+  .doc{padding:36px 44px}
+  h1.doc-title{font-size:30px;line-height:1.2;color:var(--ink);margin:0 0 6px;font-weight:800;letter-spacing:-.01em}
+  .meta{color:var(--muted);font-size:14px;margin-bottom:8px}
+  .meta .fill{display:inline-block;border-bottom:1px solid var(--ink);min-width:220px;height:14px;vertical-align:-3px;margin-left:4px}
+  .lead{color:var(--body);font-size:15.5px;margin:18px 0 0}
+  hr.sep{border:0;border-top:1px solid var(--line);margin:28px 0}
+  h2{font-size:20px;color:var(--ink);margin:32px 0 10px;font-weight:700;letter-spacing:-.005em;
+    padding-bottom:6px;border-bottom:2px solid var(--accent-border)}
+  h2 .num{color:var(--primary);font-weight:800;margin-right:8px}
+  h3.sub{font-size:16px;color:var(--ink);margin:24px 0 8px;font-weight:700}
+  p{margin:10px 0}
+  strong{color:var(--ink)}
+  ol,ul{padding-left:22px;margin:10px 0}
+  ol li,ul li{margin:8px 0}
+  ol > li{padding-left:4px}
+  ol > li::marker{color:var(--primary);font-weight:700}
+  code{background:#f1f5f9;border:1px solid var(--line);padding:1px 6px;border-radius:4px;
+    font-size:13.5px;color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .callout{background:var(--accent-bg);border:1px solid var(--accent-border);border-left:4px solid var(--primary);
+    border-radius:8px;padding:14px 18px;margin:16px 0}
+  .tier-list{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 18px;margin:12px 0}
+  .footer-ack{margin-top:32px;padding:18px 20px;background:#f8fafc;border:1px solid var(--line);
+    border-radius:10px;color:var(--ink);font-weight:600}
+  /* Renewal feature list */
+  .renew-list{list-style:none;padding-left:0}
+  .renew-list > li{position:relative;padding-left:30px;margin:14px 0}
+  .renew-list > li::before{content:"";position:absolute;left:0;top:7px;width:12px;height:12px;
+    border:2px solid var(--primary);border-radius:3px;background:#fff}
+  /* Renewal schedule table */
+  table.sched{width:100%;border-collapse:collapse;margin:16px 0;font-size:14.5px;
+    border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  table.sched thead th{background:var(--primary);color:#fff;text-align:left;font-weight:700;
+    padding:10px 14px;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+  table.sched td{padding:11px 14px;border-top:1px solid var(--line);vertical-align:top}
+  table.sched tbody tr:nth-child(even){background:#f8fafc}
+  table.sched td .fill{display:inline-block;border-bottom:1px solid var(--ink);min-width:150px;height:14px}
+  /* Initial / checkbox affordances on refund-guarantee items */
+  .chk-list{list-style:none;padding-left:0}
+  .chk-list > li, .chk-ol > li{position:relative;padding-left:30px;margin:10px 0}
+  .chk-ol{list-style:none;counter-reset:chk;padding-left:0}
+  .chk-ol > li{counter-increment:chk}
+  .chk-ol > li::before{content:counter(chk) ".";position:absolute;left:0;top:0;
+    color:var(--primary);font-weight:800;width:22px;text-align:right}
+  .chk{display:inline-block;width:14px;height:14px;border:1.5px solid var(--primary);
+    border-radius:3px;vertical-align:-2px;margin-right:8px;background:#fff}
+  .chk-ol > li > .chk{position:absolute;left:24px;top:6px;margin-right:0}
+  .chk-ol > li{padding-left:48px}
+  .initial{display:inline-block;color:var(--muted);font-size:13px;font-style:italic;
+    margin-left:6px;white-space:nowrap}
+  .initial .line{display:inline-block;border-bottom:1px solid var(--ink);
+    width:90px;height:14px;vertical-align:-3px;margin-left:4px}
+  /* Signature block */
+  .sig-section{margin-top:36px;padding-top:24px;border-top:2px solid var(--accent-border)}
+  .sig-section h2{border-bottom:0;padding-bottom:0;margin-top:0}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+  .sig-card{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:20px}
+  .sig-card h3{margin:0 0 14px;color:var(--ink);font-size:15px;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .sig-row{margin:14px 0}
+  .sig-row .label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:4px;font-weight:600}
+  .sig-row .field{border-bottom:1.5px solid var(--ink);min-height:30px;width:100%}
+  .sig-row.sig .field{min-height:42px}
+  @media (max-width:640px){.sig-grid{grid-template-columns:1fr}}
+  footer.foot{padding:22px 36px;color:var(--muted);font-size:13px;text-align:center;border-top:1px solid var(--line);background:#fafbfc}
+  footer.foot a{color:var(--primary);text-decoration:none}
+  @media (max-width:640px){
+    .doc{padding:24px 22px}
+    header.brand{padding:22px 22px}
+    h1.doc-title{font-size:24px}
+    h2{font-size:18px}
+  }
+  @media print{
+    body{background:#fff}
+    .wrap{padding:0;max-width:none}
+    .card{box-shadow:none;border:0;border-radius:0}
+    header.brand{background:#1a56db !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table.sched thead th{background:#1a56db !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand">
+      <img src="bts-logo.png" alt="BTS" />
+      <div>
+        <div class="b-title">Build. Test. Scale.</div>
+        <div class="b-sub">Lifetime Mentorship</div>
+      </div>
+    </header>
+
+    <div class="doc">
+      <h1 class="doc-title">BTS Lifetime Mentorship Mentee Agreement</h1>
+      <div class="meta"><strong>Effective Date:</strong> Upon execution by Mentee</div>
+      <div class="meta"><strong>Program Start Date:</strong> <span class="fill"></span> <em>(the date the Mentee is granted access to the Program)</em></div>
+
+      <p class="lead">This BTS Lifetime Mentorship Mentee Agreement ("Agreement") is entered into between BTS (Build. Test. Scale.) ("Company," "we," "us," or "our") and the individual identified during enrollment ("Mentee," "you," or "your") for the provision of online affiliate marketing training and mentorship services under the <strong>Lifetime Mentorship</strong> tier ("Services"). This Agreement is a standalone agreement that applies specifically to the Lifetime Mentorship and stands on its own. By signing this Agreement, you acknowledge that you have read, understood, and agree to be bound by its terms and conditions.</p>
+
+      <hr class="sep" />
+
+      <h2><span class="num">1.</span>Services &amp; Program</h2>
+      <p>The Company shall provide the Mentee with access to the BTS Lifetime Mentorship Program ("Program") for the purpose of teaching the Mentee affiliate marketing strategies, including the Build. Test. Scale. methodology. The Program will be delivered through a learning management system or similar online platform ("Platform"), and may include video tutorials, interactive exercises, live coaching sessions, and other materials.</p>
+      <p>This Agreement applies to the <strong>Lifetime Mentorship</strong> tier. The Mentee shall pay the corresponding fee as specified in the invoice provided by the Company. Live sessions, coaching, and support may be conducted via Zoom or other video conferencing platforms. The Mentee is responsible for maintaining a reliable internet connection and a device that meets the Company's technical requirements.</p>
+      <p>The Company will make every effort to deliver Program content as scheduled but does not guarantee the frequency of classes or the availability of any specific instructor, coach, or support staff. The Company reserves the right to modify the Program schedule or content due to unforeseen circumstances, and shall not be liable for any delays.</p>
+
+      <h2><span class="num">2.</span>Lifetime Term &amp; 12-Month Renewal</h2>
+      <p>The Lifetime Mentorship provides ongoing ("lifetime") access to the Program, <strong>contingent upon the Mentee renewing this Agreement every twelve (12) months</strong> as described in this Section.</p>
+      <ul class="renew-list">
+        <li><strong>Program Start Date.</strong> The "Program Start Date" is the date the Mentee is granted access to the Program. Each twelve-month period measured from the Program Start Date is a "Term Year," and the anniversary of the Program Start Date at the end of each Term Year is a "Renewal Date." <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><strong>Manual Renewal Required.</strong> Renewal is <strong>not automatic</strong>. To keep access, the Mentee must affirmatively renew this Agreement on or before each Renewal Date. The Mentee may renew by confirming their intent to continue in writing to <code>support@buildtestscale.com</code> (or through any renewal process the Company designates) on or before the applicable Renewal Date. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><strong>No Renewal Fee.</strong> Renewal is <strong>free</strong>. Renewal simply re-confirms this Agreement for the next Term Year; no charge or additional payment is required to renew. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><strong>Renewable Indefinitely.</strong> Provided the Mentee renews on or before each Renewal Date, the Lifetime Mentorship continues for successive twelve-month Term Years and may be renewed indefinitely. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><strong>Effect of Non-Renewal &mdash; Termination.</strong> If the Mentee does <strong>not</strong> renew on or before a Renewal Date, this Agreement and the Mentee's access to the Program will <strong>automatically terminate</strong> as of that Renewal Date. Termination for non-renewal does not entitle the Mentee to any refund. The Mentee may inquire about re-enrolling under the Company's then-current terms, which is not guaranteed. <span class="initial">Initial: <span class="line"></span></span></li>
+      </ul>
+
+      <h3 class="sub">Renewal Schedule</h3>
+      <p>The following renewal schedule is keyed to the Mentee's Program Start Date. The Mentee must renew on or before each Renewal Date listed below.</p>
+      <table class="sched">
+        <thead>
+          <tr><th>Renewal</th><th>Renewal Due On or Before</th><th>Calendar Date</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>First Renewal (end of Year 1)</strong></td><td>Program Start Date + 12 months</td><td><span class="fill"></span></td></tr>
+          <tr><td><strong>Second Renewal (end of Year 2)</strong></td><td>Program Start Date + 24 months</td><td><span class="fill"></span></td></tr>
+          <tr><td><strong>Third Renewal (end of Year 3)</strong></td><td>Program Start Date + 36 months</td><td><span class="fill"></span></td></tr>
+          <tr><td><strong>Fourth Renewal (end of Year 4)</strong></td><td>Program Start Date + 48 months</td><td><span class="fill"></span></td></tr>
+          <tr><td><strong>Fifth Renewal (end of Year 5)</strong></td><td>Program Start Date + 60 months</td><td><span class="fill"></span></td></tr>
+          <tr><td><strong>Each Year Thereafter</strong></td><td>Annually, on each anniversary of the Program Start Date</td><td><span class="fill"></span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span class="num">3.</span>90-Day Action-Based Refund Guarantee</h2>
+      <p>The Company offers a 90-Day Action-Based Refund Guarantee ("Guarantee"). For the Lifetime Mentorship, the minimum revenue threshold that must be missed in order to trigger the Guarantee is:</p>
+      <div class="tier-list">
+        <ul class="chk-list">
+          <li><span class="chk"></span><strong>Lifetime Mentorship:</strong> $10,000 in revenue within the first 90 days of being granted access to the Program. <span class="initial">Initial: <span class="line"></span></span></li>
+        </ul>
+      </div>
+      <p>If the Mentee does not generate at least the applicable revenue threshold within their 90-day window, the Mentee is eligible for a full refund of the purchase price <strong>AND</strong> continued access to all coaches and resources until that threshold is reached, <strong>provided that</strong> the Mentee has met <strong>all four</strong> of the following criteria within the 90-day period:</p>
+      <ol class="chk-ol">
+        <li><span class="chk"></span><strong>Active and Engaged Participation in At Least 10 Live Zoom Calls.</strong> Attendance alone is not sufficient. The Mentee must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><span class="chk"></span><strong>Effective Utilization of the BTS Concierge.</strong> The Mentee must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><span class="chk"></span><strong>Diligent Sharing and Daily Updating of a Profit &amp; Loss (P&amp;L) Spreadsheet.</strong> The Mentee must update the P&amp;L Spreadsheet daily, notify the support team at each ad-spend milestone (<code>support@buildtestscale.com</code>), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase. <span class="initial">Initial: <span class="line"></span></span></li>
+        <li><span class="chk"></span><strong>Achieving the Minimum Ad-Spend Threshold on Specified Traffic Sources.</strong> The Mentee must spend at least <strong>$10,000 USD in ad spend</strong> within the first 90 days, using only the traffic sources taught within the Program. The Mentee must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing. <span class="initial">Initial: <span class="line"></span></span></li>
+      </ol>
+      <div class="callout">The 90-day period begins on the date the Mentee is granted access to the Program, <strong>not</strong> the date the Mentee first accesses the Program. No refunds shall be issued after 90 days from the start of the Program. By acknowledging this Action-Based Refund, the Mentee understands that the Company does not guarantee success and that any refund is contingent upon the Mentee's actual participation as described above. <span class="initial">Initial: <span class="line"></span></span></div>
+
+      <h2><span class="num">4.</span>Payment</h2>
+      <p>The Mentee shall pay the Company the agreed-upon fee for the Services. The fee may be paid in full upfront or in installments, as specified in the invoice provided by the Company. Failure to pay any installment may result in suspension or termination of access to the Program. The Company reserves the right to change Program rates at any time, but such changes shall not apply to the Mentee's existing Program. As provided in Section 2, no fee is charged to renew this Agreement at each Renewal Date.</p>
+
+      <h2><span class="num">5.</span>No Profit Guarantee</h2>
+      <p>The Company does not guarantee that the Mentee will make a profit or achieve any specific financial outcome as a result of the Services. The Company provides education and training on online affiliate marketing, but the success of the Mentee's business is dependent on many factors, including market conditions, competition, and the Mentee's own efforts and abilities. By acknowledging this clause, the Mentee understands that their success is dependent on many factors and that the Company does not guarantee any specific financial outcome. The Company does not guarantee any specific results or outcomes from the Services, and the Mentee acknowledges that individual results may vary based on personal effort, skill, financial resources, market conditions, and external factors.</p>
+
+      <h2><span class="num">6.</span>Intellectual Property</h2>
+      <p>The Company retains all ownership and intellectual property rights in the Program and all materials provided to the Mentee as part of the Services. The Mentee may not reproduce, distribute, resell, or create derivative works based on the Program or any of the Company's materials without the prior written consent of the Company.</p>
+
+      <h2><span class="num">7.</span>Confidentiality</h2>
+      <p>The Mentee agrees to keep confidential all materials and information provided by the Company as part of the Services. The Mentee shall not disclose or share any such materials or information with any third party without the prior written consent of the Company.</p>
+
+      <h2><span class="num">8.</span>Disclaimer of Warranty</h2>
+      <p>The Company makes no warranty, express or implied, regarding the accuracy, reliability, or completeness of the Program or any other materials provided to the Mentee. The Company shall not be liable for any errors, omissions, or damages arising from or in connection with the Program or any other materials.</p>
+
+      <h2><span class="num">9.</span>Limitation of Liability</h2>
+      <p>The Company shall not be liable for any indirect, incidental, consequential, or punitive damages arising from or in connection with the Program or any other materials provided to the Mentee. The maximum liability of the Company under this Agreement shall be limited to the amount paid by the Mentee for the Services.</p>
+
+      <h2><span class="num">10.</span>Indemnification</h2>
+      <p>The Mentee agrees to indemnify and hold harmless the Company, its affiliates, and their respective officers, directors, employees, and agents from any and all claims, damages, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from or in connection with the Mentee's use of the Program or any other materials provided by the Company.</p>
+
+      <h2><span class="num">11.</span>Marketing Material Disclaimer</h2>
+      <p>The Mentee acknowledges that any marketing material related to the Program is for informational and educational purposes only and does not create any guarantees, warranties, or representations about the Services. Employing the techniques, ideas, strategies, products, or services described by BTS does not guarantee similar results. Each individual's success and results may vary significantly based on personal skills, financial resources, marketing knowledge, and time investment. Historical performances or experiences shared by the Company are individual examples and not indicative of future results. The Company does not offer any "get rich quick" promise, and shall not be liable for any discrepancies between marketing material and the actual Services provided.</p>
+
+      <h2><span class="num">12.</span>Non-Transferability</h2>
+      <p>The Mentee acknowledges that enrollment in the Program is personal and non-transferable. The Mentee shall not assign or transfer any rights or obligations under this Agreement to any third party without the prior written consent of the Company.</p>
+
+      <h2><span class="num">13.</span>Amendments to the Program</h2>
+      <p>The Mentee understands that, due to the dynamic nature of online affiliate marketing, the Company reserves the right to amend, modify, or change the substance of the Program — including course content, materials, instructors, and schedule — at any time and without notice. The Mentee acknowledges that the Services are subject to change and that the Company shall not be liable for any such changes. The Company shall use reasonable efforts to provide notice of material changes through its website or other communication channels.</p>
+
+      <h2><span class="num">14.</span>Amendments to This Agreement; Modifications and Waivers</h2>
+      <p>The Company reserves the right to amend this Agreement at any time by posting the amended terms on its website or through the Platform. The Mentee's continued use of the Program after such posting constitutes acceptance of the amended terms.</p>
+      <p>No modification or waiver of any provision of this Agreement shall be effective unless in writing and signed by both parties. The failure of either party to enforce any provision of this Agreement shall not be construed as a waiver of such provision or the right to enforce it at a later time.</p>
+
+      <h2><span class="num">15.</span>Termination</h2>
+      <p>In addition to automatic termination for non-renewal under Section 2, either party may terminate this Agreement at any time upon written notice to the other party. Upon termination, the Mentee shall immediately cease using the Program and all materials provided by the Company. Termination does not entitle the Mentee to a refund, except as expressly provided in this Agreement.</p>
+
+      <h2><span class="num">16.</span>Breach of Agreement</h2>
+      <p>In the event that the Company brings any legal action or proceeding against the Mentee arising out of or relating to this Agreement, the Company shall be entitled to recover its reasonable attorneys' fees and costs incurred in connection with such action or proceeding, in addition to any other relief to which it may be entitled.</p>
+
+      <h2><span class="num">17.</span>Governing Law and Jurisdiction</h2>
+      <p>This Agreement shall be governed by and construed in accordance with the laws of the State of Texas, without giving effect to any choice or conflict of law provision or rule. Any legal action or proceeding arising out of or relating to this Agreement shall be brought exclusively in the federal or state courts located in the County of Dallas, State of Texas, and each party hereby submits to the exclusive jurisdiction and venue of such courts.</p>
+
+      <h2><span class="num">18.</span>Waiver of Class Action</h2>
+      <p>The Mentee and the Company waive any right to bring any claims against each other as a plaintiff or class member in any purported class or representative action. The Mentee and the Company agree that any dispute shall be resolved on an individual basis and that neither party shall be entitled to join or consolidate claims in arbitration or court with claims brought by or against any other party.</p>
+
+      <h2><span class="num">19.</span>Survival</h2>
+      <p>The provisions of this Agreement that by their nature are intended to survive termination — including but not limited to the provisions on intellectual property, confidentiality, limitation of liability, and governing law — shall survive termination of this Agreement.</p>
+
+      <h2><span class="num">20.</span>Entire Agreement</h2>
+      <p>This Agreement constitutes the entire agreement between the Company and the Mentee with respect to the Lifetime Mentorship and supersedes all prior or contemporaneous communications and proposals, whether oral or written, between the parties.</p>
+
+      <h2><span class="num">21.</span>Contact</h2>
+      <p>For questions regarding this Agreement, contact us at <code>support@buildtestscale.com</code>.</p>
+
+      <div class="footer-ack">By proceeding, you acknowledge that you have read, understand, and agree to the terms of this BTS Lifetime Mentorship Mentee Agreement, including the 12-month renewal requirement set out in Section 2.</div>
+
+      <section class="sig-section">
+        <h2><span class="num">22.</span>Signatures</h2>
+        <p>The parties have executed this Agreement as of the dates set forth below.</p>
+        <div class="sig-grid">
+          <div class="sig-card">
+            <h3>Mentee</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Program Start Date</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+          <div class="sig-card">
+            <h3>Company &mdash; BTS (Build. Test. Scale.)</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Title</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      Build. Test. Scale. &middot; <a href="mailto:support@buildtestscale.com">support@buildtestscale.com</a>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
