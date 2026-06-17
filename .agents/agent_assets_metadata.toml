@@ -138,3 +138,9 @@ id = "8vub3WdEjz_u5O7P6B_qe"
 uri = "file://BTS_Lifetime_Mentorship_Agreement_DRAFT.md"
 type = "text"
 title = "Lifetime Mentorship Agreement (editable Markdown source)"
+
+[[outputs]]
+id = "00g0rYe6bY4ABvJjCaf3i"
+uri = "file://exports/BTS_Lifetime_Mentorship_Agreement_Preview.pdf"
+type = "pdf"
+title = "BTS Lifetime Mentorship Mentee Agreement (PDF)"
