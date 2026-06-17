@@ -838,6 +838,10 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "new_device_signin",
   "role_changed",
   "ticket_reply",
+  "mentorship_expiring_warning",
+  "mentorship_expiring_urgent",
+  "mentorship_expired",
+  "session_feedback",
 ] as const;
 
 /**
@@ -957,7 +961,7 @@ export async function ensureRequiredEmailTemplates(opts?: {
   requiredSlugs?: ReadonlyArray<string>;
   priorRevisions?: Record<string, StarterContent[]>;
 }): Promise<EnsureRequiredEmailTemplatesResult> {
-  const templates = opts?.templates ?? transactionalEmailTemplates;
+  const templates = opts?.templates ?? allStarterTemplates;
   const requiredSlugs = opts?.requiredSlugs ?? REQUIRED_TEMPLATE_SLUGS;
   const priorRevs = opts?.priorRevisions ?? priorStarterRevisions;
   const result: EnsureRequiredEmailTemplatesResult = {
