@@ -7,6 +7,7 @@ import {
   productsTable,
   coachingCallsTable,
   coachingCallAttendanceTable,
+  sessionPackBookingsTable,
   announcementsTable,
   sequenceEnrollmentsTable,
   sequencesTable,
@@ -640,6 +641,103 @@ export async function processRecordingReadyNotifications(): Promise<void> {
   }
 }
 
+export async function processSessionPackRecordingReadyNotifications(): Promise<void> {
+  // "Your recording is ready" notifications for 1-on-1 PRIVATE coaching (session
+  // pack) bookings. Unlike the group-call version above, each booking belongs to
+  // a single member, and the link deep-links straight into THAT booking's
+  // recording on /coaching/book-session (auto-opening the recording dialog)
+  // instead of the generic /coaching page. We notify once the booking is
+  // completed and its Drive recording has been ingested (recordingUrl set —
+  // which is also the only state in which the member can see it via
+  // /coaching/sessions/mine). Per-booking dedup means the member is told at most
+  // once per booking even as the 15-minute scheduler re-runs.
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Bound to recently-scheduled sessions (mirrors the group version) so a
+  // freshly-populated table can't blast the entire back-catalogue; dedup still
+  // guards against repeats within the window.
+  const bookingsWithRecording = await db
+    .select({
+      id: sessionPackBookingsTable.id,
+      memberId: usersTable.id,
+      email: usersTable.email,
+      name: usersTable.name,
+      phone: usersTable.phone,
+      smsOptIn: usersTable.smsOptIn,
+      coachingSmsOptIn: usersTable.coachingSmsOptIn,
+    })
+    .from(sessionPackBookingsTable)
+    .innerJoin(usersTable, eq(sessionPackBookingsTable.memberId, usersTable.id))
+    .where(
+      and(
+        eq(sessionPackBookingsTable.status, "completed"),
+        isNotNull(sessionPackBookingsTable.recordingUrl),
+        lt(sessionPackBookingsTable.scheduledAt, now),
+        gte(sessionPackBookingsTable.scheduledAt, sevenDaysAgo)
+      )
+    );
+
+  for (const booking of bookingsWithRecording) {
+    if (!booking.email) continue;
+
+    // Deep-link straight to this booking's recording. SessionBooking.tsx reads
+    // the `recording` query param, locates the matching past session and opens
+    // its recording dialog. recording_path is appended to {{portal_url}} in the
+    // template, so it must be a portal-relative path (leading slash, no host).
+    const recordingPath = `/coaching/book-session?recording=${booking.id}`;
+
+    const sendKey = `session_pack_recording_ready_email_${booking.id}`;
+    const isNew = await reserveSend(sendKey, "email", "session-pack recording-ready email");
+    if (isNew) {
+      try {
+        await CommunicationService.queueEmail({
+          templateSlug: "session_recording_ready",
+          to: booking.email,
+          variables: {
+            member_name: booking.name,
+            recording_path: recordingPath,
+          },
+          userId: booking.memberId,
+        });
+      } catch (err) {
+        console.error(
+          `[Scheduled Comms] Failed to queue session-pack recording-ready email for user ${booking.memberId}, booking ${booking.id}:`,
+          err
+        );
+      }
+    }
+
+    // SMS nudge, gated identically to the group version: master smsOptIn AND the
+    // per-category coachingSmsOptIn AND a phone on file. queueSms re-checks the
+    // master smsOptIn server-side but NOT the per-category flag, so this caller
+    // is the sole enforcement point for the coaching category. A separate dedup
+    // key (channel "sms") means the text fires at most once per booking,
+    // independently of the email.
+    if (booking.smsOptIn && booking.coachingSmsOptIn && booking.phone) {
+      const smsSendKey = `session_pack_recording_ready_sms_${booking.id}`;
+      const smsIsNew = await reserveSend(smsSendKey, "sms", "session-pack recording-ready SMS");
+      if (smsIsNew) {
+        try {
+          await CommunicationService.queueSms({
+            templateSlug: "session_recording_ready",
+            to: booking.phone,
+            variables: {
+              recording_path: recordingPath,
+            },
+            userId: booking.memberId,
+          });
+        } catch (err) {
+          console.error(
+            `[Scheduled Comms] Failed to queue session-pack recording-ready SMS for user ${booking.memberId}, booking ${booking.id}:`,
+            err
+          );
+        }
+      }
+    }
+  }
+}
+
 async function processCommissionNotifications(): Promise<void> {
   console.log("[Scheduled Comms] Commission notifications check — no commission table yet, skipping");
 }
@@ -652,6 +750,7 @@ async function processScheduledComms(): Promise<void> {
   await processMentorshipExpirationWarnings();
   await processSessionFeedbackPrompts();
   await processRecordingReadyNotifications();
+  await processSessionPackRecordingReadyNotifications();
   await processCommissionNotifications();
 
   // Evaluate the dedup-store failure alert at the end of every run so a run

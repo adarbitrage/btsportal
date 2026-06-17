@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { format, addMinutes, isBefore } from "date-fns";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSessionBalance,
@@ -321,6 +321,32 @@ export default function SessionBooking() {
     const start = pastPage * PAST_PAGE_SIZE;
     return { sessions: past.slice(start, start + PAST_PAGE_SIZE), totalPages };
   }, [past, pastPage]);
+
+  // Deep link from the "your 1-on-1 recording is ready" email/SMS:
+  // /coaching/book-session?recording=<bookingId>. Once bookings load, jump to
+  // the page holding that session and auto-open its recording dialog. Guarded by
+  // a ref so closing the dialog (or paginating) doesn't re-trigger the open.
+  const searchString = useSearch();
+  const deepLinkRecordingId = useMemo(() => {
+    const raw = new URLSearchParams(searchString).get("recording");
+    if (!raw) return null;
+    const parsed = parseInt(raw, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [searchString]);
+  const handledRecordingDeepLink = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (deepLinkRecordingId === null) return;
+    if (handledRecordingDeepLink.current === deepLinkRecordingId) return;
+    const target = past.find((b) => b.id === deepLinkRecordingId);
+    if (!target) return;
+    handledRecordingDeepLink.current = deepLinkRecordingId;
+    if (target.recordingUrl) {
+      const index = past.findIndex((b) => b.id === deepLinkRecordingId);
+      if (index >= 0) setPastPage(Math.floor(index / PAST_PAGE_SIZE));
+      setActiveRecording(target);
+    }
+  }, [deepLinkRecordingId, past]);
 
   const cancelLocked = cancelTarget
     ? isLockedWithin24h(cancelTarget.scheduledAt, Date.now())

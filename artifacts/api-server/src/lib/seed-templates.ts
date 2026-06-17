@@ -542,6 +542,20 @@ const marketingEmailTemplates = [
     variables: ["member_name", "call_title", "portal_url", "current_year"],
   },
   {
+    slug: "session_recording_ready",
+    name: "1-on-1 Session Recording Ready",
+    subject: "Your 1-on-1 coaching recording is ready",
+    htmlBody: wrapHtml("Recording Ready", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Recording Is Ready</h2>
+<p>Hi {{member_name}},</p>
+<p>The recording from your recent 1-on-1 coaching session is now available. Want to revisit something? You can watch it any time.</p>
+<p><a href="{{portal_url}}{{recording_path}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Watch the Recording</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nThe recording from your recent 1-on-1 coaching session is now available. Watch it any time: {{portal_url}}{{recording_path}}\n\nThe BTS Team",
+    category: "marketing",
+    variables: ["member_name", "recording_path", "portal_url", "current_year"],
+  },
+  {
     slug: "new_content_alert",
     name: "New Content Available",
     subject: "New content just dropped: {{content_title}}",
@@ -705,6 +719,12 @@ const smsTemplates = [
     variables: ["call_title", "portal_url"],
   },
   {
+    slug: "session_recording_ready",
+    name: "1-on-1 Session Recording Ready SMS",
+    body: "BTS: Your 1-on-1 coaching session recording is ready. Watch it any time: {{portal_url}}{{recording_path}}",
+    variables: ["recording_path", "portal_url"],
+  },
+  {
     slug: "mentorship_expiring",
     name: "Mentorship Expiring SMS",
     body: "BTS: Your {{product_name}} expires on {{expiration_date}}. Renew now to keep access: {{portal_url}}/settings",
@@ -848,6 +868,17 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "mentorship_expiring_urgent",
   "mentorship_expired",
   "session_feedback",
+  "session_recording_ready",
+] as const;
+
+/**
+ * SMS templates that must always exist in the DB. Unlike email templates there
+ * is no content-hash refresh for SMS (the `sms_templates` table has no
+ * `starter_hash` column), so `ensureRequiredSmsTemplates` only *inserts* missing
+ * rows — it never overwrites an existing row, preserving any admin edits.
+ */
+export const REQUIRED_SMS_TEMPLATE_SLUGS = [
+  "session_recording_ready",
 ] as const;
 
 /**
@@ -943,6 +974,47 @@ export async function seedCommunicationTemplates(): Promise<void> {
   console.log(`  Seeded ${smsTemplates.length} SMS templates`);
 
   console.log("Communication templates seeding complete!");
+}
+
+/**
+ * Run on every API server boot. Guarantees the REQUIRED SMS templates exist.
+ * The `sms_templates` table has no `starter_hash` column, so there is no
+ * content-refresh path for SMS the way there is for email — this routine only
+ * INSERTS rows whose slug is missing and never touches existing rows, so an
+ * admin's customized copy is always preserved. New SMS template slugs added to
+ * `REQUIRED_SMS_TEMPLATE_SLUGS` therefore reach existing/prod databases on the
+ * next boot without a destructive full reseed.
+ */
+export async function ensureRequiredSmsTemplates(opts?: {
+  templates?: ReadonlyArray<(typeof smsTemplates)[number]>;
+  requiredSlugs?: ReadonlyArray<string>;
+}): Promise<{ inserted: string[] }> {
+  const templates = opts?.templates ?? smsTemplates;
+  const requiredSlugs = opts?.requiredSlugs ?? REQUIRED_SMS_TEMPLATE_SLUGS;
+  const result = { inserted: [] as string[] };
+
+  try {
+    const existingRows = await db
+      .select({ slug: smsTemplatesTable.slug })
+      .from(smsTemplatesTable)
+      .where(inArray(smsTemplatesTable.slug, [...requiredSlugs]));
+    const existing = new Set(existingRows.map(r => r.slug));
+
+    for (const slug of requiredSlugs) {
+      if (existing.has(slug)) continue;
+      const starter = templates.find(t => t.slug === slug);
+      if (!starter) continue;
+      await db.insert(smsTemplatesTable).values(starter);
+      result.inserted.push(slug);
+    }
+
+    if (result.inserted.length) {
+      console.log(`[Seed] ensureRequiredSmsTemplates: inserted=[${result.inserted.join(",")}]`);
+    }
+  } catch (err) {
+    console.error("[Seed] ensureRequiredSmsTemplates failed:", err);
+  }
+  return result;
 }
 
 export interface EnsureRequiredEmailTemplatesResult {

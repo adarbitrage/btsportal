@@ -27,7 +27,7 @@ import { startUpgradePromptEventsCleanupJob } from "./lib/upgrade-prompt-events-
 import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
-import { ensureRequiredEmailTemplates } from "./lib/seed-templates";
+import { ensureRequiredEmailTemplates, ensureRequiredSmsTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
@@ -97,6 +97,7 @@ app.use("/api", apiErrorHandler);
 
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
+ensureRequiredSmsTemplates().catch(err => console.error("[Seed] Failed to ensure required SMS templates:", err));
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
 seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moderation wordlist:", err));
