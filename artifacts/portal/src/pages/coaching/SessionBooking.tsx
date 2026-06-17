@@ -195,9 +195,8 @@ function RescheduleButton({
 }) {
   const btn = (
     <Button
-      variant="ghost"
       size={size}
-      className="text-green-700 hover:text-green-800 dark:text-green-500 dark:hover:text-green-400"
+      className="bg-[#188f4a] text-white hover:bg-[#136b38]"
       disabled={locked}
       data-testid={`reschedule-${bookingId}`}
     >
@@ -239,9 +238,8 @@ function CancelButton({
 }) {
   return (
     <Button
-      variant="ghost"
+      variant="destructive"
       size={size}
-      className="text-destructive hover:text-destructive"
       onClick={onClick}
       disabled={pending}
       data-testid={`cancel-${bookingId}`}
@@ -305,26 +303,29 @@ function UpcomingSessionCard({
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:items-end shrink-0">
-            <div className="sm:text-right sm:max-w-xs">
+            <div className="w-full sm:w-0 sm:min-w-full">
               <SessionPolicyNote
                 scheduledAt={booking.scheduledAt}
                 locked={locked}
               />
             </div>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
               {canJoin && booking.meetLink ? (
                 <a
                   href={booking.meetLink}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Button>
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                     <Video className="w-4 h-4 mr-2" />
                     Join Session
                   </Button>
                 </a>
               ) : (
-                <Button variant="outline" disabled>
+                <Button
+                  disabled
+                  className="bg-primary/20 text-primary hover:bg-primary/20 disabled:opacity-100 cursor-not-allowed"
+                >
                   <Video className="w-4 h-4 mr-2" />
                   Join (opens 5 min before)
                 </Button>
