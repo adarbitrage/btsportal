@@ -131,3 +131,59 @@ describe("Coaching — Upcoming Calls Unlock buttons", () => {
     expect(screen.queryByRole("heading", { name: /upcoming calls/i })).not.toBeInTheDocument();
   });
 });
+
+describe("Coaching — data-driven weekly schedule", () => {
+  it("renders the recurring schedule from weekly_qa calls with per-session Meet links and gating", async () => {
+    const accessible = makeCall({
+      id: 10,
+      callType: "weekly_qa",
+      coachName: "Todd R(Coach)",
+      isAccessible: true,
+      meetLink: "https://meet.google.com/weekly-aaa-bbb",
+      upgradeUrl: null,
+      scheduledAt: new Date(2026, 5, 22, 8, 0, 0).toISOString(),
+      durationMinutes: 60,
+    });
+    const locked = makeCall({
+      id: 11,
+      callType: "weekly_qa",
+      coachName: "Bruce C(Coach)",
+      isAccessible: false,
+      meetLink: null,
+      upgradeUrl: "/plans?highlight=3month",
+      scheduledAt: new Date(2026, 5, 23, 15, 0, 0).toISOString(),
+    });
+    // A non-weekly call must stay out of the recurring schedule.
+    const oneOff = makeCall({
+      id: 12,
+      callType: "strategy",
+      isAccessible: true,
+      meetLink: "https://meet.google.com/strategy-xyz",
+    });
+    useListCoachingCalls.mockReturnValue({ data: [accessible, locked, oneOff] });
+
+    render(<Coaching />);
+
+    // The recurring schedule renders the two weekly_qa calls, not the strategy call.
+    const accessibleRow = screen.getByTestId("weekly-call-10");
+    const joinLink = within(accessibleRow).getByRole("link", { name: /join call/i });
+    expect(joinLink).toHaveAttribute("href", "https://meet.google.com/weekly-aaa-bbb");
+
+    const lockedRow = screen.getByTestId("weekly-call-11");
+    expect(within(lockedRow).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    const unlock = within(lockedRow).getByRole("button", { name: /unlock/i });
+    await userEvent.click(unlock);
+    expect(navigate).toHaveBeenCalledWith("/plans?highlight=3month");
+
+    expect(screen.queryByTestId("weekly-call-12")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty state when there are no weekly group calls", () => {
+    const oneOff = makeCall({ id: 20, callType: "strategy", isAccessible: true });
+    useListCoachingCalls.mockReturnValue({ data: [oneOff] });
+
+    render(<Coaching />);
+
+    expect(screen.getByText(/no live group calls are scheduled/i)).toBeInTheDocument();
+  });
+});

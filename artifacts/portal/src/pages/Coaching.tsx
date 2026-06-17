@@ -5,28 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Users, Lock, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useListCoachingCalls, useGetCurrentMember } from "@workspace/api-client-react";
-
-const GOOGLE_MEET_LINK = "https://meet.google.com/adz-axqj-pjm";
-
-// The weekly recurring group calls require the same entitlement the dynamic
-// "Upcoming Calls" section gates on. Members without it must see an upgrade CTA
-// instead of a working Join Call link. `coaching:group` is first granted by the
-// 3-month mentorship (mirrors CALL_ENTITLEMENT_TO_PLAN on the API).
-const GROUP_COACHING_ENTITLEMENT = "coaching:group";
-const GROUP_COACHING_UPGRADE_URL = "/plans?highlight=3month";
-
-const liveSchedule = [
-  { day: "Mondays", time: "8 - 9am CST", coach: "Todd" },
-  { day: "Mondays", time: "3 - 4pm CST", coach: "Bruce" },
-  { day: "Mondays", time: "6 - 7pm CST", coach: "Sasha" },
-  { day: "Tuesdays", time: "3 - 4pm CST", coach: "Bruce" },
-  { day: "Tuesdays", time: "6 - 7pm CST", coach: "Michael" },
-  { day: "Wednesdays", time: "6 - 7pm CST", coach: "Sasha" },
-  { day: "Thursdays", time: "6 - 7pm CST", coach: "Michael" },
-  { day: "Fridays", time: "8 - 9am CST", coach: "Todd" },
-  { day: "Saturdays", time: "10 - 11am CST", coach: "Bruce" },
-];
+import { useListCoachingCalls, type CoachingCall } from "@workspace/api-client-react";
 
 type AvatarTint = {
   bg: string;
@@ -41,13 +20,73 @@ const coaches: { name: string; initials: string; tint: AvatarTint }[] = [
   { name: "Todd", initials: "TR", tint: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" } },
 ];
 
+// Renders the per-call action shared by the "Upcoming Calls" list and the
+// recurring weekly schedule. Both sections gate identically off the call's
+// `isAccessible` flag and deep-link locked calls to the call's own
+// `upgradeUrl` — never a single shared Meet link or upgrade URL.
+function CallAction({
+  call,
+  onUnlock,
+}: {
+  call: CoachingCall;
+  onUnlock: (url: string) => void;
+}) {
+  if (call.isAccessible) {
+    if (call.meetLink) {
+      return (
+        <Button asChild size="sm" className="font-semibold shrink-0">
+          <a href={call.meetLink} target="_blank" rel="noopener noreferrer">
+            Join Call
+          </a>
+        </Button>
+      );
+    }
+    // Accessible but the per-session link hasn't been published yet.
+    return (
+      <Button size="sm" variant="outline" disabled className="font-semibold shrink-0">
+        Link soon
+      </Button>
+    );
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="font-semibold shrink-0 gap-1.5"
+      onClick={() => onUnlock(call.upgradeUrl ?? "/plans")}
+    >
+      <Lock className="w-3.5 h-3.5" />
+      Unlock
+    </Button>
+  );
+}
+
+// Monday-first index so the recurring schedule reads as a weekly cadence
+// (Mon → Sun) rather than starting mid-week from "today".
+function weekdayOrder(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
 export default function Coaching() {
   const [, navigate] = useLocation();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
-  const { data: member } = useGetCurrentMember();
-  const hasGroupCoaching = (member?.entitlements ?? []).includes(
-    GROUP_COACHING_ENTITLEMENT,
-  );
+
+  // The recurring "Live Coaching Calls 6 Days/Week" schedule is the set of
+  // upcoming weekly group Q&A calls, sourced from the same backend the Upcoming
+  // Calls list uses. Strategy / mastermind / VIP sessions are one-off and stay
+  // in the Upcoming Calls list only.
+  const weeklySchedule = (upcomingCalls ?? [])
+    .filter((c) => c.callType === "weekly_qa")
+    .map((call) => {
+      const start = new Date(call.scheduledAt);
+      const end = new Date(start.getTime() + call.durationMinutes * 60000);
+      return { call, start, end };
+    })
+    .sort(
+      (a, b) =>
+        weekdayOrder(a.start) - weekdayOrder(b.start) ||
+        a.start.getTime() - b.start.getTime(),
+    );
 
   return (
     <AppLayout>
@@ -109,27 +148,7 @@ export default function Coaching() {
                         <span>with {call.coachName.split(" ")[0]}</span>
                       </div>
                     </div>
-                    {call.isAccessible ? (
-                      <Button asChild size="sm" className="font-semibold shrink-0">
-                        <a
-                          href={call.meetLink ?? GOOGLE_MEET_LINK}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Join Call
-                        </a>
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="font-semibold shrink-0 gap-1.5"
-                        onClick={() => navigate(call.upgradeUrl ?? "/plans")}
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        Unlock
-                      </Button>
-                    )}
+                    <CallAction call={call} onUnlock={navigate} />
                   </div>
                 ))}
               </div>
@@ -151,42 +170,36 @@ export default function Coaching() {
               </div>
             </div>
 
-            <div className="border border-border/60 rounded-xl overflow-hidden">
-              {liveSchedule.map((session, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
-                    i !== liveSchedule.length - 1 ? "border-b border-border/60" : ""
-                  } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm text-foreground">
-                      {session.day} from{" "}
-                      <strong className="text-foreground">{session.time}</strong> with{" "}
-                      {session.coach}
-                    </span>
+            {weeklySchedule.length > 0 ? (
+              <div className="border border-border/60 rounded-xl overflow-hidden">
+                {weeklySchedule.map(({ call, start, end }, i) => (
+                  <div
+                    key={call.id}
+                    data-testid={`weekly-call-${call.id}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
+                      i !== weeklySchedule.length - 1 ? "border-b border-border/60" : ""
+                    } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-foreground">
+                        {format(start, "EEEE")} from{" "}
+                        <strong className="text-foreground">
+                          {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                        </strong>{" "}
+                        with {call.coachName.split(" ")[0]}
+                      </span>
+                    </div>
+                    <CallAction call={call} onUnlock={navigate} />
                   </div>
-                  {hasGroupCoaching ? (
-                    <Button asChild size="sm" className="font-semibold">
-                      <a href={GOOGLE_MEET_LINK} target="_blank" rel="noopener noreferrer">
-                        Join Call
-                      </a>
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="font-semibold shrink-0 gap-1.5"
-                      onClick={() => navigate(GROUP_COACHING_UPGRADE_URL)}
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      Unlock
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-border/60 rounded-xl px-5 py-8 text-center text-sm text-muted-foreground">
+                No live group calls are scheduled right now. Check back soon — new
+                sessions are added every week.
+              </div>
+            )}
 
             <p className="text-sm text-muted-foreground mt-5 italic">
               Not able to make the calls? We've got you covered. All calls are recorded and posted in our "Live Q&amp;A" call archive.
