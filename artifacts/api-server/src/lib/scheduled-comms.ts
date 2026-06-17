@@ -14,6 +14,8 @@ import {
 import { eq, and, lt, lte, gte, gt, isNotNull, sql } from "drizzle-orm";
 import { enrollInSequence } from "./sequence-helpers";
 import { checkAndRecordSend } from "./comms-dedup";
+import { recordCommsDedupFailure } from "./comms-dedup-failure-tracker";
+import { evaluateCommsDedupFailureAlert } from "./comms-dedup-failure-alerter";
 import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 
@@ -64,6 +66,12 @@ async function reserveSend(
     console.error(
       `[Scheduled Comms] Dedup store unavailable while reserving "${sendKey}" (${context}); skipping this send to avoid uncontrolled double-sends. The comms_send_log dedup store appears broken — investigate, as scheduled emails are being suppressed.`
     );
+    // Count the failure so the System Health / on-call alerting layer can see
+    // it. A log line alone doesn't page anyone; repeated failures within the
+    // scheduler run window drive `evaluateCommsDedupFailureAlert` (called at
+    // the end of each run, and on the alerter's poll) over threshold so
+    // on-call is paged that scheduled emails are being suppressed.
+    recordCommsDedupFailure(channel, context);
     return false;
   }
   return outcome === "recorded";
@@ -606,6 +614,16 @@ async function processScheduledComms(): Promise<void> {
   await processSessionFeedbackPrompts();
   await processRecordingReadyNotifications();
   await processCommissionNotifications();
+
+  // Evaluate the dedup-store failure alert at the end of every run so a run
+  // that hit the "error" outcome repeatedly pages on-call immediately —
+  // tying the page to the scheduler run window rather than waiting for the
+  // alerter's background poll. Throttled per delivery channel, so this can't
+  // spam on-call across consecutive runs. Fire-and-forget: alerting must not
+  // mask or delay completion of the scheduler run, and it logs its own errors.
+  evaluateCommsDedupFailureAlert().catch((err) => {
+    console.error("[Scheduled Comms] dedup-store failure alerter dispatch failed:", err);
+  });
 
   console.log("[Scheduled Comms] Scheduled communications check complete");
 }

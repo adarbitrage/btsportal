@@ -30,6 +30,10 @@ import {
   stopModerationFailureAlerter,
 } from "./lib/moderation/failure-alerter";
 import {
+  startCommsDedupFailureAlerter,
+  stopCommsDedupFailureAlerter,
+} from "./lib/comms-dedup-failure-alerter";
+import {
   startTicketDeskDeliveryAlerter,
   stopTicketDeskDeliveryAlerter,
 } from "./lib/ticketdesk-delivery-alerter";
@@ -112,6 +116,7 @@ startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
 startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
+startCommsDedupFailureAlerter();
 startTicketDeskDeliveryAlerter();
 startLiveChatEmbedProbe();
 startTicketDeskDeliveryProbe();
@@ -163,6 +168,7 @@ async function gracefulShutdown(signal: string) {
   stopMachineMismatchDigestJob();
   stopMachineMismatchDigestAlerter();
   stopModerationFailureAlerter();
+  stopCommsDedupFailureAlerter();
   stopTicketDeskDeliveryAlerter();
   stopLiveChatEmbedProbe();
   stopTicketDeskDeliveryProbe();

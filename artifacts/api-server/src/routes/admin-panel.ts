@@ -89,6 +89,14 @@ import {
   evaluateModerationPodSilentAlert,
   getModerationPodSilentAlertingState,
 } from "../lib/moderation/failure-alerter";
+import {
+  getCommsDedupFailuresInWindow,
+  getCommsDedupFailureCumulativeStats,
+} from "../lib/comms-dedup-failure-tracker";
+import {
+  evaluateCommsDedupFailureAlert,
+  getCommsDedupFailureAlertingState,
+} from "../lib/comms-dedup-failure-alerter";
 import { getStuckTicketDeliveryStats } from "../lib/ticketdesk-queue";
 import {
   evaluateTicketDeskDeliveryAlert,
@@ -3420,6 +3428,27 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       alerter: getModerationFailureAlertingState(),
     };
 
+    // Snapshot the scheduled-comms dedup-store failure tracker. When the
+    // comms_send_log dedup store is broken, the scheduler SKIPS sends to avoid
+    // double-sends, silently suppressing mentorship-expiry / feedback /
+    // announcement emails. Mirror the moderation card: read the in-window
+    // count at the same window the alerter pages on so the page matches what's
+    // actually paging on-call. The tracker is in-memory + synchronous, so
+    // this can't throw on a DB flap.
+    const commsDedupFailureWindowMs = parseInt(
+      process.env.COMMS_DEDUP_FAILURE_ALERT_WINDOW_MS ?? "",
+      10,
+    );
+    const commsDedupFailures = {
+      window: getCommsDedupFailuresInWindow(
+        Number.isFinite(commsDedupFailureWindowMs) && commsDedupFailureWindowMs > 0
+          ? commsDedupFailureWindowMs
+          : 15 * 60 * 1000,
+      ),
+      cumulative: getCommsDedupFailureCumulativeStats(),
+      alerter: getCommsDedupFailureAlertingState(),
+    };
+
     // Snapshot the stuck-ticket delivery backlog for the System Health card.
     // Counts tickets stuck undelivered (pending/failed) past the configured
     // age. The alerter state mirrors what's actually paging on-call so the
@@ -3462,7 +3491,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // the moment delivery is blocked — distinct from the widget-embed probe.
     const ticketDeskDeliveryGate = getTicketDeskDeliveryProbeState();
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || commsDedupFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting
       ? "degraded"
       : "healthy";
 
@@ -3497,6 +3526,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         machineMismatchDigestWatchdog: await getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,
         moderationFailures,
+        commsDedupFailures,
         ticketDeskDelivery,
         liveChatEmbed,
         ticketDeskDeliveryGate,
@@ -4020,6 +4050,28 @@ router.get("/admin/notifications", requirePermission("notifications:view"), asyn
     }
     evaluateModerationFailureAlert().catch((err) => {
       console.error("[Admin] moderation-failure alerter dispatch failed:", err);
+    });
+
+    // Surface the scheduled-comms dedup-store failure alerter in the bell so
+    // an admin sees "scheduled emails are being suppressed" without first
+    // opening System Health. Mirrors the moderation-failure block above. The
+    // kick on every notifications poll backstops the alerter's in-process poll
+    // and the end-of-scheduler-run evaluation.
+    const commsDedupFailureAlerting = getCommsDedupFailureAlertingState();
+    const commsDedupFailureCumulative = getCommsDedupFailureCumulativeStats();
+    if (commsDedupFailureAlerting.alerting) {
+      notifications.push({
+        id: "comms-dedup-failure",
+        type: "comms_dedup_failure",
+        severity: "high",
+        title: "Scheduled emails are being silently suppressed",
+        message: `${commsDedupFailureAlerting.lastSeenWindowTotal} dedup-store failure(s) inside the rolling window — the comms_send_log store is broken, so the scheduler is skipping mentorship-expiry / feedback / announcement sends. ${commsDedupFailureCumulative.totalCount} failure(s) since process start.`,
+        link: "/admin/system",
+        createdAt: commsDedupFailureAlerting.lastInWindowFailureAt ?? commsDedupFailureCumulative.lastAt ?? new Date().toISOString(),
+      });
+    }
+    evaluateCommsDedupFailureAlert().catch((err) => {
+      console.error("[Admin] comms dedup-failure alerter dispatch failed:", err);
     });
     // Surface the pod-silence watchdog in the bell so an admin sees that a
     // moderation pod has gone quiet (and may have stopped moderating) without
