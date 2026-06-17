@@ -132,6 +132,31 @@ function GoogleDriveCard() {
                 ? "Google sign-in isn't set up yet. Ask an admin to add the Google credentials."
                 : "Connect your Google account so your Meet recordings and notes link to each session automatically."}
           </p>
+          {connected && (
+            <div
+              className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3"
+              data-testid="callout-meet-folder-sharing"
+            >
+              <p className="text-xs font-medium text-foreground">
+                One-time setup: share your Meet Recordings folder
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                In Google Drive, open your{" "}
+                <span className="font-medium text-foreground">Meet Recordings</span>{" "}
+                folder, choose <span className="font-medium text-foreground">Share</span>, and set
+                General access to{" "}
+                <span className="font-medium text-foreground">
+                  “Anyone with the link”
+                </span>{" "}
+                (Viewer). You only need to do this once.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Members open recording links directly in Google Drive — the portal
+                doesn’t re-host or stream the videos, so without this, links will hit
+                a permission wall.
+              </p>
+            </div>
+          )}
         </div>
         <div className="shrink-0">
           {connected ? (
