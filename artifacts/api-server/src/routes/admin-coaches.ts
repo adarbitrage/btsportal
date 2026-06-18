@@ -4,11 +4,28 @@ import {
   coachesTable,
   coachingCallsTable,
   coachingCallTemplatesTable,
+  coachAwayPeriodsTable,
 } from "@workspace/db";
 import { eq, asc, and, gte, count, inArray } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
+import { coachingDateString } from "../lib/coach-availability";
 
 const router: IRouter = Router();
+
+const AWAY_REASON_MAX = 200;
+
+// Validate a calendar date in strict YYYY-MM-DD form. Parsing alone is too
+// lenient (it accepts "2026-13-40" by rolling over), so we re-format and compare
+// to reject impossible dates.
+function parseAwayDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const d = new Date(`${trimmed}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const roundTrip = d.toISOString().slice(0, 10);
+  return roundTrip === trimmed ? trimmed : null;
+}
 
 // Field length ceilings keep the member-facing "Your Coaches" cards readable and
 // guard against runaway input. These mirror the sizes the Coaching page layout
@@ -197,7 +214,43 @@ router.get(
       .from(coachesTable)
       .orderBy(asc(coachesTable.sortOrder), asc(coachesTable.name));
 
-    res.json({ coaches });
+    // Surface each coach's active + upcoming away periods so admins can see who
+    // is (or will be) hidden from the member grid. Past periods are omitted —
+    // a coach is auto-restored once endDate passes, so they're no longer
+    // actionable. Grouped by coachId for the per-coach card.
+    const today = coachingDateString();
+    const awayRows = await db
+      .select({
+        id: coachAwayPeriodsTable.id,
+        coachId: coachAwayPeriodsTable.coachId,
+        startDate: coachAwayPeriodsTable.startDate,
+        endDate: coachAwayPeriodsTable.endDate,
+        reason: coachAwayPeriodsTable.reason,
+      })
+      .from(coachAwayPeriodsTable)
+      .where(gte(coachAwayPeriodsTable.endDate, today))
+      .orderBy(asc(coachAwayPeriodsTable.startDate));
+
+    const awayByCoach = new Map<number, typeof awayRows>();
+    for (const row of awayRows) {
+      const list = awayByCoach.get(row.coachId);
+      if (list) list.push(row);
+      else awayByCoach.set(row.coachId, [row]);
+    }
+
+    const withAway = coaches.map((c) => ({
+      ...c,
+      awayPeriods: (awayByCoach.get(c.id) ?? []).map((p) => ({
+        id: p.id,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        reason: p.reason,
+        // Active right now vs. starts in the future, so the UI can label it.
+        isActive: p.startDate <= today && p.endDate >= today,
+      })),
+    }));
+
+    res.json({ coaches: withAway });
   },
 );
 
@@ -545,6 +598,120 @@ router.delete(
       }
       throw err;
     }
+  },
+);
+
+// --- Away periods -----------------------------------------------------------
+// Let a coach (or an admin on their behalf) mark a date range as "away". While
+// today falls inside an away period the coach is hidden from the member "Your
+// Coaches" grid and is not bookable for private coaching (see
+// lib/coach-availability.ts), then auto-restored once the period ends.
+
+// Add an away period for a coach. Body: { startDate, endDate, reason? } where
+// the dates are YYYY-MM-DD (inclusive). endDate must be >= startDate. Past
+// ranges are rejected — an away period that already ended can't hide anyone, so
+// it's almost always a typo; the end must be today or later.
+router.post(
+  "/admin/coaching/coaches/:id/away",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    if (!coachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, coachId));
+    if (!existing) {
+      res.status(404).json({ error: "Coach not found" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const startDate = parseAwayDate(body.startDate);
+    const endDate = parseAwayDate(body.endDate);
+    if (!startDate) {
+      res.status(400).json({ error: "A valid start date (YYYY-MM-DD) is required" });
+      return;
+    }
+    if (!endDate) {
+      res.status(400).json({ error: "A valid end date (YYYY-MM-DD) is required" });
+      return;
+    }
+    if (endDate < startDate) {
+      res.status(400).json({ error: "End date must be on or after the start date" });
+      return;
+    }
+    if (endDate < coachingDateString()) {
+      res.status(400).json({ error: "End date cannot be in the past" });
+      return;
+    }
+
+    let reason: string | null = null;
+    if (body.reason !== undefined && body.reason !== null) {
+      if (typeof body.reason !== "string") {
+        res.status(400).json({ error: "Reason must be text" });
+        return;
+      }
+      const trimmed = body.reason.trim();
+      if (trimmed.length > AWAY_REASON_MAX) {
+        res.status(400).json({ error: `Reason must be ${AWAY_REASON_MAX} characters or fewer` });
+        return;
+      }
+      reason = trimmed || null;
+    }
+
+    const [created] = await db
+      .insert(coachAwayPeriodsTable)
+      .values({ coachId, startDate, endDate, reason })
+      .returning({
+        id: coachAwayPeriodsTable.id,
+        startDate: coachAwayPeriodsTable.startDate,
+        endDate: coachAwayPeriodsTable.endDate,
+        reason: coachAwayPeriodsTable.reason,
+      });
+
+    const today = coachingDateString();
+    res.status(201).json({
+      ...created,
+      isActive: created.startDate <= today && created.endDate >= today,
+    });
+  },
+);
+
+// Remove an away period (cancel a planned absence or end one early). The coach
+// reappears on the member grid and becomes bookable again as soon as no active
+// period covers today.
+router.delete(
+  "/admin/coaching/coaches/:id/away/:awayId",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    const awayId = parseId(req.params.awayId);
+    if (!coachId || !awayId) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const deleted = await db
+      .delete(coachAwayPeriodsTable)
+      .where(
+        and(
+          eq(coachAwayPeriodsTable.id, awayId),
+          eq(coachAwayPeriodsTable.coachId, coachId),
+        ),
+      )
+      .returning({ id: coachAwayPeriodsTable.id });
+
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "Away period not found" });
+      return;
+    }
+
+    res.json({ ok: true });
   },
 );
 

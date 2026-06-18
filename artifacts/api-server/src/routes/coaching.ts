@@ -5,6 +5,7 @@ import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-z
 import { getUserEntitlements } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { notCurrentlyAway } from "../lib/coach-availability";
 
 const router: IRouter = Router();
 
@@ -194,7 +195,15 @@ router.get("/coaches", async (_req, res): Promise<void> => {
   const coaches = await db
     .select()
     .from(coachesTable)
-    .where(and(eq(coachesTable.doesGroupCalls, true), eq(coachesTable.isActive, true)))
+    .where(
+      and(
+        eq(coachesTable.doesGroupCalls, true),
+        eq(coachesTable.isActive, true),
+        // Hide coaches who are currently within an away period; they reappear
+        // automatically once the period ends (date-driven, no cron needed).
+        notCurrentlyAway(),
+      ),
+    )
     .orderBy(coachesTable.sortOrder);
   // bio/specialties are nullable on the unified roster (private-only coaches and
   // not-yet-filled-in group coaches have none); coalesce so the response matches

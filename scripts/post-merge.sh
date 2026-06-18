@@ -91,6 +91,16 @@ if [ -n "$DATABASE_URL" ]; then
   #    Idempotent (ADD COLUMN IF NOT EXISTS / guarded DO blocks / DROP IF EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0049_unify_coaches.sql >/dev/null
+
+  # 6. Add the coach_away_periods table (self-managed coach absences).
+  #    A pure additive table: the live-schema-drift gate below would otherwise
+  #    flip to FAIL and trigger a full `drizzle-kit push --force` just to create
+  #    one table (a slow, whole-DB introspection that can also surface unrelated
+  #    pre-existing column drift). Creating it explicitly here keeps the drift
+  #    gate green so push stays skipped on the common no-schema-change merge.
+  #    Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0050_coach_away_periods.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

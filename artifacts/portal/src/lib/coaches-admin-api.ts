@@ -28,6 +28,14 @@ async function adminFetch<T = unknown>(path: string, options?: RequestInit): Pro
 
 const LIST_KEY = "/api/admin/coaching/coaches";
 
+export interface CoachAwayPeriod {
+  id: number;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+  isActive: boolean;
+}
+
 export interface AdminCoach {
   id: number;
   name: string;
@@ -40,6 +48,14 @@ export interface AdminCoach {
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
+  // Active + upcoming away periods (past ones are omitted by the API).
+  awayPeriods: CoachAwayPeriod[];
+}
+
+export interface AwayPeriodInput {
+  startDate: string;
+  endDate: string;
+  reason?: string;
 }
 
 export interface CoachProfileInput {
@@ -247,5 +263,35 @@ export function useCancelCoachCalls() {
     onSuccess: (_data, coachId) => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY, coachId, "calls"] });
     },
+  });
+}
+
+// Mark a coach as away for a date range. While the period is active the coach
+// is hidden from the member "Your Coaches" grid and is not bookable for private
+// coaching. Invalidate both the admin roster (to show the new period) and the
+// member grid (the coach may need to vanish immediately if it's active today).
+export function useAddCoachAwayPeriod() {
+  const invalidate = useInvalidateCoaches();
+  return useMutation({
+    mutationFn: ({ coachId, ...input }: AwayPeriodInput & { coachId: number }) =>
+      adminFetch<CoachAwayPeriod>(`/admin/coaching/coaches/${coachId}/away`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+// Remove an away period (cancel a planned absence or end one early). The coach
+// reappears on the member grid as soon as no active period covers today.
+export function useRemoveCoachAwayPeriod() {
+  const invalidate = useInvalidateCoaches();
+  return useMutation({
+    mutationFn: ({ coachId, awayId }: { coachId: number; awayId: number }) =>
+      adminFetch<{ ok: true }>(
+        `/admin/coaching/coaches/${coachId}/away/${awayId}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: invalidate,
   });
 }

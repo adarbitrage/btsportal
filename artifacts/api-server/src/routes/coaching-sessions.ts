@@ -10,6 +10,7 @@ import {
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
+import { notCurrentlyAway } from "../lib/coach-availability";
 import {
   getFreeSlots,
   upsertContact,
@@ -107,6 +108,8 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       and(
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+        // Drop coaches who are currently away; restored automatically after.
+        notCurrentlyAway(),
       ),
     )
     .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
@@ -132,6 +135,8 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
         eq(sessionPackCoachesTable.id, coachId),
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+        // An away coach isn't bookable; no slots are surfaced while they're out.
+        notCurrentlyAway(),
       ),
     );
   if (!coach || !coach.ghlCalendarId) {
@@ -209,6 +214,8 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         eq(sessionPackCoachesTable.id, coachId),
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+        // Block booking a coach who is away for the period covering this slot.
+        notCurrentlyAway(),
       ),
     );
   if (!coach || !coach.ghlCalendarId) {
