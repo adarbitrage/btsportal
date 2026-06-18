@@ -13,5 +13,4 @@ export interface Coach {
   /** @nullable */
   photoUrl?: string | null;
   specialties: string;
-  callTypes: string[];
 }

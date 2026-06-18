@@ -1,0 +1,12 @@
+-- 0055_drop_coach_call_types.sql
+-- Task: remove the vestigial coaches.call_types column.
+--
+-- call_types was an admin-editable text[] that no scheduling/booking code ever
+-- read — call cadence is driven by coaching_call_templates, not this field.
+-- It is now removed from the UI, API contract, and schema.
+--
+-- A pure REMOVAL, so the live-schema-drift gate (which only asserts schema ⊆ DB)
+-- stays green and `drizzle-kit push --force` would never fire to apply it. Drop
+-- it explicitly here, like the other column-removal migrations. Idempotent:
+-- IF EXISTS so it replays cleanly on dev and prod.
+ALTER TABLE coaches DROP COLUMN IF EXISTS call_types;

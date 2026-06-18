@@ -59,16 +59,16 @@ test.describe("Admin Coach Profiles — reassign-before-delete flow", () => {
       // Seed two coaches: one that hosts the scheduled call (blocks delete) and
       // one to reassign the call to. globalSetup only seeds an admin + member.
       const fromRes = await pool.query<{ id: number }>(
-        `INSERT INTO coaches (name, bio, specialties, call_types)
-         VALUES ($1, 'E2E from bio', 'E2E specialties', ARRAY['weekly_qa'])
+        `INSERT INTO coaches (name, bio, specialties)
+         VALUES ($1, 'E2E from bio', 'E2E specialties')
          RETURNING id`,
         [fromCoachName],
       );
       fromCoachId = fromRes.rows[0].id;
 
       const toRes = await pool.query<{ id: number }>(
-        `INSERT INTO coaches (name, bio, specialties, call_types)
-         VALUES ($1, 'E2E to bio', 'E2E specialties', ARRAY['weekly_qa'])
+        `INSERT INTO coaches (name, bio, specialties)
+         VALUES ($1, 'E2E to bio', 'E2E specialties')
          RETURNING id`,
         [toCoachName],
       );

@@ -82,7 +82,6 @@ interface CoachForm {
   specialties: string;
   bio: string;
   photoUrl: string;
-  callTypes: string;
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
@@ -97,7 +96,6 @@ const EMPTY_FORM: CoachForm = {
   specialties: "",
   bio: "",
   photoUrl: "",
-  callTypes: "",
   isActive: true,
   doesGroupCalls: true,
   doesPrivateCoaching: false,
@@ -220,9 +218,10 @@ function CoachConnections({ coach }: { coach: AdminCoach }) {
         />
       )}
 
-      {/* 1b. Conflict calendar — other company (cross-company arbiter). Only
-          shown when configured; absence is the expected default, not a warning. */}
-      {coach.conflictGhlCalendarId && (
+      {/* 1b. Conflict calendar — other company (cross-company arbiter). Always
+          shown so admins can see at a glance whether cross-company arbitration
+          is set up; absence is the expected default, not a warning (neutral tone). */}
+      {coach.conflictGhlCalendarId ? (
         <ConnectionRow
           purpose="Conflict calendar"
           source="Other company"
@@ -230,6 +229,16 @@ function CoachConnections({ coach }: { coach: AdminCoach }) {
           icon={CalendarCheck}
           status="Connected"
           title={`Conflict GHL calendar: ${coach.conflictGhlCalendarId}`}
+          testId={`coach-conn-conflict-ghl-${coach.id}`}
+        />
+      ) : (
+        <ConnectionRow
+          purpose="Conflict calendar"
+          source="Other company"
+          tone="muted"
+          icon={CalendarX}
+          status="Not connected"
+          title="Optional: add the coach's other-company GHL calendar to block cross-company double-booking."
           testId={`coach-conn-conflict-ghl-${coach.id}`}
         />
       )}
@@ -518,7 +527,6 @@ export default function CoachProfiles() {
       specialties: coach.specialties,
       bio: coach.bio,
       photoUrl: coach.photoUrl ?? "",
-      callTypes: coach.callTypes.join(", "),
       isActive: coach.isActive,
       doesGroupCalls: coach.doesGroupCalls,
       doesPrivateCoaching: coach.doesPrivateCoaching,
@@ -554,10 +562,6 @@ export default function CoachProfiles() {
       specialties: form.specialties.trim(),
       bio: form.bio.trim(),
       photoUrl: photoUrl || null,
-      callTypes: form.callTypes
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
       isActive: form.isActive,
       doesGroupCalls: form.doesGroupCalls,
       doesPrivateCoaching: form.doesPrivateCoaching,
@@ -884,18 +888,6 @@ export default function CoachProfiles() {
                 maxLength={2000}
                 data-testid="coach-bio"
               />
-            </div>
-            <div>
-              <Label className="text-xs">Call Types</Label>
-              <Input
-                value={form.callTypes}
-                onChange={(e) => setForm({ ...form, callTypes: e.target.value })}
-                placeholder="e.g. weekly_qa, strategy"
-                data-testid="coach-call-types"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Comma-separated list of the call types this coach runs.
-              </p>
             </div>
             <div className="space-y-3 rounded-lg border border-border/60 p-3">
               <div className="flex items-start justify-between gap-4">

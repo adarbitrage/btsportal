@@ -28,11 +28,11 @@ interface ServerCoach {
   specialties: string;
   bio: string;
   photoUrl: string | null;
-  callTypes: string[];
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
   ghlCalendarId: string | null;
   ghlLocationId: string | null;
+  conflictGhlCalendarId: string | null;
   userId: number | null;
   googleConnection: {
     connected: boolean;
@@ -68,11 +68,11 @@ function baseCoach(overrides: Partial<ServerCoach>): ServerCoach {
     specialties: "Paid Traffic",
     bio: "Bio.",
     photoUrl: null,
-    callTypes: ["Strategy Call"],
     doesGroupCalls: false,
     doesPrivateCoaching: true,
     ghlCalendarId: null,
     ghlLocationId: null,
+    conflictGhlCalendarId: null,
     userId: null,
     googleConnection: null,
     ...overrides,
@@ -104,6 +104,7 @@ describe("CoachProfiles — per-coach Connections panel", () => {
       baseCoach({
         id: 7,
         ghlCalendarId: "cal_123",
+        conflictGhlCalendarId: "cal_conflict_456",
         userId: 99,
         googleConnection: {
           connected: true,
@@ -121,6 +122,7 @@ describe("CoachProfiles — per-coach Connections panel", () => {
 
     // Purpose labels are present.
     expect(within(panel).getByText("Booking calendar")).toBeInTheDocument();
+    expect(within(panel).getByText("Conflict calendar")).toBeInTheDocument();
     expect(within(panel).getByText("Recording uploads")).toBeInTheDocument();
     // The availability-sync row is intentionally gone.
     expect(within(panel).queryByText("Availability sync")).not.toBeInTheDocument();
@@ -128,6 +130,9 @@ describe("CoachProfiles — per-coach Connections panel", () => {
 
     // Each capability has its own status pill, all connected.
     expect(within(panel).getByTestId("coach-conn-ghl-7")).toHaveTextContent(
+      "Connected",
+    );
+    expect(within(panel).getByTestId("coach-conn-conflict-ghl-7")).toHaveTextContent(
       "Connected",
     );
     expect(within(panel).getByTestId("coach-conn-drive-7")).toHaveTextContent(
@@ -152,6 +157,11 @@ describe("CoachProfiles — per-coach Connections panel", () => {
     expect(within(panel).getByTestId("coach-conn-ghl-9")).toHaveTextContent(
       "Not connected",
     );
+    // Conflict calendar row always renders, even when unconfigured.
+    expect(within(panel).getByText("Conflict calendar")).toBeInTheDocument();
+    expect(
+      within(panel).getByTestId("coach-conn-conflict-ghl-9"),
+    ).toHaveTextContent("Not connected");
     expect(within(panel).getByTestId("coach-conn-drive-9")).toHaveTextContent(
       "No login linked",
     );

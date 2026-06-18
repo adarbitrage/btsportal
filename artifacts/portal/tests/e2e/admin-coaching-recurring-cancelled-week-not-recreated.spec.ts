@@ -68,8 +68,8 @@ test.describe("Admin recurring calls — a cancelled week is never re-created", 
     try {
       // --- Seed an isolated coach for the template ---------------------------
       const coachRes = await pool.query<{ id: number }>(
-        `INSERT INTO coaches (name, bio, specialties, call_types, does_group_calls, is_active)
-         VALUES ($1, 'E2E cancel coach bio', 'E2E specialties', ARRAY['weekly_qa'], true, true)
+        `INSERT INTO coaches (name, bio, specialties, does_group_calls, is_active)
+         VALUES ($1, 'E2E cancel coach bio', 'E2E specialties', true, true)
          RETURNING id`,
         [coachName],
       );

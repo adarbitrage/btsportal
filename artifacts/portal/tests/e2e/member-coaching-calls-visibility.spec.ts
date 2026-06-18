@@ -101,8 +101,8 @@ test.describe("Member Coaching page — admin-scheduled group calls are visible 
     try {
       // --- Seed coach + members + entitlement -------------------------------
       const coachRes = await pool.query<{ id: number }>(
-        `INSERT INTO coaches (name, bio, specialties, call_types, does_group_calls, is_active)
-         VALUES ($1, 'E2E group coach bio', 'E2E specialties', ARRAY['weekly_qa'], true, true)
+        `INSERT INTO coaches (name, bio, specialties, does_group_calls, is_active)
+         VALUES ($1, 'E2E group coach bio', 'E2E specialties', true, true)
          RETURNING id`,
         [coachName],
       );

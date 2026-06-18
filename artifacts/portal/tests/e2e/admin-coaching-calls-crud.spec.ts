@@ -56,8 +56,8 @@ test.describe("Admin Group Calls — schedule CRUD against the real API", () => 
       // Seed a coach so the schedule editor's coach dropdown has a known,
       // isolated option to pick. globalSetup only seeds an admin + member.
       const coachRes = await pool.query<{ id: number }>(
-        `INSERT INTO coaches (name, bio, specialties, call_types)
-         VALUES ($1, 'E2E bio', 'E2E specialties', ARRAY['weekly_qa'])
+        `INSERT INTO coaches (name, bio, specialties)
+         VALUES ($1, 'E2E bio', 'E2E specialties')
          RETURNING id`,
         [coachName],
       );

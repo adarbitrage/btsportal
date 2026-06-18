@@ -201,7 +201,6 @@ beforeAll(async () => {
       name: `${TAG} coach`,
       bio: "Test coach",
       specialties: "test",
-      callTypes: ["weekly_qa"],
     })
     .returning({ id: coachesTable.id });
   seededCoachId = coach.id;

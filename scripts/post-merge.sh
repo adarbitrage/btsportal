@@ -122,6 +122,14 @@ if [ -n "$DATABASE_URL" ]; then
   #    this no-ops and push creates the table + constraint together.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0052_coaching_calls_template_slot_unq.sql >/dev/null
+
+  # 9. Drop the vestigial coaches.call_types column. No scheduling/booking code
+  #    ever read it (call cadence lives in coaching_call_templates). A pure
+  #    REMOVAL, so the live-schema-drift gate below (schema ⊆ DB) stays green and
+  #    push would never fire to apply it — drop it explicitly here, like step 6.
+  #    Idempotent (DROP COLUMN IF EXISTS), so on a DB that never had it it no-ops.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0055_drop_coach_call_types.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

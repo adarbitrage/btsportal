@@ -28,7 +28,6 @@ interface ServerCoach {
   specialties: string;
   bio: string;
   photoUrl: string | null;
-  callTypes: string[];
 }
 
 let coaches: ServerCoach[];
@@ -58,7 +57,6 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
       specialties: body.specialties,
       bio: body.bio,
       photoUrl: body.photoUrl ?? null,
-      callTypes: Array.isArray(body.callTypes) ? body.callTypes : [],
     };
     coaches = [...coaches, created];
     return Promise.resolve(jsonResponse(created, 201));
@@ -102,7 +100,6 @@ beforeEach(() => {
       specialties: "Paid Traffic",
       bio: "Original bio.",
       photoUrl: null,
-      callTypes: ["Strategy Call"],
     },
   ];
   nextId = 100;

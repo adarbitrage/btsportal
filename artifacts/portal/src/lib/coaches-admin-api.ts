@@ -45,7 +45,6 @@ export interface AdminCoach {
   specialties: string;
   bio: string;
   photoUrl: string | null;
-  callTypes: string[];
   sortOrder: number;
   isActive: boolean;
   doesGroupCalls: boolean;
@@ -69,7 +68,6 @@ export interface CoachProfileInput {
   specialties: string;
   bio: string;
   photoUrl: string | null;
-  callTypes: string[];
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;

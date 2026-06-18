@@ -7834,11 +7834,7 @@ components:
           type: ["string", "null"]
         specialties:
           type: string
-        callTypes:
-          type: array
-          items:
-            type: string
-      required: [id, name, bio, specialties, callTypes]
+      required: [id, name, bio, specialties]
 
     Ticket:
       type: object

@@ -75,7 +75,6 @@ beforeAll(async () => {
       bio: "Original bio",
       specialties: "Original specialty",
       photoUrl: "https://example.test/old.png",
-      callTypes: ["weekly_qa"],
     })
     .returning({ id: coachesTable.id });
   coachId = coach.id;
@@ -461,7 +460,6 @@ describe("admin coach profiles", () => {
         name: `${TAG} ToDelete`,
         bio: "Will be removed",
         specialties: "Temp",
-        callTypes: ["weekly_qa"],
       })
       .returning({ id: coachesTable.id });
 
@@ -797,7 +795,6 @@ describe("admin coach create", () => {
         specialties: "Email Marketing",
         bio: "A brand new coach",
         photoUrl: "https://example.test/new-coach.png",
-        callTypes: ["weekly_qa", "strategy"],
       });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
@@ -805,35 +802,18 @@ describe("admin coach create", () => {
       specialties: "Email Marketing",
       bio: "A brand new coach",
       photoUrl: "https://example.test/new-coach.png",
-      callTypes: ["weekly_qa", "strategy"],
     });
     expect(typeof res.body.id).toBe("number");
     created.push(res.body.id);
 
     // The member /coaches endpoint only lists active group-call coaches, so the
-    // new row must have those flags set for it to surface there. The scheduling
-    // fields must persist exactly as sent.
+    // new row must have those flags set for it to surface there.
     const [row] = await db
       .select()
       .from(coachesTable)
       .where(eq(coachesTable.id, res.body.id));
     expect(row.doesGroupCalls).toBe(true);
     expect(row.isActive).toBe(true);
-    expect(row.callTypes).toEqual(["weekly_qa", "strategy"]);
-  });
-
-  it("falls back to schema defaults when scheduling fields are omitted", async () => {
-    const res = await request(app)
-      .post("/api/admin/coaching/coaches")
-      .set("Cookie", adminCookie)
-      .send({
-        name: `${TAG} Default Coach`,
-        specialties: "Funnels",
-        bio: "No scheduling fields supplied",
-      });
-    expect(res.status).toBe(201);
-    created.push(res.body.id);
-    expect(res.body.callTypes).toEqual([]);
   });
 
   it("creates a coach with only a name (specialty + bio optional)", async () => {
@@ -844,21 +824,6 @@ describe("admin coach create", () => {
     expect(res.status).toBe(201);
     created.push(res.body.id);
     expect(res.body.name).toBe(`${TAG} Name Only`);
-  });
-
-  it("updates scheduling fields on an existing coach", async () => {
-    const [created2] = await db
-      .insert(coachesTable)
-      .values({ name: `${TAG} Patchable`, callTypes: ["weekly_qa"] })
-      .returning({ id: coachesTable.id });
-    created.push(created2.id);
-
-    const res = await request(app)
-      .patch(`/api/admin/coaching/coaches/${created2.id}`)
-      .set("Cookie", adminCookie)
-      .send({ callTypes: ["mastermind"] });
-    expect(res.status).toBe(200);
-    expect(res.body.callTypes).toEqual(["mastermind"]);
   });
 });
 

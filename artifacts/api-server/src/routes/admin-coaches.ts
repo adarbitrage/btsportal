@@ -21,8 +21,6 @@ const NAME_MAX = 120;
 const SPECIALTIES_MAX = 200;
 const BIO_MAX = 2000;
 const PHOTO_URL_MAX = 2048;
-const CALL_TYPE_MAX = 60;
-const MAX_CALL_TYPES = 20;
 const GHL_ID_MAX = 128;
 
 function parseId(value: unknown): number | null {
@@ -109,27 +107,6 @@ function parseCoachBody(
     values.photoUrl = photo.url;
   }
 
-  // Scheduling fields. callTypes has a DB default, so it's optional even on
-  // create; if supplied it must be well-formed (a string[]).
-  if (body.callTypes !== undefined) {
-    if (!Array.isArray(body.callTypes)) {
-      return { error: "Call types must be a list" };
-    }
-    const types: string[] = [];
-    for (const item of body.callTypes) {
-      const t = typeof item === "string" ? item.trim() : "";
-      if (!t) continue;
-      if (t.length > CALL_TYPE_MAX) {
-        return { error: `Each call type must be ${CALL_TYPE_MAX} characters or fewer` };
-      }
-      types.push(t);
-    }
-    if (types.length > MAX_CALL_TYPES) {
-      return { error: `A coach can have at most ${MAX_CALL_TYPES} call types` };
-    }
-    values.callTypes = types;
-  }
-
   // Visibility / capability switches. isActive controls whether the coach
   // appears on the member-facing "Your Coaches" grid (which lists active
   // group-call coaches); doesGroupCalls / doesPrivateCoaching express what the
@@ -202,7 +179,6 @@ const COACH_COLUMNS = {
   specialties: sql<string>`coalesce(${coachesTable.specialties}, '')`.as("specialties"),
   bio: sql<string>`coalesce(${coachesTable.bio}, '')`.as("bio"),
   photoUrl: coachesTable.photoUrl,
-  callTypes: coachesTable.callTypes,
   sortOrder: coachesTable.sortOrder,
   isActive: coachesTable.isActive,
   doesGroupCalls: coachesTable.doesGroupCalls,
@@ -359,9 +335,7 @@ router.patch(
 
 // Create a new coach. New coaches are made visible on the member Coaching page
 // immediately by defaulting doesGroupCalls + isActive to true (the member
-// "/coaches" endpoint lists only active group-call coaches). Scheduling fields
-// (callTypes) are accepted when supplied; otherwise they fall back to their
-// schema defaults.
+// "/coaches" endpoint lists only active group-call coaches).
 router.post(
   "/admin/coaching/coaches",
   requirePermission("coaching:manage"),

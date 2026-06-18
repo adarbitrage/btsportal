@@ -40,7 +40,6 @@ function makeCoach(overrides: Partial<Coach>): Coach {
     bio: "",
     photoUrl: null,
     specialties: "",
-    callTypes: [],
     ...overrides,
   };
 }

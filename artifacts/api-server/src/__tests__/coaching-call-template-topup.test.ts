@@ -60,7 +60,7 @@ async function makeTemplate(opts: {
 beforeAll(async () => {
   const [coach] = await db
     .insert(coachesTable)
-    .values({ name: `${TAG} Coach`, bio: "b", specialties: "s", callTypes: ["weekly_qa"] })
+    .values({ name: `${TAG} Coach`, bio: "b", specialties: "s" })
     .returning({ id: coachesTable.id });
   coachId = coach.id;
 });

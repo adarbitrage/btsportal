@@ -787,7 +787,6 @@ export const ListCoachesResponseItem = zod.object({
   bio: zod.string(),
   photoUrl: zod.string().nullish(),
   specialties: zod.string(),
-  callTypes: zod.array(zod.string()),
 });
 export const ListCoachesResponse = zod.array(ListCoachesResponseItem);
 
