@@ -517,4 +517,25 @@ describe("POST /api/voice/web-call", () => {
     expect(inserted.endedAt).toBeNull();
     insertedCallIds.push(inserted.id);
   });
+
+  it("returns 500 and inserts no voice_calls row when the Retell SDK throws", async () => {
+    const member = await seedUser("member", "webcall-sdk-throws");
+    await grantVoiceAccess(member.id, "webcall-sdk-throws");
+
+    retellMock.createWebCall.mockRejectedValue(new Error("Retell upstream failure"));
+
+    const res = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Failed to start voice call. Please try again.");
+    expect(retellMock.createWebCall).toHaveBeenCalledTimes(1);
+
+    // A failed start must NOT leave a phantom voice_calls row behind, or it
+    // would pollute usage stats and the admin Voice Usage dashboard.
+    const rows = await db
+      .select({ id: voiceCallsTable.id })
+      .from(voiceCallsTable)
+      .where(eq(voiceCallsTable.userId, member.id));
+    expect(rows).toHaveLength(0);
+  });
 });
