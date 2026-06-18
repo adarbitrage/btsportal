@@ -4,7 +4,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Ticket, TrendingUp, AlertTriangle, Clock, Activity, ArrowRight, ShieldAlert, Package } from "lucide-react";
+import { Users, Ticket, TrendingUp, AlertTriangle, Clock, Activity, ArrowRight, ShieldAlert, Package, Mic } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -126,6 +126,7 @@ export default function AdminDashboard() {
                     <Link href="/admin/tickets"><Button variant="outline" className="w-full justify-start gap-2"><Ticket className="w-4 h-4" />Tickets</Button></Link>
                     <Link href="/admin/audit-log"><Button variant="outline" className="w-full justify-start gap-2"><Clock className="w-4 h-4" />Audit Log</Button></Link>
                     <Link href="/admin/system"><Button variant="outline" className="w-full justify-start gap-2"><Activity className="w-4 h-4" />System Health</Button></Link>
+                    <Link href="/admin/voice"><Button variant="outline" className="w-full justify-start gap-2"><Mic className="w-4 h-4" />Voice Usage</Button></Link>
                     <Link href="/admin/settings"><Button variant="outline" className="w-full justify-start gap-2"><ShieldAlert className="w-4 h-4" />Settings</Button></Link>
                     <Link href="/admin/commissions"><Button variant="outline" className="w-full justify-start gap-2"><TrendingUp className="w-4 h-4" />Commissions</Button></Link>
                   </div>

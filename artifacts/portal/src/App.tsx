@@ -129,6 +129,7 @@ import AuditLog from "@/pages/admin/AuditLog";
 import AdminMembers from "@/pages/admin/AdminMembers";
 import MemberDetail from "@/pages/admin/MemberDetail";
 import SystemHealth from "@/pages/admin/SystemHealth";
+import VoiceUsage from "@/pages/admin/VoiceUsage";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import RevenueDashboard from "@/pages/admin/RevenueDashboard";
 import CohortAnalysis from "@/pages/admin/CohortAnalysis";
@@ -496,6 +497,7 @@ function Router() {
       <Route path="/admin/members/:id">{() => <AdminRoute component={MemberDetail} permission="members:view" />}</Route>
       <Route path="/admin/members">{() => <AdminRoute component={AdminMembers} permission="members:view" />}</Route>
       <Route path="/admin/system">{() => <AdminRoute component={SystemHealth} permission="system:view" />}</Route>
+      <Route path="/admin/voice">{() => <AdminRoute component={VoiceUsage} permission="system:view" />}</Route>
       <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} permission="settings:view" />}</Route>
       <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} permission="revenue:view" />}</Route>

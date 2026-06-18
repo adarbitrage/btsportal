@@ -5,6 +5,7 @@ import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
+import { requirePermission } from "../middleware/rbac";
 import crypto from "crypto";
 
 const router = Router();
@@ -188,5 +189,222 @@ router.post("/voice/kb-search", async (req: Request, res: Response): Promise<voi
     res.status(500).json({ error: "Search failed" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Admin voice usage dashboard
+//
+// These routes power the admin-only "Voice Usage" page, letting admins track
+// member voice minutes, identify heavy users, monitor cost, and audit calls.
+// Gated on `system:view` (same permission as System Health) so super_admin and
+// admin can see it. Usage seconds come from the authoritative
+// `voice_daily_usage` table; call rows / transcripts / summaries come from
+// `voice_calls`.
+// ---------------------------------------------------------------------------
+
+// Roll-up window helpers. "Today" is the single current usage_date; "week" is
+// the trailing 7 days (today inclusive); "month" is the trailing 30 days.
+function addDaysToDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00.000Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+type UsagePeriod = "today" | "week" | "month";
+
+function periodStartDate(period: UsagePeriod): string {
+  const today = getTodayDate();
+  if (period === "today") return today;
+  if (period === "week") return addDaysToDate(today, -6);
+  return addDaysToDate(today, -29);
+}
+
+function parseUsagePeriod(value: unknown): UsagePeriod {
+  const str = Array.isArray(value) ? value[0] : value;
+  return str === "today" || str === "week" ? str : str === "month" ? "month" : "month";
+}
+
+function parsePositiveInt(value: unknown, fallback: number, max: number): number {
+  const str = Array.isArray(value) ? value[0] : value;
+  const n = parseInt(typeof str === "string" ? str : String(str ?? ""), 10);
+  if (!Number.isInteger(n) || n < 1) return fallback;
+  return Math.min(n, max);
+}
+
+router.get(
+  "/admin/voice/usage",
+  requirePermission("system:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const today = getTodayDate();
+    const weekStart = addDaysToDate(today, -6);
+    const monthStart = addDaysToDate(today, -29);
+
+    const period = parseUsagePeriod(req.query.period);
+    const limit = parsePositiveInt(req.query.limit, 20, 100);
+    const periodStart = periodStartDate(period);
+
+    // Aggregate seconds from the authoritative daily-usage table across the
+    // three rolling windows in a single scan.
+    const secondsResult = await db.execute(
+      sql`SELECT
+          COALESCE(SUM(CASE WHEN usage_date = ${today} THEN seconds_used ELSE 0 END), 0)::bigint AS today_seconds,
+          COALESCE(SUM(CASE WHEN usage_date >= ${weekStart} THEN seconds_used ELSE 0 END), 0)::bigint AS week_seconds,
+          COALESCE(SUM(seconds_used), 0)::bigint AS month_seconds
+        FROM voice_daily_usage
+        WHERE usage_date >= ${monthStart}`
+    );
+
+    // Call counts come from voice_calls (every started call), bucketed by the
+    // call's start date so they line up with the seconds windows above.
+    const callsResult = await db.execute(
+      sql`SELECT
+          COUNT(*) FILTER (WHERE started_at::date = ${today}::date) AS today_calls,
+          COUNT(*) FILTER (WHERE started_at::date >= ${weekStart}::date) AS week_calls,
+          COUNT(*) AS month_calls
+        FROM voice_calls
+        WHERE started_at::date >= ${monthStart}::date`
+    );
+
+    const topResult = await db.execute(
+      sql`SELECT
+          u.id AS user_id,
+          u.name AS name,
+          u.email AS email,
+          SUM(v.seconds_used)::int AS seconds_used,
+          (
+            SELECT COUNT(*)::int FROM voice_calls c
+            WHERE c.user_id = u.id AND c.started_at::date >= ${periodStart}::date
+          ) AS call_count
+        FROM voice_daily_usage v
+        JOIN users u ON u.id = v.user_id
+        WHERE v.usage_date >= ${periodStart}
+        GROUP BY u.id, u.name, u.email
+        ORDER BY seconds_used DESC, u.id ASC
+        LIMIT ${limit}`
+    );
+
+    const sRow = (secondsResult.rows[0] ?? {}) as Record<string, unknown>;
+    const cRow = (callsResult.rows[0] ?? {}) as Record<string, unknown>;
+    const num = (v: unknown): number => Number(v ?? 0) || 0;
+
+    res.json({
+      totals: {
+        today: { seconds: num(sRow.today_seconds), calls: num(cRow.today_calls) },
+        week: { seconds: num(sRow.week_seconds), calls: num(cRow.week_calls) },
+        month: { seconds: num(sRow.month_seconds), calls: num(cRow.month_calls) },
+      },
+      dailyCapSeconds: VOICE_DAILY_SECONDS_CAP,
+      topMembers: {
+        period,
+        members: (topResult.rows as Record<string, unknown>[]).map((r) => ({
+          userId: num(r.user_id),
+          name: (r.name as string) ?? "",
+          email: (r.email as string) ?? "",
+          secondsUsed: num(r.seconds_used),
+          callCount: num(r.call_count),
+        })),
+      },
+    });
+  }
+);
+
+router.get(
+  "/admin/voice/calls",
+  requirePermission("system:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const page = parsePositiveInt(req.query.page, 1, 1_000_000);
+    const limit = parsePositiveInt(req.query.limit, 25, 100);
+    const offset = (page - 1) * limit;
+
+    const userIdRaw = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
+    const userId = userIdRaw != null ? parseInt(String(userIdRaw), 10) : NaN;
+    const hasUserFilter = Number.isInteger(userId) && userId > 0;
+    const whereClause = hasUserFilter
+      ? sql`WHERE c.user_id = ${userId}`
+      : sql``;
+
+    const rowsResult = await db.execute(
+      sql`SELECT
+          c.id AS id,
+          c.user_id AS user_id,
+          u.name AS name,
+          u.email AS email,
+          c.status AS status,
+          c.started_at AS started_at,
+          c.ended_at AS ended_at,
+          c.duration_seconds AS duration_seconds,
+          c.disconnect_reason AS disconnect_reason,
+          (c.transcript IS NOT NULL AND c.transcript <> '') AS has_transcript,
+          (c.summary IS NOT NULL AND c.summary <> '') AS has_summary
+        FROM voice_calls c
+        JOIN users u ON u.id = c.user_id
+        ${whereClause}
+        ORDER BY c.started_at DESC
+        LIMIT ${limit} OFFSET ${offset}`
+    );
+
+    const countResult = await db.execute(
+      sql`SELECT COUNT(*)::int AS total FROM voice_calls c ${whereClause}`
+    );
+    const total = Number((countResult.rows[0] as Record<string, unknown>)?.total ?? 0) || 0;
+
+    res.json({
+      calls: (rowsResult.rows as Record<string, unknown>[]).map((r) => ({
+        id: Number(r.id),
+        userId: Number(r.user_id),
+        name: (r.name as string) ?? "",
+        email: (r.email as string) ?? "",
+        status: (r.status as string) ?? "",
+        startedAt: r.started_at,
+        endedAt: r.ended_at,
+        durationSeconds: r.duration_seconds == null ? null : Number(r.duration_seconds),
+        disconnectReason: (r.disconnect_reason as string | null) ?? null,
+        hasTranscript: Boolean(r.has_transcript),
+        hasSummary: Boolean(r.has_summary),
+      })),
+      total,
+      page,
+      limit,
+    });
+  }
+);
+
+router.get(
+  "/admin/voice/calls/:id",
+  requirePermission("system:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params.id), 10);
+    if (!Number.isInteger(id) || id < 1) {
+      res.status(400).json({ error: "Invalid call id" });
+      return;
+    }
+
+    const [row] = await db
+      .select({
+        id: voiceCallsTable.id,
+        userId: voiceCallsTable.userId,
+        name: usersTable.name,
+        email: usersTable.email,
+        retellCallId: voiceCallsTable.retellCallId,
+        status: voiceCallsTable.status,
+        startedAt: voiceCallsTable.startedAt,
+        endedAt: voiceCallsTable.endedAt,
+        durationSeconds: voiceCallsTable.durationSeconds,
+        transcript: voiceCallsTable.transcript,
+        summary: voiceCallsTable.summary,
+        disconnectReason: voiceCallsTable.disconnectReason,
+      })
+      .from(voiceCallsTable)
+      .innerJoin(usersTable, eq(usersTable.id, voiceCallsTable.userId))
+      .where(eq(voiceCallsTable.id, id))
+      .limit(1);
+
+    if (!row) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+
+    res.json({ call: row });
+  }
+);
 
 export default router;

@@ -1904,4 +1904,90 @@ export const adminPanelApi = {
     if (!res.ok) throw new Error("Failed to export data");
     return streamDownload(res, format, onProgress);
   },
+
+  async getVoiceUsage(params: { period?: "today" | "week" | "month"; limit?: number } = {}): Promise<VoiceUsageResponse> {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.limit) qs.set("limit", String(params.limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/voice/usage${suffix}`);
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch voice usage");
+    return res.json();
+  },
+
+  async getVoiceCalls(params: { userId?: number; page?: number; limit?: number } = {}): Promise<VoiceCallsResponse> {
+    const qs = new URLSearchParams();
+    if (params.userId) qs.set("userId", String(params.userId));
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/voice/calls${suffix}`);
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch voice calls");
+    return res.json();
+  },
+
+  async getVoiceCall(id: number): Promise<{ call: VoiceCallDetail }> {
+    const res = await authFetch(`/admin/voice/calls/${id}`);
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch call");
+    return res.json();
+  },
+};
+
+export type VoiceUsageTotalsWindow = { seconds: number; calls: number };
+
+export type VoiceUsageTopMember = {
+  userId: number;
+  name: string;
+  email: string;
+  secondsUsed: number;
+  callCount: number;
+};
+
+export type VoiceUsageResponse = {
+  totals: {
+    today: VoiceUsageTotalsWindow;
+    week: VoiceUsageTotalsWindow;
+    month: VoiceUsageTotalsWindow;
+  };
+  dailyCapSeconds: number;
+  topMembers: {
+    period: "today" | "week" | "month";
+    members: VoiceUsageTopMember[];
+  };
+};
+
+export type VoiceCallSummaryRow = {
+  id: number;
+  userId: number;
+  name: string;
+  email: string;
+  status: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  disconnectReason: string | null;
+  hasTranscript: boolean;
+  hasSummary: boolean;
+};
+
+export type VoiceCallsResponse = {
+  calls: VoiceCallSummaryRow[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type VoiceCallDetail = {
+  id: number;
+  userId: number;
+  name: string;
+  email: string;
+  retellCallId: string;
+  status: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  transcript: string | null;
+  summary: string | null;
+  disconnectReason: string | null;
 };
