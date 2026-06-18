@@ -132,6 +132,7 @@ import type {
   CoachMenteeDetail,
   CoachMenteeListResponse,
   CoachingCall,
+  CoachingCallRegistration,
   CoachingRating,
   CoachingSessionDetail,
   CoachingSessionSummary,
@@ -2729,6 +2730,180 @@ export function useListCoachingCalls<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Register the current member for a coaching call
+ */
+export const getRegisterForCoachingCallUrl = (id: number) => {
+  return `/api/coaching-calls/${id}/attendance`;
+};
+
+export const registerForCoachingCall = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CoachingCallRegistration> => {
+  return customFetch<CoachingCallRegistration>(
+    getRegisterForCoachingCallUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRegisterForCoachingCallMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerForCoachingCall>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerForCoachingCall>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["registerForCoachingCall"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerForCoachingCall>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return registerForCoachingCall(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterForCoachingCallMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerForCoachingCall>>
+>;
+
+export type RegisterForCoachingCallMutationError = ErrorType<void>;
+
+/**
+ * @summary Register the current member for a coaching call
+ */
+export const useRegisterForCoachingCall = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerForCoachingCall>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerForCoachingCall>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRegisterForCoachingCallMutationOptions(options));
+};
+
+/**
+ * @summary Cancel the current member's registration for a coaching call
+ */
+export const getCancelCoachingCallRegistrationUrl = (id: number) => {
+  return `/api/coaching-calls/${id}/attendance`;
+};
+
+export const cancelCoachingCallRegistration = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CoachingCallRegistration> => {
+  return customFetch<CoachingCallRegistration>(
+    getCancelCoachingCallRegistrationUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getCancelCoachingCallRegistrationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelCoachingCallRegistration>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelCoachingCallRegistration>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["cancelCoachingCallRegistration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelCoachingCallRegistration>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return cancelCoachingCallRegistration(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelCoachingCallRegistrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelCoachingCallRegistration>>
+>;
+
+export type CancelCoachingCallRegistrationMutationError = ErrorType<void>;
+
+/**
+ * @summary Cancel the current member's registration for a coaching call
+ */
+export const useCancelCoachingCallRegistration = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelCoachingCallRegistration>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelCoachingCallRegistration>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCancelCoachingCallRegistrationMutationOptions(options));
+};
 
 /**
  * @summary List all coaches

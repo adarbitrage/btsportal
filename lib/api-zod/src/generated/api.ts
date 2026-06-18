@@ -495,6 +495,7 @@ export const GetDashboardResponse = zod.object({
       requiredEntitlement: zod.string(),
       recordingUrl: zod.string().nullish(),
       registeredCount: zod.number(),
+      hasRegistered: zod.boolean(),
       isAccessible: zod.boolean(),
       upgradeUrl: zod.string().nullable(),
     }),
@@ -743,12 +744,37 @@ export const ListCoachingCallsResponseItem = zod.object({
   requiredEntitlement: zod.string(),
   recordingUrl: zod.string().nullish(),
   registeredCount: zod.number(),
+  hasRegistered: zod.boolean(),
   isAccessible: zod.boolean(),
   upgradeUrl: zod.string().nullable(),
 });
 export const ListCoachingCallsResponse = zod.array(
   ListCoachingCallsResponseItem,
 );
+
+/**
+ * @summary Register the current member for a coaching call
+ */
+export const RegisterForCoachingCallParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RegisterForCoachingCallResponse = zod.object({
+  registered: zod.boolean(),
+  registeredCount: zod.number(),
+});
+
+/**
+ * @summary Cancel the current member's registration for a coaching call
+ */
+export const CancelCoachingCallRegistrationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelCoachingCallRegistrationResponse = zod.object({
+  registered: zod.boolean(),
+  registeredCount: zod.number(),
+});
 
 /**
  * @summary List all coaches

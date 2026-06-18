@@ -22,6 +22,7 @@ export interface CoachingCall {
   /** @nullable */
   recordingUrl?: string | null;
   registeredCount: number;
+  hasRegistered: boolean;
   isAccessible: boolean;
   /** @nullable */
   upgradeUrl: string | null;

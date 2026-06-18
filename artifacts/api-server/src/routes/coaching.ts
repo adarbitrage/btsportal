@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, coachingCallsTable, coachesTable, coachingCallAttendanceTable } from "@workspace/db";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
@@ -28,19 +28,31 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
       requiredEntitlement: coachingCallsTable.requiredEntitlement,
       recordingUrl: coachingCallsTable.recordingUrl,
       registeredCount: coachingCallsTable.registeredCount,
+      // Whether THIS member is registered for the call. The attendance row is
+      // unique per (call, user) and only counts as a registration when
+      // registered_at is set (a recording-only view leaves it null).
+      registeredAt: coachingCallAttendanceTable.registeredAt,
     })
     .from(coachingCallsTable)
     .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
+    .leftJoin(
+      coachingCallAttendanceTable,
+      and(
+        eq(coachingCallAttendanceTable.callId, coachingCallsTable.id),
+        eq(coachingCallAttendanceTable.userId, userId),
+      ),
+    )
     .orderBy(coachingCallsTable.scheduledAt);
 
   const calls = upcoming
     ? await query.where(gte(coachingCallsTable.scheduledAt, now))
     : await query;
 
-  const mapped = calls.map((c) => {
+  const mapped = calls.map(({ registeredAt, ...c }) => {
     const isAccessible = entitlements.has(c.requiredEntitlement);
     return {
       ...c,
+      hasRegistered: registeredAt !== null,
       isAccessible,
       meetLink: isAccessible ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
@@ -73,10 +85,34 @@ async function getAccessibleCall(
   return { id: call.id };
 }
 
+// Recompute the call's registered tally directly from the attendance rows that
+// currently have registered_at set, persist it on the call, and return it. This
+// is the single source of truth for the count, so it stays correct across every
+// transition (register, cancel, cancel -> re-register, recording-view -> register)
+// instead of relying on fragile incremental +1/-1 bookkeeping that can drift.
+async function syncRegisteredCount(callId: number): Promise<number> {
+  const [counted] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(coachingCallAttendanceTable)
+    .where(
+      and(
+        eq(coachingCallAttendanceTable.callId, callId),
+        isNotNull(coachingCallAttendanceTable.registeredAt),
+      ),
+    );
+  const registeredCount = counted?.count ?? 0;
+  await db
+    .update(coachingCallsTable)
+    .set({ registeredCount })
+    .where(eq(coachingCallsTable.id, callId));
+  return registeredCount;
+}
+
 // Record that the member registered for / is joining the live call. Stamps
 // registered_at on the member's attendance row (one per call), creating it on
-// first registration. registered_count on the call is the running tally of
-// distinct registrants and is only bumped when a brand-new row is inserted.
+// first registration or re-stamping it after a prior cancel. The call's
+// registered_count is then recomputed from the attendance rows so it stays
+// accurate regardless of how the row was first created.
 router.post("/coaching-calls/:id/attendance", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const callId = Number(req.params.id);
@@ -87,37 +123,45 @@ router.post("/coaching-calls/:id/attendance", async (req, res): Promise<void> =>
   }
 
   const now = new Date();
-  const inserted = await db
+  await db
     .insert(coachingCallAttendanceTable)
     .values({ callId: call.id, userId, registeredAt: now })
     .onConflictDoUpdate({
       target: [coachingCallAttendanceTable.callId, coachingCallAttendanceTable.userId],
-      // Keep the first registration timestamp once set; only fill it in if the
-      // row was created earlier by a recording view.
-      set: { registeredAt: sql`coalesce(${coachingCallAttendanceTable.registeredAt}, ${now})` },
-    })
-    .returning({
-      id: coachingCallAttendanceTable.id,
-      registeredAt: coachingCallAttendanceTable.registeredAt,
-      createdAt: coachingCallAttendanceTable.createdAt,
+      // Re-stamp registered_at so a member who previously cancelled (registered_at
+      // cleared to null) is registered again.
+      set: { registeredAt: now },
     });
 
-  // A genuinely new registration is one whose row was created by this insert
-  // (created_at === registered_at). Only then do we bump the call's tally.
-  const row = inserted[0];
-  const isNewRegistration =
-    !!row &&
-    !!row.registeredAt &&
-    !!row.createdAt &&
-    row.registeredAt.getTime() === row.createdAt.getTime();
-  if (isNewRegistration) {
-    await db
-      .update(coachingCallsTable)
-      .set({ registeredCount: sql`${coachingCallsTable.registeredCount} + 1` })
-      .where(eq(coachingCallsTable.id, call.id));
+  res.json({ registered: true, registeredCount: await syncRegisteredCount(call.id) });
+});
+
+// Cancel the member's registration for an upcoming call. Clears registered_at
+// on the member's attendance row (the row itself is kept so a later recording
+// view still attaches to it). The call's registered_count is then recomputed
+// from the remaining registered attendance rows, so repeated cancels are no-ops
+// and the count never drifts.
+router.delete("/coaching-calls/:id/attendance", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const callId = Number(req.params.id);
+  const call = await getAccessibleCall(userId, callId);
+  if (!call) {
+    res.status(404).json({ error: "Coaching call not found" });
+    return;
   }
 
-  res.json({ ok: true });
+  await db
+    .update(coachingCallAttendanceTable)
+    .set({ registeredAt: null })
+    .where(
+      and(
+        eq(coachingCallAttendanceTable.callId, call.id),
+        eq(coachingCallAttendanceTable.userId, userId),
+        isNotNull(coachingCallAttendanceTable.registeredAt),
+      ),
+    );
+
+  res.json({ registered: false, registeredCount: await syncRegisteredCount(call.id) });
 });
 
 // Record that the member opened the call's recording. Stamps

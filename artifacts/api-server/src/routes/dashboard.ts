@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
+import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, coachingCallAttendanceTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
 import { eq, count, gte, and, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
@@ -49,17 +49,27 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       requiredEntitlement: coachingCallsTable.requiredEntitlement,
       recordingUrl: coachingCallsTable.recordingUrl,
       registeredCount: coachingCallsTable.registeredCount,
+      // Whether THIS member is already registered for the call (see coaching.ts).
+      registeredAt: coachingCallAttendanceTable.registeredAt,
     })
     .from(coachingCallsTable)
     .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
+    .leftJoin(
+      coachingCallAttendanceTable,
+      and(
+        eq(coachingCallAttendanceTable.callId, coachingCallsTable.id),
+        eq(coachingCallAttendanceTable.userId, userId),
+      ),
+    )
     .where(gte(coachingCallsTable.scheduledAt, now))
     .orderBy(coachingCallsTable.scheduledAt)
     .limit(3);
 
-  const upcomingCallsMapped = upcomingCalls.map((c) => {
+  const upcomingCallsMapped = upcomingCalls.map(({ registeredAt, ...c }) => {
     const isAccessible = entitlements.has(c.requiredEntitlement);
     return {
       ...c,
+      hasRegistered: registeredAt !== null,
       isAccessible,
       meetLink: isAccessible ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,

@@ -27,11 +27,21 @@ vi.mock("wouter", () => ({
   useLocation: () => ["/coaching", navigate],
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
 const useListCoachingCalls = vi.fn();
 const useListCoaches = vi.fn();
+const useRegisterForCoachingCall = vi.fn();
+const useCancelCoachingCallRegistration = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useListCoachingCalls: (...args: unknown[]) => useListCoachingCalls(...args),
   useListCoaches: (...args: unknown[]) => useListCoaches(...args),
+  useRegisterForCoachingCall: (...args: unknown[]) =>
+    useRegisterForCoachingCall(...args),
+  useCancelCoachingCallRegistration: (...args: unknown[]) =>
+    useCancelCoachingCallRegistration(...args),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -50,6 +60,7 @@ function makeCall(overrides: Partial<CoachingCall>): CoachingCall {
     requiredEntitlement: "coaching:strategy",
     recordingUrl: null,
     registeredCount: 0,
+    hasRegistered: false,
     isAccessible: true,
     upgradeUrl: null,
     ...overrides,
@@ -60,6 +71,12 @@ beforeEach(() => {
   navigate.mockReset();
   useListCoachingCalls.mockReset();
   useListCoaches.mockReset();
+  useRegisterForCoachingCall.mockReset();
+  useCancelCoachingCallRegistration.mockReset();
+  // The register/cancel mutation hooks are exercised in the dedicated
+  // registration test; here we only need them to render without erroring.
+  useRegisterForCoachingCall.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useCancelCoachingCallRegistration.mockReturnValue({ mutate: vi.fn(), isPending: false });
   // The "Your Coaches" grid is independent of these assertions; default to an
   // empty roster so the section simply doesn't render.
   useListCoaches.mockReturnValue({ data: [] });
@@ -116,10 +133,12 @@ describe("Coaching — upcoming one-off special sessions", () => {
     await userEvent.click(within(mastermindRow).getByRole("button", { name: /unlock/i }));
     expect(navigate).toHaveBeenCalledWith("/plans?highlight=mastermind");
 
-    // Accessible VIP call without a published link yet → disabled "Link soon".
+    // Accessible VIP call without a published link yet → no Join link, but the
+    // member can still reserve a spot ahead of time.
     const vipRow = screen.getByTestId("oneoff-call-42");
     expect(within(vipRow).getByTestId("oneoff-call-type-42")).toHaveTextContent("VIP Roundtable");
-    expect(within(vipRow).getByRole("button", { name: /link soon/i })).toBeDisabled();
+    expect(within(vipRow).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    expect(within(vipRow).getByTestId("oneoff-register-42")).toBeInTheDocument();
   });
 
   it("keeps one-off calls out of the recurring weekly schedule and weekly calls out of the special-sessions list", () => {

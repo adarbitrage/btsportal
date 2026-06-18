@@ -757,6 +757,7 @@ export interface CoachingCall {
   /** @nullable */
   recordingUrl?: string | null;
   registeredCount: number;
+  hasRegistered: boolean;
   isAccessible: boolean;
   /** @nullable */
   upgradeUrl: string | null;
@@ -883,6 +884,11 @@ export interface Progress {
 
 export interface CreateProgress {
   lessonId: number;
+}
+
+export interface CoachingCallRegistration {
+  registered: boolean;
+  registeredCount: number;
 }
 
 export interface Coach {

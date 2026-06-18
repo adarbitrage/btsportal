@@ -176,6 +176,7 @@ export type {
   CoachMenteeRow,
   CoachingCall,
   CoachingCallCallType,
+  CoachingCallRegistration,
   CoachingRating,
   CoachingSessionDetail,
   CoachingSessionDetailStatus,

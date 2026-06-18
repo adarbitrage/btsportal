@@ -2,10 +2,17 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Video, Lock } from "lucide-react";
+import { Calendar, Video, Lock, Check, Users } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useListCoachingCalls, useListCoaches, type CoachingCall } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListCoachingCalls,
+  useListCoaches,
+  useRegisterForCoachingCall,
+  useCancelCoachingCallRegistration,
+  type CoachingCall,
+} from "@workspace/api-client-react";
 import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 
 type AvatarTint = {
@@ -75,6 +82,85 @@ function CallAction({
       <Lock className="w-3.5 h-3.5" />
       Unlock
     </Button>
+  );
+}
+
+// RSVP control for one-off special sessions. Eligible members can reserve a
+// spot ahead of the call and cancel that reservation; both surface the running
+// registered tally. Locked sessions defer to the call's own Unlock deep-link
+// (members can't reserve a session they aren't entitled to — the backend 404s).
+function SpecialSessionAction({
+  call,
+  onUnlock,
+}: {
+  call: CoachingCall;
+  onUnlock: (url: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    // Prefix match invalidates every cached coaching-calls list (any params)
+    // plus the dashboard's upcoming-calls preview so both reflect the new state.
+    queryClient.invalidateQueries({ queryKey: ["/api/coaching-calls"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+  };
+  const register = useRegisterForCoachingCall({ mutation: { onSuccess: refresh } });
+  const cancel = useCancelCoachingCallRegistration({ mutation: { onSuccess: refresh } });
+  const pending = register.isPending || cancel.isPending;
+
+  if (!call.isAccessible) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="font-semibold shrink-0 gap-1.5"
+        onClick={() => onUnlock(call.upgradeUrl ?? "/plans")}
+      >
+        <Lock className="w-3.5 h-3.5" />
+        Unlock
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 shrink-0">
+      <span
+        data-testid={`oneoff-registered-count-${call.id}`}
+        className="flex items-center gap-1 text-xs text-muted-foreground"
+      >
+        <Users className="w-3.5 h-3.5" />
+        {call.registeredCount} reserved
+      </span>
+      {call.hasRegistered ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          data-testid={`oneoff-cancel-${call.id}`}
+          className="font-semibold gap-1.5"
+          onClick={() => cancel.mutate({ id: call.id })}
+        >
+          <Check className="w-3.5 h-3.5 text-emerald-600" />
+          Reserved
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          disabled={pending}
+          data-testid={`oneoff-register-${call.id}`}
+          className="font-semibold"
+          onClick={() => register.mutate({ id: call.id })}
+        >
+          Reserve Spot
+        </Button>
+      )}
+      {call.meetLink && (
+        <Button asChild size="sm" variant="ghost" className="font-semibold">
+          <a href={call.meetLink} target="_blank" rel="noopener noreferrer">
+            Join Call
+          </a>
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -240,7 +326,7 @@ export default function Coaching() {
                         with {call.coachName.split(" ")[0]}
                       </span>
                     </div>
-                    <CallAction call={call} onUnlock={navigate} />
+                    <SpecialSessionAction call={call} onUnlock={navigate} />
                   </div>
                 ))}
               </div>

@@ -24,11 +24,21 @@ vi.mock("wouter", () => ({
   useLocation: () => ["/coaching", navigate],
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
 const useListCoachingCalls = vi.fn();
 const useListCoaches = vi.fn();
+const useRegisterForCoachingCall = vi.fn();
+const useCancelCoachingCallRegistration = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useListCoachingCalls: (...args: unknown[]) => useListCoachingCalls(...args),
   useListCoaches: (...args: unknown[]) => useListCoaches(...args),
+  useRegisterForCoachingCall: (...args: unknown[]) =>
+    useRegisterForCoachingCall(...args),
+  useCancelCoachingCallRegistration: (...args: unknown[]) =>
+    useCancelCoachingCallRegistration(...args),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -47,6 +57,7 @@ function makeCall(overrides: Partial<CoachingCall>): CoachingCall {
     requiredEntitlement: "coaching:weekly",
     recordingUrl: null,
     registeredCount: 0,
+    hasRegistered: false,
     isAccessible: true,
     upgradeUrl: null,
     ...overrides,
@@ -57,6 +68,10 @@ beforeEach(() => {
   navigate.mockReset();
   useListCoachingCalls.mockReset();
   useListCoaches.mockReset();
+  useRegisterForCoachingCall.mockReset();
+  useCancelCoachingCallRegistration.mockReset();
+  useRegisterForCoachingCall.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useCancelCoachingCallRegistration.mockReturnValue({ mutate: vi.fn(), isPending: false });
   // The "Your Coaches" grid is independent of these assertions; default to an
   // empty roster so the section simply doesn't render.
   useListCoaches.mockReturnValue({ data: [] });

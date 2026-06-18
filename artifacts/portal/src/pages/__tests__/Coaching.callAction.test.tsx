@@ -50,6 +50,7 @@ function makeCall(overrides: Partial<CoachingCall>): CoachingCall {
     requiredEntitlement: "coaching:weekly",
     recordingUrl: null,
     registeredCount: 0,
+    hasRegistered: false,
     isAccessible: true,
     upgradeUrl: null,
     ...overrides,

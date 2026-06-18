@@ -610,6 +610,46 @@ paths:
                 items:
                   $ref: "#/components/schemas/CoachingCall"
 
+  /coaching-calls/{id}/attendance:
+    post:
+      operationId: registerForCoachingCall
+      tags: [coaching]
+      summary: Register the current member for a coaching call
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingCallRegistration"
+        "404":
+          description: Coaching call not found or not accessible
+    delete:
+      operationId: cancelCoachingCallRegistration
+      tags: [coaching]
+      summary: Cancel the current member's registration for a coaching call
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingCallRegistration"
+        "404":
+          description: Coaching call not found or not accessible
+
   /coaches:
     get:
       operationId: listCoaches
@@ -7762,11 +7802,22 @@ components:
           type: ["string", "null"]
         registeredCount:
           type: integer
+        hasRegistered:
+          type: boolean
         isAccessible:
           type: boolean
         upgradeUrl:
           type: ["string", "null"]
-      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, isAccessible, upgradeUrl]
+      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, hasRegistered, isAccessible, upgradeUrl]
+
+    CoachingCallRegistration:
+      type: object
+      properties:
+        registered:
+          type: boolean
+        registeredCount:
+          type: integer
+      required: [registered, registeredCount]
 
     Coach:
       type: object
