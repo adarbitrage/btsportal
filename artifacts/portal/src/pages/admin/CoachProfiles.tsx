@@ -994,7 +994,7 @@ export default function CoachProfiles() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              {(awayTarget?.awayPeriods.length ?? 0) === 0 ? (
+              {(awayTarget?.awayPeriods?.length ?? 0) === 0 ? (
                 <p
                   className="text-sm text-muted-foreground"
                   data-testid="away-empty"
@@ -1003,7 +1003,7 @@ export default function CoachProfiles() {
                 </p>
               ) : (
                 <div className="rounded-lg border border-border/60 divide-y divide-border/60">
-                  {awayTarget?.awayPeriods.map((p) => (
+                  {awayTarget?.awayPeriods?.map((p) => (
                     <div
                       key={p.id}
                       data-testid={`away-period-${p.id}`}

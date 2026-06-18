@@ -337,6 +337,22 @@ describe("CoachProfiles admin editor", () => {
     });
   });
 
+  it("opens the away-schedule modal for a coach with no away-periods data without crashing", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // The seeded coach has no `awayPeriods` field at all (missing data).
+    await screen.findByTestId("coach-42");
+    await user.click(screen.getByTestId("manage-away-42"));
+
+    // Modal renders the empty state instead of throwing on undefined awayPeriods.
+    const awayDialog = await screen.findByTestId("away-dialog");
+    expect(within(awayDialog).getByTestId("away-empty")).toBeInTheDocument();
+    expect(
+      within(awayDialog).getByText("No upcoming or active away periods."),
+    ).toBeInTheDocument();
+  });
+
   it("does not remove a coach when the confirm dialog is cancelled", async () => {
     const user = userEvent.setup();
     renderPage();
