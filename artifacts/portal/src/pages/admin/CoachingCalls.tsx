@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Calendar, Video, Link2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Video, Link2, Repeat, CalendarPlus } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -29,7 +29,13 @@ import {
   useCreateCoachingCall,
   useUpdateCoachingCall,
   useDeleteCoachingCall,
+  useCoachingCallTemplates,
+  useCreateCoachingCallTemplate,
+  useUpdateCoachingCallTemplate,
+  useGenerateCoachingCallTemplate,
+  useDeleteCoachingCallTemplate,
   type AdminCoachingCall,
+  type CoachingCallTemplate,
 } from "@/lib/coaching-calls-admin-api";
 
 const CALL_TYPES = [
@@ -58,6 +64,31 @@ const EMPTY_FORM: CallForm = {
   coachId: "",
   scheduledAt: "",
   durationMinutes: "60",
+  meetLink: "",
+  requiredEntitlement: "coaching:group",
+};
+
+interface TemplateForm {
+  id?: number;
+  title: string;
+  description: string;
+  callType: string;
+  coachId: string;
+  anchorAt: string;
+  durationMinutes: string;
+  occurrencesPerBatch: string;
+  meetLink: string;
+  requiredEntitlement: string;
+}
+
+const EMPTY_TEMPLATE_FORM: TemplateForm = {
+  title: "",
+  description: "",
+  callType: "weekly_qa",
+  coachId: "",
+  anchorAt: "",
+  durationMinutes: "60",
+  occurrencesPerBatch: "8",
   meetLink: "",
   requiredEntitlement: "coaching:group",
 };
@@ -171,6 +202,135 @@ export default function CoachingCalls() {
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
 
+  // --- Recurring templates ---------------------------------------------------
+  const { data: templateData } = useCoachingCallTemplates();
+  const createTemplateMutation = useCreateCoachingCallTemplate();
+  const updateTemplateMutation = useUpdateCoachingCallTemplate();
+  const generateTemplateMutation = useGenerateCoachingCallTemplate();
+  const deleteTemplateMutation = useDeleteCoachingCallTemplate();
+
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateForm, setTemplateForm] = useState<TemplateForm>(EMPTY_TEMPLATE_FORM);
+  const [templateDeleteTarget, setTemplateDeleteTarget] =
+    useState<CoachingCallTemplate | null>(null);
+  const [generatingId, setGeneratingId] = useState<number | null>(null);
+
+  const templates = templateData?.templates ?? [];
+
+  function openNewTemplate() {
+    setTemplateForm({
+      ...EMPTY_TEMPLATE_FORM,
+      coachId: coaches[0] ? String(coaches[0].id) : "",
+    });
+    setTemplateOpen(true);
+  }
+
+  function openEditTemplate(t: CoachingCallTemplate) {
+    setTemplateForm({
+      id: t.id,
+      title: t.title,
+      description: t.description ?? "",
+      callType: t.callType,
+      coachId: String(t.coachId),
+      anchorAt: toLocalInput(t.anchorAt),
+      durationMinutes: String(t.durationMinutes),
+      occurrencesPerBatch: String(t.occurrencesPerBatch),
+      meetLink: t.meetLink ?? "",
+      requiredEntitlement: t.requiredEntitlement,
+    });
+    setTemplateOpen(true);
+  }
+
+  async function handleSaveTemplate() {
+    if (!templateForm.title.trim()) {
+      toast({ title: "Title is required", variant: "destructive" });
+      return;
+    }
+    if (!templateForm.coachId) {
+      toast({ title: "Please pick a coach", variant: "destructive" });
+      return;
+    }
+    if (!templateForm.id && !templateForm.anchorAt) {
+      toast({ title: "First call date & time is required", variant: "destructive" });
+      return;
+    }
+    const duration = parseInt(templateForm.durationMinutes, 10);
+    const batch = parseInt(templateForm.occurrencesPerBatch, 10);
+    const base = {
+      title: templateForm.title.trim(),
+      description: templateForm.description.trim(),
+      callType: templateForm.callType,
+      coachId: parseInt(templateForm.coachId, 10),
+      durationMinutes: Number.isInteger(duration) && duration > 0 ? duration : 60,
+      occurrencesPerBatch: Number.isInteger(batch) && batch > 0 ? batch : 8,
+      meetLink: templateForm.meetLink.trim() || null,
+      requiredEntitlement: templateForm.requiredEntitlement.trim() || "coaching:group",
+    };
+
+    try {
+      if (templateForm.id) {
+        await updateTemplateMutation.mutateAsync({ id: templateForm.id, ...base });
+        toast({ title: "Recurring schedule updated" });
+      } else {
+        const res = await createTemplateMutation.mutateAsync({
+          ...base,
+          anchorAt: new Date(templateForm.anchorAt).toISOString(),
+        });
+        toast({
+          title: "Recurring schedule created",
+          description: `Scheduled the next ${res.generated} call${res.generated === 1 ? "" : "s"}.`,
+        });
+      }
+      setTemplateOpen(false);
+    } catch (err) {
+      toast({
+        title: "Could not save recurring schedule",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleGenerate(t: CoachingCallTemplate) {
+    setGeneratingId(t.id);
+    try {
+      const res = await generateTemplateMutation.mutateAsync(t.id);
+      toast({
+        title: res.generated > 0 ? "More calls scheduled" : "Already up to date",
+        description:
+          res.generated > 0
+            ? `Added ${res.generated} more call${res.generated === 1 ? "" : "s"}.`
+            : "No new calls were needed.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not generate calls",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
+  async function handleDeleteTemplate() {
+    if (!templateDeleteTarget) return;
+    try {
+      await deleteTemplateMutation.mutateAsync(templateDeleteTarget.id);
+      toast({ title: "Recurring schedule removed" });
+      setTemplateDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Could not remove recurring schedule",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const isTemplateMutating =
+    createTemplateMutation.isPending || updateTemplateMutation.isPending;
+
   return (
     <PackCoachingAdminLayout>
       <div className="space-y-6">
@@ -215,6 +375,16 @@ export default function CoachingCalls() {
                       <Badge variant="outline" className="text-[10px]">
                         {callTypeLabel(call.callType)}
                       </Badge>
+                      {call.templateId ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] gap-1"
+                          data-testid={`call-series-${call.id}`}
+                        >
+                          <Repeat className="w-3 h-3" />
+                          Recurring
+                        </Badge>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                       <span className="flex items-center gap-1.5">
@@ -261,6 +431,99 @@ export default function CoachingCalls() {
             ))}
           </div>
         )}
+
+        <div className="pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Repeat className="w-4 h-4 text-primary" />
+                Recurring Schedules
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Define a weekly slot once and auto-generate the upcoming weeks. Editing
+                or deleting a single call above never affects the rest of the series.
+              </p>
+            </div>
+            <Button variant="outline" onClick={openNewTemplate} data-testid="add-template">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Recurring
+            </Button>
+          </div>
+
+          {templates.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground text-sm">
+                No recurring schedules yet. Add one to stop re-creating each week by
+                hand.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {templates.map((t) => (
+                <Card key={t.id} data-testid={`template-${t.id}`}>
+                  <CardContent className="p-5 flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Repeat className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-foreground">{t.title}</h3>
+                        <Badge variant="outline" className="text-[10px]">
+                          {callTypeLabel(t.callType)}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          {t.intervalDays === 7
+                            ? `Every ${format(new Date(t.anchorAt), "EEEE")} • ${format(new Date(t.anchorAt), "h:mm a")}`
+                            : `Every ${t.intervalDays} days • ${format(new Date(t.anchorAt), "h:mm a")}`}
+                        </span>
+                        <span>{t.durationMinutes} min</span>
+                        <span>with {t.coachName}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        {t.lastGeneratedAt
+                          ? `Scheduled through ${format(new Date(t.lastGeneratedAt), "EEE, MMM d")}`
+                          : "No calls generated yet"}
+                        {" • generates "}
+                        {t.occurrencesPerBatch} at a time
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleGenerate(t)}
+                        disabled={generatingId === t.id}
+                        data-testid={`generate-template-${t.id}`}
+                        title="Generate more weeks"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditTemplate(t)}
+                        data-testid={`edit-template-${t.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTemplateDeleteTarget(t)}
+                        data-testid={`delete-template-${t.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -398,6 +661,197 @@ export default function CoachingCalls() {
               data-testid="confirm-delete-call"
             >
               {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {templateForm.id ? "Edit Recurring Schedule" : "Add Recurring Schedule"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Title *</Label>
+              <Input
+                value={templateForm.title}
+                onChange={(e) => setTemplateForm({ ...templateForm, title: e.target.value })}
+                data-testid="template-title"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea
+                value={templateForm.description}
+                onChange={(e) =>
+                  setTemplateForm({ ...templateForm, description: e.target.value })
+                }
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Call Type</Label>
+                <Select
+                  value={templateForm.callType}
+                  onValueChange={(value) =>
+                    setTemplateForm({ ...templateForm, callType: value })
+                  }
+                >
+                  <SelectTrigger data-testid="template-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CALL_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Coach *</Label>
+                <Select
+                  value={templateForm.coachId}
+                  onValueChange={(value) =>
+                    setTemplateForm({ ...templateForm, coachId: value })
+                  }
+                >
+                  <SelectTrigger data-testid="template-coach">
+                    <SelectValue placeholder="Select coach" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coaches.map((coach) => (
+                      <SelectItem key={coach.id} value={String(coach.id)}>
+                        {coach.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {templateForm.id ? (
+              <p className="text-xs text-muted-foreground">
+                The first-call time and weekly cadence are locked once a series is
+                created. Edits here only affect calls generated from now on — already
+                scheduled calls are left untouched.
+              </p>
+            ) : (
+              <div>
+                <Label className="text-xs">First Call (Date &amp; Time) *</Label>
+                <Input
+                  type="datetime-local"
+                  value={templateForm.anchorAt}
+                  onChange={(e) =>
+                    setTemplateForm({ ...templateForm, anchorAt: e.target.value })
+                  }
+                  data-testid="template-anchor-at"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Repeats weekly on this day &amp; time.
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Duration (min)</Label>
+                <Input
+                  type="number"
+                  value={templateForm.durationMinutes}
+                  onChange={(e) =>
+                    setTemplateForm({ ...templateForm, durationMinutes: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Weeks to Generate</Label>
+                <Input
+                  type="number"
+                  value={templateForm.occurrencesPerBatch}
+                  onChange={(e) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      occurrencesPerBatch: e.target.value,
+                    })
+                  }
+                  data-testid="template-batch"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Meet Link</Label>
+              <Input
+                value={templateForm.meetLink}
+                onChange={(e) =>
+                  setTemplateForm({ ...templateForm, meetLink: e.target.value })
+                }
+                placeholder="https://meet.google.com/…"
+                data-testid="template-meet-link"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Required Entitlement</Label>
+              <Input
+                value={templateForm.requiredEntitlement}
+                onChange={(e) =>
+                  setTemplateForm({ ...templateForm, requiredEntitlement: e.target.value })
+                }
+                placeholder="coaching:group"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTemplateOpen(false)}
+              disabled={isTemplateMutating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={isTemplateMutating}
+              data-testid="save-template"
+            >
+              {isTemplateMutating ? "Saving…" : templateForm.id ? "Save" : "Create & Schedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!templateDeleteTarget}
+        onOpenChange={(o) => !o && setTemplateDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove recurring schedule?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This stops{" "}
+            <strong className="text-foreground">{templateDeleteTarget?.title}</strong>{" "}
+            from generating new weeks. Calls already on the schedule stay put — delete
+            those individually if you also want them gone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTemplateDeleteTarget(null)}
+              disabled={deleteTemplateMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTemplate}
+              disabled={deleteTemplateMutation.isPending}
+              data-testid="confirm-delete-template"
+            >
+              {deleteTemplateMutation.isPending ? "Removing…" : "Remove"}
             </Button>
           </DialogFooter>
         </DialogContent>

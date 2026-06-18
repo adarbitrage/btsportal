@@ -1,11 +1,21 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, coachingCallsTable, coachesTable } from "@workspace/db";
+import {
+  db,
+  coachingCallsTable,
+  coachingCallTemplatesTable,
+  coachesTable,
+} from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
 
 const KNOWN_CALL_TYPES = ["weekly_qa", "strategy", "mastermind", "vip_roundtable"];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Guard rails so a template can't be told to spawn an unbounded number of rows.
+const MAX_OCCURRENCES_PER_BATCH = 52;
+const MAX_INTERVAL_DAYS = 365;
 
 function parseId(value: unknown): number | null {
   const str = Array.isArray(value) ? value[0] : value;
@@ -110,6 +120,7 @@ router.get(
         requiredEntitlement: coachingCallsTable.requiredEntitlement,
         recordingUrl: coachingCallsTable.recordingUrl,
         registeredCount: coachingCallsTable.registeredCount,
+        templateId: coachingCallsTable.templateId,
       })
       .from(coachingCallsTable)
       .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
@@ -129,6 +140,328 @@ router.get(
       .from(coachesTable)
       .orderBy(asc(coachesTable.name));
     res.json({ coaches });
+  },
+);
+
+// --- Recurring schedule templates ----------------------------------------
+//
+// A template defines a repeating slot ("every Monday 2pm, coach X"). Creating
+// one immediately generates the first batch of ordinary coaching_calls rows;
+// "generate" extends the series by another batch. Each generated row is a
+// normal coaching_calls row (linked by template_id), so editing / cancelling a
+// single occurrence via the existing call CRUD never disturbs the rest.
+
+function parseTemplateBody(
+  body: Record<string, unknown>,
+  { partial }: { partial: boolean },
+): { values: Record<string, unknown> } | { error: string } {
+  const values: Record<string, unknown> = {};
+
+  const title = trimmedString(body.title);
+  if (title !== undefined) values.title = title;
+  else if (!partial) return { error: "Title is required" };
+
+  if (body.description !== undefined) {
+    values.description = typeof body.description === "string" ? body.description.trim() : "";
+  } else if (!partial) {
+    values.description = "";
+  }
+
+  if (body.callType !== undefined) {
+    const callType = trimmedString(body.callType);
+    if (!callType || !KNOWN_CALL_TYPES.includes(callType)) {
+      return { error: `Call type must be one of: ${KNOWN_CALL_TYPES.join(", ")}` };
+    }
+    values.callType = callType;
+  }
+
+  if (body.coachId !== undefined) {
+    const coachId = parseId(body.coachId);
+    if (!coachId) return { error: "A valid coach is required" };
+    values.coachId = coachId;
+  } else if (!partial) {
+    return { error: "A valid coach is required" };
+  }
+
+  // anchorAt = the first occurrence's date/time. Only settable on create; the
+  // watermark drives subsequent occurrences so we don't let an edit rewind it.
+  if (!partial) {
+    const anchorAt = new Date(String(body.anchorAt ?? body.scheduledAt ?? ""));
+    if (Number.isNaN(anchorAt.getTime())) {
+      return { error: "A valid first occurrence date/time is required" };
+    }
+    values.anchorAt = anchorAt;
+  }
+
+  if (body.durationMinutes !== undefined) {
+    const duration =
+      typeof body.durationMinutes === "number"
+        ? body.durationMinutes
+        : parseInt(String(body.durationMinutes), 10);
+    if (!Number.isInteger(duration) || duration <= 0) {
+      return { error: "Duration must be a positive number of minutes" };
+    }
+    values.durationMinutes = duration;
+  }
+
+  if (body.intervalDays !== undefined) {
+    const interval =
+      typeof body.intervalDays === "number"
+        ? body.intervalDays
+        : parseInt(String(body.intervalDays), 10);
+    if (!Number.isInteger(interval) || interval <= 0 || interval > MAX_INTERVAL_DAYS) {
+      return { error: `Interval must be between 1 and ${MAX_INTERVAL_DAYS} days` };
+    }
+    values.intervalDays = interval;
+  }
+
+  if (body.occurrencesPerBatch !== undefined) {
+    const batch =
+      typeof body.occurrencesPerBatch === "number"
+        ? body.occurrencesPerBatch
+        : parseInt(String(body.occurrencesPerBatch), 10);
+    if (!Number.isInteger(batch) || batch <= 0 || batch > MAX_OCCURRENCES_PER_BATCH) {
+      return { error: `Weeks to generate must be between 1 and ${MAX_OCCURRENCES_PER_BATCH}` };
+    }
+    values.occurrencesPerBatch = batch;
+  }
+
+  if (body.meetLink !== undefined) {
+    values.meetLink = trimmedString(body.meetLink) ?? null;
+  }
+  if (body.requiredEntitlement !== undefined) {
+    values.requiredEntitlement = trimmedString(body.requiredEntitlement) ?? "coaching:group";
+  }
+  if (body.active !== undefined) {
+    values.active = Boolean(body.active);
+  }
+
+  return { values };
+}
+
+type TemplateRow = typeof coachingCallTemplatesTable.$inferSelect;
+
+// Compute the next `count` occurrence datetimes for a template. Generation
+// always moves strictly forward: from the watermark when one exists, otherwise
+// from the anchor. This is what guarantees a cancelled occurrence is never
+// re-created on a later pass.
+function nextOccurrences(template: TemplateRow, count: number): Date[] {
+  const intervalMs = template.intervalDays * DAY_MS;
+  const occurrences: Date[] = [];
+  let next = template.lastGeneratedAt
+    ? new Date(template.lastGeneratedAt.getTime() + intervalMs)
+    : new Date(template.anchorAt.getTime());
+  for (let i = 0; i < count; i++) {
+    occurrences.push(new Date(next));
+    next = new Date(next.getTime() + intervalMs);
+  }
+  return occurrences;
+}
+
+// Insert `count` upcoming occurrences as coaching_calls rows and advance the
+// template watermark. onConflictDoNothing on (template_id, scheduled_at) keeps
+// it idempotent under double-clicks / retries.
+async function generateForTemplate(
+  template: TemplateRow,
+  count: number,
+): Promise<{ created: number; through: Date }> {
+  const occurrences = nextOccurrences(template, count);
+  const rows = occurrences.map((scheduledAt) => ({
+    title: template.title,
+    description: template.description,
+    callType: template.callType,
+    coachId: template.coachId,
+    meetLink: template.meetLink,
+    scheduledAt,
+    durationMinutes: template.durationMinutes,
+    requiredEntitlement: template.requiredEntitlement,
+    templateId: template.id,
+  }));
+
+  const inserted = await db
+    .insert(coachingCallsTable)
+    .values(rows)
+    .onConflictDoNothing({
+      target: [coachingCallsTable.templateId, coachingCallsTable.scheduledAt],
+    })
+    .returning({ id: coachingCallsTable.id });
+
+  const through = occurrences[occurrences.length - 1];
+  await db
+    .update(coachingCallTemplatesTable)
+    .set({ lastGeneratedAt: through })
+    .where(eq(coachingCallTemplatesTable.id, template.id));
+
+  return { created: inserted.length, through };
+}
+
+// List recurring templates with the coach name, for the admin schedule manager.
+router.get(
+  "/admin/coaching/calls/templates",
+  requirePermission("coaching:view"),
+  async (_req: Request, res: Response): Promise<void> => {
+    const templates = await db
+      .select({
+        id: coachingCallTemplatesTable.id,
+        title: coachingCallTemplatesTable.title,
+        description: coachingCallTemplatesTable.description,
+        callType: coachingCallTemplatesTable.callType,
+        coachId: coachingCallTemplatesTable.coachId,
+        coachName: coachesTable.name,
+        meetLink: coachingCallTemplatesTable.meetLink,
+        durationMinutes: coachingCallTemplatesTable.durationMinutes,
+        requiredEntitlement: coachingCallTemplatesTable.requiredEntitlement,
+        intervalDays: coachingCallTemplatesTable.intervalDays,
+        occurrencesPerBatch: coachingCallTemplatesTable.occurrencesPerBatch,
+        anchorAt: coachingCallTemplatesTable.anchorAt,
+        lastGeneratedAt: coachingCallTemplatesTable.lastGeneratedAt,
+        active: coachingCallTemplatesTable.active,
+      })
+      .from(coachingCallTemplatesTable)
+      .innerJoin(coachesTable, eq(coachingCallTemplatesTable.coachId, coachesTable.id))
+      .orderBy(asc(coachingCallTemplatesTable.title));
+
+    res.json({ templates });
+  },
+);
+
+// Create a recurring template AND generate its first batch of calls in one
+// step (the headline feature: set up a recurring weekly call without
+// re-creating each week by hand).
+router.post(
+  "/admin/coaching/calls/templates",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = parseTemplateBody(req.body ?? {}, { partial: false });
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const [coach] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, parsed.values.coachId as number));
+    if (!coach) {
+      res.status(400).json({ error: "Selected coach does not exist" });
+      return;
+    }
+
+    const [template] = await db
+      .insert(coachingCallTemplatesTable)
+      .values(parsed.values as typeof coachingCallTemplatesTable.$inferInsert)
+      .returning();
+
+    const { created, through } = await generateForTemplate(
+      template,
+      template.occurrencesPerBatch,
+    );
+
+    res.status(201).json({ template: { ...template, lastGeneratedAt: through }, generated: created });
+  },
+);
+
+// Edit a template's field values / cadence. This affects only FUTURE generated
+// occurrences — already-generated calls are independent rows and are left
+// untouched, mirroring the single-occurrence isolation guarantee.
+router.patch(
+  "/admin/coaching/calls/templates/:id",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const templateId = parseId(req.params.id);
+    if (!templateId) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+
+    const parsed = parseTemplateBody(req.body ?? {}, { partial: true });
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    if (Object.keys(parsed.values).length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+
+    if (parsed.values.coachId !== undefined) {
+      const [coach] = await db
+        .select({ id: coachesTable.id })
+        .from(coachesTable)
+        .where(eq(coachesTable.id, parsed.values.coachId as number));
+      if (!coach) {
+        res.status(400).json({ error: "Selected coach does not exist" });
+        return;
+      }
+    }
+
+    const [updated] = await db
+      .update(coachingCallTemplatesTable)
+      .set(parsed.values)
+      .where(eq(coachingCallTemplatesTable.id, templateId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json(updated);
+  },
+);
+
+// Generate the next batch of occurrences for an existing template.
+router.post(
+  "/admin/coaching/calls/templates/:id/generate",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const templateId = parseId(req.params.id);
+    if (!templateId) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+
+    const [template] = await db
+      .select()
+      .from(coachingCallTemplatesTable)
+      .where(eq(coachingCallTemplatesTable.id, templateId));
+    if (!template) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    const { created, through } = await generateForTemplate(
+      template,
+      template.occurrencesPerBatch,
+    );
+    res.json({ generated: created, through });
+  },
+);
+
+// Delete a template. Already-generated calls are kept (template_id is set NULL
+// via the FK) so the existing schedule is undisturbed; the series simply stops
+// auto-generating new weeks.
+router.delete(
+  "/admin/coaching/calls/templates/:id",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const templateId = parseId(req.params.id);
+    if (!templateId) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+
+    const [deleted] = await db
+      .delete(coachingCallTemplatesTable)
+      .where(eq(coachingCallTemplatesTable.id, templateId))
+      .returning({ id: coachingCallTemplatesTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json({ ok: true });
   },
 );
 

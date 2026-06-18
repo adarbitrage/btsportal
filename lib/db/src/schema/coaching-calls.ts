@@ -1,22 +1,72 @@
-import { pgTable, text, serial, integer, timestamp, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { coachesTable } from "./coaches";
 import { usersTable } from "./users";
 
-export const coachingCallsTable = pgTable("coaching_calls", {
+// A recurring schedule definition ("every Monday 2pm, coach X, weekly_qa").
+// Admins create ONE template and the system generates the next N weeks of
+// ordinary `coaching_calls` rows from it. The template owns only the cadence +
+// the field values copied onto each generated call; it never replaces those
+// rows. Generated calls are plain `coaching_calls` rows (linked back via
+// `template_id`), so editing or cancelling a single occurrence touches only
+// that row and the rest of the series is undisturbed.
+export const coachingCallTemplatesTable = pgTable("coaching_call_templates", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  description: text("description").notNull(),
+  description: text("description").notNull().default(""),
   callType: text("call_type").notNull().default("weekly_qa"),
   coachId: integer("coach_id").notNull().references(() => coachesTable.id),
   meetLink: text("meet_link"),
-  scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(60),
   requiredEntitlement: text("required_entitlement").notNull().default("coaching:group"),
-  recordingUrl: text("recording_url"),
-  registeredCount: integer("registered_count").notNull().default(0),
+  // Days between occurrences (7 = weekly). Kept generic so a future "every
+  // other week" needs no schema change.
+  intervalDays: integer("interval_days").notNull().default(7),
+  // How many occurrences each "generate" pass creates.
+  occurrencesPerBatch: integer("occurrences_per_batch").notNull().default(8),
+  // The first occurrence's date/time; every generated call is anchorAt + k*interval.
+  anchorAt: timestamp("anchor_at", { withTimezone: true }).notNull(),
+  // Watermark: the scheduledAt of the furthest occurrence generated so far.
+  // Generation only ever moves strictly forward from here, so a cancelled
+  // occurrence is never re-created on a later "generate" pass.
+  lastGeneratedAt: timestamp("last_generated_at", { withTimezone: true }),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const insertCoachingCallTemplateSchema = createInsertSchema(coachingCallTemplatesTable).omit({ id: true });
+export type InsertCoachingCallTemplate = z.infer<typeof insertCoachingCallTemplateSchema>;
+export type CoachingCallTemplate = typeof coachingCallTemplatesTable.$inferSelect;
+
+export const coachingCallsTable = pgTable(
+  "coaching_calls",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    callType: text("call_type").notNull().default("weekly_qa"),
+    coachId: integer("coach_id").notNull().references(() => coachesTable.id),
+    meetLink: text("meet_link"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(60),
+    requiredEntitlement: text("required_entitlement").notNull().default("coaching:group"),
+    recordingUrl: text("recording_url"),
+    registeredCount: integer("registered_count").notNull().default(0),
+    // Set on calls generated from a recurring template; NULL for one-off calls
+    // created directly. ON DELETE SET NULL so removing a template leaves its
+    // already-generated calls intact (they simply lose the series link).
+    templateId: integer("template_id").references(() => coachingCallTemplatesTable.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => ({
+    // Idempotent generation: a template never produces two calls for the same
+    // slot. NULLs are distinct in Postgres, so manual (template_id IS NULL)
+    // calls are unaffected even if they share a scheduled_at.
+    templateSlotUnq: unique("coaching_calls_template_slot_unq").on(t.templateId, t.scheduledAt),
+  }),
+);
 
 export const insertCoachingCallSchema = createInsertSchema(coachingCallsTable).omit({ id: true });
 export type InsertCoachingCall = z.infer<typeof insertCoachingCallSchema>;

@@ -3,7 +3,13 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, coachesTable, coachingCallsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  coachesTable,
+  coachingCallsTable,
+  coachingCallTemplatesTable,
+} from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
@@ -23,6 +29,7 @@ let seededAdminId = 0;
 let coachId = 0;
 let otherCoachId = 0;
 const createdCallIds: number[] = [];
+const createdTemplateIds: number[] = [];
 
 function signCookie(userId: number, email: string): string {
   const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: "1h" });
@@ -62,6 +69,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Generated calls reference templates via template_id (ON DELETE SET NULL),
+  // so remove the generated rows before the templates they came from.
+  if (createdTemplateIds.length > 0) {
+    await db
+      .delete(coachingCallsTable)
+      .where(inArray(coachingCallsTable.templateId, createdTemplateIds));
+    await db
+      .delete(coachingCallTemplatesTable)
+      .where(inArray(coachingCallTemplatesTable.id, createdTemplateIds));
+  }
   if (createdCallIds.length > 0) {
     await db.delete(coachingCallsTable).where(inArray(coachingCallsTable.id, createdCallIds));
   }
@@ -227,5 +244,188 @@ describe("admin coaching calls CRUD", () => {
     expect(res.status).toBe(200);
     const names = res.body.coaches.map((c: { name: string }) => c.name);
     expect(names).toContain(`${TAG} Coach`);
+  });
+});
+
+const DAY = 24 * 60 * 60 * 1000;
+
+type ListedCall = {
+  id: number;
+  title: string;
+  meetLink: string | null;
+  scheduledAt: string;
+  templateId: number | null;
+};
+
+async function listCalls(): Promise<ListedCall[]> {
+  const res = await request(app)
+    .get("/api/admin/coaching/calls")
+    .set("Cookie", adminCookie);
+  expect(res.status).toBe(200);
+  return res.body.calls as ListedCall[];
+}
+
+function seriesFor(calls: ListedCall[], templateId: number): ListedCall[] {
+  return calls
+    .filter((c) => c.templateId === templateId)
+    .sort(
+      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    );
+}
+
+describe("admin recurring call templates", () => {
+  let seriesTemplateId = 0;
+
+  it("creates a template and generates the first batch of weekly calls", async () => {
+    const anchor = new Date(Date.now() + 30 * DAY).toISOString();
+    const res = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} Weekly Series`,
+        description: "Recurring Q&A",
+        callType: "weekly_qa",
+        coachId,
+        anchorAt: anchor,
+        durationMinutes: 60,
+        occurrencesPerBatch: 3,
+        meetLink: "https://meet.google.com/series-link",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.generated).toBe(3);
+    expect(res.body.template.id).toBeTypeOf("number");
+    expect(res.body.template.intervalDays).toBe(7);
+    seriesTemplateId = res.body.template.id;
+    createdTemplateIds.push(seriesTemplateId);
+
+    const series = seriesFor(await listCalls(), seriesTemplateId);
+    expect(series).toHaveLength(3);
+    // Spaced exactly one week apart.
+    for (let i = 1; i < series.length; i++) {
+      const gap =
+        new Date(series[i].scheduledAt).getTime() -
+        new Date(series[i - 1].scheduledAt).getTime();
+      expect(gap).toBe(7 * DAY);
+    }
+    // Generated rows inherit the template's content.
+    expect(series[0].title).toBe(`${TAG} Weekly Series`);
+    expect(series[0].meetLink).toBe("https://meet.google.com/series-link");
+  });
+
+  it("editing one occurrence leaves the rest of the series untouched", async () => {
+    const series = seriesFor(await listCalls(), seriesTemplateId);
+    const target = series[0];
+    const patchRes = await request(app)
+      .patch(`/api/admin/coaching/calls/${target.id}`)
+      .set("Cookie", adminCookie)
+      .send({ title: `${TAG} One-off override`, meetLink: "https://meet.google.com/override" });
+    expect(patchRes.status).toBe(200);
+
+    const after = seriesFor(await listCalls(), seriesTemplateId);
+    const overridden = after.find((c) => c.id === target.id);
+    expect(overridden?.title).toBe(`${TAG} One-off override`);
+    // Siblings keep the original template content.
+    for (const sibling of after.filter((c) => c.id !== target.id)) {
+      expect(sibling.title).toBe(`${TAG} Weekly Series`);
+      expect(sibling.meetLink).toBe("https://meet.google.com/series-link");
+    }
+  });
+
+  it("generates the next batch without recreating a cancelled occurrence", async () => {
+    const series = seriesFor(await listCalls(), seriesTemplateId);
+    const victim = series[1];
+    const victimTime = victim.scheduledAt;
+
+    const delRes = await request(app)
+      .delete(`/api/admin/coaching/calls/${victim.id}`)
+      .set("Cookie", adminCookie);
+    expect(delRes.status).toBe(200);
+
+    const genRes = await request(app)
+      .post(`/api/admin/coaching/calls/templates/${seriesTemplateId}/generate`)
+      .set("Cookie", adminCookie);
+    expect(genRes.status).toBe(200);
+    expect(genRes.body.generated).toBe(3);
+
+    const after = seriesFor(await listCalls(), seriesTemplateId);
+    // The cancelled slot is never resurrected by a later generate pass.
+    expect(after.some((c) => c.scheduledAt === victimTime)).toBe(false);
+    // 3 original - 1 cancelled + 3 new = 5 (the cancelled slot leaves a hole).
+    expect(after).toHaveLength(5);
+    // The newly generated batch continues weekly past the prior watermark.
+    const newest = after.slice(-3);
+    for (let i = 1; i < newest.length; i++) {
+      const gap =
+        new Date(newest[i].scheduledAt).getTime() -
+        new Date(newest[i - 1].scheduledAt).getTime();
+      expect(gap).toBe(7 * DAY);
+    }
+  });
+
+  it("deleting a template keeps its generated calls (template_id set null)", async () => {
+    const anchor = new Date(Date.now() + 120 * DAY).toISOString();
+    const createRes = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} Disposable`,
+        callType: "weekly_qa",
+        coachId,
+        anchorAt: anchor,
+        occurrencesPerBatch: 2,
+      });
+    expect(createRes.status).toBe(201);
+    const tid = createRes.body.template.id as number;
+
+    const generated = seriesFor(await listCalls(), tid);
+    expect(generated).toHaveLength(2);
+    // These rows must survive template deletion, so clean them up separately.
+    generated.forEach((c) => createdCallIds.push(c.id));
+
+    const delRes = await request(app)
+      .delete(`/api/admin/coaching/calls/templates/${tid}`)
+      .set("Cookie", adminCookie);
+    expect(delRes.status).toBe(200);
+
+    const templatesRes = await request(app)
+      .get("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie);
+    expect(
+      templatesRes.body.templates.some((t: { id: number }) => t.id === tid),
+    ).toBe(false);
+
+    const survivors = (await listCalls()).filter((c) =>
+      generated.some((g) => g.id === c.id),
+    );
+    expect(survivors).toHaveLength(2);
+    survivors.forEach((c) => expect(c.templateId).toBeNull());
+  });
+
+  it("returns 404 when generating for a non-existent template", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/calls/templates/9999999/generate")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects a template without a first occurrence (400)", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({ title: "x", callType: "weekly_qa", coachId });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a template with a non-existent coach (400)", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: "x",
+        callType: "weekly_qa",
+        coachId: 9999999,
+        anchorAt: new Date(Date.now() + 30 * DAY).toISOString(),
+      });
+    expect(res.status).toBe(400);
   });
 });
