@@ -257,6 +257,68 @@ describe("POST /api/webhooks/retell — event handling", () => {
     expect(await getUsageSeconds(userId)).toBe(75);
   });
 
+  it("re-delivered call_ended for the same call counts the duration only once", async () => {
+    const userId = await seedMember();
+    const retellCallId = `${TEST_TAG}-dupe-${randomUUID()}`;
+    const id = await insertCall({ userId, retellCallId, status: "ongoing" });
+
+    const endedPayload = {
+      event: "call_ended",
+      call: {
+        call_id: retellCallId,
+        call_status: "ended",
+        duration_ms: 120_000, // → 120 seconds
+        disconnection_reason: "user_hangup",
+      },
+    };
+
+    // First delivery accrues the call's duration.
+    const first = await postSigned(endedPayload);
+    expect(first.status).toBe(200);
+    expect(await getUsageSeconds(userId)).toBe(120);
+
+    // Retell re-delivers the identical event (at-least-once delivery). The
+    // second delivery must be a no-op for the usage ledger.
+    const second = await postSigned(endedPayload);
+    expect(second.status).toBe(200);
+
+    const row = await getCall(id);
+    expect(row.durationSeconds).toBe(120);
+    // Still 120 — the duplicate did NOT double-count.
+    expect(await getUsageSeconds(userId)).toBe(120);
+  });
+
+  it("two concurrent call_ended deliveries for the same call count the duration only once", async () => {
+    const userId = await seedMember();
+    const retellCallId = `${TEST_TAG}-race-${randomUUID()}`;
+    const id = await insertCall({ userId, retellCallId, status: "ongoing" });
+
+    const endedPayload = {
+      event: "call_ended",
+      call: {
+        call_id: retellCallId,
+        call_status: "ended",
+        duration_ms: 60_000, // → 60 seconds
+        disconnection_reason: "user_hangup",
+      },
+    };
+
+    // Fire both deliveries in parallel to exercise the at-least-once race:
+    // both can read "no duration yet" before either writes. The atomic
+    // claim (conditional UPDATE ... WHERE duration_seconds IS NULL) must let
+    // exactly one win, so usage accrues once.
+    const [first, second] = await Promise.all([
+      postSigned(endedPayload),
+      postSigned(endedPayload),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+
+    const row = await getCall(id);
+    expect(row.durationSeconds).toBe(60);
+    expect(await getUsageSeconds(userId)).toBe(60);
+  });
+
   it("call_ended with no/zero duration does not create a usage row", async () => {
     const userId = await seedMember();
     const retellCallId = `${TEST_TAG}-zero-${randomUUID()}`;

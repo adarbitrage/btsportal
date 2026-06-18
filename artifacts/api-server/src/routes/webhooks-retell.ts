@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import { db, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -92,7 +92,15 @@ router.post("/webhooks/retell", async (req: Request, res: Response): Promise<voi
         ? Math.round(call.duration_ms / 1000)
         : null;
 
-      await db
+      // Retell delivers webhooks at-least-once, so a re-delivered call_ended
+      // must not roll the same seconds into voice_daily_usage twice. We use the
+      // call row's duration_seconds column as an atomic idempotency marker:
+      // claim the accrual with a single conditional UPDATE that only matches
+      // while duration_seconds IS NULL and returns the row it changed. Postgres
+      // row-locks the matched row, so even two concurrent duplicate deliveries
+      // can have at most one win the claim — the loser's WHERE re-evaluates to
+      // false and returns no row. Only the winning delivery accrues usage.
+      const claimed = await db
         .update(voiceCallsTable)
         .set({
           status: call?.call_status ?? "ended",
@@ -100,24 +108,24 @@ router.post("/webhooks/retell", async (req: Request, res: Response): Promise<voi
           durationSeconds,
           disconnectReason: call?.disconnection_reason ?? null,
         })
-        .where(eq(voiceCallsTable.retellCallId, callId));
+        .where(
+          and(
+            eq(voiceCallsTable.retellCallId, callId),
+            isNull(voiceCallsTable.durationSeconds),
+          ),
+        )
+        .returning({ userId: voiceCallsTable.userId });
 
-      if (durationSeconds && durationSeconds > 0) {
-        const [vcRow] = await db
-          .select({ userId: voiceCallsTable.userId })
-          .from(voiceCallsTable)
-          .where(eq(voiceCallsTable.retellCallId, callId))
-          .limit(1);
+      const winner = claimed[0];
 
-        if (vcRow) {
-          const today = new Date().toISOString().split("T")[0];
-          await db.execute(
-            sql`INSERT INTO voice_daily_usage (user_id, usage_date, seconds_used)
-                VALUES (${vcRow.userId}, ${today}, ${durationSeconds})
-                ON CONFLICT (user_id, usage_date)
-                DO UPDATE SET seconds_used = voice_daily_usage.seconds_used + ${durationSeconds}`
-          );
-        }
+      if (winner && durationSeconds && durationSeconds > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        await db.execute(
+          sql`INSERT INTO voice_daily_usage (user_id, usage_date, seconds_used)
+              VALUES (${winner.userId}, ${today}, ${durationSeconds})
+              ON CONFLICT (user_id, usage_date)
+              DO UPDATE SET seconds_used = voice_daily_usage.seconds_used + ${durationSeconds}`
+        );
       }
     } else if (event === "call_analyzed") {
       const analysis = call?.call_analysis;
