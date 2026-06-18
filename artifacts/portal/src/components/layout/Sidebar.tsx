@@ -98,9 +98,9 @@ function ModerationPendingBadge() {
 export const MEMBER_NAV: NavNode[] = [
   {
     kind: "leaf",
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
+    href: "/",
+    label: "Welcome",
+    icon: Home,
   },
   {
     kind: "folder",
