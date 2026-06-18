@@ -24,7 +24,7 @@ describe("App.tsx coach routes", () => {
 describe("Sidebar COACH_NAV_NODES", () => {
   it("contains the Mentee Progress leaf pointing at /coach/dashboard", () => {
     const labels = COACH_NAV_NODES.map((n) => n.label);
-    expect(labels).toEqual(["Mentee Progress", "Private Coaching"]);
+    expect(labels).toEqual(["Mentee Progress", "Private Coaching", "Group Coaching"]);
 
     const leaf = COACH_NAV_NODES.find(
       (n): n is NavLeaf => n.kind === "leaf" && n.label === "Mentee Progress",
@@ -39,6 +39,14 @@ describe("Sidebar COACH_NAV_NODES", () => {
     );
     expect(leaf).toBeDefined();
     expect(leaf!.href).toBe("/coach/sessions");
+  });
+
+  it("contains the Group Coaching leaf pointing at /coach/group-coaching", () => {
+    const leaf = COACH_NAV_NODES.find(
+      (n): n is NavLeaf => n.kind === "leaf" && n.label === "Group Coaching",
+    );
+    expect(leaf).toBeDefined();
+    expect(leaf!.href).toBe("/coach/group-coaching");
   });
 });
 
