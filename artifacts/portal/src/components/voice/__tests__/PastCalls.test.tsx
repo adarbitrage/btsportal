@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Spy on the data hook so we can assert exactly what range/custom args the
@@ -332,5 +332,98 @@ describe("PastCalls — active-filter chips", () => {
       expect(lastCall().custom).toEqual({ from: "2026-03-01", to: "" });
     });
     expect((screen.getByLabelText(/^start date$/i) as HTMLInputElement).value).toBe("2026-03-01");
+  });
+});
+
+describe("PastCalls — search highlighting", () => {
+  // Override the default loaded state with a specific set of calls so we can
+  // exercise the highlight + transcript-snippet paths deterministically.
+  function mockCalls(calls: Record<string, unknown>[]) {
+    useVoiceCalls.mockReturnValue({
+      data: { calls, limit: 5, offset: 0, has_more: false },
+      isLoading: false,
+      isFetching: false,
+    });
+  }
+
+  function makeCall(overrides: Record<string, unknown>) {
+    return {
+      id: 1,
+      status: "ended",
+      started_at: new Date(2026, 2, 5, 9, 30, 0).toISOString(),
+      ended_at: null,
+      duration_seconds: 120,
+      summary: null,
+      transcript: null,
+      disconnect_reason: null,
+      ...overrides,
+    };
+  }
+
+  it("wraps the matched keyword in <mark> in a result row summary", async () => {
+    mockCalls([makeCall({ summary: "Discussed the billing schedule." })]);
+    render(<PastCalls />);
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "billing");
+
+    // The keyword is debounced, so wait for the highlight to appear. The
+    // active-filter chip also contains the word "billing" as plain text, so we
+    // scope strictly to <mark> elements to assert the row summary is highlighted.
+    const marks = await screen.findAllByText("billing", { selector: "mark" });
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks[0].tagName).toBe("MARK");
+  });
+
+  it("falls back to a highlighted transcript snippet when only the transcript matches", async () => {
+    mockCalls([
+      makeCall({
+        summary: "General check-in call.",
+        transcript:
+          "Agent: How can I help?\nYou: I have a question about my invoice payment.",
+      }),
+    ]);
+    render(<PastCalls />);
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "invoice");
+
+    // The keyword only appears in the transcript, so the row shows a snippet of
+    // that transcript with the term highlighted.
+    const mark = await screen.findByText("invoice", { selector: "mark" });
+    expect(mark.tagName).toBe("MARK");
+
+    // The snippet carries surrounding transcript context...
+    expect(screen.getByText(/payment/i)).toBeInTheDocument();
+    // ...and the non-matching summary is suppressed in favour of the snippet.
+    expect(screen.queryByText(/general check-in/i)).not.toBeInTheDocument();
+  });
+
+  it("highlights the keyword in both the summary and transcript turns of the detail dialog", async () => {
+    mockCalls([
+      makeCall({
+        summary: "Talked about the refund.",
+        transcript: "Agent: Your refund is being processed.\nYou: Thank you.",
+      }),
+    ]);
+    render(<PastCalls />);
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "refund");
+
+    // Wait for the debounced query to take effect (row is highlighted), then
+    // open the call-detail dialog from that row.
+    await screen.findAllByText("refund", { selector: "mark" });
+    await user.click(screen.getByText(/talked about the/i).closest("button")!);
+
+    const dialog = await screen.findByRole("dialog");
+
+    // Summary section: the matched term is wrapped in a <mark>.
+    const summaryPara = within(dialog).getByText(/talked about the/i).closest("p")!;
+    expect(summaryPara.querySelector("mark")?.textContent).toBe("refund");
+
+    // Transcript turn: the matched term is wrapped in a <mark> too.
+    const turn = within(dialog).getByText(/is being processed/i);
+    expect(turn.querySelector("mark")?.textContent).toBe("refund");
   });
 });
