@@ -513,6 +513,61 @@ describe("GET /admin/voice/calls/export — CSV export", () => {
     }
   });
 
+  it("applies the q name/email search so the CSV matches the filtered table", async () => {
+    const admin = await seedUser("admin");
+    // A run-unique token in each name so the search matches only our rows and
+    // never pre-existing data in the shared DB.
+    const tag = `qexport${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    const alice = await seedNamedUser(`Alice ${tag} Export`);
+    const bob = await seedNamedUser(`Bob ${tag} Export`);
+
+    const base = Date.now();
+    // Two calls for Alice, one for Bob.
+    await insertCall(alice.id, new Date(base - 1000));
+    await insertCall(alice.id, new Date(base - 2000));
+    await insertCall(bob.id, new Date(base - 1500));
+
+    // Search on a fragment unique to Alice -> only her two calls export.
+    const byName = await request(app)
+      .get(`/api/admin/voice/calls/export?q=${encodeURIComponent(`Alice ${tag}`)}`)
+      .set("Cookie", admin.cookie);
+    expect(byName.status).toBe(200);
+    expect(byName.headers["content-type"]).toContain("text/csv");
+    const nameLines = byName.text.trim().split("\n");
+    // Header + exactly Alice's two rows.
+    expect(nameLines.length).toBe(3);
+    for (const line of nameLines.slice(1)) {
+      expect(line).toContain(`Alice ${tag} Export`);
+      expect(line).not.toContain(`Bob ${tag} Export`);
+    }
+
+    // Search on Alice's email (the OR branch) -> same two rows.
+    const byEmail = await request(app)
+      .get(`/api/admin/voice/calls/export?q=${encodeURIComponent(alice.email)}`)
+      .set("Cookie", admin.cookie);
+    expect(byEmail.status).toBe(200);
+    expect(byEmail.text.trim().split("\n").length).toBe(3);
+
+    // The shared tag matches both members -> all three rows export.
+    const byTag = await request(app)
+      .get(`/api/admin/voice/calls/export?q=${tag}`)
+      .set("Cookie", admin.cookie);
+    expect(byTag.status).toBe(200);
+    expect(byTag.text.trim().split("\n").length).toBe(4);
+
+    // q combined with userId AND together -> only Alice's two rows even though
+    // the tag alone matched three. Mirrors the read endpoint's composition.
+    const combined = await request(app)
+      .get(`/api/admin/voice/calls/export?q=${tag}&userId=${alice.id}`)
+      .set("Cookie", admin.cookie);
+    expect(combined.status).toBe(200);
+    const combinedLines = combined.text.trim().split("\n");
+    expect(combinedLines.length).toBe(3);
+    for (const line of combinedLines.slice(1)) {
+      expect(line).toContain(`Alice ${tag} Export`);
+    }
+  });
+
   it("does not collide with the /:id detail route (export is not parsed as an id)", async () => {
     const admin = await seedUser("admin");
     const res = await request(app)

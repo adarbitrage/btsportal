@@ -500,7 +500,23 @@ router.get(
     const userIdRaw = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
     const userId = userIdRaw != null ? parseInt(String(userIdRaw), 10) : NaN;
     const hasUserFilter = Number.isInteger(userId) && userId > 0;
-    const whereClause = hasUserFilter ? sql`WHERE c.user_id = ${userId}` : sql``;
+
+    // Mirror the read endpoint's `q` name/email search so the exported CSV
+    // matches exactly what the admin sees in the table after searching.
+    const qRaw = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+    const q = typeof qRaw === "string" ? qRaw.trim().slice(0, 200) : "";
+    const hasSearch = q.length > 0;
+    const pattern = hasSearch ? `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%` : "";
+
+    const filters = [];
+    if (hasUserFilter) {
+      filters.push(sql`c.user_id = ${userId}`);
+    }
+    if (hasSearch) {
+      filters.push(sql`(u.name ILIKE ${pattern} OR u.email ILIKE ${pattern})`);
+    }
+    const whereClause =
+      filters.length > 0 ? sql`WHERE ${sql.join(filters, sql` AND `)}` : sql``;
 
     try {
       const rowsResult = await db.execute(
@@ -523,13 +539,19 @@ router.get(
 
       const rows = rowsResult.rows as Record<string, unknown>[];
 
+      const filterDesc = [
+        hasUserFilter ? `member ${userId}` : null,
+        hasSearch ? `search "${q}"` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
       await logAdminAction(
         req,
         "export_data",
         "voice_calls",
         hasUserFilter ? String(userId) : undefined,
-        hasUserFilter
-          ? `Exported ${rows.length} voice call rows for member ${userId}`
+        filterDesc
+          ? `Exported ${rows.length} voice call rows (${filterDesc})`
           : `Exported ${rows.length} voice call rows`,
       );
 
