@@ -51,6 +51,30 @@ let nextId: number;
 const createBodies: Array<Record<string, unknown>> = [];
 const generateCalls: number[] = [];
 
+// Flip these to make the matching endpoint reject with a 500 so the failure
+// paths in handleSaveTemplate / handleGenerate / handleDeleteTemplate run.
+const failRoutes = { create: false, generate: false, delete: false };
+
+function makeTemplate(overrides: Partial<ServerTemplate> = {}): ServerTemplate {
+  return {
+    id: nextId++,
+    title: "Weekly Coaching Series",
+    description: "",
+    callType: "weekly_qa",
+    coachId: 7,
+    coachName: findCoachName(7),
+    meetLink: null,
+    durationMinutes: 60,
+    requiredEntitlement: "coaching:group",
+    intervalDays: 7,
+    occurrencesPerBatch: 8,
+    anchorAt: "2026-07-01T14:30:00.000Z",
+    lastGeneratedAt: null,
+    active: true,
+    ...overrides,
+  };
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -80,6 +104,9 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
   }
 
   if (path === "/api/admin/coaching/calls/templates" && method === "POST") {
+    if (failRoutes.create) {
+      return Promise.resolve(jsonResponse({ error: "Boom" }, 500));
+    }
     const body = JSON.parse(String(options?.body ?? "{}"));
     createBodies.push(body);
     const created: ServerTemplate = {
@@ -109,6 +136,9 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
   );
   if (generateMatch && method === "POST") {
     const id = Number(generateMatch[1]);
+    if (failRoutes.generate) {
+      return Promise.resolve(jsonResponse({ error: "Boom" }, 500));
+    }
     generateCalls.push(id);
     const through = "2026-10-01T14:30:00.000Z";
     templates = templates.map((t) =>
@@ -134,6 +164,9 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
       return Promise.resolve(jsonResponse(templates.find((t) => t.id === id)));
     }
     if (method === "DELETE") {
+      if (failRoutes.delete) {
+        return Promise.resolve(jsonResponse({ error: "Boom" }, 500));
+      }
       templates = templates.filter((t) => t.id !== id);
       return Promise.resolve(jsonResponse({ ok: true }));
     }
@@ -158,6 +191,9 @@ beforeEach(() => {
   nextId = 100;
   createBodies.length = 0;
   generateCalls.length = 0;
+  failRoutes.create = false;
+  failRoutes.generate = false;
+  failRoutes.delete = false;
   toast.mockReset();
   vi.spyOn(globalThis, "fetch").mockImplementation(fakeFetch as typeof fetch);
 });
@@ -267,5 +303,100 @@ describe("CoachingCalls recurring schedule create/edit/delete", () => {
         expect.objectContaining({ title: "Recurring schedule removed" }),
       ),
     );
+  });
+});
+
+describe("CoachingCalls recurring schedule failure handling", () => {
+  it("shows a destructive toast and keeps the dialog open when creating fails", async () => {
+    failRoutes.create = true;
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(
+      await screen.findByText(/No recurring schedules yet/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("add-template"));
+
+    const createDialog = await screen.findByRole("dialog");
+    await user.type(
+      within(createDialog).getByTestId("template-title"),
+      "Weekly Coaching Series",
+    );
+    const anchorAt = within(createDialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    await user.click(within(createDialog).getByTestId("save-template"));
+
+    // The matching destructive toast surfaces the failure.
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Could not save recurring schedule",
+          variant: "destructive",
+        }),
+      ),
+    );
+    // No success toast leaked through, and no template was added.
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Recurring schedule created" }),
+    );
+    expect(screen.queryByTestId("template-100")).not.toBeInTheDocument();
+
+    // The dialog stays open so the admin can retry.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("save-template")).toBeInTheDocument();
+  });
+
+  it("shows a destructive toast when generating more calls fails", async () => {
+    templates = [makeTemplate({ id: 100 })];
+    failRoutes.generate = true;
+    const user = userEvent.setup();
+    renderPage();
+
+    const card = await screen.findByTestId("template-100");
+    await user.click(within(card).getByTestId("generate-template-100"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Could not generate calls",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(generateCalls).not.toContain(100);
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "More calls scheduled" }),
+    );
+  });
+
+  it("shows a destructive toast and keeps the confirm dialog open when deleting fails", async () => {
+    templates = [makeTemplate({ id: 100 })];
+    failRoutes.delete = true;
+    const user = userEvent.setup();
+    renderPage();
+
+    const card = await screen.findByTestId("template-100");
+    await user.click(within(card).getByTestId("delete-template-100"));
+    await user.click(await screen.findByTestId("confirm-delete-template"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Could not remove recurring schedule",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Recurring schedule removed" }),
+    );
+
+    // The confirm dialog stays open (and the template is still listed) so the
+    // admin can retry the removal.
+    expect(screen.getByTestId("confirm-delete-template")).toBeInTheDocument();
+    expect(screen.getByTestId("template-100")).toBeInTheDocument();
   });
 });
