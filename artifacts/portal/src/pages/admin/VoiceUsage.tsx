@@ -104,7 +104,53 @@ export default function VoiceUsage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const [exportProgress, setExportProgress] = useState<StreamDownloadProgress | null>(null);
+  const [usageExport, setUsageExport] = useState<StreamDownloadProgress | null>(null);
+  const [callsExport, setCallsExport] = useState<StreamDownloadProgress | null>(null);
+
+  const exportUsage = useCallback(async () => {
+    if (usageExport) return;
+    setUsageExport({ bytesReceived: 0, rowsReceived: null });
+    try {
+      const { blob } = await adminPanelApi.exportVoiceUsage(
+        { period, format: "csv" },
+        (p) => setUsageExport(p),
+      );
+      saveBlobAsFile(blob, `voice-usage-${period}.csv`);
+      toast({ title: "Export complete" });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setUsageExport(null);
+    }
+  }, [usageExport, period, toast]);
+
+  const exportCalls = useCallback(async () => {
+    if (callsExport) return;
+    setCallsExport({ bytesReceived: 0, rowsReceived: null });
+    try {
+      const { blob } = await adminPanelApi.exportVoiceCalls(
+        { userId: drillUser?.id, q: search || undefined, format: "csv" },
+        (p) => setCallsExport(p),
+      );
+      const filename = drillUser
+        ? `voice-calls-member-${drillUser.id}-export.csv`
+        : "voice-calls-export.csv";
+      saveBlobAsFile(blob, filename);
+      toast({ title: "Export complete" });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setCallsExport(null);
+    }
+  }, [callsExport, drillUser, search, toast]);
 
   const loadUsage = useCallback(
     async (p: Period) => {
@@ -189,32 +235,6 @@ export default function VoiceUsage() {
     },
     [toast],
   );
-
-  const handleExport = useCallback(async () => {
-    // The button is also disabled while an export runs, but guard against a
-    // stale Enter / double-tap re-entering before the disabled state renders.
-    if (exportProgress) return;
-    setExportProgress({ bytesReceived: 0, rowsReceived: null });
-    try {
-      const { blob } = await adminPanelApi.exportVoiceCalls(
-        { userId: drillUser?.id },
-        (progress) => setExportProgress(progress),
-      );
-      const filename = drillUser
-        ? `voice-calls-member-${drillUser.id}-export.csv`
-        : "voice-calls-export.csv";
-      saveBlobAsFile(blob, filename);
-      toast({ title: "Export complete" });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setExportProgress(null);
-    }
-  }, [exportProgress, drillUser, toast]);
 
   const drillIntoMember = (id: number, name: string) => {
     setDrillUser({ id, name });
@@ -306,7 +326,34 @@ export default function VoiceUsage() {
                 </p>
               )}
             </div>
-            <div className="flex gap-1 rounded-lg bg-muted p-1">
+            <div className="flex items-center gap-3">
+              {usageExport && (
+                <span
+                  className="text-xs text-muted-foreground tabular-nums"
+                  aria-live="polite"
+                  data-testid="text-usage-export-progress"
+                >
+                  {formatDownloadProgress({
+                    bytesReceived: usageExport.bytesReceived,
+                    rowsReceived: usageExport.rowsReceived,
+                  })}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportUsage}
+                disabled={!!usageExport}
+                data-testid="button-export-voice-usage"
+              >
+                {usageExport ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {usageExport ? "Exporting…" : "Export CSV"}
+              </Button>
+              <div className="flex gap-1 rounded-lg bg-muted p-1">
               {PERIODS.map((p) => (
                 <button
                   key={p.value}
@@ -320,6 +367,7 @@ export default function VoiceUsage() {
                   {p.label}
                 </button>
               ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -436,15 +484,15 @@ export default function VoiceUsage() {
                   </button>
                 )}
               </div>
-              {exportProgress && (
+              {callsExport && (
                 <span
                   className="text-xs text-muted-foreground tabular-nums"
                   aria-live="polite"
-                  data-testid="text-voice-export-progress"
+                  data-testid="text-calls-export-progress"
                 >
                   {formatDownloadProgress({
-                    bytesReceived: exportProgress.bytesReceived,
-                    rowsReceived: exportProgress.rowsReceived,
+                    bytesReceived: callsExport.bytesReceived,
+                    rowsReceived: callsExport.rowsReceived,
                   })}
                 </span>
               )}
@@ -454,16 +502,16 @@ export default function VoiceUsage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleExport}
-                disabled={!!exportProgress || (calls != null && calls.total === 0)}
+                onClick={exportCalls}
+                disabled={!!callsExport || (calls != null && calls.total === 0)}
                 data-testid="button-export-voice-calls"
               >
-                {exportProgress ? (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                {callsExport ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <Download className="w-4 h-4 mr-1" />
+                  <Download className="w-4 h-4 mr-2" />
                 )}
-                {exportProgress ? "Exporting…" : "Export CSV"}
+                {callsExport ? "Exporting…" : "Export CSV"}
               </Button>
             </div>
           </CardHeader>

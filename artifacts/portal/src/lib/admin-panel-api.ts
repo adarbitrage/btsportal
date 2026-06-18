@@ -1933,19 +1933,31 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async exportVoiceCalls(
-    params: { userId?: number } = {},
+  async exportVoiceUsage(
+    params: { period?: "today" | "week" | "month"; format?: string } = {},
     onProgress?: (progress: StreamDownloadProgress) => void,
     signal?: AbortSignal,
   ): Promise<StreamDownloadResult> {
-    const qs = new URLSearchParams();
+    const format = params.format ?? "csv";
+    const qs = new URLSearchParams({ format });
+    if (params.period) qs.set("period", params.period);
+    const res = await authFetch(`/admin/voice/usage/export?${qs.toString()}`, { signal });
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to export voice usage");
+    return streamDownload(res, format, onProgress);
+  },
+
+  async exportVoiceCalls(
+    params: { userId?: number; q?: string; format?: string } = {},
+    onProgress?: (progress: StreamDownloadProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<StreamDownloadResult> {
+    const format = params.format ?? "csv";
+    const qs = new URLSearchParams({ format });
     if (params.userId) qs.set("userId", String(params.userId));
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    const res = await authFetch(`/admin/voice/calls/export${suffix}`, { signal });
-    if (!res.ok) {
-      throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to export voice calls");
-    }
-    return streamDownload(res, "csv", onProgress);
+    if (params.q) qs.set("q", params.q);
+    const res = await authFetch(`/admin/voice/calls/export?${qs.toString()}`, { signal });
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to export voice calls");
+    return streamDownload(res, format, onProgress);
   },
 };
 

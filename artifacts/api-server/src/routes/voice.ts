@@ -497,11 +497,12 @@ router.get(
   "/admin/voice/calls/export",
   requirePermission("system:view"),
   async (req: Request, res: Response): Promise<void> => {
+    const format = parseExportFormat(req.query.format);
     const userIdRaw = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
     const userId = userIdRaw != null ? parseInt(String(userIdRaw), 10) : NaN;
     const hasUserFilter = Number.isInteger(userId) && userId > 0;
 
-    // Mirror the read endpoint's `q` name/email search so the exported CSV
+    // Mirror the read endpoint's `q` name/email search so the exported file
     // matches exactly what the admin sees in the table after searching.
     const qRaw = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
     const q = typeof qRaw === "string" ? qRaw.trim().slice(0, 200) : "";
@@ -519,9 +520,10 @@ router.get(
       filters.length > 0 ? sql`WHERE ${sql.join(filters, sql` AND `)}` : sql``;
 
     try {
-      const rowsResult = await db.execute(
+      const result = await db.execute(
         sql`SELECT
             c.id AS id,
+            c.user_id AS user_id,
             u.name AS name,
             u.email AS email,
             c.status AS status,
@@ -534,10 +536,23 @@ router.get(
           FROM voice_calls c
           JOIN users u ON u.id = c.user_id
           ${whereClause}
-          ORDER BY c.started_at DESC`
+          ORDER BY c.started_at DESC
+          LIMIT ${VOICE_EXPORT_HARD_CAP}`
       );
 
-      const rows = rowsResult.rows as Record<string, unknown>[];
+      const rows = (result.rows as Record<string, unknown>[]).map((r) => ({
+        id: Number(r.id ?? 0) || 0,
+        user_id: Number(r.user_id ?? 0) || 0,
+        name: (r.name as string) ?? "",
+        email: (r.email as string) ?? "",
+        status: (r.status as string) ?? "",
+        started_at: toIso(r.started_at),
+        ended_at: toIso(r.ended_at),
+        duration_seconds: r.duration_seconds == null ? null : Number(r.duration_seconds),
+        disconnect_reason: (r.disconnect_reason as string | null) ?? null,
+        has_transcript: Boolean(r.has_transcript),
+        has_summary: Boolean(r.has_summary),
+      }));
 
       const filterDesc = [
         hasUserFilter ? `member ${userId}` : null,
@@ -555,30 +570,32 @@ router.get(
           : `Exported ${rows.length} voice call rows`,
       );
 
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=${hasUserFilter ? `voice-calls-member-${userId}` : "voice-calls"}-export.csv`,
-      );
-      res.write(
-        "member,email,status,started_at,ended_at,duration_seconds,has_transcript,has_summary\n",
-      );
+      const filename = hasUserFilter ? `voice-calls-member-${userId}-export` : "voice-calls-export";
+      if (format === "json") {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename=${filename}.json`);
+        res.json(rows);
+        return;
+      }
 
-      const toIso = (value: unknown): string => {
-        if (value == null) return "";
-        const d = value instanceof Date ? value : new Date(String(value));
-        return Number.isNaN(d.getTime()) ? "" : d.toISOString();
-      };
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}.csv`);
+      res.write(
+        "id,user_id,member,email,status,started_at,ended_at,duration_seconds,disconnect_reason,has_transcript,has_summary\n",
+      );
 
       for (const r of rows) {
         res.write(
           [
-            (r.name as string) ?? "",
-            (r.email as string) ?? "",
-            (r.status as string) ?? "",
-            toIso(r.started_at),
-            toIso(r.ended_at),
-            r.duration_seconds == null ? "" : String(Number(r.duration_seconds)),
+            r.id,
+            r.user_id,
+            r.name,
+            r.email,
+            r.status,
+            r.started_at,
+            r.ended_at,
+            r.duration_seconds == null ? "" : String(r.duration_seconds),
+            r.disconnect_reason ?? "",
             r.has_transcript ? "true" : "false",
             r.has_summary ? "true" : "false",
           ]
@@ -636,6 +653,115 @@ router.get(
 
     res.json({ call: row });
   }
+);
+
+// ---------------------------------------------------------------------------
+// Admin voice usage exports
+//
+// Stream the Voice Usage page's two datasets — the per-member usage roll-up
+// and the call list — as CSV (default) or JSON so admins can reconcile cost
+// or billing in a spreadsheet. Mirrors the existing /admin/export/* pattern:
+// gated on the same `system:view` permission as the page, honours the same
+// `period` (usage) / `userId` (calls) filters, sets a Content-Disposition
+// attachment header, and logs an audit event. A hard cap keeps a single
+// download bounded.
+// ---------------------------------------------------------------------------
+
+const VOICE_EXPORT_HARD_CAP = 50_000;
+
+function parseExportFormat(value: unknown): "csv" | "json" {
+  const str = Array.isArray(value) ? value[0] : value;
+  return str === "json" ? "json" : "csv";
+}
+
+function toIso(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (value == null) return "";
+  return String(value);
+}
+
+router.get(
+  "/admin/voice/usage/export",
+  requirePermission("system:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const period = parseUsagePeriod(req.query.period);
+    const format = parseExportFormat(req.query.format);
+    const periodStart = periodStartDate(period);
+
+    try {
+      const result = await db.execute(
+        sql`SELECT
+            u.id AS user_id,
+            u.name AS name,
+            u.email AS email,
+            SUM(v.seconds_used)::int AS seconds_used,
+            (
+              SELECT COUNT(*)::int FROM voice_calls c
+              WHERE c.user_id = u.id AND c.started_at::date >= ${periodStart}::date
+            ) AS call_count
+          FROM voice_daily_usage v
+          JOIN users u ON u.id = v.user_id
+          WHERE v.usage_date >= ${periodStart}
+          GROUP BY u.id, u.name, u.email
+          ORDER BY seconds_used DESC, u.id ASC
+          LIMIT ${VOICE_EXPORT_HARD_CAP}`
+      );
+
+      const rows = (result.rows as Record<string, unknown>[]).map((r) => {
+        const seconds = Number(r.seconds_used ?? 0) || 0;
+        return {
+          user_id: Number(r.user_id ?? 0) || 0,
+          name: (r.name as string) ?? "",
+          email: (r.email as string) ?? "",
+          seconds_used: seconds,
+          minutes_used: Math.round((seconds / 60) * 100) / 100,
+          call_count: Number(r.call_count ?? 0) || 0,
+        };
+      });
+
+      await logAdminAction(
+        req,
+        "export_data",
+        "voice_usage",
+        undefined,
+        `Exported ${rows.length} voice usage rows (period=${period})`,
+      );
+
+      const filename = `voice-usage-${period}`;
+      if (format === "json") {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename=${filename}.json`);
+        res.json(rows);
+        return;
+      }
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}.csv`);
+      res.write("user_id,name,email,seconds_used,minutes_used,call_count\n");
+      for (const row of rows) {
+        res.write(
+          [
+            row.user_id,
+            row.name,
+            row.email,
+            row.seconds_used,
+            row.minutes_used,
+            row.call_count,
+          ]
+            .map(csvEscape)
+            .join(",") + "\n",
+        );
+      }
+      res.end();
+    } catch (err) {
+      console.error("[Voice] Usage export error:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to export voice usage" });
+      } else {
+        res.end();
+      }
+    }
+  },
 );
 
 export default router;
