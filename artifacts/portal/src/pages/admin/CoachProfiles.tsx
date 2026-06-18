@@ -31,7 +31,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdminCoaches,
@@ -81,6 +105,144 @@ function coachInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// A single coach card that can be dragged to reorder. Wraps the existing card
+// layout with a drag handle (dnd-kit) while keeping the up/down arrow controls
+// as an accessible fallback.
+function SortableCoachCard({
+  coach,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  onDelete,
+  reorderDisabled,
+}: {
+  coach: AdminCoach;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  reorderDisabled: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: coach.id, disabled: reorderDisabled });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.85 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card
+        data-testid={`coach-${coach.id}`}
+        className={isDragging ? "shadow-lg" : undefined}
+      >
+        <CardContent className="p-5 flex items-start gap-3">
+          <button
+            type="button"
+            className={`flex items-center justify-center h-10 w-5 shrink-0 text-muted-foreground touch-none ${
+              reorderDisabled
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:text-foreground cursor-grab active:cursor-grabbing"
+            }`}
+            aria-label={`Drag to reorder ${coach.name}`}
+            data-testid={`drag-coach-${coach.id}`}
+            disabled={reorderDisabled}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="w-5 h-5" />
+          </button>
+          {coach.photoUrl ? (
+            <img
+              src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
+              alt={coach.name}
+              data-testid={`coach-photo-${coach.id}`}
+              className="w-14 h-14 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div
+              data-testid={`coach-initials-${coach.id}`}
+              className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0"
+            >
+              {coachInitials(coach.name)}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-foreground">{coach.name}</h3>
+            <p
+              data-testid={`coach-specialty-${coach.id}`}
+              className="text-xs font-medium text-primary mt-0.5"
+            >
+              {coach.specialties}
+            </p>
+            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+              {coach.bio}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <div className="flex flex-col">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMoveUp}
+                disabled={index === 0 || reorderDisabled}
+                data-testid={`move-coach-up-${coach.id}`}
+                aria-label={`Move ${coach.name} up`}
+                title="Move up"
+                className="h-6"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMoveDown}
+                disabled={index === total - 1 || reorderDisabled}
+                data-testid={`move-coach-down-${coach.id}`}
+                aria-label={`Move ${coach.name} down`}
+                title="Move down"
+                className="h-6"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              data-testid={`edit-coach-${coach.id}`}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              data-testid={`delete-coach-${coach.id}`}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CoachProfiles() {
   const { toast } = useToast();
   const { data, isLoading } = useAdminCoaches();
@@ -113,6 +275,11 @@ export default function CoachProfiles() {
   const reassignOptions = coaches.filter((c) => c.id !== deleteTarget?.id);
   const isClearingCalls =
     reassignMutation.isPending || cancelCallsMutation.isPending;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -243,6 +410,27 @@ export default function CoachProfiles() {
     setReassignTo("");
   }
 
+  // Persist a drag reorder. dnd-kit gives us the dragged card (active) and the
+  // card it was dropped onto (over); we arrayMove the cached order and send the
+  // full ordered id list to the same endpoint the up/down arrows use.
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = coaches.findIndex((c) => c.id === active.id);
+    const newIndex = coaches.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const ids = arrayMove(coaches, oldIndex, newIndex).map((c) => c.id);
+    try {
+      await reorderMutation.mutateAsync(ids);
+    } catch (err) {
+      toast({
+        title: "Could not reorder coaches",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
@@ -324,100 +512,32 @@ export default function CoachProfiles() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {coaches.map((coach, index) => (
-              <Card key={coach.id} data-testid={`coach-${coach.id}`}>
-                <CardContent className="p-5 flex items-start gap-4">
-                  {coach.photoUrl ? (
-                    <img
-                      src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
-                      alt={coach.name}
-                      data-testid={`coach-photo-${coach.id}`}
-                      className="w-14 h-14 rounded-full object-cover shrink-0"
-                    />
-                  ) : (
-                    <div
-                      data-testid={`coach-initials-${coach.id}`}
-                      className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0"
-                    >
-                      {coachInitials(coach.name)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">
-                        {coach.name}
-                      </h3>
-                      {!coach.isActive && (
-                        <span
-                          data-testid={`coach-hidden-badge-${coach.id}`}
-                          className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-                        >
-                          Hidden
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      data-testid={`coach-specialty-${coach.id}`}
-                      className="text-xs font-medium text-primary mt-0.5"
-                    >
-                      {coach.specialties}
-                    </p>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                      {coach.bio}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <div className="flex flex-col">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveCoach(index, -1)}
-                        disabled={index === 0 || reorderMutation.isPending}
-                        data-testid={`move-coach-up-${coach.id}`}
-                        aria-label={`Move ${coach.name} up`}
-                        title="Move up"
-                        className="h-6"
-                      >
-                        <ChevronUp className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveCoach(index, 1)}
-                        disabled={
-                          index === coaches.length - 1 || reorderMutation.isPending
-                        }
-                        data-testid={`move-coach-down-${coach.id}`}
-                        aria-label={`Move ${coach.name} down`}
-                        title="Move down"
-                        className="h-6"
-                      >
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEdit(coach)}
-                      data-testid={`edit-coach-${coach.id}`}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteTarget(coach)}
-                      data-testid={`delete-coach-${coach.id}`}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={coaches.map((c) => c.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {coaches.map((coach, index) => (
+                  <SortableCoachCard
+                    key={coach.id}
+                    coach={coach}
+                    index={index}
+                    total={coaches.length}
+                    onMoveUp={() => moveCoach(index, -1)}
+                    onMoveDown={() => moveCoach(index, 1)}
+                    onEdit={() => openEdit(coach)}
+                    onDelete={() => setDeleteTarget(coach)}
+                    reorderDisabled={reorderMutation.isPending}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
