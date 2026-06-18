@@ -220,7 +220,9 @@ describe("SidebarContent coach section (rendered)", () => {
     render(<SidebarContent />);
 
     // The Coach section heading and its only leaf render for a coach.
-    expect(screen.getByText("Coach")).toBeInTheDocument();
+    // Scope to the section-heading div: a coach also gets a "Coach" role badge
+    // (<p> from getSidebarTierLabel), so an unscoped getByText("Coach") is ambiguous.
+    expect(screen.getByText("Coach", { selector: "div" })).toBeInTheDocument();
     expect(screen.getByText("Mentee Progress")).toBeInTheDocument();
     // The member Messages leaf is hidden for coaches.
     expect(screen.queryByText("Messages")).toBeNull();
