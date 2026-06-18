@@ -16,11 +16,11 @@ vi.mock("@/hooks/use-toast", () => ({
 import CoachProfiles from "@/pages/admin/CoachProfiles";
 
 // ---------------------------------------------------------------------------
-// Focused coverage for the per-coach Connections panel. It must render THREE
+// Focused coverage for the per-coach Connections panel. It must render the
 // purpose-labeled rows (Booking calendar / GoHighLevel, Recording uploads /
-// Google Drive, Availability sync / Google Calendar), each with its own status
-// pill, and surface the Calendar "needs reconnect" state independently of the
-// shared Google grant.
+// Google Drive), each with its own status pill. The availability-sync row was
+// removed (GHL's native Google Calendar sync already reflects those events in
+// its free-slot reads).
 // ---------------------------------------------------------------------------
 interface ServerCoach {
   id: number;
@@ -101,7 +101,7 @@ afterEach(() => {
 });
 
 describe("CoachProfiles — per-coach Connections panel", () => {
-  it("renders three purpose-labeled rows for a private coach with full connections", async () => {
+  it("renders purpose-labeled rows for a private coach with full connections", async () => {
     coaches = [
       baseCoach({
         id: 7,
@@ -121,10 +121,12 @@ describe("CoachProfiles — per-coach Connections panel", () => {
 
     const panel = await screen.findByTestId("coach-connections-7");
 
-    // Three distinct purpose labels are present.
+    // Purpose labels are present.
     expect(within(panel).getByText("Booking calendar")).toBeInTheDocument();
     expect(within(panel).getByText("Recording uploads")).toBeInTheDocument();
-    expect(within(panel).getByText("Availability sync")).toBeInTheDocument();
+    // The availability-sync row is intentionally gone.
+    expect(within(panel).queryByText("Availability sync")).not.toBeInTheDocument();
+    expect(within(panel).queryByTestId("coach-conn-calendar-7")).not.toBeInTheDocument();
 
     // Each capability has its own status pill, all connected.
     expect(within(panel).getByTestId("coach-conn-ghl-7")).toHaveTextContent(
@@ -133,41 +135,9 @@ describe("CoachProfiles — per-coach Connections panel", () => {
     expect(within(panel).getByTestId("coach-conn-drive-7")).toHaveTextContent(
       "Connected",
     );
-    expect(within(panel).getByTestId("coach-conn-calendar-7")).toHaveTextContent(
-      "Connected",
-    );
   });
 
-  it("surfaces a Calendar 'Needs reconnect' state while Drive stays connected", async () => {
-    coaches = [
-      baseCoach({
-        id: 8,
-        ghlCalendarId: "cal_456",
-        userId: 99,
-        googleConnection: {
-          connected: true,
-          email: "coach@example.com",
-          status: "active",
-          connectedAt: "2026-01-01T00:00:00.000Z",
-          needsCalendarReconnect: true,
-        },
-      }),
-    ];
-
-    renderPage();
-
-    const panel = await screen.findByTestId("coach-connections-8");
-
-    // Drive rides the same grant and is connected; Calendar flags the scope gap.
-    expect(within(panel).getByTestId("coach-conn-drive-8")).toHaveTextContent(
-      "Connected",
-    );
-    expect(within(panel).getByTestId("coach-conn-calendar-8")).toHaveTextContent(
-      "Needs reconnect",
-    );
-  });
-
-  it("shows 'No login linked' for Google rows and 'Not connected' for GHL when unlinked", async () => {
+  it("shows 'No login linked' for the Drive row and 'Not connected' for GHL when unlinked", async () => {
     coaches = [
       baseCoach({
         id: 9,
@@ -187,9 +157,7 @@ describe("CoachProfiles — per-coach Connections panel", () => {
     expect(within(panel).getByTestId("coach-conn-drive-9")).toHaveTextContent(
       "No login linked",
     );
-    expect(within(panel).getByTestId("coach-conn-calendar-9")).toHaveTextContent(
-      "No login linked",
-    );
+    expect(within(panel).queryByTestId("coach-conn-calendar-9")).not.toBeInTheDocument();
   });
 
   it("hides the Connections panel for group-only coaches", async () => {
