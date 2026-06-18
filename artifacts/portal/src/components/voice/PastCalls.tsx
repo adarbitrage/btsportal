@@ -42,6 +42,48 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+function formatInputDate(value: string): string {
+  // `value` is a YYYY-MM-DD string from a native date input. Parse the parts
+  // manually so the displayed day matches what was picked (avoids the UTC
+  // shift you get from `new Date("2026-03-01")`).
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return value;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function FilterChip({
+  label,
+  onClear,
+  clearLabel,
+}: {
+  label: string;
+  onClear: () => void;
+  clearLabel: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 pl-2.5 pr-1 py-0.5 text-xs font-medium text-stone-700 dark:text-stone-200">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={clearLabel}
+        className="rounded-full p-0.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200 dark:hover:text-stone-100 dark:hover:bg-stone-700 transition-colors"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </span>
+  );
+}
+
+const PRESET_RANGE_LABELS: Record<string, string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+};
+
 function parseTranscript(transcript: string): { role: string; content: string }[] {
   const lines = transcript.split(/\r?\n/).filter((l) => l.trim());
   return lines.map((line) => {
@@ -266,6 +308,40 @@ export function PastCalls() {
         <p className="text-xs text-red-600 dark:text-red-400">
           The start date must be on or before the end date.
         </p>
+      )}
+
+      {hasFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-stone-500 dark:text-stone-400">Showing calls</span>
+          {query && (
+            <FilterChip
+              label={`matching “${query}”`}
+              onClear={() => setSearchInput("")}
+              clearLabel="Clear keyword filter"
+            />
+          )}
+          {range !== "all" && !isCustom && (
+            <FilterChip
+              label={PRESET_RANGE_LABELS[range] ?? range}
+              onClear={() => setRange("all")}
+              clearLabel="Clear date range filter"
+            />
+          )}
+          {isCustom && fromDate && (
+            <FilterChip
+              label={`from ${formatInputDate(fromDate)}`}
+              onClear={() => setFromDate("")}
+              clearLabel="Clear start date filter"
+            />
+          )}
+          {isCustom && toDate && (
+            <FilterChip
+              label={`to ${formatInputDate(toDate)}`}
+              onClear={() => setToDate("")}
+              clearLabel="Clear end date filter"
+            />
+          )}
+        </div>
       )}
 
       {calls.length === 0 ? (
