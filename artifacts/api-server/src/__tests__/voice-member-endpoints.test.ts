@@ -10,6 +10,7 @@ import {
   voiceDailyUsageTable,
   productsTable,
   userProductsTable,
+  knowledgebaseDocsTable,
 } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
@@ -34,6 +35,7 @@ const insertedCallIds: number[] = [];
 const insertedUsageIds: number[] = [];
 const insertedProductIds: number[] = [];
 const insertedUserProductIds: number[] = [];
+const insertedDocIds: number[] = [];
 
 let app: ReturnType<typeof buildTestAppWithRouters>;
 
@@ -142,6 +144,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (insertedDocIds.length > 0) {
+    await db.delete(knowledgebaseDocsTable).where(inArray(knowledgebaseDocsTable.id, insertedDocIds));
+  }
   if (insertedCallIds.length > 0) {
     await db.delete(voiceCallsTable).where(inArray(voiceCallsTable.id, insertedCallIds));
   }
@@ -327,5 +332,69 @@ describe("POST /api/voice/kb-search", () => {
       .set("Authorization", `Bearer ${KB_SECRET}`)
       .send({ query: "   " });
     expect(blank.status).toBe(400);
+  });
+
+  it("accepts the correct bearer secret and returns matching KB content", async () => {
+    // Seed a uniquely-titled doc so the full-text search can surface it without
+    // colliding with other rows already in the shared test database.
+    const marker = `Quetzal${randomUUID().slice(0, 8)}`;
+    const [doc] = await db
+      .insert(knowledgebaseDocsTable)
+      .values({
+        title: `${marker} Affiliate Commission Guide`,
+        category: "faq",
+        content: `This ${marker} guide explains how affiliate commission payouts work each month.`,
+      })
+      .returning({ id: knowledgebaseDocsTable.id });
+    insertedDocIds.push(doc.id);
+
+    const res = await request(app)
+      .post("/api/voice/kb-search")
+      .set("Authorization", `Bearer ${KB_SECRET}`)
+      .send({ query: `${marker} commission` });
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.results).toBe("string");
+    expect(res.body.results).toContain(marker);
+  });
+
+  // In production the handler takes a stricter, constant-time comparison branch
+  // (crypto.timingSafeEqual) instead of the dev string compare. NODE_ENV is read
+  // per-request inside the handler, so we can flip it for these cases and restore
+  // it afterward without re-importing the router.
+  describe("production-mode auth branch", () => {
+    let prevNodeEnv: string | undefined;
+
+    beforeEach(() => {
+      prevNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "production";
+    });
+
+    afterEach(() => {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+    });
+
+    it("rejects a missing bearer secret with 401", async () => {
+      const res = await request(app).post("/api/voice/kb-search").send({ query: "commissions" });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects a wrong bearer secret with 401", async () => {
+      const res = await request(app)
+        .post("/api/voice/kb-search")
+        .set("Authorization", "Bearer not-the-secret")
+        .send({ query: "commissions" });
+      expect(res.status).toBe(401);
+    });
+
+    it("accepts the correct bearer secret (past the auth gate → 400 on empty query)", async () => {
+      const res = await request(app)
+        .post("/api/voice/kb-search")
+        .set("Authorization", `Bearer ${KB_SECRET}`)
+        .send({ query: "   " });
+      // Reaching the 400 validation proves the timingSafeEqual gate accepted it.
+      expect(res.status).toBe(400);
+    });
   });
 });
