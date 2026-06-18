@@ -53,11 +53,59 @@ const LOOKAHEAD_DAYS = 28;
 // pathological interval/batch combination) so the job can never spin.
 const MAX_BATCHES_PER_RUN = 26;
 
+// Twice the run interval. If no *successful* sweep has landed within this
+// window the series are at risk of running dry, so the watchdog
+// (`coaching-call-template-topup-alerter.ts`) pages on-call. The 2× factor
+// matches every other scheduled-sweep staleness check (abuse rate-limit
+// cleanup, audit-log retention) so on-call only has to learn one rule.
+const STALE_AFTER_MS = 2 * RUN_INTERVAL_MS;
+
 export interface TemplateTopUpResult {
   templateId: number;
   created: number;
   batches: number;
 }
+
+// ---------------------------------------------------------------------------
+// Heartbeat / health tracking
+// ---------------------------------------------------------------------------
+//
+// This job is the only thing keeping recurring coaching-call series populated
+// into the future. If its timer silently dies, or every run starts throwing,
+// the series quietly run dry again — the exact failure this feature was built
+// to prevent. We record a heartbeat on every run plus, separately, the time of
+// the last *successful* sweep so a watchdog (and the admin System Health page)
+// can tell the difference between "timer stopped" and "running but erroring
+// every time": both collapse into "no successful run within 2× the interval".
+
+interface TopUpRunState {
+  /** Wall-clock of the most recent run attempt (success OR failure). */
+  lastRanAt: Date | null;
+  /** Wall-clock of the most recent run that actually completed the sweep. */
+  lastSuccessfulRunAt: Date | null;
+  /** Summary of the most recent run for the System Health card. */
+  lastResult: { templates: number; created: number; failed: number } | null;
+  /**
+   * The error from the most recent run, if it failed. Cleared by the next
+   * successful (or partially-successful) run so the watchdog de-flags
+   * automatically once the job recovers.
+   */
+  lastError: { at: Date; message: string } | null;
+}
+
+const runState: TopUpRunState = {
+  lastRanAt: null,
+  lastSuccessfulRunAt: null,
+  lastResult: null,
+  lastError: null,
+};
+
+// Baseline used to compute staleness before the first run lands. Set at module
+// load — process start in production, the same moment the job's timer is
+// installed. If no successful sweep shows up within 2× the interval from here,
+// the watchdog treats the job as stale instead of leaving it "Pending"
+// forever.
+let baselineSince = new Date();
 
 /**
  * Per-template heartbeat tracking. Keyed by template id so the admin
@@ -173,9 +221,15 @@ export async function runCoachingCallTemplateTopUp(): Promise<
     .where(eq(coachingCallTemplatesTable.active, true));
 
   const results: TemplateTopUpResult[] = [];
+  let templatesFailed = 0;
+  let createdTotal = 0;
+  // Remember the most recent per-template error so an all-failed run can
+  // surface a concrete cause to on-call.
+  let lastTemplateError: Error | null = null;
   for (const template of templates) {
     try {
       const result = await topUpTemplateTracked(template, now);
+      createdTotal += result.created;
       if (result.created > 0) {
         console.log(
           `[CoachingCallTopUp] Template ${template.id} ("${template.title}"): generated ${result.created} call(s) across ${result.batches} batch(es)`,
@@ -183,6 +237,8 @@ export async function runCoachingCallTemplateTopUp(): Promise<
       }
       results.push(result);
     } catch (err) {
+      templatesFailed += 1;
+      lastTemplateError = err instanceof Error ? err : new Error(String(err));
       console.error(
         `[CoachingCallTopUp] Template ${template.id} ("${template.title}") failed:`,
         err,
@@ -190,6 +246,28 @@ export async function runCoachingCallTemplateTopUp(): Promise<
       results.push({ templateId: template.id, created: 0, batches: 0 });
     }
   }
+
+  // A run only counts as a *failure* (for the heartbeat / watchdog) when it
+  // accomplished nothing because of errors: there were active templates and
+  // every single one threw. A partial failure (>=1 template succeeded) and an
+  // empty schedule (no active templates) both count as a healthy heartbeat —
+  // per-template isolation is intentional and a quiet week is not an outage.
+  const ranAt = new Date();
+  runState.lastRanAt = ranAt;
+  runState.lastResult = {
+    templates: templates.length,
+    created: createdTotal,
+    failed: templatesFailed,
+  };
+  const allTemplatesFailed =
+    templates.length > 0 && templatesFailed === templates.length;
+  if (allTemplatesFailed && lastTemplateError) {
+    runState.lastError = { at: ranAt, message: lastTemplateError.message };
+  } else {
+    runState.lastSuccessfulRunAt = ranAt;
+    runState.lastError = null;
+  }
+
   return results;
 }
 
@@ -230,12 +308,71 @@ export function getCoachingCallTemplateTopUpStatus(): CoachingCallTemplateTopUpS
     }));
 }
 
+export interface CoachingCallTemplateTopUpHealth {
+  /** Configured run interval in ms. */
+  intervalMs: number;
+  /** ISO of the most recent run attempt (success OR failure), or null. */
+  lastRanAt: string | null;
+  /** ISO of the most recent run that completed the sweep, or null. */
+  lastSuccessfulRunAt: string | null;
+  /** Summary of the most recent run, or null before the first run. */
+  lastResult: { templates: number; created: number; failed: number } | null;
+  /** Error from the most recent run if it failed, else null. */
+  lastError: { at: string; message: string } | null;
+  /**
+   * True when no successful sweep has landed within 2× the run interval.
+   * Covers both failure modes the watchdog watches for: the timer stopping
+   * entirely (no run at all) and the job running but erroring every time
+   * (`lastSuccessfulRunAt` stops advancing while `lastRanAt` keeps moving).
+   */
+  stale: boolean;
+}
+
 /**
- * Test hook: reset all per-template heartbeat state. Not intended for
- * production use.
+ * Job-level heartbeat snapshot. Consumed by the watchdog
+ * (`coaching-call-template-topup-alerter.ts`) and surfaced on the admin
+ * System Health endpoint so on-call can confirm the job is still firing.
+ * Distinct from the per-template `getCoachingCallTemplateTopUpStatus`: this
+ * answers "is the sweep itself alive?", that answers "which series got
+ * extended?".
+ */
+export function getCoachingCallTemplateTopUpHealth(): CoachingCallTemplateTopUpHealth {
+  // Before the first successful run we fall back to the module-load baseline:
+  // a process that has been up longer than 2 intervals without a single
+  // successful sweep is itself the regression worth surfacing.
+  const referenceTs = (
+    runState.lastSuccessfulRunAt ?? baselineSince
+  ).getTime();
+  const stale = Date.now() - referenceTs > STALE_AFTER_MS;
+  return {
+    intervalMs: RUN_INTERVAL_MS,
+    lastRanAt: runState.lastRanAt ? runState.lastRanAt.toISOString() : null,
+    lastSuccessfulRunAt: runState.lastSuccessfulRunAt
+      ? runState.lastSuccessfulRunAt.toISOString()
+      : null,
+    lastResult: runState.lastResult ? { ...runState.lastResult } : null,
+    lastError: runState.lastError
+      ? {
+          at: runState.lastError.at.toISOString(),
+          message: runState.lastError.message,
+        }
+      : null,
+    stale,
+  };
+}
+
+/**
+ * Test hook: reset both the per-template heartbeat state and the job-level
+ * heartbeat back to a clean slate so each test can assert from scratch. Not
+ * intended for production use.
  */
 export function __resetCoachingCallTemplateTopUpStateForTests(): void {
   templateState.clear();
+  runState.lastRanAt = null;
+  runState.lastSuccessfulRunAt = null;
+  runState.lastResult = null;
+  runState.lastError = null;
+  baselineSince = new Date();
 }
 
 let jobInterval: ReturnType<typeof setInterval> | null = null;

@@ -17,6 +17,10 @@ import {
 import { isRedisConnected } from "../lib/redis";
 import { getQueueFallbackStatsFromDb } from "../lib/queue-fallback-tracker";
 import { getAbuseRateLimitCleanupStatus } from "../lib/abuse-rate-limit-cleanup";
+import {
+  getCoachingCallTemplateTopUpStatus,
+  getCoachingCallTemplateTopUpHealth,
+} from "../lib/coaching-call-template-topup";
 import { getUpgradePromptEventsCleanupStatus } from "../lib/upgrade-prompt-events-cleanup";
 import {
   getEmailChangeAttemptsCleanupStatus,
@@ -29,7 +33,6 @@ import {
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
-import { getCoachingCallTemplateTopUpStatus } from "../lib/coaching-call-template-topup";
 import { getMachineMismatchDigestStatus } from "../lib/machine-mismatch-daily-digest";
 import {
   evaluateRateLimitAuditFailureAlert,
@@ -3517,6 +3520,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // swept appear here.
     const coachingCallTemplateTopUp = {
       templates: getCoachingCallTemplateTopUpStatus(),
+      health: getCoachingCallTemplateTopUpHealth(),
     };
 
     res.json({

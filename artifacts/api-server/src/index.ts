@@ -18,6 +18,10 @@ import {
   stopAbuseRateLimitCleanupAlerter,
 } from "./lib/abuse-rate-limit-cleanup-alerter";
 import {
+  startCoachingCallTopUpAlerter,
+  stopCoachingCallTopUpAlerter,
+} from "./lib/coaching-call-template-topup-alerter";
+import {
   startRateLimitAuditFailureAlerter,
   stopRateLimitAuditFailureAlerter,
 } from "./lib/rate-limit-audit-failure-alerter";
@@ -111,6 +115,7 @@ startAuthRateLimitAlerter();
 startProductionEnvGuard();
 startYseGrantExhaustedAlerter();
 startAbuseRateLimitCleanupAlerter();
+startCoachingCallTopUpAlerter();
 startRateLimitAuditFailureAlerter();
 startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
@@ -163,6 +168,7 @@ async function gracefulShutdown(signal: string) {
   stopProductionEnvGuard();
   stopYseGrantExhaustedAlerter();
   stopAbuseRateLimitCleanupAlerter();
+  stopCoachingCallTopUpAlerter();
   stopRateLimitAuditFailureAlerter();
   stopMachineMismatchAlerter();
   stopMachineMismatchDigestJob();
