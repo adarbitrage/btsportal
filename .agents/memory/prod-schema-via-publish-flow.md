@@ -36,6 +36,22 @@ never successfully published.
 **Data-safety (verified read-only on prod):** `session_pack_bookings` has 0 rows,
 so repointing/dropping the FK loses nothing; the 4 legacy `session_pack_coaches`
 rows are superseded by the boot-seeded unified `coaches` roster
-(coaching-roster.ts). Re-publishing (confirming the destructive drop) is safe. If
-the auto-diff keeps choking on the drop ordering, that's a Publish-flow limitation
-for Replit support — still NOT a reason to hand-migrate prod from the app.
+(coaching-roster.ts).
+
+**Re-publish does NOT self-heal this one** — the generated diff is deterministic,
+so it fails identically every time. The Publish UI offers two buttons:
+- "Copy your development database schema & data to production" → DANGER: wipes ALL
+  prod data (prod has real members — ~26 users, ~425 sessions, tickets, community
+  posts). NEVER recommend this for this live portal.
+- "Cancel deployment and retry once your schema conflicts are resolved" → safe.
+
+**Can't dodge it dev-side:** `sessionPackCoachesTable` is just an alias
+(`= coachesTable`) used across dozens of call sites, so re-declaring a real
+`session_pack_coaches` table to stop the drop is not viable.
+
+**The clean unblock (user runs it once on THEIR prod DB; agent can't — executeSql
+prod is read-only):** drop the stale FK first, then republish —
+`ALTER TABLE "session_pack_bookings" DROP CONSTRAINT IF EXISTS "session_pack_bookings_coach_id_session_pack_coaches_id_fk";`
+After that, the publish diff no longer emits the colliding explicit drop (the
+table drop's CASCADE handles it) and applies cleanly. Otherwise: Replit support.
+Either way, the agent does NOT hand-migrate prod from app code.
