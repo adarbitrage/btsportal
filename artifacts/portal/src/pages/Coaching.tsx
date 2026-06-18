@@ -190,22 +190,37 @@ export default function Coaching() {
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
   const { data: coaches } = useListCoaches();
 
-  // The recurring "Live Coaching Calls 6 Days/Week" schedule is the set of
-  // upcoming weekly group Q&A calls, sourced from the same backend the Upcoming
-  // Calls list uses. Strategy / mastermind / VIP sessions are one-off and stay
-  // in the Upcoming Calls list only.
-  const weeklySchedule = (upcomingCalls ?? [])
-    .filter((c) => c.callType === "weekly_qa")
-    .map((call) => {
-      const start = new Date(call.scheduledAt);
-      const end = new Date(start.getTime() + call.durationMinutes * 60000);
-      return { call, start, end };
-    })
-    .sort(
-      (a, b) =>
-        weekdayOrder(a.start) - weekdayOrder(b.start) ||
-        a.start.getTime() - b.start.getTime(),
-    );
+  // The recurring "Live Coaching Calls 6 Days/Week" schedule is the weekly
+  // cadence of group Q&A calls, sourced from the same backend the Upcoming
+  // Calls list uses. The backend returns every future occurrence of each
+  // recurring slot (many weeks out), but this section shows a weekly cadence
+  // (weekday + time + coach only), so we collapse each recurring slot to its
+  // soonest upcoming occurrence — otherwise the same slot (e.g. "Saturday 3pm
+  // with Bruce") renders as an identical row for every future week. Strategy /
+  // mastermind / VIP sessions are one-off and stay in the Upcoming Calls list.
+  const weeklyBySlot = new Map<
+    string,
+    { call: CoachingCall; start: Date; end: Date }
+  >();
+  for (const call of upcomingCalls ?? []) {
+    if (call.callType !== "weekly_qa") continue;
+    const start = new Date(call.scheduledAt);
+    const end = new Date(start.getTime() + call.durationMinutes * 60000);
+    // One row per recurring slot: same weekday + start time + coach is the
+    // same weekly series as far as this cadence view is concerned. Key on the
+    // stable coachId (not the display name) so renames or name collisions can't
+    // over- or under-collapse slots.
+    const slotKey = `${weekdayOrder(start)}|${format(start, "HH:mm")}|${call.coachId}`;
+    const existing = weeklyBySlot.get(slotKey);
+    if (!existing || start.getTime() < existing.start.getTime()) {
+      weeklyBySlot.set(slotKey, { call, start, end });
+    }
+  }
+  const weeklySchedule = [...weeklyBySlot.values()].sort(
+    (a, b) =>
+      weekdayOrder(a.start) - weekdayOrder(b.start) ||
+      a.start.getTime() - b.start.getTime(),
+  );
 
   // One-off strategy / mastermind / VIP sessions. These are NOT recurring, so
   // they live in their own "Upcoming Special Sessions" list ordered by the next

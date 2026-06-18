@@ -127,6 +127,47 @@ describe("Coaching — data-driven weekly schedule", () => {
     expect(screen.queryByTestId("weekly-call-12")).not.toBeInTheDocument();
   });
 
+  it("collapses repeated occurrences of the same weekly slot to its soonest row", () => {
+    // Same weekday + time + coach across three weeks is one recurring slot; the
+    // backend returns every future occurrence, but the cadence view must show it
+    // once (soonest), not as three identical "Saturday 3pm with Bruce" rows.
+    const soonest = makeCall({
+      id: 30,
+      coachId: 5,
+      coachName: "Bruce C(Coach)",
+      scheduledAt: new Date(2026, 5, 20, 15, 0, 0).toISOString(),
+    });
+    const nextWeek = makeCall({
+      id: 31,
+      coachId: 5,
+      coachName: "Bruce C(Coach)",
+      scheduledAt: new Date(2026, 5, 27, 15, 0, 0).toISOString(),
+    });
+    const weekAfter = makeCall({
+      id: 32,
+      coachId: 5,
+      coachName: "Bruce C(Coach)",
+      scheduledAt: new Date(2026, 6, 4, 15, 0, 0).toISOString(),
+    });
+    // A genuinely different slot (other weekday/coach) stays as its own row.
+    const otherSlot = makeCall({
+      id: 33,
+      coachId: 7,
+      coachName: "Todd R(Coach)",
+      scheduledAt: new Date(2026, 5, 22, 8, 0, 0).toISOString(),
+    });
+    useListCoachingCalls.mockReturnValue({
+      data: [nextWeek, weekAfter, soonest, otherSlot],
+    });
+
+    render(<Coaching />);
+
+    expect(screen.getByTestId("weekly-call-30")).toBeInTheDocument();
+    expect(screen.getByTestId("weekly-call-33")).toBeInTheDocument();
+    expect(screen.queryByTestId("weekly-call-31")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("weekly-call-32")).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when there are no weekly group calls", () => {
     const oneOff = makeCall({ id: 20, callType: "strategy", isAccessible: true });
     useListCoachingCalls.mockReturnValue({ data: [oneOff] });
