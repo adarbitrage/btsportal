@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  ArrowLeftRight,
   CalendarOff,
   ChevronDown,
   ChevronUp,
@@ -119,6 +120,7 @@ function SortableCoachCard({
   onMoveDown,
   onEdit,
   onOpenAway,
+  onReassign,
   onDelete,
   reorderDisabled,
 }: {
@@ -129,6 +131,7 @@ function SortableCoachCard({
   onMoveDown: () => void;
   onEdit: () => void;
   onOpenAway: () => void;
+  onReassign: () => void;
   onDelete: () => void;
   reorderDisabled: boolean;
 }) {
@@ -263,6 +266,16 @@ function SortableCoachCard({
             <Button
               variant="ghost"
               size="sm"
+              onClick={onReassign}
+              data-testid={`reassign-coach-${coach.id}`}
+              aria-label={`Reassign ${coach.name}'s calls to another coach`}
+              title="Reassign calls"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onDelete}
               data-testid={`delete-coach-${coach.id}`}
               className="text-destructive hover:text-destructive"
@@ -293,6 +306,8 @@ export default function CoachProfiles() {
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
   const [reassignTo, setReassignTo] = useState("");
+  const [reassignTarget, setReassignTarget] = useState<AdminCoach | null>(null);
+  const [standaloneReassignTo, setStandaloneReassignTo] = useState("");
   const [awayTargetId, setAwayTargetId] = useState<number | null>(null);
   const [awayStart, setAwayStart] = useState("");
   const [awayEnd, setAwayEnd] = useState("");
@@ -314,6 +329,16 @@ export default function CoachProfiles() {
   const reassignOptions = coaches.filter((c) => c.id !== deleteTarget?.id);
   const isClearingCalls =
     reassignMutation.isPending || cancelCallsMutation.isPending;
+
+  // Standalone reassign flow: hand a coach's scheduled calls to someone else
+  // without deleting either coach (e.g. covering for leave). Loads the target
+  // coach's calls so the admin can see what's being moved.
+  const { data: reassignCallsData, isLoading: reassignCallsLoading } =
+    useCoachCalls(reassignTarget?.id ?? null);
+  const reassignCalls = reassignCallsData?.calls ?? [];
+  const standaloneReassignOptions = coaches.filter(
+    (c) => c.id !== reassignTarget?.id,
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -506,6 +531,39 @@ export default function CoachProfiles() {
     }
   }
 
+  function openReassign(coach: AdminCoach) {
+    setReassignTarget(coach);
+    setStandaloneReassignTo("");
+  }
+
+  function closeReassign() {
+    setReassignTarget(null);
+    setStandaloneReassignTo("");
+  }
+
+  // Standalone reassign: move all of the target coach's scheduled calls to the
+  // chosen coach without deleting either one. Keeps the dialog open on success
+  // so the (now empty) list reflects the change.
+  async function handleStandaloneReassign() {
+    if (!reassignTarget || !standaloneReassignTo) return;
+    try {
+      const { reassigned } = await reassignMutation.mutateAsync({
+        fromCoachId: reassignTarget.id,
+        toCoachId: Number(standaloneReassignTo),
+      });
+      toast({
+        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"}`,
+      });
+      setStandaloneReassignTo("");
+    } catch (err) {
+      toast({
+        title: "Could not reassign calls",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   async function handleCancelCalls() {
     if (!deleteTarget) return;
     try {
@@ -634,6 +692,7 @@ export default function CoachProfiles() {
                     onMoveDown={() => moveCoach(index, 1)}
                     onEdit={() => openEdit(coach)}
                     onOpenAway={() => openAway(coach)}
+                    onReassign={() => openReassign(coach)}
                     onDelete={() => setDeleteTarget(coach)}
                     reorderDisabled={reorderMutation.isPending}
                   />
@@ -972,6 +1031,112 @@ export default function CoachProfiles() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={reassignTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) closeReassign();
+        }}
+      >
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto"
+          data-testid="reassign-dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Reassign calls</DialogTitle>
+            <DialogDescription>
+              Move all of {reassignTarget?.name ?? "this coach"}'s scheduled
+              coaching calls to another coach without removing either coach —
+              useful for covering during leave.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reassignCallsLoading ? (
+            <div
+              className="py-4 text-sm text-muted-foreground"
+              data-testid="reassign-calls-loading"
+            >
+              Loading scheduled calls…
+            </div>
+          ) : reassignCalls.length === 0 ? (
+            <p
+              className="py-4 text-sm text-muted-foreground"
+              data-testid="reassign-calls-empty"
+            >
+              {reassignTarget?.name ?? "This coach"} has no scheduled calls to
+              reassign.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border/60 max-h-48 overflow-y-auto divide-y divide-border/60">
+                {reassignCalls.map((call) => (
+                  <div
+                    key={call.id}
+                    data-testid={`reassign-call-${call.id}`}
+                    className="px-3 py-2 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {call.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(call.scheduledAt).toLocaleString()} ·{" "}
+                        {call.registeredCount} registered
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Reassign these calls to</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={standaloneReassignTo}
+                    onValueChange={setStandaloneReassignTo}
+                  >
+                    <SelectTrigger
+                      className="flex-1"
+                      data-testid="standalone-reassign-select"
+                    >
+                      <SelectValue placeholder="Choose a coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {standaloneReassignOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleStandaloneReassign}
+                    disabled={!standaloneReassignTo || reassignMutation.isPending}
+                    data-testid="standalone-reassign-calls"
+                  >
+                    {reassignMutation.isPending ? "Reassigning…" : "Reassign"}
+                  </Button>
+                </div>
+                {standaloneReassignOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add another coach first to reassign these calls.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeReassign}
+              data-testid="reassign-close"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={awayTarget !== null}
