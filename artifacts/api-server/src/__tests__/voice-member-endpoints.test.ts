@@ -12,7 +12,7 @@ import {
   userProductsTable,
   knowledgebaseDocsTable,
 } from "@workspace/db";
-import { inArray, eq } from "drizzle-orm";
+import { inArray, eq, sql } from "drizzle-orm";
 
 // voice.ts captures RETELL_FUNCTION_SECRET into a module-level const at import
 // time, so it must be set BEFORE the router module is evaluated. vi.hoisted runs
@@ -130,6 +130,27 @@ async function insertUsage(userId: number, usageDate: string, secondsUsed: numbe
   insertedUsageIds.push(row.id);
 }
 
+// Mirror exactly how the Retell `call_ended` webhook rolls a completed call's
+// recorded seconds into the daily-usage ledger: an upsert that ADDS the call's
+// duration to whatever seconds were already counted for that user/day. Using the
+// same INSERT ... ON CONFLICT DO UPDATE statement keeps this test honest about
+// the accumulation math that feeds getDailySecondsUsed / the daily cap.
+async function accrueCallSeconds(
+  userId: number,
+  durationSeconds: number,
+  usageDate: string = todayUtc(),
+): Promise<void> {
+  const result = await db.execute(
+    sql`INSERT INTO voice_daily_usage (user_id, usage_date, seconds_used)
+        VALUES (${userId}, ${usageDate}, ${durationSeconds})
+        ON CONFLICT (user_id, usage_date)
+        DO UPDATE SET seconds_used = voice_daily_usage.seconds_used + ${durationSeconds}
+        RETURNING id`,
+  );
+  const id = Number((result.rows[0] as Record<string, unknown>)?.id);
+  if (Number.isInteger(id)) insertedUsageIds.push(id);
+}
+
 async function insertCall(args: {
   userId: number;
   startedAt: Date;
@@ -243,6 +264,134 @@ describe("GET /api/voice/status", () => {
     expect(res.status).toBe(200);
     expect(res.body.seconds_used_today).toBe(cap + 500);
     expect(res.body.seconds_remaining).toBe(0);
+  });
+});
+
+describe("voice daily-cap accounting (voice_calls roll-up → voice_daily_usage)", () => {
+  it("sums today's accrued call seconds into seconds_used_today / seconds_remaining", async () => {
+    const member = await seedUser("member", "accrual-sums");
+
+    // Two completed calls today are recorded in voice_calls AND rolled into the
+    // daily-usage ledger (mirroring the call_ended webhook). seconds_used_today
+    // must equal the SUM of those durations, not the per-row max or a single one.
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(todayUtc()),
+      endedAt: middayOn(todayUtc()),
+      durationSeconds: 200,
+    });
+    await accrueCallSeconds(member.id, 200);
+
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(todayUtc()),
+      endedAt: middayOn(todayUtc()),
+      durationSeconds: 130,
+    });
+    await accrueCallSeconds(member.id, 130);
+
+    const res = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.seconds_used_today).toBe(330);
+    expect(res.body.seconds_remaining).toBe(res.body.daily_cap_seconds - 330);
+  });
+
+  it("does not double-count: a single completed call accrues its duration exactly once", async () => {
+    const member = await seedUser("member", "accrual-no-dup");
+
+    // One call that drops early. Its duration must be reflected once in the
+    // usage ledger — the voice_calls row itself is history, not a second tally.
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(todayUtc()),
+      endedAt: middayOn(todayUtc()),
+      durationSeconds: 45,
+      disconnectReason: "user_hangup",
+    });
+    await accrueCallSeconds(member.id, 45);
+
+    const res = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.seconds_used_today).toBe(45);
+    expect(res.body.seconds_remaining).toBe(res.body.daily_cap_seconds - 45);
+  });
+
+  it("crosses the cap boundary: a call's duration pushes a member from under to over", async () => {
+    const member = await seedUser("member", "accrual-boundary");
+    await grantVoiceAccess(member.id, "accrual-boundary");
+
+    const probe = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    const cap = probe.body.daily_cap_seconds as number;
+
+    // Earlier calls today leave the member just UNDER the cap (60s of headroom).
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(todayUtc()),
+      endedAt: middayOn(todayUtc()),
+      durationSeconds: cap - 60,
+    });
+    await accrueCallSeconds(member.id, cap - 60);
+
+    const under = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    expect(under.body.seconds_used_today).toBe(cap - 60);
+    expect(under.body.seconds_remaining).toBe(60);
+    // Under the cap, the member can still start a call.
+    retellMock.createWebCall.mockReset();
+    retellMock.createWebCall.mockResolvedValue({
+      call_id: `${TEST_TAG}-boundary-call`,
+      call_status: "registered",
+      access_token: "boundary-access-token",
+    });
+    const allowed = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+    expect(allowed.status).toBe(200);
+    const [startedRow] = await db
+      .select({ id: voiceCallsTable.id })
+      .from(voiceCallsTable)
+      .where(eq(voiceCallsTable.retellCallId, `${TEST_TAG}-boundary-call`));
+    if (startedRow) insertedCallIds.push(startedRow.id);
+
+    // That call runs 250s and ends — long enough to push usage OVER the cap.
+    await accrueCallSeconds(member.id, 250);
+
+    const over = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    expect(over.body.seconds_used_today).toBe(cap + 190);
+    // seconds_remaining clamps at zero rather than going negative.
+    expect(over.body.seconds_remaining).toBe(0);
+
+    // Now over the cap, a fresh start is blocked and the SDK is never touched.
+    retellMock.createWebCall.mockReset();
+    const blocked = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error).toBe("voice_cap_reached");
+    expect(retellMock.createWebCall).not.toHaveBeenCalled();
+  });
+
+  it("scopes the cap to today: yesterday's accrued seconds never count", async () => {
+    const member = await seedUser("member", "accrual-scope");
+
+    // A call from a prior day rolled into yesterday's ledger row.
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(dateMinusDays(1)),
+      endedAt: middayOn(dateMinusDays(1)),
+      durationSeconds: 900,
+    });
+    await accrueCallSeconds(member.id, 900, dateMinusDays(1));
+
+    // A short call today.
+    await insertCall({
+      userId: member.id,
+      startedAt: middayOn(todayUtc()),
+      endedAt: middayOn(todayUtc()),
+      durationSeconds: 75,
+    });
+    await accrueCallSeconds(member.id, 75);
+
+    const res = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    expect(res.status).toBe(200);
+    // Only today's 75s count; yesterday's 900s are excluded by the date filter.
+    expect(res.body.seconds_used_today).toBe(75);
+    expect(res.body.seconds_remaining).toBe(res.body.daily_cap_seconds - 75);
   });
 });
 
