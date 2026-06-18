@@ -37,6 +37,9 @@ export interface AdminCoach {
   callTypes: string[];
   timezone: string;
   sortOrder: number;
+  isActive: boolean;
+  doesGroupCalls: boolean;
+  doesPrivateCoaching: boolean;
 }
 
 export interface CoachProfileInput {
@@ -46,6 +49,9 @@ export interface CoachProfileInput {
   photoUrl: string | null;
   callTypes: string[];
   timezone: string;
+  isActive: boolean;
+  doesGroupCalls: boolean;
+  doesPrivateCoaching: boolean;
 }
 
 export function useAdminCoaches() {

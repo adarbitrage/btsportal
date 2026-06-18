@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,9 @@ interface CoachForm {
   photoUrl: string;
   callTypes: string;
   timezone: string;
+  isActive: boolean;
+  doesGroupCalls: boolean;
+  doesPrivateCoaching: boolean;
 }
 
 const DEFAULT_TIMEZONE = "America/New_York";
@@ -55,6 +59,9 @@ const EMPTY_FORM: CoachForm = {
   photoUrl: "",
   callTypes: "",
   timezone: DEFAULT_TIMEZONE,
+  isActive: true,
+  doesGroupCalls: true,
+  doesPrivateCoaching: false,
 };
 
 function coachInitials(name: string): string {
@@ -121,6 +128,9 @@ export default function CoachProfiles() {
       photoUrl: coach.photoUrl ?? "",
       callTypes: coach.callTypes.join(", "),
       timezone: coach.timezone || DEFAULT_TIMEZONE,
+      isActive: coach.isActive,
+      doesGroupCalls: coach.doesGroupCalls,
+      doesPrivateCoaching: coach.doesPrivateCoaching,
     });
     setOpen(true);
   }
@@ -161,6 +171,9 @@ export default function CoachProfiles() {
         .map((t) => t.trim())
         .filter(Boolean),
       timezone: form.timezone.trim() || DEFAULT_TIMEZONE,
+      isActive: form.isActive,
+      doesGroupCalls: form.doesGroupCalls,
+      doesPrivateCoaching: form.doesPrivateCoaching,
     };
 
     try {
@@ -265,7 +278,19 @@ export default function CoachProfiles() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">{coach.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-foreground">
+                        {coach.name}
+                      </h3>
+                      {!coach.isActive && (
+                        <span
+                          data-testid={`coach-hidden-badge-${coach.id}`}
+                          className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                        >
+                          Hidden
+                        </span>
+                      )}
+                    </div>
                     <p
                       data-testid={`coach-specialty-${coach.id}`}
                       className="text-xs font-medium text-primary mt-0.5"
@@ -454,6 +479,66 @@ export default function CoachProfiles() {
               <p className="text-[11px] text-muted-foreground mt-1">
                 IANA timezone (e.g. America/New_York, Europe/London).
               </p>
+            </div>
+            <div className="space-y-3 rounded-lg border border-border/60 p-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="coach-active" className="text-sm font-medium">
+                    Visible to members
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    When off, this coach is hidden from the member "Your Coaches"
+                    grid without being deleted.
+                  </p>
+                </div>
+                <Switch
+                  id="coach-active"
+                  checked={form.isActive}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, isActive: checked })
+                  }
+                  data-testid="coach-active"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="coach-group-calls" className="text-sm font-medium">
+                    Runs group calls
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Group-call coaches appear in the member "Your Coaches" grid.
+                  </p>
+                </div>
+                <Switch
+                  id="coach-group-calls"
+                  checked={form.doesGroupCalls}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, doesGroupCalls: checked })
+                  }
+                  data-testid="coach-group-calls"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label
+                    htmlFor="coach-private-coaching"
+                    className="text-sm font-medium"
+                  >
+                    Offers private coaching
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Private-coaching coaches are bookable through credit packs.
+                  </p>
+                </div>
+                <Switch
+                  id="coach-private-coaching"
+                  checked={form.doesPrivateCoaching}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, doesPrivateCoaching: checked })
+                  }
+                  data-testid="coach-private-coaching"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

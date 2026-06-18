@@ -149,6 +149,20 @@ function parseCoachBody(
     values.timezone = tz;
   }
 
+  // Visibility / capability switches. isActive controls whether the coach
+  // appears on the member-facing "Your Coaches" grid (which lists active
+  // group-call coaches); doesGroupCalls / doesPrivateCoaching express what the
+  // coach actually does. Each is optional on a PATCH; any present value must be
+  // a real boolean (not a truthy string) so we never silently coerce bad input.
+  for (const field of ["isActive", "doesGroupCalls", "doesPrivateCoaching"] as const) {
+    if (body[field] !== undefined) {
+      if (typeof body[field] !== "boolean") {
+        return { error: `${field} must be a boolean` };
+      }
+      values[field] = body[field];
+    }
+  }
+
   return { values };
 }
 
@@ -169,6 +183,9 @@ const COACH_COLUMNS = {
   callTypes: coachesTable.callTypes,
   timezone: coachesTable.timezone,
   sortOrder: coachesTable.sortOrder,
+  isActive: coachesTable.isActive,
+  doesGroupCalls: coachesTable.doesGroupCalls,
+  doesPrivateCoaching: coachesTable.doesPrivateCoaching,
 };
 
 router.get(
@@ -299,8 +316,18 @@ router.post(
       .insert(coachesTable)
       .values({
         ...(parsed.values as { name: string }),
-        doesGroupCalls: true,
-        isActive: true,
+        // Default to a visible group-call coach so new coaches show up on the
+        // member grid immediately, but let an explicit switch override.
+        doesGroupCalls:
+          parsed.values.doesGroupCalls !== undefined
+            ? (parsed.values.doesGroupCalls as boolean)
+            : true,
+        ...(parsed.values.isActive !== undefined
+          ? { isActive: parsed.values.isActive as boolean }
+          : { isActive: true }),
+        ...(parsed.values.doesPrivateCoaching !== undefined
+          ? { doesPrivateCoaching: parsed.values.doesPrivateCoaching as boolean }
+          : {}),
       })
       .returning(COACH_COLUMNS);
 

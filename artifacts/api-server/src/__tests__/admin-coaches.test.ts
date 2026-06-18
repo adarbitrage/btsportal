@@ -135,6 +135,96 @@ describe("admin coach profiles", () => {
     expect(row.bio).toBe("Updated bio");
   });
 
+  it("includes visibility / capability flags in the list", async () => {
+    const res = await request(app)
+      .get("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const found = res.body.coaches.find((c: { id: number }) => c.id === coachId);
+    expect(found).toMatchObject({
+      isActive: expect.any(Boolean),
+      doesGroupCalls: expect.any(Boolean),
+      doesPrivateCoaching: expect.any(Boolean),
+    });
+  });
+
+  it("toggles a coach's member-facing visibility (isActive)", async () => {
+    const hide = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: false });
+    expect(hide.status).toBe(200);
+    expect(hide.body.isActive).toBe(false);
+
+    const [hidden] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, coachId));
+    expect(hidden.isActive).toBe(false);
+
+    const show = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: true });
+    expect(show.status).toBe(200);
+    expect(show.body.isActive).toBe(true);
+  });
+
+  it("updates capability switches (group / private)", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ doesGroupCalls: false, doesPrivateCoaching: true });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      doesGroupCalls: false,
+      doesPrivateCoaching: true,
+    });
+
+    const [row] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, coachId));
+    expect(row.doesGroupCalls).toBe(false);
+    expect(row.doesPrivateCoaching).toBe(true);
+
+    // Restore so later tests that assume the default keep working.
+    await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ doesGroupCalls: true, doesPrivateCoaching: false });
+  });
+
+  it("rejects a non-boolean visibility flag", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: "yes" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/isActive/i);
+  });
+
+  it("creates a coach honoring explicit capability switches", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} PrivateOnly`,
+        specialties: "Private Strategy",
+        bio: "Private-coaching only.",
+        doesGroupCalls: false,
+        doesPrivateCoaching: true,
+        isActive: false,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      doesGroupCalls: false,
+      doesPrivateCoaching: true,
+      isActive: false,
+    });
+    extraCoachIds.push(res.body.id);
+  });
+
   it("clears the photo when given a blank value", async () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${coachId}`)
