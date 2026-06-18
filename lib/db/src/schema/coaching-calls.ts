@@ -59,6 +59,18 @@ export const coachingCallsTable = pgTable(
     templateId: integer("template_id").references(() => coachingCallTemplatesTable.id, {
       onDelete: "set null",
     }),
+    // Soft-cancel marker for a single occurrence. NULL = active/scheduled; set
+    // = this date is cancelled (e.g. the coach is unavailable that week). The
+    // row is intentionally KEPT, not deleted, so cancellation is reversible and
+    // the (template_id, scheduled_at) slot stays occupied — which is what keeps
+    // both regeneration paths (admin "Generate" watermark + the weekly Q&A boot
+    // seed's existing-slot skip) from resurrecting the cancelled date.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // Who cancelled it (coach or admin). ON DELETE SET NULL so removing the
+    // actor's account never deletes the call. NULL whenever cancelledAt is NULL.
+    cancelledBy: integer("cancelled_by").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => ({
     // Idempotent generation: a template never produces two calls for the same

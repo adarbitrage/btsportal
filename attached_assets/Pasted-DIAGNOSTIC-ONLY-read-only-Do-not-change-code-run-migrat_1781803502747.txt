@@ -1,0 +1,27 @@
+DIAGNOSTIC ONLY — read-only. Do not change code, run migrations, or modify the database. Investigate and report.
+
+Context: Our custom NMI cart (in a separate app) fulfills purchases here. A prior diagnostic covered /api/webhooks/thrivecart and /api/integrations/machine-purchase, but the cart actually sends per-item entitlement grants to a DIFFERENT endpoint: POST /grant-product (or similar), authenticated with a Bearer token. I need this endpoint fully documented, because it appears to be the real fulfillment path and the earlier diagnostic missed it.
+
+Report on:
+
+1. THE /grant-product ENDPOINT
+- Locate it (exact route path + file). It may be /grant-product, /api/integrations/grant-product, or similar — find the route that handles an inbound product-grant from an external order source and emits an "external.grant_product" event.
+- Show its exact path, HTTP method, the auth it requires (Bearer token? which env var holds the expected key?), and the full expected request payload shape (field names: externalOrderId, externalSource, email, name, and the product slug array — confirm exact field name and whether it's an array).
+
+2. RESOLUTION + GRANT LOGIC
+- Show how it resolves each incoming product slug to a BTS product and grants entitlements. Does it look up products.slug directly? Does it iterate the slug array and insert a user_products row per item? Show the code.
+- Does it accept ALL product slugs (including backroad, offmarket, reserve_income, silent_partner, test_like_mad, and the yse_* slugs), or does it enforce any allow-list / funnel enum that would reject brand slugs? The machine-purchase path enforces a 3-slug funnel enum — confirm whether THIS endpoint has the same restriction.
+- What happens on an UNRECOGNIZED slug (record it, skip it, error the whole request, default product)? Show the code path.
+
+3. RELATIONSHIP TO machine-purchase + DEDUP
+- Both /grant-product and /api/integrations/machine-purchase exist and the cart fires BOTH on a sale. Do both write to user_products? If a single buyer is hit by both paths for the same order, is there idempotency/dedup so they aren't double-granted or duplicated? Show the dedup key.
+- State plainly which endpoint is the canonical/live fulfillment path and which (if either) is legacy.
+
+4. RETRY + IDEMPOTENCY
+- Confirm /grant-product is what generates "external.grant_product" events and how yse-grant-retry.ts retries failures (trigger condition, max attempts, backoff, what happens after exhaustion).
+- Confirm its idempotency key (externalSource + externalOrderId?).
+
+5. ADMIN VISIBILITY
+- Is there any admin page showing /grant-product results, failures, or the slug→entitlement mapping it uses? Route + file, or state none.
+
+Return a structured summary: the endpoint's path/auth/payload, the per-slug resolution+grant logic, whether brand slugs are accepted, unmapped-slug behavior, the dedup relationship with machine-purchase, which path is canonical, and the retry/idempotency behavior. Do not fix anything — this is discovery.

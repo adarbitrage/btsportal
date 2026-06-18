@@ -26,4 +26,5 @@ export interface CoachingCall {
   isAccessible: boolean;
   /** @nullable */
   upgradeUrl: string | null;
+  cancelled: boolean;
 }

@@ -7808,7 +7808,9 @@ components:
           type: boolean
         upgradeUrl:
           type: ["string", "null"]
-      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, hasRegistered, isAccessible, upgradeUrl]
+        cancelled:
+          type: boolean
+      required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, hasRegistered, isAccessible, upgradeUrl, cancelled]
 
     CoachingCallRegistration:
       type: object

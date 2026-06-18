@@ -14,14 +14,16 @@
  * this file's logic remains stable.
  */
 
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import {
   db,
   sessionPackBookingsTable,
   sessionPackCoachesTable,
   usersTable,
+  coachesTable,
+  coachingCallsTable,
 } from "@workspace/db";
-import { sql, eq, desc } from "drizzle-orm";
+import { sql, eq, and, asc, gte, desc } from "drizzle-orm";
 import { requirePermission, requireCoachOrCoachingView } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import {
@@ -682,6 +684,190 @@ router.patch(
     } catch (err) {
       console.error("[CoachDashboard] pack recording update error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save");
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Group Coaching — a coach's own upcoming weekly group-call dates, with a
+// reversible per-date soft-cancel. Gated coach-OR-coaching:view (same as the
+// pack coach surfaces above).
+// ---------------------------------------------------------------------------
+
+// Resolve the signed-in user to their coach record via coaches.userId (seeded
+// from the roster). Returns null when the user has no coach row — e.g. an admin
+// with coaching:view but no coach profile, who falls back to the all-coaches view.
+async function resolveCoachIdForUser(userId: number): Promise<number | null> {
+  const [coach] = await db
+    .select({ id: coachesTable.id })
+    .from(coachesTable)
+    .where(eq(coachesTable.userId, userId))
+    .limit(1);
+  return coach?.id ?? null;
+}
+
+interface CoachGroupCall {
+  id: number;
+  title: string;
+  coachId: number;
+  coachName: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  registeredCount: number;
+  cancelled: boolean;
+  cancelledAt: string | null;
+}
+
+// Load a weekly_qa call and confirm the caller may manage it: a coach may only
+// touch their OWN calls; an admin (coaching:view) may touch any. One-off call
+// types are out of scope here and read back as "not found".
+async function loadManageableGroupCall(
+  req: Request,
+  callId: number,
+): Promise<
+  | { ok: true; id: number }
+  | { ok: false; status: number; code: string; message: string }
+> {
+  if (!Number.isInteger(callId)) {
+    return { ok: false, status: 400, code: ErrorCodes.VALIDATION_ERROR, message: "Invalid call id" };
+  }
+  const [call] = await db
+    .select({
+      id: coachingCallsTable.id,
+      coachId: coachingCallsTable.coachId,
+      callType: coachingCallsTable.callType,
+    })
+    .from(coachingCallsTable)
+    .where(eq(coachingCallsTable.id, callId))
+    .limit(1);
+  if (!call || call.callType !== "weekly_qa") {
+    return { ok: false, status: 404, code: ErrorCodes.NOT_FOUND, message: "Group call not found" };
+  }
+  // Admins (coaching:view) get req.adminRole set by the middleware; coaches do not.
+  if (!req.adminRole) {
+    const coachId = await resolveCoachIdForUser(req.userId!);
+    if (coachId === null || coachId !== call.coachId) {
+      return {
+        ok: false,
+        status: 403,
+        code: ErrorCodes.FORBIDDEN,
+        message: "You can only manage your own group calls",
+      };
+    }
+  }
+  return { ok: true, id: call.id };
+}
+
+// GET /api/coach/group-calls — upcoming weekly group calls. A coach sees only
+// their own; an admin with coaching:view sees every coach's. Cancelled
+// occurrences are INCLUDED (flagged) so the coach can see and un-cancel them.
+router.get(
+  "/coach/group-calls",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    try {
+      // Admins (coaching:view) manage the WHOLE schedule and must see every
+      // coach's calls — even if the admin also happens to have a linked coach
+      // row. So an admin is never scoped to a coachId; they always get the
+      // all-coaches view with coachId reported as null. Only a plain coach is
+      // scoped to their own coachId.
+      const isAdmin = !!req.adminRole;
+      const coachId = isAdmin ? null : await resolveCoachIdForUser(req.userId!);
+      // A plain coach with no linked coach record owns no calls -> empty list.
+      if (coachId === null && !isAdmin) {
+        res.json({ coachId: null, calls: [] as CoachGroupCall[] });
+        return;
+      }
+
+      const now = new Date();
+      const filters = [
+        eq(coachingCallsTable.callType, "weekly_qa"),
+        gte(coachingCallsTable.scheduledAt, now),
+      ];
+      if (coachId !== null) filters.push(eq(coachingCallsTable.coachId, coachId));
+
+      const rows = await db
+        .select({
+          id: coachingCallsTable.id,
+          title: coachingCallsTable.title,
+          coachId: coachingCallsTable.coachId,
+          coachName: coachesTable.name,
+          scheduledAt: coachingCallsTable.scheduledAt,
+          durationMinutes: coachingCallsTable.durationMinutes,
+          registeredCount: coachingCallsTable.registeredCount,
+          cancelledAt: coachingCallsTable.cancelledAt,
+        })
+        .from(coachingCallsTable)
+        .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
+        .where(and(...filters))
+        .orderBy(asc(coachingCallsTable.scheduledAt));
+
+      const calls: CoachGroupCall[] = rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        coachId: r.coachId,
+        coachName: r.coachName,
+        scheduledAt: r.scheduledAt.toISOString(),
+        durationMinutes: r.durationMinutes,
+        registeredCount: r.registeredCount,
+        cancelled: r.cancelledAt !== null,
+        cancelledAt: r.cancelledAt ? r.cancelledAt.toISOString() : null,
+      }));
+      res.json({ coachId, calls });
+    } catch (err) {
+      console.error("[CoachDashboard] group-calls list error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load group calls");
+    }
+  },
+);
+
+// POST /api/coach/group-calls/:id/cancel — soft-cancel a single occurrence
+// (reversible). The row is kept, so the date stops being joinable but is never
+// regenerated and can be reinstated.
+router.post(
+  "/coach/group-calls/:id/cancel",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const loaded = await loadManageableGroupCall(req, Number(req.params["id"]));
+    if (!loaded.ok) {
+      sendError(res, loaded.status, loaded.code, loaded.message);
+      return;
+    }
+    try {
+      const [updated] = await db
+        .update(coachingCallsTable)
+        .set({ cancelledAt: new Date(), cancelledBy: req.userId! })
+        .where(eq(coachingCallsTable.id, loaded.id))
+        .returning({ id: coachingCallsTable.id, cancelledAt: coachingCallsTable.cancelledAt });
+      res.json({ id: updated.id, cancelled: updated.cancelledAt !== null });
+    } catch (err) {
+      console.error("[CoachDashboard] group-call cancel error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to cancel call");
+    }
+  },
+);
+
+// POST /api/coach/group-calls/:id/restore — un-cancel a previously soft-cancelled
+// occurrence. Idempotent: restoring an active call clears nothing and succeeds.
+router.post(
+  "/coach/group-calls/:id/restore",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const loaded = await loadManageableGroupCall(req, Number(req.params["id"]));
+    if (!loaded.ok) {
+      sendError(res, loaded.status, loaded.code, loaded.message);
+      return;
+    }
+    try {
+      const [updated] = await db
+        .update(coachingCallsTable)
+        .set({ cancelledAt: null, cancelledBy: null })
+        .where(eq(coachingCallsTable.id, loaded.id))
+        .returning({ id: coachingCallsTable.id, cancelledAt: coachingCallsTable.cancelledAt });
+      res.json({ id: updated.id, cancelled: updated.cancelledAt !== null });
+    } catch (err) {
+      console.error("[CoachDashboard] group-call restore error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to restore call");
     }
   },
 );

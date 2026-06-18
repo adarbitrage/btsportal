@@ -29,6 +29,10 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
       requiredEntitlement: coachingCallsTable.requiredEntitlement,
       recordingUrl: coachingCallsTable.recordingUrl,
       registeredCount: coachingCallsTable.registeredCount,
+      // Soft-cancel marker. The weekly schedule needs cancelled occurrences in
+      // the list (flagged) so it can render "no call this week" + roll forward
+      // to the next active date, so cancelled rows are NOT filtered out here.
+      cancelledAt: coachingCallsTable.cancelledAt,
       // Whether THIS member is registered for the call. The attendance row is
       // unique per (call, user) and only counts as a registration when
       // registered_at is set (a recording-only view leaves it null).
@@ -49,13 +53,18 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
     ? await query.where(gte(coachingCallsTable.scheduledAt, now))
     : await query;
 
-  const mapped = calls.map(({ registeredAt, ...c }) => {
+  const mapped = calls.map(({ registeredAt, cancelledAt, ...c }) => {
     const isAccessible = entitlements.has(c.requiredEntitlement);
+    const cancelled = cancelledAt !== null;
     return {
       ...c,
       hasRegistered: registeredAt !== null,
       isAccessible,
-      meetLink: isAccessible ? c.meetLink : null,
+      cancelled,
+      // A cancelled occurrence is not joinable: never hand back a live meet
+      // link for it even to an entitled member (defense-in-depth alongside the
+      // 409 on the attendance POST and the disabled UI action).
+      meetLink: isAccessible && !cancelled ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
       upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),
     };
@@ -71,19 +80,20 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
 async function getAccessibleCall(
   userId: number,
   callId: number,
-): Promise<{ id: number } | null> {
+): Promise<{ id: number; cancelledAt: Date | null } | null> {
   if (!Number.isInteger(callId)) return null;
   const [call] = await db
     .select({
       id: coachingCallsTable.id,
       requiredEntitlement: coachingCallsTable.requiredEntitlement,
+      cancelledAt: coachingCallsTable.cancelledAt,
     })
     .from(coachingCallsTable)
     .where(eq(coachingCallsTable.id, callId));
   if (!call) return null;
   const entitlements = await getUserEntitlements(userId);
   if (!entitlements.has(call.requiredEntitlement)) return null;
-  return { id: call.id };
+  return { id: call.id, cancelledAt: call.cancelledAt };
 }
 
 // Recompute the call's registered tally directly from the attendance rows that
@@ -120,6 +130,13 @@ router.post("/coaching-calls/:id/attendance", async (req, res): Promise<void> =>
   const call = await getAccessibleCall(userId, callId);
   if (!call) {
     res.status(404).json({ error: "Coaching call not found" });
+    return;
+  }
+  // A cancelled occurrence cannot be joined/registered for. 409 (not 404) so an
+  // entitled member who already saw the call gets a clear "this date is off"
+  // signal instead of a misleading "not found".
+  if (call.cancelledAt !== null) {
+    res.status(409).json({ error: "This call has been cancelled" });
     return;
   }
 

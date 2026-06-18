@@ -198,9 +198,9 @@ export default function Coaching() {
   // soonest upcoming occurrence — otherwise the same slot (e.g. "Saturday 3pm
   // with Bruce") renders as an identical row for every future week. Strategy /
   // mastermind / VIP sessions are one-off and stay in the Upcoming Calls list.
-  const weeklyBySlot = new Map<
+  const occurrencesBySlot = new Map<
     string,
-    { call: CoachingCall; start: Date; end: Date }
+    { call: CoachingCall; start: Date; end: Date }[]
   >();
   for (const call of upcomingCalls ?? []) {
     if (call.callType !== "weekly_qa") continue;
@@ -211,16 +211,27 @@ export default function Coaching() {
     // stable coachId (not the display name) so renames or name collisions can't
     // over- or under-collapse slots.
     const slotKey = `${weekdayOrder(start)}|${format(start, "HH:mm")}|${call.coachId}`;
-    const existing = weeklyBySlot.get(slotKey);
-    if (!existing || start.getTime() < existing.start.getTime()) {
-      weeklyBySlot.set(slotKey, { call, start, end });
-    }
+    const arr = occurrencesBySlot.get(slotKey);
+    if (arr) arr.push({ call, start, end });
+    else occurrencesBySlot.set(slotKey, [{ call, start, end }]);
   }
-  const weeklySchedule = [...weeklyBySlot.values()].sort(
-    (a, b) =>
-      weekdayOrder(a.start) - weekdayOrder(b.start) ||
-      a.start.getTime() - b.start.getTime(),
-  );
+  // Each slot collapses to its SOONEST upcoming occurrence (what the member
+  // sees this week) plus the next NON-cancelled occurrence (where the series
+  // resumes). When the soonest occurrence is soft-cancelled we keep showing the
+  // slot but render a "no call this week — back next <date>" treatment with the
+  // join disabled, rolling forward to nextActive.
+  const weeklySchedule = [...occurrencesBySlot.values()]
+    .map((occ) => {
+      occ.sort((a, b) => a.start.getTime() - b.start.getTime());
+      const soonest = occ[0];
+      const nextActive = occ.find((o) => !o.call.cancelled) ?? null;
+      return { soonest, nextActive };
+    })
+    .sort(
+      (a, b) =>
+        weekdayOrder(a.soonest.start) - weekdayOrder(b.soonest.start) ||
+        a.soonest.start.getTime() - b.soonest.start.getTime(),
+    );
 
   // One-off strategy / mastermind / VIP sessions. These are NOT recurring, so
   // they live in their own "Upcoming Special Sessions" list ordered by the next
@@ -265,27 +276,70 @@ export default function Coaching() {
 
             {weeklySchedule.length > 0 ? (
               <div className="border border-border/60 rounded-xl overflow-hidden">
-                {weeklySchedule.map(({ call, start, end }, i) => (
-                  <div
-                    key={call.id}
-                    data-testid={`weekly-call-${call.id}`}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
-                      i !== weeklySchedule.length - 1 ? "border-b border-border/60" : ""
-                    } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-foreground">
-                        {format(start, "EEEE")} from{" "}
-                        <strong className="text-foreground">
-                          {format(start, "h:mm a")} – {format(end, "h:mm a")}
-                        </strong>{" "}
-                        with {call.coachName.split(" ")[0]}
-                      </span>
+                {weeklySchedule.map(({ soonest, nextActive }, i) => {
+                  const { call, start, end } = soonest;
+                  const isCancelled = call.cancelled;
+                  const rowClass = `flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
+                    i !== weeklySchedule.length - 1 ? "border-b border-border/60" : ""
+                  } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`;
+                  const coachFirst = call.coachName.split(" ")[0];
+                  // Cancelled: keep the slot visible (so the cadence reads
+                  // intact) but show "no call this week" + when it resumes, with
+                  // the join control disabled. nextActive may be null if every
+                  // loaded future occurrence of this slot is cancelled.
+                  if (isCancelled) {
+                    const noCallMsg = nextActive
+                      ? `No call this week, back next ${format(nextActive.start, "EEEE, MMM d")}`
+                      : "No call this week";
+                    return (
+                      <div
+                        key={call.id}
+                        data-testid={`weekly-call-${call.id}`}
+                        data-cancelled="true"
+                        className={rowClass}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-muted-foreground">
+                            <span className="line-through">
+                              {format(start, "EEEE, MMM d")} · {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                            </span>{" "}
+                            with {coachFirst} —{" "}
+                            <strong className="text-foreground not-italic">{noCallMsg}</strong>
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          data-testid={`weekly-call-cancelled-${call.id}`}
+                          className="font-semibold shrink-0"
+                        >
+                          Join Call
+                        </Button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={call.id}
+                      data-testid={`weekly-call-${call.id}`}
+                      className={rowClass}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-foreground">
+                          {format(start, "EEEE, MMM d")} ·{" "}
+                          <strong className="text-foreground">
+                            {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                          </strong>{" "}
+                          with {coachFirst}
+                        </span>
+                      </div>
+                      <CallAction call={call} onUnlock={navigate} />
                     </div>
-                    <CallAction call={call} onUnlock={navigate} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="border border-border/60 rounded-xl px-5 py-8 text-center text-sm text-muted-foreground">

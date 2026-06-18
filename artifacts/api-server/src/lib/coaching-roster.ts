@@ -1,4 +1,4 @@
-import { db, coachesTable, coachingCallsTable, sessionPackBookingsTable } from "@workspace/db";
+import { db, coachesTable, coachingCallsTable, sessionPackBookingsTable, usersTable } from "@workspace/db";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { COACHING_LOCATION_ID, COACHING_TIMEZONE } from "./ghl-coaching-calendar";
 
@@ -12,10 +12,15 @@ export interface RosterCoach {
   // Root-relative path to a headshot shipped in the portal's public dir. The
   // portal resolves this through resolveCoachPhotoUrl so it stays base-path aware.
   photoUrl: string;
+  // Email of this coach's portal login (usersTable.role === "coach"), if they
+  // have one. The seed resolves it to a user id and stamps coaches.userId, which
+  // is how a signed-in coach is mapped to their coach record (coach-facing
+  // surfaces scope to "their own" calls). Omit for coaches with no portal account.
+  userEmail?: string;
 }
 
 export const COACHING_ROSTER: RosterCoach[] = [
-  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png" },
+  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png", userEmail: "sasha+coach@cherringtonmedia.com" },
   { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg" },
   { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png" },
   { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg" },
@@ -104,6 +109,19 @@ function zonedWallClockToUtc(
 // updated to both-capabilities-on; legacy demo coaches are cleaned up.
 export async function seedCoachRoster(): Promise<void> {
   for (const c of COACHING_ROSTER) {
+    // Resolve the coach's portal login (if any) to a user id so we can stamp
+    // coaches.userId. Looked up by email rather than hard-coded so adding a new
+    // coach account is a one-line roster edit. A missing/typo'd email simply
+    // leaves userId null (the coach just can't reach their coach-only surfaces yet).
+    let userId: number | null = null;
+    if (c.userEmail) {
+      const [u] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, c.userEmail))
+        .limit(1);
+      userId = u?.id ?? null;
+    }
     await db
       .insert(coachesTable)
       .values({
@@ -112,6 +130,7 @@ export async function seedCoachRoster(): Promise<void> {
         ghlLocationId: COACHING_LOCATION_ID,
         sortOrder: c.sortOrder,
         photoUrl: c.photoUrl,
+        userId,
         isActive: true,
         doesGroupCalls: true,
         doesPrivateCoaching: true,
@@ -123,6 +142,10 @@ export async function seedCoachRoster(): Promise<void> {
           ghlLocationId: COACHING_LOCATION_ID,
           sortOrder: c.sortOrder,
           photoUrl: c.photoUrl,
+          // Only overwrite userId when we resolved one; never clobber an
+          // existing link with null because the user row hasn't been created yet
+          // on this particular boot.
+          ...(userId !== null ? { userId } : {}),
           isActive: true,
           doesGroupCalls: true,
           doesPrivateCoaching: true,

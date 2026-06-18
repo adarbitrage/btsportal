@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, coachingCallAttendanceTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
-import { eq, count, gte, and, sql, desc } from "drizzle-orm";
+import { eq, count, gte, and, isNull, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 
@@ -61,7 +61,11 @@ router.get("/dashboard", async (req, res): Promise<void> => {
         eq(coachingCallAttendanceTable.userId, userId),
       ),
     )
-    .where(gte(coachingCallsTable.scheduledAt, now))
+    // The dashboard preview is a short "what's next" teaser, so cancelled
+    // occurrences are skipped here entirely (not labelled) — the next active
+    // call simply takes the slot. The full Coaching page is where a cancelled
+    // date is surfaced with its "no call this week" treatment.
+    .where(and(gte(coachingCallsTable.scheduledAt, now), isNull(coachingCallsTable.cancelledAt)))
     .orderBy(coachingCallsTable.scheduledAt)
     .limit(3);
 
@@ -71,6 +75,9 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       ...c,
       hasRegistered: registeredAt !== null,
       isAccessible,
+      // Always false: cancelled occurrences are filtered out above, so every
+      // call that reaches the preview is active.
+      cancelled: false,
       meetLink: isAccessible ? c.meetLink : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
       upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),

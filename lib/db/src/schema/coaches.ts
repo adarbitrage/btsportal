@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 // Single unified coach roster. A coach can do group calls, private (credit-pack)
 // coaching, or both — expressed via doesGroupCalls / doesPrivateCoaching. The
@@ -12,6 +13,14 @@ export const coachesTable = pgTable("coaches", {
   id: serial("id").primaryKey(),
   // First name shown to members (privacy: members see first names only).
   name: text("name").notNull(),
+  // Optional link to the coach's portal login (usersTable.role === "coach").
+  // Lets a signed-in coach be resolved to their coach record so coach-facing
+  // surfaces (e.g. Group Coaching) can scope to "their own" calls. Nullable:
+  // most roster coaches have no portal account yet. ON DELETE SET NULL so
+  // deleting a user account leaves the coach row intact (just unlinked).
+  userId: integer("user_id")
+    .references(() => usersTable.id, { onDelete: "set null" })
+    .unique(),
   // Internal-only record fields (never surfaced to members).
   fullName: text("full_name"),
   email: text("email"),

@@ -57,6 +57,7 @@ function makeCall(overrides: Partial<CoachingCall>): CoachingCall {
     requiredEntitlement: "coaching:weekly",
     recordingUrl: null,
     registeredCount: 0,
+    cancelled: false,
     hasRegistered: false,
     isAccessible: true,
     upgradeUrl: null,
@@ -166,6 +167,61 @@ describe("Coaching — data-driven weekly schedule", () => {
     expect(screen.getByTestId("weekly-call-33")).toBeInTheDocument();
     expect(screen.queryByTestId("weekly-call-31")).not.toBeInTheDocument();
     expect(screen.queryByTestId("weekly-call-32")).not.toBeInTheDocument();
+  });
+
+  it("shows 'no call this week' rolling to the next active date when the soonest occurrence is cancelled", () => {
+    // Same recurring slot, two occurrences: the soonest is soft-cancelled, the
+    // following week is active. The cadence row must keep its slot, surface the
+    // "no call this week" treatment, roll forward to the next active date, and
+    // disable the join control.
+    const cancelledSoonest = makeCall({
+      id: 40,
+      coachId: 9,
+      coachName: "Todd R(Coach)",
+      cancelled: true,
+      meetLink: null,
+      scheduledAt: new Date(2026, 5, 22, 8, 0, 0).toISOString(),
+    });
+    const nextActive = makeCall({
+      id: 41,
+      coachId: 9,
+      coachName: "Todd R(Coach)",
+      cancelled: false,
+      meetLink: "https://meet.google.com/weekly-next-wk",
+      scheduledAt: new Date(2026, 5, 29, 8, 0, 0).toISOString(),
+    });
+    useListCoachingCalls.mockReturnValue({ data: [nextActive, cancelledSoonest] });
+
+    render(<Coaching />);
+
+    // The slot is keyed off the soonest (cancelled) occurrence.
+    const row = screen.getByTestId("weekly-call-40");
+    expect(row).toHaveAttribute("data-cancelled", "true");
+    expect(within(row).getByText(/no call this week/i)).toBeInTheDocument();
+    expect(within(row).getByText(/back next Monday, Jun 29/i)).toBeInTheDocument();
+    // The disabled control is present and there is no live "Join Call" link.
+    expect(within(row).getByTestId("weekly-call-cancelled-40")).toBeDisabled();
+    expect(within(row).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    // The future active occurrence is not rendered as its own separate row.
+    expect(screen.queryByTestId("weekly-call-41")).not.toBeInTheDocument();
+  });
+
+  it("omits the 'back next' date when every loaded occurrence of a slot is cancelled", () => {
+    const cancelled = makeCall({
+      id: 50,
+      coachId: 11,
+      coachName: "Bruce C(Coach)",
+      cancelled: true,
+      meetLink: null,
+      scheduledAt: new Date(2026, 5, 20, 15, 0, 0).toISOString(),
+    });
+    useListCoachingCalls.mockReturnValue({ data: [cancelled] });
+
+    render(<Coaching />);
+
+    const row = screen.getByTestId("weekly-call-50");
+    expect(within(row).getByText(/no call this week/i)).toBeInTheDocument();
+    expect(within(row).queryByText(/back next/i)).not.toBeInTheDocument();
   });
 
   it("shows an empty state when there are no weekly group calls", () => {
