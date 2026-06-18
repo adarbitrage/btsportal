@@ -223,9 +223,11 @@ export function useReorderCoaches() {
         queryClient.setQueryData([LIST_KEY], context.previous);
       }
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData([LIST_KEY], data);
-    },
+    // No onSuccess cache write: the order endpoint returns lean COACH_COLUMNS
+    // rows (no awayPeriods/googleConnection), so overwriting the cache here
+    // would blank the away badge + Connections panel. The optimistic onMutate
+    // update already applies the new order to the full cached objects, and
+    // onSettled invalidates to refetch the authoritative list.
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
       // Reflect the new order on the member-facing "Your Coaches" grid.
