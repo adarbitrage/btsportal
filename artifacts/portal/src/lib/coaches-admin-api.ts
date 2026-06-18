@@ -251,7 +251,12 @@ export function useReassignCoachCalls() {
         },
       ),
     onSuccess: (_data, { fromCoachId }) => {
+      // Refresh the blocked coach's call list (the delete dialog), the admin
+      // coaching schedule, and the member-facing "Your Coaches" grid so the new
+      // host shows everywhere the old coach appeared.
       queryClient.invalidateQueries({ queryKey: [LIST_KEY, fromCoachId, "calls"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coaching/calls"] });
+      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
   });
 }

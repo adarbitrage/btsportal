@@ -19,3 +19,13 @@ then add the matching field to the drizzle schema in `lib/db/src/schema/`.
 **Why:** keeps dev DB and schema in sync for your column without touching the
 unrelated drift. The test runner's `sync-dev-db` step also applies the schema, so
 keep the SQL and the drizzle definition identical (column name + type + default).
+
+**Post-merge push stalls non-interactively too:** `drizzle-kit push --force` from
+`runPostMergeSetup` can hang forever on an interactive prompt — not just for renames
+but also a UNIQUE-constraint "truncate table?" question (seen for
+`coaching_calls_template_slot_unq`). The live-schema-drift gate that post-merge uses
+to decide whether to push is **column-only**, so the escape hatch is: apply just the
+missing columns/FKs/constraints to the dev DB via idempotent psql `ALTER ... IF NOT
+EXISTS` / `DO $$ ... constraint exists check`, which makes the drift gate pass and
+post-merge **skips the push entirely**. Don't try to answer or raise the timeout on
+the prompt — make the gate green so push never runs.

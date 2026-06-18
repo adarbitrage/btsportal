@@ -457,8 +457,17 @@ router.post(
       return;
     }
 
-    // The destination coach must exist so we never reassign calls to a phantom
-    // coach id built from stale client state.
+    // Both coaches must exist before we touch any calls, so we never reassign
+    // to (or from) a phantom coach id built from stale client state.
+    const [source] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, fromCoachId));
+    if (!source) {
+      res.status(404).json({ error: "Coach not found" });
+      return;
+    }
+
     const [destination] = await db
       .select({ id: coachesTable.id })
       .from(coachesTable)
@@ -554,8 +563,12 @@ router.delete(
         ),
       );
     if (upcomingCount > 0) {
+      // Structured code + count so the admin UI can offer an inline reassign /
+      // cancel recovery flow instead of just surfacing the raw error string.
       res.status(409).json({
         error: `Cannot delete: this coach is assigned to ${upcomingCount} upcoming coaching call${upcomingCount === 1 ? "" : "s"}. Reassign or remove ${upcomingCount === 1 ? "it" : "them"} first.`,
+        code: "coach_has_scheduled_calls",
+        callCount: upcomingCount,
       });
       return;
     }
