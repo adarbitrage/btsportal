@@ -187,6 +187,18 @@ export function useUpdateCoachingCallTemplate() {
   });
 }
 
+export function useSetCoachingCallTemplateActive() {
+  const invalidate = useInvalidateTemplates();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) =>
+      adminFetch<CoachingCallTemplate>(`/admin/coaching/calls/templates/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
 export function useGenerateCoachingCallTemplate() {
   const invalidate = useInvalidateTemplates();
   return useMutation({

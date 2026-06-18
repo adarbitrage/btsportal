@@ -408,6 +408,53 @@ describe("admin recurring call templates", () => {
     expect(res.status).toBe(404);
   });
 
+  it("pauses a template, blocks generation, then resumes it", async () => {
+    const anchor = new Date(Date.now() + 200 * DAY).toISOString();
+    const createRes = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} Pausable`,
+        callType: "weekly_qa",
+        coachId,
+        anchorAt: anchor,
+        occurrencesPerBatch: 2,
+      });
+    expect(createRes.status).toBe(201);
+    const tid = createRes.body.template.id as number;
+    createdTemplateIds.push(tid);
+    expect(createRes.body.template.active).toBe(true);
+
+    // Pause via the existing PATCH route.
+    const pauseRes = await request(app)
+      .patch(`/api/admin/coaching/calls/templates/${tid}`)
+      .set("Cookie", adminCookie)
+      .send({ active: false });
+    expect(pauseRes.status).toBe(200);
+    expect(pauseRes.body.active).toBe(false);
+
+    // A paused template must not generate new calls.
+    const blockedRes = await request(app)
+      .post(`/api/admin/coaching/calls/templates/${tid}/generate`)
+      .set("Cookie", adminCookie);
+    expect(blockedRes.status).toBe(409);
+
+    // Resume and confirm generation works again.
+    const resumeRes = await request(app)
+      .patch(`/api/admin/coaching/calls/templates/${tid}`)
+      .set("Cookie", adminCookie)
+      .send({ active: true });
+    expect(resumeRes.status).toBe(200);
+    expect(resumeRes.body.active).toBe(true);
+
+    const genRes = await request(app)
+      .post(`/api/admin/coaching/calls/templates/${tid}/generate`)
+      .set("Cookie", adminCookie);
+    expect(genRes.status).toBe(200);
+
+    seriesFor(await listCalls(), tid).forEach((c) => createdCallIds.push(c.id));
+  });
+
   it("rejects a template without a first occurrence (400)", async () => {
     const res = await request(app)
       .post("/api/admin/coaching/calls/templates")

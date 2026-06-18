@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Calendar, Video, Link2, Repeat, CalendarPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Video, Link2, Repeat, CalendarPlus, Pause, Play } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -34,6 +35,7 @@ import {
   useUpdateCoachingCallTemplate,
   useGenerateCoachingCallTemplate,
   useDeleteCoachingCallTemplate,
+  useSetCoachingCallTemplateActive,
   type AdminCoachingCall,
   type CoachingCallTemplate,
 } from "@/lib/coaching-calls-admin-api";
@@ -208,12 +210,14 @@ export default function CoachingCalls() {
   const updateTemplateMutation = useUpdateCoachingCallTemplate();
   const generateTemplateMutation = useGenerateCoachingCallTemplate();
   const deleteTemplateMutation = useDeleteCoachingCallTemplate();
+  const setTemplateActiveMutation = useSetCoachingCallTemplateActive();
 
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState<TemplateForm>(EMPTY_TEMPLATE_FORM);
   const [templateDeleteTarget, setTemplateDeleteTarget] =
     useState<CoachingCallTemplate | null>(null);
   const [generatingId, setGeneratingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const templates = templateData?.templates ?? [];
 
@@ -310,6 +314,28 @@ export default function CoachingCalls() {
       });
     } finally {
       setGeneratingId(null);
+    }
+  }
+
+  async function handleToggleActive(t: CoachingCallTemplate) {
+    const next = !t.active;
+    setTogglingId(t.id);
+    try {
+      await setTemplateActiveMutation.mutateAsync({ id: t.id, active: next });
+      toast({
+        title: next ? "Schedule resumed" : "Schedule paused",
+        description: next
+          ? "New calls will be generated again."
+          : "Generation is halted until you resume it. Existing calls are unaffected.",
+      });
+    } catch (err) {
+      toast({
+        title: next ? "Could not resume schedule" : "Could not pause schedule",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -460,17 +486,44 @@ export default function CoachingCalls() {
           ) : (
             <div className="space-y-3">
               {templates.map((t) => (
-                <Card key={t.id} data-testid={`template-${t.id}`}>
+                <Card
+                  key={t.id}
+                  data-testid={`template-${t.id}`}
+                  data-active={t.active}
+                  className={t.active ? undefined : "border-dashed bg-muted/40"}
+                >
                   <CardContent className="p-5 flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Repeat className="w-5 h-5 text-primary" />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        t.active ? "bg-primary/10" : "bg-muted"
+                      }`}
+                    >
+                      <Repeat
+                        className={`w-5 h-5 ${t.active ? "text-primary" : "text-muted-foreground"}`}
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-foreground">{t.title}</h3>
+                        <h3
+                          className={`font-semibold ${
+                            t.active ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        >
+                          {t.title}
+                        </h3>
                         <Badge variant="outline" className="text-[10px]">
                           {callTypeLabel(t.callType)}
                         </Badge>
+                        {!t.active && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] gap-1"
+                            data-testid={`template-paused-badge-${t.id}`}
+                          >
+                            <Pause className="w-3 h-3" />
+                            Paused
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                         <span className="flex items-center gap-1.5">
@@ -483,21 +536,48 @@ export default function CoachingCalls() {
                         <span>with {t.coachName}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        {t.lastGeneratedAt
-                          ? `Scheduled through ${format(new Date(t.lastGeneratedAt), "EEE, MMM d")}`
-                          : "No calls generated yet"}
-                        {" • generates "}
-                        {t.occurrencesPerBatch} at a time
+                        {t.active ? (
+                          <>
+                            {t.lastGeneratedAt
+                              ? `Scheduled through ${format(new Date(t.lastGeneratedAt), "EEE, MMM d")}`
+                              : "No calls generated yet"}
+                            {" • generates "}
+                            {t.occurrencesPerBatch} at a time
+                          </>
+                        ) : (
+                          "Paused — no new calls will be generated until resumed"
+                        )}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="flex items-center gap-1.5"
+                        title={t.active ? "Pause this schedule" : "Resume this schedule"}
+                      >
+                        {t.active ? (
+                          <Pause className="w-3.5 h-3.5 text-muted-foreground" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 text-muted-foreground" />
+                        )}
+                        <Switch
+                          checked={t.active}
+                          disabled={togglingId === t.id}
+                          onCheckedChange={() => handleToggleActive(t)}
+                          data-testid={`toggle-template-${t.id}`}
+                          aria-label={t.active ? "Pause schedule" : "Resume schedule"}
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleGenerate(t)}
-                        disabled={generatingId === t.id}
+                        disabled={generatingId === t.id || !t.active}
                         data-testid={`generate-template-${t.id}`}
-                        title="Generate more weeks"
+                        title={
+                          t.active
+                            ? "Generate more weeks"
+                            : "Resume the schedule to generate calls"
+                        }
                       >
                         <CalendarPlus className="w-4 h-4" />
                       </Button>

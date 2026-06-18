@@ -430,6 +430,11 @@ router.post(
       return;
     }
 
+    if (!template.active) {
+      res.status(409).json({ error: "Cannot generate calls for a paused schedule. Resume it first." });
+      return;
+    }
+
     const { created, through } = await generateForTemplate(
       template,
       template.occurrencesPerBatch,
