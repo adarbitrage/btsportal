@@ -36,6 +36,17 @@ export interface CoachAwayPeriod {
   isActive: boolean;
 }
 
+// Per-coach Google connection status. Drive recordings + Calendar availability
+// ride the same single OAuth grant; `needsCalendarReconnect` flags a grant that
+// predates the calendar scope. Null when the coach has no linked portal login.
+export interface CoachGoogleConnection {
+  connected: boolean;
+  email: string | null;
+  status: string | null;
+  connectedAt: string | null;
+  needsCalendarReconnect: boolean;
+}
+
 export interface AdminCoach {
   id: number;
   name: string;
@@ -48,6 +59,13 @@ export interface AdminCoach {
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
+  // Private-coaching booking config (GoHighLevel). Null for group-only coaches.
+  ghlCalendarId: string | null;
+  ghlLocationId: string | null;
+  // Optional link to the coach's portal login; null when unlinked.
+  userId: number | null;
+  // Per-coach Google status; null when the coach has no linked portal login.
+  googleConnection: CoachGoogleConnection | null;
   // Active + upcoming away periods (past ones are omitted by the API).
   awayPeriods: CoachAwayPeriod[];
 }
@@ -68,6 +86,9 @@ export interface CoachProfileInput {
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
+  // Private-coaching booking config (GoHighLevel). Empty string clears.
+  ghlCalendarId: string | null;
+  ghlLocationId: string | null;
 }
 
 export function useAdminCoaches() {

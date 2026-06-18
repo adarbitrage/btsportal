@@ -28,8 +28,8 @@ vi.mock("@/lib/coach-pack-api", () => ({
   useCoachSetRecording: () => ({ mutateAsync: setRecordingMutate, isPending: false }),
 }));
 
-vi.mock("@/lib/session-coaching-admin-api", () => ({
-  useAdminPackCoaches: () => ({ data: [] }),
+vi.mock("@/lib/coaches-admin-api", () => ({
+  useAdminCoaches: () => ({ data: { coaches: [] } }),
 }));
 
 vi.mock("@/lib/coach-google-api", () => ({

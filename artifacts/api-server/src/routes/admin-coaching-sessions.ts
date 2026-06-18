@@ -11,7 +11,7 @@ import { eq, and, or, asc, desc, ilike, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { requirePermission } from "../middleware/rbac";
 import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
-import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
+import { cancelAppointment } from "../lib/ghl-coaching-calendar";
 import {
   queryPackBookings,
   parseManualRecordingLinks,
@@ -488,115 +488,6 @@ router.patch(
       .where(eq(sessionPackBookingsTable.id, bookingId))
       .returning();
     res.json({ ok: true, booking });
-  },
-);
-
-// ---------------------------------------------------------------------------
-// Coach roster CRUD.
-// ---------------------------------------------------------------------------
-
-router.get(
-  "/admin/coaching/pack/coaches",
-  requirePermission("coaching:view"),
-  async (_req: Request, res: Response): Promise<void> => {
-    const coaches = await db
-      .select()
-      .from(sessionPackCoachesTable)
-      .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
-    res.json(coaches);
-  },
-);
-
-router.post(
-  "/admin/coaching/pack/coaches",
-  requirePermission("coaching:manage"),
-  async (req: Request, res: Response): Promise<void> => {
-    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-    const ghlCalendarId =
-      typeof req.body?.ghlCalendarId === "string" ? req.body.ghlCalendarId.trim() : "";
-    if (!name) {
-      res.status(400).json({ error: "Name is required" });
-      return;
-    }
-    if (!ghlCalendarId) {
-      res.status(400).json({ error: "GHL calendar id is required" });
-      return;
-    }
-    const ghlLocationId =
-      typeof req.body?.ghlLocationId === "string" && req.body.ghlLocationId.trim()
-        ? req.body.ghlLocationId.trim()
-        : COACHING_LOCATION_ID;
-    const bio = typeof req.body?.bio === "string" ? req.body.bio.trim() || null : null;
-    const photoUrl = typeof req.body?.photoUrl === "string" ? req.body.photoUrl.trim() || null : null;
-    const sortOrder =
-      typeof req.body?.sortOrder === "number" ? req.body.sortOrder : parseInt(req.body?.sortOrder, 10) || 0;
-    const isActive = req.body?.isActive !== false;
-
-    try {
-      const [coach] = await db
-        .insert(sessionPackCoachesTable)
-        .values({ name, ghlCalendarId, ghlLocationId, bio, photoUrl, sortOrder, isActive })
-        .returning();
-      res.status(201).json(coach);
-    } catch (err) {
-      if ((err as { code?: string }).code === "23505") {
-        res.status(409).json({ error: "A coach with that GHL calendar id already exists" });
-        return;
-      }
-      console.error("[admin-coaching-sessions] create coach failed:", err);
-      res.status(500).json({ error: "Could not create the coach. Please try again." });
-    }
-  },
-);
-
-router.patch(
-  "/admin/coaching/pack/coaches/:id",
-  requirePermission("coaching:manage"),
-  async (req: Request, res: Response): Promise<void> => {
-    const coachId = parseId(req.params.id);
-    if (!coachId) {
-      res.status(400).json({ error: "Invalid coach id" });
-      return;
-    }
-
-    const updates: Record<string, unknown> = {};
-    if (typeof req.body?.name === "string" && req.body.name.trim()) updates.name = req.body.name.trim();
-    if (typeof req.body?.ghlCalendarId === "string" && req.body.ghlCalendarId.trim())
-      updates.ghlCalendarId = req.body.ghlCalendarId.trim();
-    if (typeof req.body?.ghlLocationId === "string" && req.body.ghlLocationId.trim())
-      updates.ghlLocationId = req.body.ghlLocationId.trim();
-    if (typeof req.body?.bio === "string") updates.bio = req.body.bio.trim() || null;
-    if (typeof req.body?.photoUrl === "string") updates.photoUrl = req.body.photoUrl.trim() || null;
-    if (req.body?.sortOrder !== undefined) {
-      const n = typeof req.body.sortOrder === "number" ? req.body.sortOrder : parseInt(req.body.sortOrder, 10);
-      if (Number.isInteger(n)) updates.sortOrder = n;
-    }
-    if (typeof req.body?.isActive === "boolean") updates.isActive = req.body.isActive;
-
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ error: "No valid fields to update" });
-      return;
-    }
-
-    try {
-      const [coach] = await db
-        .update(sessionPackCoachesTable)
-        .set(updates)
-        .where(eq(sessionPackCoachesTable.id, coachId))
-        .returning();
-      if (!coach) {
-        res.status(404).json({ error: "Coach not found" });
-        return;
-      }
-      res.json(coach);
-    } catch (err) {
-      if ((err as { code?: string }).code === "23505") {
-        res.status(409).json({ error: "A coach with that GHL calendar id already exists" });
-        return;
-      }
-      console.error("[admin-coaching-sessions] update coach failed:", err);
-      res.status(500).json({ error: "Could not update the coach. Please try again." });
-    }
   },
 );
 

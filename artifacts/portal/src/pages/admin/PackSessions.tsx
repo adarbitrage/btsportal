@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ import {
   EMPTY_RECORDING_LINKS,
   type RecordingLinkValues,
 } from "@/components/coaching/RecordingLinksEditor";
-import { useAdminPackCoaches } from "@/lib/session-coaching-admin-api";
+import { useAdminCoaches } from "@/lib/coaches-admin-api";
 import {
   useAdminPackSessions,
   useAdminCancelBooking,
@@ -153,7 +153,8 @@ export default function PackSessions() {
   const [likelyOnly, setLikelyOnly] = useState(false);
   const [page, setPage] = useState(0);
 
-  const { data: coaches } = useAdminPackCoaches();
+  const { data: coachData } = useAdminCoaches();
+  const coaches = coachData?.coaches;
   const { data, isLoading } = useAdminPackSessions({
     status: status === "all" ? undefined : status,
     coachId: coachId === "all" ? undefined : Number(coachId),
@@ -258,10 +259,10 @@ export default function PackSessions() {
     recordingMutation.isPending;
 
   return (
-    <PackCoachingAdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Private Coaching</h1>
+          <h1 className="text-2xl font-bold text-foreground">1-on-1 Sessions</h1>
           <p className="text-muted-foreground">All credit-based coaching bookings.</p>
         </div>
 
@@ -542,6 +543,6 @@ export default function PackSessions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PackCoachingAdminLayout>
+    </AppLayout>
   );
 }

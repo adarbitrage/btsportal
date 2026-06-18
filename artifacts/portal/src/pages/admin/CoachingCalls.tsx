@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -426,7 +426,7 @@ export default function CoachingCalls() {
     !isLoading && templates.length === 0 && oneOffCalls.length === 0;
 
   return (
-    <PackCoachingAdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -1017,6 +1017,6 @@ export default function CoachingCalls() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PackCoachingAdminLayout>
+    </AppLayout>
   );
 }

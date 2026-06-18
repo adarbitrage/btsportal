@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +58,7 @@ export default function PackCredits() {
   }
 
   return (
-    <PackCoachingAdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Session Credits</h1>
@@ -206,6 +206,6 @@ export default function PackCredits() {
           </div>
         </div>
       </div>
-    </PackCoachingAdminLayout>
+    </AppLayout>
   );
 }

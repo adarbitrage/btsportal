@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +32,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertTriangle,
   ArrowLeftRight,
+  CalendarCheck,
   CalendarOff,
+  CalendarX,
   ChevronDown,
   ChevronUp,
   GripVertical,
+  Link2Off,
   Pencil,
   Plus,
   Trash2,
@@ -86,6 +90,8 @@ interface CoachForm {
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
+  ghlCalendarId: string;
+  ghlLocationId: string;
 }
 
 const DEFAULT_TIMEZONE = "America/New_York";
@@ -100,6 +106,8 @@ const EMPTY_FORM: CoachForm = {
   isActive: true,
   doesGroupCalls: true,
   doesPrivateCoaching: false,
+  ghlCalendarId: "",
+  ghlLocationId: "",
 };
 
 function coachInitials(name: string): string {
@@ -107,6 +115,113 @@ function coachInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Small status pill used by the per-coach Connections panel.
+function ConnectionPill({
+  tone,
+  icon: Icon,
+  label,
+  title,
+  testId,
+}: {
+  tone: "ok" | "warn" | "muted";
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  title?: string;
+  testId: string;
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+      : tone === "warn"
+        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+        : "bg-muted text-muted-foreground";
+  return (
+    <span
+      data-testid={testId}
+      title={title}
+      className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${toneClass}`}
+    >
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
+}
+
+// Per-coach Connections panel. Surfaces the two integrations that power a
+// coach's 1-on-1 booking flow: the GHL booking calendar (presence of a
+// ghlCalendarId) and the single Google grant (Drive recordings + Calendar
+// availability). Only shown for coaches that offer private coaching, since
+// neither connection matters for group-only coaches.
+function CoachConnections({ coach }: { coach: AdminCoach }) {
+  if (!coach.doesPrivateCoaching) return null;
+
+  const google = coach.googleConnection;
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1.5 mt-2"
+      data-testid={`coach-connections-${coach.id}`}
+    >
+      {coach.ghlCalendarId ? (
+        <ConnectionPill
+          tone="ok"
+          icon={CalendarCheck}
+          label="Booking calendar"
+          title={`GHL calendar: ${coach.ghlCalendarId}`}
+          testId={`coach-conn-ghl-${coach.id}`}
+        />
+      ) : (
+        <ConnectionPill
+          tone="warn"
+          icon={CalendarX}
+          label="No booking calendar"
+          title="Add a GHL calendar id so this coach can be booked."
+          testId={`coach-conn-ghl-${coach.id}`}
+        />
+      )}
+      {google == null ? (
+        <ConnectionPill
+          tone="muted"
+          icon={Link2Off}
+          label="No login linked"
+          title="Link this coach to a portal login to connect Google."
+          testId={`coach-conn-google-${coach.id}`}
+        />
+      ) : google.connected ? (
+        google.needsCalendarReconnect ? (
+          <ConnectionPill
+            tone="warn"
+            icon={AlertTriangle}
+            label="Google: reconnect for Calendar"
+            title={
+              google.email
+                ? `${google.email} — Drive connected, Calendar scope missing`
+                : "Drive connected, Calendar scope missing"
+            }
+            testId={`coach-conn-google-${coach.id}`}
+          />
+        ) : (
+          <ConnectionPill
+            tone="ok"
+            icon={CalendarCheck}
+            label="Google connected"
+            title={google.email ?? undefined}
+            testId={`coach-conn-google-${coach.id}`}
+          />
+        )
+      ) : (
+        <ConnectionPill
+          tone="warn"
+          icon={Link2Off}
+          label="Google not connected"
+          title="The coach hasn't connected Google (Drive + Calendar) yet."
+          testId={`coach-conn-google-${coach.id}`}
+        />
+      )}
+    </div>
+  );
 }
 
 // A single coach card that can be dragged to reorder. Wraps the existing card
@@ -217,6 +332,7 @@ function SortableCoachCard({
             <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
               {coach.bio}
             </p>
+            <CoachConnections coach={coach} />
           </div>
           <div className="flex flex-col gap-1 shrink-0">
             <div className="flex flex-col">
@@ -387,6 +503,8 @@ export default function CoachProfiles() {
       isActive: coach.isActive,
       doesGroupCalls: coach.doesGroupCalls,
       doesPrivateCoaching: coach.doesPrivateCoaching,
+      ghlCalendarId: coach.ghlCalendarId ?? "",
+      ghlLocationId: coach.ghlLocationId ?? "",
     });
     setOpen(true);
   }
@@ -431,6 +549,14 @@ export default function CoachProfiles() {
       isActive: form.isActive,
       doesGroupCalls: form.doesGroupCalls,
       doesPrivateCoaching: form.doesPrivateCoaching,
+      // GHL booking config only applies to private coaching; clear it otherwise
+      // so a coach toggled off private doesn't keep a stale calendar binding.
+      ghlCalendarId: form.doesPrivateCoaching
+        ? form.ghlCalendarId.trim() || null
+        : null,
+      ghlLocationId: form.doesPrivateCoaching
+        ? form.ghlLocationId.trim() || null
+        : null,
     };
 
     try {
@@ -643,11 +769,11 @@ export default function CoachProfiles() {
   }
 
   return (
-    <PackCoachingAdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Coach Profiles</h1>
+            <h1 className="text-2xl font-bold text-foreground">Coaches</h1>
             <p className="text-muted-foreground">
               Add, edit, or remove the coaches members see in the "Your Coaches"
               section on the Coaching page.
@@ -888,6 +1014,44 @@ export default function CoachProfiles() {
                 />
               </div>
             </div>
+            {form.doesPrivateCoaching && (
+              <div
+                className="space-y-3 rounded-lg border border-border/60 p-3"
+                data-testid="coach-ghl-fields"
+              >
+                <p className="text-sm font-medium text-foreground">
+                  Booking calendar (GoHighLevel)
+                </p>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Used to book this coach's 1-on-1 sessions. Each calendar id can
+                  belong to only one coach.
+                </p>
+                <div>
+                  <Label className="text-xs">Calendar ID</Label>
+                  <Input
+                    value={form.ghlCalendarId}
+                    onChange={(e) =>
+                      setForm({ ...form, ghlCalendarId: e.target.value })
+                    }
+                    placeholder="GHL calendar id"
+                    maxLength={128}
+                    data-testid="coach-ghl-calendar-id"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Location ID</Label>
+                  <Input
+                    value={form.ghlLocationId}
+                    onChange={(e) =>
+                      setForm({ ...form, ghlLocationId: e.target.value })
+                    }
+                    placeholder="GHL location id (optional)"
+                    maxLength={128}
+                    data-testid="coach-ghl-location-id"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -1257,6 +1421,6 @@ export default function CoachProfiles() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PackCoachingAdminLayout>
+    </AppLayout>
   );
 }

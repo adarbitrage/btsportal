@@ -13,16 +13,18 @@ import type { ReactNode } from "react";
 // keep showing the plain hint with no shortcut. A future refactor that drops the
 // shortcut or stops opening the editor would break this test loudly.
 
-vi.mock("@/components/layout/PackCoachingAdminLayout", () => ({
-  PackCoachingAdminLayout: ({ children }: { children: ReactNode }) => (
+vi.mock("@/components/layout/AppLayout", () => ({
+  AppLayout: ({ children }: { children: ReactNode }) => (
     <div data-testid="admin-layout-stub">{children}</div>
   ),
 }));
 
 const useAdminPackSessions = vi.fn();
 const setRecordingMutate = vi.fn();
+vi.mock("@/lib/coaches-admin-api", () => ({
+  useAdminCoaches: () => ({ data: { coaches: [] } }),
+}));
 vi.mock("@/lib/session-coaching-admin-api", () => ({
-  useAdminPackCoaches: () => ({ data: [] }),
   useAdminPackSessions: (...args: unknown[]) => useAdminPackSessions(...args),
   useAdminCancelBooking: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAdminCompleteBooking: () => ({ mutateAsync: vi.fn(), isPending: false }),

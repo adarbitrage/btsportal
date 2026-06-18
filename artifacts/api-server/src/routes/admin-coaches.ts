@@ -9,6 +9,10 @@ import {
 import { eq, asc, and, gte, count, inArray } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { coachingDateString } from "../lib/coach-availability";
+import {
+  getConnectionStatus,
+  type CoachGoogleConnectionStatus,
+} from "../lib/coach-google-connections";
 
 const router: IRouter = Router();
 
@@ -37,6 +41,7 @@ const PHOTO_URL_MAX = 2048;
 const CALL_TYPE_MAX = 60;
 const MAX_CALL_TYPES = 20;
 const TIMEZONE_MAX = 64;
+const GHL_ID_MAX = 128;
 
 function parseId(value: unknown): number | null {
   const str = Array.isArray(value) ? value[0] : value;
@@ -185,7 +190,40 @@ function parseCoachBody(
     }
   }
 
+  // Private-coaching booking config (GoHighLevel). Only meaningful when the
+  // coach offers private coaching, but always optional + nullable: an empty
+  // string clears the field. ghlCalendarId carries a UNIQUE constraint, so a
+  // duplicate is surfaced as a 409 by the create/update handlers.
+  for (const field of ["ghlCalendarId", "ghlLocationId"] as const) {
+    if (body[field] !== undefined) {
+      if (body[field] === null) {
+        values[field] = null;
+        continue;
+      }
+      const raw = typeof body[field] === "string" ? (body[field] as string).trim() : "";
+      if (!raw) {
+        values[field] = null;
+        continue;
+      }
+      if (raw.length > GHL_ID_MAX) {
+        return { error: `${field} must be ${GHL_ID_MAX} characters or fewer` };
+      }
+      values[field] = raw;
+    }
+  }
+
   return { values };
+}
+
+// Map a Postgres unique-violation on ghl_calendar_id to a friendly 409. Any
+// other error is rethrown for the generic handler.
+function isGhlCalendarConflict(err: unknown): boolean {
+  return (
+    !!err &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
 }
 
 // List every coach with the profile fields the member-facing "Your Coaches"
@@ -208,6 +246,13 @@ const COACH_COLUMNS = {
   isActive: coachesTable.isActive,
   doesGroupCalls: coachesTable.doesGroupCalls,
   doesPrivateCoaching: coachesTable.doesPrivateCoaching,
+  // Private-coaching booking config (GoHighLevel). Surfaced so the merged
+  // Coaches editor + Connections panel can show/edit the booking calendar.
+  ghlCalendarId: coachesTable.ghlCalendarId,
+  ghlLocationId: coachesTable.ghlLocationId,
+  // Optional link to the coach's portal login. Drives the per-coach Google
+  // (Drive recordings / Calendar availability) connection status.
+  userId: coachesTable.userId,
 };
 
 router.get(
@@ -243,6 +288,19 @@ router.get(
       else awayByCoach.set(row.coachId, [row]);
     }
 
+    // Per-coach Google connection status (Drive recordings + Calendar
+    // availability ride the same single OAuth grant). Only coaches linked to a
+    // portal login (userId) can have a connection; the rest report null so the
+    // Connections panel can prompt to link an account. Resolved in parallel.
+    const googleByCoach = new Map<number, CoachGoogleConnectionStatus>();
+    await Promise.all(
+      coaches
+        .filter((c): c is typeof c & { userId: number } => c.userId != null)
+        .map(async (c) => {
+          googleByCoach.set(c.id, await getConnectionStatus(c.userId));
+        }),
+    );
+
     const withAway = coaches.map((c) => ({
       ...c,
       awayPeriods: (awayByCoach.get(c.id) ?? []).map((p) => ({
@@ -253,6 +311,7 @@ router.get(
         // Active right now vs. starts in the future, so the UI can label it.
         isActive: p.startDate <= today && p.endDate >= today,
       })),
+      googleConnection: googleByCoach.get(c.id) ?? null,
     }));
 
     res.json({ coaches: withAway });
@@ -340,11 +399,20 @@ router.patch(
       return;
     }
 
-    const [updated] = await db
-      .update(coachesTable)
-      .set(parsed.values)
-      .where(eq(coachesTable.id, coachId))
-      .returning(COACH_COLUMNS);
+    let updated: Record<string, unknown> | undefined;
+    try {
+      [updated] = await db
+        .update(coachesTable)
+        .set(parsed.values)
+        .where(eq(coachesTable.id, coachId))
+        .returning(COACH_COLUMNS);
+    } catch (err) {
+      if (isGhlCalendarConflict(err)) {
+        res.status(409).json({ error: "Another coach already uses that GHL calendar id" });
+        return;
+      }
+      throw err;
+    }
 
     if (!updated) {
       res.status(404).json({ error: "Coach not found" });
@@ -370,24 +438,33 @@ router.post(
       return;
     }
 
-    const [created] = await db
-      .insert(coachesTable)
-      .values({
-        ...(parsed.values as { name: string }),
-        // Default to a visible group-call coach so new coaches show up on the
-        // member grid immediately, but let an explicit switch override.
-        doesGroupCalls:
-          parsed.values.doesGroupCalls !== undefined
-            ? (parsed.values.doesGroupCalls as boolean)
-            : true,
-        ...(parsed.values.isActive !== undefined
-          ? { isActive: parsed.values.isActive as boolean }
-          : { isActive: true }),
-        ...(parsed.values.doesPrivateCoaching !== undefined
-          ? { doesPrivateCoaching: parsed.values.doesPrivateCoaching as boolean }
-          : {}),
-      })
-      .returning(COACH_COLUMNS);
+    let created: Record<string, unknown> | undefined;
+    try {
+      [created] = await db
+        .insert(coachesTable)
+        .values({
+          ...(parsed.values as { name: string }),
+          // Default to a visible group-call coach so new coaches show up on the
+          // member grid immediately, but let an explicit switch override.
+          doesGroupCalls:
+            parsed.values.doesGroupCalls !== undefined
+              ? (parsed.values.doesGroupCalls as boolean)
+              : true,
+          ...(parsed.values.isActive !== undefined
+            ? { isActive: parsed.values.isActive as boolean }
+            : { isActive: true }),
+          ...(parsed.values.doesPrivateCoaching !== undefined
+            ? { doesPrivateCoaching: parsed.values.doesPrivateCoaching as boolean }
+            : {}),
+        })
+        .returning(COACH_COLUMNS);
+    } catch (err) {
+      if (isGhlCalendarConflict(err)) {
+        res.status(409).json({ error: "Another coach already uses that GHL calendar id" });
+        return;
+      }
+      throw err;
+    }
 
     res.status(201).json(created);
   },

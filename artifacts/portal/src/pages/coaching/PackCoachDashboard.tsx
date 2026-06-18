@@ -32,7 +32,8 @@ import {
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ActionItemsEditor } from "@/components/coaching/ActionItemsEditor";
-import { useAdminPackCoaches, type PackActionItem } from "@/lib/session-coaching-admin-api";
+import { type PackActionItem } from "@/lib/session-coaching-admin-api";
+import { useAdminCoaches } from "@/lib/coaches-admin-api";
 import type { AdminPackBooking } from "@/lib/session-coaching-admin-api";
 import {
   useCoachPackSessions,
@@ -325,7 +326,8 @@ export default function PackCoachDashboard() {
   const [likelyOnly, setLikelyOnly] = useState(false);
   const [page, setPage] = useState(0);
 
-  const { data: coaches } = useAdminPackCoaches();
+  const { data: coachData } = useAdminCoaches();
+  const coaches = coachData?.coaches;
   const { data, isLoading } = useCoachPackSessions({
     status: status === "all" ? undefined : status,
     coachId: coachId === "all" ? undefined : Number(coachId),

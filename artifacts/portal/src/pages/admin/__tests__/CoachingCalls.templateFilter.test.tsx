@@ -3,8 +3,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { CoachingCallTemplate } from "@/lib/coaching-calls-admin-api";
 
-vi.mock("@/components/layout/PackCoachingAdminLayout", () => ({
-  PackCoachingAdminLayout: ({ children }: { children: ReactNode }) => (
+vi.mock("@/components/layout/AppLayout", () => ({
+  AppLayout: ({ children }: { children: ReactNode }) => (
     <div data-testid="pack-coaching-admin-layout-stub">{children}</div>
   ),
 }));

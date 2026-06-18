@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("@/components/layout/PackCoachingAdminLayout", () => ({
-  PackCoachingAdminLayout: ({ children }: { children: ReactNode }) => (
+vi.mock("@/components/layout/AppLayout", () => ({
+  AppLayout: ({ children }: { children: ReactNode }) => (
     <div data-testid="pack-coaching-admin-layout-stub">{children}</div>
   ),
 }));
