@@ -213,13 +213,12 @@ OUTPUT FORMAT:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-5",
           messages: [
             { role: "system", content: mergePrompt },
             { role: "user", content: docContents },
           ],
-          max_tokens: 2500,
-          temperature: 0.3,
+          max_completion_tokens: 2500,
         }),
         signal: AbortSignal.timeout(60000),
       },

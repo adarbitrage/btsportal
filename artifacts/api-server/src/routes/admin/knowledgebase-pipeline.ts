@@ -124,7 +124,7 @@ OUTPUT FORMAT (return ONLY this, no other text):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -132,8 +132,7 @@ OUTPUT FORMAT (return ONLY this, no other text):
             content: `Video title: "${videoTitle}"\n\nTranscript:\n${cleanedText}`,
           },
         ],
-        max_tokens: 2000,
-        temperature: 0.3,
+        max_completion_tokens: 2000,
       }),
       signal: AbortSignal.timeout(60000),
     },
@@ -477,7 +476,7 @@ async function extractBlitzDocument(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -485,8 +484,7 @@ async function extractBlitzDocument(
             content: `Video title: "${lesson.title}"\n\nTranscript:\n${cleanedText}`,
           },
         ],
-        max_tokens: 3000,
-        temperature: 0.3,
+        max_completion_tokens: 3000,
       }),
       signal: AbortSignal.timeout(90000),
     },
@@ -922,13 +920,12 @@ OUTPUT FORMAT:
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-4o",
+            model: "gpt-5",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: doc.content },
             ],
-            max_tokens: 2000,
-            temperature: 0.3,
+            max_completion_tokens: 2000,
           }),
           signal: AbortSignal.timeout(60000),
         },
@@ -1072,13 +1069,12 @@ OUTPUT FORMAT (return ONLY this, no other text):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        max_tokens: 2000,
-        temperature: 0.3,
+        max_completion_tokens: 2000,
       }),
       signal: AbortSignal.timeout(90000),
     },
