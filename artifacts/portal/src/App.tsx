@@ -23,6 +23,7 @@ import AdCredit from "@/pages/AdCredit";
 import CoachingRecruitment from "@/pages/CoachingRecruitment";
 import SelfPromoting from "@/pages/SelfPromoting";
 import AiAssistant from "@/pages/AiAssistant";
+import VoiceAssistant from "@/pages/VoiceAssistant";
 import Blitz from "@/pages/Blitz";
 import BlitzHub from "@/pages/BlitzHub";
 import BlitzArchive from "@/pages/BlitzArchive";
@@ -396,6 +397,7 @@ function Router() {
       <Route path="/coaching/recruitment">{() => <ProtectedRoute component={CoachingRecruitment} />}</Route>
       <Route path="/self-promoting">{() => <ProtectedRoute component={SelfPromoting} />}</Route>
       <Route path="/ai-assistant">{() => <ProtectedRoute component={AiAssistant} />}</Route>
+      <Route path="/assistant/voice">{() => <EntitlementRoute component={VoiceAssistant} entitlement="voice:access" />}</Route>
       <Route path="/blitz">{() => <ProtectedRoute component={BlitzHub} />}</Route>
       <Route path="/blitz/guide">{() => <ProtectedRoute component={Blitz} />}</Route>
       <Route path="/blitz/guide/:lessonId">{() => <ProtectedRoute component={Blitz} />}</Route>

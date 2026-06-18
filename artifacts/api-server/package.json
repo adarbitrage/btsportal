@@ -36,6 +36,7 @@
     "ioredis": "5.9.3",
     "jsonwebtoken": "^9.0.3",
     "qs": "^6.15.0",
+    "retell-sdk": "5.38.0",
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.12.2",
     "yaml": "^2.8.2"

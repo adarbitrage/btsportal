@@ -51,6 +51,7 @@ const PUBLIC_PATHS = [
   // not carry the SameSite=Strict auth cookie. The handler authenticates the
   // user via the HMAC-signed `state` it issued at connect time instead.
   "/coach/google/callback",
+  "/voice/kb-search",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {

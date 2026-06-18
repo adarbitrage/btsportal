@@ -10,7 +10,9 @@
       "coach_google_connections | p | PRIMARY KEY (id)",
       "coach_google_connections | u | UNIQUE (user_id)"
     ],
-    "onlyInMigrations": []
+    "onlyInMigrations": [
+      "voice_daily_usage | u | UNIQUE (user_id, usage_date)"
+    ]
   },
   "indexes": {
     "onlyInPush": [
@@ -22,6 +24,8 @@
       "coach_google_connections | CREATE UNIQUE INDEX <name> ON public.coach_google_connections USING btree (id)",
       "coach_google_connections | CREATE UNIQUE INDEX <name> ON public.coach_google_connections USING btree (user_id)"
     ],
-    "onlyInMigrations": []
+    "onlyInMigrations": [
+      "voice_daily_usage | CREATE INDEX <name> ON public.voice_daily_usage USING btree (user_id, usage_date)"
+    ]
   }
 }

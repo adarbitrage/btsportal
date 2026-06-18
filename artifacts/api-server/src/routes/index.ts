@@ -74,6 +74,8 @@ import coachDashboardRouter from "./coach-dashboard";
 import coachGoogleRouter from "./coach-google";
 import mediaMavensLinksRouter from "./media-mavens-links";
 import tapfiliateSSORrouter from "./tapfiliate-sso";
+import voiceRouter from "./voice";
+import webhooksRetellRouter from "./webhooks-retell";
 
 const router: IRouter = Router();
 
@@ -152,5 +154,7 @@ router.use(coachDashboardRouter);
 router.use(coachGoogleRouter);
 router.use(mediaMavensLinksRouter);
 router.use(tapfiliateSSORrouter);
+router.use(voiceRouter);
+router.use(webhooksRetellRouter);
 
 export default router;
