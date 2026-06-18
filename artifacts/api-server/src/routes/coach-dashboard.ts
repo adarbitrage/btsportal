@@ -32,6 +32,8 @@ import {
   resolveManualRecordingFields,
 } from "../lib/pack-bookings";
 import { normalizeActionItems, syncBookingCoachingToGHL } from "../lib/coaching-notes";
+import { fetchCalendarBusy, CalendarScopeError } from "../lib/google-oauth";
+import { getAccessTokenForUser } from "../lib/coach-google-connections";
 import {
   BLITZ_PHASES,
   BLITZ_SECTIONS,
@@ -837,6 +839,105 @@ router.get(
     } catch (err) {
       console.error("[CoachDashboard] group-calls list error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load group calls");
+    }
+  },
+);
+
+// GET /api/coach/group-calls/calendar-busy — the scoped coach's external Google
+// Calendar busy blocks for a time window, used to overlay conflicts onto the
+// group-call month grid. Scoping mirrors GET /coach/group-calls: a plain coach
+// reads their OWN calendar; an admin must pass ?coachId to pick a single coach
+// (the all-coaches view has no single calendar). Always 200 — when the coach has
+// no live connection / OAuth isn't configured we return { connected: false }.
+router.get(
+  "/coach/group-calls/calendar-busy",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    try {
+      const isAdmin = !!req.adminRole;
+
+      // Resolve whose Google account (portal user) to read busy times from.
+      let targetUserId: number | null = null;
+      if (!isAdmin) {
+        // A plain coach must own a coach row to be on this surface at all.
+        const ownCoachId = await resolveCoachIdForUser(req.userId!);
+        if (ownCoachId === null) {
+          res.json({ connected: false, busy: [] });
+          return;
+        }
+        targetUserId = req.userId!;
+      } else {
+        const rawCoachId = req.query["coachId"];
+        if (typeof rawCoachId !== "string" || rawCoachId.trim() === "") {
+          // All-coaches view: no single calendar to read.
+          res.json({ connected: false, busy: [] });
+          return;
+        }
+        const parsed = Number(rawCoachId);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid coachId");
+          return;
+        }
+        const [coach] = await db
+          .select({ userId: coachesTable.userId })
+          .from(coachesTable)
+          .where(eq(coachesTable.id, parsed))
+          .limit(1);
+        targetUserId = coach?.userId ?? null;
+      }
+
+      if (targetUserId === null) {
+        res.json({ connected: false, busy: [] });
+        return;
+      }
+
+      // Validate the [from, to) window. Cap the span so a malformed/huge range
+      // can't turn into an expensive free/busy query.
+      const fromRaw = req.query["from"];
+      const toRaw = req.query["to"];
+      const fromDate = typeof fromRaw === "string" ? new Date(fromRaw) : null;
+      const toDate = typeof toRaw === "string" ? new Date(toRaw) : null;
+      if (
+        !fromDate ||
+        !toDate ||
+        Number.isNaN(fromDate.getTime()) ||
+        Number.isNaN(toDate.getTime()) ||
+        fromDate.getTime() >= toDate.getTime()
+      ) {
+        sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid from/to range");
+        return;
+      }
+      const MAX_WINDOW_MS = 70 * 24 * 60 * 60 * 1000; // generous month-grid cap
+      if (toDate.getTime() - fromDate.getTime() > MAX_WINDOW_MS) {
+        sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Range too large");
+        return;
+      }
+
+      const accessToken = await getAccessTokenForUser(targetUserId);
+      if (!accessToken) {
+        res.json({ connected: false, busy: [] });
+        return;
+      }
+
+      try {
+        const busy = await fetchCalendarBusy(
+          accessToken,
+          fromDate.toISOString(),
+          toDate.toISOString(),
+        );
+        res.json({ connected: true, busy });
+      } catch (err) {
+        if (err instanceof CalendarScopeError) {
+          // Connected for Drive but the calendar scope was never granted (an
+          // older connection) — tell the UI a reconnect is needed.
+          res.json({ connected: false, needsReconnect: true, busy: [] });
+          return;
+        }
+        throw err;
+      }
+    } catch (err) {
+      console.error("[CoachDashboard] calendar-busy error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load calendar");
     }
   },
 );

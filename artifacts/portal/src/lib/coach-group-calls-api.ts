@@ -51,7 +51,24 @@ export interface PickerCoach {
   name: string;
 }
 
+// A busy interval pulled from the coach's external Google Calendar (free/busy
+// only — no event titles). Used to overlay conflicts on the month grid.
+export interface CalendarBusyBlock {
+  start: string;
+  end: string;
+}
+
+export interface CoachCalendarBusyResponse {
+  // True only when the scoped coach has a live Google Calendar connection.
+  connected: boolean;
+  // True when the coach is connected for Drive but never granted the calendar
+  // scope (an older connection) — the UI prompts a reconnect.
+  needsReconnect?: boolean;
+  busy: CalendarBusyBlock[];
+}
+
 const ROOT_KEY = "/api/coach/group-calls";
+const BUSY_KEY = "/api/coach/group-calls/calendar-busy";
 const COACHES_KEY = "/api/admin/coaching/coaches";
 
 // Loads one coach's calendar. Plain coaches are pinned server-side to their own
@@ -78,6 +95,28 @@ export function useGroupCoachingCoaches(enabled: boolean) {
       const coaches: Array<{ id: number; name: string }> = data?.coaches ?? [];
       return coaches.map((c) => ({ id: c.id, name: c.name }));
     },
+  });
+}
+
+// Loads the scoped coach's external Google Calendar busy blocks for a window.
+// `from`/`to` are ISO instants spanning the visible month grid. Pass the same
+// coachId used for the calendar (null = the signed-in coach's own / the admin
+// all-coaches view, which the server reports as not-connected). Disabled until a
+// window is known so we never fire an unbounded query.
+export function useCoachCalendarBusy(
+  coachId: number | null | undefined,
+  from: string | null,
+  to: string | null,
+) {
+  const params = new URLSearchParams();
+  if (coachId != null) params.set("coachId", String(coachId));
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const query = params.toString();
+  return useQuery<CoachCalendarBusyResponse>({
+    queryKey: [BUSY_KEY, coachId ?? "self", from, to],
+    enabled: Boolean(from && to),
+    queryFn: () => coachFetch(`/coach/group-calls/calendar-busy?${query}`),
   });
 }
 

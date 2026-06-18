@@ -9,7 +9,15 @@ import { OAuth2Client } from "google-auth-library";
 // trade for short-lived access tokens during recording ingest.
 
 const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
-export const GOOGLE_OAUTH_SCOPES = [DRIVE_READONLY_SCOPE, "openid", "email"];
+// Free/busy only — we never read event titles or details, just the busy blocks
+// needed to flag conflicts against a coach's group-call dates.
+const CALENDAR_FREEBUSY_SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
+export const GOOGLE_OAUTH_SCOPES = [
+  DRIVE_READONLY_SCOPE,
+  CALENDAR_FREEBUSY_SCOPE,
+  "openid",
+  "email",
+];
 
 const STATE_TTL_MS = 10 * 60 * 1000; // a connect attempt must finish within 10 min
 
@@ -174,4 +182,60 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
     throw new Error("Google returned an empty access token");
   }
   return token;
+}
+
+// --- Calendar free/busy -----------------------------------------------------
+
+export interface CalendarBusyBlock {
+  start: string;
+  end: string;
+}
+
+/**
+ * Thrown when Google rejects the free/busy call for lack of the calendar scope
+ * (a connection made before the calendar scope was added). Callers surface this
+ * as "reconnect needed" rather than a hard error.
+ */
+export class CalendarScopeError extends Error {
+  constructor(message = "Google Calendar access has not been granted") {
+    super(message);
+    this.name = "CalendarScopeError";
+  }
+}
+
+/**
+ * Read the busy blocks on a coach's PRIMARY Google Calendar between two
+ * instants. Uses the free/busy endpoint so we only ever see busy intervals,
+ * never event titles or attendees.
+ */
+export async function fetchCalendarBusy(
+  accessToken: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarBusyBlock[]> {
+  const res = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ timeMin, timeMax, items: [{ id: "primary" }] }),
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    throw new CalendarScopeError();
+  }
+  if (!res.ok) {
+    throw new Error(`Google free/busy request failed with status ${res.status}`);
+  }
+
+  const data = (await res.json()) as {
+    calendars?: { primary?: { busy?: Array<{ start?: string; end?: string }> } };
+  };
+  const busy = data.calendars?.primary?.busy ?? [];
+  return busy
+    .filter((b): b is { start: string; end: string } =>
+      typeof b.start === "string" && typeof b.end === "string",
+    )
+    .map((b) => ({ start: b.start, end: b.end }));
 }

@@ -26,11 +26,13 @@ vi.mock("@/hooks/use-toast", () => ({
 
 const useCoachGroupCalls = vi.fn();
 const useGroupCoachingCoaches = vi.fn();
+const useCoachCalendarBusy = vi.fn();
 const cancelMutate = vi.fn();
 const restoreMutate = vi.fn();
 vi.mock("@/lib/coach-group-calls-api", () => ({
   useCoachGroupCalls: (...args: unknown[]) => useCoachGroupCalls(...args),
   useGroupCoachingCoaches: (...args: unknown[]) => useGroupCoachingCoaches(...args),
+  useCoachCalendarBusy: (...args: unknown[]) => useCoachCalendarBusy(...args),
   useCancelGroupCall: () => ({ mutate: cancelMutate, isPending: false }),
   useRestoreGroupCall: () => ({ mutate: restoreMutate, isPending: false }),
 }));
@@ -59,10 +61,17 @@ function dayKey(call: CoachGroupCall): string {
 beforeEach(() => {
   useCoachGroupCalls.mockReset();
   useGroupCoachingCoaches.mockReset();
+  useCoachCalendarBusy.mockReset();
   cancelMutate.mockReset();
   restoreMutate.mockReset();
   // Default: not an admin, so the picker query is disabled / empty.
   useGroupCoachingCoaches.mockReturnValue({ data: [] });
+  // Default: no connected Google Calendar, so no busy overlay / conflicts.
+  useCoachCalendarBusy.mockReturnValue({
+    data: { connected: false, busy: [] },
+    isLoading: false,
+    isError: false,
+  });
 });
 
 afterEach(() => {
@@ -195,5 +204,133 @@ describe("GroupCoaching — calendar + coach picker", () => {
     expect(screen.queryByTestId("coach-picker")).not.toBeInTheDocument();
     expect(screen.getByTestId("group-call-calendar")).toBeInTheDocument();
     expect(screen.getByTestId("day-detail-empty")).toBeInTheDocument();
+  });
+
+  it("overlays Google Calendar busy blocks and flags days that conflict with a call", async () => {
+    // A call at 14:00–15:00 on the 15th, and a busy block 14:30–15:30 that
+    // overlaps it -> the day is flagged as a conflict.
+    const call = makeCall({
+      id: 10,
+      scheduledAt: new Date(2026, 6, 15, 14, 0, 0).toISOString(),
+      durationMinutes: 60,
+    });
+    useCoachGroupCalls.mockReturnValue({
+      data: { coachId: 5, isAdmin: false, calls: [call] },
+      isLoading: false,
+      isError: false,
+    });
+    useCoachCalendarBusy.mockReturnValue({
+      data: {
+        connected: true,
+        busy: [
+          {
+            start: new Date(2026, 6, 15, 14, 30, 0).toISOString(),
+            end: new Date(2026, 6, 15, 15, 30, 0).toISOString(),
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<GroupCoaching />);
+
+    const cell = screen.getByTestId(`calendar-day-${dayKey(call)}`);
+    expect(cell).toHaveAttribute("data-has-busy", "true");
+    expect(cell).toHaveAttribute("data-conflict", "true");
+
+    // The pre-selected conflicting day surfaces a warning, the busy block, and
+    // hides the not-connected note (we ARE connected).
+    expect(screen.getByTestId("day-conflict-warning")).toBeInTheDocument();
+    expect(screen.getByTestId("busy-block-busy-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("calendar-not-connected")).not.toBeInTheDocument();
+  });
+
+  it("shows a busy block without a conflict flag when it doesn't overlap the call", () => {
+    // Call 14:00–15:00, busy 09:00–10:00 the same day -> no overlap, no conflict.
+    const call = makeCall({
+      id: 10,
+      scheduledAt: new Date(2026, 6, 15, 14, 0, 0).toISOString(),
+      durationMinutes: 60,
+    });
+    useCoachGroupCalls.mockReturnValue({
+      data: { coachId: 5, isAdmin: false, calls: [call] },
+      isLoading: false,
+      isError: false,
+    });
+    useCoachCalendarBusy.mockReturnValue({
+      data: {
+        connected: true,
+        busy: [
+          {
+            start: new Date(2026, 6, 15, 9, 0, 0).toISOString(),
+            end: new Date(2026, 6, 15, 10, 0, 0).toISOString(),
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<GroupCoaching />);
+
+    const cell = screen.getByTestId(`calendar-day-${dayKey(call)}`);
+    expect(cell).toHaveAttribute("data-has-busy", "true");
+    expect(cell).toHaveAttribute("data-conflict", "false");
+    expect(screen.queryByTestId("day-conflict-warning")).not.toBeInTheDocument();
+    expect(screen.getByTestId("busy-block-busy-0")).toBeInTheDocument();
+  });
+
+  it("does not flag a conflict against a cancelled call", () => {
+    // The call is cancelled, so an overlapping busy block is NOT a conflict.
+    const call = makeCall({
+      id: 10,
+      cancelled: true,
+      cancelledAt: new Date().toISOString(),
+      scheduledAt: new Date(2026, 6, 15, 14, 0, 0).toISOString(),
+      durationMinutes: 60,
+    });
+    useCoachGroupCalls.mockReturnValue({
+      data: { coachId: 5, isAdmin: false, calls: [call] },
+      isLoading: false,
+      isError: false,
+    });
+    useCoachCalendarBusy.mockReturnValue({
+      data: {
+        connected: true,
+        busy: [
+          {
+            start: new Date(2026, 6, 15, 14, 30, 0).toISOString(),
+            end: new Date(2026, 6, 15, 15, 30, 0).toISOString(),
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<GroupCoaching />);
+
+    const cell = screen.getByTestId(`calendar-day-${dayKey(call)}`);
+    expect(cell).toHaveAttribute("data-conflict", "false");
+    expect(screen.queryByTestId("day-conflict-warning")).not.toBeInTheDocument();
+  });
+
+  it("prompts a reconnect when connected for Drive but missing the calendar scope", () => {
+    useCoachGroupCalls.mockReturnValue({
+      data: { coachId: 5, isAdmin: false, calls: [makeCall({ id: 10 })] },
+      isLoading: false,
+      isError: false,
+    });
+    useCoachCalendarBusy.mockReturnValue({
+      data: { connected: false, needsReconnect: true, busy: [] },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<GroupCoaching />);
+
+    const note = screen.getByTestId("calendar-not-connected");
+    expect(note).toHaveTextContent(/reconnect/i);
   });
 });

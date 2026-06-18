@@ -3,8 +3,15 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, Users } from "lucide-react";
-import { format, isSameDay, startOfMonth } from "date-fns";
+import { CalendarClock, Users, AlertTriangle, CalendarOff } from "lucide-react";
+import {
+  format,
+  isSameDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+} from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -22,6 +29,7 @@ import {
   useGroupCoachingCoaches,
   useCancelGroupCall,
   useRestoreGroupCall,
+  useCoachCalendarBusy,
   type CoachGroupCall,
 } from "@/lib/coach-group-calls-api";
 
@@ -49,6 +57,20 @@ export default function GroupCoaching() {
   const calls = data?.calls ?? [];
   const coaches = coachesQuery.data ?? [];
 
+  // The visible 6-week grid window (Sun-aligned), matching MonthCalendar, so the
+  // busy overlay covers exactly the days the calendar can show — including the
+  // trailing/leading days from adjacent months.
+  const gridFrom = startOfWeek(startOfMonth(month)).toISOString();
+  const gridTo = endOfWeek(endOfMonth(month)).toISOString();
+  const busyQuery = useCoachCalendarBusy(selectedCoachId, gridFrom, gridTo);
+  const busyConnected = busyQuery.data?.connected ?? false;
+  const busyNeedsReconnect = busyQuery.data?.needsReconnect ?? false;
+  const busyBlocks = (busyQuery.data?.busy ?? []).map((b, i) => ({
+    id: `busy-${i}`,
+    start: new Date(b.start),
+    end: new Date(b.end),
+  }));
+
   // Once the admin roster loads, default the picker to the first coach so the
   // calendar opens on a single coach (personal-first) rather than every coach.
   useEffect(() => {
@@ -67,11 +89,40 @@ export default function GroupCoaching() {
     }
   }, [calls, selectedDate]);
 
-  const events: CalendarDayEvent[] = calls.map((c) => ({
+  // A conflict is an ACTIVE (non-cancelled) group call whose time window
+  // overlaps an external busy block. Cancelled calls never conflict (the date
+  // is already off). Collected as id sets so both the calendar markers and the
+  // day-detail panel can flag the exact calls/blocks involved.
+  const conflictingCallIds = new Set<number>();
+  const conflictingBusyIds = new Set<string>();
+  for (const call of calls) {
+    if (call.cancelled) continue;
+    const callStart = new Date(call.scheduledAt).getTime();
+    const callEnd = callStart + call.durationMinutes * 60000;
+    for (const block of busyBlocks) {
+      const blockStart = block.start.getTime();
+      const blockEnd = block.end.getTime();
+      if (callStart < blockEnd && blockStart < callEnd) {
+        conflictingCallIds.add(call.id);
+        conflictingBusyIds.add(block.id);
+      }
+    }
+  }
+
+  const callEvents: CalendarDayEvent[] = calls.map((c) => ({
     id: c.id,
     date: new Date(c.scheduledAt),
+    kind: "group-call",
     cancelled: c.cancelled,
+    conflict: conflictingCallIds.has(c.id),
   }));
+  const busyEvents: CalendarDayEvent[] = busyBlocks.map((b) => ({
+    id: b.id,
+    date: b.start,
+    kind: "busy",
+    conflict: conflictingBusyIds.has(b.id),
+  }));
+  const events: CalendarDayEvent[] = [...callEvents, ...busyEvents];
 
   const selectedDayCalls = selectedDate
     ? calls
@@ -81,6 +132,15 @@ export default function GroupCoaching() {
             new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
         )
     : [];
+
+  const selectedDayBusy = selectedDate
+    ? busyBlocks
+        .filter((b) => isSameDay(b.start, selectedDate))
+        .sort((a, b) => a.start.getTime() - b.start.getTime())
+    : [];
+
+  const selectedDayHasConflict =
+    selectedDayCalls.some((c) => conflictingCallIds.has(c.id));
 
   const handleCoachChange = (id: number) => {
     setSelectedCoachId(id);
@@ -178,7 +238,21 @@ export default function GroupCoaching() {
                   ? format(selectedDate, "EEEE, MMM d")
                   : "Select a date"}
               </h2>
-              {selectedDayCalls.length === 0 ? (
+
+              {selectedDayHasConflict && (
+                <div
+                  data-testid="day-conflict-warning"
+                  className="mb-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
+                >
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    This group call overlaps something on the connected Google
+                    Calendar. Cancel or move the call if you can't make it.
+                  </span>
+                </div>
+              )}
+
+              {selectedDayCalls.length === 0 && selectedDayBusy.length === 0 ? (
                 <div
                   data-testid="day-detail-empty"
                   className="text-sm text-muted-foreground py-4"
@@ -251,6 +325,41 @@ export default function GroupCoaching() {
                       </div>
                     );
                   })}
+
+                  {selectedDayBusy.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Google Calendar
+                      </div>
+                      {selectedDayBusy.map((block) => (
+                        <div
+                          key={block.id}
+                          data-testid={`busy-block-${block.id}`}
+                          className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs"
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/70" />
+                          <span className="text-muted-foreground">
+                            Busy · {format(block.start, "h:mm a")} –{" "}
+                            {format(block.end, "h:mm a")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!busyConnected && (
+                <div
+                  data-testid="calendar-not-connected"
+                  className="mt-4 flex items-start gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground"
+                >
+                  <CalendarOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {busyNeedsReconnect
+                      ? "Reconnect your Google account on the Sessions page to grant calendar access and see conflicts here."
+                      : "Connect a Google account on the Sessions page to overlay your calendar and flag conflicts."}
+                  </span>
                 </div>
               )}
             </CardContent>

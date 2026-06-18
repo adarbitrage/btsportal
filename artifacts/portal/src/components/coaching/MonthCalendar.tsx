@@ -14,13 +14,20 @@ import {
 import { cn } from "@/lib/utils";
 
 // A single thing that happens on a calendar day. Deliberately GENERIC — it
-// carries no coaching-specific fields beyond a date and a cancelled flag — so
-// other day-scoped sources (e.g. a future Google Calendar conflict overlay) can
-// be merged into the same `events` list without touching this component.
+// carries no coaching-specific fields beyond a date, a kind, and a couple of
+// flags — so other day-scoped sources (e.g. the Google Calendar conflict
+// overlay) can be merged into the same `events` list without touching this
+// component.
 export interface CalendarDayEvent {
   id: string | number;
   date: Date;
+  // What this marker represents. Defaults to "group-call" when omitted.
+  kind?: "group-call" | "busy";
+  // group-call only: a soft-cancelled occurrence.
   cancelled?: boolean;
+  // This event participates in a group-call ↔ external-event time conflict.
+  // The owning page computes the time overlap; this component only renders it.
+  conflict?: boolean;
 }
 
 interface MonthCalendarProps {
@@ -95,9 +102,17 @@ export function MonthCalendar({
         {days.map((day) => {
           const key = format(day, "yyyy-MM-dd");
           const dayEvents = eventsByDay.get(key) ?? [];
-          const hasEvents = dayEvents.length > 0;
-          const anyActive = dayEvents.some((e) => !e.cancelled);
-          const allCancelled = hasEvents && !anyActive;
+          const groupEvents = dayEvents.filter((e) => e.kind !== "busy");
+          const busyEvents = dayEvents.filter((e) => e.kind === "busy");
+          const hasGroupCall = groupEvents.length > 0;
+          const hasBusy = busyEvents.length > 0;
+          // A day is interactive when it has any marker worth inspecting.
+          const hasEvents = hasGroupCall || hasBusy;
+          const anyActive = groupEvents.some((e) => !e.cancelled);
+          const allCancelled = hasGroupCall && !anyActive;
+          // Conflict = a group call and an external event overlap in time on
+          // this day (the owning page flags the participating events).
+          const conflict = dayEvents.some((e) => e.conflict);
           const inMonth = isSameMonth(day, month);
           const selected = selectedDate !== null && isSameDay(day, selectedDate);
 
@@ -106,7 +121,9 @@ export function MonthCalendar({
               key={key}
               type="button"
               data-testid={`calendar-day-${key}`}
-              data-has-events={hasEvents ? "true" : "false"}
+              data-has-events={hasGroupCall ? "true" : "false"}
+              data-has-busy={hasBusy ? "true" : "false"}
+              data-conflict={conflict ? "true" : "false"}
               data-cancelled={allCancelled ? "true" : "false"}
               disabled={!hasEvents}
               aria-pressed={selected}
@@ -117,9 +134,16 @@ export function MonthCalendar({
                   ? "cursor-pointer border-border/60 hover:border-primary/60 hover:bg-muted"
                   : "cursor-default border-transparent",
                 selected && "border-primary bg-primary/10 ring-1 ring-primary",
+                conflict && !selected && "border-amber-500 ring-1 ring-amber-500",
                 !inMonth && "opacity-40",
               )}
             >
+              {conflict && (
+                <span
+                  aria-hidden
+                  className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500"
+                />
+              )}
               <span
                 className={cn(
                   "leading-none",
@@ -130,12 +154,20 @@ export function MonthCalendar({
               </span>
               {hasEvents && (
                 <span className="mt-1 flex items-center gap-0.5">
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      anyActive ? "bg-primary" : "bg-muted-foreground/40",
-                    )}
-                  />
+                  {hasGroupCall && (
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        anyActive ? "bg-primary" : "bg-muted-foreground/40",
+                      )}
+                    />
+                  )}
+                  {hasBusy && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-amber-500/70"
+                      data-testid={`calendar-busy-dot-${key}`}
+                    />
+                  )}
                 </span>
               )}
             </button>

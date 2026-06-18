@@ -35,6 +35,12 @@ unique) and the ingest just unions all active accounts' Drives.
   scope (drive.readonly) verification.
 - A new table reaches prod via the gated post-merge push-force (drift test fails →
   push creates it); a plain new table needs no companion .sql.
+- The same connection is reused for calendar.freebusy (Group Coaching conflict
+  overlay), added ADDITIVELY to GOOGLE_OAUTH_SCOPES with include_granted_scopes.
+  Connections made before the scope existed lack it, so Google's free/busy 401/403s
+  → `CalendarScopeError` → the route returns `{connected:false, needsReconnect:true}`
+  and the coach must reconnect. freeBusy (not events.list) is deliberate: busy
+  intervals only, never event titles/details (privacy).
 
 ## Member-facing recording plan (decided, not yet built)
 

@@ -1,5 +1,5 @@
 import { db, coachGoogleConnectionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { encryptSecret, decryptSecret } from "./app-secrets-crypto";
 import {
   isGoogleOAuthConfigured,
@@ -110,6 +110,51 @@ async function countActiveConnections(): Promise<number> {
 export async function hasActiveOAuthConnections(): Promise<boolean> {
   if (!isGoogleOAuthConfigured()) return false;
   return (await countActiveConnections()) > 0;
+}
+
+/**
+ * Mint a fresh access token for ONE user's active OAuth connection, or null when
+ * that user has no live connection (or OAuth isn't configured). On a revoked /
+ * expired refresh token the connection is marked dead and null is returned.
+ */
+export async function getAccessTokenForUser(
+  userId: number,
+): Promise<string | null> {
+  if (!isGoogleOAuthConfigured()) return null;
+
+  const [row] = await db
+    .select({
+      id: coachGoogleConnectionsTable.id,
+      refreshTokenEnc: coachGoogleConnectionsTable.refreshTokenEnc,
+    })
+    .from(coachGoogleConnectionsTable)
+    .where(
+      and(
+        eq(coachGoogleConnectionsTable.userId, userId),
+        eq(coachGoogleConnectionsTable.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+
+  try {
+    const accessToken = await refreshAccessToken(decryptSecret(row.refreshTokenEnc));
+    await db
+      .update(coachGoogleConnectionsTable)
+      .set({ lastSyncAt: new Date() })
+      .where(eq(coachGoogleConnectionsTable.id, row.id));
+    return accessToken;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[CoachGoogle] Failed to refresh access token for user ${userId}: ${message}`,
+    );
+    await db
+      .update(coachGoogleConnectionsTable)
+      .set({ status: "error", lastError: message.slice(0, 500) })
+      .where(eq(coachGoogleConnectionsTable.id, row.id));
+    return null;
+  }
 }
 
 /**
