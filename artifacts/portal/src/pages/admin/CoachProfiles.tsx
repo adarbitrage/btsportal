@@ -10,8 +10,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -42,13 +42,19 @@ interface CoachForm {
   specialties: string;
   bio: string;
   photoUrl: string;
+  callTypes: string;
+  timezone: string;
 }
+
+const DEFAULT_TIMEZONE = "America/New_York";
 
 const EMPTY_FORM: CoachForm = {
   name: "",
   specialties: "",
   bio: "",
   photoUrl: "",
+  callTypes: "",
+  timezone: DEFAULT_TIMEZONE,
 };
 
 function coachInitials(name: string): string {
@@ -69,12 +75,12 @@ export default function CoachProfiles() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDelete, setPendingDelete] = useState<AdminCoach | null>(null);
 
   const coaches = data?.coaches ?? [];
   const isEditing = form.id !== undefined;
-  const isSaving = updateMutation.isPending || createMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -113,6 +119,8 @@ export default function CoachProfiles() {
       specialties: coach.specialties,
       bio: coach.bio,
       photoUrl: coach.photoUrl ?? "",
+      callTypes: coach.callTypes.join(", "),
+      timezone: coach.timezone || DEFAULT_TIMEZONE,
     });
     setOpen(true);
   }
@@ -148,6 +156,11 @@ export default function CoachProfiles() {
       specialties: form.specialties.trim(),
       bio: form.bio.trim(),
       photoUrl: photoUrl || null,
+      callTypes: form.callTypes
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      timezone: form.timezone.trim() || DEFAULT_TIMEZONE,
     };
 
     try {
@@ -161,7 +174,7 @@ export default function CoachProfiles() {
       setOpen(false);
     } catch (err) {
       toast({
-        title: "Could not save coach",
+        title: form.id !== undefined ? "Could not save coach" : "Could not add coach",
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
@@ -188,11 +201,11 @@ export default function CoachProfiles() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
+    if (!pendingDelete) return;
     try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
+      await deleteMutation.mutateAsync(pendingDelete.id);
       toast({ title: "Coach removed" });
-      setDeleteTarget(null);
+      setPendingDelete(null);
     } catch (err) {
       toast({
         title: "Could not remove coach",
@@ -303,7 +316,7 @@ export default function CoachProfiles() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDeleteTarget(coach)}
+                      onClick={() => setPendingDelete(coach)}
                       data-testid={`delete-coach-${coach.id}`}
                       className="text-destructive hover:text-destructive"
                     >
@@ -417,6 +430,31 @@ export default function CoachProfiles() {
                 data-testid="coach-bio"
               />
             </div>
+            <div>
+              <Label className="text-xs">Call Types</Label>
+              <Input
+                value={form.callTypes}
+                onChange={(e) => setForm({ ...form, callTypes: e.target.value })}
+                placeholder="e.g. weekly_qa, strategy"
+                data-testid="coach-call-types"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Comma-separated list of the call types this coach runs.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Timezone</Label>
+              <Input
+                value={form.timezone}
+                onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+                placeholder="America/New_York"
+                maxLength={64}
+                data-testid="coach-timezone"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                IANA timezone (e.g. America/New_York, Europe/London).
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -431,28 +469,24 @@ export default function CoachProfiles() {
               disabled={isSaving}
               data-testid="save-coach"
             >
-              {isSaving
-                ? "Saving…"
-                : isEditing
-                  ? "Save"
-                  : "Add Coach"}
+              {isSaving ? "Saving…" : isEditing ? "Save" : "Add Coach"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog
-        open={deleteTarget !== null}
+        open={pendingDelete !== null}
         onOpenChange={(o) => {
-          if (!o) setDeleteTarget(null);
+          if (!o) setPendingDelete(null);
         }}
       >
         <AlertDialogContent data-testid="delete-coach-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this coach?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget
-                ? `"${deleteTarget.name}" will be removed from the member Coaching page. If this coach is assigned to any scheduled coaching calls, you'll need to reassign or remove those calls first.`
+              {pendingDelete
+                ? `${pendingDelete.name} will be removed from the member "Your Coaches" section. If they're still assigned to upcoming coaching calls, you'll need to reassign or remove those calls first.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -463,7 +497,7 @@ export default function CoachProfiles() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                handleDelete();
+                void handleDelete();
               }}
               disabled={deleteMutation.isPending}
               data-testid="confirm-delete-coach"

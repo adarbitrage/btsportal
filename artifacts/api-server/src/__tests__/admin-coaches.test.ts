@@ -406,7 +406,7 @@ describe("admin coach profiles", () => {
       .delete(`/api/admin/coaching/coaches/${guarded.id}`)
       .set("Cookie", adminCookie);
     expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/scheduled coaching call/i);
+    expect(res.body.error).toMatch(/upcoming coaching call/i);
 
     // Coach must still exist.
     const rows = await db
@@ -526,5 +526,184 @@ describe("admin coach profiles", () => {
       .set("Cookie", memberCookie)
       .send({ ids: [coachId] });
     expect(res.status).toBe(403);
+  });
+});
+
+describe("admin coach create", () => {
+  const created: number[] = [];
+
+  afterAll(async () => {
+    if (created.length) {
+      await db.delete(coachesTable).where(inArray(coachesTable.id, created));
+    }
+  });
+
+  it("creates a coach that shows on the member coaching page", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} New Coach`,
+        specialties: "Email Marketing",
+        bio: "A brand new coach",
+        photoUrl: "https://example.test/new-coach.png",
+        callTypes: ["weekly_qa", "strategy"],
+        timezone: "Europe/London",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      name: `${TAG} New Coach`,
+      specialties: "Email Marketing",
+      bio: "A brand new coach",
+      photoUrl: "https://example.test/new-coach.png",
+      callTypes: ["weekly_qa", "strategy"],
+      timezone: "Europe/London",
+    });
+    expect(typeof res.body.id).toBe("number");
+    created.push(res.body.id);
+
+    // The member /coaches endpoint only lists active group-call coaches, so the
+    // new row must have those flags set for it to surface there. The scheduling
+    // fields must persist exactly as sent.
+    const [row] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, res.body.id));
+    expect(row.doesGroupCalls).toBe(true);
+    expect(row.isActive).toBe(true);
+    expect(row.callTypes).toEqual(["weekly_qa", "strategy"]);
+    expect(row.timezone).toBe("Europe/London");
+  });
+
+  it("falls back to schema defaults when scheduling fields are omitted", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} Default Coach`,
+        specialties: "Funnels",
+        bio: "No scheduling fields supplied",
+      });
+    expect(res.status).toBe(201);
+    created.push(res.body.id);
+    expect(res.body.callTypes).toEqual([]);
+    expect(res.body.timezone).toBe("America/New_York");
+  });
+
+  it("rejects an invalid timezone", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} Bad TZ`,
+        specialties: "Funnels",
+        bio: "Bad timezone",
+        timezone: "Not/AZone",
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/timezone/i);
+  });
+
+  it("rejects creation when a required field is missing", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({ name: "Only A Name" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/specialty/i);
+  });
+
+  it("updates scheduling fields on an existing coach", async () => {
+    const [created2] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Patchable`, callTypes: ["weekly_qa"] })
+      .returning({ id: coachesTable.id });
+    created.push(created2.id);
+
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${created2.id}`)
+      .set("Cookie", adminCookie)
+      .send({ callTypes: ["mastermind"], timezone: "America/Chicago" });
+    expect(res.status).toBe(200);
+    expect(res.body.callTypes).toEqual(["mastermind"]);
+    expect(res.body.timezone).toBe("America/Chicago");
+  });
+});
+
+describe("admin coach delete", () => {
+  let plainCoachId = 0;
+  let busyCoachId = 0;
+  let callId = 0;
+
+  beforeAll(async () => {
+    const [plain] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Deletable` })
+      .returning({ id: coachesTable.id });
+    plainCoachId = plain.id;
+
+    const [busy] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Busy` })
+      .returning({ id: coachesTable.id });
+    busyCoachId = busy.id;
+
+    const [call] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} Upcoming`,
+        description: "",
+        coachId: busyCoachId,
+        scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+      .returning({ id: coachingCallsTable.id });
+    callId = call.id;
+  });
+
+  afterAll(async () => {
+    if (callId) {
+      await db.delete(coachingCallsTable).where(eq(coachingCallsTable.id, callId));
+    }
+    const ids = [plainCoachId, busyCoachId].filter(Boolean);
+    if (ids.length) {
+      await db.delete(coachesTable).where(inArray(coachesTable.id, ids));
+    }
+  });
+
+  it("blocks deletion when the coach has an upcoming call", async () => {
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/${busyCoachId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/upcoming/i);
+
+    // The coach must still exist after the blocked delete.
+    const [row] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, busyCoachId));
+    expect(row).toBeTruthy();
+  });
+
+  it("deletes a coach with no assigned calls", async () => {
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/${plainCoachId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+
+    const rows = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, plainCoachId));
+    expect(rows).toHaveLength(0);
+    plainCoachId = 0;
+  });
+
+  it("returns 404 when deleting an unknown coach", async () => {
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/99999999`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(404);
   });
 });

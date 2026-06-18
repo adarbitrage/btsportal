@@ -34,6 +34,8 @@ export interface AdminCoach {
   specialties: string;
   bio: string;
   photoUrl: string | null;
+  callTypes: string[];
+  timezone: string;
   sortOrder: number;
 }
 
@@ -42,6 +44,8 @@ export interface CoachProfileInput {
   specialties: string;
   bio: string;
   photoUrl: string | null;
+  callTypes: string[];
+  timezone: string;
 }
 
 export function useAdminCoaches() {
@@ -93,35 +97,48 @@ export async function uploadCoachPhoto(file: File): Promise<string> {
   return meta.objectPath;
 }
 
-export function useUpdateCoach() {
+// Invalidate both the admin roster list and the member-facing "Your Coaches"
+// grid so add / edit / remove changes show immediately in both places.
+function useInvalidateCoaches() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...input }: CoachProfileInput & { id: number }) =>
-      adminFetch<AdminCoach>(`/admin/coaching/coaches/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      // Refresh the member-facing "Your Coaches" grid so edits show immediately.
-      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
-    },
-  });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
+    queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
+  };
 }
 
 export function useCreateCoach() {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateCoaches();
   return useMutation({
     mutationFn: (input: CoachProfileInput) =>
       adminFetch<AdminCoach>("/admin/coaching/coaches", {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      // Refresh the member-facing "Your Coaches" grid so the new coach shows up.
-      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
-    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateCoach() {
+  const invalidate = useInvalidateCoaches();
+  return useMutation({
+    mutationFn: ({ id, ...input }: CoachProfileInput & { id: number }) =>
+      adminFetch<AdminCoach>(`/admin/coaching/coaches/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteCoach() {
+  const invalidate = useInvalidateCoaches();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<{ ok: true }>(`/admin/coaching/coaches/${id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: invalidate,
   });
 }
 
@@ -163,21 +180,6 @@ export function useReorderCoaches() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
       // Reflect the new order on the member-facing "Your Coaches" grid.
-      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
-    },
-  });
-}
-
-export function useDeleteCoach() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) =>
-      adminFetch<void>(`/admin/coaching/coaches/${id}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      // Refresh the member-facing "Your Coaches" grid so the removal shows up.
       queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
   });
