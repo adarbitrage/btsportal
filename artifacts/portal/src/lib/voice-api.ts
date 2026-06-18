@@ -33,10 +33,36 @@ export interface WebCallResponse {
   call_id: string;
 }
 
+export interface VoiceCallRecord {
+  id: number;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  summary: string | null;
+  transcript: string | null;
+  disconnect_reason: string | null;
+}
+
+export interface VoiceCallsResponse {
+  calls: VoiceCallRecord[];
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
 export function useVoiceStatus() {
   return useQuery<VoiceStatus>({
     queryKey: ["voice", "status"],
     queryFn: () => voiceFetch("/voice/status"),
+    staleTime: 30_000,
+  });
+}
+
+export function useVoiceCalls(limit = 10, offset = 0) {
+  return useQuery<VoiceCallsResponse>({
+    queryKey: ["voice", "calls", limit, offset],
+    queryFn: () => voiceFetch(`/voice/calls?limit=${limit}&offset=${offset}`),
     staleTime: 30_000,
   });
 }

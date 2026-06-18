@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDocsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement } from "../lib/entitlements";
@@ -96,6 +96,58 @@ router.get("/voice/status", async (req: Request, res: Response): Promise<void> =
     seconds_used_today: secondsUsedToday,
     seconds_remaining: secondsRemaining,
   });
+});
+
+router.get("/voice/calls", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.userId!;
+
+  const rawLimit = parseInt(String(req.query.limit ?? "10"), 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 10;
+  const rawOffset = parseInt(String(req.query.offset ?? "0"), 10);
+  const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
+
+  try {
+    const onlyEnded = sql`${voiceCallsTable.endedAt} IS NOT NULL`;
+
+    const rows = await db
+      .select({
+        id: voiceCallsTable.id,
+        status: voiceCallsTable.status,
+        startedAt: voiceCallsTable.startedAt,
+        endedAt: voiceCallsTable.endedAt,
+        durationSeconds: voiceCallsTable.durationSeconds,
+        summary: voiceCallsTable.summary,
+        transcript: voiceCallsTable.transcript,
+        disconnectReason: voiceCallsTable.disconnectReason,
+      })
+      .from(voiceCallsTable)
+      .where(and(eq(voiceCallsTable.userId, userId), onlyEnded))
+      .orderBy(desc(voiceCallsTable.startedAt))
+      .limit(limit + 1)
+      .offset(offset);
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    res.json({
+      calls: page.map((c) => ({
+        id: c.id,
+        status: c.status,
+        started_at: c.startedAt instanceof Date ? c.startedAt.toISOString() : c.startedAt,
+        ended_at: c.endedAt instanceof Date ? c.endedAt.toISOString() : c.endedAt,
+        duration_seconds: c.durationSeconds,
+        summary: c.summary,
+        transcript: c.transcript,
+        disconnect_reason: c.disconnectReason,
+      })),
+      limit,
+      offset,
+      has_more: hasMore,
+    });
+  } catch (err) {
+    console.error("[Voice] Failed to fetch call history:", err);
+    res.status(500).json({ error: "Failed to load call history." });
+  }
 });
 
 router.post("/voice/web-call", async (req: Request, res: Response): Promise<void> => {

@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { VoiceCall } from "@/components/voice/VoiceCall";
+import { PastCalls } from "@/components/voice/PastCalls";
 import { useVoiceStatus } from "@/lib/voice-api";
 import { Mic, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
@@ -103,6 +104,8 @@ export default function VoiceAssistant() {
             <VoiceCall />
           </div>
         )}
+
+        {hasAccess && <PastCalls />}
       </div>
     </AppLayout>
   );
