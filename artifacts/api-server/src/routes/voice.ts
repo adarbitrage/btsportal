@@ -422,9 +422,23 @@ router.get(
     const userIdRaw = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
     const userId = userIdRaw != null ? parseInt(String(userIdRaw), 10) : NaN;
     const hasUserFilter = Number.isInteger(userId) && userId > 0;
-    const whereClause = hasUserFilter
-      ? sql`WHERE c.user_id = ${userId}`
-      : sql``;
+
+    const qRaw = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+    const q = typeof qRaw === "string" ? qRaw.trim().slice(0, 200) : "";
+    const hasSearch = q.length > 0;
+    const pattern = hasSearch ? `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%` : "";
+
+    const filters = [];
+    if (hasUserFilter) {
+      filters.push(sql`c.user_id = ${userId}`);
+    }
+    if (hasSearch) {
+      filters.push(sql`(u.name ILIKE ${pattern} OR u.email ILIKE ${pattern})`);
+    }
+    const whereClause =
+      filters.length > 0
+        ? sql`WHERE ${sql.join(filters, sql` AND `)}`
+        : sql``;
 
     const rowsResult = await db.execute(
       sql`SELECT
@@ -447,7 +461,7 @@ router.get(
     );
 
     const countResult = await db.execute(
-      sql`SELECT COUNT(*)::int AS total FROM voice_calls c ${whereClause}`
+      sql`SELECT COUNT(*)::int AS total FROM voice_calls c JOIN users u ON u.id = c.user_id ${whereClause}`
     );
     const total = Number((countResult.rows[0] as Record<string, unknown>)?.total ?? 0) || 0;
 

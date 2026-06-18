@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   adminPanelApi,
@@ -35,6 +36,8 @@ import {
   FileText,
   Loader2,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
 
 type Period = "today" | "week" | "month";
@@ -90,6 +93,8 @@ export default function VoiceUsage() {
   const [callsLoading, setCallsLoading] = useState(true);
   const [callsPage, setCallsPage] = useState(1);
   const [drillUser, setDrillUser] = useState<{ id: number; name: string } | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   const [detail, setDetail] = useState<VoiceCallDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -115,13 +120,14 @@ export default function VoiceUsage() {
   );
 
   const loadCalls = useCallback(
-    async (page: number, userId?: number) => {
+    async (page: number, userId?: number, q?: string) => {
       setCallsLoading(true);
       try {
         const data = await adminPanelApi.getVoiceCalls({
           page,
           limit: CALLS_PAGE_SIZE,
           userId,
+          q,
         });
         setCalls(data);
       } catch (err) {
@@ -142,8 +148,19 @@ export default function VoiceUsage() {
   }, [period, loadUsage]);
 
   useEffect(() => {
-    loadCalls(callsPage, drillUser?.id);
-  }, [callsPage, drillUser, loadCalls]);
+    loadCalls(callsPage, drillUser?.id, search);
+  }, [callsPage, drillUser, search, loadCalls]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch((prev) => {
+        const next = searchInput.trim();
+        if (prev !== next) setCallsPage(1);
+        return next;
+      });
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   const openDetail = useCallback(
     async (id: number) => {
@@ -200,7 +217,7 @@ export default function VoiceUsage() {
             size="sm"
             onClick={() => {
               loadUsage(period);
-              loadCalls(callsPage, drillUser?.id);
+              loadCalls(callsPage, drillUser?.id, search);
             }}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -353,7 +370,7 @@ export default function VoiceUsage() {
 
         {/* Calls */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+          <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               {drillUser && (
                 <Button variant="outline" size="sm" onClick={clearDrill}>
@@ -365,9 +382,32 @@ export default function VoiceUsage() {
                 {drillUser ? `Calls — ${drillUser.name}` : "All Calls"}
               </CardTitle>
             </div>
-            {calls && (
-              <span className="text-xs text-muted-foreground">{calls.total} total</span>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by name or email"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-8 pr-8"
+                  aria-label="Search calls by member name or email"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInput("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {calls && (
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{calls.total} total</span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {callsLoading ? (
@@ -377,7 +417,9 @@ export default function VoiceUsage() {
                 ))}
               </div>
             ) : !calls || calls.calls.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No calls found.</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                {search ? `No calls found matching "${search}".` : "No calls found."}
+              </p>
             ) : (
               <>
                 <Table>

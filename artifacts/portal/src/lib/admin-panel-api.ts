@@ -1915,11 +1915,12 @@ export const adminPanelApi = {
     return res.json();
   },
 
-  async getVoiceCalls(params: { userId?: number; page?: number; limit?: number } = {}): Promise<VoiceCallsResponse> {
+  async getVoiceCalls(params: { userId?: number; page?: number; limit?: number; q?: string } = {}): Promise<VoiceCallsResponse> {
     const qs = new URLSearchParams();
     if (params.userId) qs.set("userId", String(params.userId));
     if (params.page) qs.set("page", String(params.page));
     if (params.limit) qs.set("limit", String(params.limit));
+    if (params.q && params.q.trim()) qs.set("q", params.q.trim());
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     const res = await authFetch(`/admin/voice/calls${suffix}`);
     if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch voice calls");
