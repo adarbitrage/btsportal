@@ -22,10 +22,13 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   adminPanelApi,
+  saveBlobAsFile,
   type VoiceUsageResponse,
   type VoiceCallsResponse,
   type VoiceCallDetail,
+  type StreamDownloadProgress,
 } from "@/lib/admin-panel-api";
+import { formatDownloadProgress } from "@/lib/download-progress";
 import {
   Mic,
   Clock,
@@ -38,6 +41,7 @@ import {
   RefreshCw,
   Search,
   X,
+  Download,
 } from "lucide-react";
 
 type Period = "today" | "week" | "month";
@@ -99,6 +103,8 @@ export default function VoiceUsage() {
   const [detail, setDetail] = useState<VoiceCallDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  const [exportProgress, setExportProgress] = useState<StreamDownloadProgress | null>(null);
 
   const loadUsage = useCallback(
     async (p: Period) => {
@@ -183,6 +189,32 @@ export default function VoiceUsage() {
     },
     [toast],
   );
+
+  const handleExport = useCallback(async () => {
+    // The button is also disabled while an export runs, but guard against a
+    // stale Enter / double-tap re-entering before the disabled state renders.
+    if (exportProgress) return;
+    setExportProgress({ bytesReceived: 0, rowsReceived: null });
+    try {
+      const { blob } = await adminPanelApi.exportVoiceCalls(
+        { userId: drillUser?.id },
+        (progress) => setExportProgress(progress),
+      );
+      const filename = drillUser
+        ? `voice-calls-member-${drillUser.id}-export.csv`
+        : "voice-calls-export.csv";
+      saveBlobAsFile(blob, filename);
+      toast({ title: "Export complete" });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setExportProgress(null);
+    }
+  }, [exportProgress, drillUser, toast]);
 
   const drillIntoMember = (id: number, name: string) => {
     setDrillUser({ id, name });
@@ -404,9 +436,35 @@ export default function VoiceUsage() {
                   </button>
                 )}
               </div>
+              {exportProgress && (
+                <span
+                  className="text-xs text-muted-foreground tabular-nums"
+                  aria-live="polite"
+                  data-testid="text-voice-export-progress"
+                >
+                  {formatDownloadProgress({
+                    bytesReceived: exportProgress.bytesReceived,
+                    rowsReceived: exportProgress.rowsReceived,
+                  })}
+                </span>
+              )}
               {calls && (
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{calls.total} total</span>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={!!exportProgress || (calls != null && calls.total === 0)}
+                data-testid="button-export-voice-calls"
+              >
+                {exportProgress ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-1" />
+                )}
+                {exportProgress ? "Exporting…" : "Export CSV"}
+              </Button>
             </div>
           </CardHeader>
           <CardContent>

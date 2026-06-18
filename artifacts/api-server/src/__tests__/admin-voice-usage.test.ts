@@ -3,7 +3,7 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
+import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, auditLogTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
@@ -78,6 +78,10 @@ afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(voiceCallsTable).where(inArray(voiceCallsTable.userId, seededUserIds));
     await db.delete(voiceDailyUsageTable).where(inArray(voiceDailyUsageTable.userId, seededUserIds));
+    // The CSV export test triggers logAdminAction, which writes audit_log rows
+    // referencing the seeded admin via actor_id; clear them before deleting
+    // users or the FK constraint blocks the delete.
+    await db.delete(auditLogTable).where(inArray(auditLogTable.actorId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
@@ -272,6 +276,59 @@ describe("GET /admin/voice/calls — pagination & userId filter", () => {
     expect(page2.status).toBe(200);
     expect(page2.body.page).toBe(2);
     expect((page2.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a3]);
+  });
+});
+
+describe("GET /admin/voice/calls/export — CSV export", () => {
+  it("rejects a non-admin member with 403", async () => {
+    const member = await seedUser("member");
+    const res = await request(app)
+      .get("/api/admin/voice/calls/export")
+      .set("Cookie", member.cookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("streams a member-filtered CSV with header + one row per call", async () => {
+    const admin = await seedUser("admin");
+    const user = await seedUser("member");
+
+    const base = Date.now();
+    await insertCall(user.id, new Date(base - 1000));
+    await insertCall(user.id, new Date(base - 2000));
+
+    const res = await request(app)
+      .get(`/api/admin/voice/calls/export?userId=${user.id}`)
+      .set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.headers["content-disposition"]).toContain(
+      `voice-calls-member-${user.id}-export.csv`,
+    );
+
+    const lines = res.text.trim().split("\n");
+    expect(lines[0]).toBe(
+      "member,email,status,started_at,ended_at,duration_seconds,has_transcript,has_summary",
+    );
+    // Two seeded calls => two data rows.
+    expect(lines.length).toBe(3);
+    // Seeded calls have a transcript + summary, status "ended", duration 60.
+    for (const line of lines.slice(1)) {
+      expect(line).toContain("Member Voice Test");
+      expect(line).toContain("ended");
+      expect(line).toContain("60");
+      expect(line).toContain("true,true");
+    }
+  });
+
+  it("does not collide with the /:id detail route (export is not parsed as an id)", async () => {
+    const admin = await seedUser("admin");
+    const res = await request(app)
+      .get("/api/admin/voice/calls/export")
+      .set("Cookie", admin.cookie);
+    // If "export" fell through to /:id it would 400 (invalid id). It must 200.
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
   });
 });
 

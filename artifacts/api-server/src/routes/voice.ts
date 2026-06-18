@@ -6,6 +6,8 @@ import Retell from "retell-sdk";
 import { hasEntitlement } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
 import { requirePermission } from "../middleware/rbac";
+import { csvEscape } from "../lib/csv";
+import { logAdminAction } from "../lib/audit-log";
 import crypto from "crypto";
 
 const router = Router();
@@ -483,6 +485,95 @@ router.get(
       page,
       limit,
     });
+  }
+);
+
+// Streaming CSV export of the (optionally member-filtered) call log. Mirrors
+// the `/admin/voice/calls` read endpoint's filtering and ordering so the CSV
+// matches exactly what the admin sees in the table before clicking Export.
+// Streams row-by-row (text/csv) following the same pattern as the audit-log /
+// external-orders exports so large logs don't buffer in memory.
+router.get(
+  "/admin/voice/calls/export",
+  requirePermission("system:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const userIdRaw = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
+    const userId = userIdRaw != null ? parseInt(String(userIdRaw), 10) : NaN;
+    const hasUserFilter = Number.isInteger(userId) && userId > 0;
+    const whereClause = hasUserFilter ? sql`WHERE c.user_id = ${userId}` : sql``;
+
+    try {
+      const rowsResult = await db.execute(
+        sql`SELECT
+            c.id AS id,
+            u.name AS name,
+            u.email AS email,
+            c.status AS status,
+            c.started_at AS started_at,
+            c.ended_at AS ended_at,
+            c.duration_seconds AS duration_seconds,
+            c.disconnect_reason AS disconnect_reason,
+            (c.transcript IS NOT NULL AND c.transcript <> '') AS has_transcript,
+            (c.summary IS NOT NULL AND c.summary <> '') AS has_summary
+          FROM voice_calls c
+          JOIN users u ON u.id = c.user_id
+          ${whereClause}
+          ORDER BY c.started_at DESC`
+      );
+
+      const rows = rowsResult.rows as Record<string, unknown>[];
+
+      await logAdminAction(
+        req,
+        "export_data",
+        "voice_calls",
+        hasUserFilter ? String(userId) : undefined,
+        hasUserFilter
+          ? `Exported ${rows.length} voice call rows for member ${userId}`
+          : `Exported ${rows.length} voice call rows`,
+      );
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${hasUserFilter ? `voice-calls-member-${userId}` : "voice-calls"}-export.csv`,
+      );
+      res.write(
+        "member,email,status,started_at,ended_at,duration_seconds,has_transcript,has_summary\n",
+      );
+
+      const toIso = (value: unknown): string => {
+        if (value == null) return "";
+        const d = value instanceof Date ? value : new Date(String(value));
+        return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+      };
+
+      for (const r of rows) {
+        res.write(
+          [
+            (r.name as string) ?? "",
+            (r.email as string) ?? "",
+            (r.status as string) ?? "",
+            toIso(r.started_at),
+            toIso(r.ended_at),
+            r.duration_seconds == null ? "" : String(Number(r.duration_seconds)),
+            r.has_transcript ? "true" : "false",
+            r.has_summary ? "true" : "false",
+          ]
+            .map(csvEscape)
+            .join(",") + "\n",
+        );
+      }
+
+      res.end();
+    } catch (error) {
+      console.error("[Voice] Calls export error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to export voice calls" });
+      } else {
+        res.end();
+      }
+    }
   }
 );
 

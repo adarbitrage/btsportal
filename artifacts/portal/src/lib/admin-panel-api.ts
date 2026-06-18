@@ -1932,6 +1932,21 @@ export const adminPanelApi = {
     if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch call");
     return res.json();
   },
+
+  async exportVoiceCalls(
+    params: { userId?: number } = {},
+    onProgress?: (progress: StreamDownloadProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<StreamDownloadResult> {
+    const qs = new URLSearchParams();
+    if (params.userId) qs.set("userId", String(params.userId));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await authFetch(`/admin/voice/calls/export${suffix}`, { signal });
+    if (!res.ok) {
+      throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to export voice calls");
+    }
+    return streamDownload(res, "csv", onProgress);
+  },
 };
 
 export type VoiceUsageTotalsWindow = { seconds: number; calls: number };
