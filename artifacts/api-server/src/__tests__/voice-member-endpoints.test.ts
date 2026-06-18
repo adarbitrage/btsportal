@@ -12,7 +12,7 @@ import {
   userProductsTable,
   knowledgebaseDocsTable,
 } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { inArray, eq } from "drizzle-orm";
 
 // voice.ts captures RETELL_FUNCTION_SECRET into a module-level const at import
 // time, so it must be set BEFORE the router module is evaluated. vi.hoisted runs
@@ -23,6 +23,25 @@ const KB_SECRET = vi.hoisted(() => {
   process.env.RETELL_FUNCTION_SECRET = secret;
   return secret;
 });
+
+// voice.ts also captures RETELL_API_KEY / RETELL_AGENT_ID into module-level
+// consts at import time. POST /voice/web-call short-circuits with a 500 unless
+// both are set, so seed them here (ahead of the static import below) to exercise
+// the real entitlement + daily-cap gates rather than the missing-config branch.
+const RETELL = vi.hoisted(() => {
+  process.env.RETELL_API_KEY = "test-retell-api-key";
+  process.env.RETELL_AGENT_ID = "agent_test";
+  return { apiKey: "test-retell-api-key", agentId: "agent_test" };
+});
+
+// Mock the Retell SDK so a started call never reaches the live service. The
+// hoisted handle lets each test control what createWebCall returns (or throws).
+const retellMock = vi.hoisted(() => ({ createWebCall: vi.fn() }));
+vi.mock("retell-sdk", () => ({
+  default: class {
+    call = { createWebCall: retellMock.createWebCall };
+  },
+}));
 
 import voiceRouter from "../routes/voice";
 import { buildTestAppWithRouters } from "./test-app";
@@ -396,5 +415,106 @@ describe("POST /api/voice/kb-search", () => {
       // Reaching the 400 validation proves the timingSafeEqual gate accepted it.
       expect(res.status).toBe(400);
     });
+  });
+});
+
+describe("POST /api/voice/web-call", () => {
+  beforeEach(() => {
+    retellMock.createWebCall.mockReset();
+  });
+
+  it("returns 403 voice_access_required for a member without the voice entitlement", async () => {
+    const member = await seedUser("member", "webcall-noaccess");
+
+    const res = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("voice_access_required");
+    // The Retell SDK must never be touched once the entitlement gate rejects.
+    expect(retellMock.createWebCall).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 voice_cap_reached for an entitled member at/over the daily cap", async () => {
+    const member = await seedUser("member", "webcall-capped");
+    await grantVoiceAccess(member.id, "webcall-capped");
+
+    // Probe the configured cap, then drive today's usage to exactly the cap.
+    const probe = await request(app).get("/api/voice/status").set("Cookie", member.cookie);
+    const cap = probe.body.daily_cap_seconds as number;
+    await insertUsage(member.id, todayUtc(), cap);
+
+    const res = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("voice_cap_reached");
+    expect(retellMock.createWebCall).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin over the daily cap bypass the cap and start a call", async () => {
+    const admin = await seedUser("super_admin", "webcall-admin");
+    // Admin is over the cap; the cap gate must NOT apply to admins.
+    const probe = await request(app).get("/api/voice/status").set("Cookie", admin.cookie);
+    const cap = probe.body.daily_cap_seconds as number;
+    await insertUsage(admin.id, todayUtc(), cap + 500);
+
+    retellMock.createWebCall.mockResolvedValue({
+      call_id: `${TEST_TAG}-admin-call`,
+      call_status: "registered",
+      access_token: "admin-access-token",
+    });
+
+    const res = await request(app).post("/api/voice/web-call").set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.access_token).toBe("admin-access-token");
+    expect(res.body.call_id).toBe(`${TEST_TAG}-admin-call`);
+    expect(retellMock.createWebCall).toHaveBeenCalledTimes(1);
+
+    // Track the inserted call row for cleanup.
+    const [inserted] = await db
+      .select({ id: voiceCallsTable.id })
+      .from(voiceCallsTable)
+      .where(eq(voiceCallsTable.retellCallId, `${TEST_TAG}-admin-call`));
+    if (inserted) insertedCallIds.push(inserted.id);
+  });
+
+  it("starts a call for an entitled member under the cap and records a voice_calls row", async () => {
+    const member = await seedUser("member", "webcall-success");
+    await grantVoiceAccess(member.id, "webcall-success");
+
+    const retellCallId = `${TEST_TAG}-member-call`;
+    retellMock.createWebCall.mockResolvedValue({
+      call_id: retellCallId,
+      call_status: "registered",
+      access_token: "member-access-token",
+    });
+
+    const res = await request(app).post("/api/voice/web-call").set("Cookie", member.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.access_token).toBe("member-access-token");
+    expect(res.body.call_id).toBe(retellCallId);
+
+    // The SDK was invoked with the configured agent id and our member metadata.
+    expect(retellMock.createWebCall).toHaveBeenCalledTimes(1);
+    const callArg = retellMock.createWebCall.mock.calls[0][0];
+    expect(callArg.agent_id).toBe(RETELL.agentId);
+    expect(callArg.metadata).toEqual({ bts_user_id: member.id });
+
+    // A voice_calls row must persist for the started call.
+    const [inserted] = await db
+      .select({
+        id: voiceCallsTable.id,
+        userId: voiceCallsTable.userId,
+        status: voiceCallsTable.status,
+        endedAt: voiceCallsTable.endedAt,
+      })
+      .from(voiceCallsTable)
+      .where(eq(voiceCallsTable.retellCallId, retellCallId));
+    expect(inserted).toBeTruthy();
+    expect(inserted.userId).toBe(member.id);
+    expect(inserted.status).toBe("registered");
+    expect(inserted.endedAt).toBeNull();
+    insertedCallIds.push(inserted.id);
   });
 });
