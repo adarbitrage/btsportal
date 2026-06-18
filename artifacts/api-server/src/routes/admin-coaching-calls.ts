@@ -239,13 +239,13 @@ function parseTemplateBody(
   return { values };
 }
 
-type TemplateRow = typeof coachingCallTemplatesTable.$inferSelect;
+export type TemplateRow = typeof coachingCallTemplatesTable.$inferSelect;
 
 // Compute the next `count` occurrence datetimes for a template. Generation
 // always moves strictly forward: from the watermark when one exists, otherwise
 // from the anchor. This is what guarantees a cancelled occurrence is never
 // re-created on a later pass.
-function nextOccurrences(template: TemplateRow, count: number): Date[] {
+export function nextOccurrences(template: TemplateRow, count: number): Date[] {
   const intervalMs = template.intervalDays * DAY_MS;
   const occurrences: Date[] = [];
   let next = template.lastGeneratedAt
@@ -261,7 +261,7 @@ function nextOccurrences(template: TemplateRow, count: number): Date[] {
 // Insert `count` upcoming occurrences as coaching_calls rows and advance the
 // template watermark. onConflictDoNothing on (template_id, scheduled_at) keeps
 // it idempotent under double-clicks / retries.
-async function generateForTemplate(
+export async function generateForTemplate(
   template: TemplateRow,
   count: number,
 ): Promise<{ created: number; through: Date }> {
