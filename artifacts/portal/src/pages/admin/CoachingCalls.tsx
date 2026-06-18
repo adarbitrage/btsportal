@@ -20,7 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Calendar, Video, Link2, Repeat, CalendarPlus, Pause, Play } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Video, Link2, Repeat, CalendarPlus, Pause, Play, UserCog, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +38,7 @@ import {
   useCreateCoachingCall,
   useUpdateCoachingCall,
   useDeleteCoachingCall,
+  useReassignCoachingCall,
   useCoachingCallTemplates,
   useCreateCoachingCallTemplate,
   useUpdateCoachingCallTemplate,
@@ -116,10 +125,12 @@ export default function CoachingCalls() {
   const createMutation = useCreateCoachingCall();
   const updateMutation = useUpdateCoachingCall();
   const deleteMutation = useDeleteCoachingCall();
+  const reassignMutation = useReassignCoachingCall();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CallForm>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<AdminCoachingCall | null>(null);
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
 
   const calls = data?.calls ?? [];
   const coaches = coachData?.coaches ?? [];
@@ -199,6 +210,27 @@ export default function CoachingCalls() {
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
+    }
+  }
+
+  async function handleReassign(call: AdminCoachingCall, coachId: number) {
+    if (coachId === call.coachId) return;
+    const coachName = coaches.find((c) => c.id === coachId)?.name ?? "the new coach";
+    setReassigningId(call.id);
+    try {
+      await reassignMutation.mutateAsync({ id: call.id, coachId });
+      toast({
+        title: "Call reassigned",
+        description: `"${call.title}" is now hosted by ${coachName}.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not reassign call",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setReassigningId(null);
     }
   }
 
@@ -449,6 +481,38 @@ export default function CoachingCalls() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={reassigningId === call.id}
+                          data-testid={`reassign-call-${call.id}`}
+                          title="Reassign this call to another coach"
+                        >
+                          <UserCog className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuLabel>Reassign to coach</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {coaches.map((coach) => (
+                          <DropdownMenuItem
+                            key={coach.id}
+                            disabled={
+                              coach.id === call.coachId || reassigningId === call.id
+                            }
+                            onSelect={() => handleReassign(call, coach.id)}
+                            data-testid={`reassign-call-${call.id}-coach-${coach.id}`}
+                          >
+                            <span className="flex-1 truncate">{coach.name}</span>
+                            {coach.id === call.coachId ? (
+                              <Check className="w-4 h-4 text-primary shrink-0" />
+                            ) : null}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost"
                       size="sm"

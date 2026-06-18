@@ -142,6 +142,21 @@ export function useDeleteCoachingCall() {
   });
 }
 
+// Move a single call to another coach without touching any of its other
+// fields. Leans on the PATCH endpoint's partial-update support so the rest of
+// the series (and this call's title/time/link) stays put.
+export function useReassignCoachingCall() {
+  const invalidate = useInvalidateCalls();
+  return useMutation({
+    mutationFn: ({ id, coachId }: { id: number; coachId: number }) =>
+      adminFetch<AdminCoachingCall>(`/admin/coaching/calls/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ coachId }),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
 // --- Recurring templates ---------------------------------------------------
 
 const TEMPLATES_KEY = "/api/admin/coaching/calls/templates";
