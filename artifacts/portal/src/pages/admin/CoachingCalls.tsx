@@ -31,9 +31,6 @@ import {
   Pause,
   Play,
   Clock,
-  Users,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -173,23 +170,6 @@ export default function CoachingCalls() {
   const calls = data?.calls ?? [];
   const coaches = coachData?.coaches ?? [];
 
-  // Upcoming generated occurrences grouped by the schedule that owns them. Past
-  // calls are hidden from the peek — admins manage the schedule, not history.
-  const now = Date.now();
-  const upcomingByTemplate = new Map<number, AdminCoachingCall[]>();
-  for (const call of calls) {
-    if (call.templateId == null) continue;
-    if (new Date(call.scheduledAt).getTime() < now) continue;
-    const bucket = upcomingByTemplate.get(call.templateId);
-    if (bucket) bucket.push(call);
-    else upcomingByTemplate.set(call.templateId, [call]);
-  }
-  for (const bucket of upcomingByTemplate.values()) {
-    bucket.sort(
-      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
-    );
-  }
-
   // One-off calls have no recurring schedule (strategy / mastermind / VIP
   // sessions, or legacy stragglers). They keep their own simple list.
   const oneOffCalls = calls
@@ -293,7 +273,6 @@ export default function CoachingCalls() {
   const [templateDeleteTarget, setTemplateDeleteTarget] =
     useState<CoachingCallTemplate | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const templates = [...(templateData?.templates ?? [])].sort((a, b) => {
     const aw = new Date(a.anchorAt);
@@ -304,15 +283,6 @@ export default function CoachingCalls() {
       a.title.localeCompare(b.title)
     );
   });
-
-  function toggleExpanded(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function openNewTemplate() {
     setTemplateForm({
@@ -477,9 +447,6 @@ export default function CoachingCalls() {
         ) : (
           <div className="space-y-3">
             {templates.map((t) => {
-              const occurrences = upcomingByTemplate.get(t.id) ?? [];
-              const isExpanded = expanded.has(t.id);
-              const nextCall = occurrences[0];
               return (
                 <Card
                   key={t.id}
@@ -507,9 +474,6 @@ export default function CoachingCalls() {
                           >
                             {t.title}
                           </h3>
-                          <Badge variant="outline" className="text-[10px]">
-                            {callTypeLabel(t.callType)}
-                          </Badge>
                           {!t.active && (
                             <Badge
                               variant="secondary"
@@ -529,34 +493,6 @@ export default function CoachingCalls() {
                           <span>{t.durationMinutes} min</span>
                           <span>with {t.coachName}</span>
                         </div>
-                        {t.meetLink ? (
-                          <a
-                            href={t.meetLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-primary mt-1.5 truncate max-w-full hover:underline"
-                          >
-                            <Link2 className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{t.meetLink}</span>
-                          </a>
-                        ) : (
-                          <p className="text-xs text-amber-600 mt-1.5">No Meet link set</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          {t.active ? (
-                            nextCall ? (
-                              <>
-                                Next call{" "}
-                                {format(new Date(nextCall.scheduledAt), "EEE, MMM d")} •{" "}
-                                {occurrences.length} upcoming
-                              </>
-                            ) : (
-                              "No upcoming calls scheduled yet"
-                            )
-                          ) : (
-                            "Paused — no new calls will be generated until resumed"
-                          )}
-                        </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <div
@@ -593,80 +529,6 @@ export default function CoachingCalls() {
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(t.id)}
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                        data-testid={`template-occurrences-toggle-${t.id}`}
-                        aria-expanded={isExpanded}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
-                        Upcoming dates ({occurrences.length})
-                      </button>
-                      {isExpanded && (
-                        <div
-                          className="mt-2 space-y-1.5"
-                          data-testid={`template-occurrences-${t.id}`}
-                        >
-                          {occurrences.length === 0 ? (
-                            <p className="text-xs text-muted-foreground py-1">
-                              No upcoming calls on the schedule.
-                            </p>
-                          ) : (
-                            occurrences.map((call) => (
-                              <div
-                                key={call.id}
-                                data-testid={`occurrence-${call.id}`}
-                                className="flex items-center gap-3 text-xs rounded-md bg-muted/40 px-3 py-2"
-                              >
-                                <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span className="text-foreground">
-                                  {format(new Date(call.scheduledAt), "EEE, MMM d • h:mm a")}
-                                </span>
-                                {call.registeredCount > 0 && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] gap-1"
-                                    data-testid={`occurrence-reserved-${call.id}`}
-                                  >
-                                    <Users className="w-3 h-3" />
-                                    {call.registeredCount}
-                                  </Badge>
-                                )}
-                                <div className="ml-auto flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    onClick={() => openEdit(call)}
-                                    data-testid={`edit-call-${call.id}`}
-                                    title="Edit just this date"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    onClick={() => setDeleteTarget(call)}
-                                    data-testid={`delete-call-${call.id}`}
-                                    title="Cancel just this date"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>

@@ -225,11 +225,11 @@ describe("CoachingCalls schedule-first create/edit/delete", () => {
 
     await user.click(within(createDialog).getByTestId("save-template"));
 
-    // The new schedule card appears with the chosen coach + type.
+    // The new schedule card appears with the chosen coach (the simplified card
+    // shows only the title + schedule summary + coach, not the call type).
     const createdCard = await screen.findByTestId("template-100");
     expect(within(createdCard).getByText("Weekly Coaching Series")).toBeInTheDocument();
     expect(within(createdCard).getByText(/Bruce Coach/)).toBeInTheDocument();
-    expect(within(createdCard).getByText("Strategy")).toBeInTheDocument();
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({ title: "Weekly call scheduled" }),
