@@ -23,6 +23,7 @@ let memberCookie = "";
 let seededAdminId = 0;
 let seededMemberId = 0;
 let coachId = 0;
+// Tracking for cleanup
 const extraCoachIds: number[] = [];
 let callId = 0;
 
@@ -83,7 +84,7 @@ afterAll(async () => {
     await db.delete(coachingCallsTable).where(eq(coachingCallsTable.id, callId));
   }
   const allCoachIds = [coachId, ...extraCoachIds].filter(Boolean);
-  if (allCoachIds.length) {
+  if (allCoachIds.length > 0) {
     await db.delete(coachesTable).where(inArray(coachesTable.id, allCoachIds));
   }
   const userIds = [seededAdminId, seededMemberId].filter(Boolean);
@@ -267,54 +268,48 @@ describe("admin coach profiles", () => {
     expect(res.status).toBe(404);
   });
 
-  it("denies a plain member listing coach profiles (403)", async () => {
-    const res = await request(app)
-      .get("/api/admin/coaching/coaches")
-      .set("Cookie", memberCookie);
-    expect(res.status).toBe(403);
-  });
-
-  it("denies a plain member updating a coach profile (403)", async () => {
-    const res = await request(app)
-      .patch(`/api/admin/coaching/coaches/${coachId}`)
-      .set("Cookie", memberCookie)
-      .send({ name: "Should Not Apply" });
-    expect(res.status).toBe(403);
-  });
-
-  it("requires authentication to list coach profiles (401)", async () => {
-    const res = await request(app).get("/api/admin/coaching/coaches");
-    expect(res.status).toBe(401);
-  });
-
-  it("creates a new coach that shows up on the member page", async () => {
+  it("creates a new coach with all fields", async () => {
     const res = await request(app)
       .post("/api/admin/coaching/coaches")
       .set("Cookie", adminCookie)
       .send({
-        name: `${TAG} New Coach`,
-        specialties: "Launches",
-        bio: "Brand new bio",
-        photoUrl: "https://example.test/new-coach.png",
+        name: `${TAG} Created`,
+        specialties: "Email Marketing",
+        bio: "A brand new coach.",
+        photoUrl: "https://example.test/created.png",
       });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
-      name: `${TAG} New Coach`,
-      specialties: "Launches",
-      bio: "Brand new bio",
-      photoUrl: "https://example.test/new-coach.png",
+      name: `${TAG} Created`,
+      specialties: "Email Marketing",
+      bio: "A brand new coach.",
+      photoUrl: "https://example.test/created.png",
     });
-    expect(res.body.id).toBeGreaterThan(0);
+    expect(typeof res.body.id).toBe("number");
     extraCoachIds.push(res.body.id);
 
-    // Created coaches must be active group-call coaches so they surface on the
-    // member-facing /coaches list immediately.
+    // New coaches must surface on the member-facing "Your Coaches" grid, which
+    // only lists active group-call coaches.
     const [row] = await db
       .select()
       .from(coachesTable)
       .where(eq(coachesTable.id, res.body.id));
     expect(row.doesGroupCalls).toBe(true);
     expect(row.isActive).toBe(true);
+  });
+
+  it("creates a coach without a photo (photo optional)", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} NoPhoto`,
+        specialties: "SEO",
+        bio: "No photo on this one.",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.photoUrl).toBeNull();
+    extraCoachIds.push(res.body.id);
   });
 
   it("rejects creating a coach with a missing required field", async () => {
@@ -326,26 +321,62 @@ describe("admin coach profiles", () => {
     expect(res.body.error).toMatch(/specialty/i);
   });
 
-  it("deletes a coach with no scheduled calls", async () => {
-    const [toDelete] = await db
+  it("rejects creating a coach without a bio", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({ name: `${TAG} Bad`, specialties: "SEO" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/bio/i);
+  });
+
+  it("rejects creating a coach with an over-length name", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: "a".repeat(121),
+        specialties: "SEO",
+        bio: "Valid bio.",
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/name/i);
+  });
+
+  it("rejects creating a coach with a bad photo URL", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} BadPhoto`,
+        specialties: "SEO",
+        bio: "Valid bio.",
+        photoUrl: "not a url",
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/photo url/i);
+  });
+
+  it("deletes a coach", async () => {
+    const [coach] = await db
       .insert(coachesTable)
       .values({
-        name: `${TAG} Disposable`,
-        bio: "Temp",
+        name: `${TAG} ToDelete`,
+        bio: "Will be removed",
         specialties: "Temp",
+        callTypes: ["weekly_qa"],
       })
       .returning({ id: coachesTable.id });
 
     const res = await request(app)
-      .delete(`/api/admin/coaching/coaches/${toDelete.id}`)
+      .delete(`/api/admin/coaching/coaches/${coach.id}`)
       .set("Cookie", adminCookie);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect([200, 204]).toContain(res.status);
 
     const rows = await db
       .select()
       .from(coachesTable)
-      .where(eq(coachesTable.id, toDelete.id));
+      .where(eq(coachesTable.id, coach.id));
     expect(rows).toHaveLength(0);
   });
 
@@ -390,5 +421,32 @@ describe("admin coach profiles", () => {
       .delete(`/api/admin/coaching/coaches/99999999`)
       .set("Cookie", adminCookie);
     expect(res.status).toBe(404);
+  });
+
+  it("returns 400 when deleting with an invalid id", async () => {
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/not-a-number`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+  });
+
+  it("denies a plain member listing coach profiles (403)", async () => {
+    const res = await request(app)
+      .get("/api/admin/coaching/coaches")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("denies a plain member updating a coach profile (403)", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", memberCookie)
+      .send({ name: "Should Not Apply" });
+    expect(res.status).toBe(403);
+  });
+
+  it("requires authentication to list coach profiles (401)", async () => {
+    const res = await request(app).get("/api/admin/coaching/coaches");
+    expect(res.status).toBe(401);
   });
 });

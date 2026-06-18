@@ -31,6 +31,7 @@ interface ServerCoach {
 }
 
 let coaches: ServerCoach[];
+let nextId: number;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -48,12 +49,31 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
     return Promise.resolve(jsonResponse({ coaches }));
   }
 
+  if (path === "/api/admin/coaching/coaches" && method === "POST") {
+    const body = JSON.parse(String(options?.body ?? "{}"));
+    const created: ServerCoach = {
+      id: nextId++,
+      name: body.name,
+      specialties: body.specialties,
+      bio: body.bio,
+      photoUrl: body.photoUrl ?? null,
+    };
+    coaches = [...coaches, created];
+    return Promise.resolve(jsonResponse(created, 201));
+  }
+
   const idMatch = path.match(/^\/api\/admin\/coaching\/coaches\/(\d+)$/);
   if (idMatch && method === "PATCH") {
     const id = Number(idMatch[1]);
     const body = JSON.parse(String(options?.body ?? "{}"));
     coaches = coaches.map((c) => (c.id === id ? { ...c, ...body } : c));
     return Promise.resolve(jsonResponse(coaches.find((c) => c.id === id)));
+  }
+
+  if (idMatch && method === "DELETE") {
+    const id = Number(idMatch[1]);
+    coaches = coaches.filter((c) => c.id !== id);
+    return Promise.resolve(new Response(null, { status: 204 }));
   }
 
   return Promise.resolve(jsonResponse({ error: `Unhandled ${method} ${path}` }, 500));
@@ -82,6 +102,7 @@ beforeEach(() => {
       photoUrl: null,
     },
   ];
+  nextId = 100;
   toast.mockReset();
   vi.spyOn(globalThis, "fetch").mockImplementation(fakeFetch as typeof fetch);
 });
@@ -226,6 +247,107 @@ describe("CoachProfiles admin editor", () => {
           variant: "destructive",
         }),
       ),
+    );
+  });
+
+  it("adds a new coach and the list shows it", async () => {
+    const user = userEvent.setup();
+    const { invalidateSpy } = renderPage();
+
+    await screen.findByTestId("coach-42");
+    await user.click(screen.getByTestId("add-coach"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "Add Coach" }),
+    ).toBeInTheDocument();
+
+    await user.type(within(dialog).getByTestId("coach-name"), "Bruce New");
+    await user.type(
+      within(dialog).getByTestId("coach-specialty"),
+      "Cold Email",
+    );
+    await user.type(within(dialog).getByTestId("coach-bio"), "Fresh coach bio.");
+    await user.click(within(dialog).getByTestId("save-coach"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Coach added" }),
+      ),
+    );
+
+    const newCard = await screen.findByTestId("coach-100");
+    expect(within(newCard).getByText("Bruce New")).toBeInTheDocument();
+    expect(within(newCard).getByText("Cold Email")).toBeInTheDocument();
+
+    // Member-facing "Your Coaches" grid is refreshed so the new coach shows.
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/coaches"],
+    });
+  });
+
+  it("blocks adding a coach when a required field is missing", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByTestId("add-coach"));
+    const dialog = await screen.findByRole("dialog");
+
+    // Only fill name; leave specialty + bio blank.
+    await user.type(within(dialog).getByTestId("coach-name"), "Incomplete");
+    await user.click(within(dialog).getByTestId("save-coach"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Specialty is required",
+          variant: "destructive",
+        }),
+      ),
+    );
+    // No new card was created.
+    expect(screen.queryByTestId("coach-100")).not.toBeInTheDocument();
+  });
+
+  it("removes a coach after confirming", async () => {
+    const user = userEvent.setup();
+    const { invalidateSpy } = renderPage();
+
+    await screen.findByTestId("coach-42");
+    await user.click(screen.getByTestId("delete-coach-42"));
+
+    const confirm = await screen.findByTestId("confirm-delete-coach");
+    await user.click(confirm);
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Coach removed" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("coach-42")).not.toBeInTheDocument(),
+    );
+
+    // Member-facing "Your Coaches" grid is refreshed so the removal shows.
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/coaches"],
+    });
+  });
+
+  it("does not remove a coach when the confirm dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByTestId("coach-42");
+    await user.click(screen.getByTestId("delete-coach-42"));
+
+    const dialog = await screen.findByTestId("delete-coach-dialog");
+    await user.click(within(dialog).getByText("Cancel"));
+
+    // Coach card still present; no delete toast fired.
+    expect(await screen.findByTestId("coach-42")).toBeInTheDocument();
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Coach removed" }),
     );
   });
 });

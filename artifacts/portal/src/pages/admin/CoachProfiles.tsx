@@ -27,11 +27,11 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdminCoaches,
+  useCreateCoach,
   useUpdateCoach,
+  useDeleteCoach,
   uploadCoachPhoto,
   resolveCoachPhotoUrl,
-  useCreateCoach,
-  useDeleteCoach,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -60,15 +60,15 @@ function coachInitials(name: string): string {
 export default function CoachProfiles() {
   const { toast } = useToast();
   const { data, isLoading } = useAdminCoaches();
-  const updateMutation = useUpdateCoach();
   const createMutation = useCreateCoach();
+  const updateMutation = useUpdateCoach();
   const deleteMutation = useDeleteCoach();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const coaches = data?.coaches ?? [];
   const isEditing = form.id !== undefined;
@@ -242,7 +242,7 @@ export default function CoachProfiles() {
                       {coach.bio}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1 shrink-0">
+                  <div className="flex shrink-0 items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -275,7 +275,7 @@ export default function CoachProfiles() {
             <DialogDescription>
               {isEditing
                 ? "Update the profile members see on the Coaching page."
-                : "New coaches appear in the \"Your Coaches\" section right away."}
+                : 'New coaches appear in the "Your Coaches" section right away.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -398,7 +398,7 @@ export default function CoachProfiles() {
           if (!o) setDeleteTarget(null);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent data-testid="delete-coach-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this coach?</AlertDialogTitle>
             <AlertDialogDescription>

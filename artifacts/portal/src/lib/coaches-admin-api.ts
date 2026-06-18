@@ -118,7 +118,7 @@ export function useCreateCoach() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      // A new coach is a group-call coach, so it shows up on the member page.
+      // Refresh the member-facing "Your Coaches" grid so the new coach shows up.
       queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
   });
@@ -128,12 +128,12 @@ export function useDeleteCoach() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) =>
-      adminFetch<{ ok: true }>(`/admin/coaching/coaches/${id}`, {
+      adminFetch<void>(`/admin/coaching/coaches/${id}`, {
         method: "DELETE",
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      // Drop the removed coach from the member-facing "Your Coaches" grid.
+      // Refresh the member-facing "Your Coaches" grid so the removal shows up.
       queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
   });

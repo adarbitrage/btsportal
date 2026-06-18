@@ -46,12 +46,21 @@ function parsePhotoUrl(value: unknown): { url: string | null } | { error: string
   return { url: trimmed };
 }
 
-// Validate the editable profile fields for a PATCH. Every field is optional so
+// Validate the editable profile fields. For a PATCH every field is optional so
 // admins can update one at a time, but any field that IS present must be valid.
+// For a create (requireAll), the three text fields must all be supplied; the
+// validation rules are otherwise identical so create and edit stay in lockstep.
 function parseCoachBody(
   body: Record<string, unknown>,
+  options: { requireAll?: boolean } = {},
 ): { values: Record<string, unknown> } | { error: string } {
   const values: Record<string, unknown> = {};
+
+  if (options.requireAll) {
+    if (body.name === undefined) return { error: "Name is required" };
+    if (body.specialties === undefined) return { error: "Specialty is required" };
+    if (body.bio === undefined) return { error: "Bio is required" };
+  }
 
   if (body.name !== undefined) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -156,41 +165,27 @@ router.patch(
   },
 );
 
-// Create a brand-new coach. The created coach is marked doesGroupCalls=true (and
-// isActive defaults to true) so it appears immediately on the member Coaching
-// page, which lists active group-call coaches.
+// Create a new coach. All three text fields are required (same validation as
+// edit); photo is optional. New coaches are flagged doesGroupCalls=true (and
+// isActive defaults to true) so they show up immediately in the member-facing
+// "Your Coaches" grid, which only lists active group-call coaches.
 router.post(
   "/admin/coaching/coaches",
   requirePermission("coaching:manage"),
   async (req: Request, res: Response): Promise<void> => {
-    const parsed = parseCoachBody(req.body ?? {});
+    const parsed = parseCoachBody(req.body ?? {}, { requireAll: true });
     if ("error" in parsed) {
       res.status(400).json({ error: parsed.error });
-      return;
-    }
-
-    const { values } = parsed;
-    // On create every profile field except the optional photo is required.
-    if (values.name === undefined) {
-      res.status(400).json({ error: "Name is required" });
-      return;
-    }
-    if (values.specialties === undefined) {
-      res.status(400).json({ error: "Specialty is required" });
-      return;
-    }
-    if (values.bio === undefined) {
-      res.status(400).json({ error: "Bio is required" });
       return;
     }
 
     const [created] = await db
       .insert(coachesTable)
       .values({
-        name: values.name as string,
-        specialties: values.specialties as string,
-        bio: values.bio as string,
-        photoUrl: (values.photoUrl as string | null | undefined) ?? null,
+        name: parsed.values.name as string,
+        specialties: parsed.values.specialties as string,
+        bio: parsed.values.bio as string,
+        photoUrl: (parsed.values.photoUrl as string | null) ?? null,
         doesGroupCalls: true,
       })
       .returning({
@@ -205,11 +200,11 @@ router.post(
   },
 );
 
-// Remove a coach. Guard against deleting a coach who is still referenced by
-// scheduled coaching calls (coaching_calls.coachId is a NOT NULL FK): deleting
-// would orphan those rows / violate the constraint, so we block with a clear
-// message and a count. Any other lingering FK reference (templates, bookings)
-// surfaces as a 409 too rather than an unhandled 500.
+// Remove a coach from the roster. Guard against deleting a coach who is still
+// referenced by scheduled coaching calls (coaching_calls.coachId is a NOT NULL
+// FK): deleting would orphan those rows / violate the constraint, so we block
+// with a clear message and a count. Any other lingering FK reference
+// (templates, bookings) surfaces as a 409 too rather than an unhandled 500.
 router.delete(
   "/admin/coaching/coaches/:id",
   requirePermission("coaching:manage"),
@@ -245,7 +240,7 @@ router.delete(
         return;
       }
 
-      res.json({ ok: true });
+      res.status(204).end();
     } catch (err) {
       // 23503 = foreign_key_violation. Another table (e.g. templates or
       // session-pack bookings) still references this coach.
@@ -257,7 +252,7 @@ router.delete(
       ) {
         res.status(409).json({
           error:
-            "This coach is still referenced by other coaching records and cannot be deleted.",
+            "This coach is still referenced by other coaching records (like scheduled calls or templates) and cannot be deleted.",
         });
         return;
       }
