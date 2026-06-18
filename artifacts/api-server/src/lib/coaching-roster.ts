@@ -9,13 +9,16 @@ export interface RosterCoach {
   name: string;
   ghlCalendarId: string;
   sortOrder: number;
+  // Root-relative path to a headshot shipped in the portal's public dir. The
+  // portal resolves this through resolveCoachPhotoUrl so it stays base-path aware.
+  photoUrl: string;
 }
 
 export const COACHING_ROSTER: RosterCoach[] = [
-  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1 },
-  { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2 },
-  { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3 },
-  { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4 },
+  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png" },
+  { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg" },
+  { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png" },
+  { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg" },
 ];
 
 // Legacy demo profiles seeded before the real roster existed. Removed by exact
@@ -108,6 +111,7 @@ export async function seedCoachRoster(): Promise<void> {
         ghlCalendarId: c.ghlCalendarId,
         ghlLocationId: COACHING_LOCATION_ID,
         sortOrder: c.sortOrder,
+        photoUrl: c.photoUrl,
         isActive: true,
         doesGroupCalls: true,
         doesPrivateCoaching: true,
@@ -118,6 +122,7 @@ export async function seedCoachRoster(): Promise<void> {
           name: c.name,
           ghlLocationId: COACHING_LOCATION_ID,
           sortOrder: c.sortOrder,
+          photoUrl: c.photoUrl,
           isActive: true,
           doesGroupCalls: true,
           doesPrivateCoaching: true,

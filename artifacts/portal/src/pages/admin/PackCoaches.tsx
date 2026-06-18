@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 import {
   useAdminPackCoaches,
   useCreatePackCoach,
@@ -151,7 +152,7 @@ export default function PackCoaches() {
                 <CardContent className="p-5 flex items-start gap-4">
                   {coach.photoUrl ? (
                     <img
-                      src={coach.photoUrl}
+                      src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
                       alt={coach.name}
                       className="w-12 h-12 rounded-full object-cover"
                     />

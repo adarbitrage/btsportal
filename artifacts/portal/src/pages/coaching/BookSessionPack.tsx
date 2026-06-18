@@ -42,6 +42,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 
 const SESSION_DURATION_MINUTES = 60;
 
@@ -265,7 +266,7 @@ export default function BookSessionPack() {
                       <div className="flex flex-col items-center text-center">
                         {coach.photoUrl ? (
                           <img
-                            src={coach.photoUrl}
+                            src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
                             alt={coach.name}
                             className="w-20 h-20 rounded-full object-cover mb-4"
                           />
@@ -468,7 +469,7 @@ export default function BookSessionPack() {
                   <div className="flex items-center gap-4">
                     {selectedCoach.photoUrl ? (
                       <img
-                        src={selectedCoach.photoUrl}
+                        src={resolveCoachPhotoUrl(selectedCoach.photoUrl) ?? undefined}
                         alt={selectedCoach.name}
                         className="w-12 h-12 rounded-full object-cover"
                       />

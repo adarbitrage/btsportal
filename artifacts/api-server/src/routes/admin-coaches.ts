@@ -70,6 +70,11 @@ function parsePhotoUrl(value: unknown): { url: string | null } | { error: string
   if (trimmed.startsWith("/objects/")) {
     return { url: trimmed };
   }
+  // App-bundled static asset shipped in the portal's public dir (e.g. the
+  // seeded coach roster headshots under /coaching-photos/); stored verbatim.
+  if (trimmed.startsWith("/coaching-photos/")) {
+    return { url: trimmed };
+  }
   let parsed: URL;
   try {
     parsed = new URL(trimmed);

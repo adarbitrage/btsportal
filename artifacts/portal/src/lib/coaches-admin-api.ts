@@ -91,6 +91,12 @@ export function resolveCoachPhotoUrl(
   if (trimmed.startsWith("/objects/")) {
     return `${import.meta.env.BASE_URL}api/storage${trimmed}`;
   }
+  // App-bundled static asset shipped in the portal's public dir, stored as a
+  // root-relative path (e.g. "/coaching-photos/sasha.png"). Make it base-path
+  // aware so it resolves behind the artifact's path prefix.
+  if (trimmed.startsWith("/")) {
+    return `${import.meta.env.BASE_URL}${trimmed.slice(1)}`;
+  }
   return trimmed;
 }
 

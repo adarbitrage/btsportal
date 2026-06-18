@@ -39,6 +39,12 @@ describe("resolveCoachPhotoUrl", () => {
     expect(resolveCoachPhotoUrl("   ")).toBeNull();
   });
 
+  it("prefixes a root-relative bundled asset path with the base url", () => {
+    expect(resolveCoachPhotoUrl("/coaching-photos/sasha.png")).toBe(
+      "/coaching-photos/sasha.png",
+    );
+  });
+
   it("returns an unrecognized non-URL value as-is (trimmed)", () => {
     expect(resolveCoachPhotoUrl("  some-legacy-value  ")).toBe(
       "some-legacy-value",

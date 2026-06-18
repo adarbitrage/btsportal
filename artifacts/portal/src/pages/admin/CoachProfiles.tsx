@@ -383,7 +383,8 @@ export default function CoachProfiles() {
     if (
       photoUrl &&
       !/^https?:\/\//i.test(photoUrl) &&
-      !photoUrl.startsWith("/objects/")
+      !photoUrl.startsWith("/objects/") &&
+      !photoUrl.startsWith("/coaching-photos/")
     ) {
       toast({
         title: "Photo URL must start with http:// or https://",
