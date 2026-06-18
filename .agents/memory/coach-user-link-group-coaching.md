@@ -29,6 +29,22 @@ also had a linked coach row to just their own calls. Caught in code review.
 **How to apply:** gate the coachId resolution behind `!isAdmin`; keep a test for
 "admin WITH a linked coach row still sees all".
 
+# Calendar coach-picker: key off `isAdmin`, not coachId
+
+- `GET /api/coach/group-calls` returns `{ coachId, isAdmin, calls }`. The
+  frontend MUST decide whether to show the admin coach-picker off `isAdmin`,
+  NOT off `coachId === null` — because an UNLINKED plain coach also reports
+  `coachId: null` (would 403 hitting `/admin/coaching/coaches`).
+- Admins may scope to one coach via optional `?coachId=` (drives the picker);
+  a plain coach is pinned server-side and the param is IGNORED for them — keep
+  the "plain coach passing ?coachId stays on own calendar" anti-bypass test.
+- Picker roster comes from `/admin/coaching/coaches` (sources `coachesTable`
+  directly, so it includes coaches with no login).
+
+**Why:** coachId-null is ambiguous between admin and unlinked-coach; an explicit
+`isAdmin` flag disambiguates and prevents a non-admin from calling the admin
+roster endpoint.
+
 # Reversible soft-cancel for weekly group calls
 
 - `coaching_calls.cancelledAt` + `cancelledBy` (both nullable). Cancel sets them,

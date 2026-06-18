@@ -766,17 +766,37 @@ router.get(
   requireCoachOrCoachingView(),
   async (req, res): Promise<void> => {
     try {
-      // Admins (coaching:view) manage the WHOLE schedule and must see every
-      // coach's calls — even if the admin also happens to have a linked coach
-      // row. So an admin is never scoped to a coachId; they always get the
-      // all-coaches view with coachId reported as null. Only a plain coach is
-      // scoped to their own coachId.
+      // A plain coach is always locked to their OWN coachId — they can never
+      // see or scope to another coach's calendar. An admin (coaching:view)
+      // manages the WHOLE schedule: by default they see every coach (all-coaches
+      // view) but MAY scope to a single coach via the optional ?coachId= query
+      // (this drives the admin coach-picker). The admin's own linked coach row,
+      // if any, never scopes them — so `coachId` in the response is the plain
+      // coach's own id, or null for an admin (the frontend keys the picker off
+      // `isAdmin`, not this value).
       const isAdmin = !!req.adminRole;
-      const coachId = isAdmin ? null : await resolveCoachIdForUser(req.userId!);
+      const ownCoachId = isAdmin ? null : await resolveCoachIdForUser(req.userId!);
       // A plain coach with no linked coach record owns no calls -> empty list.
-      if (coachId === null && !isAdmin) {
-        res.json({ coachId: null, calls: [] as CoachGroupCall[] });
+      if (!isAdmin && ownCoachId === null) {
+        res.json({ coachId: null, isAdmin: false, calls: [] as CoachGroupCall[] });
         return;
+      }
+
+      // Resolve which coach's calendar to load. Plain coaches are pinned to
+      // their own; only admins may scope via the query param (absent = all).
+      let scopedCoachId: number | null = ownCoachId;
+      if (isAdmin) {
+        const rawCoachId = req.query["coachId"];
+        if (typeof rawCoachId === "string" && rawCoachId.trim() !== "") {
+          const parsed = Number(rawCoachId);
+          if (!Number.isInteger(parsed) || parsed <= 0) {
+            sendError(res, 400, ErrorCodes.VALIDATION_ERROR, "Invalid coachId");
+            return;
+          }
+          scopedCoachId = parsed;
+        } else {
+          scopedCoachId = null; // all coaches
+        }
       }
 
       const now = new Date();
@@ -784,7 +804,7 @@ router.get(
         eq(coachingCallsTable.callType, "weekly_qa"),
         gte(coachingCallsTable.scheduledAt, now),
       ];
-      if (coachId !== null) filters.push(eq(coachingCallsTable.coachId, coachId));
+      if (scopedCoachId !== null) filters.push(eq(coachingCallsTable.coachId, scopedCoachId));
 
       const rows = await db
         .select({
@@ -813,7 +833,7 @@ router.get(
         cancelled: r.cancelledAt !== null,
         cancelledAt: r.cancelledAt ? r.cancelledAt.toISOString() : null,
       }));
-      res.json({ coachId, calls });
+      res.json({ coachId: ownCoachId, isAdmin, calls });
     } catch (err) {
       console.error("[CoachDashboard] group-calls list error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load group calls");

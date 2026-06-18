@@ -186,6 +186,40 @@ describe("Coach Group Coaching endpoints", () => {
     expect(ids).toContain(adminOwnCallId);
   });
 
+  it("scopes an admin's view to a single coach via ?coachId (picker), reporting isAdmin", async () => {
+    const res = await request(app)
+      .get(`/api/coach/group-calls?coachId=${coachBId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.isAdmin).toBe(true);
+    // coachId in the body stays null for an admin (the picker keys off isAdmin).
+    expect(res.body.coachId).toBeNull();
+    const ids: number[] = res.body.calls.map((c: { id: number }) => c.id);
+    expect(ids).toContain(coachBCallId);
+    expect(ids).not.toContain(coachACallId); // scoped to coachB only
+  });
+
+  it("rejects a non-numeric coachId from an admin", async () => {
+    const res = await request(app)
+      .get("/api/coach/group-calls?coachId=abc")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+  });
+
+  it("ignores ?coachId from a plain coach (stays pinned to their own calendar)", async () => {
+    // A plain coach must never be able to view another coach's calendar by
+    // passing the admin-only scoping param.
+    const res = await request(app)
+      .get(`/api/coach/group-calls?coachId=${coachBId}`)
+      .set("Cookie", coachACookie);
+    expect(res.status).toBe(200);
+    expect(res.body.isAdmin).toBe(false);
+    expect(res.body.coachId).toBe(coachAId);
+    const ids: number[] = res.body.calls.map((c: { id: number }) => c.id);
+    expect(ids).toContain(coachACallId);
+    expect(ids).not.toContain(coachBCallId);
+  });
+
   it("returns an empty list for a coach with no linked coach record", async () => {
     const res = await request(app)
       .get("/api/coach/group-calls")
