@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useVoiceCalls, type VoiceCallRecord, type VoiceCallsRange } from "@/lib/voice-api";
 import {
   Dialog,
@@ -96,7 +96,43 @@ function parseTranscript(transcript: string): { role: string; content: string }[
   });
 }
 
-function CallDetail({ call }: { call: VoiceCallRecord }) {
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlight(text: string, query: string): ReactNode {
+  const q = query.trim();
+  if (!q) return text;
+  const parts = text.split(new RegExp(`(${escapeRegExp(q)})`, "gi"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark
+        key={i}
+        className="rounded bg-yellow-200 px-0.5 text-inherit dark:bg-yellow-500/40"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
+function transcriptSnippet(transcript: string, query: string): string | null {
+  const q = query.trim();
+  if (!q) return null;
+  const idx = transcript.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return null;
+  const radius = 60;
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(transcript.length, idx + q.length + radius);
+  let snippet = transcript.slice(start, end).replace(/\s+/g, " ").trim();
+  if (start > 0) snippet = `…${snippet}`;
+  if (end < transcript.length) snippet = `${snippet}…`;
+  return snippet;
+}
+
+function CallDetail({ call, query }: { call: VoiceCallRecord; query: string }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-500 dark:text-stone-400">
@@ -114,7 +150,7 @@ function CallDetail({ call }: { call: VoiceCallRecord }) {
             Summary
           </h4>
           <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed whitespace-pre-line">
-            {call.summary}
+            {highlight(call.summary, query)}
           </p>
         </div>
       )}
@@ -139,7 +175,7 @@ function CallDetail({ call }: { call: VoiceCallRecord }) {
                     {turn.role}:{" "}
                   </span>
                 )}
-                <span className="text-stone-700 dark:text-stone-300">{turn.content}</span>
+                <span className="text-stone-700 dark:text-stone-300">{highlight(turn.content, query)}</span>
               </div>
             ))}
           </div>
@@ -378,7 +414,16 @@ export function PastCalls() {
         </div>
       ) : (
       <div className="divide-y divide-stone-200 dark:divide-stone-800 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden bg-white dark:bg-stone-950">
-        {calls.map((call) => (
+        {calls.map((call) => {
+          const summaryHasMatch =
+            !!query &&
+            !!call.summary &&
+            call.summary.toLowerCase().includes(query.toLowerCase());
+          const snippet =
+            !summaryHasMatch && call.transcript
+              ? transcriptSnippet(call.transcript, query)
+              : null;
+          return (
           <button
             key={call.id}
             onClick={() => setSelected(call)}
@@ -395,17 +440,25 @@ export function PastCalls() {
                   {formatDuration(call.duration_seconds)}
                 </span>
               </div>
-              <p className="text-sm text-stone-600 dark:text-stone-400 line-clamp-2">
-                {call.summary
-                  ? call.summary
-                  : call.transcript
-                  ? "Transcript available — tap to view."
-                  : "No summary available for this call."}
-              </p>
+              {snippet ? (
+                <p className="text-sm text-stone-600 dark:text-stone-400 line-clamp-2">
+                  <MessageSquare className="inline w-3 h-3 mr-1 -mt-0.5 text-stone-400" />
+                  {highlight(snippet, query)}
+                </p>
+              ) : (
+                <p className="text-sm text-stone-600 dark:text-stone-400 line-clamp-2">
+                  {call.summary
+                    ? highlight(call.summary, query)
+                    : call.transcript
+                    ? "Transcript available — tap to view."
+                    : "No summary available for this call."}
+                </p>
+              )}
             </div>
             <ChevronRight className="w-4 h-4 text-stone-400 mt-1 shrink-0" />
           </button>
-        ))}
+          );
+        })}
       </div>
       )}
 
@@ -441,7 +494,7 @@ export function PastCalls() {
               {selected ? `${formatDate(selected.started_at)} at ${formatTime(selected.started_at)}` : ""}
             </DialogDescription>
           </DialogHeader>
-          {selected && <CallDetail call={selected} />}
+          {selected && <CallDetail call={selected} query={query} />}
         </DialogContent>
       </Dialog>
     </div>
