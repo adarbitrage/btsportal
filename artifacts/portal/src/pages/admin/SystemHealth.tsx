@@ -1994,6 +1994,133 @@ export default function SystemHealth() {
                 );
               })()}
 
+              {Array.isArray(health.services?.coachingCallTemplateTopUp?.templates) && health.services.coachingCallTemplateTopUp.templates.length > 0 && (() => {
+                interface TemplateTopUpStatus {
+                  templateId: number;
+                  title: string;
+                  lastRanAt: string | null;
+                  lastCreatedCount: number | null;
+                  lastBatches: number | null;
+                  lastError: { at: string; message: string } | null;
+                }
+                const templates = health.services.coachingCallTemplateTopUp.templates as TemplateTopUpStatus[];
+                const RECENT_FAILURE_WINDOW_MS = 24 * 60 * 60 * 1000;
+                const now = Date.now();
+                const isRecentFailure = (iso: string | null | undefined) => {
+                  if (!iso) return false;
+                  const at = new Date(iso).getTime();
+                  return Number.isFinite(at) && now - at < RECENT_FAILURE_WINDOW_MS;
+                };
+                const recentFailureCount = templates.filter(
+                  (t) => t.lastError && isRecentFailure(t.lastError.at),
+                ).length;
+                const fmtRunLabel = (iso: string | null) => {
+                  if (!iso) return "Pending — top-up has not reported a run yet";
+                  const rel = formatRelativeTime(iso);
+                  const abs = new Date(iso).toLocaleString();
+                  return rel ? `${rel} (${abs})` : abs;
+                };
+                return (
+                  <Card data-testid="card-coaching-call-topup">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Archive className="w-4 h-4" />
+                        Recurring coaching-call top-up
+                        <Badge variant="outline" className="ml-2 font-normal">
+                          {templates.length} {templates.length === 1 ? "series" : "series"}
+                        </Badge>
+                        {recentFailureCount > 0 && (
+                          <Badge
+                            variant="warning"
+                            className="ml-1"
+                            data-testid="coaching-topup-failure-badge"
+                          >
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            {recentFailureCount} failed in last 24h
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Background job that keeps each active recurring call series populated into the
+                        future. Last-run heartbeat advances on success and failure, so a series that
+                        quietly stops extending still surfaces here.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {templates.map((tpl) => {
+                          const recentFailure = tpl.lastError && isRecentFailure(tpl.lastError.at);
+                          return (
+                            <div
+                              key={tpl.templateId}
+                              className={`rounded-md border p-3 ${
+                                recentFailure
+                                  ? "border-red-500/40 bg-red-50 dark:bg-red-950/30"
+                                  : "border-border"
+                              }`}
+                              data-testid={`coaching-topup-template-${tpl.templateId}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium" data-testid={`coaching-topup-title-${tpl.templateId}`}>
+                                      {tpl.title}
+                                    </span>
+                                    {recentFailure && (
+                                      <Badge
+                                        variant="warning"
+                                        data-testid={`coaching-topup-recent-failure-${tpl.templateId}`}
+                                      >
+                                        <AlertTriangle className="w-3 h-3 mr-1" />
+                                        Failure in last 24h
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Last run</span>
+                                  <span
+                                    className={`font-medium text-right ${tpl.lastRanAt ? "" : "text-muted-foreground italic"}`}
+                                    data-testid={`coaching-topup-last-run-${tpl.templateId}`}
+                                    title={tpl.lastRanAt ? new Date(tpl.lastRanAt).toLocaleString() : undefined}
+                                  >
+                                    {fmtRunLabel(tpl.lastRanAt)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Last generated</span>
+                                  <span
+                                    className="font-medium text-right"
+                                    data-testid={`coaching-topup-last-created-${tpl.templateId}`}
+                                  >
+                                    {tpl.lastCreatedCount === null
+                                      ? "—"
+                                      : `${tpl.lastCreatedCount} call${tpl.lastCreatedCount === 1 ? "" : "s"}`}
+                                  </span>
+                                </div>
+                              </div>
+                              {tpl.lastError && (
+                                <p
+                                  className={`mt-2 text-xs ${
+                                    recentFailure ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
+                                  }`}
+                                  data-testid={`coaching-topup-last-error-${tpl.templateId}`}
+                                  title={`Failed at ${new Date(tpl.lastError.at).toLocaleString()}`}
+                                >
+                                  Last top-up error ({formatRelativeTime(tpl.lastError.at) ?? new Date(tpl.lastError.at).toLocaleString()}): {tpl.lastError.message}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.machineMismatchDigest && (() => {
                 interface MachineMismatchDigestStatus {
                   intervalMs: number;

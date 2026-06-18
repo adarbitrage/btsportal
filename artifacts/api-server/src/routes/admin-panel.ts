@@ -29,6 +29,7 @@ import {
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
+import { getCoachingCallTemplateTopUpStatus } from "../lib/coaching-call-template-topup";
 import { getMachineMismatchDigestStatus } from "../lib/machine-mismatch-daily-digest";
 import {
   evaluateRateLimitAuditFailureAlert,
@@ -3510,6 +3511,14 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       ],
     };
 
+    // Per-template heartbeat for the recurring coaching-call auto top-up
+    // job. Lets admins confirm each series is being extended and spot one
+    // that stopped (lastError set). Only templates the job has actually
+    // swept appear here.
+    const coachingCallTemplateTopUp = {
+      templates: getCoachingCallTemplateTopUpStatus(),
+    };
+
     res.json({
       status: overallStatus,
       services: {
@@ -3522,6 +3531,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         emailChangeAttemptsRetention: getEmailChangeAttemptsRetentionPolicy(),
         emailChangeAttemptsCleanup: getEmailChangeAttemptsCleanupStatus(),
         auditLogRetention,
+        coachingCallTemplateTopUp,
         machineMismatchDigest: getMachineMismatchDigestStatus(),
         machineMismatchDigestWatchdog: await getMachineMismatchDigestWatchdogState(),
         rateLimitAuditFailures,

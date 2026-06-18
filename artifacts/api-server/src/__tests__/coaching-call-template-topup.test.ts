@@ -9,7 +9,12 @@ import {
 } from "@workspace/db";
 import { eq, inArray, asc } from "drizzle-orm";
 
-import { runCoachingCallTemplateTopUp } from "../lib/coaching-call-template-topup";
+import {
+  runCoachingCallTemplateTopUp,
+  getCoachingCallTemplateTopUpStatus,
+  __resetCoachingCallTemplateTopUpStateForTests,
+} from "../lib/coaching-call-template-topup";
+import { vi } from "vitest";
 
 // Verifies the periodic auto top-up keeps active recurring series populated
 // into the future, skips inactive templates, and is idempotent on re-run.
@@ -172,5 +177,105 @@ describe("runCoachingCallTemplateTopUp", () => {
     const rows = await series(tpl.id);
     const furthest = rows[rows.length - 1].scheduledAt.getTime();
     expect(furthest).toBeGreaterThanOrEqual(Date.now() + 28 * DAY);
+  });
+});
+
+describe("getCoachingCallTemplateTopUpStatus", () => {
+  it("records a per-template heartbeat after a successful run", async () => {
+    const tpl = await makeTemplate({
+      anchorDaysFromNow: 7,
+      occurrencesPerBatch: 2,
+      active: true,
+      lastGeneratedAt: new Date(Date.now() + 7 * DAY),
+    });
+
+    const before = Date.now();
+    await runCoachingCallTemplateTopUp();
+
+    const status = getCoachingCallTemplateTopUpStatus();
+    const mine = status.find((s) => s.templateId === tpl.id);
+    expect(mine).toBeTruthy();
+    expect(mine!.title).toBe(`${TAG} series`);
+    // Shape lock: every documented field present, correctly typed.
+    expect(typeof mine!.lastRanAt).toBe("string");
+    expect(new Date(mine!.lastRanAt!).getTime()).toBeGreaterThanOrEqual(before);
+    expect(typeof mine!.lastCreatedCount).toBe("number");
+    expect(mine!.lastCreatedCount).toBeGreaterThan(0);
+    expect(typeof mine!.lastBatches).toBe("number");
+    expect(mine!.lastBatches).toBeGreaterThan(0);
+    expect(mine!.lastError).toBeNull();
+  });
+
+  it("does not record a heartbeat for an inactive (skipped) template", async () => {
+    const tpl = await makeTemplate({
+      anchorDaysFromNow: 1,
+      occurrencesPerBatch: 2,
+      active: false,
+      lastGeneratedAt: new Date(Date.now() + 1 * DAY),
+    });
+
+    await runCoachingCallTemplateTopUp();
+
+    const status = getCoachingCallTemplateTopUpStatus();
+    expect(status.find((s) => s.templateId === tpl.id)).toBeUndefined();
+  });
+
+  it("captures lastError when a series fails to top up, then clears it on recovery", async () => {
+    const tpl = await makeTemplate({
+      anchorDaysFromNow: 5,
+      occurrencesPerBatch: 2,
+      active: true,
+      lastGeneratedAt: new Date(Date.now() + 5 * DAY),
+    });
+
+    // Force generation to throw for this run so the heartbeat records an
+    // error while still advancing lastRanAt (the on-call signal).
+    const dbModule = await import("@workspace/db");
+    const failureMessage = "synthetic-topup-failure";
+    const spy = vi
+      .spyOn(dbModule.db, "insert")
+      .mockImplementation(() => {
+        throw new Error(failureMessage);
+      });
+
+    try {
+      await runCoachingCallTemplateTopUp();
+    } finally {
+      spy.mockRestore();
+    }
+
+    const failedStatus = getCoachingCallTemplateTopUpStatus().find(
+      (s) => s.templateId === tpl.id,
+    );
+    expect(failedStatus).toBeTruthy();
+    expect(failedStatus!.lastError).not.toBeNull();
+    expect(failedStatus!.lastError!.message).toBe(failureMessage);
+    expect(typeof failedStatus!.lastError!.at).toBe("string");
+    // The heartbeat still advanced even though the run failed.
+    expect(typeof failedStatus!.lastRanAt).toBe("string");
+
+    // A subsequent successful run clears the error so the surface de-flags.
+    await runCoachingCallTemplateTopUp();
+    const recoveredStatus = getCoachingCallTemplateTopUpStatus().find(
+      (s) => s.templateId === tpl.id,
+    );
+    expect(recoveredStatus!.lastError).toBeNull();
+  });
+
+  it("the test reset hook clears recorded heartbeats", async () => {
+    const tpl = await makeTemplate({
+      anchorDaysFromNow: 4,
+      occurrencesPerBatch: 2,
+      active: true,
+      lastGeneratedAt: new Date(Date.now() + 4 * DAY),
+    });
+
+    await runCoachingCallTemplateTopUp();
+    expect(
+      getCoachingCallTemplateTopUpStatus().some((s) => s.templateId === tpl.id),
+    ).toBe(true);
+
+    __resetCoachingCallTemplateTopUpStateForTests();
+    expect(getCoachingCallTemplateTopUpStatus()).toHaveLength(0);
   });
 });
