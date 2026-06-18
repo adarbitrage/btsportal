@@ -112,6 +112,7 @@ import PackSessions from "@/pages/admin/PackSessions";
 import PackCredits from "@/pages/admin/PackCredits";
 import PackCoaches from "@/pages/admin/PackCoaches";
 import CoachingCalls from "@/pages/admin/CoachingCalls";
+import CoachProfiles from "@/pages/admin/CoachProfiles";
 import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
 import CommunicationsSmsTemplates from "@/pages/admin/CommunicationsSmsTemplates";
 import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
@@ -477,6 +478,7 @@ function Router() {
       <Route path="/admin/coaching/credits">{() => <AdminRoute component={PackCredits} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/roster">{() => <AdminRoute component={PackCoaches} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/calls">{() => <AdminRoute component={CoachingCalls} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/coaches">{() => <AdminRoute component={CoachProfiles} permission="coaching:view" />}</Route>
       <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} permission="communications:manage" />}</Route>

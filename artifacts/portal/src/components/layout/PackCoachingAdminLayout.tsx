@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ClipboardList, Ticket, Users2, ArrowLeft, UserCheck, Video } from "lucide-react";
+import { ClipboardList, Ticket, Users2, ArrowLeft, UserCheck, Video, IdCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -9,6 +9,7 @@ const packAdminNav = [
   { href: "/admin/coaching/credits", label: "Credits", icon: Ticket },
   { href: "/admin/coaching/roster", label: "Coaches", icon: Users2 },
   { href: "/admin/coaching/calls", label: "Group Calls", icon: Video },
+  { href: "/admin/coaching/coaches", label: "Coach Profiles", icon: IdCard },
 ];
 
 export function PackCoachingAdminLayout({ children }: { children: ReactNode }) {
