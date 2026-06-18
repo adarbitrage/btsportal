@@ -49,6 +49,30 @@ async function seedUser(role: "member" | "admin"): Promise<{ id: number; cookie:
   return { id: row.id, cookie: `access_token=${token}` };
 }
 
+// Seeds a member with a caller-supplied display name so the `q` search tests
+// can match on a name fragment (the default seedUser uses a fixed name shared
+// across rows). The email still carries TEST_TAG + a random suffix so it stays
+// unique and searchable on its own.
+async function seedNamedUser(name: string): Promise<{ id: number; email: string; cookie: string }> {
+  const email = `${TEST_TAG}-${randomUUID().slice(0, 6)}@example.test`;
+  const passwordHash = await bcrypt.hash("irrelevant", 4);
+  const [row] = await db
+    .insert(usersTable)
+    .values({
+      email,
+      name,
+      passwordHash,
+      role: "member",
+      sourceProduct: "lifetime",
+      emailVerified: true,
+      onboardingComplete: true,
+    })
+    .returning({ id: usersTable.id });
+  seededUserIds.push(row.id);
+  const token = jwt.sign({ userId: row.id, email }, JWT_SECRET, { expiresIn: "1h" });
+  return { id: row.id, email, cookie: `access_token=${token}` };
+}
+
 async function insertUsage(userId: number, usageDate: string, secondsUsed: number): Promise<void> {
   await db.insert(voiceDailyUsageTable).values({ userId, usageDate, secondsUsed });
 }
@@ -276,6 +300,138 @@ describe("GET /admin/voice/calls — pagination & userId filter", () => {
     expect(page2.status).toBe(200);
     expect(page2.body.page).toBe(2);
     expect((page2.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a3]);
+  });
+});
+
+describe("GET /admin/voice/calls — search by name/email (q param)", () => {
+  it("filters by member name and email, combines with userId, and paginates", async () => {
+    const admin = await seedUser("admin");
+    // A run-unique token embedded in both seeded names so the search matches
+    // only our rows and never pre-existing data in the shared DB.
+    const tag = `qsearch${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    const alice = await seedNamedUser(`Alice ${tag} Anderson`);
+    const bob = await seedNamedUser(`Bob ${tag} Brown`);
+
+    const base = Date.now();
+    // started_at DESC ordering across both members: a1, b1, a2, b2, a3.
+    const a1 = await insertCall(alice.id, new Date(base - 1000));
+    const b1 = await insertCall(bob.id, new Date(base - 1500));
+    const a2 = await insertCall(alice.id, new Date(base - 2000));
+    const b2 = await insertCall(bob.id, new Date(base - 2500));
+    const a3 = await insertCall(alice.id, new Date(base - 3000));
+
+    // Search on a name fragment unique to Alice -> only her 3 calls.
+    const byName = await request(app)
+      .get(`/api/admin/voice/calls?q=${encodeURIComponent(`Alice ${tag}`)}`)
+      .set("Cookie", admin.cookie);
+    expect(byName.status).toBe(200);
+    expect(byName.body.total).toBe(3);
+    const byNameCalls = byName.body.calls as Array<{ id: number; userId: number }>;
+    expect(byNameCalls.every((c) => c.userId === alice.id)).toBe(true);
+    expect(byNameCalls.map((c) => c.id)).toEqual([a1, a2, a3]);
+
+    // Search on Alice's email (the OR branch of the LIKE) -> same 3 calls.
+    const byEmail = await request(app)
+      .get(`/api/admin/voice/calls?q=${encodeURIComponent(alice.email)}`)
+      .set("Cookie", admin.cookie);
+    expect(byEmail.status).toBe(200);
+    expect(byEmail.body.total).toBe(3);
+    expect((byEmail.body.calls as Array<{ userId: number }>).every((c) => c.userId === alice.id)).toBe(
+      true,
+    );
+
+    // The shared tag matches both members' names -> all 5 calls, newest-first.
+    const byTag = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}`)
+      .set("Cookie", admin.cookie);
+    expect(byTag.status).toBe(200);
+    expect(byTag.body.total).toBe(5);
+    expect((byTag.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a1, b1, a2, b2, a3]);
+
+    // q combined with userId: both filters AND together -> only Alice's 3 calls
+    // even though the tag alone matched 5. This guards the COUNT/rows JOIN +
+    // filter composition staying in lockstep.
+    const combined = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}&userId=${alice.id}`)
+      .set("Cookie", admin.cookie);
+    expect(combined.status).toBe(200);
+    expect(combined.body.total).toBe(3);
+    expect((combined.body.calls as Array<{ userId: number }>).every((c) => c.userId === alice.id)).toBe(
+      true,
+    );
+
+    // Pagination stays correct under a q filter: total is the full match count
+    // (5) on every page while rows are sliced newest-first.
+    const page1 = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}&page=1&limit=2`)
+      .set("Cookie", admin.cookie);
+    expect(page1.status).toBe(200);
+    expect(page1.body.total).toBe(5);
+    expect(page1.body.page).toBe(1);
+    expect(page1.body.limit).toBe(2);
+    expect((page1.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a1, b1]);
+
+    const page2 = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}&page=2&limit=2`)
+      .set("Cookie", admin.cookie);
+    expect(page2.status).toBe(200);
+    expect(page2.body.total).toBe(5);
+    expect((page2.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a2, b2]);
+
+    const page3 = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}&page=3&limit=2`)
+      .set("Cookie", admin.cookie);
+    expect(page3.status).toBe(200);
+    expect(page3.body.total).toBe(5);
+    expect((page3.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a3]);
+  });
+
+  it("clearing q broadens results back to the unfiltered list", async () => {
+    const admin = await seedUser("admin");
+    const tag = `qclear${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    const matching = await seedNamedUser(`Match ${tag} Member`);
+    // A second member whose name/email do NOT contain the tag — they must be
+    // excluded while q is set but reappear once q is cleared.
+    const other = await seedNamedUser("Unrelated Member");
+
+    await insertCall(matching.id, new Date(Date.now() - 1000));
+    const otherCall = await insertCall(other.id, new Date(Date.now() - 2000));
+
+    // With q set, only the tagged member is returned.
+    const withQ = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}`)
+      .set("Cookie", admin.cookie);
+    expect(withQ.status).toBe(200);
+    expect(withQ.body.total).toBe(1);
+    expect((withQ.body.calls as Array<{ userId: number }>).every((c) => c.userId === matching.id)).toBe(
+      true,
+    );
+
+    // Clearing q returns the full (unfiltered) list: the non-matching member's
+    // call is now counted, so the total strictly exceeds the filtered total.
+    const noQ = await request(app)
+      .get(`/api/admin/voice/calls?userId=${other.id}`)
+      .set("Cookie", admin.cookie);
+    expect(noQ.status).toBe(200);
+    expect(noQ.body.total).toBe(1);
+    expect((noQ.body.calls as Array<{ id: number }>)[0].id).toBe(otherCall);
+
+    // And an entirely unfiltered request counts both members' calls (>= the
+    // filtered total), confirming q is the only thing narrowing the list.
+    const all = await request(app)
+      .get("/api/admin/voice/calls?limit=100")
+      .set("Cookie", admin.cookie);
+    expect(all.status).toBe(200);
+    expect(all.body.total).toBeGreaterThanOrEqual(2);
+    expect(all.body.total).toBeGreaterThan(withQ.body.total);
+
+    // An explicit empty q (what the UI sends when the search box is cleared)
+    // must behave identically to omitting q entirely — not filter to nothing.
+    const emptyQ = await request(app)
+      .get("/api/admin/voice/calls?q=&limit=100")
+      .set("Cookie", admin.cookie);
+    expect(emptyQ.status).toBe(200);
+    expect(emptyQ.body.total).toBe(all.body.total);
   });
 });
 
