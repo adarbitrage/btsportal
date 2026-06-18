@@ -409,7 +409,7 @@ export default function PackCoachDashboard() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">1-on-1 Sessions</h1>
+          <h1 className="text-2xl font-bold text-foreground">Private Coaching</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Notes and action items are shared across all coaches and never shown to members.
           </p>

@@ -1,4 +1,4 @@
-// Recording-ingest service for pack 1-on-1 coaching calls. For a finished
+// Recording-ingest service for pack private coaching calls. For a finished
 // booking it searches Google Drive for the call's Meet recording + Gemini
 // "Take notes for me" summary/transcript, matches them by meeting title and
 // scheduled-time window, and writes the links onto the booking row.
@@ -125,7 +125,7 @@ export async function ingestBookingRecording(
 }
 
 // Extract the portion of the title most likely to appear in Drive file names.
-// "1-on-1 Coaching with Sasha" -> "Coaching with Sasha". Falls back to the full
+// "Private Coaching with Sasha" -> "Coaching with Sasha". Falls back to the full
 // title. Returns null for empty titles (never match — avoids group calls).
 export function deriveSearchNeedle(title: string | null): string | null {
   if (!title || !title.trim()) return null;

@@ -261,7 +261,7 @@ export default function PackSessions() {
     <PackCoachingAdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">1-on-1 Sessions</h1>
+          <h1 className="text-2xl font-bold text-foreground">Private Coaching</h1>
           <p className="text-muted-foreground">All credit-based coaching bookings.</p>
         </div>
 

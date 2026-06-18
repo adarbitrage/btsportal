@@ -1,5 +1,5 @@
 /**
- * Shared query for listing pack 1-on-1 bookings with the member/coach join,
+ * Shared query for listing pack private bookings with the member/coach join,
  * status stats and coach-facing fields (coachNotes + actionItems). Used by both
  * the admin sessions list and the coach dashboard so the two stay in lockstep.
  */

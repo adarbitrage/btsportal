@@ -185,7 +185,7 @@ export default function BookSessionPack() {
             <p className="text-muted-foreground">
               {isReschedule
                 ? "Choose a new time for your coaching session."
-                : "Schedule your 1-on-1 coaching session. Each session uses one credit."}
+                : "Schedule your Private Coaching session. Each session uses one credit."}
             </p>
           </div>
           {!isReschedule && (
@@ -480,7 +480,7 @@ export default function BookSessionPack() {
                     <div>
                       <p className="font-semibold text-foreground">{selectedCoach.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {SESSION_DURATION_MINUTES} minute 1-on-1 session
+                        {SESSION_DURATION_MINUTES} minute Private Coaching session
                       </p>
                     </div>
                   </div>

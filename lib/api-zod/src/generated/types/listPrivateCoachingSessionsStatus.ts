@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type ListOneOnOneSessionsStatus =
-  (typeof ListOneOnOneSessionsStatus)[keyof typeof ListOneOnOneSessionsStatus];
+export type ListPrivateCoachingSessionsStatus =
+  (typeof ListPrivateCoachingSessionsStatus)[keyof typeof ListPrivateCoachingSessionsStatus];
 
-export const ListOneOnOneSessionsStatus = {
+export const ListPrivateCoachingSessionsStatus = {
   scheduled: "scheduled",
   completed: "completed",
   cancelled: "cancelled",

@@ -21,7 +21,7 @@ tags:
   - name: coaching
   - name: coaches
   - name: tickets
-  - name: coaching-one-on-one
+  - name: coaching-private
   - name: admin-coaching
   - name: admin-tickets
   - name: announcements
@@ -3955,11 +3955,11 @@ paths:
         "404":
           description: Mentee not found
 
-  /coaching/one-on-one/status:
+  /coaching/private/status:
     get:
-      operationId: getOneOnOneStatus
-      tags: [coaching-one-on-one]
-      summary: Get 1-on-1 coaching status for current member
+      operationId: getPrivateCoachingStatus
+      tags: [coaching-private]
+      summary: Get Private Coaching status for current member
       responses:
         "200":
           description: Coaching status
@@ -3968,11 +3968,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/OneOnOneStatus"
 
-  /coaching/one-on-one/coaches:
+  /coaching/private/coaches:
     get:
-      operationId: listOneOnOneCoaches
-      tags: [coaching-one-on-one]
-      summary: List coaches available for 1-on-1 sessions
+      operationId: listPrivateCoachingCoaches
+      tags: [coaching-private]
+      summary: List coaches available for Private Coaching
       responses:
         "200":
           description: List of coaches
@@ -3983,10 +3983,10 @@ paths:
                 items:
                   $ref: "#/components/schemas/OneOnOneCoach"
 
-  /coaching/one-on-one/slots:
+  /coaching/private/slots:
     get:
-      operationId: getOneOnOneSlots
-      tags: [coaching-one-on-one]
+      operationId: getPrivateCoachingSlots
+      tags: [coaching-private]
       summary: Get available time slots for a coach
       parameters:
         - name: coachId
@@ -4019,11 +4019,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/SlotsResponse"
 
-  /coaching/one-on-one/book:
+  /coaching/private/book:
     post:
-      operationId: bookOneOnOneSession
-      tags: [coaching-one-on-one]
-      summary: Book a 1-on-1 coaching session
+      operationId: bookPrivateCoachingSession
+      tags: [coaching-private]
+      summary: Book a Private Coaching session
       requestBody:
         required: true
         content:
@@ -4040,11 +4040,11 @@ paths:
         "409":
           description: Conflict (slot taken or limit reached)
 
-  /coaching/one-on-one/sessions:
+  /coaching/private/sessions:
     get:
-      operationId: listOneOnOneSessions
-      tags: [coaching-one-on-one]
-      summary: List member's 1-on-1 sessions
+      operationId: listPrivateCoachingSessions
+      tags: [coaching-private]
+      summary: List member's Private Coaching sessions
       parameters:
         - name: status
           in: query
@@ -4062,10 +4062,10 @@ paths:
                 items:
                   $ref: "#/components/schemas/CoachingSessionSummary"
 
-  /coaching/one-on-one/sessions/{id}:
+  /coaching/private/sessions/{id}:
     get:
-      operationId: getOneOnOneSession
-      tags: [coaching-one-on-one]
+      operationId: getPrivateCoachingSession
+      tags: [coaching-private]
       summary: Get session detail with notes and action items
       parameters:
         - name: id
@@ -4083,10 +4083,10 @@ paths:
         "404":
           description: Not found
 
-  /coaching/one-on-one/sessions/{id}/cancel:
+  /coaching/private/sessions/{id}/cancel:
     patch:
-      operationId: cancelOneOnOneSession
-      tags: [coaching-one-on-one]
+      operationId: cancelPrivateCoachingSession
+      tags: [coaching-private]
       summary: Cancel a scheduled session
       parameters:
         - name: id
@@ -4108,10 +4108,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/CancelSessionResponse"
 
-  /coaching/one-on-one/sessions/{id}/reschedule:
+  /coaching/private/sessions/{id}/reschedule:
     post:
-      operationId: rescheduleOneOnOneSession
-      tags: [coaching-one-on-one]
+      operationId: reschedulePrivateCoachingSession
+      tags: [coaching-private]
       summary: Reschedule a session to a new time
       parameters:
         - name: id
@@ -4135,10 +4135,10 @@ paths:
         "409":
           description: Conflict
 
-  /coaching/one-on-one/sessions/{id}/action-items:
+  /coaching/private/sessions/{id}/action-items:
     patch:
       operationId: updateActionItemCompletion
-      tags: [coaching-one-on-one]
+      tags: [coaching-private]
       summary: Update action item completion status
       parameters:
         - name: id
@@ -4160,10 +4160,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ActionItemsResponse"
 
-  /coaching/one-on-one/sessions/{id}/rate:
+  /coaching/private/sessions/{id}/rate:
     post:
-      operationId: rateOneOnOneSession
-      tags: [coaching-one-on-one]
+      operationId: ratePrivateCoachingSession
+      tags: [coaching-private]
       summary: Rate a completed session
       parameters:
         - name: id

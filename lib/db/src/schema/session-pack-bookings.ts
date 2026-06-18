@@ -1,8 +1,8 @@
 import { pgTable, text, serial, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
-import { sessionPackCoachesTable } from "./session-pack-coaches";
+import { coachesTable } from "./coaches";
 
-// A single coach/admin-authored action item attached to a pack 1-on-1 booking.
+// A single coach/admin-authored action item attached to a pack private booking.
 // COACH/ADMIN-FACING ONLY — never surfaced to members. Stored as JSONB on the
 // booking so the full cross-coach history for a member is a simple member-id
 // join (no extra table / FK lifecycle to manage).
@@ -14,7 +14,7 @@ export interface SessionPackActionItem {
   createdAt: string;
 }
 
-// A booked 1-on-1 session against a coach's GHL calendar. The GHL appointment
+// A booked private session against a coach's GHL calendar. The GHL appointment
 // is the system of record on the calendar side; this row links it to the BTS
 // member and is the source for "upcoming/past sessions" + the credit ledger.
 export const sessionPackBookingsTable = pgTable(
@@ -26,7 +26,7 @@ export const sessionPackBookingsTable = pgTable(
       .references(() => usersTable.id),
     coachId: integer("coach_id")
       .notNull()
-      .references(() => sessionPackCoachesTable.id),
+      .references(() => coachesTable.id),
     ghlCalendarId: text("ghl_calendar_id").notNull(),
     ghlAppointmentId: text("ghl_appointment_id").unique(),
     ghlContactId: text("ghl_contact_id"),

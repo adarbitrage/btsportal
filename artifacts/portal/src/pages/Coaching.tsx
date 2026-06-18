@@ -1,8 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Video, Users, Lock, Clock } from "lucide-react";
+import { Calendar, Video, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useListCoachingCalls, useListCoaches, type CoachingCall } from "@workspace/api-client-react";
@@ -120,59 +119,6 @@ export default function Coaching() {
           </p>
         </div>
 
-        {upcomingCalls && upcomingCalls.length > 0 && (
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-5 sm:p-8 md:p-10">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Upcoming Calls</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Your next scheduled coaching sessions.
-                  </p>
-                </div>
-              </div>
-
-              <div className="border border-border/60 rounded-xl overflow-hidden">
-                {upcomingCalls.map((call, i) => (
-                  <div
-                    key={call.id}
-                    data-testid={`upcoming-call-${call.id}`}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
-                      i !== upcomingCalls.length - 1 ? "border-b border-border/60" : ""
-                    } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-foreground truncate">
-                          {call.title}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] bg-white shrink-0">
-                          {call.callType.replace(/_/g, " ")}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 shrink-0" />
-                          {format(new Date(call.scheduledAt), "EEE, MMM d • h:mm a")}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 shrink-0" />
-                          {call.durationMinutes} min
-                        </span>
-                        <span>with {call.coachName.split(" ")[0]}</span>
-                      </div>
-                    </div>
-                    <CallAction call={call} onUnlock={navigate} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10">
             <div className="flex items-center gap-3 mb-6">
@@ -253,14 +199,6 @@ export default function Coaching() {
                         </div>
                       )}
                       <h3 className="text-sm font-bold text-foreground">{coach.name}</h3>
-                      {coach.specialties && (
-                        <p
-                          data-testid={`coach-specialty-${coach.id}`}
-                          className="text-xs font-medium text-primary mt-1"
-                        >
-                          {coach.specialties}
-                        </p>
-                      )}
                       {coach.bio && (
                         <p
                           data-testid={`coach-bio-${coach.id}`}
@@ -276,20 +214,6 @@ export default function Coaching() {
             </div>
           </div>
         )}
-
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-foreground" />
-            </div>
-            <div>
-              <h3 className="font-bold text-foreground mb-1">Have a question?</h3>
-              <p className="text-sm text-muted-foreground">
-                Submit it before the next Q&amp;A call so the coaches can prepare, or post in the BTS Community for peer support anytime.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </AppLayout>
   );

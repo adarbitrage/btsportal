@@ -24,7 +24,7 @@ describe("App.tsx coach routes", () => {
 describe("Sidebar COACH_NAV_NODES", () => {
   it("contains the Mentee Progress leaf pointing at /coach/dashboard", () => {
     const labels = COACH_NAV_NODES.map((n) => n.label);
-    expect(labels).toEqual(["Mentee Progress", "1-on-1 Sessions"]);
+    expect(labels).toEqual(["Mentee Progress", "Private Coaching"]);
 
     const leaf = COACH_NAV_NODES.find(
       (n): n is NavLeaf => n.kind === "leaf" && n.label === "Mentee Progress",
@@ -33,9 +33,9 @@ describe("Sidebar COACH_NAV_NODES", () => {
     expect(leaf!.href).toBe("/coach/dashboard");
   });
 
-  it("contains the 1-on-1 Sessions leaf pointing at /coach/sessions", () => {
+  it("contains the Private Coaching leaf pointing at /coach/sessions", () => {
     const leaf = COACH_NAV_NODES.find(
-      (n): n is NavLeaf => n.kind === "leaf" && n.label === "1-on-1 Sessions",
+      (n): n is NavLeaf => n.kind === "leaf" && n.label === "Private Coaching",
     );
     expect(leaf).toBeDefined();
     expect(leaf!.href).toBe("/coach/sessions");

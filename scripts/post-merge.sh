@@ -82,6 +82,15 @@ if [ -n "$DATABASE_URL" ]; then
   #    that never had these tables it is a harmless no-op.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0045_drop_legacy_one_on_one_coaching.sql >/dev/null
+
+  # 5. Unify the two coach rosters into a single `coaches` table.
+  #    Adds the capability flags + private-coaching config columns, migrates the
+  #    session_pack_coaches roster into coaches, repoints the bookings FK, and
+  #    DROPs session_pack_coaches. The table REMOVAL (like step 4) leaves the
+  #    live-schema-drift test green, so push would skip it — apply explicitly.
+  #    Idempotent (ADD COLUMN IF NOT EXISTS / guarded DO blocks / DROP IF EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0049_unify_coaches.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

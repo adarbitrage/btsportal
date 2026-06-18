@@ -1,8 +1,9 @@
 import { db } from "@workspace/db";
+import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
 import {
   productsTable, entitlementsTable, userProductsTable,
   usersTable, tracksTable, modulesTable, lessonsTable, progressTable,
-  coachesTable, coachingCallsTable, ticketsTable, ticketMessagesTable, announcementsTable,
+  ticketsTable, ticketMessagesTable, announcementsTable,
   sessionsTable, webhookLogsTable, legalDocumentsTable, signedDocumentsTable,
   communityCategoriesTable,
   communityPostsTable, communityCommentsTable, communityReactionsTable,
@@ -351,54 +352,11 @@ async function seed() {
     await db.insert(progressTable).values({ userId: marcus.id, lessonId, completedAt });
   }
 
-  const [coach1] = await db.insert(coachesTable).values({
-    name: "Sarah Mitchell",
-    bio: "10+ years in affiliate marketing. Specialist in Facebook Ads and creative testing. Has helped 200+ students scale to $10k/month.",
-    specialties: "Facebook Ads Expert",
-    callTypes: ["weekly_qa", "vip_roundtable"],
-    timezone: "America/New_York",
-    maxDailySessions: 4,
-    oneOnOneEnabled: true,
-    meetLink: "https://meet.google.com/abc-defg-hij",
-    averageRating: "4.80",
-    totalRatings: 4,
-  }).returning();
-
-  const [coach2] = await db.insert(coachesTable).values({
-    name: "David Chen",
-    bio: "Scaled multiple affiliate businesses to 7 figures. Expert in campaign scaling and data-driven optimization.",
-    specialties: "Scaling Strategist",
-    callTypes: ["strategy", "weekly_qa"],
-    timezone: "America/Los_Angeles",
-    maxDailySessions: 3,
-    oneOnOneEnabled: true,
-    meetLink: "https://meet.google.com/klm-nopq-rst",
-    averageRating: "4.67",
-    totalRatings: 3,
-  }).returning();
-
-  const [coach3] = await db.insert(coachesTable).values({
-    name: "Amara Williams",
-    bio: "SEO and content marketing specialist for affiliates.",
-    specialties: "SEO & Content",
-    callTypes: ["weekly_qa", "mastermind"],
-    timezone: "America/Chicago",
-  }).returning();
-
-  const now = new Date();
-  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(14, 0, 0, 0);
-  const nextWeek = new Date(now); nextWeek.setDate(nextWeek.getDate() + 6); nextWeek.setHours(11, 0, 0, 0);
-  const nextWeek2 = new Date(now); nextWeek2.setDate(nextWeek2.getDate() + 8); nextWeek2.setHours(15, 0, 0, 0);
-  const nextWeek3 = new Date(now); nextWeek3.setDate(nextWeek3.getDate() + 13); nextWeek3.setHours(14, 0, 0, 0);
-  const lastWeek = new Date(now); lastWeek.setDate(lastWeek.getDate() - 7); lastWeek.setHours(14, 0, 0, 0);
-
-  await db.insert(coachingCallsTable).values([
-    { title: "Open Q&A: Ask Anything", description: "Bring your questions! Open to all mentorship members.", callType: "weekly_qa", coachId: coach1.id, scheduledAt: tomorrow, durationMinutes: 60, requiredEntitlement: "coaching:group", registeredCount: 42 },
-    { title: "Scaling Facebook Ads to $500/day", description: "Deep dive into scaling strategies.", callType: "strategy", coachId: coach2.id, scheduledAt: nextWeek, durationMinutes: 90, requiredEntitlement: "coaching:group", registeredCount: 18 },
-    { title: "Advanced Mastermind: Q1 Tactics", description: "Advanced SEO and scaling strategies.", callType: "mastermind", coachId: coach3.id, scheduledAt: nextWeek2, durationMinutes: 60, requiredEntitlement: "coaching:mastermind", registeredCount: 8 },
-    { title: "VIP Roundtable: Q1 Strategy", description: "Exclusive strategy session for Lifetime members.", callType: "vip_roundtable", coachId: coach1.id, scheduledAt: nextWeek3, durationMinutes: 90, requiredEntitlement: "coaching:mastermind", registeredCount: 5 },
-    { title: "Weekly Q&A Recap", description: "Last week's Q&A recording.", callType: "weekly_qa", coachId: coach1.id, scheduledAt: lastWeek, durationMinutes: 60, requiredEntitlement: "coaching:group", registeredCount: 35, recordingUrl: "https://example.com/recording/1" },
-  ]);
+  // Real coaching roster + upcoming weekly group Q&A calls. Both are seeded via
+  // the shared, idempotent roster module (the same path the server uses on
+  // boot), so dev and production stay in lockstep and no demo coaches exist.
+  await seedCoachRoster();
+  await generateWeeklyQaCalls();
 
 
   const [ticket1] = await db.insert(ticketsTable).values({ ticketNumber: "BTS-100234", userId: marcus.id, category: "billing", priority: "normal", status: "awaiting_response", subject: "Question about tier upgrade pricing" }).returning();

@@ -485,7 +485,7 @@ router.get(
 );
 
 // ===========================================================================
-// Pack 1-on-1 coach surface — sessions list, member cross-coach history, and
+// Pack private coach surface — sessions list, member cross-coach history, and
 // notes/action-item editing. Gated to coaches OR admins with coaching:view.
 //
 // Cross-coach visibility is intentional: every coach sees ALL prior notes and

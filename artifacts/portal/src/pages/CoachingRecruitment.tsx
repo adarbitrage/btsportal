@@ -15,8 +15,8 @@ const benefits = [
   },
   {
     icon: DollarSign,
-    title: "Earn from Private 1:1 Sessions",
-    desc: "Book one-on-one coaching sessions with mentees and get paid for your expertise while making a real impact on their progress.",
+    title: "Earn from Private Coaching Sessions",
+    desc: "Book private coaching sessions with mentees and get paid for your expertise while making a real impact on their progress.",
   },
   {
     icon: Wrench,
@@ -36,7 +36,7 @@ const benefits = [
 ];
 
 const duties = [
-  "Host private 1:1 coaching sessions",
+  "Host private coaching sessions",
   "Guide mentees through creatives, campaigns, and optimization strategies",
   "Help mentees find clarity, focus, and executable plans",
   "Motivate, inspire, and keep mentees accountable for results",

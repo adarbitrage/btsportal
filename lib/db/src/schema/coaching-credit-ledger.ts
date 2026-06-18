@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 import { sessionPackBookingsTable } from "./session-pack-bookings";
 
-// Append-only ledger for purchasable 1-on-1 session credits. A member's
+// Append-only ledger for purchasable private session credits. A member's
 // balance is SUM(delta). The purchase/checkout flow (deferred) just appends a
 // positive entry; until then admins grant credits. Booking = -1, early cancel
 // refund = +1.

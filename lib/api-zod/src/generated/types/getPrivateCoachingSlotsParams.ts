@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type GetOneOnOneSlotsParams = {
+export type GetPrivateCoachingSlotsParams = {
   coachId: number;
   startDate: Date;
   endDate: Date;

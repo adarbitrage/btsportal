@@ -124,7 +124,7 @@ export default function PackCoaches() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Coaches</h1>
-            <p className="text-muted-foreground">Manage the 1-on-1 coaching roster.</p>
+            <p className="text-muted-foreground">Manage the Private Coaching roster.</p>
           </div>
           <Button onClick={openNew} data-testid="add-coach">
             <Plus className="w-4 h-4 mr-2" />

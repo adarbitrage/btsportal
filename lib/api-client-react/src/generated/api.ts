@@ -184,7 +184,7 @@ import type {
   GetFlexyCredentials200,
   GetLegalDocumentsParams,
   GetMemberEmailChangePrefillParams,
-  GetOneOnOneSlotsParams,
+  GetPrivateCoachingSlotsParams,
   GhlConfig,
   GhlLogEntry,
   GhlStatus,
@@ -207,7 +207,7 @@ import type {
   ListCommunityMembersParams,
   ListCommunityNotificationsParams,
   ListCommunityPostsParams,
-  ListOneOnOneSessionsParams,
+  ListPrivateCoachingSessionsParams,
   ListTicketsParams,
   LogToolUsage201,
   LogToolUsageBody,
@@ -16044,31 +16044,31 @@ export function useGetCoachMenteeDetail<
 }
 
 /**
- * @summary Get 1-on-1 coaching status for current member
+ * @summary Get Private Coaching status for current member
  */
-export const getGetOneOnOneStatusUrl = () => {
-  return `/api/coaching/one-on-one/status`;
+export const getGetPrivateCoachingStatusUrl = () => {
+  return `/api/coaching/private/status`;
 };
 
-export const getOneOnOneStatus = async (
+export const getPrivateCoachingStatus = async (
   options?: RequestInit,
 ): Promise<OneOnOneStatus> => {
-  return customFetch<OneOnOneStatus>(getGetOneOnOneStatusUrl(), {
+  return customFetch<OneOnOneStatus>(getGetPrivateCoachingStatusUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetOneOnOneStatusQueryKey = () => {
-  return [`/api/coaching/one-on-one/status`] as const;
+export const getGetPrivateCoachingStatusQueryKey = () => {
+  return [`/api/coaching/private/status`] as const;
 };
 
-export const getGetOneOnOneStatusQueryOptions = <
-  TData = Awaited<ReturnType<typeof getOneOnOneStatus>>,
+export const getGetPrivateCoachingStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPrivateCoachingStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    Awaited<ReturnType<typeof getPrivateCoachingStatus>>,
     TError,
     TData
   >;
@@ -16076,40 +16076,41 @@ export const getGetOneOnOneStatusQueryOptions = <
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetOneOnOneStatusQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPrivateCoachingStatusQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getOneOnOneStatus>>
-  > = ({ signal }) => getOneOnOneStatus({ signal, ...requestOptions });
+    Awaited<ReturnType<typeof getPrivateCoachingStatus>>
+  > = ({ signal }) => getPrivateCoachingStatus({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    Awaited<ReturnType<typeof getPrivateCoachingStatus>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetOneOnOneStatusQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getOneOnOneStatus>>
+export type GetPrivateCoachingStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPrivateCoachingStatus>>
 >;
-export type GetOneOnOneStatusQueryError = ErrorType<unknown>;
+export type GetPrivateCoachingStatusQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get 1-on-1 coaching status for current member
+ * @summary Get Private Coaching status for current member
  */
 
-export function useGetOneOnOneStatus<
-  TData = Awaited<ReturnType<typeof getOneOnOneStatus>>,
+export function useGetPrivateCoachingStatus<
+  TData = Awaited<ReturnType<typeof getPrivateCoachingStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getOneOnOneStatus>>,
+    Awaited<ReturnType<typeof getPrivateCoachingStatus>>,
     TError,
     TData
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetOneOnOneStatusQueryOptions(options);
+  const queryOptions = getGetPrivateCoachingStatusQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -16119,31 +16120,31 @@ export function useGetOneOnOneStatus<
 }
 
 /**
- * @summary List coaches available for 1-on-1 sessions
+ * @summary List coaches available for Private Coaching
  */
-export const getListOneOnOneCoachesUrl = () => {
-  return `/api/coaching/one-on-one/coaches`;
+export const getListPrivateCoachingCoachesUrl = () => {
+  return `/api/coaching/private/coaches`;
 };
 
-export const listOneOnOneCoaches = async (
+export const listPrivateCoachingCoaches = async (
   options?: RequestInit,
 ): Promise<OneOnOneCoach[]> => {
-  return customFetch<OneOnOneCoach[]>(getListOneOnOneCoachesUrl(), {
+  return customFetch<OneOnOneCoach[]>(getListPrivateCoachingCoachesUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListOneOnOneCoachesQueryKey = () => {
-  return [`/api/coaching/one-on-one/coaches`] as const;
+export const getListPrivateCoachingCoachesQueryKey = () => {
+  return [`/api/coaching/private/coaches`] as const;
 };
 
-export const getListOneOnOneCoachesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+export const getListPrivateCoachingCoachesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPrivateCoachingCoaches>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    Awaited<ReturnType<typeof listPrivateCoachingCoaches>>,
     TError,
     TData
   >;
@@ -16151,40 +16152,41 @@ export const getListOneOnOneCoachesQueryOptions = <
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListOneOnOneCoachesQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getListPrivateCoachingCoachesQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listOneOnOneCoaches>>
-  > = ({ signal }) => listOneOnOneCoaches({ signal, ...requestOptions });
+    Awaited<ReturnType<typeof listPrivateCoachingCoaches>>
+  > = ({ signal }) => listPrivateCoachingCoaches({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    Awaited<ReturnType<typeof listPrivateCoachingCoaches>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ListOneOnOneCoachesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listOneOnOneCoaches>>
+export type ListPrivateCoachingCoachesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPrivateCoachingCoaches>>
 >;
-export type ListOneOnOneCoachesQueryError = ErrorType<unknown>;
+export type ListPrivateCoachingCoachesQueryError = ErrorType<unknown>;
 
 /**
- * @summary List coaches available for 1-on-1 sessions
+ * @summary List coaches available for Private Coaching
  */
 
-export function useListOneOnOneCoaches<
-  TData = Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+export function useListPrivateCoachingCoaches<
+  TData = Awaited<ReturnType<typeof listPrivateCoachingCoaches>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listOneOnOneCoaches>>,
+    Awaited<ReturnType<typeof listPrivateCoachingCoaches>>,
     TError,
     TData
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListOneOnOneCoachesQueryOptions(options);
+  const queryOptions = getListPrivateCoachingCoachesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -16196,7 +16198,9 @@ export function useListOneOnOneCoaches<
 /**
  * @summary Get available time slots for a coach
  */
-export const getGetOneOnOneSlotsUrl = (params: GetOneOnOneSlotsParams) => {
+export const getGetPrivateCoachingSlotsUrl = (
+  params: GetPrivateCoachingSlotsParams,
+) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -16208,37 +16212,34 @@ export const getGetOneOnOneSlotsUrl = (params: GetOneOnOneSlotsParams) => {
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/coaching/one-on-one/slots?${stringifiedParams}`
-    : `/api/coaching/one-on-one/slots`;
+    ? `/api/coaching/private/slots?${stringifiedParams}`
+    : `/api/coaching/private/slots`;
 };
 
-export const getOneOnOneSlots = async (
-  params: GetOneOnOneSlotsParams,
+export const getPrivateCoachingSlots = async (
+  params: GetPrivateCoachingSlotsParams,
   options?: RequestInit,
 ): Promise<SlotsResponse> => {
-  return customFetch<SlotsResponse>(getGetOneOnOneSlotsUrl(params), {
+  return customFetch<SlotsResponse>(getGetPrivateCoachingSlotsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetOneOnOneSlotsQueryKey = (
-  params?: GetOneOnOneSlotsParams,
+export const getGetPrivateCoachingSlotsQueryKey = (
+  params?: GetPrivateCoachingSlotsParams,
 ) => {
-  return [
-    `/api/coaching/one-on-one/slots`,
-    ...(params ? [params] : []),
-  ] as const;
+  return [`/api/coaching/private/slots`, ...(params ? [params] : [])] as const;
 };
 
-export const getGetOneOnOneSlotsQueryOptions = <
-  TData = Awaited<ReturnType<typeof getOneOnOneSlots>>,
+export const getGetPrivateCoachingSlotsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPrivateCoachingSlots>>,
   TError = ErrorType<unknown>,
 >(
-  params: GetOneOnOneSlotsParams,
+  params: GetPrivateCoachingSlotsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getOneOnOneSlots>>,
+      Awaited<ReturnType<typeof getPrivateCoachingSlots>>,
       TError,
       TData
     >;
@@ -16248,43 +16249,44 @@ export const getGetOneOnOneSlotsQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetOneOnOneSlotsQueryKey(params);
+    queryOptions?.queryKey ?? getGetPrivateCoachingSlotsQueryKey(params);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getOneOnOneSlots>>
-  > = ({ signal }) => getOneOnOneSlots(params, { signal, ...requestOptions });
+    Awaited<ReturnType<typeof getPrivateCoachingSlots>>
+  > = ({ signal }) =>
+    getPrivateCoachingSlots(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getOneOnOneSlots>>,
+    Awaited<ReturnType<typeof getPrivateCoachingSlots>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetOneOnOneSlotsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getOneOnOneSlots>>
+export type GetPrivateCoachingSlotsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPrivateCoachingSlots>>
 >;
-export type GetOneOnOneSlotsQueryError = ErrorType<unknown>;
+export type GetPrivateCoachingSlotsQueryError = ErrorType<unknown>;
 
 /**
  * @summary Get available time slots for a coach
  */
 
-export function useGetOneOnOneSlots<
-  TData = Awaited<ReturnType<typeof getOneOnOneSlots>>,
+export function useGetPrivateCoachingSlots<
+  TData = Awaited<ReturnType<typeof getPrivateCoachingSlots>>,
   TError = ErrorType<unknown>,
 >(
-  params: GetOneOnOneSlotsParams,
+  params: GetPrivateCoachingSlotsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getOneOnOneSlots>>,
+      Awaited<ReturnType<typeof getPrivateCoachingSlots>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetOneOnOneSlotsQueryOptions(params, options);
+  const queryOptions = getGetPrivateCoachingSlotsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -16294,42 +16296,45 @@ export function useGetOneOnOneSlots<
 }
 
 /**
- * @summary Book a 1-on-1 coaching session
+ * @summary Book a Private Coaching session
  */
-export const getBookOneOnOneSessionUrl = () => {
-  return `/api/coaching/one-on-one/book`;
+export const getBookPrivateCoachingSessionUrl = () => {
+  return `/api/coaching/private/book`;
 };
 
-export const bookOneOnOneSession = async (
+export const bookPrivateCoachingSession = async (
   bookSessionRequest: BookSessionRequest,
   options?: RequestInit,
 ): Promise<CoachingSessionDetail> => {
-  return customFetch<CoachingSessionDetail>(getBookOneOnOneSessionUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(bookSessionRequest),
-  });
+  return customFetch<CoachingSessionDetail>(
+    getBookPrivateCoachingSessionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bookSessionRequest),
+    },
+  );
 };
 
-export const getBookOneOnOneSessionMutationOptions = <
+export const getBookPrivateCoachingSessionMutationOptions = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    Awaited<ReturnType<typeof bookPrivateCoachingSession>>,
     TError,
     { data: BodyType<BookSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof bookOneOnOneSession>>,
+  Awaited<ReturnType<typeof bookPrivateCoachingSession>>,
   TError,
   { data: BodyType<BookSessionRequest> },
   TContext
 > => {
-  const mutationKey = ["bookOneOnOneSession"];
+  const mutationKey = ["bookPrivateCoachingSession"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -16339,51 +16344,52 @@ export const getBookOneOnOneSessionMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    Awaited<ReturnType<typeof bookPrivateCoachingSession>>,
     { data: BodyType<BookSessionRequest> }
   > = (props) => {
     const { data } = props ?? {};
 
-    return bookOneOnOneSession(data, requestOptions);
+    return bookPrivateCoachingSession(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type BookOneOnOneSessionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof bookOneOnOneSession>>
+export type BookPrivateCoachingSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bookPrivateCoachingSession>>
 >;
-export type BookOneOnOneSessionMutationBody = BodyType<BookSessionRequest>;
-export type BookOneOnOneSessionMutationError = ErrorType<void>;
+export type BookPrivateCoachingSessionMutationBody =
+  BodyType<BookSessionRequest>;
+export type BookPrivateCoachingSessionMutationError = ErrorType<void>;
 
 /**
- * @summary Book a 1-on-1 coaching session
+ * @summary Book a Private Coaching session
  */
-export const useBookOneOnOneSession = <
+export const useBookPrivateCoachingSession = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof bookOneOnOneSession>>,
+    Awaited<ReturnType<typeof bookPrivateCoachingSession>>,
     TError,
     { data: BodyType<BookSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof bookOneOnOneSession>>,
+  Awaited<ReturnType<typeof bookPrivateCoachingSession>>,
   TError,
   { data: BodyType<BookSessionRequest> },
   TContext
 > => {
-  return useMutation(getBookOneOnOneSessionMutationOptions(options));
+  return useMutation(getBookPrivateCoachingSessionMutationOptions(options));
 };
 
 /**
- * @summary List member's 1-on-1 sessions
+ * @summary List member's Private Coaching sessions
  */
-export const getListOneOnOneSessionsUrl = (
-  params?: ListOneOnOneSessionsParams,
+export const getListPrivateCoachingSessionsUrl = (
+  params?: ListPrivateCoachingSessionsParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -16396,16 +16402,16 @@ export const getListOneOnOneSessionsUrl = (
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/coaching/one-on-one/sessions?${stringifiedParams}`
-    : `/api/coaching/one-on-one/sessions`;
+    ? `/api/coaching/private/sessions?${stringifiedParams}`
+    : `/api/coaching/private/sessions`;
 };
 
-export const listOneOnOneSessions = async (
-  params?: ListOneOnOneSessionsParams,
+export const listPrivateCoachingSessions = async (
+  params?: ListPrivateCoachingSessionsParams,
   options?: RequestInit,
 ): Promise<CoachingSessionSummary[]> => {
   return customFetch<CoachingSessionSummary[]>(
-    getListOneOnOneSessionsUrl(params),
+    getListPrivateCoachingSessionsUrl(params),
     {
       ...options,
       method: "GET",
@@ -16413,23 +16419,23 @@ export const listOneOnOneSessions = async (
   );
 };
 
-export const getListOneOnOneSessionsQueryKey = (
-  params?: ListOneOnOneSessionsParams,
+export const getListPrivateCoachingSessionsQueryKey = (
+  params?: ListPrivateCoachingSessionsParams,
 ) => {
   return [
-    `/api/coaching/one-on-one/sessions`,
+    `/api/coaching/private/sessions`,
     ...(params ? [params] : []),
   ] as const;
 };
 
-export const getListOneOnOneSessionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listOneOnOneSessions>>,
+export const getListPrivateCoachingSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPrivateCoachingSessions>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListOneOnOneSessionsParams,
+  params?: ListPrivateCoachingSessionsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listOneOnOneSessions>>,
+      Awaited<ReturnType<typeof listPrivateCoachingSessions>>,
       TError,
       TData
     >;
@@ -16439,44 +16445,47 @@ export const getListOneOnOneSessionsQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getListOneOnOneSessionsQueryKey(params);
+    queryOptions?.queryKey ?? getListPrivateCoachingSessionsQueryKey(params);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listOneOnOneSessions>>
+    Awaited<ReturnType<typeof listPrivateCoachingSessions>>
   > = ({ signal }) =>
-    listOneOnOneSessions(params, { signal, ...requestOptions });
+    listPrivateCoachingSessions(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listOneOnOneSessions>>,
+    Awaited<ReturnType<typeof listPrivateCoachingSessions>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ListOneOnOneSessionsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listOneOnOneSessions>>
+export type ListPrivateCoachingSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPrivateCoachingSessions>>
 >;
-export type ListOneOnOneSessionsQueryError = ErrorType<unknown>;
+export type ListPrivateCoachingSessionsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List member's 1-on-1 sessions
+ * @summary List member's Private Coaching sessions
  */
 
-export function useListOneOnOneSessions<
-  TData = Awaited<ReturnType<typeof listOneOnOneSessions>>,
+export function useListPrivateCoachingSessions<
+  TData = Awaited<ReturnType<typeof listPrivateCoachingSessions>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListOneOnOneSessionsParams,
+  params?: ListPrivateCoachingSessionsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listOneOnOneSessions>>,
+      Awaited<ReturnType<typeof listPrivateCoachingSessions>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListOneOnOneSessionsQueryOptions(params, options);
+  const queryOptions = getListPrivateCoachingSessionsQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -16488,32 +16497,35 @@ export function useListOneOnOneSessions<
 /**
  * @summary Get session detail with notes and action items
  */
-export const getGetOneOnOneSessionUrl = (id: number) => {
-  return `/api/coaching/one-on-one/sessions/${id}`;
+export const getGetPrivateCoachingSessionUrl = (id: number) => {
+  return `/api/coaching/private/sessions/${id}`;
 };
 
-export const getOneOnOneSession = async (
+export const getPrivateCoachingSession = async (
   id: number,
   options?: RequestInit,
 ): Promise<CoachingSessionDetail> => {
-  return customFetch<CoachingSessionDetail>(getGetOneOnOneSessionUrl(id), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<CoachingSessionDetail>(
+    getGetPrivateCoachingSessionUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetOneOnOneSessionQueryKey = (id: number) => {
-  return [`/api/coaching/one-on-one/sessions/${id}`] as const;
+export const getGetPrivateCoachingSessionQueryKey = (id: number) => {
+  return [`/api/coaching/private/sessions/${id}`] as const;
 };
 
-export const getGetOneOnOneSessionQueryOptions = <
-  TData = Awaited<ReturnType<typeof getOneOnOneSession>>,
+export const getGetPrivateCoachingSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPrivateCoachingSession>>,
   TError = ErrorType<void>,
 >(
   id: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getOneOnOneSession>>,
+      Awaited<ReturnType<typeof getPrivateCoachingSession>>,
       TError,
       TData
     >;
@@ -16522,11 +16534,13 @@ export const getGetOneOnOneSessionQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetOneOnOneSessionQueryKey(id);
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPrivateCoachingSessionQueryKey(id);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getOneOnOneSession>>
-  > = ({ signal }) => getOneOnOneSession(id, { signal, ...requestOptions });
+    Awaited<ReturnType<typeof getPrivateCoachingSession>>
+  > = ({ signal }) =>
+    getPrivateCoachingSession(id, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -16534,36 +16548,36 @@ export const getGetOneOnOneSessionQueryOptions = <
     enabled: !!id,
     ...queryOptions,
   } as UseQueryOptions<
-    Awaited<ReturnType<typeof getOneOnOneSession>>,
+    Awaited<ReturnType<typeof getPrivateCoachingSession>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetOneOnOneSessionQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getOneOnOneSession>>
+export type GetPrivateCoachingSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPrivateCoachingSession>>
 >;
-export type GetOneOnOneSessionQueryError = ErrorType<void>;
+export type GetPrivateCoachingSessionQueryError = ErrorType<void>;
 
 /**
  * @summary Get session detail with notes and action items
  */
 
-export function useGetOneOnOneSession<
-  TData = Awaited<ReturnType<typeof getOneOnOneSession>>,
+export function useGetPrivateCoachingSession<
+  TData = Awaited<ReturnType<typeof getPrivateCoachingSession>>,
   TError = ErrorType<void>,
 >(
   id: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getOneOnOneSession>>,
+      Awaited<ReturnType<typeof getPrivateCoachingSession>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetOneOnOneSessionQueryOptions(id, options);
+  const queryOptions = getGetPrivateCoachingSessionQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -16575,41 +16589,44 @@ export function useGetOneOnOneSession<
 /**
  * @summary Cancel a scheduled session
  */
-export const getCancelOneOnOneSessionUrl = (id: number) => {
-  return `/api/coaching/one-on-one/sessions/${id}/cancel`;
+export const getCancelPrivateCoachingSessionUrl = (id: number) => {
+  return `/api/coaching/private/sessions/${id}/cancel`;
 };
 
-export const cancelOneOnOneSession = async (
+export const cancelPrivateCoachingSession = async (
   id: number,
   cancelSessionRequest?: CancelSessionRequest,
   options?: RequestInit,
 ): Promise<CancelSessionResponse> => {
-  return customFetch<CancelSessionResponse>(getCancelOneOnOneSessionUrl(id), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(cancelSessionRequest),
-  });
+  return customFetch<CancelSessionResponse>(
+    getCancelPrivateCoachingSessionUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(cancelSessionRequest),
+    },
+  );
 };
 
-export const getCancelOneOnOneSessionMutationOptions = <
+export const getCancelPrivateCoachingSessionMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    Awaited<ReturnType<typeof cancelPrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<CancelSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+  Awaited<ReturnType<typeof cancelPrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<CancelSessionRequest> },
   TContext
 > => {
-  const mutationKey = ["cancelOneOnOneSession"];
+  const mutationKey = ["cancelPrivateCoachingSession"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -16619,60 +16636,61 @@ export const getCancelOneOnOneSessionMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    Awaited<ReturnType<typeof cancelPrivateCoachingSession>>,
     { id: number; data: BodyType<CancelSessionRequest> }
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return cancelOneOnOneSession(id, data, requestOptions);
+    return cancelPrivateCoachingSession(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type CancelOneOnOneSessionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof cancelOneOnOneSession>>
+export type CancelPrivateCoachingSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelPrivateCoachingSession>>
 >;
-export type CancelOneOnOneSessionMutationBody = BodyType<CancelSessionRequest>;
-export type CancelOneOnOneSessionMutationError = ErrorType<unknown>;
+export type CancelPrivateCoachingSessionMutationBody =
+  BodyType<CancelSessionRequest>;
+export type CancelPrivateCoachingSessionMutationError = ErrorType<unknown>;
 
 /**
  * @summary Cancel a scheduled session
  */
-export const useCancelOneOnOneSession = <
+export const useCancelPrivateCoachingSession = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+    Awaited<ReturnType<typeof cancelPrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<CancelSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof cancelOneOnOneSession>>,
+  Awaited<ReturnType<typeof cancelPrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<CancelSessionRequest> },
   TContext
 > => {
-  return useMutation(getCancelOneOnOneSessionMutationOptions(options));
+  return useMutation(getCancelPrivateCoachingSessionMutationOptions(options));
 };
 
 /**
  * @summary Reschedule a session to a new time
  */
-export const getRescheduleOneOnOneSessionUrl = (id: number) => {
-  return `/api/coaching/one-on-one/sessions/${id}/reschedule`;
+export const getReschedulePrivateCoachingSessionUrl = (id: number) => {
+  return `/api/coaching/private/sessions/${id}/reschedule`;
 };
 
-export const rescheduleOneOnOneSession = async (
+export const reschedulePrivateCoachingSession = async (
   id: number,
   rescheduleSessionRequest: RescheduleSessionRequest,
   options?: RequestInit,
 ): Promise<CoachingSessionDetail> => {
   return customFetch<CoachingSessionDetail>(
-    getRescheduleOneOnOneSessionUrl(id),
+    getReschedulePrivateCoachingSessionUrl(id),
     {
       ...options,
       method: "POST",
@@ -16682,24 +16700,24 @@ export const rescheduleOneOnOneSession = async (
   );
 };
 
-export const getRescheduleOneOnOneSessionMutationOptions = <
+export const getReschedulePrivateCoachingSessionMutationOptions = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<RescheduleSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+  Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<RescheduleSessionRequest> },
   TContext
 > => {
-  const mutationKey = ["rescheduleOneOnOneSession"];
+  const mutationKey = ["reschedulePrivateCoachingSession"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -16709,52 +16727,54 @@ export const getRescheduleOneOnOneSessionMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>,
     { id: number; data: BodyType<RescheduleSessionRequest> }
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return rescheduleOneOnOneSession(id, data, requestOptions);
+    return reschedulePrivateCoachingSession(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type RescheduleOneOnOneSessionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>
+export type ReschedulePrivateCoachingSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>
 >;
-export type RescheduleOneOnOneSessionMutationBody =
+export type ReschedulePrivateCoachingSessionMutationBody =
   BodyType<RescheduleSessionRequest>;
-export type RescheduleOneOnOneSessionMutationError = ErrorType<void>;
+export type ReschedulePrivateCoachingSessionMutationError = ErrorType<void>;
 
 /**
  * @summary Reschedule a session to a new time
  */
-export const useRescheduleOneOnOneSession = <
+export const useReschedulePrivateCoachingSession = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+    Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<RescheduleSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof rescheduleOneOnOneSession>>,
+  Awaited<ReturnType<typeof reschedulePrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<RescheduleSessionRequest> },
   TContext
 > => {
-  return useMutation(getRescheduleOneOnOneSessionMutationOptions(options));
+  return useMutation(
+    getReschedulePrivateCoachingSessionMutationOptions(options),
+  );
 };
 
 /**
  * @summary Update action item completion status
  */
 export const getUpdateActionItemCompletionUrl = (id: number) => {
-  return `/api/coaching/one-on-one/sessions/${id}/action-items`;
+  return `/api/coaching/private/sessions/${id}/action-items`;
 };
 
 export const updateActionItemCompletion = async (
@@ -16844,16 +16864,16 @@ export const useUpdateActionItemCompletion = <
 /**
  * @summary Rate a completed session
  */
-export const getRateOneOnOneSessionUrl = (id: number) => {
-  return `/api/coaching/one-on-one/sessions/${id}/rate`;
+export const getRatePrivateCoachingSessionUrl = (id: number) => {
+  return `/api/coaching/private/sessions/${id}/rate`;
 };
 
-export const rateOneOnOneSession = async (
+export const ratePrivateCoachingSession = async (
   id: number,
   rateSessionRequest: RateSessionRequest,
   options?: RequestInit,
 ): Promise<CoachingRating> => {
-  return customFetch<CoachingRating>(getRateOneOnOneSessionUrl(id), {
+  return customFetch<CoachingRating>(getRatePrivateCoachingSessionUrl(id), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -16861,24 +16881,24 @@ export const rateOneOnOneSession = async (
   });
 };
 
-export const getRateOneOnOneSessionMutationOptions = <
+export const getRatePrivateCoachingSessionMutationOptions = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    Awaited<ReturnType<typeof ratePrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<RateSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof rateOneOnOneSession>>,
+  Awaited<ReturnType<typeof ratePrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<RateSessionRequest> },
   TContext
 > => {
-  const mutationKey = ["rateOneOnOneSession"];
+  const mutationKey = ["ratePrivateCoachingSession"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -16888,44 +16908,45 @@ export const getRateOneOnOneSessionMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    Awaited<ReturnType<typeof ratePrivateCoachingSession>>,
     { id: number; data: BodyType<RateSessionRequest> }
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return rateOneOnOneSession(id, data, requestOptions);
+    return ratePrivateCoachingSession(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type RateOneOnOneSessionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof rateOneOnOneSession>>
+export type RatePrivateCoachingSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ratePrivateCoachingSession>>
 >;
-export type RateOneOnOneSessionMutationBody = BodyType<RateSessionRequest>;
-export type RateOneOnOneSessionMutationError = ErrorType<void>;
+export type RatePrivateCoachingSessionMutationBody =
+  BodyType<RateSessionRequest>;
+export type RatePrivateCoachingSessionMutationError = ErrorType<void>;
 
 /**
  * @summary Rate a completed session
  */
-export const useRateOneOnOneSession = <
+export const useRatePrivateCoachingSession = <
   TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof rateOneOnOneSession>>,
+    Awaited<ReturnType<typeof ratePrivateCoachingSession>>,
     TError,
     { id: number; data: BodyType<RateSessionRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof rateOneOnOneSession>>,
+  Awaited<ReturnType<typeof ratePrivateCoachingSession>>,
   TError,
   { id: number; data: BodyType<RateSessionRequest> },
   TContext
 > => {
-  return useMutation(getRateOneOnOneSessionMutationOptions(options));
+  return useMutation(getRatePrivateCoachingSessionMutationOptions(options));
 };
 
 /**

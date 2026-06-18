@@ -12,7 +12,6 @@ export * from "./lesson-versions";
 export * from "./progress";
 export * from "./coaches";
 export * from "./coaching-calls";
-export * from "./session-pack-coaches";
 export * from "./session-pack-bookings";
 export * from "./coach-google-connections";
 export * from "./coaching-credit-ledger";

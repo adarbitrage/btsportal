@@ -106,7 +106,7 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
         sortOrder: 2,
       },
       {
-        title: "1-on-1 Coaching",
+        title: "Private Coaching",
         description: "Booking and managing your personal coaching sessions.",
         icon: "UserCheck",
         // Nav leaf: /coaching/book-session (credit-based session packs, open to all)

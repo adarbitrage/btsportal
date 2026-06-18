@@ -3209,21 +3209,21 @@ export const ListCoachMenteesStatus = {
   completed: "completed",
 } as const;
 
-export type GetOneOnOneSlotsParams = {
+export type GetPrivateCoachingSlotsParams = {
   coachId: number;
   startDate: string;
   endDate: string;
   timezone?: string;
 };
 
-export type ListOneOnOneSessionsParams = {
-  status?: ListOneOnOneSessionsStatus;
+export type ListPrivateCoachingSessionsParams = {
+  status?: ListPrivateCoachingSessionsStatus;
 };
 
-export type ListOneOnOneSessionsStatus =
-  (typeof ListOneOnOneSessionsStatus)[keyof typeof ListOneOnOneSessionsStatus];
+export type ListPrivateCoachingSessionsStatus =
+  (typeof ListPrivateCoachingSessionsStatus)[keyof typeof ListPrivateCoachingSessionsStatus];
 
-export const ListOneOnOneSessionsStatus = {
+export const ListPrivateCoachingSessionsStatus = {
   scheduled: "scheduled",
   completed: "completed",
   cancelled: "cancelled",

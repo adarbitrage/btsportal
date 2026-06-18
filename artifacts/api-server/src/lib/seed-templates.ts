@@ -543,15 +543,15 @@ const marketingEmailTemplates = [
   },
   {
     slug: "session_recording_ready",
-    name: "1-on-1 Session Recording Ready",
-    subject: "Your 1-on-1 coaching recording is ready",
+    name: "Private Coaching Session Recording Ready",
+    subject: "Your Private Coaching recording is ready",
     htmlBody: wrapHtml("Recording Ready", `
 <h2 style="color:#1a1a2e;margin-top:0;">Your Recording Is Ready</h2>
 <p>Hi {{member_name}},</p>
-<p>The recording from your recent 1-on-1 coaching session is now available. Want to revisit something? You can watch it any time.</p>
+<p>The recording from your recent Private Coaching session is now available. Want to revisit something? You can watch it any time.</p>
 <p><a href="{{portal_url}}{{recording_path}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Watch the Recording</a></p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nThe recording from your recent 1-on-1 coaching session is now available. Watch it any time: {{portal_url}}{{recording_path}}\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nThe recording from your recent Private Coaching session is now available. Watch it any time: {{portal_url}}{{recording_path}}\n\nThe BTS Team",
     category: "marketing",
     variables: ["member_name", "recording_path", "portal_url", "current_year"],
   },
@@ -720,8 +720,8 @@ const smsTemplates = [
   },
   {
     slug: "session_recording_ready",
-    name: "1-on-1 Session Recording Ready SMS",
-    body: "BTS: Your 1-on-1 coaching session recording is ready. Watch it any time: {{portal_url}}{{recording_path}}",
+    name: "Private Coaching Session Recording Ready SMS",
+    body: "BTS: Your Private Coaching session recording is ready. Watch it any time: {{portal_url}}{{recording_path}}",
     variables: ["recording_path", "portal_url"],
   },
   {

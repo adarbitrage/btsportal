@@ -3590,9 +3590,9 @@ export const GetCoachMenteeDetailResponse = zod
   );
 
 /**
- * @summary Get 1-on-1 coaching status for current member
+ * @summary Get Private Coaching status for current member
  */
-export const GetOneOnOneStatusResponse = zod.object({
+export const GetPrivateCoachingStatusResponse = zod.object({
   eligible: zod.boolean(),
   frequency: zod
     .union([zod.literal("weekly"), zod.literal("monthly"), zod.literal(null)])
@@ -3615,9 +3615,9 @@ export const GetOneOnOneStatusResponse = zod.object({
 });
 
 /**
- * @summary List coaches available for 1-on-1 sessions
+ * @summary List coaches available for Private Coaching
  */
-export const ListOneOnOneCoachesResponseItem = zod.object({
+export const ListPrivateCoachingCoachesResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   bio: zod.string(),
@@ -3634,21 +3634,21 @@ export const ListOneOnOneCoachesResponseItem = zod.object({
     }),
   ),
 });
-export const ListOneOnOneCoachesResponse = zod.array(
-  ListOneOnOneCoachesResponseItem,
+export const ListPrivateCoachingCoachesResponse = zod.array(
+  ListPrivateCoachingCoachesResponseItem,
 );
 
 /**
  * @summary Get available time slots for a coach
  */
-export const GetOneOnOneSlotsQueryParams = zod.object({
+export const GetPrivateCoachingSlotsQueryParams = zod.object({
   coachId: zod.coerce.number(),
   startDate: zod.date(),
   endDate: zod.date(),
   timezone: zod.coerce.string().optional(),
 });
 
-export const GetOneOnOneSlotsResponse = zod.object({
+export const GetPrivateCoachingSlotsResponse = zod.object({
   slots: zod.array(
     zod.object({
       startTime: zod.date(),
@@ -3659,23 +3659,23 @@ export const GetOneOnOneSlotsResponse = zod.object({
 });
 
 /**
- * @summary Book a 1-on-1 coaching session
+ * @summary Book a Private Coaching session
  */
-export const BookOneOnOneSessionBody = zod.object({
+export const BookPrivateCoachingSessionBody = zod.object({
   coachId: zod.number(),
   startTime: zod.date(),
 });
 
 /**
- * @summary List member's 1-on-1 sessions
+ * @summary List member's Private Coaching sessions
  */
-export const ListOneOnOneSessionsQueryParams = zod.object({
+export const ListPrivateCoachingSessionsQueryParams = zod.object({
   status: zod
     .enum(["scheduled", "completed", "cancelled", "no_show", "rescheduled"])
     .optional(),
 });
 
-export const ListOneOnOneSessionsResponseItem = zod.object({
+export const ListPrivateCoachingSessionsResponseItem = zod.object({
   id: zod.number(),
   coachId: zod.number(),
   coachName: zod.string(),
@@ -3691,18 +3691,18 @@ export const ListOneOnOneSessionsResponseItem = zod.object({
   meetLink: zod.string().nullish(),
   createdAt: zod.date(),
 });
-export const ListOneOnOneSessionsResponse = zod.array(
-  ListOneOnOneSessionsResponseItem,
+export const ListPrivateCoachingSessionsResponse = zod.array(
+  ListPrivateCoachingSessionsResponseItem,
 );
 
 /**
  * @summary Get session detail with notes and action items
  */
-export const GetOneOnOneSessionParams = zod.object({
+export const GetPrivateCoachingSessionParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetOneOnOneSessionResponse = zod.object({
+export const GetPrivateCoachingSessionResponse = zod.object({
   id: zod.number(),
   coachId: zod.number(),
   coachName: zod.string().optional(),
@@ -3752,15 +3752,15 @@ export const GetOneOnOneSessionResponse = zod.object({
 /**
  * @summary Cancel a scheduled session
  */
-export const CancelOneOnOneSessionParams = zod.object({
+export const CancelPrivateCoachingSessionParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const CancelOneOnOneSessionBody = zod.object({
+export const CancelPrivateCoachingSessionBody = zod.object({
   reason: zod.string().optional(),
 });
 
-export const CancelOneOnOneSessionResponse = zod.object({
+export const CancelPrivateCoachingSessionResponse = zod.object({
   id: zod.number(),
   status: zod.string(),
   creditReturned: zod.boolean(),
@@ -3770,11 +3770,11 @@ export const CancelOneOnOneSessionResponse = zod.object({
 /**
  * @summary Reschedule a session to a new time
  */
-export const RescheduleOneOnOneSessionParams = zod.object({
+export const ReschedulePrivateCoachingSessionParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const RescheduleOneOnOneSessionBody = zod.object({
+export const ReschedulePrivateCoachingSessionBody = zod.object({
   newStartTime: zod.date(),
   coachId: zod.number().optional(),
 });
@@ -3805,14 +3805,14 @@ export const UpdateActionItemCompletionResponse = zod.object({
 /**
  * @summary Rate a completed session
  */
-export const RateOneOnOneSessionParams = zod.object({
+export const RatePrivateCoachingSessionParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const rateOneOnOneSessionBodyRatingMax = 5;
+export const ratePrivateCoachingSessionBodyRatingMax = 5;
 
-export const RateOneOnOneSessionBody = zod.object({
-  rating: zod.number().min(1).max(rateOneOnOneSessionBodyRatingMax),
+export const RatePrivateCoachingSessionBody = zod.object({
+  rating: zod.number().min(1).max(ratePrivateCoachingSessionBodyRatingMax),
   comment: zod.string().optional(),
 });
 

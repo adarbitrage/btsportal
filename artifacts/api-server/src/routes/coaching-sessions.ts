@@ -103,7 +103,12 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       sortOrder: sessionPackCoachesTable.sortOrder,
     })
     .from(sessionPackCoachesTable)
-    .where(eq(sessionPackCoachesTable.isActive, true))
+    .where(
+      and(
+        eq(sessionPackCoachesTable.isActive, true),
+        eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+      ),
+    )
     .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
   res.json(coaches);
 });
@@ -122,8 +127,14 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
   const [coach] = await db
     .select()
     .from(sessionPackCoachesTable)
-    .where(and(eq(sessionPackCoachesTable.id, coachId), eq(sessionPackCoachesTable.isActive, true)));
-  if (!coach) {
+    .where(
+      and(
+        eq(sessionPackCoachesTable.id, coachId),
+        eq(sessionPackCoachesTable.isActive, true),
+        eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+      ),
+    );
+  if (!coach || !coach.ghlCalendarId) {
     res.status(404).json({ error: "Coach not found" });
     return;
   }
@@ -193,8 +204,14 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
   const [coach] = await db
     .select()
     .from(sessionPackCoachesTable)
-    .where(and(eq(sessionPackCoachesTable.id, coachId), eq(sessionPackCoachesTable.isActive, true)));
-  if (!coach) {
+    .where(
+      and(
+        eq(sessionPackCoachesTable.id, coachId),
+        eq(sessionPackCoachesTable.isActive, true),
+        eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+      ),
+    );
+  if (!coach || !coach.ghlCalendarId) {
     res.status(404).json({ error: "Coach not found" });
     return;
   }
@@ -244,7 +261,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
       email: member.email,
       ...splitName(member.name),
     });
-    const title = `1-on-1 Coaching with ${coach.name}`;
+    const title = `Private Coaching with ${coach.name}`;
     const appointment = await createAppointment({
       calendarId: coach.ghlCalendarId,
       contactId,
@@ -298,7 +315,7 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
       });
       void createAppointmentNote(
         appointment.id,
-        `1-on-1 with ${coach.name} — ${whenStr}\nWhat the member wants to discuss:\n${discussionTopic}`,
+        `Private Coaching with ${coach.name} — ${whenStr}\nWhat the member wants to discuss:\n${discussionTopic}`,
       ).catch((err) => {
         console.error("[coaching-sessions] discussion-topic appointment-note failed:", err);
       });

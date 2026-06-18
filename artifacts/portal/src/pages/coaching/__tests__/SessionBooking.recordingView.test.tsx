@@ -26,6 +26,7 @@ vi.mock("wouter", () => ({
       {children}
     </a>
   ),
+  useSearch: () => "",
 }));
 
 vi.mock("@/hooks/use-toast", () => ({

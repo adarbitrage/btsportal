@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, coachingCallsTable, coachesTable, coachingCallAttendanceTable } from "@workspace/db";
-import { eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
 import { getUserEntitlements } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
@@ -145,8 +145,22 @@ router.post("/coaching-calls/:id/recording-view", async (req, res): Promise<void
 });
 
 router.get("/coaches", async (_req, res): Promise<void> => {
-  const coaches = await db.select().from(coachesTable);
-  res.json(ListCoachesResponse.parse(coaches));
+  // The public coaching page lists only active coaches who run group calls.
+  // Private-coaching-only coaches are surfaced via the session-pack endpoints.
+  const coaches = await db
+    .select()
+    .from(coachesTable)
+    .where(and(eq(coachesTable.doesGroupCalls, true), eq(coachesTable.isActive, true)))
+    .orderBy(coachesTable.sortOrder);
+  // bio/specialties are nullable on the unified roster (private-only coaches and
+  // not-yet-filled-in group coaches have none); coalesce so the response matches
+  // the non-null string contract.
+  const normalized = coaches.map((c) => ({
+    ...c,
+    bio: c.bio ?? "",
+    specialties: c.specialties ?? "",
+  }));
+  res.json(ListCoachesResponse.parse(normalized));
 });
 
 export default router;

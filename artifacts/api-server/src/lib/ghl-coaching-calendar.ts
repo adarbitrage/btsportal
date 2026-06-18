@@ -1,6 +1,6 @@
 // GoHighLevel coaching-calendar service.
 //
-// Standalone, credit-based 1-on-1 booking writes/reads against the coach
+// Standalone, credit-based private booking writes/reads against the coach
 // calendars that live in GHL sub-account JI6HzFwkNIr5VA2QUWUL (under the
 // Cherrington/Flexy agency). One location-scoped OAuth token covers ALL
 // coaches. The auth flow mirrors ghl-agency-client.ts but requests the
@@ -15,7 +15,7 @@ const GHL_AUTH_BASE = "https://services.msgsndr.com";
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const GHL_API_VERSION = "2021-07-28";
 
-// All four 1-on-1 coach calendars live in this single GHL sub-account.
+// All four private coach calendars live in this single GHL sub-account.
 export const COACHING_LOCATION_ID =
   process.env.GHL_COACHING_LOCATION_ID ?? "JI6HzFwkNIr5VA2QUWUL";
 

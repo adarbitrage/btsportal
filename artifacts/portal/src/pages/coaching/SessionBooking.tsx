@@ -322,7 +322,7 @@ export default function SessionBooking() {
     return { sessions: past.slice(start, start + PAST_PAGE_SIZE), totalPages };
   }, [past, pastPage]);
 
-  // Deep link from the "your 1-on-1 recording is ready" email/SMS:
+  // Deep link from the "your Private Coaching recording is ready" email/SMS:
   // /coaching/book-session?recording=<bookingId>. Once bookings load, jump to
   // the page holding that session and auto-open its recording dialog. Guarded by
   // a ref so closing the dialog (or paginating) doesn't re-trigger the open.
@@ -397,7 +397,7 @@ export default function SessionBooking() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <UserCheck className="w-6 h-6 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">1-on-1 Coaching</h1>
+            <h1 className="text-3xl font-bold text-foreground">Private Coaching</h1>
           </div>
           <p className="text-muted-foreground">
             Feeling stuck? Book private sessions with the coach of your choice to get unstuck

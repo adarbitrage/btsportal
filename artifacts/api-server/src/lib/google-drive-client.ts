@@ -1,4 +1,4 @@
-// Thin, pluggable Google Drive read adapter for the 1-on-1 coaching recording
+// Thin, pluggable Google Drive read adapter for the private coaching recording
 // ingest. Topology-agnostic: it works whether Meet recordings land in one
 // central Drive (single service account) or in each coach's Drive (one service
 // account with domain-wide delegation, impersonating each coach in turn).

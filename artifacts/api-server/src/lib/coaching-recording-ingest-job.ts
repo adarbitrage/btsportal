@@ -1,4 +1,4 @@
-// Periodic driver for the 1-on-1 coaching recording ingest. Mirrors the other
+// Periodic driver for the private coaching recording ingest. Mirrors the other
 // background jobs (setInterval + start/stop). The work itself no-ops when Google
 // Drive is not configured, so this is safe to start unconditionally.
 

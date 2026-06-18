@@ -642,7 +642,7 @@ export async function processRecordingReadyNotifications(): Promise<void> {
 }
 
 export async function processSessionPackRecordingReadyNotifications(): Promise<void> {
-  // "Your recording is ready" notifications for 1-on-1 PRIVATE coaching (session
+  // "Your recording is ready" notifications for private coaching (session
   // pack) bookings. Unlike the group-call version above, each booking belongs to
   // a single member, and the link deep-links straight into THAT booking's
   // recording on /coaching/book-session (auto-opening the recording dialog)

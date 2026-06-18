@@ -1,4 +1,4 @@
-// Pure matching logic for linking a pack 1-on-1 booking to its Google Drive
+// Pure matching logic for linking a pack private booking to its Google Drive
 // artifacts (Meet recording video + Gemini "Take notes for me" summary doc +
 // transcript doc). Deliberately IO-free so it is fully unit-testable without
 // any live Google access: callers fetch candidate Drive files and pass them in.
@@ -18,7 +18,7 @@ export interface DriveFileMeta {
 
 export interface BookingMatchInput {
   // The meeting title used when the GHL appointment / Meet event was created,
-  // e.g. "1-on-1 Coaching with Sasha". Null titles are never matched (avoids
+  // e.g. "Private Coaching with Sasha". Null titles are never matched (avoids
   // attaching group/internal calls that happen to fall in the time window).
   title: string | null;
   scheduledAt: Date;

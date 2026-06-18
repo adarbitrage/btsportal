@@ -1,5 +1,5 @@
 /**
- * Pack 1-on-1 coach notes + action items: normalization and GHL mirroring.
+ * Pack private coach notes + action items: normalization and GHL mirroring.
  *
  * Notes and action items are COACH/ADMIN-FACING ONLY — they are never returned
  * to members. This module owns:
@@ -71,7 +71,7 @@ export function buildCoachingGHLNote(ctx: CoachingNoteContext): string | null {
     when && !Number.isNaN(when.getTime())
       ? when.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
       : null;
-  const header = ["1-on-1 coaching session", ctx.coachName?.trim(), whenStr]
+  const header = ["Private Coaching session", ctx.coachName?.trim(), whenStr]
     .filter(Boolean)
     .join(" — ");
   lines.push(header);

@@ -27,7 +27,7 @@ export function PackCoachingAdminLayout({ children }: { children: ReactNode }) {
                 ADMIN PANEL
               </h1>
               <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
-                1-on-1 Coaching
+                Private Coaching
               </p>
             </div>
           </div>
