@@ -1,0 +1,78 @@
+This is a BUILD task — implement it. A prior read-only recon mapped this codebase; the exact paths and deviations are baked into this spec. Build in the order under BUILD ORDER (backend before frontend, so the frontend is written against real endpoints, not stubs). It's one feature: an embedded Retell AI voice-call assistant for BTS members — a gated page that runs a live browser voice call with our Retell agent, the agent personalized with member context and able to query our live knowledgebase mid-call, with per-member daily minute caps and a signature-verified webhook that logs calls and reconciles minutes.
+
+## CODEBASE DEVIATIONS TO RESPECT (from recon)
+- DB is Replit PostgreSQL 16 via drizzle-orm/node-postgres + pg Pool (NOT Neon serverless).
+- Client is React 19 + Vite 7 + Tailwind v4 + shadcn/ui (Radix); router is wouter (NOT React Router); data layer @tanstack/react-query. Node 24. pnpm monorepo (artifacts/*, lib/*).
+- There is NO reusable member-context builder — chat context is assembled inline in artifacts/api-server/src/routes/chat.ts. Do NOT refactor chat.ts.
+- Entitlements: NO generic requireEntitlement middleware. Gate in-route with helpers from artifacts/api-server/src/lib/entitlements.ts (getUserEntitlements, hasEntitlement, getHighestProductLabel). There is NO implicit admin bypass — each gating layer needs its own explicit admin bypass. Copy the inline gate pattern from routes/community.ts:35–47.
+- Inbound webhooks mount under /api/webhooks/*; app.ts installs a raw-body capture (req.rawBody) for that prefix BEFORE JSON parsing — HMAC must verify against req.rawBody, never req.body. Copy the fail-closed HMAC pattern from routes/webhooks-ghl.ts.
+- Routes are modular: register new routers in artifacts/api-server/src/routes/index.ts via router.use(...), mirroring existing entries.
+- Secrets are raw process.env reads (no config module). The browser client needs NO public Retell key (the access token suffices) — do NOT add any VITE_RETELL_* variable.
+
+## BUILD ORDER
+1. Schema (voice_calls, voice_daily_usage) + barrel export.
+2. Dependencies (retell-sdk server; retell-client-js-sdk client).
+3. Backend: member-context helper → voice routes (web-call, status, kb-search) → Retell webhook receiver.
+4. Wiring: register routers in routes/index.ts; PUBLIC_PATHS edits in auth.ts.
+5. Frontend: voice-api → VoiceCall component → VoiceAssistant page.
+6. Frontend wiring: App.tsx route (EntitlementRoute), sidebar-nav leaf, entry button on AiAssistant page.
+7. Entitlement grant: seed.ts + idempotent live-DB update; set the cap env var.
+
+## FILES CREATED
+- lib/db/src/schema/voice-calls.ts — voiceCallsTable (table voice_calls)
+- lib/db/src/schema/voice-daily-usage.ts — voiceDailyUsageTable (table voice_daily_usage)
+- artifacts/api-server/src/lib/member-context.ts — buildMemberVoiceContext(userId): Retell dynamic-variable map
+- artifacts/api-server/src/routes/voice.ts — POST /api/voice/web-call, GET /api/voice/status, POST /api/voice/kb-search
+- artifacts/api-server/src/routes/webhooks-retell.ts — POST /api/webhooks/retell
+- artifacts/portal/src/lib/voice-api.ts — client wrappers for web-call + status (mirror lib/chat-api.ts)
+- artifacts/portal/src/components/voice/VoiceCall.tsx — RetellWebClient-driven call UI
+- artifacts/portal/src/pages/VoiceAssistant.tsx — page hosting VoiceCall + remaining-minutes
+
+## FILES MODIFIED
+- artifacts/api-server/src/routes/index.ts — import + router.use(...) voiceRouter and webhooksRetellRouter (mirror existing pattern)
+- lib/db/src/schema/index.ts (or the schema barrel — confirm exact path) — export the two new tables
+- artifacts/api-server/src/middleware/auth.ts — PUBLIC_PATHS: /api/webhooks/* is already whitelisted per recon, so /api/webhooks/retell is likely covered — verify it's a PREFIX match and add only if exact-match. /api/voice/kb-search is NOT under /webhooks and MUST be added to PUBLIC_PATHS (server-to-server call from Retell, no member cookie).
+- artifacts/api-server/package.json — add retell-sdk (SERVER only)
+- artifacts/portal/package.json — add retell-client-js-sdk (CLIENT only)
+- artifacts/portal/src/App.tsx — add a wouter <Route path="/assistant/voice"> wrapped in EntitlementRoute (App.tsx:226) with entitlement="voice:access". This is the ONLY change to App.tsx. Do NOT touch the global AuthenticatedChatWidget mount (~line 602/620).
+- artifacts/portal/src/components/layout/sidebar-nav.ts — add NavLeaf { label: "Voice Assistant", path: "/assistant/voice", requiredEntitlement: "voice:access" }
+- artifacts/portal/src/pages/AiAssistant.tsx — add a "Talk it through (voice)" button linking to /assistant/voice
+- artifacts/api-server/src/seed.ts — add "voice:access" to entitlementKeys for ALL 8 products
+
+## SCHEMA CHANGES
+- voice_calls: id (pk), user_id (fk users), retell_call_id (text, unique), status (text), started_at (timestamptz), ended_at (timestamptz null), duration_seconds (int null), transcript (text null), summary (text null), disconnect_reason (text null), metadata (jsonb null), created_at (default now)
+- voice_daily_usage: id (pk), user_id (fk users), usage_date (date), seconds_used (int default 0), UNIQUE(user_id, usage_date). Mirror the existing chat_daily_usage shape.
+
+## API ENDPOINTS
+- POST /api/voice/web-call — auth required (global authenticate). Gate inline with hasEntitlement(req.userId, "voice:access") + the explicit admin-bypass pattern from community.ts:35–47. Then enforce cap: read today's seconds_used from voice_daily_usage; if >= VOICE_DAILY_SECONDS_CAP return 403 { error, code: "voice_cap_reached" }. Else build ctx = buildMemberVoiceContext(userId) and call the Retell server SDK createWebCall with agent_id = process.env.RETELL_AGENT_ID, retell_llm_dynamic_variables = ctx, metadata = { bts_user_id: String(userId) }. Insert a voice_calls row (retell_call_id, status "registered", started_at now). Return { access_token, call_id }. Fail closed (500 + clear log) if RETELL_API_KEY or RETELL_AGENT_ID is unset. Confirm the exact SDK method path (e.g. client.call.createWebCall) against the installed retell-sdk types.
+- GET /api/voice/status — auth required. Return { has_access, daily_cap_seconds, seconds_used_today, seconds_remaining }.
+- POST /api/voice/kb-search — PUBLIC (no member auth; server-to-server from Retell). Require header Authorization: Bearer <RETELL_FUNCTION_SECRET>; in production reject 401 (timingSafeEqual) if the secret is unset or mismatched — same fail-closed posture as the webhook receivers. Body { query: string }. Run searchKnowledgebase(query, <FULL category set>) — comprehensive, NOT tier-scoped (deliberate: the feature is gated at access, the knowledge is intentionally full for all members). Return { results: string } as concise plain text suitable to be read aloud; cap the length for voice.
+- POST /api/webhooks/retell — PUBLIC webhook. Verify signature against req.rawBody using RETELL_API_KEY (the signing secret) and the Retell signature header; fail closed exactly like webhooks-ghl.ts (prod rejects invalid/missing). Confirm the verify method + exact header name against current Retell docs (Secure Webhook section). Handle: call_started (update status); call_ended (set ended_at, duration_seconds, status, disconnect_reason; UPSERT today's voice_daily_usage += duration_seconds); call_analyzed (set summary/transcript/analysis). Return 200 after a successful verify+handle; early-200 for unknown event types.
+
+## FRONTEND
+- /assistant/voice (VoiceAssistant page, gated by EntitlementRoute): a Start button; on click → POST /api/voice/web-call → IMMEDIATELY retellWebClient.startCall({ accessToken }) (token TTL is 30s, so no delay between mint and start). Subscribe to call_started, call_ended, agent_start_talking, agent_stop_talking, update, error. Render: connection state; an animated talking indicator driven by agent_start/stop_talking; live transcript from update.transcript (last 5 sentences); a mic-mute toggle; an End Call button (retellWebClient.stopCall()). On call_ended or error → return to idle and refetch GET /api/voice/status. Show remaining minutes from /status; if has_access is false or cap is reached, render a clear disabled state with the reason (no crash).
+- Request mic permission gracefully; if denied, show guidance. Handle the "error" event by calling stopCall() and surfacing a retry.
+- Nav: the sidebar leaf is gated by requiredEntitlement "voice:access" (filterNavByEntitlements handles display).
+- Stack: React 19 + wouter + Tailwind v4 + shadcn/ui — use existing components/ui/ primitives. Keep the page self-contained; do NOT modify ChatWidget.
+
+## ENTITLEMENT GRANT (data — REQUIRED)
+- Editing seed.ts does NOT update already-seeded product rows. After adding "voice:access" to all 8 products in seed.ts, also run a one-time idempotent update against the live DB that adds "voice:access" to products.entitlementKeys for all 8 products (only where missing). Deliver it as a small guarded script and report what ran.
+- voice:access is a string-literal key — there is no enum/union to update.
+
+## ENV / SECRETS (raw process.env)
+- RETELL_API_KEY (server; also the webhook signing secret), RETELL_AGENT_ID (server), RETELL_FUNCTION_SECRET (server; bearer for kb-search), VOICE_DAILY_SECONDS_CAP (default 1800 = 30 min). All are Replit Secrets except the cap which may be a plain env var. No VITE_RETELL_* anything.
+
+## ACCEPTANCE CRITERIA
+- retell-sdk (server) + retell-client-js-sdk (client) installed; drizzle migration creates both tables; app boots; /api/chat behavior unchanged.
+- POST /api/voice/web-call: 403 for a non-admin lacking voice:access; { access_token, call_id } for an entitled user when RETELL_API_KEY + RETELL_AGENT_ID are set; voice_cap_reached 403 when over cap.
+- POST /api/voice/kb-search: valid bearer returns KB matches; missing/invalid bearer → 401 in production; a support-style query (e.g. "what is the refund policy") returns the relevant answer.
+- POST /api/webhooks/retell: rejects a bad signature in production; on a valid call_ended payload, writes duration_seconds and increments voice_daily_usage.
+- /assistant/voice reachable only for users with voice:access (EntitlementRoute redirects others); nav item visible only to entitled users; Start mints a token and begins a live call; transcript updates live; talking indicator animates; End Call stops cleanly; status/minutes refresh after.
+- All 8 products' entitlementKeys contain voice:access in BOTH seed.ts and the live DB.
+
+## IMPLEMENTATION NOTES
+- member-context.ts: replicate only what's needed — getUserEntitlements + getHighestProductLabel from lib/entitlements.ts and the display name from usersTable. Emit { member_name, membership_level }. For progress/experience: check whether a real progress source or profile field exists; include progress_pct / current_module / experience_level ONLY if a source exists — otherwise omit those keys, do NOT fabricate.
+- membership_level maps to getHighestProductLabel (this is the dynamic variable the agent prompt expects).
+- SUPPORT CONTENT — confirm and report: check whether support Q&A already lives in knowledgebase_docs. If yes, searchKnowledgebase covers it. If it lives separately (e.g. a canned_responses table or a support FAQ), EITHER also query that source inside /api/voice/kb-search OR ingest that content into knowledgebase_docs so the agent is truly comprehensive. State which you did.
+- searchKnowledgebase currently takes (query, categories) — pass the FULL category set here, not the tier-restricted set the chat uses.
+- Use req.rawBody for the webhook HMAC (the /api/webhooks raw-body middleware already provides it).
