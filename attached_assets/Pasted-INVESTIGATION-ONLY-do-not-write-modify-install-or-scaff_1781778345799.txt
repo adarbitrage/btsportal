@@ -1,0 +1,33 @@
+INVESTIGATION ONLY — do not write, modify, install, or scaffold anything. I need a read-only report on the current state of this (BTS portal) codebase so a precise build spec can be written for a new feature: an embedded Retell AI voice-call widget. Report the following with exact file paths.
+
+1. STACK CONFIRMATION
+   - Confirm: Express.js + TypeScript backend, Drizzle ORM, Neon Postgres; React 18 + Vite + TypeScript client; Tailwind + shadcn/ui. Note any deviation.
+   - Node version (package.json / .replit / .nvmrc).
+   - Server entry file and how routes are registered (single app file vs. modular route files).
+
+2. EXISTING AI CHAT ASSISTANT (its patterns will be reused)
+   - File(s) implementing the chat backend route(s) (e.g. the /api/chat handler).
+   - The function/module that builds the per-member context injected into the chat system prompt (name, products/entitlements, progress, experience). Give file path + function name/signature.
+   - Where the system prompt and/or knowledgebase content lives (DB tables, file, or admin-managed) and the relevant table names.
+   - Client-side chat UI: the floating widget component and the full chat page component (file paths), and where the floating widget is mounted in the app tree.
+
+3. AUTH & ENTITLEMENTS
+   - The auth middleware file and how the authenticated user id is attached to requests.
+   - The entitlement-check middleware: file path, exported function name, and a real usage example from an existing route.
+   - The full list of entitlement keys currently defined in code, and where they're defined.
+
+4. ROUTING & NAV
+   - The client router file (App.tsx or equivalent) and how routes are declared.
+   - The sidebar/nav config file and how nav items are conditionally shown by entitlement.
+
+5. SECRETS / ENV
+   - How env vars/secrets are configured on this Replit (Replit Secrets? a config module?). Confirm the pattern for adding a new secret like RETELL_API_KEY.
+   - List the NAMES of currently configured integration env vars only — do NOT print any values.
+
+6. WEBHOOKS
+   - Any existing inbound webhook receivers (e.g. /api/webhooks/*) with file paths, and how request signatures are verified, so a new Retell webhook can follow the same pattern.
+
+7. DEPENDENCIES
+   - Confirm whether retell-sdk (server) and retell-client-js-sdk (client) are already installed. If not, just say so — do not install.
+
+Report back as plain text. Make no changes.
