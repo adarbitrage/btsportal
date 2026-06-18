@@ -101,6 +101,27 @@ if [ -n "$DATABASE_URL" ]; then
   #    Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0050_coach_away_periods.sql >/dev/null
+
+  # 7. Add the comms_send_log table (the comms-dedup idempotency ledger).
+  #    A pure additive table (like step 6): applying it explicitly here keeps the
+  #    live-schema-drift gate below green so push stays skipped on the common
+  #    merge instead of flipping to FAIL and triggering a slow whole-DB
+  #    `drizzle-kit push --force` just to create one table.
+  #    Idempotent (CREATE TABLE IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0051_comms_send_log.sql >/dev/null
+
+  # 8. Add the coaching_calls_template_slot_unq UNIQUE constraint.
+  #    Like step 3 (chat_system_prompts_name_unique): on a drifted DB that
+  #    already holds coaching_calls rows, `drizzle-kit push --force` stops on a
+  #    non-`--force` "…add coaching_calls_template_slot_unq … Do you want to
+  #    truncate coaching_calls table?" prompt when it tries to add this
+  #    constraint, which hangs/aborts the non-TTY post-merge. Adding it up front
+  #    (idempotently, self-gated on the table existing) makes push see it already
+  #    present and skip the prompt. On a fresh DB the table doesn't exist yet, so
+  #    this no-ops and push creates the table + constraint together.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0052_coaching_calls_template_slot_unq.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

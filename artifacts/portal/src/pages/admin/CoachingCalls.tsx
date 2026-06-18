@@ -273,6 +273,9 @@ export default function CoachingCalls() {
   const [templateDeleteTarget, setTemplateDeleteTarget] =
     useState<CoachingCallTemplate | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [templateFilter, setTemplateFilter] = useState<"all" | "active" | "paused">(
+    "all",
+  );
 
   const templates = [...(templateData?.templates ?? [])].sort((a, b) => {
     const aw = new Date(a.anchorAt);
@@ -283,6 +286,15 @@ export default function CoachingCalls() {
       a.title.localeCompare(b.title)
     );
   });
+  const pausedCount = templates.filter((t) => !t.active).length;
+  const activeCount = templates.length - pausedCount;
+  const visibleTemplates = templates.filter((t) =>
+    templateFilter === "all"
+      ? true
+      : templateFilter === "active"
+        ? t.active
+        : !t.active,
+  );
 
   function openNewTemplate() {
     setTemplateForm({
@@ -446,8 +458,44 @@ export default function CoachingCalls() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {templates.map((t) => {
-              return (
+            {templates.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                data-testid="template-filter"
+              >
+                {([
+                  { value: "all", label: `All (${templates.length})` },
+                  { value: "active", label: `Active (${activeCount})` },
+                  { value: "paused", label: `Paused (${pausedCount})` },
+                ] as const).map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={templateFilter === opt.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTemplateFilter(opt.value)}
+                    data-testid={`template-filter-${opt.value}`}
+                    aria-pressed={templateFilter === opt.value}
+                  >
+                    {opt.value === "paused" && <Pause className="w-3.5 h-3.5 mr-1.5" />}
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {templates.length > 0 && visibleTemplates.length === 0 ? (
+              <Card>
+                <CardContent
+                  className="p-8 text-center text-muted-foreground text-sm"
+                  data-testid="template-filter-empty"
+                >
+                  {templateFilter === "paused"
+                    ? "No paused schedules — every series is running."
+                    : "No active schedules — all series are paused."}
+                </CardContent>
+              </Card>
+            ) : (
+              visibleTemplates.map((t) => {
+                return (
                 <Card
                   key={t.id}
                   data-testid={`template-${t.id}`}
@@ -532,8 +580,9 @@ export default function CoachingCalls() {
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         )}
 
