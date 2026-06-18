@@ -374,3 +374,64 @@ describe("GET /voice/calls — date range filter", () => {
     ]);
   });
 });
+
+describe("GET /voice/calls — keyword + date range combined", () => {
+  it("applies q AND range together, scoped to the member", async () => {
+    const memberA = await seedMember();
+    const memberB = await seedMember();
+    const now = Date.now();
+    const days = (n: number) => new Date(now - n * 24 * 60 * 60 * 1000);
+
+    // Matches keyword AND inside the 7-day window — the only row that should
+    // survive a q=funnel&range=7d query.
+    const recentMatch = await insertCall({
+      userId: memberA.id,
+      startedAt: days(2),
+      endedAt: days(2),
+      summary: "Reviewed the funnel build",
+      transcript: "details",
+    });
+    // Matches keyword but is OUTSIDE the 7-day window — excluded by range.
+    await insertCall({
+      userId: memberA.id,
+      startedAt: days(20),
+      endedAt: days(20),
+      summary: "Older funnel discussion",
+      transcript: "details",
+    });
+    // Inside the window but does NOT match the keyword — excluded by q.
+    await insertCall({
+      userId: memberA.id,
+      startedAt: days(1),
+      endedAt: days(1),
+      summary: "weather talk",
+      transcript: "small talk",
+    });
+    // Member B matches keyword AND window but must never leak across members.
+    await insertCall({
+      userId: memberB.id,
+      startedAt: days(2),
+      endedAt: days(2),
+      summary: "funnel for member B",
+      transcript: "funnel funnel",
+    });
+
+    const res = await request(app)
+      .get("/api/voice/calls?q=funnel&range=7d")
+      .set("Cookie", memberA.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body.calls as Array<{ id: number }>).map((c) => c.id);
+    expect(ids).toEqual([recentMatch]);
+
+    // Widening the range to 30d while keeping the keyword must surface the
+    // older keyword match too (newest-first), proving range is the only lever
+    // that changed.
+    const widened = await request(app)
+      .get("/api/voice/calls?q=funnel&range=30d")
+      .set("Cookie", memberA.cookie);
+    expect(widened.status).toBe(200);
+    expect((widened.body.calls as Array<{ id: number }>).map((c) => c.id)).toHaveLength(2);
+    expect((widened.body.calls as Array<{ id: number }>).map((c) => c.id)[0]).toBe(recentMatch);
+  });
+});
