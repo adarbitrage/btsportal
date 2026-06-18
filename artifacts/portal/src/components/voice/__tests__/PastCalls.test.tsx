@@ -151,3 +151,149 @@ describe("PastCalls — custom date-range UI", () => {
     expect((screen.getByLabelText(/end date/i) as HTMLInputElement).value).toBe("");
   });
 });
+
+describe("PastCalls — active-filter chips", () => {
+  async function selectPreset(name: RegExp) {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: /filter by date range/i }));
+    await user.click(await screen.findByRole("option", { name }));
+  }
+
+  it("shows no summary row when no filters are active", () => {
+    render(<PastCalls />);
+    expect(screen.queryByText(/showing calls/i)).not.toBeInTheDocument();
+  });
+
+  it("renders a keyword chip and a preset chip when both filters are active", async () => {
+    render(<PastCalls />);
+
+    await selectPreset(/last 7 days/i);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "billing");
+
+    // The summary row and both chips appear (keyword is debounced, so wait).
+    expect(await screen.findByText(/showing calls/i)).toBeInTheDocument();
+    expect(await screen.findByText(/matching .*billing/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear keyword filter/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear date range filter/i })).toBeInTheDocument();
+  });
+
+  it("clearing the keyword chip removes only the keyword, leaving the preset", async () => {
+    render(<PastCalls />);
+
+    await selectPreset(/last 7 days/i);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "billing");
+
+    const keywordChipClear = await screen.findByRole("button", {
+      name: /clear keyword filter/i,
+    });
+    await user.click(keywordChipClear);
+
+    // Keyword chip is gone but the preset chip and its clear control remain.
+    await waitFor(() => {
+      expect(screen.queryByText(/matching .*billing/i)).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /clear date range filter/i })).toBeInTheDocument();
+    expect(lastCall().range).toBe("7d");
+    expect(lastCall().q).toBe("");
+  });
+
+  it("clearing the preset chip removes only the preset, leaving the keyword", async () => {
+    render(<PastCalls />);
+
+    await selectPreset(/last 30 days/i);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "refund");
+
+    // Confirm the keyword chip is present before we touch the preset.
+    await screen.findByRole("button", { name: /clear keyword filter/i });
+
+    await user.click(screen.getByRole("button", { name: /clear date range filter/i }));
+
+    // Preset chip is gone but the keyword chip remains.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /clear date range filter/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /clear keyword filter/i })).toBeInTheDocument();
+    expect(lastCall().range).toBe("all");
+    expect(lastCall().q).toBe("refund");
+  });
+
+  it("renders separate from/to chips for a custom range", async () => {
+    render(<PastCalls />);
+    await selectCustomRange();
+
+    fireEvent.change(await screen.findByLabelText(/^start date$/i), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(await screen.findByLabelText(/^end date$/i), {
+      target: { value: "2026-03-10" },
+    });
+
+    expect(await screen.findByText(/^from /i)).toBeInTheDocument();
+    expect(await screen.findByText(/^to /i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear start date filter/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear end date filter/i })).toBeInTheDocument();
+  });
+
+  it("clearing the start-date chip removes only the from bound, leaving the to bound", async () => {
+    render(<PastCalls />);
+    await selectCustomRange();
+
+    fireEvent.change(await screen.findByLabelText(/^start date$/i), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(await screen.findByLabelText(/^end date$/i), {
+      target: { value: "2026-03-10" },
+    });
+
+    await screen.findByRole("button", { name: /clear start date filter/i });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /clear start date filter/i }));
+
+    // Start chip gone, end chip stays; only the from bound is dropped.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /clear start date filter/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /clear end date filter/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(lastCall().custom).toEqual({ from: "", to: "2026-03-10" });
+    });
+    expect((screen.getByLabelText(/^end date$/i) as HTMLInputElement).value).toBe("2026-03-10");
+  });
+
+  it("clearing the end-date chip removes only the to bound, leaving the from bound", async () => {
+    render(<PastCalls />);
+    await selectCustomRange();
+
+    fireEvent.change(await screen.findByLabelText(/^start date$/i), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(await screen.findByLabelText(/^end date$/i), {
+      target: { value: "2026-03-10" },
+    });
+
+    await screen.findByRole("button", { name: /clear end date filter/i });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /clear end date filter/i }));
+
+    // End chip gone, start chip stays; only the to bound is dropped.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /clear end date filter/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /clear start date filter/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(lastCall().custom).toEqual({ from: "2026-03-01", to: "" });
+    });
+    expect((screen.getByLabelText(/^start date$/i) as HTMLInputElement).value).toBe("2026-03-01");
+  });
+});
