@@ -161,6 +161,76 @@ describe("GET /admin/voice/usage — rolling-window totals", () => {
   });
 });
 
+describe("GET /admin/voice/usage — topMembers ranking", () => {
+  it("orders top members by seconds DESC with user id ASC tie-break", async () => {
+    const admin = await seedUser("admin");
+    // Seeded in order, so userTieA.id < userTieB.id — the tie-break decider.
+    const userHigh = await seedUser("member");
+    const userTieA = await seedUser("member");
+    const userTieB = await seedUser("member");
+
+    // All in the current (today) window; userHigh has the most seconds while the
+    // two tie users have identical seconds so ordering falls to user id ASC.
+    const today = utcDateStr(0);
+    await insertUsage(userHigh.id, today, 500);
+    await insertUsage(userTieA.id, today, 100);
+    await insertUsage(userTieB.id, today, 100);
+
+    // limit=100 so our small-second seeds aren't pushed off the leaderboard by
+    // pre-existing heavy users in the shared DB.
+    const res = await request(app)
+      .get("/api/admin/voice/usage?limit=100")
+      .set("Cookie", admin.cookie);
+    expect(res.status).toBe(200);
+
+    const ids = new Set([userHigh.id, userTieA.id, userTieB.id]);
+    const ordered = (res.body.topMembers.members as Array<{ userId: number }>)
+      .map((m) => m.userId)
+      .filter((id) => ids.has(id));
+
+    // Filtering to our seeded ids preserves the route's relative ordering:
+    // seconds DESC puts userHigh first; the equal-seconds pair tie-breaks on id ASC.
+    expect(ordered).toEqual([userHigh.id, userTieA.id, userTieB.id]);
+  });
+});
+
+describe("GET /admin/voice/usage — period window switching", () => {
+  it("narrows topMembers by period and echoes the requested period", async () => {
+    const admin = await seedUser("admin");
+    const monthOnlyUser = await seedUser("member");
+
+    // A usage row 15 days ago lands only in the month window — outside today/week.
+    await insertUsage(monthOnlyUser.id, utcDateStr(-15), 250);
+
+    const inMembers = (body: { topMembers: { members: Array<{ userId: number }> } }, id: number): boolean =>
+      body.topMembers.members.some((m) => m.userId === id);
+
+    // month: the user is present and the period echoes back.
+    const month = await request(app)
+      .get("/api/admin/voice/usage?period=month&limit=100")
+      .set("Cookie", admin.cookie);
+    expect(month.status).toBe(200);
+    expect(month.body.topMembers.period).toBe("month");
+    expect(inMembers(month.body, monthOnlyUser.id)).toBe(true);
+
+    // today: the 15-day-old row drops out; period echoes "today".
+    const today = await request(app)
+      .get("/api/admin/voice/usage?period=today&limit=100")
+      .set("Cookie", admin.cookie);
+    expect(today.status).toBe(200);
+    expect(today.body.topMembers.period).toBe("today");
+    expect(inMembers(today.body, monthOnlyUser.id)).toBe(false);
+
+    // week: still outside the trailing-7-day window; period echoes "week".
+    const week = await request(app)
+      .get("/api/admin/voice/usage?period=week&limit=100")
+      .set("Cookie", admin.cookie);
+    expect(week.status).toBe(200);
+    expect(week.body.topMembers.period).toBe("week");
+    expect(inMembers(week.body, monthOnlyUser.id)).toBe(false);
+  });
+});
+
 describe("GET /admin/voice/calls — pagination & userId filter", () => {
   it("filters by userId and paginates newest-first", async () => {
     const admin = await seedUser("admin");
