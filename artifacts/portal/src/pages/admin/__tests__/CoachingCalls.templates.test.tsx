@@ -18,11 +18,11 @@ vi.mock("@/hooks/use-toast", () => ({
 import CoachingCalls from "@/pages/admin/CoachingCalls";
 
 // ---------------------------------------------------------------------------
-// In-memory fake of the admin coaching-calls API, focused on the recurring
-// template create/edit/delete dialog flow and the generate button. The
-// component drives the real React Query hooks + adminFetch, so a regression in
-// the template form wiring, the create/edit/delete mutations, the list refresh,
-// or the generate endpoint surfaces here. Only the network boundary is faked.
+// In-memory fake of the admin coaching-calls API, focused on the schedule-first
+// recurring template create/edit/delete flow. The component drives the real
+// React Query hooks + adminFetch, so a regression in the schedule form wiring
+// (day-of-week + time -> anchorAt), the create/edit/delete mutations, or the
+// list refresh surfaces here. Only the network boundary is faked.
 // ---------------------------------------------------------------------------
 interface ServerTemplate {
   id: number;
@@ -49,11 +49,11 @@ const COACHES = [
 let templates: ServerTemplate[];
 let nextId: number;
 const createBodies: Array<Record<string, unknown>> = [];
-const generateCalls: number[] = [];
+const patchBodies: Array<{ id: number; body: Record<string, unknown> }> = [];
 
 // Flip these to make the matching endpoint reject with a 500 so the failure
-// paths in handleSaveTemplate / handleGenerate / handleDeleteTemplate run.
-const failRoutes = { create: false, generate: false, delete: false };
+// paths in handleSaveTemplate / handleDeleteTemplate run.
+const failRoutes = { create: false, delete: false };
 
 function makeTemplate(overrides: Partial<ServerTemplate> = {}): ServerTemplate {
   return {
@@ -131,27 +131,12 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
     );
   }
 
-  const generateMatch = path.match(
-    /^\/api\/admin\/coaching\/calls\/templates\/(\d+)\/generate$/,
-  );
-  if (generateMatch && method === "POST") {
-    const id = Number(generateMatch[1]);
-    if (failRoutes.generate) {
-      return Promise.resolve(jsonResponse({ error: "Boom" }, 500));
-    }
-    generateCalls.push(id);
-    const through = "2026-10-01T14:30:00.000Z";
-    templates = templates.map((t) =>
-      t.id === id ? { ...t, lastGeneratedAt: through } : t,
-    );
-    return Promise.resolve(jsonResponse({ generated: 4, through }));
-  }
-
   const idMatch = path.match(/^\/api\/admin\/coaching\/calls\/templates\/(\d+)$/);
   if (idMatch) {
     const id = Number(idMatch[1]);
     if (method === "PATCH") {
       const body = JSON.parse(String(options?.body ?? "{}"));
+      patchBodies.push({ id, body });
       templates = templates.map((t) =>
         t.id === id
           ? {
@@ -190,9 +175,8 @@ beforeEach(() => {
   templates = [];
   nextId = 100;
   createBodies.length = 0;
-  generateCalls.length = 0;
+  patchBodies.length = 0;
   failRoutes.create = false;
-  failRoutes.generate = false;
   failRoutes.delete = false;
   toast.mockReset();
   vi.spyOn(globalThis, "fetch").mockImplementation(fakeFetch as typeof fetch);
@@ -202,18 +186,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("CoachingCalls recurring schedule create/edit/delete", () => {
-  it("creates a template, edits it, generates more weeks, then deletes it", async () => {
+describe("CoachingCalls schedule-first create/edit/delete", () => {
+  it("creates a weekly schedule from day + time, edits it, then deletes it", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    // Starts at the recurring empty state.
+    // Starts at the schedule-first empty state.
     expect(
-      await screen.findByText(/No recurring schedules yet/i),
+      await screen.findByText(/No weekly calls scheduled yet/i),
     ).toBeInTheDocument();
 
     // --- CREATE ----------------------------------------------------------
-    await user.click(screen.getByTestId("add-template"));
+    await user.click(screen.getByTestId("add-weekly-call"));
 
     const createDialog = await screen.findByRole("dialog");
     await user.type(
@@ -221,20 +205,19 @@ describe("CoachingCalls recurring schedule create/edit/delete", () => {
       "Weekly Coaching Series",
     );
 
-    // Pick a coach via the Radix Select.
+    // Pick a coach + type via the Radix Selects.
     await user.click(within(createDialog).getByTestId("template-coach"));
     await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
-
-    // Pick a call type.
     await user.click(within(createDialog).getByTestId("template-type"));
     await user.click(await screen.findByRole("option", { name: "Strategy" }));
 
-    // First-call date & time (only present when creating).
-    const anchorAt = within(createDialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
+    // Day-of-week + time (replaces the old anchor datetime picker).
+    await user.click(within(createDialog).getByTestId("template-day"));
+    await user.click(await screen.findByRole("option", { name: "Wednesday" }));
+    const time = within(createDialog).getByTestId("template-time");
+    await user.clear(time);
+    await user.type(time, "09:30");
 
-    // Meet link.
     await user.type(
       within(createDialog).getByTestId("template-meet-link"),
       "https://meet.google.com/aaa-bbbb-ccc",
@@ -242,33 +225,33 @@ describe("CoachingCalls recurring schedule create/edit/delete", () => {
 
     await user.click(within(createDialog).getByTestId("save-template"));
 
-    // The new template card appears with the chosen coach + type + meet link.
+    // The new schedule card appears with the chosen coach + type.
     const createdCard = await screen.findByTestId("template-100");
     expect(within(createdCard).getByText("Weekly Coaching Series")).toBeInTheDocument();
     expect(within(createdCard).getByText(/Bruce Coach/)).toBeInTheDocument();
     expect(within(createdCard).getByText("Strategy")).toBeInTheDocument();
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Recurring schedule created" }),
+        expect.objectContaining({ title: "Weekly call scheduled" }),
       ),
     );
+
+    // The day + time were resolved into a future anchorAt on the chosen weekday.
+    expect(createBodies).toHaveLength(1);
     expect(createBodies[0]).toMatchObject({
       title: "Weekly Coaching Series",
       callType: "strategy",
       coachId: 9,
       meetLink: "https://meet.google.com/aaa-bbbb-ccc",
+      occurrencesPerBatch: 8,
     });
+    const anchor = new Date(createBodies[0].anchorAt as string);
+    expect(anchor.getDay()).toBe(3); // Wednesday (local)
+    expect(anchor.getHours()).toBe(9);
+    expect(anchor.getMinutes()).toBe(30);
+    expect(anchor.getTime()).toBeGreaterThan(Date.now());
 
-    // --- GENERATE --------------------------------------------------------
-    await user.click(within(createdCard).getByTestId("generate-template-100"));
-    await waitFor(() => expect(generateCalls).toContain(100));
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "More calls scheduled" }),
-      ),
-    );
-
-    // --- EDIT (rename the template) -------------------------------------
+    // --- EDIT (rename the schedule) -------------------------------------
     await user.click(screen.getByTestId("edit-template-100"));
     const editDialog = await screen.findByRole("dialog");
     const titleInput = within(editDialog).getByTestId("template-title");
@@ -283,49 +266,49 @@ describe("CoachingCalls recurring schedule create/edit/delete", () => {
     expect(screen.queryByText("Weekly Coaching Series")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Recurring schedule updated" }),
+        expect.objectContaining({ title: "Schedule updated" }),
       ),
     );
+    // The edit PATCH carries an anchorAt so the backend re-slots upcoming weeks.
+    expect(patchBodies).toHaveLength(1);
+    expect(patchBodies[0].body).toHaveProperty("anchorAt");
 
     // --- DELETE ----------------------------------------------------------
     await user.click(screen.getByTestId("delete-template-100"));
     await user.click(await screen.findByTestId("confirm-delete-template"));
 
-    // Back to the recurring empty state.
+    // Back to the schedule-first empty state.
     await waitFor(() =>
       expect(screen.queryByTestId("template-100")).not.toBeInTheDocument(),
     );
     expect(
-      await screen.findByText(/No recurring schedules yet/i),
+      await screen.findByText(/No weekly calls scheduled yet/i),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Recurring schedule removed" }),
+        expect.objectContaining({ title: "Schedule removed" }),
       ),
     );
   });
 });
 
-describe("CoachingCalls recurring schedule failure handling", () => {
+describe("CoachingCalls schedule-first failure handling", () => {
   it("shows a destructive toast and keeps the dialog open when creating fails", async () => {
     failRoutes.create = true;
     const user = userEvent.setup();
     renderPage();
 
     expect(
-      await screen.findByText(/No recurring schedules yet/i),
+      await screen.findByText(/No weekly calls scheduled yet/i),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByTestId("add-template"));
+    await user.click(screen.getByTestId("add-weekly-call"));
 
     const createDialog = await screen.findByRole("dialog");
     await user.type(
       within(createDialog).getByTestId("template-title"),
       "Weekly Coaching Series",
     );
-    const anchorAt = within(createDialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
 
     await user.click(within(createDialog).getByTestId("save-template"));
 
@@ -333,43 +316,20 @@ describe("CoachingCalls recurring schedule failure handling", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Could not save recurring schedule",
+          title: "Could not save schedule",
           variant: "destructive",
         }),
       ),
     );
-    // No success toast leaked through, and no template was added.
+    // No success toast leaked through, and no schedule was added.
     expect(toast).not.toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Recurring schedule created" }),
+      expect.objectContaining({ title: "Weekly call scheduled" }),
     );
     expect(screen.queryByTestId("template-100")).not.toBeInTheDocument();
 
     // The dialog stays open so the admin can retry.
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByTestId("save-template")).toBeInTheDocument();
-  });
-
-  it("shows a destructive toast when generating more calls fails", async () => {
-    templates = [makeTemplate({ id: 100 })];
-    failRoutes.generate = true;
-    const user = userEvent.setup();
-    renderPage();
-
-    const card = await screen.findByTestId("template-100");
-    await user.click(within(card).getByTestId("generate-template-100"));
-
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Could not generate calls",
-          variant: "destructive",
-        }),
-      ),
-    );
-    expect(generateCalls).not.toContain(100);
-    expect(toast).not.toHaveBeenCalledWith(
-      expect.objectContaining({ title: "More calls scheduled" }),
-    );
   });
 
   it("shows a destructive toast and keeps the confirm dialog open when deleting fails", async () => {
@@ -385,16 +345,16 @@ describe("CoachingCalls recurring schedule failure handling", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Could not remove recurring schedule",
+          title: "Could not remove schedule",
           variant: "destructive",
         }),
       ),
     );
     expect(toast).not.toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Recurring schedule removed" }),
+      expect.objectContaining({ title: "Schedule removed" }),
     );
 
-    // The confirm dialog stays open (and the template is still listed) so the
+    // The confirm dialog stays open (and the schedule is still listed) so the
     // admin can retry the removal.
     expect(screen.getByTestId("confirm-delete-template")).toBeInTheDocument();
     expect(screen.getByTestId("template-100")).toBeInTheDocument();

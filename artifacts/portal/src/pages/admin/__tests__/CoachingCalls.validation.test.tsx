@@ -19,10 +19,10 @@ import CoachingCalls from "@/pages/admin/CoachingCalls";
 
 // ---------------------------------------------------------------------------
 // Guards the client-side validation in handleSaveTemplate (CoachingCalls.tsx):
-// the recurring-schedule dialog must block submission and show a destructive
-// toast when a required field is missing, and must NOT call the create
-// endpoint. A valid submission, by contrast, should clear validation and POST.
-// Only the network boundary is faked.
+// the schedule-first dialog must block submission and show a destructive toast
+// when a required field is missing, and must NOT call the create endpoint. A
+// valid submission, by contrast, should clear validation and POST. Only the
+// network boundary is faked.
 // ---------------------------------------------------------------------------
 let coaches: Array<{ id: number; name: string }>;
 const createBodies: Array<Record<string, unknown>> = [];
@@ -90,8 +90,8 @@ function renderPage() {
 async function openAddDialog(user: ReturnType<typeof userEvent.setup>) {
   // Wait for the coaches query to settle so openNewTemplate can pre-fill the
   // coach (or leave it blank when there are none).
-  await screen.findByText(/No recurring schedules yet/i);
-  await user.click(screen.getByTestId("add-template"));
+  await screen.findByText(/No weekly calls scheduled yet/i);
+  await user.click(screen.getByTestId("add-weekly-call"));
   return screen.findByRole("dialog");
 }
 
@@ -109,7 +109,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("CoachingCalls recurring schedule validation", () => {
+describe("CoachingCalls schedule-first validation", () => {
   it("blocks submit with a missing title and does not POST", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -144,20 +144,20 @@ describe("CoachingCalls recurring schedule validation", () => {
     expect(createBodies).toHaveLength(0);
   });
 
-  it("blocks submit with a missing first-call date and does not POST", async () => {
+  it("blocks submit with a cleared (invalid) time and does not POST", async () => {
     const user = userEvent.setup();
     renderPage();
 
     const dialog = await openAddDialog(user);
     await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
-    // Coach is pre-filled; leave the first-call date empty.
-    await user.clear(within(dialog).getByTestId("template-anchor-at"));
+    // Coach is pre-filled; clear the time so it is invalid.
+    await user.clear(within(dialog).getByTestId("template-time"));
     await user.click(within(dialog).getByTestId("save-template"));
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "First call date & time is required",
+          title: "A valid time is required",
           variant: "destructive",
         }),
       ),
@@ -175,10 +175,6 @@ describe("CoachingCalls recurring schedule validation", () => {
     // Pick a coach via the Radix Select.
     await user.click(within(dialog).getByTestId("template-coach"));
     await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
-
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
 
     const duration = within(dialog).getByTestId("template-duration");
     await user.clear(duration);
@@ -207,10 +203,6 @@ describe("CoachingCalls recurring schedule validation", () => {
     await user.click(within(dialog).getByTestId("template-coach"));
     await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
 
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
-
     await user.clear(within(dialog).getByTestId("template-duration"));
 
     await user.click(within(dialog).getByTestId("save-template"));
@@ -226,7 +218,7 @@ describe("CoachingCalls recurring schedule validation", () => {
     expect(createBodies).toHaveLength(0);
   });
 
-  it("blocks submit with a non-positive weeks-to-generate and does not POST", async () => {
+  it("submits the typed duration and defaults the batch size", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -235,85 +227,17 @@ describe("CoachingCalls recurring schedule validation", () => {
 
     await user.click(within(dialog).getByTestId("template-coach"));
     await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
-
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
-
-    const batch = within(dialog).getByTestId("template-batch");
-    await user.clear(batch);
-    await user.type(batch, "0");
-
-    await user.click(within(dialog).getByTestId("save-template"));
-
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Weeks to Generate must be a positive number",
-          variant: "destructive",
-        }),
-      ),
-    );
-    expect(createBodies).toHaveLength(0);
-  });
-
-  it("blocks submit with a cleared (empty) weeks-to-generate and does not POST", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    const dialog = await openAddDialog(user);
-    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
-
-    await user.click(within(dialog).getByTestId("template-coach"));
-    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
-
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
-
-    await user.clear(within(dialog).getByTestId("template-batch"));
-
-    await user.click(within(dialog).getByTestId("save-template"));
-
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Weeks to Generate must be a positive number",
-          variant: "destructive",
-        }),
-      ),
-    );
-    expect(createBodies).toHaveLength(0);
-  });
-
-  it("submits the typed duration and weeks-to-generate values", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    const dialog = await openAddDialog(user);
-    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
-
-    await user.click(within(dialog).getByTestId("template-coach"));
-    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
-
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
 
     const duration = within(dialog).getByTestId("template-duration");
     await user.clear(duration);
     await user.type(duration, "45");
-
-    const batch = within(dialog).getByTestId("template-batch");
-    await user.clear(batch);
-    await user.type(batch, "12");
 
     await user.click(within(dialog).getByTestId("save-template"));
 
     await waitFor(() => expect(createBodies).toHaveLength(1));
     expect(createBodies[0]).toMatchObject({
       durationMinutes: 45,
-      occurrencesPerBatch: 12,
+      occurrencesPerBatch: 8,
     });
     expect(toast).not.toHaveBeenCalledWith(
       expect.objectContaining({ variant: "destructive" }),
@@ -331,11 +255,6 @@ describe("CoachingCalls recurring schedule validation", () => {
     await user.click(within(dialog).getByTestId("template-coach"));
     await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
 
-    // First-call date & time (only present when creating).
-    const anchorAt = within(dialog).getByTestId("template-anchor-at");
-    await user.clear(anchorAt);
-    await user.type(anchorAt, "2026-07-01T14:30");
-
     await user.click(within(dialog).getByTestId("save-template"));
 
     await waitFor(() => expect(createBodies).toHaveLength(1));
@@ -343,9 +262,10 @@ describe("CoachingCalls recurring schedule validation", () => {
       title: "Weekly Series",
       coachId: 9,
     });
+    expect(createBodies[0]).toHaveProperty("anchorAt");
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Recurring schedule created" }),
+        expect.objectContaining({ title: "Weekly call scheduled" }),
       ),
     );
     // No validation toast fired.

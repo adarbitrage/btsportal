@@ -3,9 +3,10 @@ import {
   db,
   coachingCallsTable,
   coachingCallTemplatesTable,
+  coachingCallAttendanceTable,
   coachesTable,
 } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc, and, gt, isNull, notExists, sql } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
@@ -183,14 +184,17 @@ function parseTemplateBody(
     return { error: "A valid coach is required" };
   }
 
-  // anchorAt = the first occurrence's date/time. Only settable on create; the
-  // watermark drives subsequent occurrences so we don't let an edit rewind it.
-  if (!partial) {
-    const anchorAt = new Date(String(body.anchorAt ?? body.scheduledAt ?? ""));
+  // anchorAt = the first occurrence's date/time. Required on create. On update
+  // it's optional, but when provided it re-anchors the schedule (day/time move)
+  // and triggers a re-slot of the upcoming un-reserved occurrences.
+  if (body.anchorAt !== undefined || body.scheduledAt !== undefined) {
+    const anchorAt = new Date(String(body.anchorAt ?? body.scheduledAt));
     if (Number.isNaN(anchorAt.getTime())) {
       return { error: "A valid first occurrence date/time is required" };
     }
     values.anchorAt = anchorAt;
+  } else if (!partial) {
+    return { error: "A valid first occurrence date/time is required" };
   }
 
   if (body.durationMinutes !== undefined) {
@@ -293,6 +297,116 @@ export async function generateForTemplate(
     .where(eq(coachingCallTemplatesTable.id, template.id));
 
   return { created: inserted.length, through };
+}
+
+// Fields that, when edited on a template, must propagate to the upcoming
+// (un-reserved) generated occurrences. `active` and `occurrencesPerBatch` are
+// intentionally excluded: pausing/resuming or changing the batch size never
+// rewrites the calls already on the schedule.
+const RESLOT_TRIGGER_FIELDS = [
+  "anchorAt",
+  "intervalDays",
+  "coachId",
+  "title",
+  "description",
+  "callType",
+  "durationMinutes",
+  "meetLink",
+  "requiredEntitlement",
+] as const;
+
+// The next `count` occurrence datetimes at or after `from` on the template's
+// anchorAt + k*intervalDays grid. Used by the re-slot path so a day/time move
+// regenerates the future cleanly without ever producing past-dated calls.
+export function futureOccurrencesOnGrid(
+  template: TemplateRow,
+  from: Date,
+  count: number,
+): Date[] {
+  const intervalMs = template.intervalDays * DAY_MS;
+  const anchor = template.anchorAt.getTime();
+  const fromMs = from.getTime();
+  let k = 0;
+  if (fromMs > anchor) {
+    k = Math.ceil((fromMs - anchor) / intervalMs);
+  }
+  const occurrences: Date[] = [];
+  for (let i = 0; i < count; i++) {
+    occurrences.push(new Date(anchor + (k + i) * intervalMs));
+  }
+  return occurrences;
+}
+
+// Re-slot a template's UPCOMING occurrences after a schedule edit. Deletes only
+// future occurrences that are safe to move — no registrations, no recording, no
+// attendance rows — then regenerates the next batch from the (possibly new)
+// schedule grid. Past calls and any future call someone has already booked are
+// left exactly where they are, so RSVPs / reminders / recordings keep working.
+export async function reslotTemplateFutureOccurrences(
+  template: TemplateRow,
+): Promise<{ deleted: number; created: number; through: Date | null }> {
+  const now = new Date();
+
+  const deleted = await db
+    .delete(coachingCallsTable)
+    .where(
+      and(
+        eq(coachingCallsTable.templateId, template.id),
+        gt(coachingCallsTable.scheduledAt, now),
+        eq(coachingCallsTable.registeredCount, 0),
+        isNull(coachingCallsTable.recordingUrl),
+        notExists(
+          db
+            .select({ x: sql`1` })
+            .from(coachingCallAttendanceTable)
+            .where(eq(coachingCallAttendanceTable.callId, coachingCallsTable.id)),
+        ),
+      ),
+    )
+    .returning({ id: coachingCallsTable.id });
+
+  const occurrences = futureOccurrencesOnGrid(template, now, template.occurrencesPerBatch);
+  const rows = occurrences.map((scheduledAt) => ({
+    title: template.title,
+    description: template.description,
+    callType: template.callType,
+    coachId: template.coachId,
+    meetLink: template.meetLink,
+    scheduledAt,
+    durationMinutes: template.durationMinutes,
+    requiredEntitlement: template.requiredEntitlement,
+    templateId: template.id,
+  }));
+
+  const inserted = await db
+    .insert(coachingCallsTable)
+    .values(rows)
+    .onConflictDoNothing({
+      target: [coachingCallsTable.templateId, coachingCallsTable.scheduledAt],
+    })
+    .returning({ id: coachingCallsTable.id });
+
+  // Advance the watermark so the daily top-up job continues forward from the
+  // new schedule. Reads the furthest existing occurrence (covers retained
+  // reserved calls that might sit past the regenerated batch).
+  const [furthest] = await db
+    .select({ scheduledAt: coachingCallsTable.scheduledAt })
+    .from(coachingCallsTable)
+    .where(eq(coachingCallsTable.templateId, template.id))
+    .orderBy(desc(coachingCallsTable.scheduledAt))
+    .limit(1);
+  const through =
+    occurrences.length > 0 ? occurrences[occurrences.length - 1] : null;
+  const watermark =
+    through && furthest && furthest.scheduledAt.getTime() > through.getTime()
+      ? furthest.scheduledAt
+      : through;
+  await db
+    .update(coachingCallTemplatesTable)
+    .set({ lastGeneratedAt: watermark })
+    .where(eq(coachingCallTemplatesTable.id, template.id));
+
+  return { deleted: deleted.length, created: inserted.length, through: watermark };
 }
 
 // List recurring templates with the coach name, for the admin schedule manager.
@@ -403,6 +517,19 @@ router.patch(
 
     if (!updated) {
       res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    // When a schedule edit touches the day/time, coach, or other fields copied
+    // onto generated calls, re-slot the upcoming un-reserved occurrences so the
+    // change actually moves the next weeks. Skip for paused schedules and for
+    // edits that only flip `active` / `occurrencesPerBatch`.
+    const shouldReslot =
+      updated.active &&
+      RESLOT_TRIGGER_FIELDS.some((f) => f in parsed.values);
+    if (shouldReslot) {
+      const { through } = await reslotTemplateFutureOccurrences(updated);
+      res.json({ ...updated, lastGeneratedAt: through });
       return;
     }
 

@@ -16,6 +16,7 @@ import {
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
+import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -157,6 +158,20 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureFoundingSuperAdmins() threw:", err);
     missing.push("ensureFoundingSuperAdmins");
+  }
+
+  // 5a. Convert legacy one-off coaching calls into recurring schedule
+  //     templates (one-time, idempotent — no-op once any template exists). This
+  //     is what powers the schedule-first admin Group Calls panel. Runs at boot
+  //     so production picks it up on the next deploy without a manual migration.
+  try {
+    await migrateOneOffCoachingCallsToTemplates();
+  } catch (err) {
+    console.error(
+      "[Bootstrap] migrateOneOffCoachingCallsToTemplates() threw:",
+      err,
+    );
+    missing.push("migrateOneOffCoachingCallsToTemplates");
   }
 
   // 6. Update the company contact address from the old Plano address to the

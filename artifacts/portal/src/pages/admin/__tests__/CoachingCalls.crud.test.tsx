@@ -18,9 +18,11 @@ vi.mock("@/hooks/use-toast", () => ({
 import CoachingCalls from "@/pages/admin/CoachingCalls";
 
 // ---------------------------------------------------------------------------
-// In-memory fake of the admin coaching-calls API. The component uses the real
-// React Query hooks + adminFetch, so wiring regressions in the dialog/form or
-// the hooks surface here. Only the network boundary (fetch) is faked.
+// In-memory fake of the admin coaching-calls API. Covers the one-off call
+// section (calls with no recurring schedule) — create / edit / delete. The
+// component uses the real React Query hooks + adminFetch, so wiring regressions
+// in the dialog/form or the hooks surface here. Only the network boundary
+// (fetch) is faked.
 // ---------------------------------------------------------------------------
 interface ServerCall {
   id: number;
@@ -35,6 +37,7 @@ interface ServerCall {
   requiredEntitlement: string;
   recordingUrl: string | null;
   registeredCount: number;
+  templateId: number | null;
 }
 
 const COACHES = [
@@ -65,6 +68,10 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
     return Promise.resolve(jsonResponse({ coaches: COACHES }));
   }
 
+  if (path === "/api/admin/coaching/calls/templates" && method === "GET") {
+    return Promise.resolve(jsonResponse({ templates: [] }));
+  }
+
   if (path === "/api/admin/coaching/calls" && method === "GET") {
     return Promise.resolve(jsonResponse({ calls }));
   }
@@ -84,6 +91,7 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
       requiredEntitlement: body.requiredEntitlement ?? "coaching:group",
       recordingUrl: body.recordingUrl ?? null,
       registeredCount: 0,
+      templateId: null,
     };
     calls = [...calls, created];
     return Promise.resolve(jsonResponse(created));
@@ -136,19 +144,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("CoachingCalls admin schedule editor (CRUD)", () => {
-  it("creates a call, edits its Meet link, then deletes it — list updates each time", async () => {
+describe("CoachingCalls one-off call editor (CRUD)", () => {
+  it("creates a one-off call, edits its Meet link, then deletes it — list updates each time", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    // Starts empty.
-    expect(await screen.findByText(/No coaching calls scheduled yet/i)).toBeInTheDocument();
+    // Starts with no one-off calls.
+    expect(await screen.findByText(/No one-off calls/i)).toBeInTheDocument();
 
     // --- CREATE ----------------------------------------------------------
     await user.click(screen.getByTestId("add-call"));
 
     const createDialog = await screen.findByRole("dialog");
-    await user.type(within(createDialog).getByTestId("call-title"), "Weekly Q&A Session");
+    await user.type(within(createDialog).getByTestId("call-title"), "Strategy Session");
 
     // Pick a coach via the Radix Select.
     await user.click(within(createDialog).getByTestId("call-coach"));
@@ -171,7 +179,7 @@ describe("CoachingCalls admin schedule editor (CRUD)", () => {
 
     // Card appears in the list with the chosen coach + meet link.
     const createdCard = await screen.findByTestId("call-100");
-    expect(within(createdCard).getByText("Weekly Q&A Session")).toBeInTheDocument();
+    expect(within(createdCard).getByText("Strategy Session")).toBeInTheDocument();
     expect(within(createdCard).getByText(/Bruce Coach/)).toBeInTheDocument();
     expect(within(createdCard).getByText("Strategy")).toBeInTheDocument();
     expect(
@@ -206,11 +214,11 @@ describe("CoachingCalls admin schedule editor (CRUD)", () => {
     await user.click(screen.getByTestId("delete-call-100"));
     await user.click(await screen.findByTestId("confirm-delete-call"));
 
-    // Back to the empty state.
+    // Back to the empty one-off state.
     await waitFor(() =>
       expect(screen.queryByTestId("call-100")).not.toBeInTheDocument(),
     );
-    expect(await screen.findByText(/No coaching calls scheduled yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No one-off calls/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Call deleted" })),
     );

@@ -19,10 +19,10 @@ import CoachingCalls from "@/pages/admin/CoachingCalls";
 
 // ---------------------------------------------------------------------------
 // In-memory fake of the admin coaching-calls API, focused on recurring
-// templates and their pause/resume toggle. The component drives the real React
+// schedules and their pause/resume toggle. The component drives the real React
 // Query hooks + adminFetch, so a regression where the Switch stops sending the
-// right `active` value, the Paused badge disappears, or the generate button
-// stops being disabled while paused all surface here. Only fetch is faked.
+// right `active` value or the Paused badge disappears surfaces here. Only fetch
+// is faked.
 // ---------------------------------------------------------------------------
 interface ServerTemplate {
   id: number;
@@ -125,22 +125,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("CoachingCalls recurring schedule pause/resume toggle", () => {
-  it("shows the paused state and disables generate only on the paused card", async () => {
+describe("CoachingCalls schedule pause/resume toggle", () => {
+  it("shows the paused badge and toggle state only on the paused card", async () => {
     renderPage();
 
     const activeCard = await screen.findByTestId("template-1");
     const pausedCard = await screen.findByTestId("template-2");
 
-    // Paused badge only on the paused template.
+    // Paused badge only on the paused schedule.
     expect(within(pausedCard).getByTestId("template-paused-badge-2")).toBeInTheDocument();
     expect(within(activeCard).queryByTestId("template-paused-badge-1")).not.toBeInTheDocument();
 
-    // Generate is disabled while paused, enabled while active.
-    expect(within(pausedCard).getByTestId("generate-template-2")).toBeDisabled();
-    expect(within(activeCard).getByTestId("generate-template-1")).not.toBeDisabled();
-
-    // The toggle reflects each template's active state.
+    // The toggle reflects each schedule's active state.
     expect(within(activeCard).getByTestId("toggle-template-1")).toBeChecked();
     expect(within(pausedCard).getByTestId("toggle-template-2")).not.toBeChecked();
   });
@@ -165,7 +161,6 @@ describe("CoachingCalls recurring schedule pause/resume toggle", () => {
     await waitFor(() =>
       expect(screen.getByTestId("template-paused-badge-1")).toBeInTheDocument(),
     );
-    expect(screen.getByTestId("generate-template-1")).toBeDisabled();
   });
 
   it("resuming a paused schedule PATCHes active:true", async () => {
@@ -184,10 +179,9 @@ describe("CoachingCalls recurring schedule pause/resume toggle", () => {
       ),
     );
 
-    // After refetch the paused badge is gone and generate is enabled.
+    // After refetch the paused badge is gone.
     await waitFor(() =>
       expect(screen.queryByTestId("template-paused-badge-2")).not.toBeInTheDocument(),
     );
-    expect(screen.getByTestId("generate-template-2")).not.toBeDisabled();
   });
 });
