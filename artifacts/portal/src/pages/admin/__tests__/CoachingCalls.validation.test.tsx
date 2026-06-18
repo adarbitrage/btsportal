@@ -165,6 +165,161 @@ describe("CoachingCalls recurring schedule validation", () => {
     expect(createBodies).toHaveLength(0);
   });
 
+  it("blocks submit with a non-positive duration and does not POST", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openAddDialog(user);
+    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
+
+    // Pick a coach via the Radix Select.
+    await user.click(within(dialog).getByTestId("template-coach"));
+    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
+
+    const anchorAt = within(dialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    const duration = within(dialog).getByTestId("template-duration");
+    await user.clear(duration);
+    await user.type(duration, "0");
+
+    await user.click(within(dialog).getByTestId("save-template"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Duration must be a positive number of minutes",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(createBodies).toHaveLength(0);
+  });
+
+  it("blocks submit with a cleared (empty) duration and does not POST", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openAddDialog(user);
+    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
+
+    await user.click(within(dialog).getByTestId("template-coach"));
+    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
+
+    const anchorAt = within(dialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    await user.clear(within(dialog).getByTestId("template-duration"));
+
+    await user.click(within(dialog).getByTestId("save-template"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Duration must be a positive number of minutes",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(createBodies).toHaveLength(0);
+  });
+
+  it("blocks submit with a non-positive weeks-to-generate and does not POST", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openAddDialog(user);
+    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
+
+    await user.click(within(dialog).getByTestId("template-coach"));
+    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
+
+    const anchorAt = within(dialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    const batch = within(dialog).getByTestId("template-batch");
+    await user.clear(batch);
+    await user.type(batch, "0");
+
+    await user.click(within(dialog).getByTestId("save-template"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Weeks to Generate must be a positive number",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(createBodies).toHaveLength(0);
+  });
+
+  it("blocks submit with a cleared (empty) weeks-to-generate and does not POST", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openAddDialog(user);
+    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
+
+    await user.click(within(dialog).getByTestId("template-coach"));
+    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
+
+    const anchorAt = within(dialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    await user.clear(within(dialog).getByTestId("template-batch"));
+
+    await user.click(within(dialog).getByTestId("save-template"));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Weeks to Generate must be a positive number",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(createBodies).toHaveLength(0);
+  });
+
+  it("submits the typed duration and weeks-to-generate values", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openAddDialog(user);
+    await user.type(within(dialog).getByTestId("template-title"), "Weekly Series");
+
+    await user.click(within(dialog).getByTestId("template-coach"));
+    await user.click(await screen.findByRole("option", { name: "Bruce Coach" }));
+
+    const anchorAt = within(dialog).getByTestId("template-anchor-at");
+    await user.clear(anchorAt);
+    await user.type(anchorAt, "2026-07-01T14:30");
+
+    const duration = within(dialog).getByTestId("template-duration");
+    await user.clear(duration);
+    await user.type(duration, "45");
+
+    const batch = within(dialog).getByTestId("template-batch");
+    await user.clear(batch);
+    await user.type(batch, "12");
+
+    await user.click(within(dialog).getByTestId("save-template"));
+
+    await waitFor(() => expect(createBodies).toHaveLength(1));
+    expect(createBodies[0]).toMatchObject({
+      durationMinutes: 45,
+      occurrencesPerBatch: 12,
+    });
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "destructive" }),
+    );
+  });
+
   it("submits when all required fields are present", async () => {
     const user = userEvent.setup();
     renderPage();

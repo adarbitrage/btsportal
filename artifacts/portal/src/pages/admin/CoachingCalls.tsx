@@ -259,14 +259,28 @@ export default function CoachingCalls() {
       return;
     }
     const duration = parseInt(templateForm.durationMinutes, 10);
+    if (!Number.isInteger(duration) || duration <= 0) {
+      toast({
+        title: "Duration must be a positive number of minutes",
+        variant: "destructive",
+      });
+      return;
+    }
     const batch = parseInt(templateForm.occurrencesPerBatch, 10);
+    if (!Number.isInteger(batch) || batch <= 0) {
+      toast({
+        title: "Weeks to Generate must be a positive number",
+        variant: "destructive",
+      });
+      return;
+    }
     const base = {
       title: templateForm.title.trim(),
       description: templateForm.description.trim(),
       callType: templateForm.callType,
       coachId: parseInt(templateForm.coachId, 10),
-      durationMinutes: Number.isInteger(duration) && duration > 0 ? duration : 60,
-      occurrencesPerBatch: Number.isInteger(batch) && batch > 0 ? batch : 8,
+      durationMinutes: duration,
+      occurrencesPerBatch: batch,
       meetLink: templateForm.meetLink.trim() || null,
       requiredEntitlement: templateForm.requiredEntitlement.trim() || "coaching:group",
     };
@@ -845,6 +859,7 @@ export default function CoachingCalls() {
                   onChange={(e) =>
                     setTemplateForm({ ...templateForm, durationMinutes: e.target.value })
                   }
+                  data-testid="template-duration"
                 />
               </div>
               <div>
