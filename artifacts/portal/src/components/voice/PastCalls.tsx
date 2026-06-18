@@ -111,12 +111,16 @@ function CallDetail({ call }: { call: VoiceCallRecord }) {
   );
 }
 
+type RangeSelection = VoiceCallsRange | "custom";
+
 export function PastCalls() {
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<VoiceCallRecord | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
-  const [range, setRange] = useState<VoiceCallsRange>("all");
+  const [range, setRange] = useState<RangeSelection>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(searchInput.trim()), 300);
@@ -125,17 +129,33 @@ export function PastCalls() {
 
   useEffect(() => {
     setPage(0);
-  }, [query, range]);
+  }, [query, range, fromDate, toDate]);
+
+  const isCustom = range === "custom";
+  // Only treat a custom range as active once at least one bound is set; an
+  // invalid order (from after to) is ignored so we never query an empty window.
+  const rangeOrderValid = !fromDate || !toDate || fromDate <= toDate;
+  const customRange =
+    isCustom && rangeOrderValid ? { from: fromDate, to: toDate } : {};
 
   const { data, isLoading, isFetching } = useVoiceCalls(
     PAGE_SIZE,
     page * PAGE_SIZE,
     query,
-    range,
+    isCustom ? "all" : (range as VoiceCallsRange),
+    customRange,
   );
 
   const calls = data?.calls ?? [];
-  const hasFilters = query !== "" || range !== "all";
+  const hasCustomBounds = isCustom && (fromDate !== "" || toDate !== "");
+  const hasFilters = query !== "" || (range !== "all" && !isCustom) || hasCustomBounds;
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setRange("all");
+    setFromDate("");
+    setToDate("");
+  };
 
   if (isLoading) {
     return (
@@ -184,7 +204,7 @@ export function PastCalls() {
             </button>
           )}
         </div>
-        <Select value={range} onValueChange={(v) => setRange(v as VoiceCallsRange)}>
+        <Select value={range} onValueChange={(v) => setRange(v as RangeSelection)}>
           <SelectTrigger className="sm:w-40" aria-label="Filter by date range">
             <SelectValue />
           </SelectTrigger>
@@ -192,9 +212,61 @@ export function PastCalls() {
             <SelectItem value="all">All time</SelectItem>
             <SelectItem value="7d">Last 7 days</SelectItem>
             <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="custom">Custom range…</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {isCustom && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <label htmlFor="calls-from" className="text-xs font-medium text-stone-500 dark:text-stone-400 shrink-0">
+              From
+            </label>
+            <Input
+              id="calls-from"
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="sm:w-44"
+              aria-label="Start date"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="calls-to" className="text-xs font-medium text-stone-500 dark:text-stone-400 shrink-0">
+              To
+            </label>
+            <Input
+              id="calls-to"
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+              className="sm:w-44"
+              aria-label="End date"
+            />
+          </div>
+          {(fromDate || toDate) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+              }}
+              className="text-xs text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 underline self-start sm:self-auto"
+            >
+              Clear dates
+            </button>
+          )}
+        </div>
+      )}
+
+      {isCustom && !rangeOrderValid && (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          The start date must be on or before the end date.
+        </p>
+      )}
 
       {calls.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 p-8 text-center">
@@ -207,10 +279,7 @@ export function PastCalls() {
               variant="outline"
               size="sm"
               className="mt-3"
-              onClick={() => {
-                setSearchInput("");
-                setRange("all");
-              }}
+              onClick={clearFilters}
             >
               Clear filters
             </Button>

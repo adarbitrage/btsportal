@@ -105,6 +105,21 @@ function parseVoiceCallsRange(value: unknown): VoiceCallsRange {
   return str === "7d" || str === "30d" ? str : "all";
 }
 
+// Accepts an exact calendar date in YYYY-MM-DD form and rejects anything else
+// (including real-looking-but-invalid dates like 2026-02-30). Returns the
+// normalized YYYY-MM-DD string or null when the input is missing/invalid.
+function parseCallsDate(value: unknown): string | null {
+  const str = Array.isArray(value) ? value[0] : value;
+  if (typeof str !== "string") return null;
+  const trimmed = str.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const d = new Date(`${trimmed}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  // Guard against overflow (e.g. 2026-02-30 -> 2026-03-02).
+  if (d.toISOString().split("T")[0] !== trimmed) return null;
+  return trimmed;
+}
+
 router.get("/voice/calls", async (req: Request, res: Response): Promise<void> => {
   const userId = req.userId!;
 
@@ -117,6 +132,12 @@ router.get("/voice/calls", async (req: Request, res: Response): Promise<void> =>
   const q = typeof qRaw === "string" ? qRaw.trim().slice(0, 200) : "";
   const range = parseVoiceCallsRange(req.query.range);
 
+  // Optional explicit custom range. When either bound is supplied it takes
+  // precedence over the preset `range` selector so the two never double-filter.
+  const fromDate = parseCallsDate(req.query.from);
+  const toDate = parseCallsDate(req.query.to);
+  const hasCustomRange = fromDate !== null || toDate !== null;
+
   try {
     const conditions = [eq(voiceCallsTable.userId, userId), sql`${voiceCallsTable.endedAt} IS NOT NULL`];
 
@@ -127,7 +148,15 @@ router.get("/voice/calls", async (req: Request, res: Response): Promise<void> =>
       );
     }
 
-    if (range !== "all") {
+    if (hasCustomRange) {
+      if (fromDate !== null) {
+        conditions.push(sql`${voiceCallsTable.startedAt} >= ${fromDate}::date`);
+      }
+      if (toDate !== null) {
+        // Inclusive end-of-day: anything started before the next calendar day.
+        conditions.push(sql`${voiceCallsTable.startedAt} < (${toDate}::date + interval '1 day')`);
+      }
+    } else if (range !== "all") {
       const days = range === "7d" ? 7 : 30;
       conditions.push(sql`${voiceCallsTable.startedAt} >= NOW() - ${`${days} days`}::interval`);
     }

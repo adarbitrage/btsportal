@@ -61,21 +61,35 @@ export function useVoiceStatus() {
 
 export type VoiceCallsRange = "7d" | "30d" | "all";
 
+export interface VoiceCallsCustomRange {
+  from?: string;
+  to?: string;
+}
+
 export function useVoiceCalls(
   limit = 10,
   offset = 0,
   q = "",
   range: VoiceCallsRange = "all",
+  custom: VoiceCallsCustomRange = {},
 ) {
+  const from = custom.from ?? "";
+  const to = custom.to ?? "";
+  const hasCustom = from !== "" || to !== "";
   return useQuery<VoiceCallsResponse>({
-    queryKey: ["voice", "calls", limit, offset, q, range],
+    queryKey: ["voice", "calls", limit, offset, q, range, from, to],
     queryFn: () => {
       const params = new URLSearchParams({
         limit: String(limit),
         offset: String(offset),
       });
       if (q) params.set("q", q);
-      if (range !== "all") params.set("range", range);
+      if (hasCustom) {
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+      } else if (range !== "all") {
+        params.set("range", range);
+      }
       return voiceFetch(`/voice/calls?${params.toString()}`);
     },
     staleTime: 30_000,

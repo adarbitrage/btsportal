@@ -435,3 +435,144 @@ describe("GET /voice/calls — keyword + date range combined", () => {
     expect((widened.body.calls as Array<{ id: number }>).map((c) => c.id)[0]).toBe(recentMatch);
   });
 });
+
+describe("GET /voice/calls — custom from/to date range", () => {
+  // Use fixed, far-past calendar dates so the test is deterministic and never
+  // collides with NOW()-relative preset windows.
+  it("AND-combines an explicit from/to range with the keyword, scoped to the member", async () => {
+    const memberA = await seedMember();
+    const memberB = await seedMember();
+
+    const at = (iso: string) => new Date(iso);
+
+    // Inside the [2025-03-05, 2025-03-15] window AND matches the keyword — the
+    // only row that should survive q=funnel&from=2025-03-05&to=2025-03-15.
+    const inWindowMatch = await insertCall({
+      userId: memberA.id,
+      startedAt: at("2025-03-10T12:00:00.000Z"),
+      endedAt: at("2025-03-10T12:05:00.000Z"),
+      summary: "Reviewed the funnel build",
+      transcript: "details",
+    });
+    // Matches keyword but is BEFORE the window — excluded by `from`.
+    await insertCall({
+      userId: memberA.id,
+      startedAt: at("2025-03-01T12:00:00.000Z"),
+      endedAt: at("2025-03-01T12:05:00.000Z"),
+      summary: "Earlier funnel chat",
+      transcript: "details",
+    });
+    // Matches keyword but is AFTER the window — excluded by `to`.
+    await insertCall({
+      userId: memberA.id,
+      startedAt: at("2025-03-20T12:00:00.000Z"),
+      endedAt: at("2025-03-20T12:05:00.000Z"),
+      summary: "Later funnel chat",
+      transcript: "details",
+    });
+    // Inside the window but does NOT match the keyword — excluded by q.
+    await insertCall({
+      userId: memberA.id,
+      startedAt: at("2025-03-12T12:00:00.000Z"),
+      endedAt: at("2025-03-12T12:05:00.000Z"),
+      summary: "weather talk",
+      transcript: "small talk",
+    });
+    // Member B matches keyword AND window but must never leak across members.
+    await insertCall({
+      userId: memberB.id,
+      startedAt: at("2025-03-11T12:00:00.000Z"),
+      endedAt: at("2025-03-11T12:05:00.000Z"),
+      summary: "funnel for member B",
+      transcript: "funnel funnel",
+    });
+
+    const res = await request(app)
+      .get("/api/voice/calls?q=funnel&from=2025-03-05&to=2025-03-15")
+      .set("Cookie", memberA.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body.calls as Array<{ id: number }>).map((c) => c.id);
+    expect(ids).toEqual([inWindowMatch]);
+  });
+
+  it("treats `to` as an inclusive end-of-day boundary", async () => {
+    const member = await seedMember();
+    const at = (iso: string) => new Date(iso);
+
+    // Late-evening call on the boundary day must be included by to=2025-06-10.
+    const endOfDay = await insertCall({
+      userId: member.id,
+      startedAt: at("2025-06-10T23:30:00.000Z"),
+      endedAt: at("2025-06-10T23:45:00.000Z"),
+      summary: "boundary day call",
+      transcript: "details",
+    });
+    // Next-day call must be excluded.
+    await insertCall({
+      userId: member.id,
+      startedAt: at("2025-06-11T00:30:00.000Z"),
+      endedAt: at("2025-06-11T00:45:00.000Z"),
+      summary: "next day call",
+      transcript: "details",
+    });
+
+    const res = await request(app)
+      .get("/api/voice/calls?from=2025-06-10&to=2025-06-10")
+      .set("Cookie", member.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body.calls as Array<{ id: number }>).map((c) => c.id);
+    expect(ids).toEqual([endOfDay]);
+  });
+
+  it("supports an open-ended range with only `from` set", async () => {
+    const member = await seedMember();
+    const at = (iso: string) => new Date(iso);
+
+    const after = await insertCall({
+      userId: member.id,
+      startedAt: at("2025-09-15T12:00:00.000Z"),
+      endedAt: at("2025-09-15T12:05:00.000Z"),
+    });
+    await insertCall({
+      userId: member.id,
+      startedAt: at("2025-09-01T12:00:00.000Z"),
+      endedAt: at("2025-09-01T12:05:00.000Z"),
+    });
+
+    const res = await request(app)
+      .get("/api/voice/calls?from=2025-09-10")
+      .set("Cookie", member.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body.calls as Array<{ id: number }>).map((c) => c.id);
+    expect(ids).toEqual([after]);
+  });
+
+  it("ignores a malformed date param and falls back to no custom filter", async () => {
+    const member = await seedMember();
+    const at = (iso: string) => new Date(iso);
+
+    const a = await insertCall({
+      userId: member.id,
+      startedAt: at("2025-01-05T12:00:00.000Z"),
+      endedAt: at("2025-01-05T12:05:00.000Z"),
+    });
+    const b = await insertCall({
+      userId: member.id,
+      startedAt: at("2025-01-02T12:00:00.000Z"),
+      endedAt: at("2025-01-02T12:05:00.000Z"),
+    });
+
+    // Invalid `from` (not YYYY-MM-DD) is ignored; both rows returned.
+    const res = await request(app)
+      .get("/api/voice/calls?from=not-a-date")
+      .set("Cookie", member.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body.calls as Array<{ id: number }>).map((c) => c.id);
+    expect(ids).toContain(a);
+    expect(ids).toContain(b);
+  });
+});
