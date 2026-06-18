@@ -342,6 +342,130 @@ router.post(
 // FK error, calling out upcoming calls first since that's the common case. Any
 // other lingering FK reference (e.g. session-pack bookings) is caught as a 409
 // fallback rather than surfacing as an unhandled 500.
+
+// List the scheduled coaching calls that reference this coach, so when a delete
+// is blocked the admin can see exactly which calls are in the way and decide to
+// reassign or cancel them. Ordered soonest-first to match the schedule manager.
+router.get(
+  "/admin/coaching/coaches/:id/calls",
+  requirePermission("coaching:view"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    if (!coachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    const calls = await db
+      .select({
+        id: coachingCallsTable.id,
+        title: coachingCallsTable.title,
+        callType: coachingCallsTable.callType,
+        scheduledAt: coachingCallsTable.scheduledAt,
+        durationMinutes: coachingCallsTable.durationMinutes,
+        registeredCount: coachingCallsTable.registeredCount,
+      })
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.coachId, coachId))
+      .orderBy(asc(coachingCallsTable.scheduledAt));
+
+    res.json({ calls });
+  },
+);
+
+// Bulk-reassign every coaching call currently assigned to this coach over to a
+// different coach. This is the in-app path that lets an admin clear the FK
+// references blocking a delete without touching the database directly. Done in a
+// single UPDATE so a partial failure never leaves the calls split across two
+// coaches.
+router.post(
+  "/admin/coaching/coaches/:id/reassign-calls",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const fromCoachId = parseId(req.params.id);
+    if (!fromCoachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const toCoachId = parseId(body.toCoachId);
+    if (!toCoachId) {
+      res.status(400).json({ error: "A valid destination coach is required" });
+      return;
+    }
+    if (toCoachId === fromCoachId) {
+      res.status(400).json({ error: "Choose a different coach to reassign to" });
+      return;
+    }
+
+    // The destination coach must exist so we never reassign calls to a phantom
+    // coach id built from stale client state.
+    const [destination] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, toCoachId));
+    if (!destination) {
+      res.status(400).json({ error: "Destination coach does not exist" });
+      return;
+    }
+
+    const reassigned = await db
+      .update(coachingCallsTable)
+      .set({ coachId: toCoachId })
+      .where(eq(coachingCallsTable.coachId, fromCoachId))
+      .returning({ id: coachingCallsTable.id });
+
+    res.json({ reassigned: reassigned.length });
+  },
+);
+
+// Bulk-cancel (delete) every coaching call currently assigned to this coach.
+// The other path to clearing the FK references blocking a delete: an admin who
+// no longer wants these calls at all. Any remaining FK reference on a call
+// (e.g. attendance rows) surfaces as a 409 rather than an unhandled 500.
+router.post(
+  "/admin/coaching/coaches/:id/cancel-calls",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    if (!coachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    try {
+      const cancelled = await db
+        .delete(coachingCallsTable)
+        .where(eq(coachingCallsTable.coachId, coachId))
+        .returning({ id: coachingCallsTable.id });
+
+      res.json({ cancelled: cancelled.length });
+    } catch (err) {
+      // 23503 = foreign_key_violation. A call still has dependent rows (e.g.
+      // attendance) that must be cleared first.
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code?: string }).code === "23503"
+      ) {
+        res.status(409).json({
+          error:
+            "One or more of this coach's calls have attendance records and cannot be cancelled here. Reassign them to another coach instead.",
+        });
+        return;
+      }
+      throw err;
+    }
+  },
+);
+
+// Remove a coach from the roster. Guard against deleting a coach who is still
+// referenced by scheduled coaching calls (coaching_calls.coachId is a NOT NULL
+// FK): deleting would orphan those rows / violate the constraint, so we block
+// with a clear message and a count. Any other lingering FK reference
+// (templates, bookings) surfaces as a 409 too rather than an unhandled 500.
 router.delete(
   "/admin/coaching/coaches/:id",
   requirePermission("coaching:manage"),

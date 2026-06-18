@@ -190,3 +190,62 @@ export function useReorderCoaches() {
     },
   });
 }
+
+export interface CoachCall {
+  id: number;
+  title: string;
+  callType: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  registeredCount: number;
+}
+
+// Fetch the scheduled coaching calls assigned to a coach. Used by the delete
+// flow to show which calls are blocking removal so the admin can reassign or
+// cancel them. `enabled` lets the caller defer the fetch until a coach is
+// actually selected for deletion.
+export function useCoachCalls(coachId: number | null) {
+  return useQuery({
+    queryKey: [LIST_KEY, coachId, "calls"],
+    queryFn: () =>
+      adminFetch<{ calls: CoachCall[] }>(
+        `/admin/coaching/coaches/${coachId}/calls`,
+      ),
+    enabled: coachId !== null,
+  });
+}
+
+// Reassign all of a coach's scheduled calls to another coach, clearing the FK
+// references that block deletion.
+export function useReassignCoachCalls() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fromCoachId, toCoachId }: { fromCoachId: number; toCoachId: number }) =>
+      adminFetch<{ reassigned: number }>(
+        `/admin/coaching/coaches/${fromCoachId}/reassign-calls`,
+        {
+          method: "POST",
+          body: JSON.stringify({ toCoachId }),
+        },
+      ),
+    onSuccess: (_data, { fromCoachId }) => {
+      queryClient.invalidateQueries({ queryKey: [LIST_KEY, fromCoachId, "calls"] });
+    },
+  });
+}
+
+// Cancel (delete) all of a coach's scheduled calls, the alternative path to
+// clearing the references that block deletion.
+export function useCancelCoachCalls() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (coachId: number) =>
+      adminFetch<{ cancelled: number }>(
+        `/admin/coaching/coaches/${coachId}/cancel-calls`,
+        { method: "POST" },
+      ),
+    onSuccess: (_data, coachId) => {
+      queryClient.invalidateQueries({ queryKey: [LIST_KEY, coachId, "calls"] });
+    },
+  });
+}

@@ -24,6 +24,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -34,6 +41,9 @@ import {
   uploadCoachPhoto,
   resolveCoachPhotoUrl,
   useReorderCoaches,
+  useCoachCalls,
+  useReassignCoachCalls,
+  useCancelCoachCalls,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -78,16 +88,31 @@ export default function CoachProfiles() {
   const updateMutation = useUpdateCoach();
   const deleteMutation = useDeleteCoach();
   const reorderMutation = useReorderCoaches();
+  const reassignMutation = useReassignCoachCalls();
+  const cancelCallsMutation = useCancelCoachCalls();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
+  const [reassignTo, setReassignTo] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pendingDelete, setPendingDelete] = useState<AdminCoach | null>(null);
 
   const coaches = data?.coaches ?? [];
   const isEditing = form.id !== undefined;
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  // When a delete is in progress, load the coach's scheduled calls so we can
+  // show what's blocking removal and offer to reassign or cancel them.
+  const { data: callsData, isLoading: callsLoading } = useCoachCalls(
+    deleteTarget?.id ?? null,
+  );
+  const blockingCalls = callsData?.calls ?? [];
+  const hasBlockingCalls = blockingCalls.length > 0;
+  // Coaches the calls can be reassigned to (anyone but the one being removed).
+  const reassignOptions = coaches.filter((c) => c.id !== deleteTarget?.id);
+  const isClearingCalls =
+    reassignMutation.isPending || cancelCallsMutation.isPending;
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -213,15 +238,56 @@ export default function CoachProfiles() {
     }
   }
 
+  function closeDeleteDialog() {
+    setDeleteTarget(null);
+    setReassignTo("");
+  }
+
   async function handleDelete() {
-    if (!pendingDelete) return;
+    if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(pendingDelete.id);
+      await deleteMutation.mutateAsync(deleteTarget.id);
       toast({ title: "Coach removed" });
-      setPendingDelete(null);
+      closeDeleteDialog();
     } catch (err) {
       toast({
         title: "Could not remove coach",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleReassignCalls() {
+    if (!deleteTarget || !reassignTo) return;
+    try {
+      const { reassigned } = await reassignMutation.mutateAsync({
+        fromCoachId: deleteTarget.id,
+        toCoachId: Number(reassignTo),
+      });
+      toast({
+        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"}`,
+      });
+      setReassignTo("");
+    } catch (err) {
+      toast({
+        title: "Could not reassign calls",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleCancelCalls() {
+    if (!deleteTarget) return;
+    try {
+      const { cancelled } = await cancelCallsMutation.mutateAsync(deleteTarget.id);
+      toast({
+        title: `Cancelled ${cancelled} call${cancelled === 1 ? "" : "s"}`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not cancel calls",
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       });
@@ -341,7 +407,7 @@ export default function CoachProfiles() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setPendingDelete(coach)}
+                      onClick={() => setDeleteTarget(coach)}
                       data-testid={`delete-coach-${coach.id}`}
                       className="text-destructive hover:text-destructive"
                     >
@@ -561,22 +627,107 @@ export default function CoachProfiles() {
       </Dialog>
 
       <AlertDialog
-        open={pendingDelete !== null}
+        open={deleteTarget !== null}
         onOpenChange={(o) => {
-          if (!o) setPendingDelete(null);
+          if (!o) closeDeleteDialog();
         }}
       >
         <AlertDialogContent data-testid="delete-coach-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this coach?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete
-                ? `${pendingDelete.name} will be removed from the member "Your Coaches" section. If they're still assigned to upcoming coaching calls, you'll need to reassign or remove those calls first.`
-                : ""}
+              {hasBlockingCalls
+                ? `"${deleteTarget?.name}" is assigned to scheduled coaching calls and can't be removed until those calls are reassigned to another coach or cancelled.`
+                : `"${deleteTarget?.name ?? ""}" will be removed from the member Coaching page.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {callsLoading ? (
+            <div
+              className="py-4 text-sm text-muted-foreground"
+              data-testid="coach-calls-loading"
+            >
+              Checking scheduled calls…
+            </div>
+          ) : hasBlockingCalls ? (
+            <div className="space-y-4" data-testid="coach-calls-blocking">
+              <div className="rounded-lg border border-border/60 max-h-48 overflow-y-auto divide-y divide-border/60">
+                {blockingCalls.map((call) => (
+                  <div
+                    key={call.id}
+                    data-testid={`coach-call-${call.id}`}
+                    className="px-3 py-2 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {call.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(call.scheduledAt).toLocaleString()} ·{" "}
+                        {call.registeredCount} registered
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Reassign these calls to</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={reassignTo} onValueChange={setReassignTo}>
+                    <SelectTrigger
+                      className="flex-1"
+                      data-testid="reassign-coach-select"
+                    >
+                      <SelectValue placeholder="Choose a coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reassignOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleReassignCalls}
+                    disabled={!reassignTo || isClearingCalls}
+                    data-testid="reassign-coach-calls"
+                  >
+                    {reassignMutation.isPending ? "Reassigning…" : "Reassign"}
+                  </Button>
+                </div>
+                {reassignOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add another coach first to reassign these calls.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
+                <span className="text-xs text-muted-foreground">
+                  Or remove the calls entirely:
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelCalls}
+                  disabled={isClearingCalls}
+                  data-testid="cancel-coach-calls"
+                  className="text-destructive hover:text-destructive"
+                >
+                  {cancelCallsMutation.isPending
+                    ? "Cancelling…"
+                    : "Cancel all calls"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>
+            <AlertDialogCancel
+              disabled={deleteMutation.isPending || isClearingCalls}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -584,7 +735,12 @@ export default function CoachProfiles() {
                 e.preventDefault();
                 void handleDelete();
               }}
-              disabled={deleteMutation.isPending}
+              disabled={
+                deleteMutation.isPending ||
+                isClearingCalls ||
+                callsLoading ||
+                hasBlockingCalls
+              }
               data-testid="confirm-delete-coach"
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

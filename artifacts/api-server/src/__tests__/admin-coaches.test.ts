@@ -26,6 +26,8 @@ let coachId = 0;
 // Tracking for cleanup
 const extraCoachIds: number[] = [];
 let callId = 0;
+const cleanupCallIds: number[] = [];
+const DAY = 24 * 60 * 60 * 1000;
 
 function signCookie(userId: number, email: string): string {
   const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: "1h" });
@@ -80,8 +82,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (callId) {
-    await db.delete(coachingCallsTable).where(eq(coachingCallsTable.id, callId));
+  const allCallIds = [callId, ...cleanupCallIds].filter(Boolean);
+  if (allCallIds.length > 0) {
+    await db
+      .delete(coachingCallsTable)
+      .where(inArray(coachingCallsTable.id, allCallIds));
   }
   const allCoachIds = [coachId, ...extraCoachIds].filter(Boolean);
   if (allCoachIds.length > 0) {
@@ -504,6 +509,159 @@ describe("admin coach profiles", () => {
       .from(coachesTable)
       .where(eq(coachesTable.id, guarded.id));
     expect(rows).toHaveLength(1);
+  });
+
+  it("lists the scheduled calls assigned to a coach", async () => {
+    const [coach] = await db
+      .insert(coachesTable)
+      .values({
+        name: `${TAG} CallsList`,
+        bio: "Has calls",
+        specialties: "Coaching",
+      })
+      .returning({ id: coachesTable.id });
+    extraCoachIds.push(coach.id);
+
+    const [c1] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} List Call 1`,
+        description: "one",
+        coachId: coach.id,
+        scheduledAt: new Date(Date.now() + 3 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    const [c2] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} List Call 2`,
+        description: "two",
+        coachId: coach.id,
+        scheduledAt: new Date(Date.now() + 1 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(c1.id, c2.id);
+
+    const res = await request(app)
+      .get(`/api/admin/coaching/coaches/${coach.id}/calls`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.calls).toHaveLength(2);
+    // Soonest first.
+    expect(res.body.calls[0].id).toBe(c2.id);
+    expect(res.body.calls[1].id).toBe(c1.id);
+    expect(res.body.calls[0]).toMatchObject({ title: `${TAG} List Call 2` });
+  });
+
+  it("reassigns a coach's calls to another coach, then allows delete", async () => {
+    const [fromCoach] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} From`, bio: "from", specialties: "x" })
+      .returning({ id: coachesTable.id });
+    const [toCoach] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} To`, bio: "to", specialties: "y" })
+      .returning({ id: coachesTable.id });
+    extraCoachIds.push(toCoach.id);
+
+    const [call] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} Reassign Call`,
+        description: "x",
+        coachId: fromCoach.id,
+        scheduledAt: new Date(Date.now() + 5 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(call.id);
+
+    const reassign = await request(app)
+      .post(`/api/admin/coaching/coaches/${fromCoach.id}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: toCoach.id });
+    expect(reassign.status).toBe(200);
+    expect(reassign.body.reassigned).toBe(1);
+
+    const [moved] = await db
+      .select()
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.id, call.id));
+    expect(moved.coachId).toBe(toCoach.id);
+
+    // With no remaining calls, the from-coach can now be deleted.
+    const del = await request(app)
+      .delete(`/api/admin/coaching/coaches/${fromCoach.id}`)
+      .set("Cookie", adminCookie);
+    expect([200, 204]).toContain(del.status);
+  });
+
+  it("rejects reassigning to the same coach", async () => {
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${coachId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: coachId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/different coach/i);
+  });
+
+  it("rejects reassigning to an unknown coach", async () => {
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${coachId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: 99999999 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/does not exist/i);
+  });
+
+  it("rejects reassigning without a destination coach", async () => {
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${coachId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("cancels a coach's calls, then allows delete", async () => {
+    const [coach] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} CancelCalls`, bio: "c", specialties: "z" })
+      .returning({ id: coachesTable.id });
+
+    const [call] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} Cancel Call`,
+        description: "x",
+        coachId: coach.id,
+        scheduledAt: new Date(Date.now() + 6 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(call.id);
+
+    const cancel = await request(app)
+      .post(`/api/admin/coaching/coaches/${coach.id}/cancel-calls`)
+      .set("Cookie", adminCookie);
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.cancelled).toBe(1);
+
+    const remaining = await db
+      .select()
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.coachId, coach.id));
+    expect(remaining).toHaveLength(0);
+
+    const del = await request(app)
+      .delete(`/api/admin/coaching/coaches/${coach.id}`)
+      .set("Cookie", adminCookie);
+    expect([200, 204]).toContain(del.status);
+  });
+
+  it("denies a plain member reassigning a coach's calls (403)", async () => {
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${coachId}/reassign-calls`)
+      .set("Cookie", memberCookie)
+      .send({ toCoachId: coachId });
+    expect(res.status).toBe(403);
   });
 
   it("returns 404 when deleting an unknown coach", async () => {
