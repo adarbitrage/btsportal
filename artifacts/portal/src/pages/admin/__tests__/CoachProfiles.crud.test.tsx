@@ -191,7 +191,7 @@ describe("CoachProfiles admin editor", () => {
       .toBeInTheDocument();
   });
 
-  it("blocks saving when the specialty is cleared", async () => {
+  it("allows saving when the specialty is cleared (optional)", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -203,15 +203,12 @@ describe("CoachProfiles admin editor", () => {
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Specialty is required",
-          variant: "destructive",
-        }),
+        expect.objectContaining({ title: "Coach updated" }),
       ),
     );
   });
 
-  it("blocks saving when the bio is cleared", async () => {
+  it("allows saving when the bio is cleared (optional)", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -223,10 +220,7 @@ describe("CoachProfiles admin editor", () => {
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Bio is required",
-          variant: "destructive",
-        }),
+        expect.objectContaining({ title: "Coach updated" }),
       ),
     );
   });
@@ -289,21 +283,20 @@ describe("CoachProfiles admin editor", () => {
     });
   });
 
-  it("blocks adding a coach when a required field is missing", async () => {
+  it("blocks adding a coach when the name is missing", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(await screen.findByTestId("add-coach"));
     const dialog = await screen.findByRole("dialog");
 
-    // Only fill name; leave specialty + bio blank.
-    await user.type(within(dialog).getByTestId("coach-name"), "Incomplete");
+    // Leave the name blank (specialty + bio are optional).
     await user.click(within(dialog).getByTestId("save-coach"));
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Specialty is required",
+          title: "Name is required",
           variant: "destructive",
         }),
       ),
@@ -335,22 +328,6 @@ describe("CoachProfiles admin editor", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["/api/coaches"],
     });
-  });
-
-  it("opens the away-schedule modal for a coach with no away-periods data without crashing", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    // The seeded coach has no `awayPeriods` field at all (missing data).
-    await screen.findByTestId("coach-42");
-    await user.click(screen.getByTestId("manage-away-42"));
-
-    // Modal renders the empty state instead of throwing on undefined awayPeriods.
-    const awayDialog = await screen.findByTestId("away-dialog");
-    expect(within(awayDialog).getByTestId("away-empty")).toBeInTheDocument();
-    expect(
-      within(awayDialog).getByText("No upcoming or active away periods."),
-    ).toBeInTheDocument();
   });
 
   it("does not remove a coach when the confirm dialog is cancelled", async () => {

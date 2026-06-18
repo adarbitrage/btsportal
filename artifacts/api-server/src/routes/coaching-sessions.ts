@@ -14,7 +14,6 @@ import {
   memberCreditLockKey,
   coachBookingLockKey,
 } from "../lib/session-credits";
-import { notCurrentlyAway } from "../lib/coach-availability";
 import { fetchCalendarBusy, CalendarScopeError } from "../lib/google-oauth";
 import { getAccessTokenForUser } from "../lib/coach-google-connections";
 import {
@@ -193,8 +192,6 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       and(
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
-        // Drop coaches who are currently away; restored automatically after.
-        notCurrentlyAway(),
       ),
     )
     .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
@@ -220,8 +217,6 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
         eq(sessionPackCoachesTable.id, coachId),
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
-        // An away coach isn't bookable; no slots are surfaced while they're out.
-        notCurrentlyAway(),
       ),
     );
   if (!coach || !coach.ghlCalendarId) {
@@ -299,7 +294,6 @@ router.get(
           eq(sessionPackCoachesTable.id, coachId),
           eq(sessionPackCoachesTable.isActive, true),
           eq(sessionPackCoachesTable.doesPrivateCoaching, true),
-          notCurrentlyAway(),
         ),
       );
     if (!coach) {
@@ -397,8 +391,6 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         eq(sessionPackCoachesTable.id, coachId),
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
-        // Block booking a coach who is away for the period covering this slot.
-        notCurrentlyAway(),
       ),
     );
   const cals = resolveCoachCalendars(coach);

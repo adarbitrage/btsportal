@@ -28,17 +28,9 @@ async function adminFetch<T = unknown>(path: string, options?: RequestInit): Pro
 
 const LIST_KEY = "/api/admin/coaching/coaches";
 
-export interface CoachAwayPeriod {
-  id: number;
-  startDate: string;
-  endDate: string;
-  reason: string | null;
-  isActive: boolean;
-}
-
-// Per-coach Google connection status. Drive recordings + Calendar availability
-// ride the same single OAuth grant; `needsCalendarReconnect` flags a grant that
-// predates the calendar scope. Null when the coach has no linked portal login.
+// Per-coach Google connection status. Drive recordings ride the OAuth grant;
+// `needsCalendarReconnect` flags a grant that predates the calendar scope. Null
+// when the coach has no linked portal login.
 export interface CoachGoogleConnection {
   connected: boolean;
   email: string | null;
@@ -54,7 +46,6 @@ export interface AdminCoach {
   bio: string;
   photoUrl: string | null;
   callTypes: string[];
-  timezone: string;
   sortOrder: number;
   isActive: boolean;
   doesGroupCalls: boolean;
@@ -71,14 +62,6 @@ export interface AdminCoach {
   userId: number | null;
   // Per-coach Google status; null when the coach has no linked portal login.
   googleConnection: CoachGoogleConnection | null;
-  // Active + upcoming away periods (past ones are omitted by the API).
-  awayPeriods: CoachAwayPeriod[];
-}
-
-export interface AwayPeriodInput {
-  startDate: string;
-  endDate: string;
-  reason?: string;
 }
 
 export interface CoachProfileInput {
@@ -87,7 +70,6 @@ export interface CoachProfileInput {
   bio: string;
   photoUrl: string | null;
   callTypes: string[];
-  timezone: string;
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
@@ -232,10 +214,10 @@ export function useReorderCoaches() {
       }
     },
     // No onSuccess cache write: the order endpoint returns lean COACH_COLUMNS
-    // rows (no awayPeriods/googleConnection), so overwriting the cache here
-    // would blank the away badge + Connections panel. The optimistic onMutate
-    // update already applies the new order to the full cached objects, and
-    // onSettled invalidates to refetch the authoritative list.
+    // rows (no googleConnection), so overwriting the cache here would blank the
+    // Connections panel. The optimistic onMutate update already applies the new
+    // order to the full cached objects, and onSettled invalidates to refetch the
+    // authoritative list.
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
       // Reflect the new order on the member-facing "Your Coaches" grid.
@@ -308,32 +290,3 @@ export function useCancelCoachCalls() {
   });
 }
 
-// Mark a coach as away for a date range. While the period is active the coach
-// is hidden from the member "Your Coaches" grid and is not bookable for private
-// coaching. Invalidate both the admin roster (to show the new period) and the
-// member grid (the coach may need to vanish immediately if it's active today).
-export function useAddCoachAwayPeriod() {
-  const invalidate = useInvalidateCoaches();
-  return useMutation({
-    mutationFn: ({ coachId, ...input }: AwayPeriodInput & { coachId: number }) =>
-      adminFetch<CoachAwayPeriod>(`/admin/coaching/coaches/${coachId}/away`, {
-        method: "POST",
-        body: JSON.stringify(input),
-      }),
-    onSuccess: invalidate,
-  });
-}
-
-// Remove an away period (cancel a planned absence or end one early). The coach
-// reappears on the member grid as soon as no active period covers today.
-export function useRemoveCoachAwayPeriod() {
-  const invalidate = useInvalidateCoaches();
-  return useMutation({
-    mutationFn: ({ coachId, awayId }: { coachId: number; awayId: number }) =>
-      adminFetch<{ ok: true }>(
-        `/admin/coaching/coaches/${coachId}/away/${awayId}`,
-        { method: "DELETE" },
-      ),
-    onSuccess: invalidate,
-  });
-}

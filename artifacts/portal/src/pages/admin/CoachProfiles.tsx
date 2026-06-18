@@ -34,7 +34,6 @@ import {
 import {
   ArrowLeftRight,
   CalendarCheck,
-  CalendarOff,
   CalendarX,
   ChevronDown,
   ChevronUp,
@@ -74,8 +73,6 @@ import {
   useCoachCalls,
   useReassignCoachCalls,
   useCancelCoachCalls,
-  useAddCoachAwayPeriod,
-  useRemoveCoachAwayPeriod,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -86,7 +83,6 @@ interface CoachForm {
   bio: string;
   photoUrl: string;
   callTypes: string;
-  timezone: string;
   isActive: boolean;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
@@ -96,15 +92,12 @@ interface CoachForm {
   conflictGhlLocationId: string;
 }
 
-const DEFAULT_TIMEZONE = "America/New_York";
-
 const EMPTY_FORM: CoachForm = {
   name: "",
   specialties: "",
   bio: "",
   photoUrl: "",
   callTypes: "",
-  timezone: DEFAULT_TIMEZONE,
   isActive: true,
   doesGroupCalls: true,
   doesPrivateCoaching: false,
@@ -287,7 +280,6 @@ function SortableCoachCard({
   onMoveUp,
   onMoveDown,
   onEdit,
-  onOpenAway,
   onReassign,
   onDelete,
   reorderDisabled,
@@ -298,7 +290,6 @@ function SortableCoachCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onEdit: () => void;
-  onOpenAway: () => void;
   onReassign: () => void;
   onDelete: () => void;
   reorderDisabled: boolean;
@@ -367,14 +358,6 @@ function SortableCoachCard({
                   Hidden
                 </span>
               )}
-              {(coach.awayPeriods ?? []).some((p) => p.isActive) && (
-                <span
-                  data-testid={`coach-away-badge-${coach.id}`}
-                  className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                >
-                  Away now
-                </span>
-              )}
             </div>
             <p
               data-testid={`coach-specialty-${coach.id}`}
@@ -425,16 +408,6 @@ function SortableCoachCard({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onOpenAway}
-              data-testid={`manage-away-${coach.id}`}
-              aria-label={`Manage away periods for ${coach.name}`}
-              title="Away periods"
-            >
-              <CalendarOff className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={onReassign}
               data-testid={`reassign-coach-${coach.id}`}
               aria-label={`Reassign ${coach.name}'s calls to another coach`}
@@ -467,8 +440,6 @@ export default function CoachProfiles() {
   const reorderMutation = useReorderCoaches();
   const reassignMutation = useReassignCoachCalls();
   const cancelCallsMutation = useCancelCoachCalls();
-  const addAwayMutation = useAddCoachAwayPeriod();
-  const removeAwayMutation = useRemoveCoachAwayPeriod();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
@@ -477,10 +448,6 @@ export default function CoachProfiles() {
   const [reassignTo, setReassignTo] = useState("");
   const [reassignTarget, setReassignTarget] = useState<AdminCoach | null>(null);
   const [standaloneReassignTo, setStandaloneReassignTo] = useState("");
-  const [awayTargetId, setAwayTargetId] = useState<number | null>(null);
-  const [awayStart, setAwayStart] = useState("");
-  const [awayEnd, setAwayEnd] = useState("");
-  const [awayReason, setAwayReason] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const coaches = data?.coaches ?? [];
@@ -552,7 +519,6 @@ export default function CoachProfiles() {
       bio: coach.bio,
       photoUrl: coach.photoUrl ?? "",
       callTypes: coach.callTypes.join(", "),
-      timezone: coach.timezone || DEFAULT_TIMEZONE,
       isActive: coach.isActive,
       doesGroupCalls: coach.doesGroupCalls,
       doesPrivateCoaching: coach.doesPrivateCoaching,
@@ -567,14 +533,6 @@ export default function CoachProfiles() {
   async function handleSave() {
     if (!form.name.trim()) {
       toast({ title: "Name is required", variant: "destructive" });
-      return;
-    }
-    if (!form.specialties.trim()) {
-      toast({ title: "Specialty is required", variant: "destructive" });
-      return;
-    }
-    if (!form.bio.trim()) {
-      toast({ title: "Bio is required", variant: "destructive" });
       return;
     }
     const photoUrl = form.photoUrl.trim();
@@ -600,7 +558,6 @@ export default function CoachProfiles() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
-      timezone: form.timezone.trim() || DEFAULT_TIMEZONE,
       isActive: form.isActive,
       doesGroupCalls: form.doesGroupCalls,
       doesPrivateCoaching: form.doesPrivateCoaching,
@@ -768,68 +725,6 @@ export default function CoachProfiles() {
     }
   }
 
-  // The coach whose away periods are being managed. Read live from the cached
-  // list so the dialog reflects add/remove changes without local duplication.
-  const awayTarget = coaches.find((c) => c.id === awayTargetId) ?? null;
-
-  function openAway(coach: AdminCoach) {
-    setAwayTargetId(coach.id);
-    setAwayStart("");
-    setAwayEnd("");
-    setAwayReason("");
-  }
-
-  function closeAway() {
-    setAwayTargetId(null);
-  }
-
-  async function handleAddAway() {
-    if (!awayTarget) return;
-    if (!awayStart || !awayEnd) {
-      toast({ title: "Choose a start and end date", variant: "destructive" });
-      return;
-    }
-    if (awayEnd < awayStart) {
-      toast({
-        title: "End date must be on or after the start date",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      await addAwayMutation.mutateAsync({
-        coachId: awayTarget.id,
-        startDate: awayStart,
-        endDate: awayEnd,
-        reason: awayReason.trim() || undefined,
-      });
-      toast({ title: "Away period added" });
-      setAwayStart("");
-      setAwayEnd("");
-      setAwayReason("");
-    } catch (err) {
-      toast({
-        title: "Could not add away period",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    }
-  }
-
-  async function handleRemoveAway(awayId: number) {
-    if (!awayTarget) return;
-    try {
-      await removeAwayMutation.mutateAsync({ coachId: awayTarget.id, awayId });
-      toast({ title: "Away period removed" });
-    } catch (err) {
-      toast({
-        title: "Could not remove away period",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    }
-  }
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -879,7 +774,6 @@ export default function CoachProfiles() {
                     onMoveUp={() => moveCoach(index, -1)}
                     onMoveDown={() => moveCoach(index, 1)}
                     onEdit={() => openEdit(coach)}
-                    onOpenAway={() => openAway(coach)}
                     onReassign={() => openReassign(coach)}
                     onDelete={() => setDeleteTarget(coach)}
                     reorderDisabled={reorderMutation.isPending}
@@ -1001,19 +895,6 @@ export default function CoachProfiles() {
               />
               <p className="text-[11px] text-muted-foreground mt-1">
                 Comma-separated list of the call types this coach runs.
-              </p>
-            </div>
-            <div>
-              <Label className="text-xs">Timezone</Label>
-              <Input
-                value={form.timezone}
-                onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-                placeholder="America/New_York"
-                maxLength={64}
-                data-testid="coach-timezone"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                IANA timezone (e.g. America/New_York, Europe/London).
               </p>
             </div>
             <div className="space-y-3 rounded-lg border border-border/60 p-3">
@@ -1394,126 +1275,6 @@ export default function CoachProfiles() {
               onClick={closeReassign}
               data-testid="reassign-close"
             >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={awayTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) closeAway();
-        }}
-      >
-        <DialogContent
-          className="max-h-[90vh] overflow-y-auto"
-          data-testid="away-dialog"
-        >
-          <DialogHeader>
-            <DialogTitle>Away periods</DialogTitle>
-            <DialogDescription>
-              While {awayTarget?.name ?? "this coach"} is away they're hidden from
-              the member "Your Coaches" grid and can't be booked for private
-              coaching. They're restored automatically once the period ends.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {(awayTarget?.awayPeriods?.length ?? 0) === 0 ? (
-                <p
-                  className="text-sm text-muted-foreground"
-                  data-testid="away-empty"
-                >
-                  No upcoming or active away periods.
-                </p>
-              ) : (
-                <div className="rounded-lg border border-border/60 divide-y divide-border/60">
-                  {awayTarget?.awayPeriods?.map((p) => (
-                    <div
-                      key={p.id}
-                      data-testid={`away-period-${p.id}`}
-                      className="px-3 py-2 flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {p.startDate} → {p.endDate}
-                          </p>
-                          {p.isActive && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                              Active
-                            </span>
-                          )}
-                        </div>
-                        {p.reason && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {p.reason}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveAway(p.id)}
-                        disabled={removeAwayMutation.isPending}
-                        data-testid={`remove-away-${p.id}`}
-                        className="text-destructive hover:text-destructive shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 rounded-lg border border-border/60 p-3">
-              <p className="text-sm font-medium text-foreground">Add an away period</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Start date</Label>
-                  <Input
-                    type="date"
-                    value={awayStart}
-                    onChange={(e) => setAwayStart(e.target.value)}
-                    data-testid="away-start"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">End date</Label>
-                  <Input
-                    type="date"
-                    value={awayEnd}
-                    onChange={(e) => setAwayEnd(e.target.value)}
-                    data-testid="away-end"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">Reason (optional)</Label>
-                <Input
-                  value={awayReason}
-                  onChange={(e) => setAwayReason(e.target.value)}
-                  placeholder="e.g. Vacation"
-                  maxLength={200}
-                  data-testid="away-reason"
-                />
-              </div>
-              <Button
-                onClick={handleAddAway}
-                disabled={addAwayMutation.isPending}
-                data-testid="add-away"
-                className="w-full"
-              >
-                {addAwayMutation.isPending ? "Adding…" : "Add away period"}
-              </Button>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeAway} data-testid="away-close">
               Done
             </Button>
           </DialogFooter>

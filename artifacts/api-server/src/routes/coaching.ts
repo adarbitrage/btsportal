@@ -5,7 +5,6 @@ import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-z
 import { getUserEntitlements } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 import { queueGHLSync } from "../lib/ghl-queue";
-import { notCurrentlyAway } from "../lib/coach-availability";
 
 const router: IRouter = Router();
 
@@ -216,9 +215,6 @@ router.get("/coaches", async (_req, res): Promise<void> => {
       and(
         eq(coachesTable.doesGroupCalls, true),
         eq(coachesTable.isActive, true),
-        // Hide coaches who are currently within an away period; they reappear
-        // automatically once the period ends (date-driven, no cron needed).
-        notCurrentlyAway(),
       ),
     )
     .orderBy(coachesTable.sortOrder);

@@ -12,7 +12,6 @@ export * from "./lesson-versions";
 export * from "./progress";
 export * from "./coaches";
 export * from "./comms-send-log";
-export * from "./coach-away-periods";
 export * from "./coaching-calls";
 export * from "./session-pack-bookings";
 export * from "./coach-google-connections";

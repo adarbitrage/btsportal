@@ -49,7 +49,6 @@ export const coachesTable = pgTable("coaches", {
   // Vestigial slot-engine columns retained to avoid churn in seed/tests; not
   // used by the live group-calls or private-coaching flows.
   callTypes: text("call_types").array().notNull().default([]),
-  timezone: text("timezone").notNull().default("America/New_York"),
   maxDailySessions: integer("max_daily_sessions").notNull().default(4),
   averageRating: numeric("average_rating", { precision: 3, scale: 2 }),
   totalRatings: integer("total_ratings").notNull().default(0),

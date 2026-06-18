@@ -92,18 +92,18 @@ if [ -n "$DATABASE_URL" ]; then
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0049_unify_coaches.sql >/dev/null
 
-  # 6. Add the coach_away_periods table (self-managed coach absences).
-  #    A pure additive table: the live-schema-drift gate below would otherwise
-  #    flip to FAIL and trigger a full `drizzle-kit push --force` just to create
-  #    one table (a slow, whole-DB introspection that can also surface unrelated
-  #    pre-existing column drift). Creating it explicitly here keeps the drift
-  #    gate green so push stays skipped on the common no-schema-change merge.
-  #    Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  # 6. Drop the coach_away_periods table + the vestigial coaches.timezone column.
+  #    The "away periods" feature was removed (coaches use their own Google
+  #    Calendar) and coaches.timezone had zero functional reads. Both are pure
+  #    REMOVALS, so the live-schema-drift gate below (schema ⊆ DB) stays green
+  #    and push would never fire to apply them — drop them explicitly here, like
+  #    steps 4 and 5. Idempotent (DROP TABLE/COLUMN IF EXISTS), so on a fresh DB
+  #    that never had them it is a harmless no-op.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-    -f lib/db/drizzle/0050_coach_away_periods.sql >/dev/null
+    -f lib/db/drizzle/0054_drop_coach_away_periods_and_timezone.sql >/dev/null
 
   # 7. Add the comms_send_log table (the comms-dedup idempotency ledger).
-  #    A pure additive table (like step 6): applying it explicitly here keeps the
+  #    A pure additive table: applying it explicitly here keeps the
   #    live-schema-drift gate below green so push stays skipped on the common
   #    merge instead of flipping to FAIL and triggering a slow whole-DB
   #    `drizzle-kit push --force` just to create one table.

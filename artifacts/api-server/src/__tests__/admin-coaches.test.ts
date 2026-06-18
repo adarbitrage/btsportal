@@ -274,22 +274,22 @@ describe("admin coach profiles", () => {
     expect(res.body.error).toMatch(/name/i);
   });
 
-  it("rejects a blank specialty", async () => {
+  it("accepts a blank specialty (optional field)", async () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${coachId}`)
       .set("Cookie", adminCookie)
       .send({ specialties: "   " });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/specialty/i);
+    expect(res.status).toBe(200);
+    expect(res.body.specialties).toBe("");
   });
 
-  it("rejects a blank bio", async () => {
+  it("accepts a blank bio (optional field)", async () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${coachId}`)
       .set("Cookie", adminCookie)
       .send({ bio: "   " });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/bio/i);
+    expect(res.status).toBe(200);
+    expect(res.body.bio).toBe("");
   });
 
   it("rejects an over-length name", async () => {
@@ -407,22 +407,24 @@ describe("admin coach profiles", () => {
     extraCoachIds.push(res.body.id);
   });
 
-  it("rejects creating a coach with a missing required field", async () => {
+  it("creates a coach without a specialty (optional field)", async () => {
     const res = await request(app)
       .post("/api/admin/coaching/coaches")
       .set("Cookie", adminCookie)
-      .send({ name: "No Specialty", bio: "x" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/specialty/i);
+      .send({ name: `${TAG} No Specialty`, bio: "x" });
+    expect(res.status).toBe(201);
+    extraCoachIds.push(res.body.id);
+    expect(res.body.specialties).toBe("");
   });
 
-  it("rejects creating a coach without a bio", async () => {
+  it("creates a coach without a bio (optional field)", async () => {
     const res = await request(app)
       .post("/api/admin/coaching/coaches")
       .set("Cookie", adminCookie)
-      .send({ name: `${TAG} Bad`, specialties: "SEO" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/bio/i);
+      .send({ name: `${TAG} No Bio`, specialties: "SEO" });
+    expect(res.status).toBe(201);
+    extraCoachIds.push(res.body.id);
+    expect(res.body.bio).toBe("");
   });
 
   it("rejects creating a coach with an over-length name", async () => {
@@ -796,7 +798,6 @@ describe("admin coach create", () => {
         bio: "A brand new coach",
         photoUrl: "https://example.test/new-coach.png",
         callTypes: ["weekly_qa", "strategy"],
-        timezone: "Europe/London",
       });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
@@ -805,7 +806,6 @@ describe("admin coach create", () => {
       bio: "A brand new coach",
       photoUrl: "https://example.test/new-coach.png",
       callTypes: ["weekly_qa", "strategy"],
-      timezone: "Europe/London",
     });
     expect(typeof res.body.id).toBe("number");
     created.push(res.body.id);
@@ -820,7 +820,6 @@ describe("admin coach create", () => {
     expect(row.doesGroupCalls).toBe(true);
     expect(row.isActive).toBe(true);
     expect(row.callTypes).toEqual(["weekly_qa", "strategy"]);
-    expect(row.timezone).toBe("Europe/London");
   });
 
   it("falls back to schema defaults when scheduling fields are omitted", async () => {
@@ -835,30 +834,16 @@ describe("admin coach create", () => {
     expect(res.status).toBe(201);
     created.push(res.body.id);
     expect(res.body.callTypes).toEqual([]);
-    expect(res.body.timezone).toBe("America/New_York");
   });
 
-  it("rejects an invalid timezone", async () => {
+  it("creates a coach with only a name (specialty + bio optional)", async () => {
     const res = await request(app)
       .post("/api/admin/coaching/coaches")
       .set("Cookie", adminCookie)
-      .send({
-        name: `${TAG} Bad TZ`,
-        specialties: "Funnels",
-        bio: "Bad timezone",
-        timezone: "Not/AZone",
-      });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/timezone/i);
-  });
-
-  it("rejects creation when a required field is missing", async () => {
-    const res = await request(app)
-      .post("/api/admin/coaching/coaches")
-      .set("Cookie", adminCookie)
-      .send({ name: "Only A Name" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/specialty/i);
+      .send({ name: `${TAG} Name Only` });
+    expect(res.status).toBe(201);
+    created.push(res.body.id);
+    expect(res.body.name).toBe(`${TAG} Name Only`);
   });
 
   it("updates scheduling fields on an existing coach", async () => {
@@ -871,10 +856,9 @@ describe("admin coach create", () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${created2.id}`)
       .set("Cookie", adminCookie)
-      .send({ callTypes: ["mastermind"], timezone: "America/Chicago" });
+      .send({ callTypes: ["mastermind"] });
     expect(res.status).toBe(200);
     expect(res.body.callTypes).toEqual(["mastermind"]);
-    expect(res.body.timezone).toBe("America/Chicago");
   });
 });
 

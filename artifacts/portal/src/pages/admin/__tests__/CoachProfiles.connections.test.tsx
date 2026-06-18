@@ -41,7 +41,6 @@ interface ServerCoach {
     connectedAt: string | null;
     needsCalendarReconnect: boolean;
   } | null;
-  awayPeriods: never[];
 }
 
 let coaches: ServerCoach[];
@@ -76,7 +75,6 @@ function baseCoach(overrides: Partial<ServerCoach>): ServerCoach {
     ghlLocationId: null,
     userId: null,
     googleConnection: null,
-    awayPeriods: [],
     ...overrides,
   };
 }
