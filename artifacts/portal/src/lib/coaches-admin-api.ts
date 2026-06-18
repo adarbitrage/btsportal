@@ -34,6 +34,7 @@ export interface AdminCoach {
   specialties: string;
   bio: string;
   photoUrl: string | null;
+  sortOrder: number;
 }
 
 export interface CoachProfileInput {
@@ -119,6 +120,49 @@ export function useCreateCoach() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
       // Refresh the member-facing "Your Coaches" grid so the new coach shows up.
+      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
+    },
+  });
+}
+
+// Persist a new display order for coaches. Sends the full ordered list of ids;
+// the server rewrites each coach's sortOrder to its index. Optimistically
+// reorders the cached list so the UI reflects the change instantly, rolling back
+// if the request fails.
+export function useReorderCoaches() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: number[]) =>
+      adminFetch<{ coaches: AdminCoach[] }>("/admin/coaching/coaches/order", {
+        method: "PUT",
+        body: JSON.stringify({ ids }),
+      }),
+    onMutate: async (ids: number[]) => {
+      await queryClient.cancelQueries({ queryKey: [LIST_KEY] });
+      const previous = queryClient.getQueryData<{ coaches: AdminCoach[] }>([
+        LIST_KEY,
+      ]);
+      if (previous) {
+        const byId = new Map(previous.coaches.map((c) => [c.id, c]));
+        const reordered = ids
+          .map((id) => byId.get(id))
+          .filter((c): c is AdminCoach => c !== undefined)
+          .map((c, index) => ({ ...c, sortOrder: index }));
+        queryClient.setQueryData([LIST_KEY], { coaches: reordered });
+      }
+      return { previous };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData([LIST_KEY], context.previous);
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([LIST_KEY], data);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
+      // Reflect the new order on the member-facing "Your Coaches" grid.
       queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
   });

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, coachesTable, coachingCallsTable } from "@workspace/db";
-import { eq, asc, count } from "drizzle-orm";
+import { eq, asc, count, inArray } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
@@ -101,7 +101,9 @@ function parseCoachBody(
 
 // List every coach with the profile fields the member-facing "Your Coaches"
 // grid renders, so admins can keep names, specialties, photos, and bios current
-// without direct DB edits.
+// without direct DB edits. Ordered by sortOrder (then name as a stable
+// tiebreaker) so the admin list mirrors the order members see on the Coaching
+// page, which also orders by sortOrder.
 router.get(
   "/admin/coaching/coaches",
   requirePermission("coaching:view"),
@@ -113,9 +115,75 @@ router.get(
         specialties: coachesTable.specialties,
         bio: coachesTable.bio,
         photoUrl: coachesTable.photoUrl,
+        sortOrder: coachesTable.sortOrder,
       })
       .from(coachesTable)
-      .orderBy(asc(coachesTable.name));
+      .orderBy(asc(coachesTable.sortOrder), asc(coachesTable.name));
+
+    res.json({ coaches });
+  },
+);
+
+// Persist the display order of coaches. The client sends the full ordered list
+// of coach ids; we rewrite each coach's sortOrder to its index so the order is
+// reflected immediately on the member Coaching page (which orders by sortOrder).
+// Done in a transaction so a partial failure never leaves a half-applied order.
+router.put(
+  "/admin/coaching/coaches/order",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawIds = Array.isArray(body.ids) ? body.ids : null;
+    if (!rawIds || rawIds.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array" });
+      return;
+    }
+
+    const ids: number[] = [];
+    for (const raw of rawIds) {
+      const id = parseId(raw);
+      if (!id) {
+        res.status(400).json({ error: "ids must be positive integers" });
+        return;
+      }
+      ids.push(id);
+    }
+    if (new Set(ids).size !== ids.length) {
+      res.status(400).json({ error: "ids must be unique" });
+      return;
+    }
+
+    // Every id must reference an existing coach so we never silently drop a
+    // reorder request that was built from stale client state.
+    const existing = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(inArray(coachesTable.id, ids));
+    if (existing.length !== ids.length) {
+      res.status(400).json({ error: "One or more coaches no longer exist" });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < ids.length; i++) {
+        await tx
+          .update(coachesTable)
+          .set({ sortOrder: i })
+          .where(eq(coachesTable.id, ids[i]));
+      }
+    });
+
+    const coaches = await db
+      .select({
+        id: coachesTable.id,
+        name: coachesTable.name,
+        specialties: coachesTable.specialties,
+        bio: coachesTable.bio,
+        photoUrl: coachesTable.photoUrl,
+        sortOrder: coachesTable.sortOrder,
+      })
+      .from(coachesTable)
+      .orderBy(asc(coachesTable.sortOrder), asc(coachesTable.name));
 
     res.json({ coaches });
   },

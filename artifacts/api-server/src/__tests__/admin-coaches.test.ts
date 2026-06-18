@@ -449,4 +449,82 @@ describe("admin coach profiles", () => {
     const res = await request(app).get("/api/admin/coaching/coaches");
     expect(res.status).toBe(401);
   });
+
+  it("reorders coaches and persists sortOrder", async () => {
+    const [a] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Order A`, bio: "A", specialties: "A" })
+      .returning({ id: coachesTable.id });
+    const [b] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Order B`, bio: "B", specialties: "B" })
+      .returning({ id: coachesTable.id });
+    const [c] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} Order C`, bio: "C", specialties: "C" })
+      .returning({ id: coachesTable.id });
+    extraCoachIds.push(a.id, b.id, c.id);
+
+    const res = await request(app)
+      .put("/api/admin/coaching/coaches/order")
+      .set("Cookie", adminCookie)
+      .send({ ids: [c.id, a.id, b.id] });
+    expect(res.status).toBe(200);
+
+    const [rowA] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, a.id));
+    const [rowB] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, b.id));
+    const [rowC] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, c.id));
+    expect(rowC.sortOrder).toBe(0);
+    expect(rowA.sortOrder).toBe(1);
+    expect(rowB.sortOrder).toBe(2);
+
+    // The returned list reflects the new order for these three coaches.
+    const ordered = (res.body.coaches as { id: number }[])
+      .map((coach) => coach.id)
+      .filter((id) => [a.id, b.id, c.id].includes(id));
+    expect(ordered).toEqual([c.id, a.id, b.id]);
+  });
+
+  it("rejects a reorder with a non-array ids", async () => {
+    const res = await request(app)
+      .put("/api/admin/coaching/coaches/order")
+      .set("Cookie", adminCookie)
+      .send({ ids: "nope" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a reorder with duplicate ids", async () => {
+    const res = await request(app)
+      .put("/api/admin/coaching/coaches/order")
+      .set("Cookie", adminCookie)
+      .send({ ids: [coachId, coachId] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unique/i);
+  });
+
+  it("rejects a reorder referencing an unknown coach", async () => {
+    const res = await request(app)
+      .put("/api/admin/coaching/coaches/order")
+      .set("Cookie", adminCookie)
+      .send({ ids: [coachId, 99999999] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/no longer exist/i);
+  });
+
+  it("denies a plain member reordering coaches (403)", async () => {
+    const res = await request(app)
+      .put("/api/admin/coaching/coaches/order")
+      .set("Cookie", memberCookie)
+      .send({ ids: [coachId] });
+    expect(res.status).toBe(403);
+  });
 });

@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdminCoaches,
@@ -32,6 +32,7 @@ import {
   useDeleteCoach,
   uploadCoachPhoto,
   resolveCoachPhotoUrl,
+  useReorderCoaches,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -63,6 +64,7 @@ export default function CoachProfiles() {
   const createMutation = useCreateCoach();
   const updateMutation = useUpdateCoach();
   const deleteMutation = useDeleteCoach();
+  const reorderMutation = useReorderCoaches();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
@@ -166,6 +168,25 @@ export default function CoachProfiles() {
     }
   }
 
+  // Move a coach one slot up or down in the display order and persist the whole
+  // ordering. The cached list is already sorted by sortOrder, so we just swap the
+  // adjacent ids and send the new full order to the server.
+  async function moveCoach(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= coaches.length) return;
+    const ids = coaches.map((c) => c.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    try {
+      await reorderMutation.mutateAsync(ids);
+    } catch (err) {
+      toast({
+        title: "Could not reorder coaches",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
@@ -212,7 +233,7 @@ export default function CoachProfiles() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {coaches.map((coach) => (
+            {coaches.map((coach, index) => (
               <Card key={coach.id} data-testid={`coach-${coach.id}`}>
                 <CardContent className="p-5 flex items-start gap-4">
                   {coach.photoUrl ? (
@@ -242,7 +263,35 @@ export default function CoachProfiles() {
                       {coach.bio}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <div className="flex flex-col">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveCoach(index, -1)}
+                        disabled={index === 0 || reorderMutation.isPending}
+                        data-testid={`move-coach-up-${coach.id}`}
+                        aria-label={`Move ${coach.name} up`}
+                        title="Move up"
+                        className="h-6"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveCoach(index, 1)}
+                        disabled={
+                          index === coaches.length - 1 || reorderMutation.isPending
+                        }
+                        data-testid={`move-coach-down-${coach.id}`}
+                        aria-label={`Move ${coach.name} down`}
+                        title="Move down"
+                        className="h-6"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
