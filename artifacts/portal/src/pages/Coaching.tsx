@@ -5,6 +5,7 @@ import { Calendar, Video, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useListCoachingCalls, useListCoaches, type CoachingCall } from "@workspace/api-client-react";
+import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 
 type AvatarTint = {
   bg: string;
@@ -185,7 +186,7 @@ export default function Coaching() {
                     <CardContent className="p-6 text-center">
                       {coach.photoUrl ? (
                         <img
-                          src={coach.photoUrl}
+                          src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
                           alt={coach.name}
                           data-testid={`coach-photo-${coach.id}`}
                           className={`w-20 h-20 rounded-full object-cover border ${tint.border} mx-auto mb-4`}
@@ -199,6 +200,14 @@ export default function Coaching() {
                         </div>
                       )}
                       <h3 className="text-sm font-bold text-foreground">{coach.name}</h3>
+                      {coach.specialties && (
+                        <p
+                          data-testid={`coach-specialty-${coach.id}`}
+                          className="text-xs font-medium text-primary mt-0.5"
+                        >
+                          {coach.specialties}
+                        </p>
+                      )}
                       {coach.bio && (
                         <p
                           data-testid={`coach-bio-${coach.id}`}

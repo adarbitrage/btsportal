@@ -50,6 +50,48 @@ export function useAdminCoaches() {
   });
 }
 
+// Resolve a stored coach photo value to a renderable <img> src. Absolute
+// http(s) URLs (paste-a-URL flow) are returned as-is. Internal object-storage
+// paths ("/objects/...") from the upload flow are prefixed with the storage
+// serving route, base-path aware so it works behind the artifact's path prefix.
+export function resolveCoachPhotoUrl(
+  photoUrl: string | null | undefined,
+): string | null {
+  if (!photoUrl) return null;
+  const trimmed = photoUrl.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/objects/")) {
+    return `${import.meta.env.BASE_URL}api/storage${trimmed}`;
+  }
+  return trimmed;
+}
+
+// Upload a coach photo to object storage via the two-step presigned-URL flow
+// and return the internal object path ("/objects/...") to store on the coach.
+export async function uploadCoachPhoto(file: File): Promise<string> {
+  const meta = await adminFetch<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      }),
+    },
+  );
+  const put = await fetch(meta.uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  if (!put.ok) {
+    throw new Error("Upload failed. Please try again.");
+  }
+  return meta.objectPath;
+}
+
 export function useUpdateCoach() {
   const queryClient = useQueryClient();
   return useMutation({

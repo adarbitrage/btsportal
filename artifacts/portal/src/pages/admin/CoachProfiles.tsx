@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { PackCoachingAdminLayout } from "@/components/layout/PackCoachingAdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useAdminCoaches,
   useUpdateCoach,
+  uploadCoachPhoto,
+  resolveCoachPhotoUrl,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -49,8 +51,35 @@ export default function CoachProfiles() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const coaches = data?.coaches ?? [];
+
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset so selecting the same file again re-triggers onChange.
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please choose an image file", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const objectPath = await uploadCoachPhoto(file);
+      setForm((f) => ({ ...f, photoUrl: objectPath }));
+      toast({ title: "Photo uploaded" });
+    } catch (err) {
+      toast({
+        title: "Could not upload photo",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function openEdit(coach: AdminCoach) {
     setForm({
@@ -78,7 +107,11 @@ export default function CoachProfiles() {
       return;
     }
     const photoUrl = form.photoUrl.trim();
-    if (photoUrl && !/^https?:\/\//i.test(photoUrl)) {
+    if (
+      photoUrl &&
+      !/^https?:\/\//i.test(photoUrl) &&
+      !photoUrl.startsWith("/objects/")
+    ) {
       toast({
         title: "Photo URL must start with http:// or https://",
         variant: "destructive",
@@ -135,7 +168,7 @@ export default function CoachProfiles() {
                 <CardContent className="p-5 flex items-start gap-4">
                   {coach.photoUrl ? (
                     <img
-                      src={coach.photoUrl}
+                      src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
                       alt={coach.name}
                       data-testid={`coach-photo-${coach.id}`}
                       className="w-14 h-14 rounded-full object-cover shrink-0"
@@ -201,7 +234,57 @@ export default function CoachProfiles() {
               />
             </div>
             <div>
-              <Label className="text-xs">Photo URL</Label>
+              <Label className="text-xs">Photo</Label>
+              <div className="flex items-center gap-3 mt-1">
+                {form.photoUrl.trim() ? (
+                  <img
+                    src={resolveCoachPhotoUrl(form.photoUrl) ?? undefined}
+                    alt="Preview"
+                    data-testid="coach-photo-preview"
+                    className="w-16 h-16 rounded-full object-cover border border-border/60 shrink-0"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-muted border border-border/60 shrink-0" />
+                )}
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    data-testid="coach-photo-file"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    data-testid="coach-photo-upload"
+                  >
+                    {uploading ? "Uploading…" : "Upload image"}
+                  </Button>
+                  {form.photoUrl.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm({ ...form, photoUrl: "" })}
+                      disabled={uploading}
+                      data-testid="coach-photo-remove"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Label className="text-xs mt-3 block text-muted-foreground">
+                Or paste an image URL
+              </Label>
               <Input
                 value={form.photoUrl}
                 onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
@@ -209,16 +292,6 @@ export default function CoachProfiles() {
                 maxLength={2048}
                 data-testid="coach-photo-url"
               />
-              {form.photoUrl.trim() && (
-                <img
-                  src={form.photoUrl.trim()}
-                  alt="Preview"
-                  className="w-16 h-16 rounded-full object-cover mt-2 border border-border/60"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              )}
             </div>
             <div>
               <Label className="text-xs">Bio *</Label>

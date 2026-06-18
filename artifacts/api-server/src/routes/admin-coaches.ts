@@ -19,13 +19,20 @@ function parseId(value: unknown): number | null {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
-// Accept only absolute http(s) URLs for the coach photo. An empty string clears
-// the photo (column is nullable); anything else must parse as an http(s) URL.
+// Accept the coach photo as either an absolute http(s) URL (paste-a-URL flow) or
+// an internal object-storage path produced by the upload flow (e.g.
+// "/objects/uploads/<uuid>"). An empty string clears the photo (column is
+// nullable). Stored values are rendered by the client, which resolves the
+// internal path to a served URL.
 function parsePhotoUrl(value: unknown): { url: string | null } | { error: string } {
   if (typeof value !== "string" || value.trim() === "") return { url: null };
   const trimmed = value.trim();
   if (trimmed.length > PHOTO_URL_MAX) {
     return { error: `Photo URL must be ${PHOTO_URL_MAX} characters or fewer` };
+  }
+  // Internal object-storage path from the photo upload flow; stored verbatim.
+  if (trimmed.startsWith("/objects/")) {
+    return { url: trimmed };
   }
   let parsed: URL;
   try {
