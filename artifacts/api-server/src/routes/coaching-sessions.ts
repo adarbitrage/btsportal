@@ -97,12 +97,11 @@ router.get("/coaching/sessions/balance", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
-  const rows = await db
+  const coaches = await db
     .select({
       id: sessionPackCoachesTable.id,
       name: sessionPackCoachesTable.name,
       bio: sessionPackCoachesTable.bio,
-      privateCoachingBio: sessionPackCoachesTable.privateCoachingBio,
       photoUrl: sessionPackCoachesTable.photoUrl,
       sortOrder: sessionPackCoachesTable.sortOrder,
     })
@@ -116,12 +115,6 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       ),
     )
     .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
-  // Prefer the private-coaching-specific bio; fall back to the general bio when
-  // it's empty so every coach still shows something on the booking flow.
-  const coaches = rows.map(({ privateCoachingBio, ...c }) => ({
-    ...c,
-    bio: privateCoachingBio?.trim() ? privateCoachingBio : c.bio,
-  }));
   res.json(coaches);
 });
 
