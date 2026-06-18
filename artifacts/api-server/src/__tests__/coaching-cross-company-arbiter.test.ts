@@ -425,3 +425,45 @@ describe("cross-company arbiter — reschedule moves the conflict block", () => 
       .set("Cookie", memberCookie);
   });
 });
+
+describe("cross-company arbiter — booking-time location survives coach remap", () => {
+  it("cancel targets the ORIGINAL location after the coach is remapped", async () => {
+    ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
+    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2]);
+    await grantCredit();
+
+    const bookRes = await request(app)
+      .post("/api/coaching/sessions/book")
+      .set("Cookie", memberCookie)
+      .send({ coachId: conflictCoachId, startTime: T2 });
+    expect(bookRes.status).toBe(201);
+    const bookingId = bookRes.body.booking.id;
+    bookingIds.push(bookingId);
+    const blockId = await readBlockEventId(bookingId);
+
+    // Admin remaps the coach to brand-new locations AFTER the booking exists.
+    await db
+      .update(sessionPackCoachesTable)
+      .set({ ghlLocationId: "loc_remapped", conflictGhlLocationId: "loc_remapped_conflict" })
+      .where(eq(sessionPackCoachesTable.id, conflictCoachId));
+
+    try {
+      const cancelRes = await request(app)
+        .patch(`/api/coaching/sessions/${bookingId}/cancel`)
+        .set("Cookie", memberCookie);
+
+      expect(cancelRes.status).toBe(200);
+      // Both GHL ops must still target the locations captured at booking time,
+      // NOT the coach's new locations — otherwise the location-scoped token is
+      // wrong and the call 502s, stranding the member's booking.
+      expect(ghl.cancelAppointment).toHaveBeenCalledWith(expect.any(String), BTS_LOC);
+      expect(ghl.deleteBlockSlot).toHaveBeenCalledWith(blockId, CONFLICT_LOC);
+    } finally {
+      // Restore the coach so later tests (and re-runs) see the original mapping.
+      await db
+        .update(sessionPackCoachesTable)
+        .set({ ghlLocationId: BTS_LOC, conflictGhlLocationId: CONFLICT_LOC })
+        .where(eq(sessionPackCoachesTable.id, conflictCoachId));
+    }
+  });
+});

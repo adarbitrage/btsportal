@@ -499,9 +499,11 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         memberId: userId,
         coachId,
         ghlCalendarId: cals.booking.calendarId,
+        ghlLocationId: cals.booking.locationId,
         ghlAppointmentId: appointment.id,
         ghlContactId: contactId,
         conflictBlockEventId: createdBlockEventId,
+        conflictGhlLocationId: cals.conflict?.locationId ?? null,
         scheduledAt,
         endAt,
         durationMinutes: CALL_DURATION_MINUTES,
@@ -684,20 +686,23 @@ router.patch("/coaching/sessions/:id/cancel", async (req, res): Promise<void> =>
     const booking = cancelled[0];
     const refund = booking.scheduledAt.getTime() - Date.now() >= REFUND_WINDOW_MS;
 
-    // Resolve the coach's calendar bindings so the GHL cancel + conflict-block
-    // delete target the right location(s). Falls back to the legacy location
-    // when the coach has no explicit location set.
+    // Resolve the location(s) the GHL cancel + conflict-block delete must target.
+    // Prefer the values persisted on the booking at booking time so an admin
+    // remapping the coach's location later can't break cancellation of an
+    // existing booking (the appointment/block live under the ORIGINAL location).
+    // Fall back to the live coach row, then the legacy location, for rows created
+    // before these columns existed.
     const [coach] = await txDb
       .select({
-        ghlCalendarId: sessionPackCoachesTable.ghlCalendarId,
         ghlLocationId: sessionPackCoachesTable.ghlLocationId,
-        conflictGhlCalendarId: sessionPackCoachesTable.conflictGhlCalendarId,
         conflictGhlLocationId: sessionPackCoachesTable.conflictGhlLocationId,
       })
       .from(sessionPackCoachesTable)
       .where(eq(sessionPackCoachesTable.id, booking.coachId));
-    const bookingLocationId = coach?.ghlLocationId ?? COACHING_LOCATION_ID;
-    const conflictLocationId = coach?.conflictGhlLocationId ?? COACHING_LOCATION_ID;
+    const bookingLocationId =
+      booking.ghlLocationId ?? coach?.ghlLocationId ?? COACHING_LOCATION_ID;
+    const conflictLocationId =
+      booking.conflictGhlLocationId ?? coach?.conflictGhlLocationId ?? COACHING_LOCATION_ID;
 
     // Cancel on GHL inside the transaction; if it fails, roll back so the
     // booking stays 'booked' and no refund is recorded.
@@ -781,7 +786,9 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       scheduledAt: sessionPackBookingsTable.scheduledAt,
       ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
       ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
+      bookingGhlLocationId: sessionPackBookingsTable.ghlLocationId,
       conflictBlockEventId: sessionPackBookingsTable.conflictBlockEventId,
+      bookingConflictGhlLocationId: sessionPackBookingsTable.conflictGhlLocationId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
       coachGhlCalendarId: sessionPackCoachesTable.ghlCalendarId,
@@ -832,10 +839,17 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     conflictGhlCalendarId: existing.coachConflictGhlCalendarId,
     conflictGhlLocationId: existing.coachConflictGhlLocationId,
   });
-  // Fall back to the appointment's stored Booking calendar if the coach row no
-  // longer resolves one (defensive — the appointment already exists there).
-  const bookingCalendarId = cals?.booking.calendarId ?? existing.ghlCalendarId;
-  const bookingLocationId = cals?.booking.locationId ?? COACHING_LOCATION_ID;
+  // The appointment already lives on a specific Booking calendar + location;
+  // moving it must target THOSE, captured at booking time, so an admin remapping
+  // the coach later can't make updateAppointment hit the wrong location-scoped
+  // token. Fall back to the live coach row, then the legacy location.
+  const bookingCalendarId = existing.ghlCalendarId ?? cals?.booking.calendarId;
+  const bookingLocationId =
+    existing.bookingGhlLocationId ?? cals?.booking.locationId ?? COACHING_LOCATION_ID;
+  // The OLD conflict block lives under the location it was created with; delete
+  // it there. The NEW block is created on the coach's CURRENT conflict calendar.
+  const oldConflictLocationId =
+    existing.bookingConflictGhlLocationId ?? cals?.conflict?.locationId ?? COACHING_LOCATION_ID;
 
   // Confirm the requested slot is genuinely open across BOTH companies.
   const dayMs = scheduledAt.getTime();
@@ -913,6 +927,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     // the old hold lingers (a safe over-block at the old time) rather than
     // corrupting the booking truth.
     let newBlockEventId: string | null = existing.conflictBlockEventId;
+    let newConflictLocationId: string | null = existing.bookingConflictGhlLocationId;
     if (cals?.conflict) {
       try {
         const block = await createBlockSlot({
@@ -923,10 +938,12 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
           title: CONFLICT_BLOCK_TITLE,
         });
         newBlockEventId = block.id;
-        // Drop the old hold now that the new one exists.
+        newConflictLocationId = cals.conflict.locationId;
+        // Drop the old hold now that the new one exists, targeting the location
+        // the OLD block was created under (may differ after a coach remap).
         if (existing.conflictBlockEventId) {
           try {
-            await deleteBlockSlot(existing.conflictBlockEventId, cals.conflict.locationId);
+            await deleteBlockSlot(existing.conflictBlockEventId, oldConflictLocationId);
           } catch (err) {
             console.error("[coaching-sessions] failed to delete stale conflict block:", err);
           }
@@ -942,6 +959,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
         scheduledAt,
         endAt,
         conflictBlockEventId: newBlockEventId,
+        conflictGhlLocationId: newConflictLocationId,
         ...(meetLink ? { meetLink } : {}),
       })
       .where(eq(sessionPackBookingsTable.id, bookingId))

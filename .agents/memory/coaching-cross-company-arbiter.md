@@ -16,6 +16,19 @@ free slots across BOTH calendars and (2) mirrors every BTS booking as a busy
   conflict, slot reads/bookings use the Booking calendar only, NO block is ever
   created. Behaves exactly as before the feature. This is the prod default.
 
+## Persist booking-time GHL location on the booking, not just the coach
+**Rule:** Cancel/reschedule (and the conflict-block delete) must use the location
+ids captured ON THE BOOKING at booking time, never the live coach row.
+
+**Why:** An admin can remap a coach's GHL location after a booking exists; the
+appointment/block still live under the ORIGINAL location, so resolving location
+from the current coach row makes the location-scoped GHL token wrong → 502s that
+strand a member's existing booking. (Code review flagged this as blocking.)
+
+**How to apply:** book persists ghlLocationId + conflictGhlLocationId on the
+booking row; cancel/reschedule prefer booking-stored value → live coach row →
+COACHING_LOCATION_ID (last fallback only for rows predating the columns).
+
 ## The mirror block MUST be best-effort — never roll back the appointment
 **Rule:** In cancel/reschedule, the conflict-block delete/create is a secondary
 GHL side effect. A block failure must NOT roll back the primary appointment

@@ -30,11 +30,21 @@ export const sessionPackBookingsTable = pgTable(
     ghlCalendarId: text("ghl_calendar_id").notNull(),
     ghlAppointmentId: text("ghl_appointment_id").unique(),
     ghlContactId: text("ghl_contact_id"),
+    // The GHL location id the appointment was created under, captured at booking
+    // time. Cancel / reschedule MUST use this stored value (not the live coach
+    // row) so they keep targeting the right location-scoped token even after an
+    // admin remaps the coach's location. Null on rows created before this column
+    // existed -> callers fall back to the coach row, then COACHING_LOCATION_ID.
+    ghlLocationId: text("ghl_location_id"),
     // The GHL event id of the busy block this booking mirrors into the coach's
     // cross-company Conflict Calendar (see coaches.conflictGhlCalendarId). Null
     // when the coach has no conflict calendar configured. Tracked so cancel /
     // reschedule can remove or move the mirrored block in lockstep.
     conflictBlockEventId: text("conflict_block_event_id"),
+    // The GHL location id the conflict block was created under, captured at
+    // booking time (same rationale as ghlLocationId above). Null when no conflict
+    // calendar is configured, or on rows created before this column existed.
+    conflictGhlLocationId: text("conflict_ghl_location_id"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     durationMinutes: integer("duration_minutes").notNull().default(30),
