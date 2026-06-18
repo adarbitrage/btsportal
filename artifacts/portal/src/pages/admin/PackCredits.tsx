@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,12 +57,8 @@ export default function PackCredits() {
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Session Credits</h1>
-          <p className="text-muted-foreground">Grant or deduct credits and review a member's ledger.</p>
-        </div>
+    <div className="space-y-6">
+        <p className="text-muted-foreground">Grant or deduct credits and review a member's ledger.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Member search */}
@@ -205,7 +200,6 @@ export default function PackCredits() {
             )}
           </div>
         </div>
-      </div>
-    </AppLayout>
+    </div>
   );
 }

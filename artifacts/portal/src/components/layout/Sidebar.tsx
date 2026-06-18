@@ -225,8 +225,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     icon: Video,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/admin/coaching/sessions", label: "1-on-1 Sessions", icon: UserCheck, requiredPermission: "coaching:view" },
-      { kind: "leaf", href: "/admin/coaching/credits", label: "Session Credits", icon: Ticket, requiredPermission: "coaching:view" },
+      { kind: "leaf", href: "/admin/coaching/sessions", label: "Private Coaching", icon: UserCheck, requiredPermission: "coaching:view" },
       { kind: "leaf", href: "/admin/coaching/coaches", label: "Coaches", icon: Users2, requiredPermission: "coaching:view" },
       { kind: "leaf", href: "/admin/coaching/calls", label: "Group Calls", icon: Video, requiredPermission: "coaching:view" },
     ],

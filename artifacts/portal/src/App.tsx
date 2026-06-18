@@ -109,8 +109,7 @@ import VaultAnalytics from "@/pages/admin/VaultAnalytics";
 import AdminWins from "@/pages/admin/AdminWins";
 import SessionBooking from "@/pages/coaching/SessionBooking";
 import BookSessionPack from "@/pages/coaching/BookSessionPack";
-import PackSessions from "@/pages/admin/PackSessions";
-import PackCredits from "@/pages/admin/PackCredits";
+import PrivateCoaching from "@/pages/admin/PrivateCoaching";
 import CoachingCalls from "@/pages/admin/CoachingCalls";
 import CoachProfiles from "@/pages/admin/CoachProfiles";
 import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
@@ -477,8 +476,8 @@ function Router() {
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
-      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PackSessions} permission="coaching:view" />}</Route>
-      <Route path="/admin/coaching/credits">{() => <AdminRoute component={PackCredits} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PrivateCoaching} permission="coaching:view" />}</Route>
+      <Route path="/admin/coaching/credits">{() => <Redirect to="/admin/coaching/sessions" />}</Route>
       <Route path="/admin/coaching/calls">{() => <AdminRoute component={CoachingCalls} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/coaches">{() => <AdminRoute component={CoachProfiles} permission="coaching:view" />}</Route>
       <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>

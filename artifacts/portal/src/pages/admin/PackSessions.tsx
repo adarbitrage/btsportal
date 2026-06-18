@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,12 +258,9 @@ export default function PackSessions() {
     recordingMutation.isPending;
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">1-on-1 Sessions</h1>
-          <p className="text-muted-foreground">All credit-based coaching bookings.</p>
-        </div>
+        <p className="text-muted-foreground">All credit-based coaching bookings.</p>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -543,6 +539,6 @@ export default function PackSessions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }
