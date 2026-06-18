@@ -143,6 +143,32 @@ describe("admin coach profiles", () => {
     expect(res.body.photoUrl).toBeNull();
   });
 
+  it("accepts and stores an absolute http:// photo URL", async () => {
+    const httpUrl = "http://example.test/headshots/coach.png";
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ photoUrl: httpUrl });
+    expect(res.status).toBe(200);
+    expect(res.body.photoUrl).toBe(httpUrl);
+  });
+
+  it("accepts and stores an internal /objects/... upload path verbatim", async () => {
+    const objectPath = "/objects/uploads/coach-headshot-abc123.png";
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ photoUrl: objectPath });
+    expect(res.status).toBe(200);
+    expect(res.body.photoUrl).toBe(objectPath);
+
+    const [row] = await db
+      .select()
+      .from(coachesTable)
+      .where(eq(coachesTable.id, coachId));
+    expect(row.photoUrl).toBe(objectPath);
+  });
+
   it("rejects a blank name", async () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${coachId}`)
