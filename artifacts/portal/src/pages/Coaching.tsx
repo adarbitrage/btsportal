@@ -1,6 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -83,6 +84,21 @@ function weekdayOrder(d: Date): number {
   return (d.getDay() + 6) % 7;
 }
 
+// The one-off call types surfaced in the "Upcoming Special Sessions" list.
+// `weekly_qa` is excluded on purpose — it powers the recurring schedule above.
+const ONE_OFF_CALL_TYPES = ["strategy", "mastermind", "vip_roundtable"] as const;
+type OneOffCallType = (typeof ONE_OFF_CALL_TYPES)[number];
+
+function isOneOffCallType(value: string): value is OneOffCallType {
+  return (ONE_OFF_CALL_TYPES as readonly string[]).includes(value);
+}
+
+const ONE_OFF_CALL_LABELS: Record<OneOffCallType, string> = {
+  strategy: "Strategy",
+  mastermind: "Mastermind",
+  vip_roundtable: "VIP Roundtable",
+};
+
 export default function Coaching() {
   const [, navigate] = useLocation();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
@@ -104,6 +120,18 @@ export default function Coaching() {
         weekdayOrder(a.start) - weekdayOrder(b.start) ||
         a.start.getTime() - b.start.getTime(),
     );
+
+  // One-off strategy / mastermind / VIP sessions. These are NOT recurring, so
+  // they live in their own "Upcoming Special Sessions" list ordered by the next
+  // session date — never mixed into the weekly cadence above.
+  const oneOffSessions = (upcomingCalls ?? [])
+    .filter((c) => isOneOffCallType(c.callType))
+    .map((call) => {
+      const start = new Date(call.scheduledAt);
+      const end = new Date(start.getTime() + call.durationMinutes * 60000);
+      return { call, start, end, type: call.callType as OneOffCallType };
+    })
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   return (
     <AppLayout>
@@ -170,6 +198,55 @@ export default function Coaching() {
             </p>
           </CardContent>
         </Card>
+
+        {oneOffSessions.length > 0 && (
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-5 sm:p-8 md:p-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-foreground" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Upcoming Special Sessions</h2>
+                  <p className="text-sm text-muted-foreground">
+                    One-off strategy, mastermind, and VIP roundtable calls — reserved for eligible members.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-border/60 rounded-xl overflow-hidden">
+                {oneOffSessions.map(({ call, start, end, type }, i) => (
+                  <div
+                    key={call.id}
+                    data-testid={`oneoff-call-${call.id}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
+                      i !== oneOffSessions.length - 1 ? "border-b border-border/60" : ""
+                    } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-foreground">
+                        <Badge
+                          variant="outline"
+                          data-testid={`oneoff-call-type-${call.id}`}
+                          className="mr-2 align-middle text-[10px]"
+                        >
+                          {ONE_OFF_CALL_LABELS[type]}
+                        </Badge>
+                        {format(start, "EEE, MMM d")} from{" "}
+                        <strong className="text-foreground">
+                          {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                        </strong>{" "}
+                        with {call.coachName.split(" ")[0]}
+                      </span>
+                    </div>
+                    <CallAction call={call} onUnlock={navigate} />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {coaches && coaches.length > 0 && (
           <div>
