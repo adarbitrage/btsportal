@@ -35,11 +35,13 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   CalendarCheck,
+  CalendarClock,
   CalendarOff,
   CalendarX,
   ChevronDown,
   ChevronUp,
   GripVertical,
+  HardDrive,
   Link2Off,
   Pencil,
   Plus,
@@ -149,75 +151,159 @@ function ConnectionPill({
   );
 }
 
-// Per-coach Connections panel. Surfaces the two integrations that power a
-// coach's 1-on-1 booking flow: the GHL booking calendar (presence of a
-// ghlCalendarId) and the single Google grant (Drive recordings + Calendar
-// availability). Only shown for coaches that offer private coaching, since
-// neither connection matters for group-only coaches.
+// One labeled status row in the per-coach Connections panel: a purpose label
+// (what the integration is for) on the left and a status pill on the right.
+function ConnectionRow({
+  purpose,
+  source,
+  tone,
+  icon,
+  status,
+  title,
+  testId,
+}: {
+  purpose: string;
+  source: string;
+  tone: "ok" | "warn" | "muted";
+  icon: React.ComponentType<{ className?: string }>;
+  status: string;
+  title?: string;
+  testId: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="text-muted-foreground">
+        <span className="font-medium text-foreground">{purpose}</span>
+        <span className="text-muted-foreground"> · {source}</span>
+      </span>
+      <ConnectionPill
+        tone={tone}
+        icon={icon}
+        label={status}
+        title={title}
+        testId={testId}
+      />
+    </div>
+  );
+}
+
+// Per-coach Connections panel. Surfaces the three distinct capabilities that
+// power a coach's 1-on-1 flow, each as its own purpose-labeled row:
+//   1. Booking calendar    — GoHighLevel (presence of a ghlCalendarId)
+//   2. Recording uploads   — Google Drive
+//   3. Availability sync    — Google Calendar (needs the calendar scope)
+// Drive + Calendar ride the SAME single Google grant, but Calendar can lag the
+// Drive scope, so `needsCalendarReconnect` is surfaced only on the Calendar
+// row. Only shown for coaches that offer private coaching, since none of these
+// connections matter for group-only coaches.
 function CoachConnections({ coach }: { coach: AdminCoach }) {
   if (!coach.doesPrivateCoaching) return null;
 
   const google = coach.googleConnection;
+  const googleEmail = google?.email ?? null;
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-1.5 mt-2"
-      data-testid={`coach-connections-${coach.id}`}
-    >
+    <div className="mt-2 space-y-1" data-testid={`coach-connections-${coach.id}`}>
+      {/* 1. Booking calendar — GoHighLevel */}
       {coach.ghlCalendarId ? (
-        <ConnectionPill
+        <ConnectionRow
+          purpose="Booking calendar"
+          source="GoHighLevel"
           tone="ok"
           icon={CalendarCheck}
-          label="Booking calendar"
+          status="Connected"
           title={`GHL calendar: ${coach.ghlCalendarId}`}
           testId={`coach-conn-ghl-${coach.id}`}
         />
       ) : (
-        <ConnectionPill
+        <ConnectionRow
+          purpose="Booking calendar"
+          source="GoHighLevel"
           tone="warn"
           icon={CalendarX}
-          label="No booking calendar"
+          status="Not connected"
           title="Add a GHL calendar id so this coach can be booked."
           testId={`coach-conn-ghl-${coach.id}`}
         />
       )}
+
+      {/* 2. Recording uploads — Google Drive (single Google grant) */}
       {google == null ? (
-        <ConnectionPill
+        <ConnectionRow
+          purpose="Recording uploads"
+          source="Google Drive"
           tone="muted"
           icon={Link2Off}
-          label="No login linked"
+          status="No login linked"
           title="Link this coach to a portal login to connect Google."
-          testId={`coach-conn-google-${coach.id}`}
+          testId={`coach-conn-drive-${coach.id}`}
         />
       ) : google.connected ? (
-        google.needsCalendarReconnect ? (
-          <ConnectionPill
-            tone="warn"
-            icon={AlertTriangle}
-            label="Google: reconnect for Calendar"
-            title={
-              google.email
-                ? `${google.email} — Drive connected, Calendar scope missing`
-                : "Drive connected, Calendar scope missing"
-            }
-            testId={`coach-conn-google-${coach.id}`}
-          />
-        ) : (
-          <ConnectionPill
-            tone="ok"
-            icon={CalendarCheck}
-            label="Google connected"
-            title={google.email ?? undefined}
-            testId={`coach-conn-google-${coach.id}`}
-          />
-        )
+        <ConnectionRow
+          purpose="Recording uploads"
+          source="Google Drive"
+          tone="ok"
+          icon={HardDrive}
+          status="Connected"
+          title={googleEmail ?? undefined}
+          testId={`coach-conn-drive-${coach.id}`}
+        />
       ) : (
-        <ConnectionPill
+        <ConnectionRow
+          purpose="Recording uploads"
+          source="Google Drive"
           tone="warn"
           icon={Link2Off}
-          label="Google not connected"
-          title="The coach hasn't connected Google (Drive + Calendar) yet."
-          testId={`coach-conn-google-${coach.id}`}
+          status="Not connected"
+          title="The coach hasn't connected Google yet."
+          testId={`coach-conn-drive-${coach.id}`}
+        />
+      )}
+
+      {/* 3. Availability sync — Google Calendar (same grant + calendar scope) */}
+      {google == null ? (
+        <ConnectionRow
+          purpose="Availability sync"
+          source="Google Calendar"
+          tone="muted"
+          icon={Link2Off}
+          status="No login linked"
+          title="Link this coach to a portal login to connect Google."
+          testId={`coach-conn-calendar-${coach.id}`}
+        />
+      ) : !google.connected ? (
+        <ConnectionRow
+          purpose="Availability sync"
+          source="Google Calendar"
+          tone="warn"
+          icon={Link2Off}
+          status="Not connected"
+          title="The coach hasn't connected Google yet."
+          testId={`coach-conn-calendar-${coach.id}`}
+        />
+      ) : google.needsCalendarReconnect ? (
+        <ConnectionRow
+          purpose="Availability sync"
+          source="Google Calendar"
+          tone="warn"
+          icon={AlertTriangle}
+          status="Needs reconnect"
+          title={
+            googleEmail
+              ? `${googleEmail} — Calendar scope missing, ask the coach to reconnect Google`
+              : "Calendar scope missing, ask the coach to reconnect Google"
+          }
+          testId={`coach-conn-calendar-${coach.id}`}
+        />
+      ) : (
+        <ConnectionRow
+          purpose="Availability sync"
+          source="Google Calendar"
+          tone="ok"
+          icon={CalendarClock}
+          status="Connected"
+          title={googleEmail ?? undefined}
+          testId={`coach-conn-calendar-${coach.id}`}
         />
       )}
     </div>
