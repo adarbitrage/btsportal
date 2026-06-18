@@ -107,3 +107,34 @@ export function useUpdateCoach() {
     },
   });
 }
+
+export function useCreateCoach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CoachProfileInput) =>
+      adminFetch<AdminCoach>("/admin/coaching/coaches", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
+      // A new coach is a group-call coach, so it shows up on the member page.
+      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
+    },
+  });
+}
+
+export function useDeleteCoach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      adminFetch<{ ok: true }>(`/admin/coaching/coaches/${id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
+      // Drop the removed coach from the member-facing "Your Coaches" grid.
+      queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
+    },
+  });
+}

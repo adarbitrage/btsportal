@@ -11,14 +11,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Pencil } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useAdminCoaches,
   useUpdateCoach,
   uploadCoachPhoto,
   resolveCoachPhotoUrl,
+  useCreateCoach,
+  useDeleteCoach,
   type AdminCoach,
 } from "@/lib/coaches-admin-api";
 
@@ -48,13 +61,23 @@ export default function CoachProfiles() {
   const { toast } = useToast();
   const { data, isLoading } = useAdminCoaches();
   const updateMutation = useUpdateCoach();
+  const createMutation = useCreateCoach();
+  const deleteMutation = useDeleteCoach();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
 
   const coaches = data?.coaches ?? [];
+  const isEditing = form.id !== undefined;
+  const isSaving = updateMutation.isPending || createMutation.isPending;
+
+  function openCreate() {
+    setForm(EMPTY_FORM);
+    setOpen(true);
+  }
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -93,7 +116,6 @@ export default function CoachProfiles() {
   }
 
   async function handleSave() {
-    if (!form.id) return;
     if (!form.name.trim()) {
       toast({ title: "Name is required", variant: "destructive" });
       return;
@@ -119,15 +141,21 @@ export default function CoachProfiles() {
       return;
     }
 
+    const payload = {
+      name: form.name.trim(),
+      specialties: form.specialties.trim(),
+      bio: form.bio.trim(),
+      photoUrl: photoUrl || null,
+    };
+
     try {
-      await updateMutation.mutateAsync({
-        id: form.id,
-        name: form.name.trim(),
-        specialties: form.specialties.trim(),
-        bio: form.bio.trim(),
-        photoUrl: photoUrl || null,
-      });
-      toast({ title: "Coach updated" });
+      if (form.id !== undefined) {
+        await updateMutation.mutateAsync({ id: form.id, ...payload });
+        toast({ title: "Coach updated" });
+      } else {
+        await createMutation.mutateAsync(payload);
+        toast({ title: "Coach added" });
+      }
       setOpen(false);
     } catch (err) {
       toast({
@@ -138,15 +166,36 @@ export default function CoachProfiles() {
     }
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      toast({ title: "Coach removed" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Could not remove coach",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <PackCoachingAdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Coach Profiles</h1>
-          <p className="text-muted-foreground">
-            Edit the name, specialty, photo, and bio members see in the "Your
-            Coaches" section on the Coaching page.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Coach Profiles</h1>
+            <p className="text-muted-foreground">
+              Add, edit, or remove the coaches members see in the "Your Coaches"
+              section on the Coaching page.
+            </p>
+          </div>
+          <Button onClick={openCreate} data-testid="add-coach" className="shrink-0">
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Coach
+          </Button>
         </div>
 
         {isLoading ? (
@@ -193,14 +242,25 @@ export default function CoachProfiles() {
                       {coach.bio}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEdit(coach)}
-                    data-testid={`edit-coach-${coach.id}`}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEdit(coach)}
+                      data-testid={`edit-coach-${coach.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(coach)}
+                      data-testid={`delete-coach-${coach.id}`}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -211,7 +271,12 @@ export default function CoachProfiles() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Coach</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit Coach" : "Add Coach"}</DialogTitle>
+            <DialogDescription>
+              {isEditing
+                ? "Update the profile members see on the Coaching page."
+                : "New coaches appear in the \"Your Coaches\" section right away."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -308,20 +373,58 @@ export default function CoachProfiles() {
             <Button
               variant="outline"
               onClick={() => setOpen(false)}
-              disabled={updateMutation.isPending}
+              disabled={isSaving}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
-              disabled={updateMutation.isPending}
+              disabled={isSaving}
               data-testid="save-coach"
             >
-              {updateMutation.isPending ? "Saving…" : "Save"}
+              {isSaving
+                ? "Saving…"
+                : isEditing
+                  ? "Save"
+                  : "Add Coach"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this coach?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.name}" will be removed from the member Coaching page. If this coach is assigned to any scheduled coaching calls, you'll need to reassign or remove those calls first.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleteMutation.isPending}
+              data-testid="confirm-delete-coach"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Removing…" : "Remove Coach"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PackCoachingAdminLayout>
   );
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, coachesTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { db, coachesTable, coachingCallsTable } from "@workspace/db";
+import { eq, asc, count } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
@@ -153,6 +153,116 @@ router.patch(
     }
 
     res.json(updated);
+  },
+);
+
+// Create a brand-new coach. The created coach is marked doesGroupCalls=true (and
+// isActive defaults to true) so it appears immediately on the member Coaching
+// page, which lists active group-call coaches.
+router.post(
+  "/admin/coaching/coaches",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = parseCoachBody(req.body ?? {});
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const { values } = parsed;
+    // On create every profile field except the optional photo is required.
+    if (values.name === undefined) {
+      res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    if (values.specialties === undefined) {
+      res.status(400).json({ error: "Specialty is required" });
+      return;
+    }
+    if (values.bio === undefined) {
+      res.status(400).json({ error: "Bio is required" });
+      return;
+    }
+
+    const [created] = await db
+      .insert(coachesTable)
+      .values({
+        name: values.name as string,
+        specialties: values.specialties as string,
+        bio: values.bio as string,
+        photoUrl: (values.photoUrl as string | null | undefined) ?? null,
+        doesGroupCalls: true,
+      })
+      .returning({
+        id: coachesTable.id,
+        name: coachesTable.name,
+        specialties: coachesTable.specialties,
+        bio: coachesTable.bio,
+        photoUrl: coachesTable.photoUrl,
+      });
+
+    res.status(201).json(created);
+  },
+);
+
+// Remove a coach. Guard against deleting a coach who is still referenced by
+// scheduled coaching calls (coaching_calls.coachId is a NOT NULL FK): deleting
+// would orphan those rows / violate the constraint, so we block with a clear
+// message and a count. Any other lingering FK reference (templates, bookings)
+// surfaces as a 409 too rather than an unhandled 500.
+router.delete(
+  "/admin/coaching/coaches/:id",
+  requirePermission("coaching:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    if (!coachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    const [{ value: callCount }] = await db
+      .select({ value: count() })
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.coachId, coachId));
+
+    if (callCount > 0) {
+      res.status(409).json({
+        error: `This coach is assigned to ${callCount} scheduled coaching call${
+          callCount === 1 ? "" : "s"
+        }. Reassign or remove those calls before deleting the coach.`,
+      });
+      return;
+    }
+
+    try {
+      const [deleted] = await db
+        .delete(coachesTable)
+        .where(eq(coachesTable.id, coachId))
+        .returning({ id: coachesTable.id });
+
+      if (!deleted) {
+        res.status(404).json({ error: "Coach not found" });
+        return;
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      // 23503 = foreign_key_violation. Another table (e.g. templates or
+      // session-pack bookings) still references this coach.
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code?: string }).code === "23503"
+      ) {
+        res.status(409).json({
+          error:
+            "This coach is still referenced by other coaching records and cannot be deleted.",
+        });
+        return;
+      }
+      throw err;
+    }
   },
 );
 

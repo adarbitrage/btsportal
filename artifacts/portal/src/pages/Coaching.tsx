@@ -280,7 +280,7 @@ export default function Coaching() {
                       {coach.specialties && (
                         <p
                           data-testid={`coach-specialty-${coach.id}`}
-                          className="text-xs font-medium text-primary mt-0.5"
+                          className="text-xs font-medium text-primary mt-1"
                         >
                           {coach.specialties}
                         </p>
