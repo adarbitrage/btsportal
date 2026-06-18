@@ -11,7 +11,19 @@ import { OAuth2Client } from "google-auth-library";
 const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 // Free/busy only — we never read event titles or details, just the busy blocks
 // needed to flag conflicts against a coach's group-call dates.
-const CALENDAR_FREEBUSY_SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
+export const CALENDAR_FREEBUSY_SCOPE =
+  "https://www.googleapis.com/auth/calendar.freebusy";
+
+/**
+ * True when a stored OAuth scope string already includes the calendar free/busy
+ * scope. Connections made before the calendar scope was added additively will
+ * lack it, so conflict detection silently returns nothing until the coach
+ * re-grants access.
+ */
+export function scopeHasCalendarAccess(scope: string | null | undefined): boolean {
+  if (!scope) return false;
+  return scope.split(/\s+/).includes(CALENDAR_FREEBUSY_SCOPE);
+}
 export const GOOGLE_OAUTH_SCOPES = [
   DRIVE_READONLY_SCOPE,
   CALENDAR_FREEBUSY_SCOPE,

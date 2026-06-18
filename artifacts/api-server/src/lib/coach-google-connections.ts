@@ -4,6 +4,7 @@ import { encryptSecret, decryptSecret } from "./app-secrets-crypto";
 import {
   isGoogleOAuthConfigured,
   refreshAccessToken,
+  scopeHasCalendarAccess,
 } from "./google-oauth";
 
 export interface CoachGoogleConnectionStatus {
@@ -11,6 +12,9 @@ export interface CoachGoogleConnectionStatus {
   email: string | null;
   status: string | null;
   connectedAt: string | null;
+  // True when the coach is connected but the stored grant predates the calendar
+  // free/busy scope, so conflict detection won't work until they reconnect.
+  needsCalendarReconnect: boolean;
 }
 
 export async function getConnectionStatus(
@@ -21,19 +25,28 @@ export async function getConnectionStatus(
       email: coachGoogleConnectionsTable.googleEmail,
       status: coachGoogleConnectionsTable.status,
       connectedAt: coachGoogleConnectionsTable.connectedAt,
+      scope: coachGoogleConnectionsTable.scope,
     })
     .from(coachGoogleConnectionsTable)
     .where(eq(coachGoogleConnectionsTable.userId, userId))
     .limit(1);
 
   if (!row) {
-    return { connected: false, email: null, status: null, connectedAt: null };
+    return {
+      connected: false,
+      email: null,
+      status: null,
+      connectedAt: null,
+      needsCalendarReconnect: false,
+    };
   }
+  const connected = row.status === "active";
   return {
-    connected: row.status === "active",
+    connected,
     email: row.email,
     status: row.status,
     connectedAt: row.connectedAt ? row.connectedAt.toISOString() : null,
+    needsCalendarReconnect: connected && !scopeHasCalendarAccess(row.scope),
   };
 }
 

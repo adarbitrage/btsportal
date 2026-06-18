@@ -76,3 +76,62 @@ describe("GoogleDriveCard Meet folder-sharing callout", () => {
     ).toBeNull();
   });
 });
+
+describe("GoogleDriveCard calendar-reconnect callout", () => {
+  it("prompts a reconnect when a connected coach lacks the calendar scope", () => {
+    useCoachGoogleStatus.mockReturnValue({
+      data: {
+        configured: true,
+        connected: true,
+        email: "coach@example.com",
+        status: "active",
+        connectedAt: "2026-01-01T00:00:00.000Z",
+        needsCalendarReconnect: true,
+      },
+      isLoading: false,
+    });
+
+    render(<GoogleDriveCard />);
+
+    expect(screen.getByTestId("callout-calendar-reconnect")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("button-reconnect-google-calendar"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not prompt a reconnect when the calendar scope is already granted", () => {
+    useCoachGoogleStatus.mockReturnValue({
+      data: {
+        configured: true,
+        connected: true,
+        email: "coach@example.com",
+        status: "active",
+        connectedAt: "2026-01-01T00:00:00.000Z",
+        needsCalendarReconnect: false,
+      },
+      isLoading: false,
+    });
+
+    render(<GoogleDriveCard />);
+
+    expect(screen.queryByTestId("callout-calendar-reconnect")).toBeNull();
+  });
+
+  it("does not prompt a reconnect when the account is not connected", () => {
+    useCoachGoogleStatus.mockReturnValue({
+      data: {
+        configured: true,
+        connected: false,
+        email: null,
+        status: null,
+        connectedAt: null,
+        needsCalendarReconnect: false,
+      },
+      isLoading: false,
+    });
+
+    render(<GoogleDriveCard />);
+
+    expect(screen.queryByTestId("callout-calendar-reconnect")).toBeNull();
+  });
+});

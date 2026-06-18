@@ -111,6 +111,7 @@ export function GoogleDriveCard() {
 
   const connected = data?.connected;
   const notConfigured = data && !data.configured;
+  const needsCalendarReconnect = connected && data?.needsCalendarReconnect;
 
   return (
     <Card>
@@ -133,6 +134,30 @@ export function GoogleDriveCard() {
                 ? "Google sign-in isn't set up yet. Ask an admin to add the Google credentials."
                 : "Connect your Google account so your Meet recordings and notes link to each session automatically."}
           </p>
+          {needsCalendarReconnect && (
+            <div
+              className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3"
+              data-testid="callout-calendar-reconnect"
+            >
+              <p className="text-xs font-medium text-foreground">
+                Reconnect to enable calendar conflicts
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your Google account was connected before calendar access was
+                added, so group-call conflict detection can’t see your calendar
+                yet. Reconnect to grant read-only free/busy access — we only ever
+                see when you’re busy, never your event details.
+              </p>
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={startGoogleConnect}
+                data-testid="button-reconnect-google-calendar"
+              >
+                Reconnect Google
+              </Button>
+            </div>
+          )}
           {connected && (
             <div
               className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3"

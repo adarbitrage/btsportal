@@ -28,6 +28,9 @@ export interface CoachGoogleStatus {
   email: string | null;
   status: string | null;
   connectedAt: string | null;
+  // Connected for Drive but the grant predates the calendar scope — the coach
+  // must reconnect to enable calendar conflict detection.
+  needsCalendarReconnect: boolean;
 }
 
 const STATUS_KEY = "/api/coach/google/status";
