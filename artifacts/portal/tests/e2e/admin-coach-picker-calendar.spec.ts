@@ -202,6 +202,58 @@ test.describe("Admin coach picker on the Group Coaching calendar", () => {
     await expect(coachBCall).toContainText(fixture.coachBName);
   });
 
+  test("admin can cancel and reinstate a coach's group call", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+
+    // Sign in as the seeded admin (super_admin with coaching:view).
+    await loginAsAdmin(page, loadAdminFixture());
+
+    await page.goto("/coach/group-coaching", { waitUntil: "domcontentloaded" });
+
+    // Scope to coach A so their single (soonest) call surfaces in the day-detail
+    // panel — the card we'll drive through cancel -> reinstate.
+    const picker = page.getByTestId("coach-picker");
+    await expect(picker).toBeVisible({ timeout: 30_000 });
+    await picker.selectOption(String(fixture.coachAId));
+
+    const card = page.getByTestId(`group-call-${fixture.coachACallId}`);
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    // The seeded call starts active.
+    await expect(card).toHaveAttribute("data-cancelled", "false");
+
+    // Cancel: open the confirm dialog from the card's "Cancel this date" button,
+    // confirm the AlertDialog, and assert the card flips to its cancelled state
+    // once the mutation's query invalidation refetches the calendar. The dialog's
+    // action shares the "Cancel this date" label with the card button, so scope
+    // the click to the dialog.
+    await page
+      .getByTestId(`group-call-cancel-${fixture.coachACallId}`)
+      .click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel this date" }).click();
+
+    await expect(card).toHaveAttribute("data-cancelled", "true", {
+      timeout: 30_000,
+    });
+    const reinstate = page.getByTestId(
+      `group-call-restore-${fixture.coachACallId}`,
+    );
+    await expect(reinstate).toBeVisible();
+
+    // Reinstate: un-cancel is low-stakes, so it fires immediately (no confirm).
+    // The same card returns to its active state.
+    await reinstate.click();
+    await expect(card).toHaveAttribute("data-cancelled", "false", {
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByTestId(`group-call-cancel-${fixture.coachACallId}`),
+    ).toBeVisible();
+  });
+
   test("a plain coach sees no picker and only their own calendar", async ({
     page,
   }) => {
