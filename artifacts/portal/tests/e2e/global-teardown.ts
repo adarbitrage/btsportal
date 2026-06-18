@@ -36,6 +36,12 @@ export default async function globalTeardown(): Promise<void> {
     await client.query(`DELETE FROM sessions WHERE user_id = ANY($1::int[])`, [
       [fixture.adminId, fixture.memberId],
     ]);
+    // Logging in seeds GHL contact-sync jobs in dev, which write ghl_sync_log
+    // rows that FK-reference the fixture users. Clear them before deleting the
+    // users, otherwise the delete throws a foreign-key error.
+    await client.query(`DELETE FROM ghl_sync_log WHERE user_id = ANY($1::int[])`, [
+      [fixture.adminId, fixture.memberId],
+    ]);
     await client.query(`DELETE FROM users WHERE id = ANY($1::int[])`, [
       [fixture.adminId, fixture.memberId],
     ]);
