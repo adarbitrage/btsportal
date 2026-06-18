@@ -94,6 +94,8 @@ interface CoachForm {
   doesPrivateCoaching: boolean;
   ghlCalendarId: string;
   ghlLocationId: string;
+  conflictGhlCalendarId: string;
+  conflictGhlLocationId: string;
 }
 
 const DEFAULT_TIMEZONE = "America/New_York";
@@ -110,6 +112,8 @@ const EMPTY_FORM: CoachForm = {
   doesPrivateCoaching: false,
   ghlCalendarId: "",
   ghlLocationId: "",
+  conflictGhlCalendarId: "",
+  conflictGhlLocationId: "",
 };
 
 function coachInitials(name: string): string {
@@ -224,6 +228,20 @@ function CoachConnections({ coach }: { coach: AdminCoach }) {
           status="Not connected"
           title="Add a GHL calendar id so this coach can be booked."
           testId={`coach-conn-ghl-${coach.id}`}
+        />
+      )}
+
+      {/* 1b. Conflict calendar — other company (cross-company arbiter). Only
+          shown when configured; absence is the expected default, not a warning. */}
+      {coach.conflictGhlCalendarId && (
+        <ConnectionRow
+          purpose="Conflict calendar"
+          source="Other company"
+          tone="ok"
+          icon={CalendarCheck}
+          status="Connected"
+          title={`Conflict GHL calendar: ${coach.conflictGhlCalendarId}`}
+          testId={`coach-conn-conflict-ghl-${coach.id}`}
         />
       )}
 
@@ -591,6 +609,8 @@ export default function CoachProfiles() {
       doesPrivateCoaching: coach.doesPrivateCoaching,
       ghlCalendarId: coach.ghlCalendarId ?? "",
       ghlLocationId: coach.ghlLocationId ?? "",
+      conflictGhlCalendarId: coach.conflictGhlCalendarId ?? "",
+      conflictGhlLocationId: coach.conflictGhlLocationId ?? "",
     });
     setOpen(true);
   }
@@ -642,6 +662,13 @@ export default function CoachProfiles() {
         : null,
       ghlLocationId: form.doesPrivateCoaching
         ? form.ghlLocationId.trim() || null
+        : null,
+      // Cross-company arbiter Conflict calendar — same private-coaching gating.
+      conflictGhlCalendarId: form.doesPrivateCoaching
+        ? form.conflictGhlCalendarId.trim() || null
+        : null,
+      conflictGhlLocationId: form.doesPrivateCoaching
+        ? form.conflictGhlLocationId.trim() || null
         : null,
     };
 
@@ -1134,6 +1161,42 @@ export default function CoachProfiles() {
                     placeholder="GHL location id (optional)"
                     maxLength={128}
                     data-testid="coach-ghl-location-id"
+                  />
+                </div>
+                <div className="border-t border-border/60 pt-3">
+                  <p className="text-sm font-medium text-foreground">
+                    Conflict calendar (other company)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional. The coach's calendar in the other company (e.g.
+                    Cherrington). When set, that calendar is checked at booking
+                    time and a busy block is mirrored onto it, so the two
+                    companies never double-book this coach. Leave blank to keep
+                    booking exactly as today.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs">Conflict Calendar ID</Label>
+                  <Input
+                    value={form.conflictGhlCalendarId}
+                    onChange={(e) =>
+                      setForm({ ...form, conflictGhlCalendarId: e.target.value })
+                    }
+                    placeholder="Other-company GHL calendar id (optional)"
+                    maxLength={128}
+                    data-testid="coach-conflict-ghl-calendar-id"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Conflict Location ID</Label>
+                  <Input
+                    value={form.conflictGhlLocationId}
+                    onChange={(e) =>
+                      setForm({ ...form, conflictGhlLocationId: e.target.value })
+                    }
+                    placeholder="Other-company GHL location id (optional)"
+                    maxLength={128}
+                    data-testid="coach-conflict-ghl-location-id"
                   />
                 </div>
               </div>

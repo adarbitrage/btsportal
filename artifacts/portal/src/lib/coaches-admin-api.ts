@@ -62,6 +62,11 @@ export interface AdminCoach {
   // Private-coaching booking config (GoHighLevel). Null for group-only coaches.
   ghlCalendarId: string | null;
   ghlLocationId: string | null;
+  // Cross-company arbiter: the coach's "other company" (Conflict) calendar,
+  // read alongside the booking calendar to block double-booking. Null = the
+  // arbiter is dormant for this coach (behaves exactly as before).
+  conflictGhlCalendarId: string | null;
+  conflictGhlLocationId: string | null;
   // Optional link to the coach's portal login; null when unlinked.
   userId: number | null;
   // Per-coach Google status; null when the coach has no linked portal login.
@@ -89,6 +94,9 @@ export interface CoachProfileInput {
   // Private-coaching booking config (GoHighLevel). Empty string clears.
   ghlCalendarId: string | null;
   ghlLocationId: string | null;
+  // Cross-company arbiter Conflict calendar (other company). Empty string clears.
+  conflictGhlCalendarId: string | null;
+  conflictGhlLocationId: string | null;
 }
 
 export function useAdminCoaches() {

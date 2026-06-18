@@ -30,6 +30,11 @@ export const sessionPackBookingsTable = pgTable(
     ghlCalendarId: text("ghl_calendar_id").notNull(),
     ghlAppointmentId: text("ghl_appointment_id").unique(),
     ghlContactId: text("ghl_contact_id"),
+    // The GHL event id of the busy block this booking mirrors into the coach's
+    // cross-company Conflict Calendar (see coaches.conflictGhlCalendarId). Null
+    // when the coach has no conflict calendar configured. Tracked so cancel /
+    // reschedule can remove or move the mirrored block in lockstep.
+    conflictBlockEventId: text("conflict_block_event_id"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     durationMinutes: integer("duration_minutes").notNull().default(30),

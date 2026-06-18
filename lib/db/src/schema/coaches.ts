@@ -34,6 +34,15 @@ export const coachesTable = pgTable("coaches", {
   // doesPrivateCoaching is true; null for group-only coaches.
   ghlCalendarId: text("ghl_calendar_id").unique(),
   ghlLocationId: text("ghl_location_id"),
+  // Cross-company conflict calendar (the OTHER company's GHL calendar for this
+  // same coach, e.g. Cherrington while the Booking Calendar above is BTS). The
+  // booking flow reads free/busy from BOTH calendars and mirrors a busy block
+  // into this one on every BTS booking, so a coach booked in one company is
+  // unavailable in the other. Nullable + intentionally NOT unique: optional
+  // (null = no cross-company arbitration, behaves exactly as before), and the
+  // pointer carries no uniqueness invariant of its own.
+  conflictGhlCalendarId: text("conflict_ghl_calendar_id"),
+  conflictGhlLocationId: text("conflict_ghl_location_id"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   meetLink: text("meet_link"),

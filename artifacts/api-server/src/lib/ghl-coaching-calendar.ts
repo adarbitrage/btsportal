@@ -79,10 +79,17 @@ interface TokenEntry {
   expiresAt: number;
 }
 
-let cachedToken: TokenEntry | null = null;
+// Cross-company arbitration means we may write to more than one GHL location
+// (a coach's Booking Calendar in one company + their Conflict Calendar in the
+// other). Tokens are location-scoped, so cache one per locationId rather than a
+// single global token. Single-location callers (everything pre-arbiter) just
+// use the COACHING_LOCATION_ID entry, so behavior is unchanged.
+const tokenCache = new Map<string, TokenEntry>();
 const TOKEN_SAFETY_MARGIN_MS = 5 * 60 * 1000;
 
-async function mintLocationToken(): Promise<{ accessToken: string; expiresIn: number }> {
+async function mintLocationToken(
+  locationId: string,
+): Promise<{ accessToken: string; expiresIn: number }> {
   const { apiKey, companyId } = decodeAgencyJwt();
   const { clientId, clientSecret } = getOAuthClientCredentials();
 
@@ -93,7 +100,7 @@ async function mintLocationToken(): Promise<{ accessToken: string; expiresIn: nu
     redirect_uri: process.env.GHL_OAUTH_REDIRECT_URI ?? "https://theinvisibleaffiliate.com",
     scope: COACHING_SCOPE,
     userType: "Location",
-    location_id: COACHING_LOCATION_ID,
+    location_id: locationId,
   });
 
   const authorizeRes = await fetch(`${GHL_AUTH_BASE}/oauth/authorize?${params.toString()}`, {
@@ -148,13 +155,14 @@ async function mintLocationToken(): Promise<{ accessToken: string; expiresIn: nu
   };
 }
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt - Date.now() > TOKEN_SAFETY_MARGIN_MS) {
-    return cachedToken.accessToken;
+async function getAccessToken(locationId: string): Promise<string> {
+  const cached = tokenCache.get(locationId);
+  if (cached && cached.expiresAt - Date.now() > TOKEN_SAFETY_MARGIN_MS) {
+    return cached.accessToken;
   }
-  const { accessToken, expiresIn } = await mintLocationToken();
-  cachedToken = { accessToken, expiresAt: Date.now() + expiresIn * 1000 };
-  console.log(`[GHLCoaching] Minted location token (expires in ${expiresIn}s)`);
+  const { accessToken, expiresIn } = await mintLocationToken(locationId);
+  tokenCache.set(locationId, { accessToken, expiresAt: Date.now() + expiresIn * 1000 });
+  console.log(`[GHLCoaching] Minted location token for ${locationId} (expires in ${expiresIn}s)`);
   return accessToken;
 }
 
@@ -199,12 +207,13 @@ async function ghlRequest<T>(
   method: string,
   path: string,
   body?: Record<string, unknown>,
+  locationId: string = COACHING_LOCATION_ID,
 ): Promise<T> {
-  let token = await getAccessToken();
+  let token = await getAccessToken(locationId);
   let result = await ghlRequestOnce<T>(method, path, token, body);
   if (!result.ok && result.status === 401) {
-    cachedToken = null;
-    token = await getAccessToken();
+    tokenCache.delete(locationId);
+    token = await getAccessToken(locationId);
     result = await ghlRequestOnce<T>(method, path, token, body);
   }
   if (!result.ok) {
@@ -235,6 +244,7 @@ export async function getFreeSlots(
   calendarId: string,
   startMs: number,
   endMs: number,
+  locationId: string = COACHING_LOCATION_ID,
 ): Promise<FreeSlot[]> {
   const qs = new URLSearchParams({
     startDate: String(startMs),
@@ -244,6 +254,8 @@ export async function getFreeSlots(
   const data = await ghlRequest<FreeSlotsResponse>(
     "GET",
     `/calendars/${encodeURIComponent(calendarId)}/free-slots?${qs.toString()}`,
+    undefined,
+    locationId,
   );
   const slots: string[] = [];
   for (const value of Object.values(data)) {
@@ -268,13 +280,20 @@ export async function upsertContact(input: {
   email: string;
   firstName?: string;
   lastName?: string;
+  locationId?: string;
 }): Promise<string> {
-  const data = await ghlRequest<ContactResponse>("POST", "/contacts/upsert", {
-    locationId: COACHING_LOCATION_ID,
-    email: input.email,
-    firstName: input.firstName,
-    lastName: input.lastName,
-  });
+  const locationId = input.locationId ?? COACHING_LOCATION_ID;
+  const data = await ghlRequest<ContactResponse>(
+    "POST",
+    "/contacts/upsert",
+    {
+      locationId,
+      email: input.email,
+      firstName: input.firstName,
+      lastName: input.lastName,
+    },
+    locationId,
+  );
   const id = data.contact?.id ?? data.id;
   if (!id) {
     throw new Error(`GHL contact upsert returned no id: ${JSON.stringify(data)}`);
@@ -314,18 +333,25 @@ export async function createAppointment(input: {
   endTime: string;
   title: string;
   toNotify?: boolean;
+  locationId?: string;
 }): Promise<CreatedAppointment> {
-  const data = await ghlRequest<AppointmentResponse>("POST", "/calendars/events/appointments", {
-    calendarId: input.calendarId,
-    locationId: COACHING_LOCATION_ID,
-    contactId: input.contactId,
-    startTime: input.startTime,
-    endTime: input.endTime,
-    title: input.title,
-    appointmentStatus: "confirmed",
-    ignoreDateRange: true,
-    toNotify: input.toNotify ?? true,
-  });
+  const locationId = input.locationId ?? COACHING_LOCATION_ID;
+  const data = await ghlRequest<AppointmentResponse>(
+    "POST",
+    "/calendars/events/appointments",
+    {
+      calendarId: input.calendarId,
+      locationId,
+      contactId: input.contactId,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      title: input.title,
+      appointmentStatus: "confirmed",
+      ignoreDateRange: true,
+      toNotify: input.toNotify ?? true,
+    },
+    locationId,
+  );
   const id = data.id ?? data.appointment?.id ?? data.event?.id;
   if (!id) {
     throw new Error(`GHL createAppointment returned no id: ${JSON.stringify(data)}`);
@@ -353,6 +379,7 @@ export async function updateAppointment(input: {
   endTime: string;
   title?: string;
   toNotify?: boolean;
+  locationId?: string;
 }): Promise<{ meetLink: string | null }> {
   const data = await ghlRequest<AppointmentResponse>(
     "PUT",
@@ -366,6 +393,7 @@ export async function updateAppointment(input: {
       ignoreDateRange: true,
       toNotify: input.toNotify ?? true,
     },
+    input.locationId ?? COACHING_LOCATION_ID,
   );
   const meetLink =
     typeof data.address === "string" && data.address.startsWith("http") ? data.address : null;
@@ -373,8 +401,68 @@ export async function updateAppointment(input: {
 }
 
 /** Cancel/delete an appointment by its GHL event id. */
-export async function cancelAppointment(eventId: string): Promise<void> {
-  await ghlRequest("DELETE", `/calendars/events/${encodeURIComponent(eventId)}`);
+export async function cancelAppointment(
+  eventId: string,
+  locationId: string = COACHING_LOCATION_ID,
+): Promise<void> {
+  await ghlRequest(
+    "DELETE",
+    `/calendars/events/${encodeURIComponent(eventId)}`,
+    undefined,
+    locationId,
+  );
+}
+
+interface BlockSlotResponse {
+  id?: string;
+  event?: { id?: string };
+}
+
+/**
+ * Write a "busy block" (a calendar reservation that is NOT a member-facing
+ * appointment) onto a calendar, so that calendar's own booking widget treats
+ * the window as taken. Used by the cross-company arbiter to mirror a BTS
+ * booking into the coach's Conflict Calendar (the other company's calendar).
+ * Returns the created block's GHL event id, tracked on the booking so it can be
+ * removed/moved on cancel/reschedule.
+ */
+export async function createBlockSlot(input: {
+  calendarId: string;
+  locationId: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+}): Promise<{ id: string }> {
+  const data = await ghlRequest<BlockSlotResponse>(
+    "POST",
+    "/calendars/events/block-slots",
+    {
+      calendarId: input.calendarId,
+      locationId: input.locationId,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      title: input.title,
+    },
+    input.locationId,
+  );
+  const id = data.id ?? data.event?.id;
+  if (!id) {
+    throw new Error(`GHL createBlockSlot returned no id: ${JSON.stringify(data)}`);
+  }
+  return { id };
+}
+
+/** Delete a block slot (or any calendar event) by its GHL event id. */
+export async function deleteBlockSlot(
+  eventId: string,
+  locationId: string = COACHING_LOCATION_ID,
+): Promise<void> {
+  await ghlRequest(
+    "DELETE",
+    `/calendars/events/${encodeURIComponent(eventId)}`,
+    undefined,
+    locationId,
+  );
 }
 
 /**

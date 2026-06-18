@@ -32,3 +32,12 @@ function hashCode(str: string): number {
 export function memberCreditLockKey(memberId: number): number {
   return Math.abs(hashCode(`member-credit:${memberId}`));
 }
+
+// Stable Postgres advisory-lock key for serializing booking writes against a
+// single coach, so two members can't both pass the "is this slot free?" check
+// and double-book the same coach at the same time. A separate namespace from
+// the member-credit lock so the two never collide. Booking takes this lock
+// FIRST, then the member-credit lock, to keep a consistent acquisition order.
+export function coachBookingLockKey(coachId: number): number {
+  return Math.abs(hashCode(`coach-booking:${coachId}`));
+}

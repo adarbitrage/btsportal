@@ -194,7 +194,12 @@ function parseCoachBody(
   // coach offers private coaching, but always optional + nullable: an empty
   // string clears the field. ghlCalendarId carries a UNIQUE constraint, so a
   // duplicate is surfaced as a 409 by the create/update handlers.
-  for (const field of ["ghlCalendarId", "ghlLocationId"] as const) {
+  for (const field of [
+    "ghlCalendarId",
+    "ghlLocationId",
+    "conflictGhlCalendarId",
+    "conflictGhlLocationId",
+  ] as const) {
     if (body[field] !== undefined) {
       if (body[field] === null) {
         values[field] = null;
@@ -250,6 +255,11 @@ const COACH_COLUMNS = {
   // Coaches editor + Connections panel can show/edit the booking calendar.
   ghlCalendarId: coachesTable.ghlCalendarId,
   ghlLocationId: coachesTable.ghlLocationId,
+  // Cross-company arbiter: the coach's "other company" (Conflict) calendar.
+  // Read alongside the booking calendar at click-time and mirrored a busy
+  // block on every BTS booking so the two companies never double-book.
+  conflictGhlCalendarId: coachesTable.conflictGhlCalendarId,
+  conflictGhlLocationId: coachesTable.conflictGhlLocationId,
   // Optional link to the coach's portal login. Drives the per-coach Google
   // (Drive recordings / Calendar availability) connection status.
   userId: coachesTable.userId,

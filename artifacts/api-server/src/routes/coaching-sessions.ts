@@ -9,7 +9,11 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
+import {
+  getCreditBalance,
+  memberCreditLockKey,
+  coachBookingLockKey,
+} from "../lib/session-credits";
 import { notCurrentlyAway } from "../lib/coach-availability";
 import { fetchCalendarBusy, CalendarScopeError } from "../lib/google-oauth";
 import { getAccessTokenForUser } from "../lib/coach-google-connections";
@@ -20,7 +24,11 @@ import {
   cancelAppointment,
   updateAppointment,
   createAppointmentNote,
+  createBlockSlot,
+  deleteBlockSlot,
   COACHING_TIMEZONE,
+  COACHING_LOCATION_ID,
+  type FreeSlot,
 } from "../lib/ghl-coaching-calendar";
 
 const router: IRouter = Router();
@@ -81,6 +89,81 @@ function splitName(name: string): { firstName: string; lastName: string } {
   if (!trimmed) return { firstName: "Member", lastName: "" };
   const parts = trimmed.split(/\s+/);
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+// ---------------------------------------------------------------------------
+// Cross-company conflict arbitration
+// ---------------------------------------------------------------------------
+
+// Title written onto the Conflict (other-company) calendar for the mirrored
+// busy block, so a human looking at that calendar knows where the hold came
+// from. It is a block slot, not a member appointment — no PII is included.
+const CONFLICT_BLOCK_TITLE = "BTS private coaching (cross-company hold)";
+
+interface CalendarBinding {
+  calendarId: string;
+  locationId: string;
+}
+
+interface CoachCalendars {
+  // Where this portal writes the real BTS appointment.
+  booking: CalendarBinding;
+  // The other company's calendar for the same coach, read for conflicts and
+  // mirrored a busy block on every booking. Null when not configured, in which
+  // case the flow behaves exactly as it did before cross-company arbitration.
+  conflict: CalendarBinding | null;
+}
+
+// Resolve a coach row into its Booking + (optional) Conflict calendar bindings.
+// Location falls back to the legacy single coaching location so a coach with no
+// explicit ghlLocationId keeps booking against Cherrington exactly as before.
+function resolveCoachCalendars(coach: {
+  ghlCalendarId: string | null;
+  ghlLocationId: string | null;
+  conflictGhlCalendarId: string | null;
+  conflictGhlLocationId: string | null;
+}): CoachCalendars | null {
+  if (!coach.ghlCalendarId) return null;
+  return {
+    booking: {
+      calendarId: coach.ghlCalendarId,
+      locationId: coach.ghlLocationId ?? COACHING_LOCATION_ID,
+    },
+    conflict: coach.conflictGhlCalendarId
+      ? {
+          calendarId: coach.conflictGhlCalendarId,
+          locationId: coach.conflictGhlLocationId ?? COACHING_LOCATION_ID,
+        }
+      : null,
+  };
+}
+
+// Free slots a coach is open for in BOTH companies. When a Conflict Calendar is
+// configured we read free/busy from each calendar and keep only the start
+// instants free on both, so a time taken in the other company (a Cherrington
+// booking or a manually-entered group call) never shows up as bookable in BTS.
+// Intersection is on the absolute instant (epoch ms), not the ISO string, so it
+// is robust to the two calendars reporting different zone offsets.
+async function freeSlotsAcrossCalendars(
+  cals: CoachCalendars,
+  startMs: number,
+  endMs: number,
+): Promise<FreeSlot[]> {
+  const bookingSlots = await getFreeSlots(
+    cals.booking.calendarId,
+    startMs,
+    endMs,
+    cals.booking.locationId,
+  );
+  if (!cals.conflict) return bookingSlots;
+  const conflictSlots = await getFreeSlots(
+    cals.conflict.calendarId,
+    startMs,
+    endMs,
+    cals.conflict.locationId,
+  );
+  const conflictInstants = new Set(conflictSlots.map((s) => new Date(s.startTime).getTime()));
+  return bookingSlots.filter((s) => conflictInstants.has(new Date(s.startTime).getTime()));
 }
 
 // ---------------------------------------------------------------------------
@@ -166,8 +249,16 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
     return;
   }
 
+  const cals = resolveCoachCalendars(coach);
+  if (!cals) {
+    res.status(404).json({ error: "Coach not found" });
+    return;
+  }
+
   try {
-    const slots = await getFreeSlots(coach.ghlCalendarId, startMs, endMs);
+    // When a Conflict Calendar is configured this only returns times the coach
+    // is free in BOTH companies; otherwise it's the single-calendar free slots.
+    const slots = await freeSlotsAcrossCalendars(cals, startMs, endMs);
     // Never surface slots inside the lead-time window. Half-hour starts (e.g.
     // 1:30pm) are allowed — each call is a 1-hour block and GHL's free-slots +
     // the 30-min appointment buffer already keep bookings spaced correctly.
@@ -310,7 +401,8 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         notCurrentlyAway(),
       ),
     );
-  if (!coach || !coach.ghlCalendarId) {
+  const cals = resolveCoachCalendars(coach);
+  if (!cals) {
     res.status(404).json({ error: "Coach not found" });
     return;
   }
@@ -324,9 +416,11 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
     return;
   }
 
-  // Confirm the requested slot is genuinely open on the coach's calendar.
+  // Confirm the requested slot is genuinely open across BOTH companies. When a
+  // Conflict Calendar is configured this rejects times taken in the other
+  // company (a Cherrington booking or a manually-entered group call).
   const dayMs = scheduledAt.getTime();
-  const freeSlots = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
+  const freeSlots = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
   const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
   if (!slotOpen) {
     res.status(409).json({ error: "That time slot is no longer available" });
@@ -340,11 +434,15 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
 
   const client = await pool.connect();
   let createdAppointmentId: string | null = null;
+  let createdBlockEventId: string | null = null;
   try {
     await client.query("BEGIN");
     const txDb = drizzle(client);
 
-    // Serialize this member's booking attempts so credit can't be double-spent.
+    // Serialize booking writes against this coach FIRST (so two members can't
+    // both pass the free-slot check and double-book the same instant), then
+    // this member's credit lock. Consistent ordering avoids deadlocks.
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${coachBookingLockKey(coachId)})`);
     await txDb.execute(sql`SELECT pg_advisory_xact_lock(${memberCreditLockKey(userId)})`);
 
     const balance = await getCreditBalance(userId, txDb);
@@ -354,30 +452,56 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
       return;
     }
 
+    // Re-check both calendars under the coach lock: another booking (here or in
+    // the other company) may have taken the slot since the pre-lock read.
+    const recheck = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 60_000);
+    if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "That time slot is no longer available" });
+      return;
+    }
+
     // GHL is the calendar system of record; create the appointment first so a
     // DB failure can be compensated by cancelling it.
     const contactId = await upsertContact({
       email: member.email,
       ...splitName(member.name),
+      locationId: cals.booking.locationId,
     });
     const title = `Private Coaching with ${coach.name}`;
     const appointment = await createAppointment({
-      calendarId: coach.ghlCalendarId,
+      calendarId: cals.booking.calendarId,
       contactId,
       startTime,
       endTime: endTimeIso,
       title,
+      locationId: cals.booking.locationId,
     });
     createdAppointmentId = appointment.id;
+
+    // Mirror the hold onto the coach's Conflict (other-company) calendar so its
+    // own booking widget treats the window as taken. Track the block's id so
+    // cancel/reschedule can remove or move it.
+    if (cals.conflict) {
+      const block = await createBlockSlot({
+        calendarId: cals.conflict.calendarId,
+        locationId: cals.conflict.locationId,
+        startTime,
+        endTime: endTimeIso,
+        title: CONFLICT_BLOCK_TITLE,
+      });
+      createdBlockEventId = block.id;
+    }
 
     const [booking] = await txDb
       .insert(sessionPackBookingsTable)
       .values({
         memberId: userId,
         coachId,
-        ghlCalendarId: coach.ghlCalendarId,
+        ghlCalendarId: cals.booking.calendarId,
         ghlAppointmentId: appointment.id,
         ghlContactId: contactId,
+        conflictBlockEventId: createdBlockEventId,
         scheduledAt,
         endAt,
         durationMinutes: CALL_DURATION_MINUTES,
@@ -426,9 +550,17 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
     // Compensate: don't leave an orphan appointment on the coach's calendar.
     if (createdAppointmentId) {
       try {
-        await cancelAppointment(createdAppointmentId);
+        await cancelAppointment(createdAppointmentId, cals.booking.locationId);
       } catch (cancelErr) {
         console.error("[coaching-sessions] failed to roll back GHL appointment:", cancelErr);
+      }
+    }
+    // ...and don't leave an orphan busy block on the Conflict calendar.
+    if (createdBlockEventId && cals.conflict) {
+      try {
+        await deleteBlockSlot(createdBlockEventId, cals.conflict.locationId);
+      } catch (blockErr) {
+        console.error("[coaching-sessions] failed to roll back conflict block:", blockErr);
       }
     }
     console.error("[coaching-sessions] booking failed:", err);
@@ -552,16 +684,46 @@ router.patch("/coaching/sessions/:id/cancel", async (req, res): Promise<void> =>
     const booking = cancelled[0];
     const refund = booking.scheduledAt.getTime() - Date.now() >= REFUND_WINDOW_MS;
 
+    // Resolve the coach's calendar bindings so the GHL cancel + conflict-block
+    // delete target the right location(s). Falls back to the legacy location
+    // when the coach has no explicit location set.
+    const [coach] = await txDb
+      .select({
+        ghlCalendarId: sessionPackCoachesTable.ghlCalendarId,
+        ghlLocationId: sessionPackCoachesTable.ghlLocationId,
+        conflictGhlCalendarId: sessionPackCoachesTable.conflictGhlCalendarId,
+        conflictGhlLocationId: sessionPackCoachesTable.conflictGhlLocationId,
+      })
+      .from(sessionPackCoachesTable)
+      .where(eq(sessionPackCoachesTable.id, booking.coachId));
+    const bookingLocationId = coach?.ghlLocationId ?? COACHING_LOCATION_ID;
+    const conflictLocationId = coach?.conflictGhlLocationId ?? COACHING_LOCATION_ID;
+
     // Cancel on GHL inside the transaction; if it fails, roll back so the
     // booking stays 'booked' and no refund is recorded.
     if (booking.ghlAppointmentId) {
       try {
-        await cancelAppointment(booking.ghlAppointmentId);
+        await cancelAppointment(booking.ghlAppointmentId, bookingLocationId);
       } catch (err) {
         await client.query("ROLLBACK");
         console.error("[coaching-sessions] GHL cancel failed:", err);
         res.status(502).json({ error: "Could not cancel the session. Please try again." });
         return;
+      }
+    }
+
+    // Remove the mirrored busy block from the coach's Conflict calendar so the
+    // other company's widget frees the slot again. Best-effort: the appointment
+    // is already cancelled in GHL above, so a failure here must NOT roll back the
+    // cancellation (that would leave the booking "booked" in the DB with no GHL
+    // appointment — a divergence). The worst case is a stale busy block that
+    // conservatively over-blocks the other company's slot — never a double
+    // booking — and can be cleared manually later.
+    if (booking.conflictBlockEventId) {
+      try {
+        await deleteBlockSlot(booking.conflictBlockEventId, conflictLocationId);
+      } catch (err) {
+        console.error("[coaching-sessions] conflict-block delete failed (left stale):", err);
       }
     }
 
@@ -611,7 +773,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     return;
   }
 
-  // Load the booking + its coach (calendar) up front.
+  // Load the booking + its coach (calendars) up front.
   const [existing] = await db
     .select({
       id: sessionPackBookingsTable.id,
@@ -619,10 +781,19 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       scheduledAt: sessionPackBookingsTable.scheduledAt,
       ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
       ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
+      conflictBlockEventId: sessionPackBookingsTable.conflictBlockEventId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
+      coachGhlCalendarId: sessionPackCoachesTable.ghlCalendarId,
+      coachGhlLocationId: sessionPackCoachesTable.ghlLocationId,
+      coachConflictGhlCalendarId: sessionPackCoachesTable.conflictGhlCalendarId,
+      coachConflictGhlLocationId: sessionPackCoachesTable.conflictGhlLocationId,
     })
     .from(sessionPackBookingsTable)
+    .innerJoin(
+      sessionPackCoachesTable,
+      eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+    )
     .where(
       and(
         eq(sessionPackBookingsTable.id, bookingId),
@@ -652,9 +823,25 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     return;
   }
 
-  // Confirm the requested slot is genuinely open on the coach's calendar.
+  // Resolve the coach's Booking + Conflict calendar bindings (location-aware,
+  // legacy-location fallback). The appointment moves on the Booking calendar;
+  // the mirrored busy block moves on the Conflict calendar.
+  const cals = resolveCoachCalendars({
+    ghlCalendarId: existing.coachGhlCalendarId,
+    ghlLocationId: existing.coachGhlLocationId,
+    conflictGhlCalendarId: existing.coachConflictGhlCalendarId,
+    conflictGhlLocationId: existing.coachConflictGhlLocationId,
+  });
+  // Fall back to the appointment's stored Booking calendar if the coach row no
+  // longer resolves one (defensive — the appointment already exists there).
+  const bookingCalendarId = cals?.booking.calendarId ?? existing.ghlCalendarId;
+  const bookingLocationId = cals?.booking.locationId ?? COACHING_LOCATION_ID;
+
+  // Confirm the requested slot is genuinely open across BOTH companies.
   const dayMs = scheduledAt.getTime();
-  const freeSlots = await getFreeSlots(existing.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
+  const freeSlots = cals
+    ? await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000)
+    : await getFreeSlots(bookingCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, bookingLocationId);
   const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
   if (!slotOpen) {
     res.status(409).json({ error: "That time slot is no longer available" });
@@ -671,7 +858,9 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     await client.query("BEGIN");
     const txDb = drizzle(client);
 
-    // Share the member's credit lock so a reschedule can't race a cancel.
+    // Take the coach lock then the member's credit lock (same order as book) so
+    // a reschedule can't race a concurrent booking or a cancel.
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${coachBookingLockKey(existing.coachId)})`);
     await txDb.execute(sql`SELECT pg_advisory_xact_lock(${memberCreditLockKey(userId)})`);
 
     // Re-assert the booking is still reschedulable inside the lock.
@@ -685,16 +874,28 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       return;
     }
 
+    // Re-check both calendars under the coach lock: the target slot may have
+    // been taken (here or in the other company) since the pre-lock read.
+    if (cals) {
+      const recheck = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 60_000);
+      if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
+        await client.query("ROLLBACK");
+        res.status(409).json({ error: "That time slot is no longer available" });
+        return;
+      }
+    }
+
     // Move the GHL appointment in place (same event id => credit-neutral). If
     // it fails, roll back so the booking keeps its original time.
     let meetLink: string | null = null;
     try {
       const updated = await updateAppointment({
         eventId: existing.ghlAppointmentId,
-        calendarId: existing.ghlCalendarId,
+        calendarId: bookingCalendarId,
         startTime,
         endTime: endTimeIso,
         title: existing.title ?? undefined,
+        locationId: bookingLocationId,
       });
       meetLink = updated.meetLink;
     } catch (err) {
@@ -704,11 +905,43 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       return;
     }
 
+    // Move the mirrored busy block on the Conflict calendar: block slots have no
+    // in-place move, so create the new hold then delete the old one. Best-effort:
+    // the appointment was just moved in GHL above, so a block failure must NOT
+    // roll back the (committed-below) reschedule — that would diverge the DB time
+    // from the GHL appointment time. On failure we keep the previous block id so
+    // the old hold lingers (a safe over-block at the old time) rather than
+    // corrupting the booking truth.
+    let newBlockEventId: string | null = existing.conflictBlockEventId;
+    if (cals?.conflict) {
+      try {
+        const block = await createBlockSlot({
+          calendarId: cals.conflict.calendarId,
+          locationId: cals.conflict.locationId,
+          startTime,
+          endTime: endTimeIso,
+          title: CONFLICT_BLOCK_TITLE,
+        });
+        newBlockEventId = block.id;
+        // Drop the old hold now that the new one exists.
+        if (existing.conflictBlockEventId) {
+          try {
+            await deleteBlockSlot(existing.conflictBlockEventId, cals.conflict.locationId);
+          } catch (err) {
+            console.error("[coaching-sessions] failed to delete stale conflict block:", err);
+          }
+        }
+      } catch (err) {
+        console.error("[coaching-sessions] conflict-block move failed (kept old hold):", err);
+      }
+    }
+
     const [booking] = await txDb
       .update(sessionPackBookingsTable)
       .set({
         scheduledAt,
         endAt,
+        conflictBlockEventId: newBlockEventId,
         ...(meetLink ? { meetLink } : {}),
       })
       .where(eq(sessionPackBookingsTable.id, bookingId))
