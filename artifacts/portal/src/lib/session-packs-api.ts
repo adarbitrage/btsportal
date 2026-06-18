@@ -30,6 +30,16 @@ export interface SessionSlot {
   startTime: string;
 }
 
+export interface CoachBusyBlock {
+  start: string;
+  end: string;
+}
+
+export interface CoachBusyResponse {
+  connected: boolean;
+  busy: CoachBusyBlock[];
+}
+
 export interface SessionBooking {
   id: number;
   coachId: number;
@@ -84,6 +94,19 @@ export function useSessionCoachSlots(coachId: number, startDate: string, endDate
         `/coaching/sessions/coaches/${coachId}/slots?startDate=${startDate}&endDate=${endDate}`,
       ),
     enabled: coachId > 0 && !!startDate && !!endDate,
+  });
+}
+
+export function useSessionCoachBusy(coachId: number, from: string, to: string) {
+  return useQuery<CoachBusyResponse>({
+    queryKey: [`${ROOT_KEY}/calendar-busy`, coachId, from, to],
+    queryFn: () =>
+      sessionFetch(
+        `/coaching/sessions/coaches/${coachId}/calendar-busy?from=${encodeURIComponent(
+          from,
+        )}&to=${encodeURIComponent(to)}`,
+      ),
+    enabled: coachId > 0 && !!from && !!to,
   });
 }
 

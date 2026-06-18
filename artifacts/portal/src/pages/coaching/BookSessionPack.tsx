@@ -33,6 +33,7 @@ import {
   useSessionBalance,
   useSessionCoaches,
   useSessionCoachSlots,
+  useSessionCoachBusy,
   useMySessionBookings,
   useBookSessionPack,
   useRescheduleSessionBooking,
@@ -109,6 +110,15 @@ export default function BookSessionPack() {
     endDate,
   );
 
+  // The coach's real Google Calendar busy intervals for the visible month, used
+  // to flag slots that clash with their actual calendar (GHL free-slots don't
+  // know about it). Only busy intervals are returned — never event details.
+  const { data: busyData } = useSessionCoachBusy(
+    selectedCoach?.id ?? 0,
+    monthStart.toISOString(),
+    endOfMonth(currentMonth).toISOString(),
+  );
+
   const slotsByDate = useMemo(() => {
     const map = new Map<string, SessionSlot[]>();
     if (!slotsData?.slots) return map;
@@ -120,9 +130,34 @@ export default function BookSessionPack() {
     return map;
   }, [slotsData]);
 
+  // Set of slot start times (the canonical slot key) that overlap a coach busy
+  // block. A slot runs startTime..startTime+SESSION_DURATION; it conflicts when
+  // it overlaps any busy interval (start < busyEnd && busyStart < end).
+  const conflictingSlotStartTimes = useMemo(() => {
+    const set = new Set<string>();
+    const busy = busyData?.busy;
+    if (!busy || busy.length === 0 || !slotsData?.slots) return set;
+    const blocks = busy.map((b) => ({
+      start: new Date(b.start).getTime(),
+      end: new Date(b.end).getTime(),
+    }));
+    for (const slot of slotsData.slots) {
+      const start = new Date(slot.startTime).getTime();
+      const end = start + SESSION_DURATION_MINUTES * 60_000;
+      if (blocks.some((b) => start < b.end && b.start < end)) {
+        set.add(slot.startTime);
+      }
+    }
+    return set;
+  }, [busyData, slotsData]);
+
   const slotsForSelectedDate = selectedDate
     ? slotsByDate.get(format(selectedDate, "yyyy-MM-dd")) ?? []
     : [];
+
+  const selectedSlotConflicts = selectedSlot
+    ? conflictingSlotStartTimes.has(selectedSlot.startTime)
+    : false;
 
   const bookSession = useBookSessionPack();
   const rescheduleSession = useRescheduleSessionBooking();
@@ -404,18 +439,30 @@ export default function BookSessionPack() {
                         <div className="grid grid-cols-2 gap-2">
                           {slotsForSelectedDate.map((slot) => {
                             const isSelected = selectedSlot?.startTime === slot.startTime;
+                            const isConflict = conflictingSlotStartTimes.has(slot.startTime);
                             return (
                               <button
                                 key={slot.startTime}
                                 onClick={() => setSelectedSlot(slot)}
                                 data-testid={`slot-${slot.startTime}`}
+                                data-conflict={isConflict ? "true" : undefined}
+                                title={
+                                  isConflict
+                                    ? "The coach may be busy at this time"
+                                    : undefined
+                                }
                                 className={cn(
-                                  "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border",
+                                  "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-1.5",
                                   isSelected
-                                    ? "bg-primary text-white border-primary"
-                                    : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
+                                    ? isConflict
+                                      ? "bg-amber-500 text-white border-amber-500"
+                                      : "bg-primary text-white border-primary"
+                                    : isConflict
+                                      ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400"
+                                      : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
                                 )}
                               >
+                                {isConflict && <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
                                 {format(new Date(slot.startTime), "h:mm a")}
                               </button>
                             );
@@ -424,6 +471,17 @@ export default function BookSessionPack() {
                       ) : (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No available time slots for this date.
+                        </p>
+                      )}
+
+                      {slotsForSelectedDate.some((s) =>
+                        conflictingSlotStartTimes.has(s.startTime),
+                      ) && (
+                        <p className="mt-4 flex items-start gap-2 text-xs text-amber-700">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          Highlighted times overlap something on the coach&apos;s
+                          calendar. You can still request them, but the coach may be
+                          unavailable.
                         </p>
                       )}
 
@@ -505,6 +563,21 @@ export default function BookSessionPack() {
                     </div>
                     <p className="text-xs text-muted-foreground">{memberTimezone}</p>
                   </div>
+
+                  {selectedSlotConflicts && (
+                    <div
+                      className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4"
+                      data-testid="conflict-warning"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-800">
+                        This time overlaps something on {selectedCoach.name}&apos;s
+                        calendar, so they may not be available. Consider picking a
+                        different time, or continue if you&apos;ve already
+                        coordinated with them.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

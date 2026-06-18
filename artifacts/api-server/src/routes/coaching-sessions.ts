@@ -11,6 +11,8 @@ import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { getCreditBalance, memberCreditLockKey } from "../lib/session-credits";
 import { notCurrentlyAway } from "../lib/coach-availability";
+import { fetchCalendarBusy, CalendarScopeError } from "../lib/google-oauth";
+import { getAccessTokenForUser } from "../lib/coach-google-connections";
 import {
   getFreeSlots,
   upsertContact,
@@ -177,6 +179,96 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
     res.status(502).json({ error: "Could not load availability. Please try again." });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Calendar busy (member-facing conflict awareness)
+// ---------------------------------------------------------------------------
+
+// GET /coaching/sessions/coaches/:coachId/calendar-busy — the coach's external
+// Google Calendar busy blocks for a [from, to) window, so the member booking
+// flow can flag slots that clash with the coach's real calendar. Reuses the
+// per-coach Google OAuth connection + free/busy endpoint, so members only ever
+// see busy intervals — NEVER event titles, attendees, or any other detail.
+// Always 200: when the coach has no live connection (or the calendar scope was
+// never granted / OAuth isn't configured) we return { connected: false }.
+router.get(
+  "/coaching/sessions/coaches/:coachId/calendar-busy",
+  async (req, res): Promise<void> => {
+    const coachId = parseInt(req.params.coachId, 10);
+    if (!Number.isInteger(coachId) || coachId <= 0) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+
+    const [coach] = await db
+      .select({ userId: sessionPackCoachesTable.userId })
+      .from(sessionPackCoachesTable)
+      .where(
+        and(
+          eq(sessionPackCoachesTable.id, coachId),
+          eq(sessionPackCoachesTable.isActive, true),
+          eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+          notCurrentlyAway(),
+        ),
+      );
+    if (!coach) {
+      res.status(404).json({ error: "Coach not found" });
+      return;
+    }
+    // No linked portal account => no Google calendar to read.
+    if (coach.userId === null) {
+      res.json({ connected: false, busy: [] });
+      return;
+    }
+
+    // Validate the [from, to) window and cap the span so a malformed/huge range
+    // can't turn into an expensive free/busy query.
+    const fromRaw = req.query.from;
+    const toRaw = req.query.to;
+    const fromDate = typeof fromRaw === "string" ? new Date(fromRaw) : null;
+    const toDate = typeof toRaw === "string" ? new Date(toRaw) : null;
+    if (
+      !fromDate ||
+      !toDate ||
+      Number.isNaN(fromDate.getTime()) ||
+      Number.isNaN(toDate.getTime()) ||
+      fromDate.getTime() >= toDate.getTime()
+    ) {
+      res.status(400).json({ error: "Invalid from/to range" });
+      return;
+    }
+    const MAX_WINDOW_MS = 70 * 24 * 60 * 60 * 1000; // generous month-grid cap
+    if (toDate.getTime() - fromDate.getTime() > MAX_WINDOW_MS) {
+      res.status(400).json({ error: "Range too large" });
+      return;
+    }
+
+    const accessToken = await getAccessTokenForUser(coach.userId);
+    if (!accessToken) {
+      res.json({ connected: false, busy: [] });
+      return;
+    }
+
+    try {
+      const busy = await fetchCalendarBusy(
+        accessToken,
+        fromDate.toISOString(),
+        toDate.toISOString(),
+      );
+      res.json({ connected: true, busy });
+    } catch (err) {
+      // An older connection without the calendar scope reads back as "not
+      // connected" to the member — there's nothing they can do to reconnect a
+      // coach's account, so we don't surface a reconnect prompt here.
+      if (err instanceof CalendarScopeError) {
+        res.json({ connected: false, busy: [] });
+        return;
+      }
+      console.error("[coaching-sessions] calendar-busy failed:", err);
+      res.status(502).json({ error: "Could not load coach availability." });
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Book
