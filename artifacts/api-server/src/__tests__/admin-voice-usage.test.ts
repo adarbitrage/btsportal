@@ -386,6 +386,42 @@ describe("GET /admin/voice/calls — search by name/email (q param)", () => {
     expect((page3.body.calls as Array<{ id: number }>).map((c) => c.id)).toEqual([a3]);
   });
 
+  it("treats % and _ in q as literal characters, not ILIKE wildcards", async () => {
+    const admin = await seedUser("admin");
+    // A run-unique, wildcard-free token so the search only ever touches our rows.
+    const tag = `qesc${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+
+    // `literal` carries the actual `%` and `_` characters in its name; `decoy`
+    // would match ONLY if `%`/`_` were interpreted as wildcards (% -> "XX",
+    // _ -> "Y"). Both share `tag` so the unescaped-broad search sees both.
+    const literal = await seedNamedUser(`Lit${tag}a%b_c`);
+    const decoy = await seedNamedUser(`Lit${tag}aXXbYc`);
+
+    const base = Date.now();
+    const litCall = await insertCall(literal.id, new Date(base - 1000));
+    await insertCall(decoy.id, new Date(base - 2000));
+
+    // Sanity: the shared, wildcard-free tag matches both members (2 calls), so
+    // the rows exist and only the escaping behaviour distinguishes them below.
+    const both = await request(app)
+      .get(`/api/admin/voice/calls?q=${tag}`)
+      .set("Cookie", admin.cookie);
+    expect(both.status).toBe(200);
+    expect(both.body.total).toBe(2);
+
+    // Searching the literal fragment (with `%` and `_`) must match ONLY the
+    // member whose name literally contains those characters. If the route ever
+    // stops escaping, the decoy's "aXXbYc" would also match and total would be 2.
+    const escaped = await request(app)
+      .get(`/api/admin/voice/calls?q=${encodeURIComponent(`${tag}a%b_c`)}`)
+      .set("Cookie", admin.cookie);
+    expect(escaped.status).toBe(200);
+    expect(escaped.body.total).toBe(1);
+    const escapedCalls = escaped.body.calls as Array<{ id: number; userId: number }>;
+    expect(escapedCalls.map((c) => c.id)).toEqual([litCall]);
+    expect(escapedCalls.every((c) => c.userId === literal.id)).toBe(true);
+  });
+
   it("clearing q broadens results back to the unfiltered list", async () => {
     const admin = await seedUser("admin");
     const tag = `qclear${randomUUID().replace(/-/g, "").slice(0, 10)}`;
