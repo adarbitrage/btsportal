@@ -244,7 +244,19 @@ export default function VoiceUsage() {
         {/* Top members */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-            <CardTitle className="text-base">Top Members by Usage</CardTitle>
+            <div>
+              <CardTitle className="text-base">Top Members by Usage</CardTitle>
+              {usage && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {usage.dailyCapSeconds > 0
+                    ? `Daily cap: ${formatMinutes(usage.dailyCapSeconds)} per member`
+                    : "No daily cap configured"}
+                  {period === "today" && usage.dailyCapSeconds > 0
+                    ? " — bars show today's usage against the cap"
+                    : ""}
+                </p>
+              )}
+            </div>
             <div className="flex gap-1 rounded-lg bg-muted p-1">
               {PERIODS.map((p) => (
                 <button
@@ -290,7 +302,36 @@ export default function VoiceUsage() {
                         <div className="text-xs text-muted-foreground">{m.email}</div>
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {formatMinutes(m.secondsUsed)}
+                        {period === "today" && usage && usage.dailyCapSeconds > 0 ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <span>
+                              {formatMinutes(m.secondsUsed)}
+                              <span className="text-muted-foreground font-normal">
+                                {" "}
+                                / {formatMinutes(usage.dailyCapSeconds)}
+                              </span>
+                            </span>
+                            <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={
+                                  m.secondsUsed >= usage.dailyCapSeconds
+                                    ? "h-full bg-destructive"
+                                    : "h-full bg-primary"
+                                }
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    usage.dailyCapSeconds > 0
+                                      ? (m.secondsUsed / usage.dailyCapSeconds) * 100
+                                      : 0,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          formatMinutes(m.secondsUsed)
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{m.callCount}</TableCell>
                       <TableCell className="text-right">
