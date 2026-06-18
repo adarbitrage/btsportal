@@ -312,6 +312,14 @@ export default function BookSessionPack() {
                         )}
                         <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
                         <p className="text-sm text-muted-foreground">1-hour session</p>
+                        {coach.bio && (
+                          <p
+                            className="text-sm text-muted-foreground mt-3 whitespace-pre-line"
+                            data-testid={`coach-bio-${coach.id}`}
+                          >
+                            {coach.bio}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

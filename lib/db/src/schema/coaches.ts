@@ -25,6 +25,9 @@ export const coachesTable = pgTable("coaches", {
   fullName: text("full_name"),
   email: text("email"),
   bio: text("bio"),
+  // Optional bio specific to private (credit-pack) coaching. Shown to members on
+  // the private-coaching booking flow; falls back to the general `bio` when empty.
+  privateCoachingBio: text("private_coaching_bio"),
   photoUrl: text("photo_url"),
   specialties: text("specialties"),
   // Capability switches — what this coach actually does.
