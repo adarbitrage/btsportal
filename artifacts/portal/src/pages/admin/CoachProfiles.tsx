@@ -196,7 +196,7 @@ function SortableCoachCard({
                   Hidden
                 </span>
               )}
-              {coach.awayPeriods.some((p) => p.isActive) && (
+              {(coach.awayPeriods ?? []).some((p) => p.isActive) && (
                 <span
                   data-testid={`coach-away-badge-${coach.id}`}
                   className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400"
