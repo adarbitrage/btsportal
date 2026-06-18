@@ -191,6 +191,11 @@ export function PastCalls() {
   const calls = data?.calls ?? [];
   const hasCustomBounds = isCustom && (fromDate !== "" || toDate !== "");
   const hasFilters = query !== "" || (range !== "all" && !isCustom) || hasCustomBounds;
+  const activeFilterCount =
+    (query !== "" ? 1 : 0) +
+    (range !== "all" && !isCustom ? 1 : 0) +
+    (isCustom && fromDate ? 1 : 0) +
+    (isCustom && toDate ? 1 : 0);
 
   const clearFilters = () => {
     setSearchInput("");
@@ -340,6 +345,16 @@ export function PastCalls() {
               onClear={() => setToDate("")}
               clearLabel="Clear end date filter"
             />
+          )}
+          {activeFilterCount >= 2 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              aria-label="Clear all filters"
+              className="text-xs font-medium text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 underline"
+            >
+              Clear all
+            </button>
           )}
         </div>
       )}

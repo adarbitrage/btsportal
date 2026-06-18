@@ -268,6 +268,43 @@ describe("PastCalls — active-filter chips", () => {
     expect((screen.getByLabelText(/^end date$/i) as HTMLInputElement).value).toBe("2026-03-10");
   });
 
+  it("shows a Clear all control with two filters active and resets them all", async () => {
+    render(<PastCalls />);
+
+    await selectPreset(/last 7 days/i);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/search past calls/i), "billing");
+
+    // With both a keyword and a preset active, the summary row exposes "Clear all".
+    const clearAll = await screen.findByRole("button", { name: /clear all filters/i });
+    expect(clearAll).toBeInTheDocument();
+
+    await user.click(clearAll);
+
+    // Every filter is reset in one action: no chips remain, the summary row is gone,
+    // and the hook is queried with the default keyword/range.
+    await waitFor(() => {
+      expect(screen.queryByText(/showing calls/i)).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /clear all filters/i }),
+    ).not.toBeInTheDocument();
+    expect(lastCall().q).toBe("");
+    expect(lastCall().range).toBe("all");
+    expect((screen.getByLabelText(/search past calls/i) as HTMLInputElement).value).toBe("");
+  });
+
+  it("does not show Clear all when only a single filter is active", async () => {
+    render(<PastCalls />);
+
+    await selectPreset(/last 7 days/i);
+
+    expect(await screen.findByText(/showing calls/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /clear all filters/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("clearing the end-date chip removes only the to bound, leaving the from bound", async () => {
     render(<PastCalls />);
     await selectCustomRange();
