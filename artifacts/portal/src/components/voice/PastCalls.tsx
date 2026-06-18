@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useVoiceCalls, type VoiceCallRecord } from "@/lib/voice-api";
+import { useEffect, useState } from "react";
+import { useVoiceCalls, type VoiceCallRecord, type VoiceCallsRange } from "@/lib/voice-api";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { History, Loader2, FileText, Clock, ChevronRight, MessageSquare } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { History, Loader2, FileText, Clock, ChevronRight, MessageSquare, Search, X } from "lucide-react";
 
 const PAGE_SIZE = 5;
 
@@ -106,9 +114,28 @@ function CallDetail({ call }: { call: VoiceCallRecord }) {
 export function PastCalls() {
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<VoiceCallRecord | null>(null);
-  const { data, isLoading, isFetching } = useVoiceCalls(PAGE_SIZE, page * PAGE_SIZE);
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [range, setRange] = useState<VoiceCallsRange>("all");
+
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [query, range]);
+
+  const { data, isLoading, isFetching } = useVoiceCalls(
+    PAGE_SIZE,
+    page * PAGE_SIZE,
+    query,
+    range,
+  );
 
   const calls = data?.calls ?? [];
+  const hasFilters = query !== "" || range !== "all";
 
   if (isLoading) {
     return (
@@ -118,7 +145,7 @@ export function PastCalls() {
     );
   }
 
-  if (calls.length === 0 && page === 0) {
+  if (calls.length === 0 && page === 0 && !hasFilters) {
     return (
       <div className="rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 p-8 text-center">
         <History className="w-6 h-6 text-stone-400 mx-auto mb-2" />
@@ -136,6 +163,60 @@ export function PastCalls() {
         <h2 className="text-xl font-bold">Past Calls</h2>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search summaries and transcripts…"
+            className="pl-9 pr-9"
+            aria-label="Search past calls"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Select value={range} onValueChange={(v) => setRange(v as VoiceCallsRange)}>
+          <SelectTrigger className="sm:w-40" aria-label="Filter by date range">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All time</SelectItem>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {calls.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 p-8 text-center">
+          <Search className="w-6 h-6 text-stone-400 mx-auto mb-2" />
+          <p className="text-sm text-stone-500 dark:text-stone-400">
+            No calls match your search.
+          </p>
+          {hasFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => {
+                setSearchInput("");
+                setRange("all");
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
+      ) : (
       <div className="divide-y divide-stone-200 dark:divide-stone-800 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden bg-white dark:bg-stone-950">
         {calls.map((call) => (
           <button
@@ -166,6 +247,7 @@ export function PastCalls() {
           </button>
         ))}
       </div>
+      )}
 
       {(page > 0 || data?.has_more) && (
         <div className="flex items-center justify-between">

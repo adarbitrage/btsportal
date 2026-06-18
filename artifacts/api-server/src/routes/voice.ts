@@ -98,6 +98,13 @@ router.get("/voice/status", async (req: Request, res: Response): Promise<void> =
   });
 });
 
+type VoiceCallsRange = "7d" | "30d" | "all";
+
+function parseVoiceCallsRange(value: unknown): VoiceCallsRange {
+  const str = Array.isArray(value) ? value[0] : value;
+  return str === "7d" || str === "30d" ? str : "all";
+}
+
 router.get("/voice/calls", async (req: Request, res: Response): Promise<void> => {
   const userId = req.userId!;
 
@@ -106,8 +113,24 @@ router.get("/voice/calls", async (req: Request, res: Response): Promise<void> =>
   const rawOffset = parseInt(String(req.query.offset ?? "0"), 10);
   const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
 
+  const qRaw = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+  const q = typeof qRaw === "string" ? qRaw.trim().slice(0, 200) : "";
+  const range = parseVoiceCallsRange(req.query.range);
+
   try {
-    const onlyEnded = sql`${voiceCallsTable.endedAt} IS NOT NULL`;
+    const conditions = [eq(voiceCallsTable.userId, userId), sql`${voiceCallsTable.endedAt} IS NOT NULL`];
+
+    if (q) {
+      const pattern = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+      conditions.push(
+        sql`(${voiceCallsTable.summary} ILIKE ${pattern} OR ${voiceCallsTable.transcript} ILIKE ${pattern})`
+      );
+    }
+
+    if (range !== "all") {
+      const days = range === "7d" ? 7 : 30;
+      conditions.push(sql`${voiceCallsTable.startedAt} >= NOW() - ${`${days} days`}::interval`);
+    }
 
     const rows = await db
       .select({
@@ -121,7 +144,7 @@ router.get("/voice/calls", async (req: Request, res: Response): Promise<void> =>
         disconnectReason: voiceCallsTable.disconnectReason,
       })
       .from(voiceCallsTable)
-      .where(and(eq(voiceCallsTable.userId, userId), onlyEnded))
+      .where(and(...conditions))
       .orderBy(desc(voiceCallsTable.startedAt))
       .limit(limit + 1)
       .offset(offset);
