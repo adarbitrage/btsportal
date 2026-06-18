@@ -19,7 +19,9 @@ const TAG = `admin-coaches-${randomUUID().slice(0, 8)}`;
 
 let app: ReturnType<typeof buildTestAppWithRouters>;
 let adminCookie = "";
+let memberCookie = "";
 let seededAdminId = 0;
+let seededMemberId = 0;
 let coachId = 0;
 
 function signCookie(userId: number, email: string): string {
@@ -46,6 +48,21 @@ beforeAll(async () => {
   seededAdminId = admin.id;
   adminCookie = signCookie(admin.id, admin.email);
 
+  const [member] = await db
+    .insert(usersTable)
+    .values({
+      email: `${TAG}-member@example.test`,
+      name: "Plain Member",
+      passwordHash,
+      role: "member",
+      sourceProduct: "lifetime",
+      emailVerified: true,
+      onboardingComplete: true,
+    })
+    .returning({ id: usersTable.id, email: usersTable.email });
+  seededMemberId = member.id;
+  memberCookie = signCookie(member.id, member.email);
+
   const [coach] = await db
     .insert(coachesTable)
     .values({
@@ -63,8 +80,9 @@ afterAll(async () => {
   if (coachId) {
     await db.delete(coachesTable).where(inArray(coachesTable.id, [coachId]));
   }
-  if (seededAdminId) {
-    await db.delete(usersTable).where(eq(usersTable.id, seededAdminId));
+  const userIds = [seededAdminId, seededMemberId].filter(Boolean);
+  if (userIds.length > 0) {
+    await db.delete(usersTable).where(inArray(usersTable.id, userIds));
   }
 });
 
@@ -119,13 +137,86 @@ describe("admin coach profiles", () => {
     expect(res.body.photoUrl).toBeNull();
   });
 
-  it("rejects a blank required field", async () => {
+  it("rejects a blank name", async () => {
     const res = await request(app)
       .patch(`/api/admin/coaching/coaches/${coachId}`)
       .set("Cookie", adminCookie)
       .send({ name: "   " });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/name/i);
+  });
+
+  it("rejects a blank specialty", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ specialties: "   " });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/specialty/i);
+  });
+
+  it("rejects a blank bio", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ bio: "   " });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/bio/i);
+  });
+
+  it("rejects an over-length name", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ name: "a".repeat(121) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/name/i);
+  });
+
+  it("rejects an over-length specialty", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ specialties: "a".repeat(201) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/specialty/i);
+  });
+
+  it("rejects an over-length bio", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ bio: "a".repeat(2001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/bio/i);
+  });
+
+  it("rejects an over-length photo URL", async () => {
+    const longUrl = "https://example.test/" + "a".repeat(2048);
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ photoUrl: longUrl });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/photo url/i);
+  });
+
+  it("rejects a non-http(s) photo URL", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ photoUrl: "ftp://example.test/pic.png" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/http/i);
+  });
+
+  it("rejects a malformed photo URL", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ photoUrl: "not a url" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/photo url/i);
   });
 
   it("rejects an update with no fields", async () => {
@@ -142,5 +233,25 @@ describe("admin coach profiles", () => {
       .set("Cookie", adminCookie)
       .send({ name: "Nobody" });
     expect(res.status).toBe(404);
+  });
+
+  it("denies a plain member listing coach profiles (403)", async () => {
+    const res = await request(app)
+      .get("/api/admin/coaching/coaches")
+      .set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("denies a plain member updating a coach profile (403)", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", memberCookie)
+      .send({ name: "Should Not Apply" });
+    expect(res.status).toBe(403);
+  });
+
+  it("requires authentication to list coach profiles (401)", async () => {
+    const res = await request(app).get("/api/admin/coaching/coaches");
+    expect(res.status).toBe(401);
   });
 });
