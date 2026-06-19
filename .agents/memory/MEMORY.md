@@ -80,3 +80,4 @@
 - [Coach optional fields coalesce](coach-optional-fields-coalesce.md) — coaches.specialties/bio are nullable; COACH_COLUMNS coalesces null->'' so the admin editor's .trim() never hits null. Coalesce any new optional coach text col there too.
 - [Admin panel separate sidebar](admin-layout-separate-sidebar.md) — /admin/* uses AdminLayout (own sidebar, shares NO code with member Sidebar.tsx); both layouts remount per nav; independent sidebar scroll needs `h-screen` aside + sessionStorage, not `min-h-screen`.
 - [Member sidebar scroll persistence](member-sidebar-scroll-persistence.md) — member key `sidebar-scroll-top`; "Back to Portal" re-saves "0" not null (in-place collapse fires a scroll), unlike admin which truly clears it.
+- [E2E shared-redis 429](e2e-shared-redis-rate-limit.md) — portal e2e reuses the running api-server (8080) + its Upstash redis; repeated local reruns trip per-IP login limiter (HTTP 429); clear `abuse-rate:login:*`. CI unaffected.

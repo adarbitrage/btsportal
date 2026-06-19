@@ -135,7 +135,7 @@ export default function ComplianceReview() {
               <h2 className="text-xl font-bold text-foreground">Submission Received</h2>
               <p className="text-muted-foreground">
                 Your creative has been submitted for compliance review under reference{" "}
-                <span className="font-mono font-semibold text-foreground">{submitResult.ticketNumber}</span>.
+                <span className="font-mono font-semibold text-foreground" data-testid="text-ticket-number">{submitResult.ticketNumber}</span>.
                 We'll review it within 24 hours. Do <strong>not</strong> run the creative until you receive approval.
                 Check your email for a confirmation.
               </p>

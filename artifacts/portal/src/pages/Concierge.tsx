@@ -144,7 +144,7 @@ function ConciergeForm() {
           <h3 className="text-xl font-bold text-foreground">Task Submitted!</h3>
           <p className="text-muted-foreground">
             Your request has been received and logged under reference{" "}
-            <span className="font-mono font-semibold text-foreground">{result.ticketNumber}</span>.
+            <span className="font-mono font-semibold text-foreground" data-testid="text-ticket-number">{result.ticketNumber}</span>.
             Our BTS Concierge™ team will get back to you within 24–72 hours.
             Check your email for a confirmation.
           </p>
@@ -183,6 +183,7 @@ function ConciergeForm() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             className={inputClass}
+            data-testid="input-first-name"
           />
         </div>
         <div>
@@ -193,6 +194,7 @@ function ConciergeForm() {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             className={inputClass}
+            data-testid="input-last-name"
           />
         </div>
       </div>
@@ -205,6 +207,7 @@ function ConciergeForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}
+          data-testid="input-email"
         />
       </div>
 
@@ -232,6 +235,7 @@ function ConciergeForm() {
           value={offerName}
           onChange={(e) => setOfferName(e.target.value)}
           className={inputClass}
+          data-testid="input-offer-name"
         />
       </div>
 
@@ -244,6 +248,7 @@ function ConciergeForm() {
           onChange={(e) => setOfferUrl(e.target.value)}
           placeholder="https://"
           className={inputClass}
+          data-testid="input-offer-url"
         />
       </div>
 
@@ -345,13 +350,14 @@ function ConciergeForm() {
           onChange={(e) => setConfirmed(e.target.checked)}
           className="mt-1 accent-primary"
           required
+          data-testid="checkbox-confirm"
         />
         <span className="text-sm text-muted-foreground">
           I confirm I have selected no more than {maxTasks} option{maxTasks > 1 ? "s" : ""} from above (24-hour turnaround time). *
         </span>
       </label>
 
-      <Button type="submit" className="gap-2 w-full sm:w-auto" isLoading={submitting} disabled={submitting}>
+      <Button type="submit" className="gap-2 w-full sm:w-auto" isLoading={submitting} disabled={submitting} data-testid="button-submit">
         <Send className="w-4 h-4" />
         Submit Your Task
       </Button>
