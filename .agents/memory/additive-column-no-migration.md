@@ -1,9 +1,9 @@
 ---
-name: Additive columns skip companion migration
-description: When a new DB column needs (or doesn't need) a hand-written drizzle/*.sql migration file
+name: Additive columns need a companion migration
+description: Every new DB column needs an idempotent drizzle/*.sql companion; post-merge push-force can't be trusted to add it
 ---
-A purely additive column — `NOT NULL DEFAULT <const>` or nullable — does NOT need a companion `lib/db/drizzle/*.sql` migration.
+An additive column ALWAYS needs an idempotent companion `lib/db/drizzle/*.sql` migration. Do NOT rely on post-merge `push-force` to add it — that path is unreliable.
 
-**Why:** post-merge (`scripts/post-merge.sh`) gates `drizzle-kit push --force` on `live-schema-drift.test.ts` (which verifies tables/columns). When a schema-only column change merges, that test fails on the prod/dev DB, push-force runs, and adds the additive column with its default cleanly — no rename prompt, no constraint-on-bad-data abort. The migration-drift test compares only constraints/indexes, not columns, so it stays green either way.
+**Why:** post-merge's drift GATE (`live-schema-drift.test.ts`) runs its globalSetup, which applies companion `.sql` files **migrations-only (NO push-force)**, then asserts schema ⊆ dev DB. A column that exists ONLY in `schema/*.ts` (no companion `.sql`) is therefore never added to the dev DB by the gate, so the gate fails. post-merge then routes to `push-force` and re-runs the gate — but a nullable FK column (e.g. `ticket_attachments.message_id -> ticket_messages.id`) was observed to have push-force exit 0 WITHOUT adding the column, so the re-run gate still failed and post-merge aborted, blocking all merges. The earlier belief that "push-force adds additive columns cleanly" was wrong for at least nullable FK columns.
 
-**How to apply:** add the field to `lib/db/src/schema/*.ts`, run a targeted `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` on the dev DB so local tests pass. Only write a companion `.sql` (and wire it into post-merge.sh) when you ALSO need a data backfill, a column rename, or a CHECK/UNIQUE constraint that push can't apply non-interactively.
+**How to apply:** (1) add the field to `lib/db/src/schema/*.ts`; (2) write a companion `ALTER TABLE ... ADD COLUMN IF NOT EXISTS <col> <type> [REFERENCES ...]` `.sql` (inline FK is fine — IF NOT EXISTS skips the whole statement incl. the FK on replay) — `sync-dev-db.sh` loops over ALL `drizzle/*.sql`, so no explicit post-merge step is needed; (3) `psql -f` it onto the dev DB; (4) if the column carries a FK/constraint, the migration-drift baseline (`expected-drift.json`) may have recorded it as `onlyInPush` — refresh it with `UPDATE_DRIFT_BASELINE=1 vitest run src/migration-drift.test.ts` (it should drop back to empty) or migration-drift fails next.
