@@ -145,7 +145,17 @@ function AttachmentTile({
   );
 }
 
-export default function TicketDetail() {
+// `uploadFile` is the single seam through which a staged file reaches object
+// storage. It defaults to the real presigned-upload flow above; tests inject a
+// controllable promise so the pending -> uploading -> uploaded/failed
+// transitions can be observed deterministically without racing the eager
+// on-attach upload (see TicketDetail.uploadStatus.test.tsx). The router renders
+// this page with no props, so the default always applies in the app.
+export default function TicketDetail({
+  uploadFile = uploadFileToStorage,
+}: {
+  uploadFile?: (file: File) => Promise<AttachmentMeta>;
+} = {}) {
   const { id } = useParams();
   const ticketId = parseInt(id || "1", 10);
   const { data: ticket, isLoading } = useGetTicket(ticketId);
@@ -205,7 +215,7 @@ export default function TicketDetail() {
   // the row reflects pending -> uploading -> uploaded/failed on its own.
   const uploadOne = async (target: StagedFile): Promise<StagedFile> => {
     try {
-      const meta = await uploadFileToStorage(target.file);
+      const meta = await uploadFile(target.file);
       return { ...target, status: "uploaded", meta, error: undefined };
     } catch (err) {
       return {

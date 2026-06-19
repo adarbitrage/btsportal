@@ -9,13 +9,20 @@ import type { ReactNode } from "react";
 // per-file flow so a future refactor (or a codegen regen) can't silently revert
 // it to a single global error.
 //
-// Mocking follows the portal page-test pattern (see
+// Determinism note: uploads start eagerly the moment a file is attached, so the
+// transient "pending" state is batched away before React paints and is
+// intentionally unobservable from a test (see the "pending is unobservable"
+// case below). To observe every OTHER transition without racing the eager
+// upload, TicketDetail accepts a `uploadFile` seam (defaulting to the real
+// presigned-upload flow). We inject a controllable version whose per-file
+// promise we resolve/reject on demand: that lets us pin the "uploading" state
+// while the promise is in flight and then drive it to uploaded/failed exactly
+// when we choose — no timing races, no `fetch` stubbing.
+//
+// Mocking otherwise follows the portal page-test pattern (see
 // TicketDetail.deliveryBadge.test.tsx / TicketDetail.categoryLabel.test.tsx):
 // stub AppLayout, wouter, @tanstack/react-query, and the generated
-// @workspace/api-client-react hooks. The upload itself talks to object storage
-// through the global `fetch` (presigned-URL request + PUT), so we stub `fetch`
-// to make a single named file fail on demand and to record which files were
-// actually PUT — that's how we prove a retry only re-uploads the failed file.
+// @workspace/api-client-react hooks.
 
 vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
@@ -57,6 +64,13 @@ vi.mock("@workspace/api-client-react", () => ({
 
 import TicketDetail from "@/pages/TicketDetail";
 
+type AttachmentMeta = {
+  objectPath: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+};
+
 function makeTicket() {
   return {
     id: 42,
@@ -74,11 +88,45 @@ function makeTicket() {
   };
 }
 
-// Files whose object-storage PUT should fail. Mutable so a test can "fix" the
-// upstream and prove a retry now succeeds.
-const failingUploads = new Set<string>();
-// Names of every file that was actually PUT to object storage, in call order.
-const putUploads: string[] = [];
+// A controllable upload seam. Each call records the file name (so we can prove a
+// retry only re-uploads the failed file) and parks a deferred promise that the
+// test settles explicitly — never on a timer. While a file's promise is
+// unsettled its row sits in "uploading", which is exactly the state we want to
+// be able to assert deterministically.
+function createControllableUpload() {
+  const calls: string[] = [];
+  const pending: Array<{
+    name: string;
+    resolve: (meta: AttachmentMeta) => void;
+    reject: (err: Error) => void;
+  }> = [];
+
+  const uploadFile = (file: File): Promise<AttachmentMeta> => {
+    calls.push(file.name);
+    return new Promise<AttachmentMeta>((resolve, reject) => {
+      pending.push({ name: file.name, resolve, reject });
+    });
+  };
+
+  const take = (name: string) => {
+    const idx = pending.findIndex((p) => p.name === name);
+    if (idx === -1) throw new Error(`no in-flight upload for ${name}`);
+    return pending.splice(idx, 1)[0];
+  };
+
+  const succeed = (name: string) =>
+    take(name).resolve({
+      objectPath: `/objects/${name}`,
+      fileName: name,
+      fileSize: 8,
+      contentType: "image/png",
+    });
+
+  const fail = (name: string) =>
+    take(name).reject(new Error("Storage rejected the file (error 500). Retry in a moment."));
+
+  return { uploadFile, calls, succeed, fail };
+}
 
 function pngFile(name: string) {
   return new File(["x".repeat(8)], name, { type: "image/png" });
@@ -95,35 +143,10 @@ function typeReply(text: string) {
 }
 
 beforeEach(() => {
-  failingUploads.clear();
-  putUploads.length = 0;
   useGetTicket.mockReset();
   addMessageMutate.mockReset();
   invalidateQueries.mockReset();
   useGetTicket.mockReturnValue({ data: makeTicket(), isLoading: false });
-
-  // Stub the two-step upload: request-url returns a presigned URL that encodes
-  // the file name, then the PUT to that URL fails iff the name is in
-  // `failingUploads`. Recording each PUT lets us assert per-file retry scope.
-  global.fetch = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
-    const url = String(input);
-    if (url.includes("/storage/uploads/request-url")) {
-      const body = JSON.parse(String(init?.body ?? "{}")) as { name: string };
-      return {
-        ok: true,
-        json: async () => ({
-          uploadURL: `https://storage.example/put?name=${encodeURIComponent(body.name)}`,
-          objectPath: `/objects/${body.name}`,
-        }),
-      } as unknown as Response;
-    }
-    if (url.includes("storage.example/put")) {
-      const name = decodeURIComponent(new URL(url).searchParams.get("name") ?? "");
-      putUploads.push(name);
-      return { ok: !failingUploads.has(name) } as unknown as Response;
-    }
-    throw new Error(`unexpected fetch: ${url}`);
-  }) as unknown as typeof fetch;
 });
 
 afterEach(() => {
@@ -131,19 +154,24 @@ afterEach(() => {
 });
 
 describe("TicketDetail — per-file upload status", () => {
-  it("shows each staged file's own status and blocks the reply while one file is failed", async () => {
-    failingUploads.add("broken.png");
-    render(<TicketDetail />);
+  it("holds each file in 'uploading' until its own upload settles, then shows its own end state", async () => {
+    const upload = createControllableUpload();
+    render(<TicketDetail uploadFile={upload.uploadFile} />);
 
     typeReply("Here are the files you asked for");
     stageFiles([pngFile("good.png"), pngFile("broken.png")]);
 
-    // Each file is staged as its OWN row carrying its OWN status (not a single
-    // global one). Uploads now start eagerly on attach, so rather than race the
-    // synchronous "pending" -> "uploading" flip, we assert both rows exist and
-    // then await the deterministic per-file end states (uploaded / failed).
-    expect(screen.getByTestId("reply-file-0")).toBeInTheDocument();
-    expect(screen.getByTestId("reply-file-1")).toBeInTheDocument();
+    // Each file is staged as its OWN row carrying its OWN status. The eager
+    // on-attach upload flips both rows straight to "uploading"; because our seam
+    // returns an unsettled promise, that state is now stable and assertable
+    // (the transient "pending" state is covered separately below).
+    expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploading");
+    expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading");
+    expect(upload.calls).toEqual(["good.png", "broken.png"]);
+
+    // Settle each upload independently and watch the rows diverge.
+    upload.succeed("good.png");
+    upload.fail("broken.png");
 
     await waitFor(() => {
       expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploaded");
@@ -170,59 +198,68 @@ describe("TicketDetail — per-file upload status", () => {
     // the failed file but holds the message back.
     fireEvent.click(screen.getByTestId("reply-send-btn"));
     await waitFor(() =>
+      expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading"),
+    );
+    upload.fail("broken.png");
+    await waitFor(() =>
       expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "failed"),
     );
     expect(addMessageMutate).not.toHaveBeenCalled();
   });
 
   it("retries only the failed file, leaving the already-uploaded one untouched", async () => {
-    failingUploads.add("broken.png");
-    render(<TicketDetail />);
+    const upload = createControllableUpload();
+    render(<TicketDetail uploadFile={upload.uploadFile} />);
 
     typeReply("Here are the files you asked for");
     stageFiles([pngFile("good.png"), pngFile("broken.png")]);
 
-    fireEvent.click(screen.getByTestId("reply-send-btn"));
+    // Eager on-attach upload PUT both files exactly once, in order.
+    expect(upload.calls).toEqual(["good.png", "broken.png"]);
+    upload.succeed("good.png");
+    upload.fail("broken.png");
     await waitFor(() =>
       expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "failed"),
     );
 
-    // First send attempt PUT both files exactly once.
-    expect(putUploads).toContain("good.png");
-    expect(putUploads).toContain("broken.png");
-
-    // Fix the upstream and retry only the failed row.
-    failingUploads.clear();
-    putUploads.length = 0;
+    // Retry only the failed row.
+    upload.calls.length = 0;
     fireEvent.click(screen.getByTestId("reply-file-retry-1"));
-
+    await waitFor(() =>
+      expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading"),
+    );
+    upload.succeed("broken.png");
     await waitFor(() =>
       expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploaded"),
     );
 
     // Retry re-uploaded ONLY the previously-failed file.
-    expect(putUploads).toEqual(["broken.png"]);
+    expect(upload.calls).toEqual(["broken.png"]);
     // The good file was never re-uploaded and stays uploaded.
     expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploaded");
   });
 
   it("sends the reply with all attachments once every file is uploaded, without re-uploading", async () => {
-    failingUploads.add("broken.png");
-    render(<TicketDetail />);
+    const upload = createControllableUpload();
+    render(<TicketDetail uploadFile={upload.uploadFile} />);
 
     typeReply("Here are the files you asked for");
     stageFiles([pngFile("good.png"), pngFile("broken.png")]);
 
-    fireEvent.click(screen.getByTestId("reply-send-btn"));
+    upload.succeed("good.png");
+    upload.fail("broken.png");
     await waitFor(() =>
       expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "failed"),
     );
     expect(addMessageMutate).not.toHaveBeenCalled();
 
     // Fix + retry the failed file.
-    failingUploads.clear();
-    putUploads.length = 0;
+    upload.calls.length = 0;
     fireEvent.click(screen.getByTestId("reply-file-retry-1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading"),
+    );
+    upload.succeed("broken.png");
     await waitFor(() =>
       expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploaded"),
     );
@@ -244,6 +281,23 @@ describe("TicketDetail — per-file upload status", () => {
     ]);
 
     // Send re-uploaded nothing — the only PUT since the retry was the retry.
-    expect(putUploads).toEqual(["broken.png"]);
+    expect(upload.calls).toEqual(["broken.png"]);
+  });
+
+  it("documents that the transient 'pending' state is intentionally unobservable", async () => {
+    // Uploads start eagerly inside addFiles: the row is staged as "pending" and
+    // startUpload synchronously flips it to "uploading" in the same React batch,
+    // so "pending" never paints. We pin that contract here: even with a seam
+    // that never settles, the freshly staged row is already "uploading", never
+    // "pending". If a future refactor defers the upload start (making "pending"
+    // observable), update this expectation and the note at the top of the file.
+    const upload = createControllableUpload();
+    render(<TicketDetail uploadFile={upload.uploadFile} />);
+
+    typeReply("Here you go");
+    stageFiles([pngFile("only.png")]);
+
+    expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploading");
+    expect(screen.getByTestId("reply-file-0")).not.toHaveAttribute("data-status", "pending");
   });
 });
