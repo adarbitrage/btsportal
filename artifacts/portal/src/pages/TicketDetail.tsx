@@ -20,6 +20,13 @@ import { validateTicketAttachment } from "@workspace/support-config";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
+// File-type hint for the attachment picker. The shared validateTicketAttachment
+// helper (from @workspace/support-config) is the authority for the actual
+// per-file size + content-type rules (and the server re-validates against the
+// real stored object metadata); this just nudges the OS file dialog toward the
+// accepted types.
+const FILE_ACCEPT = "image/*,application/pdf,.zip,application/zip";
+
 type AttachmentMeta = {
   objectPath: string;
   fileName: string;
@@ -514,6 +521,7 @@ export default function TicketDetail() {
                 ref={fileRef}
                 type="file"
                 multiple
+                accept={FILE_ACCEPT}
                 onChange={(e) => {
                   addFiles(Array.from(e.target.files || []));
                   e.target.value = "";
