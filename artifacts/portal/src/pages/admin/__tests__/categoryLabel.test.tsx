@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { TICKET_CATEGORIES } from "@workspace/support-config";
+import {
+  MEMBER_TICKET_CATEGORIES,
+  TICKET_CATEGORIES,
+} from "@workspace/support-config";
 import {
   CreateTicketCategory,
   TicketCategory,
+  TicketWithMessagesCategory,
 } from "@workspace/api-client-react";
 import { CATEGORY_LABELS, categoryLabel } from "../AdminTicketQueue";
 
@@ -96,6 +100,80 @@ describe("CATEGORY_LABELS coverage", () => {
         `Generated API-client category "${slug}" is missing from ` +
           `TICKET_CATEGORIES (@workspace/support-config). Add it there ` +
           `and give it a curated CATEGORY_LABELS entry.`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("ticket-detail response category enum (TicketWithMessagesCategory)", () => {
+  // The ticket *detail* response (TicketWithMessages) enumerates every real
+  // category, including the two internal ones (concierge_task,
+  // compliance_review). The admin-queue guards above only cross-check the queue
+  // enums (TicketCategory + CreateTicketCategory). Without this block a future
+  // spec edit could drop an internal category from the detail contract — so the
+  // detail page would silently fall back to slug-cased text for it — with no
+  // test failing. These two checks tie the detail enum to the shared list.
+
+  it("covers every value in TICKET_CATEGORIES", () => {
+    // The detail response must surface ALL real categories (member-facing AND
+    // internal), so the generated enum must be a superset of the shared list.
+    const detail = new Set<string>(Object.values(TicketWithMessagesCategory));
+    for (const slug of TICKET_CATEGORIES) {
+      expect(
+        detail.has(slug),
+        `Ticket category "${slug}" (TICKET_CATEGORIES, ` +
+          `@workspace/support-config) is missing from the generated ` +
+          `TicketWithMessagesCategory enum. The detail response dropped a ` +
+          `real category — restore it to the TicketWithMessages "category" ` +
+          `enum in openapi.yaml and regenerate the client.`,
+      ).toBe(true);
+    }
+  });
+
+  it("does not enumerate any category outside TICKET_CATEGORIES", () => {
+    // Keeps the detail enum in lockstep with the shared list, so a stale or
+    // renamed value is caught too.
+    const known = new Set<string>(TICKET_CATEGORIES);
+    for (const slug of Object.values(TicketWithMessagesCategory)) {
+      expect(
+        known.has(slug),
+        `Generated TicketWithMessagesCategory enumerates "${slug}", which is ` +
+          `not in TICKET_CATEGORIES (@workspace/support-config). Remove it ` +
+          `from the detail enum or add it to the shared list.`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("create-ticket category enum stays member-facing only", () => {
+  // Members can only ever pick the 5 member-facing categories when opening a
+  // ticket. The internal categories (concierge_task, compliance_review) are
+  // stamped by the backend and must never become member-selectable. This pins
+  // the generated create enum to exactly MEMBER_TICKET_CATEGORIES so an
+  // accidental spec edit that leaks an internal category into the create
+  // contract fails CI.
+  it("equals MEMBER_TICKET_CATEGORIES exactly", () => {
+    const create = new Set<string>(Object.values(CreateTicketCategory));
+    const member = new Set<string>(MEMBER_TICKET_CATEGORIES);
+
+    for (const slug of create) {
+      expect(
+        member.has(slug),
+        `Generated CreateTicketCategory enumerates "${slug}", which is not a ` +
+          `member-facing category (MEMBER_TICKET_CATEGORIES, ` +
+          `@workspace/support-config). Members must never be able to select ` +
+          `internal categories — remove it from the CreateTicketBody ` +
+          `"category" enum in openapi.yaml.`,
+      ).toBe(true);
+    }
+
+    for (const slug of member) {
+      expect(
+        create.has(slug),
+        `Member-facing category "${slug}" (MEMBER_TICKET_CATEGORIES) is ` +
+          `missing from the generated CreateTicketCategory enum. Add it back ` +
+          `to the CreateTicketBody "category" enum in openapi.yaml and ` +
+          `regenerate the client.`,
       ).toBe(true);
     }
   });
