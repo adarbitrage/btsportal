@@ -138,12 +138,12 @@ describe("TicketDetail — per-file upload status", () => {
     typeReply("Here are the files you asked for");
     stageFiles([pngFile("good.png"), pngFile("broken.png")]);
 
-    // Files upload eagerly on attach, so each row immediately enters its own
-    // "uploading" state (per-row status, not a single global one).
-    expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploading");
-    expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading");
-
-    fireEvent.click(screen.getByTestId("reply-send-btn"));
+    // Each file is staged as its OWN row carrying its OWN status (not a single
+    // global one). Uploads now start eagerly on attach, so rather than race the
+    // synchronous "pending" -> "uploading" flip, we assert both rows exist and
+    // then await the deterministic per-file end states (uploaded / failed).
+    expect(screen.getByTestId("reply-file-0")).toBeInTheDocument();
+    expect(screen.getByTestId("reply-file-1")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploaded");
@@ -166,7 +166,12 @@ describe("TicketDetail — per-file upload status", () => {
     // The successful row has no inline error.
     expect(screen.queryByTestId("reply-file-error-0")).not.toBeInTheDocument();
 
-    // The reply must NOT be sent while a file is failed.
+    // The reply must NOT be sent while a file is failed: clicking Send re-tries
+    // the failed file but holds the message back.
+    fireEvent.click(screen.getByTestId("reply-send-btn"));
+    await waitFor(() =>
+      expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "failed"),
+    );
     expect(addMessageMutate).not.toHaveBeenCalled();
   });
 
