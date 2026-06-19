@@ -6,8 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2 } from "lucide-react";
-import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
+import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
+import {
+  getTopicPresetForSubject,
+  formatTicketCategory,
+  getServiceCategoryStyle,
+  ticketMatchesFilter,
+  TICKET_FILTERS,
+  type TicketFilter,
+} from "@/lib/support-topics";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,10 +54,17 @@ const statusColors: Record<string, string> = {
   closed: "default"
 };
 
+const serviceCategoryIcons = {
+  Sparkles,
+  ShieldCheck,
+} as const;
+
 export default function Support() {
   const [isCreating, setIsCreating] = useState(false);
   const [limitReached, setLimitReached] = useState<LimitReachedDetails | null>(null);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<TicketFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const { data: tickets, isLoading } = useListTickets();
   const createTicket = useCreateTicket();
   const resolveTicket = useResolveTicket();
@@ -77,6 +91,31 @@ export default function Support() {
       },
     });
   };
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredTickets = (tickets ?? []).filter((ticket) => {
+    if (!ticketMatchesFilter(ticket.category, activeFilter)) return false;
+    if (!normalizedSearch) return true;
+    const haystack = [
+      ticket.subject,
+      ticket.ticketNumber,
+      formatTicketCategory(ticket.category),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedSearch);
+  });
+
+  const filterCounts = TICKET_FILTERS.reduce<Record<TicketFilter, number>>(
+    (acc, { value }) => {
+      acc[value] = (tickets ?? []).filter((ticket) =>
+        ticketMatchesFilter(ticket.category, value),
+      ).length;
+      return acc;
+    },
+    { all: 0, support: 0, concierge_task: 0, compliance_review: 0 },
+  );
 
   const handleMarkResolved = (e: React.MouseEvent, ticketId: number) => {
     e.preventDefault();
@@ -172,11 +211,41 @@ export default function Support() {
         )}
 
         <Card className="border-border/60 shadow-sm">
-          <div className="p-4 border-b border-border/60 flex gap-4 items-center bg-muted/40">
+          <div className="p-4 border-b border-border/60 flex flex-col gap-4 bg-muted/40">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tickets by type">
+              {TICKET_FILTERS.map(({ value, label }) => {
+                const isSelected = activeFilter === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={isSelected}
+                    data-testid={`ticket-filter-${value}`}
+                    onClick={() => setActiveFilter(value)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground border border-border hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] font-bold ${
+                        isSelected ? "bg-primary-foreground/20" : "bg-muted"
+                      }`}
+                    >
+                      {filterCounts[value]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="relative flex-1 max-w-sm">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search tickets..."
                 className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring/40"
               />
@@ -190,8 +259,13 @@ export default function Support() {
                 <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p>No support tickets yet.</p>
               </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p>No tickets match your current filter.</p>
+              </div>
             ) : (
-              tickets?.map(ticket => {
+              filteredTickets.map(ticket => {
                 const isActive = ACTIVE_STATUSES.has(ticket.status);
                 const isResolved = ticket.status === "resolved" || ticket.status === "closed";
                 return (
@@ -208,7 +282,31 @@ export default function Support() {
                               </span>
                             ) : ticket.status.replace('_', ' ')}
                           </Badge>
-                          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{formatTicketCategory(ticket.category)}</span>
+                          {(() => {
+                            const serviceStyle = getServiceCategoryStyle(ticket.category);
+                            if (serviceStyle) {
+                              const ServiceIcon = serviceCategoryIcons[serviceStyle.iconName];
+                              return (
+                                <span
+                                  data-testid={`ticket-category-badge-${ticket.id}`}
+                                  data-category={ticket.category}
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${serviceStyle.badgeClass}`}
+                                >
+                                  <ServiceIcon className="w-3 h-3" />
+                                  {formatTicketCategory(ticket.category)}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span
+                                data-testid={`ticket-category-badge-${ticket.id}`}
+                                data-category={ticket.category}
+                                className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded"
+                              >
+                                {formatTicketCategory(ticket.category)}
+                              </span>
+                            );
+                          })()}
                           {(() => {
                             const preset = getTopicPresetForSubject(ticket.subject);
                             if (!preset) return null;
