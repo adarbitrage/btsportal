@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X, Loader2, RotateCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
@@ -26,6 +26,19 @@ type AttachmentMeta = {
   fileSize: number;
   contentType: string;
 };
+
+type UploadStatus = "pending" | "uploading" | "uploaded" | "failed";
+
+type StagedFile = {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  meta?: AttachmentMeta;
+  error?: string;
+};
+
+let stagedFileSeq = 0;
+const nextStagedFileId = () => `staged-${Date.now()}-${stagedFileSeq++}`;
 
 // Reuses the same presigned-upload flow as the Compliance Review form: ask the
 // API for a presigned URL, PUT the file straight to object storage, then return
@@ -57,7 +70,7 @@ export default function TicketDetail() {
   const queryClient = useQueryClient();
   const [reply, setReply] = useState("");
   const [resolving, setResolving] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<StagedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,17 +79,18 @@ export default function TicketDetail() {
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
 
-  const removeFile = (idx: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  const removeFile = (fileId: string) => {
+    setFiles((prev) => prev.filter((sf) => sf.id !== fileId));
   };
 
   // Validate a freshly selected batch against the shared size/content-type
-  // rules before adding them to the pending list. Rejected files are dropped
-  // and a clear message names the first offender, so an oversized/unsupported
-  // file never reaches object storage or the API.
+  // rules before staging them. Rejected files are dropped and a clear message
+  // names the first offender, so an oversized/unsupported file never reaches
+  // object storage or the API. Accepted files are staged as "pending" so each
+  // one shows its own upload status on send.
   const addFiles = (selected: File[]) => {
     if (selected.length === 0) return;
-    const accepted: File[] = [];
+    const accepted: StagedFile[] = [];
     let firstError: string | null = null;
     for (const file of selected) {
       const error = validateTicketAttachment({
@@ -88,7 +102,7 @@ export default function TicketDetail() {
         if (!firstError) firstError = error;
         continue;
       }
-      accepted.push(file);
+      accepted.push({ id: nextStagedFileId(), file, status: "pending" });
     }
     setUploadError(firstError);
     if (accepted.length > 0) {
@@ -96,35 +110,70 @@ export default function TicketDetail() {
     }
   };
 
+  // Upload a single staged file, threading its status through the files state so
+  // the row reflects pending -> uploading -> uploaded/failed on its own.
+  const uploadOne = async (target: StagedFile): Promise<StagedFile> => {
+    try {
+      const meta = await uploadFileToStorage(target.file);
+      return { ...target, status: "uploaded", meta, error: undefined };
+    } catch (err) {
+      return {
+        ...target,
+        status: "failed",
+        error: err instanceof Error ? err.message : `Upload failed for ${target.file.name}`,
+      };
+    }
+  };
+
+  const retryFile = async (fileId: string) => {
+    const target = files.find((sf) => sf.id === fileId);
+    if (!target || target.status === "uploading" || uploading) return;
+    setFiles((prev) => prev.map((sf) => (sf.id === fileId ? { ...sf, status: "uploading", error: undefined } : sf)));
+    const result = await uploadOne(target);
+    setFiles((prev) => prev.map((sf) => (sf.id === fileId ? result : sf)));
+  };
+
   const handleReply = async () => {
     if (!reply.trim() || uploading || addMessage.isPending) return;
-    setUploadError(null);
 
-    let attachments: AttachmentMeta[] = [];
-    if (files.length > 0) {
-      // Re-validate just before upload as a safety net (the list is filtered on
-      // selection, but this guarantees nothing slips through).
-      for (const file of files) {
-        const error = validateTicketAttachment({
-          fileName: file.name,
-          fileSize: file.size,
-          contentType: file.type,
-        });
-        if (error) {
-          setUploadError(error);
-          return;
-        }
-      }
-      setUploading(true);
-      try {
-        attachments = await Promise.all(files.map(uploadFileToStorage));
-      } catch (err) {
-        setUploadError(err instanceof Error ? err.message : "Failed to upload files. Please try again.");
-        setUploading(false);
+    // Re-validate just before upload as a safety net (the list is filtered on
+    // selection, but this guarantees nothing slips through). The first offender
+    // surfaces as the staging-level upload error.
+    for (const sf of files) {
+      const error = validateTicketAttachment({
+        fileName: sf.file.name,
+        fileSize: sf.file.size,
+        contentType: sf.file.type,
+      });
+      if (error) {
+        setUploadError(error);
         return;
       }
-      setUploading(false);
     }
+
+    // Only (re)upload files that aren't already in object storage, so a retry on
+    // send never re-uploads the ones that already succeeded.
+    const pending = files.filter((sf) => sf.status !== "uploaded");
+    let working = files;
+
+    if (pending.length > 0) {
+      setUploading(true);
+      setFiles((prev) => prev.map((sf) => (sf.status !== "uploaded" ? { ...sf, status: "uploading", error: undefined } : sf)));
+
+      const results = await Promise.all(pending.map(uploadOne));
+      const byId = new Map(results.map((r) => [r.id, r]));
+      working = files.map((sf) => byId.get(sf.id) ?? sf);
+      setFiles(working);
+      setUploading(false);
+
+      // If any file failed, surface it per-row and hold the send so the member
+      // can retry/remove the offending files individually.
+      if (working.some((sf) => sf.status === "failed")) return;
+    }
+
+    const attachments = working
+      .map((sf) => sf.meta)
+      .filter((meta): meta is AttachmentMeta => Boolean(meta));
 
     addMessage.mutate({ id: ticketId, data: { body: reply, attachments } }, {
       onSuccess: () => {
@@ -388,21 +437,63 @@ export default function TicketDetail() {
 
             {files.length > 0 && (
               <ul className="px-4 pb-2 space-y-1" data-testid="reply-files-list">
-                {files.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                {files.map((sf, i) => (
+                  <li
+                    key={sf.id}
+                    data-testid={`reply-file-${i}`}
+                    data-status={sf.status}
+                    className="flex items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
+                  >
                     <span className="flex items-center gap-1.5 truncate min-w-0">
                       <Paperclip className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{f.name}</span>
+                      <span className="truncate">{sf.file.name}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
-                      aria-label={`Remove ${f.name}`}
-                      data-testid={`reply-file-remove-${i}`}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="flex items-center gap-2 shrink-0">
+                      {sf.status === "pending" && (
+                        <span className="text-muted-foreground" data-testid={`reply-file-status-${i}`}>Pending</span>
+                      )}
+                      {sf.status === "uploading" && (
+                        <span className="flex items-center gap-1 text-blue-600" data-testid={`reply-file-status-${i}`}>
+                          <Loader2 className="w-3 h-3 animate-spin" /> Uploading…
+                        </span>
+                      )}
+                      {sf.status === "uploaded" && (
+                        <span className="flex items-center gap-1 text-green-600" data-testid={`reply-file-status-${i}`}>
+                          <CheckCircle2 className="w-3 h-3" /> Uploaded
+                        </span>
+                      )}
+                      {sf.status === "failed" && (
+                        <>
+                          <span
+                            className="flex items-center gap-1 text-destructive"
+                            data-testid={`reply-file-status-${i}`}
+                            title={sf.error}
+                          >
+                            <AlertTriangle className="w-3 h-3" /> Failed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => retryFile(sf.id)}
+                            disabled={uploading}
+                            className="flex items-center gap-1 text-primary hover:underline disabled:opacity-50"
+                            data-testid={`reply-file-retry-${i}`}
+                          >
+                            <RotateCw className="w-3 h-3" /> Retry
+                          </button>
+                        </>
+                      )}
+                      {sf.status !== "uploading" && (
+                        <button
+                          type="button"
+                          onClick={() => removeFile(sf.id)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove ${sf.file.name}`}
+                          data-testid={`reply-file-remove-${i}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -410,6 +501,12 @@ export default function TicketDetail() {
 
             {uploadError && (
               <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-upload-error">{uploadError}</p>
+            )}
+
+            {files.some((sf) => sf.status === "failed") && (
+              <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-upload-failed">
+                Some files didn't upload. Retry or remove them, then send again.
+              </p>
             )}
 
             <div className="bg-secondary/50 p-3 border-t border-border flex items-center justify-between gap-3">
