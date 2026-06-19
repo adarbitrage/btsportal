@@ -2,7 +2,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vites
 import request from "supertest";
 import bcrypt from "bcryptjs";
 import { randomBytes, randomUUID } from "crypto";
-import { db, usersTable, productsTable, userProductsTable, webhookLogsTable, apiKeysTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  productsTable,
+  userProductsTable,
+  webhookLogsTable,
+  apiKeysTable,
+  machineProductKeyMappingsTable,
+  machineUnknownProductKeysTable,
+} from "@workspace/db";
 import { eq, inArray, and } from "drizzle-orm";
 
 const { queueEmailMock, queueGHLSyncMock, ensureAffiliateProfileMock } = vi.hoisted(() => ({
@@ -505,4 +514,139 @@ describe("POST /api/integrations/grant-product — Machine brand slugs resolve",
       if (res.body.userId) seededUserIds.push(res.body.userId);
     },
   );
+});
+
+// ─── Colon-qualified productKeys (The Machine's single /grant-product call) ──
+// The Machine now sends one /grant-product call per sale carrying colon-
+// qualified `productKeys` (e.g. "yse:front_end", "backroad:bump"). Each key
+// resolves via machine_product_key_mappings; unknown keys are recorded AND fall
+// back to the offer's front-end product so a paid buyer is never 404'd.
+describe("POST /api/integrations/grant-product — colon-qualified productKeys", () => {
+  const NEEDED_PRODUCTS = ["yse_front_end", "yse_affiliate_cmo_bump", "backroad"];
+  const MAPPINGS = [
+    { machineKey: "yse:front_end", portalSlug: "yse_front_end" },
+    { machineKey: "yse:bump", portalSlug: "yse_affiliate_cmo_bump" },
+    { machineKey: "backroad:front_end", portalSlug: "backroad" },
+  ];
+  const insertedMappingIds: number[] = [];
+  const UNKNOWN_KEY = `yse:upsell_unmapped_${randomUUID().slice(0, 6)}`;
+
+  beforeAll(async () => {
+    for (const slug of NEEDED_PRODUCTS) {
+      const [existing] = await db
+        .select({ id: productsTable.id })
+        .from(productsTable)
+        .where(eq(productsTable.slug, slug))
+        .limit(1);
+      if (existing) continue;
+      const [row] = await db
+        .insert(productsTable)
+        .values({
+          slug,
+          name: `Test ${slug}`,
+          type: "frontend",
+          thrivecartProductId: null,
+          entitlementKeys: ["content:frontend"],
+          priceDisplay: null,
+          sortOrder: 999,
+        })
+        .returning({ id: productsTable.id });
+      seededProductIds.push(row.id);
+    }
+    for (const m of MAPPINGS) {
+      const [existing] = await db
+        .select({ id: machineProductKeyMappingsTable.id })
+        .from(machineProductKeyMappingsTable)
+        .where(eq(machineProductKeyMappingsTable.machineKey, m.machineKey))
+        .limit(1);
+      if (existing) continue;
+      const [row] = await db
+        .insert(machineProductKeyMappingsTable)
+        .values({ machineKey: m.machineKey, portalSlug: m.portalSlug, updatedBy: "test" })
+        .returning({ id: machineProductKeyMappingsTable.id });
+      insertedMappingIds.push(row.id);
+    }
+  });
+
+  afterAll(async () => {
+    if (insertedMappingIds.length > 0) {
+      await db
+        .delete(machineProductKeyMappingsTable)
+        .where(inArray(machineProductKeyMappingsTable.id, insertedMappingIds));
+    }
+    await db
+      .delete(machineUnknownProductKeysTable)
+      .where(eq(machineUnknownProductKeysTable.machineKey, UNKNOWN_KEY));
+  });
+
+  function productKeysBody(productKeys: string[]) {
+    return {
+      externalOrderId: `ord_pk_${randomUUID().slice(0, 8)}`,
+      externalSource: "machine",
+      customer: {
+        email: `pk-${randomUUID().slice(0, 6)}-${TEST_TAG}@machine.test`,
+        firstName: "PK",
+        lastName: "Buyer",
+      },
+      productKeys,
+      purchasedAt: new Date().toISOString(),
+    };
+  }
+
+  it("grants every mapped product for known colon keys", async () => {
+    const res = await request(app)
+      .post(BASE_URL)
+      .set("Authorization", `Bearer ${validApiKey}`)
+      .send(productKeysBody(["yse:front_end", "yse:bump"]));
+
+    expect(res.status).toBe(200);
+    const slugs = res.body.grants
+      .map((g: { productSlug: string }) => g.productSlug)
+      .sort();
+    expect(slugs).toEqual(["yse_affiliate_cmo_bump", "yse_front_end"]);
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+  });
+
+  it("grants the brand front-end product for a brand colon key", async () => {
+    const res = await request(app)
+      .post(BASE_URL)
+      .set("Authorization", `Bearer ${validApiKey}`)
+      .send(productKeysBody(["backroad:front_end"]));
+
+    expect(res.status).toBe(200);
+    expect(res.body.grants).toHaveLength(1);
+    expect(res.body.grants[0].productSlug).toBe("backroad");
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+  });
+
+  it("falls back to the offer front-end and records an unmapped key (never 404)", async () => {
+    const res = await request(app)
+      .post(BASE_URL)
+      .set("Authorization", `Bearer ${validApiKey}`)
+      .send(productKeysBody([UNKNOWN_KEY]));
+
+    expect(res.status).toBe(200);
+    const slugs = res.body.grants.map((g: { productSlug: string }) => g.productSlug);
+    expect(slugs).toContain("yse_front_end");
+    if (res.body.userId) seededUserIds.push(res.body.userId);
+
+    // Fire-and-forget audit write — give it a moment to land.
+    await new Promise((r) => setTimeout(r, 300));
+    const [row] = await db
+      .select({ machineKey: machineUnknownProductKeysTable.machineKey })
+      .from(machineUnknownProductKeysTable)
+      .where(eq(machineUnknownProductKeysTable.machineKey, UNKNOWN_KEY))
+      .limit(1);
+    expect(row).toBeDefined();
+  });
+
+  it("returns 400 when neither productSlugs nor productKeys is provided", async () => {
+    const body = productKeysBody([]);
+    delete (body as { productKeys?: unknown }).productKeys;
+    const res = await request(app)
+      .post(BASE_URL)
+      .set("Authorization", `Bearer ${validApiKey}`)
+      .send(body);
+    expect(res.status).toBe(400);
+  });
 });

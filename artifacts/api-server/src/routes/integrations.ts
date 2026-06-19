@@ -15,6 +15,7 @@ import {
   getMachineProductKeyMappings,
   recordUnknownMachineProductKeys,
   resolveMachineProductKeys,
+  resolveProductKeys,
 } from "../lib/machine-product-key-mappings";
 
 if (!process.env.MACHINE_PORTAL_SHARED_SECRET) {
@@ -76,7 +77,8 @@ function validateGrantProductBody(body: unknown): {
       lastName?: string;
       phone?: string;
     };
-    productSlugs: string[];
+    productSlugs?: string[];
+    productKeys?: string[];
     purchasedAt: string;
     metadata?: Record<string, unknown>;
   };
@@ -111,13 +113,45 @@ function validateGrantProductBody(body: unknown): {
     return { ok: false, message: "customer.phone must be a string" };
   }
 
-  if (!Array.isArray(b.productSlugs) || b.productSlugs.length === 0) {
-    return { ok: false, message: "productSlugs must be a non-empty array of strings" };
-  }
-  for (const slug of b.productSlugs) {
-    if (typeof slug !== "string" || slug.trim() === "") {
-      return { ok: false, message: "Each productSlug must be a non-empty string" };
+  // productSlugs (optional): direct products.slug values. When provided they
+  // keep their all-or-nothing 404 semantics — an unknown slug fails the whole
+  // request. Either productSlugs or productKeys must be supplied.
+  let productSlugs: string[] | undefined;
+  if (b.productSlugs !== undefined && b.productSlugs !== null) {
+    if (!Array.isArray(b.productSlugs)) {
+      return { ok: false, message: "productSlugs must be an array of strings when provided" };
     }
+    for (const slug of b.productSlugs) {
+      if (typeof slug !== "string" || slug.trim() === "") {
+        return { ok: false, message: "Each productSlug must be a non-empty string" };
+      }
+    }
+    productSlugs = b.productSlugs as string[];
+  }
+
+  // productKeys (optional): colon-qualified funnel keys The Machine emits, e.g.
+  // "backroad:bump" / "yse:front_end". Resolved via machine_product_key_mappings
+  // downstream. Colons are intentionally allowed here — the snake_case-only
+  // regex applies to the retired machine-purchase path, NOT this one.
+  let productKeys: string[] | undefined;
+  if (b.productKeys !== undefined && b.productKeys !== null) {
+    if (!Array.isArray(b.productKeys)) {
+      return { ok: false, message: "productKeys must be an array of strings when provided" };
+    }
+    for (const key of b.productKeys) {
+      if (typeof key !== "string" || key.trim() === "") {
+        return { ok: false, message: "Each productKey must be a non-empty string" };
+      }
+    }
+    productKeys = b.productKeys as string[];
+  }
+
+  if ((productSlugs?.length ?? 0) === 0 && (productKeys?.length ?? 0) === 0) {
+    return {
+      ok: false,
+      message:
+        "At least one of productSlugs or productKeys must be a non-empty array of strings",
+    };
   }
 
   if (!b.purchasedAt || typeof b.purchasedAt !== "string" || isNaN(Date.parse(b.purchasedAt))) {
@@ -139,7 +173,8 @@ function validateGrantProductBody(body: unknown): {
         lastName: customer.lastName as string | undefined,
         phone: customer.phone as string | undefined,
       },
-      productSlugs: b.productSlugs as string[],
+      productSlugs,
+      productKeys,
       purchasedAt: b.purchasedAt,
       metadata: b.metadata as Record<string, unknown> | undefined,
     },
@@ -168,7 +203,50 @@ router.post(
         return;
       }
 
-      const result = await handleExternalGrantProduct(body);
+      // Build the final product-slug list. Caller-supplied productSlugs (if
+      // any) pass through verbatim and keep their all-or-nothing 404 semantics.
+      // Colon-qualified productKeys (e.g. "backroad:bump") resolve via the
+      // admin-editable mapping table; unknown keys are recorded for admin
+      // review AND fall back to their offer's front-end product, so a paid
+      // buyer on the productKeys path is never 404'd.
+      const metadata: Record<string, unknown> = { ...(body.metadata ?? {}) };
+      const finalSlugs: string[] = [];
+      const seenSlug = new Set<string>();
+      const pushSlug = (slug: string) => {
+        if (!seenSlug.has(slug)) {
+          seenSlug.add(slug);
+          finalSlugs.push(slug);
+        }
+      };
+      for (const slug of body.productSlugs ?? []) pushSlug(slug);
+
+      if (body.productKeys && body.productKeys.length > 0) {
+        const mappings = await getMachineProductKeyMappings();
+        const resolution = resolveProductKeys(body.productKeys, mappings);
+        for (const slug of resolution.portalSlugs) pushSlug(slug);
+        metadata.portal_product_keys = body.productKeys;
+        metadata.resolved_portal_slugs = resolution.portalSlugs;
+        metadata.unknown_portal_product_keys = resolution.unknownKeys;
+        metadata.portal_product_keys_fallback = resolution.usedFallback;
+        if (resolution.unknownKeys.length > 0) {
+          // Fire-and-forget: the helper swallows its own errors so an audit
+          // write can never block a successful grant.
+          void recordUnknownMachineProductKeys(
+            resolution.unknownKeys,
+            body.externalSource,
+            body.externalOrderId,
+          );
+        }
+      }
+
+      const result = await handleExternalGrantProduct({
+        externalOrderId: body.externalOrderId,
+        externalSource: body.externalSource,
+        customer: body.customer,
+        productSlugs: finalSlugs,
+        purchasedAt: body.purchasedAt,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      });
 
       if ("code" in result && result.code === "UNKNOWN_SLUGS") {
         sendError(

@@ -1,0 +1,22 @@
+Phase 0 confirmed and the conflict is resolved — proceed with Option 2 (build productKeys resolution on /grant-product). Direct confirmation from the Machine side: a completed sale now makes exactly ONE call — POST {BTS_INTEGRATION_URL}/grant-product, Bearer BTS_API_KEY, body field "productKeys" (array), colon-qualified values like "yse:front_end" / "backroad:front_end", externalSource "machine". The machine-purchase call is fully retired and no longer fires on any sale. So /grant-product is the sole live fulfillment path and it currently 404s on every real order because it can't parse colon keys. This is not a second path — machine-purchase is dead on the sale path, so you are fixing the ONE live path. Do NOT touch machine-purchase or its tests.
+
+Build it:
+1. Extend validateGrantProductBody / the /grant-product payload to accept productKeys: string[] (colon-qualified, e.g. "backroad:bump") IN ADDITION to the existing productSlugs. At least one of the two must be non-empty. The colon format must be allowed (the snake_case-only regex on machine-purchase does NOT apply here).
+2. Resolve each productKey via machine_product_key_mappings (machine_key → portal_slug), then grant via the existing per-item engine.
+3. Unknown key → record to machine_unknown_product_keys AND fall back to the front-end product for that key's offer prefix ("backroad:bump" → product slug "backroad"; "yse:*" → "yse_front_end"). Never 404 a paid buyer on the productKeys path. Leave the productSlugs-only path exactly as-is (it stays all-or-nothing 404).
+4. Seed the 30 colon-qualified mapping rows (idempotent, additive — do not delete the existing 12 single-key rows; they're harmless):
+   For each offer in { yse, backroad, offmarket, reserve_income, silent_partner, test_like_mad }:
+     {offer}:front_end → that offer's front-end slug (yse→yse_front_end, backroad→backroad, offmarket→offmarket, reserve_income→reserve_income, silent_partner→silent_partner, test_like_mad→test_like_mad)
+     {offer}:bump      → yse_affiliate_cmo_bump
+     {offer}:upsell_1  → yse_21_day_blitz
+     {offer}:upsell_2  → yse_swipe_resource_bank
+     {offer}:upsell_3  → yse_profit_maximizer_pass
+
+Acceptance:
+- productKeys ["yse:front_end","yse:bump"] grants yse_front_end + yse_affiliate_cmo_bump.
+- ["backroad:front_end"] grants the Backroad product.
+- An unmapped key like "yse:upsell_9" → recorded in machine_unknown_product_keys AND buyer still granted yse_front_end (not 404).
+- Existing productSlugs callers unchanged; machine-purchase and its tests untouched and still green.
+- externalSource "machine" + externalOrderId idempotency and the 5-attempt retry still work.
+
+Note: the exact 11 colon keys the Machine actually emits today are {offer}:front_end for all 6 offers, plus yse:bump / yse:upsell_1 / yse:upsell_2 / yse:upsell_3 (AOV is YSE-prefixed only right now). Seed all 30 anyway so brand AOV works the moment it's added.

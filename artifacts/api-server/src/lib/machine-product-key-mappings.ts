@@ -14,11 +14,13 @@ import { sql } from "drizzle-orm";
 // `machine_key` is the snake_case-ish identifier The Machine sends in
 // `portal_product_keys`. `portal_slug` is the row in `products.slug` the
 // grant pipeline should resolve to.
-export const DEFAULT_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<{
+type MachineProductKeyMappingSeed = {
   machineKey: string;
   portalSlug: string;
   notes: string;
-}> = [
+};
+
+const SINGLE_KEY_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMappingSeed> = [
   {
     machineKey: "yse_front_end",
     portalSlug: "yse_front_end",
@@ -81,6 +83,59 @@ export const DEFAULT_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<{
     notes: "Test Like Mad front-end offer. Identity mapping per Dispatch 2.",
   },
 ];
+
+/**
+ * Offer prefix (the part before the ":") → that offer's front-end product
+ * slug. Single source of truth for BOTH (a) seeding the `{offer}:front_end`
+ * mapping rows and (b) the per-key fallback on the /grant-product productKeys
+ * path: an unmapped key like "backroad:bump" still grants "backroad" so a
+ * paid buyer is never locked out.
+ */
+export const OFFER_PREFIX_TO_FRONT_END_SLUG: Readonly<Record<string, string>> = {
+  yse: "yse_front_end",
+  backroad: "backroad",
+  offmarket: "offmarket",
+  reserve_income: "reserve_income",
+  silent_partner: "silent_partner",
+  test_like_mad: "test_like_mad",
+};
+
+// Shared backend/upsell products every offer's funnel points at today. Keys are
+// distinct per offer (e.g. "backroad:bump") so any one can be repointed later
+// without touching the others.
+const FUNNEL_QUALIFIED_VARIANT_SLUG: Readonly<Record<string, string>> = {
+  bump: "yse_affiliate_cmo_bump",
+  upsell_1: "yse_21_day_blitz",
+  upsell_2: "yse_swipe_resource_bank",
+  upsell_3: "yse_profit_maximizer_pass",
+};
+
+// 30 funnel-qualified rows: { 6 offers } × { front_end, bump, upsell_1..3 }.
+const FUNNEL_QUALIFIED_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMappingSeed> =
+  Object.entries(OFFER_PREFIX_TO_FRONT_END_SLUG).flatMap(
+    ([offer, frontEndSlug]) => [
+      {
+        machineKey: `${offer}:front_end`,
+        portalSlug: frontEndSlug,
+        notes: `Funnel-qualified ${offer} front-end offer.`,
+      },
+      ...Object.entries(FUNNEL_QUALIFIED_VARIANT_SLUG).map(([variant, slug]) => ({
+        machineKey: `${offer}:${variant}`,
+        portalSlug: slug,
+        notes: `Funnel-qualified ${offer} ${variant} (shared product ${slug}).`,
+      })),
+    ],
+  );
+
+// Default mappings seeded at startup: the legacy single-key rows plus the 30
+// funnel-qualified rows The Machine now emits at /grant-product. Additive &
+// idempotent — existing rows (incl. admin edits) are never clobbered. See
+// seedMachineProductKeyMappings.
+export const DEFAULT_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMappingSeed> =
+  [
+    ...SINGLE_KEY_MACHINE_PRODUCT_KEY_MAPPINGS,
+    ...FUNNEL_QUALIFIED_MACHINE_PRODUCT_KEY_MAPPINGS,
+  ];
 
 /**
  * Canonical funnel-slug → Portal product slug mapping covering all 13 accepted
@@ -213,6 +268,70 @@ export function resolveMachineProductKeys(
   }
 
   return { portalSlugs, unknownKeys, usedFallback: false };
+}
+
+export interface ProductKeyResolution {
+  /** Portal product slugs to grant, deduped, in input order. */
+  portalSlugs: string[];
+  /** Colon-qualified keys with no mapping row — captured for admin review. */
+  unknownKeys: string[];
+  /** True iff at least one key fell back to its offer's front-end product. */
+  usedFallback: boolean;
+}
+
+/**
+ * Derive the front-end product slug for a colon-qualified productKey from the
+ * part before the ":" (the offer prefix). Unknown/absent prefixes fall back to
+ * "yse_front_end" so a paid buyer is never locked out.
+ */
+export function frontEndSlugForProductKey(productKey: string): string {
+  const idx = productKey.indexOf(":");
+  const prefix = idx >= 0 ? productKey.slice(0, idx) : productKey;
+  return OFFER_PREFIX_TO_FRONT_END_SLUG[prefix] ?? "yse_front_end";
+}
+
+/**
+ * Resolve The Machine's colon-qualified `productKeys` (e.g. "backroad:bump")
+ * onto Portal product slugs via the admin-editable mapping table.
+ *
+ * Unlike resolveMachineProductKeys (the retired machine-purchase path, which
+ * only falls back when the WHOLE resolved set is empty), this resolves PER
+ * KEY: an unmapped key is recorded as unknown AND still contributes its
+ * offer's front-end product. The /grant-product productKeys path therefore
+ * never 404s a paid buyer.
+ */
+export function resolveProductKeys(
+  inputKeys: readonly string[],
+  mappings: ReadonlyMap<string, string>,
+): ProductKeyResolution {
+  const portalSlugs: string[] = [];
+  const seenSlug = new Set<string>();
+  const unknownKeys: string[] = [];
+  const seenUnknown = new Set<string>();
+  let usedFallback = false;
+
+  const addSlug = (slug: string) => {
+    if (!seenSlug.has(slug)) {
+      seenSlug.add(slug);
+      portalSlugs.push(slug);
+    }
+  };
+
+  for (const key of inputKeys) {
+    const slug = mappings.get(key);
+    if (slug) {
+      addSlug(slug);
+    } else {
+      if (!seenUnknown.has(key)) {
+        seenUnknown.add(key);
+        unknownKeys.push(key);
+      }
+      addSlug(frontEndSlugForProductKey(key));
+      usedFallback = true;
+    }
+  }
+
+  return { portalSlugs, unknownKeys, usedFallback };
 }
 
 /**
