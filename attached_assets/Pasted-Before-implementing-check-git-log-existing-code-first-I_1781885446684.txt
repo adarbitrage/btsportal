@@ -1,0 +1,44 @@
+Before implementing: check git log / existing code first. If parts already shipped, report what's done and flag conflicts rather than reverting settled code. Implement only the missing pieces. Build exactly this — nothing more, nothing less.
+
+## Task: Admin "Fulfillment Map" page — assign a member level to every funnel offer
+
+### What This Does
+A new admin page that renders one block per front-end offer (pulled LIVE from the Machine's offer-catalog endpoint), each slot showing an editable member-level dropdown bound to machine_product_key_mappings. Lets an admin set/override what each offer grants, with strong guard rails so a wrong mapping is hard to make and obvious when made.
+
+### Files Created
+- artifacts/api-server/src/routes/admin-fulfillment-catalog.ts — admin route, permission members:view to read / members:edit to mutate. 
+  GET /admin/fulfillment/catalog returns ONE combined payload:
+    (a) the Machine catalog, fetched server-to-server from env MACHINE_CATALOG_URL with header Authorization: Bearer <env MACHINE_CATALOG_TOKEN> (the Machine side calls this token OFFER_CATALOG_API_TOKEN — use whatever env name BTS already uses for outbound Machine calls, or add MACHINE_CATALOG_URL + MACHINE_CATALOG_TOKEN; report the names you used).
+    (b) current machine_product_key_mappings rows (machine_key → portal_slug).
+    (c) the products list (id, slug, name, entitlement_keys) filtered to products with NON-EMPTY entitlement_keys — these are the selectable "member levels".
+    (d) machine_unknown_product_keys rows.
+  If the Machine catalog is unreachable, return (b)(c)(d) with catalog:null + an "unavailable" flag so the page still loads and can edit existing mappings.
+  REUSE the existing machine-product-key-mappings CRUD in admin-panel.ts for upserts/deletes — do NOT duplicate that logic; this route is read-aggregation + delegating writes.
+
+- artifacts/portal/src/pages/admin/FulfillmentMap.tsx — the page:
+  * One card per catalog frontEndOffers[].id (header = offer name + front-end price).
+  * Within each card, one row per slot showing: slot label (e.g. "Order Bump"), the exact machineKey (e.g. "backroad:bump"), and a member-level dropdown.
+  * Dropdown options = products with non-empty entitlements; each option label = product name + a short summary of the entitlements it grants (e.g. "Backroad — content:frontend, content:backroad, support:basic").
+  * GUARD RAILS (this is the point of the task, not optional polish):
+    - On changing a dropdown, show a confirm step that states plainly what's changing: "Backroad ▸ Order Bump will now grant: <product name> (<entitlement keys>). This affects future purchases of this offer." Require explicit confirm before the upsert fires.
+    - Under each row, always show the entitlements the currently-mapped level grants (read from the chosen product's entitlement_keys), so the admin sees the consequence without guessing.
+    - FLAG visibly (warning styling, not silent): any catalog slot with NO mapping row; any mapping pointing at a missing product or a product with empty entitlement_keys; and surface machine_unknown_product_keys in a distinct "Unmapped keys seen in real orders" section (these are keys buyers actually hit that have no mapping — highest-priority fix signal).
+  * If catalog is unavailable, render the existing mappings as a flat editable list with a clear banner that the live funnel structure couldn't be loaded.
+
+### Files Modified
+- artifacts/portal/src/App.tsx — add route /admin/integrations/fulfillment-map → FulfillmentMap.tsx (mirror the existing /admin/integrations/yse registration). Add a nav entry beside the other admin integration links.
+
+### Schema Changes
+None (machine_product_key_mappings, machine_unknown_product_keys, products all exist).
+
+### Dependencies
+- Reads the Machine /api/integrations/offer-catalog endpoint (already live) and the 42 mapping rows already seeded. The catalog already returns brand-prefixed AOV keys (e.g. backroad:bump) — render them as-is.
+- Uses the existing machine-product-key-mappings CRUD in admin-panel.ts.
+
+### Acceptance Criteria
+- Page renders 6 offer cards × 5 slots from the live catalog; each AOV slot shows its brand-prefixed key (yse:bump only under YSE; backroad:bump under Backroad; etc.).
+- Changing a slot's dropdown shows the plain-language confirm with the resulting entitlements, and only persists on confirm; the change survives reload.
+- A slot mapped to an empty-entitlement or missing product is visibly flagged.
+- Keys present in machine_unknown_product_keys appear in their own section.
+- With the Machine catalog unreachable, the page still loads and can edit existing mappings, with a clear banner.
+- Report the env var names used for the Machine catalog URL + token.

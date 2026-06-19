@@ -6033,7 +6033,12 @@ router.get(
 // can review/dismiss unknown keys that came in without a mapping. See
 // task #493 and `artifacts/api-server/src/lib/machine-product-key-mappings.ts`.
 
-const SNAKE_CASE_ISH = /^[a-z0-9_]+$/;
+// Machine product keys come in two shapes: legacy single snake_case keys
+// (e.g. `yse_front_end`) and colon-qualified funnel keys (e.g. `backroad:bump`,
+// `{offer}:{slot}`) that the Fulfillment Map creates/overrides per offer slot.
+// Allow lowercase letters/digits/underscores with at most one colon-qualified
+// suffix so both shapes can be written through this CRUD.
+const MACHINE_KEY_PATTERN = /^[a-z0-9_]+(:[a-z0-9_]+)?$/;
 
 function validateMappingInput(body: unknown):
   | { ok: true; data: { machineKey: string; portalSlug: string; notes: string | null } }
@@ -6042,8 +6047,8 @@ function validateMappingInput(body: unknown):
     return { ok: false, message: "Request body must be a JSON object" };
   }
   const b = body as Record<string, unknown>;
-  if (typeof b.machineKey !== "string" || b.machineKey.length < 1 || b.machineKey.length > 64 || !SNAKE_CASE_ISH.test(b.machineKey)) {
-    return { ok: false, message: "machineKey must be a snake_case-ish string of 1–64 chars" };
+  if (typeof b.machineKey !== "string" || b.machineKey.length < 1 || b.machineKey.length > 64 || !MACHINE_KEY_PATTERN.test(b.machineKey)) {
+    return { ok: false, message: "machineKey must be lowercase letters/digits/underscores, optionally with one colon-qualified suffix (e.g. backroad:bump), 1–64 chars" };
   }
   if (typeof b.portalSlug !== "string" || b.portalSlug.trim().length < 1 || b.portalSlug.length > 128) {
     return { ok: false, message: "portalSlug must be a non-empty string of ≤128 chars" };

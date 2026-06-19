@@ -145,6 +145,7 @@ import ModerationAiFlagged from "@/pages/admin/moderation/ai-flagged";
 import ModerationWordlist from "@/pages/admin/moderation/wordlist";
 import YseOrders from "@/pages/admin/YseOrders";
 import YseGrantFailures from "@/pages/admin/YseGrantFailures";
+import FulfillmentMap from "@/pages/admin/FulfillmentMap";
 import AdminAssistantGroups from "@/pages/admin/AdminAssistantGroups";
 import AdminAssistantCards from "@/pages/admin/AdminAssistantCards";
 import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
@@ -514,6 +515,7 @@ function Router() {
       <Route path="/admin/integrations/yse">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/machine">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/yse/failures">{() => <AdminRoute component={YseGrantFailures} permission="system:view" />}</Route>
+      <Route path="/admin/integrations/fulfillment-map">{() => <AdminRoute component={FulfillmentMap} permission="members:view" />}</Route>
       <Route path="/admin/assistant/groups">{() => <AdminRoute component={AdminAssistantGroups} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/groups/:groupId/cards">{() => <AdminRoute component={AdminAssistantCards} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>

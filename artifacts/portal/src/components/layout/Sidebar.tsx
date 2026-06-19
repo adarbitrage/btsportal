@@ -324,6 +324,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     icon: Activity,
     defaultOpen: false,
     children: [
+      { kind: "leaf", href: "/admin/integrations/fulfillment-map", label: "Fulfillment Map", icon: Package, requiredPermission: "members:view" },
       { kind: "leaf", href: "/admin/ghl", label: "GHL Sync", icon: Activity, requiredPermission: "ghl:view" },
       { kind: "leaf", href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users, requiredPermission: "ghl:view" },
       { kind: "leaf", href: "/admin/ghl/config", label: "GHL Config", icon: Settings, requiredPermission: "ghl:manage" },

@@ -52,6 +52,7 @@ vi.mock("../lib/webhook-events", () => ({
 import { buildTestApp, buildTestAppWithRouters } from "./test-app";
 import integrationsRouter from "../routes/integrations";
 import adminPanelRouter from "../routes/admin-panel";
+import adminFulfillmentCatalogRouter from "../routes/admin-fulfillment-catalog";
 import {
   FUNNEL_SLUG_TO_PRODUCT,
   resolveMachineProductKeys,
@@ -105,7 +106,10 @@ async function ensureProduct(slug: string, name: string): Promise<number> {
 
 beforeAll(async () => {
   app = buildTestApp({ routers: [integrationsRouter] });
-  adminApp = buildTestAppWithRouters([adminPanelRouter]);
+  adminApp = buildTestAppWithRouters([
+    adminPanelRouter,
+    adminFulfillmentCatalogRouter,
+  ]);
 
   // Make sure the bootstrap-style seed runs so default mappings exist for
   // the resolver tests below — bootstrap normally runs at startup, but the
@@ -397,6 +401,39 @@ describe("Admin endpoints — machine product key mappings", () => {
     expect(delRes.status).toBe(200);
     // Pop because the row no longer exists.
     seededMappingIds.pop();
+  });
+
+  it("accepts a colon-namespaced machine key on create", async () => {
+    // Machine emits colon-namespaced keys (e.g. "offer:bump"); the create
+    // validator must accept them (regression guard for the relaxed pattern).
+    const colonKey = `${TEST_TAG}:bump`;
+    const res = await request(adminApp)
+      .post("/api/admin/integrations/machine-product-key-mappings")
+      .set("Cookie", adminCookie)
+      .send({ machineKey: colonKey, portalSlug: "yse_front_end" });
+    expect(res.status).toBe(201);
+    expect(res.body.mapping.machineKey).toBe(colonKey);
+    seededMappingIds.push(res.body.mapping.id);
+  });
+
+  it("aggregates the fulfillment catalog and degrades when Machine is unreachable", async () => {
+    const res = await request(adminApp)
+      .get("/api/admin/fulfillment/catalog")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    // No MACHINE_CATALOG_URL configured in tests → graceful degrade.
+    expect(res.body.catalog).toBeNull();
+    expect(res.body.catalogAvailable).toBe(false);
+    expect(typeof res.body.catalogError).toBe("string");
+    // Local aggregation always present regardless of catalog reachability.
+    expect(Array.isArray(res.body.mappings)).toBe(true);
+    expect(Array.isArray(res.body.products)).toBe(true);
+    expect(Array.isArray(res.body.unknownKeys)).toBe(true);
+    // Only entitlement-bearing products are offered as map targets.
+    for (const p of res.body.products) {
+      expect(Array.isArray(p.entitlementKeys)).toBe(true);
+      expect(p.entitlementKeys.length).toBeGreaterThan(0);
+    }
   });
 
   it("lists unknown machine keys and dismisses them", async () => {

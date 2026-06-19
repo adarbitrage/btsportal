@@ -76,6 +76,7 @@ import mediaMavensLinksRouter from "./media-mavens-links";
 import tapfiliateSSORrouter from "./tapfiliate-sso";
 import voiceRouter from "./voice";
 import webhooksRetellRouter from "./webhooks-retell";
+import adminFulfillmentCatalogRouter from "./admin-fulfillment-catalog";
 
 const router: IRouter = Router();
 
@@ -156,5 +157,6 @@ router.use(mediaMavensLinksRouter);
 router.use(tapfiliateSSORrouter);
 router.use(voiceRouter);
 router.use(webhooksRetellRouter);
+router.use(adminFulfillmentCatalogRouter);
 
 export default router;

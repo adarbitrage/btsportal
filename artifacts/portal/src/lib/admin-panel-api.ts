@@ -391,6 +391,46 @@ export type ChangeHistoryRetentionConfigStatus = {
   };
 };
 
+export type FulfillmentMappingRow = {
+  id: number;
+  machineKey: string;
+  portalSlug: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string | null;
+};
+
+export type FulfillmentProduct = {
+  id: number;
+  slug: string;
+  name: string;
+  entitlementKeys: string[];
+};
+
+export type FulfillmentUnknownKey = {
+  id: number;
+  machineKey: string;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastExternalOrderId: string | null;
+  lastExternalSource: string | null;
+  dismissedAt: string | null;
+  dismissedBy: string | null;
+};
+
+export type FulfillmentCatalogResponse = {
+  // Raw Machine offer catalog (shape owned by The Machine). `null` when the
+  // catalog is unreachable — pair with `catalogAvailable`/`catalogError`.
+  catalog: unknown | null;
+  catalogAvailable: boolean;
+  catalogError: string | null;
+  mappings: FulfillmentMappingRow[];
+  products: FulfillmentProduct[];
+  unknownKeys: FulfillmentUnknownKey[];
+};
+
 export const adminPanelApi = {
   async getDashboardKpis() {
     const res = await authFetch("/admin/dashboard/kpis");
@@ -1807,6 +1847,52 @@ export const adminPanelApi = {
         changedFields: Array<"emailRetentionDays" | "phoneRetentionDays">;
       }
     >;
+  },
+
+  // ─── Fulfillment Map ──────────────────────────────────────────────────────
+  // Read-aggregation: LIVE Machine offer catalog + local mappings/products/
+  // unknown-keys. Writes are delegated to the existing machine-product-key-
+  // mappings CRUD below (create/update), never duplicated server-side.
+  async getFulfillmentCatalog(): Promise<FulfillmentCatalogResponse> {
+    const res = await authFetch("/admin/fulfillment/catalog");
+    if (!res.ok) throw new Error("Failed to load fulfillment catalog");
+    return res.json();
+  },
+
+  async createMachineProductKeyMapping(body: {
+    machineKey: string;
+    portalSlug: string;
+    notes?: string;
+  }): Promise<{ mapping: FulfillmentMappingRow }> {
+    const res = await authFetch("/admin/integrations/machine-product-key-mappings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => undefined);
+      throw new Error(extractApiError(data) ?? "Failed to create mapping");
+    }
+    return res.json();
+  },
+
+  async updateMachineProductKeyMapping(
+    id: number,
+    body: { portalSlug?: string; notes?: string | null },
+  ): Promise<{ mapping: FulfillmentMappingRow }> {
+    const res = await authFetch(
+      `/admin/integrations/machine-product-key-mappings/${id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => undefined);
+      throw new Error(extractApiError(data) ?? "Failed to update mapping");
+    }
+    return res.json();
   },
 
   async getYseOrders(params: {
