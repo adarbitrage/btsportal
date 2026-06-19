@@ -17,8 +17,12 @@ import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast 
 import { emitWebhookEvent } from "../lib/webhook-events";
 import { retryTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import { requirePermission } from "../middleware/rbac";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { COMPLIANCE_MAX_FILES, validateComplianceAttachments } from "../lib/attachment-validation";
 
 const router = Router();
+
+const objectStorageService = new ObjectStorageService();
 
 
 router.get("/admin/canned-responses", requirePermission("tickets:view"), async (req: Request, res: Response) => {
@@ -818,12 +822,90 @@ router.post("/admin/tickets/:id/reply", requirePermission("tickets:manage"), asy
       return;
     }
 
-    const [message] = await db.insert(ticketMessagesTable).values({
-      ticketId,
-      senderType: "admin",
-      body,
-      isInternal: false,
-    }).returning();
+    // Optional files uploaded via the presigned-upload flow before this reply
+    // was sent. Each is persisted as a ticket_attachments row linked to both
+    // the ticket and this specific reply message, so it renders inline beneath
+    // the admin message in both the admin and member threads (mirrors the
+    // member reply flow in routes/tickets.ts). We filter to entries with a
+    // usable objectPath so a malformed item can't insert a broken row.
+    type ReplyAttachmentInput = { objectPath: string; fileName?: string | null; fileSize?: number | null; contentType?: string | null };
+    const replyAttachments: ReplyAttachmentInput[] = Array.isArray(req.body.attachments)
+      ? (req.body.attachments as ReplyAttachmentInput[]).filter(
+          (a) => a && typeof a === "object" && typeof a.objectPath === "string" && a.objectPath.length > 0,
+        )
+      : [];
+
+    // Validate uploaded files against the same per-file / total size,
+    // file-count, and content-type limits the member reply + Compliance form
+    // enforce. The count is checked up front so an abusive payload never fans
+    // out hundreds of storage lookups. Sizes and content types are then read
+    // from the *actual* stored objects (not the client-declared values, which
+    // can be spoofed) and run through the shared validator.
+    if (replyAttachments.length > COMPLIANCE_MAX_FILES) {
+      res.status(400).json({
+        error: `Too many files. You can upload at most ${COMPLIANCE_MAX_FILES} files per reply (you attached ${replyAttachments.length}).`,
+      });
+      return;
+    }
+
+    type VerifiedReplyAttachment = {
+      objectPath: string;
+      fileName: string | null;
+      fileSize: number;
+      contentType: string | null;
+    };
+    let verifiedReplyAttachments: VerifiedReplyAttachment[] = [];
+    if (replyAttachments.length > 0) {
+      try {
+        verifiedReplyAttachments = await Promise.all(
+          replyAttachments.map(async (a) => {
+            const meta = await objectStorageService.getObjectEntityMetadata(a.objectPath);
+            return {
+              objectPath: a.objectPath,
+              fileName: a.fileName ?? null,
+              fileSize: meta.size,
+              contentType: meta.contentType || a.contentType || null,
+            };
+          }),
+        );
+      } catch (err) {
+        console.error("[AdminTickets] Failed to verify reply attachment metadata:", err);
+        res.status(400).json({
+          error: "We couldn't verify one or more of the uploaded files. Please re-upload them and try again.",
+        });
+        return;
+      }
+
+      const validationError = validateComplianceAttachments(verifiedReplyAttachments);
+      if (validationError) {
+        res.status(400).json({ error: validationError });
+        return;
+      }
+    }
+
+    const message = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(ticketMessagesTable).values({
+        ticketId,
+        senderType: "admin",
+        body,
+        isInternal: false,
+      }).returning();
+
+      if (verifiedReplyAttachments.length > 0) {
+        await tx.insert(ticketAttachmentsTable).values(
+          verifiedReplyAttachments.map((a) => ({
+            ticketId,
+            messageId: created.id,
+            objectPath: a.objectPath,
+            fileName: a.fileName,
+            fileSize: a.fileSize,
+            contentType: a.contentType,
+          })),
+        );
+      }
+
+      return created;
+    });
 
     await recordFirstResponse(ticketId);
 

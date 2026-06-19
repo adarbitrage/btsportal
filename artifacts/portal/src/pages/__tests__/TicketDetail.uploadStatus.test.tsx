@@ -138,9 +138,10 @@ describe("TicketDetail — per-file upload status", () => {
     typeReply("Here are the files you asked for");
     stageFiles([pngFile("good.png"), pngFile("broken.png")]);
 
-    // Both files start out pending (their own status, not a global one).
-    expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "pending");
-    expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "pending");
+    // Files upload eagerly on attach, so each row immediately enters its own
+    // "uploading" state (per-row status, not a single global one).
+    expect(screen.getByTestId("reply-file-0")).toHaveAttribute("data-status", "uploading");
+    expect(screen.getByTestId("reply-file-1")).toHaveAttribute("data-status", "uploading");
 
     fireEvent.click(screen.getByTestId("reply-send-btn"));
 

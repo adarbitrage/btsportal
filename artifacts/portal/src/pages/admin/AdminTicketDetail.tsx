@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,64 @@ import {
   Paperclip,
   Download,
   FileText,
+  Upload,
+  X,
+  Loader2,
+  RotateCw,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
 import { categoryLabel } from "./AdminTicketQueue";
+import { validateTicketAttachment } from "@workspace/support-config";
+
+const API_BASE = `${import.meta.env.BASE_URL}api`;
+
+// File-type hint for the attachment picker. The shared validateTicketAttachment
+// helper is the authority for the actual per-file size + content-type rules
+// (and the server re-validates against the real stored object metadata); this
+// just nudges the OS file dialog toward the accepted types.
+const FILE_ACCEPT = "image/*,application/pdf,.zip,application/zip";
+
+type AttachmentMeta = {
+  objectPath: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+};
+
+type UploadStatus = "pending" | "uploading" | "uploaded" | "failed";
+
+type StagedFile = {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  meta?: AttachmentMeta;
+  error?: string;
+};
+
+let stagedFileSeq = 0;
+const nextStagedFileId = () => `staged-${Date.now()}-${stagedFileSeq++}`;
+
+// Reuses the same presigned-upload flow as the member reply composer: ask the
+// API for a presigned URL, PUT the file straight to object storage, then return
+// the metadata the reply endpoint persists as a ticket_attachments row.
+async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
+  const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+  });
+  if (!metaRes.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+  const { uploadURL, objectPath } = await metaRes.json();
+  const putRes = await fetch(uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  if (!putRes.ok) throw new Error(`Upload failed for ${file.name}`);
+  return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
+}
 
 type TicketAuditRow = {
   id: number;
@@ -484,6 +538,16 @@ export default function AdminTicketDetail() {
   const [attachments, setAttachments] = useState<TicketAttachment[] | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; name: string; kind: "image" | "pdf" } | null>(null);
 
+  // Reply composer send state + staged attachments (public replies only —
+  // internal notes stay text-only). Files upload eagerly on attach so the
+  // per-row status reflects pending -> uploading -> uploaded/failed and Send
+  // is instant by the time the agent finishes typing.
+  const [sending, setSending] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [files, setFiles] = useState<StagedFile[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const loadTicket = useCallback(async () => {
     if (!Number.isFinite(ticketId)) {
       setNotFound(true);
@@ -661,6 +725,124 @@ export default function AdminTicketDetail() {
 
   const handleInsertCanned = (text: string) => {
     setReply((prev) => prev + text);
+  };
+
+  // Any in-flight upload gates Send / Attach / Retry so they stay in lockstep
+  // with the per-row staged-file status.
+  const anyUploading = files.some((sf) => sf.status === "uploading");
+
+  const removeFile = (fileId: string) => {
+    setFiles((prev) => prev.filter((sf) => sf.id !== fileId));
+  };
+
+  // Upload a single staged file, returning its next state. Never throws — a
+  // failure is surfaced as a "failed" row the agent can retry or remove.
+  const uploadOne = async (target: StagedFile): Promise<StagedFile> => {
+    try {
+      const meta = await uploadFileToStorage(target.file);
+      return { ...target, status: "uploaded", meta, error: undefined };
+    } catch (err) {
+      return {
+        ...target,
+        status: "failed",
+        error: err instanceof Error ? err.message : `Upload failed for ${target.file.name}`,
+      };
+    }
+  };
+
+  // Flip a staged file to "uploading", push it to object storage, then write
+  // back its final status. Shared by the eager-on-attach path and Retry.
+  const startUpload = async (target: StagedFile) => {
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? { ...sf, status: "uploading", error: undefined } : sf)));
+    const result = await uploadOne(target);
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? result : sf)));
+  };
+
+  // Validate a freshly selected batch against the shared per-file rules before
+  // staging. Rejected files are dropped and the first offender is surfaced;
+  // accepted files upload eagerly so they're already in storage by send time.
+  const addFiles = (selected: File[]) => {
+    if (selected.length === 0) return;
+    const accepted: StagedFile[] = [];
+    let firstError: string | null = null;
+    for (const file of selected) {
+      const error = validateTicketAttachment({
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: file.type,
+      });
+      if (error) {
+        if (!firstError) firstError = error;
+        continue;
+      }
+      accepted.push({ id: nextStagedFileId(), file, status: "pending" });
+    }
+    setUploadError(firstError);
+    if (accepted.length > 0) {
+      setFiles((prev) => [...prev, ...accepted]);
+      accepted.forEach((sf) => { void startUpload(sf); });
+    }
+  };
+
+  const retryFile = async (fileId: string) => {
+    const target = files.find((sf) => sf.id === fileId);
+    if (!target || target.status === "uploading") return;
+    await startUpload(target);
+  };
+
+  const handleSend = async () => {
+    if (!ticket || !reply.trim() || sending || anyUploading) return;
+    setSending(true);
+    setReplyError(null);
+    try {
+      if (isInternal) {
+        // Internal notes are admin-only and text-only.
+        await adminPanelApi.addInternalNote(ticket.id, reply);
+      } else {
+        // Re-validate just before send as a safety net, then (re)upload any
+        // file not yet in storage (e.g. a failed file sent without retrying).
+        for (const sf of files) {
+          const error = validateTicketAttachment({
+            fileName: sf.file.name,
+            fileSize: sf.file.size,
+            contentType: sf.file.type,
+          });
+          if (error) {
+            setUploadError(error);
+            setSending(false);
+            return;
+          }
+        }
+
+        let working = files;
+        const pending = files.filter((sf) => sf.status !== "uploaded");
+        if (pending.length > 0) {
+          setFiles((prev) => prev.map((sf) => (sf.status !== "uploaded" ? { ...sf, status: "uploading", error: undefined } : sf)));
+          const results = await Promise.all(pending.map(uploadOne));
+          const byId = new Map(results.map((r) => [r.id, r]));
+          working = files.map((sf) => byId.get(sf.id) ?? sf);
+          setFiles(working);
+          if (working.some((sf) => sf.status === "failed")) {
+            setSending(false);
+            return;
+          }
+        }
+
+        const replyAttachments = working
+          .map((sf) => sf.meta)
+          .filter((meta): meta is AttachmentMeta => Boolean(meta));
+
+        await adminPanelApi.replyToTicket(ticket.id, reply, replyAttachments);
+      }
+      setReply("");
+      setFiles([]);
+      setUploadError(null);
+      await Promise.all([loadTicket(), loadSla(), loadAuditHistory(), loadAttachments()]);
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setSending(false);
+    }
   };
 
   const memberName = ticket.member?.name ?? "Unknown member";
@@ -1007,12 +1189,119 @@ export default function AdminTicketDetail() {
                 isInternal && "bg-yellow-50/50"
               )}
               placeholder={isInternal ? "Write an internal note..." : "Type your reply here..."}
+              data-testid="ticket-reply-input"
             />
-            <div className="bg-secondary/50 p-3 border-t border-border flex items-center justify-between">
+
+            {/* Attachments are public-reply only; internal notes stay text-only. */}
+            {!isInternal && files.length > 0 && (
+              <ul className="px-4 pb-2 space-y-1" data-testid="reply-files-list">
+                {files.map((sf, i) => (
+                  <li
+                    key={sf.id}
+                    data-testid={`reply-file-${i}`}
+                    data-status={sf.status}
+                    className="flex items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
+                  >
+                    <span className="flex items-center gap-1.5 truncate min-w-0">
+                      <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{sf.file.name}</span>
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      {sf.status === "pending" && (
+                        <span className="text-muted-foreground" data-testid={`reply-file-status-${i}`}>Pending</span>
+                      )}
+                      {sf.status === "uploading" && (
+                        <span className="flex items-center gap-1 text-blue-600" data-testid={`reply-file-status-${i}`}>
+                          <Loader2 className="w-3 h-3 animate-spin" /> Uploading…
+                        </span>
+                      )}
+                      {sf.status === "uploaded" && (
+                        <span className="flex items-center gap-1 text-green-600" data-testid={`reply-file-status-${i}`}>
+                          <CheckCircle2 className="w-3 h-3" /> Uploaded
+                        </span>
+                      )}
+                      {sf.status === "failed" && (
+                        <>
+                          <span
+                            className="flex items-center gap-1 text-destructive"
+                            data-testid={`reply-file-status-${i}`}
+                            title={sf.error}
+                          >
+                            <AlertTriangle className="w-3 h-3" /> Failed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => retryFile(sf.id)}
+                            disabled={anyUploading}
+                            className="flex items-center gap-1 text-primary hover:underline disabled:opacity-50"
+                            data-testid={`reply-file-retry-${i}`}
+                          >
+                            <RotateCw className="w-3 h-3" /> Retry
+                          </button>
+                        </>
+                      )}
+                      {sf.status !== "uploading" && (
+                        <button
+                          type="button"
+                          onClick={() => removeFile(sf.id)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove ${sf.file.name}`}
+                          data-testid={`reply-file-remove-${i}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!isInternal && uploadError && (
+              <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-upload-error">{uploadError}</p>
+            )}
+
+            {!isInternal && files.some((sf) => sf.status === "failed") && (
+              <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-upload-failed">
+                Some files didn't upload. Retry or remove them, then send again.
+              </p>
+            )}
+
+            {replyError && (
+              <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-send-error">{replyError}</p>
+            )}
+
+            <div className="bg-secondary/50 p-3 border-t border-border flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Button variant="outline" size="sm" onClick={() => setShowCannedPicker(true)}>
                   <MessageSquareText className="w-4 h-4 mr-2" /> Canned Response
                 </Button>
+                {!isInternal && (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      multiple
+                      accept={FILE_ACCEPT}
+                      onChange={(e) => {
+                        addFiles(Array.from(e.target.files || []));
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                      data-testid="reply-file-input"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={anyUploading || sending}
+                      data-testid="reply-attach-btn"
+                    >
+                      <Upload className="w-4 h-4 mr-2" /> Attach Files
+                    </Button>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsInternal(!isInternal)}
@@ -1028,8 +1317,13 @@ export default function AdminTicketDetail() {
                   </button>
                 </div>
               </div>
-              <Button disabled={!reply.trim()}>
-                <Send className="w-4 h-4 mr-2" /> {isInternal ? "Save Note" : "Send Reply"}
+              <Button
+                onClick={handleSend}
+                disabled={!reply.trim() || anyUploading || sending}
+                data-testid="ticket-reply-send"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {anyUploading ? "Uploading…" : sending ? "Sending…" : isInternal ? "Save Note" : "Send Reply"}
               </Button>
             </div>
           </Card>

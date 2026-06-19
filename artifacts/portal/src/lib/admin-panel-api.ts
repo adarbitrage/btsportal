@@ -890,6 +890,51 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  // Send a public reply to a ticket as the support team. Optional files must
+  // already be uploaded to object storage (via /storage/uploads/request-url);
+  // pass their metadata here and the server links each to the new reply
+  // message so it renders inline beneath the admin message in both threads.
+  async replyToTicket(
+    ticketId: number,
+    body: string,
+    attachments: Array<{ objectPath: string; fileName: string; fileSize: number; contentType: string }> = [],
+  ) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body, attachments }),
+    });
+    if (!res.ok) {
+      let message = "Failed to send reply";
+      try {
+        const errBody = await res.json();
+        if (errBody?.error) message = typeof errBody.error === "string" ? errBody.error : errBody.error.message ?? message;
+      } catch {
+        /* keep default message */
+      }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+
+  // Add an internal note (admin-only, never shown to the member).
+  async addInternalNote(ticketId: number, body: string) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/internal-note`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+    if (!res.ok) {
+      let message = "Failed to save internal note";
+      try {
+        const errBody = await res.json();
+        if (errBody?.error) message = typeof errBody.error === "string" ? errBody.error : errBody.error.message ?? message;
+      } catch {
+        /* keep default message */
+      }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+
   // Re-attempt TicketDesk notification delivery for a ticket whose delivery
   // failed or was skipped. The server resets the row to "pending" and
   // re-enqueues a delivery job; the queue then refetches to update the badge.
