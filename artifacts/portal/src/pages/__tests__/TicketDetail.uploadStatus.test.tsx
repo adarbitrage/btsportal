@@ -156,6 +156,15 @@ describe("TicketDetail — per-file upload status", () => {
     expect(screen.getByTestId("reply-file-retry-1")).toBeInTheDocument();
     expect(screen.getByTestId("reply-upload-failed")).toBeInTheDocument();
 
+    // The failed row surfaces a concise, human-readable reason inline (not only
+    // in a hover title) and exposes it to screen readers via role="alert".
+    const reason = screen.getByTestId("reply-file-error-1");
+    expect(reason).toBeInTheDocument();
+    expect(reason).toHaveAttribute("role", "alert");
+    expect(reason).toHaveTextContent(/storage rejected the file/i);
+    // The successful row has no inline error.
+    expect(screen.queryByTestId("reply-file-error-0")).not.toBeInTheDocument();
+
     // The reply must NOT be sent while a file is failed.
     expect(addMessageMutate).not.toHaveBeenCalled();
   });

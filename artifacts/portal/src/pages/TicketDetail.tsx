@@ -51,20 +51,34 @@ const nextStagedFileId = () => `staged-${Date.now()}-${stagedFileSeq++}`;
 // API for a presigned URL, PUT the file straight to object storage, then return
 // the metadata the ticket-message endpoint persists as a ticket_attachments row.
 async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
-  const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-  });
-  if (!metaRes.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+  let metaRes: Response;
+  try {
+    metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+  } catch {
+    throw new Error("Network error — couldn't reach the server. Check your connection and retry.");
+  }
+  if (!metaRes.ok) {
+    throw new Error(`Couldn't prepare the upload (server error ${metaRes.status}). Retry in a moment.`);
+  }
   const { uploadURL, objectPath } = await metaRes.json();
-  const putRes = await fetch(uploadURL, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-  if (!putRes.ok) throw new Error(`Upload failed for ${file.name}`);
+  let putRes: Response;
+  try {
+    putRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    });
+  } catch {
+    throw new Error("Network error during upload — check your connection and retry.");
+  }
+  if (!putRes.ok) {
+    throw new Error(`Storage rejected the file (error ${putRes.status}). Retry in a moment.`);
+  }
   return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
 }
 
@@ -514,8 +528,9 @@ export default function TicketDetail() {
                     key={sf.id}
                     data-testid={`reply-file-${i}`}
                     data-status={sf.status}
-                    className="flex items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
                   >
+                    <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 truncate min-w-0">
                       <Paperclip className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">{sf.file.name}</span>
@@ -539,7 +554,6 @@ export default function TicketDetail() {
                           <span
                             className="flex items-center gap-1 text-destructive"
                             data-testid={`reply-file-status-${i}`}
-                            title={sf.error}
                           >
                             <AlertTriangle className="w-3 h-3" /> Failed
                           </span>
@@ -566,6 +580,17 @@ export default function TicketDetail() {
                         </button>
                       )}
                     </span>
+                    </div>
+                    {sf.status === "failed" && sf.error && (
+                      <p
+                        className="text-destructive pl-5"
+                        role="alert"
+                        data-testid={`reply-file-error-${i}`}
+                      >
+                        <span className="sr-only">Upload failed: </span>
+                        {sf.error}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
