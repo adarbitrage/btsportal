@@ -640,6 +640,9 @@ importers:
       '@workspace/blitz-curriculum':
         specifier: workspace:*
         version: link:../../lib/blitz-curriculum
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../../lib/db
       '@workspace/moderation-shared':
         specifier: workspace:*
         version: link:../../lib/moderation-shared

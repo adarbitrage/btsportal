@@ -63,27 +63,7 @@ import {
   useAdminUpgradeProducts,
   type AssistantCard,
 } from "@/lib/admin-api";
-
-const ENTITLEMENT_KEYS = [
-  "content:frontend",
-  "content:advanced",
-  "software:base",
-  "software:expanded",
-  "coaching:group",
-  "coaching:mastermind",
-  "community:access",
-  "chat:basic",
-  "chat:full",
-  "chat:ai",
-  "chat:custom",
-  "support:basic",
-  "support:standard",
-  "support:enhanced",
-  "support:vip",
-  "support:unlimited",
-  "vault:view",
-  "vault:manage",
-];
+import { ENTITLEMENT_KEYS } from "@workspace/db/entitlement-registry";
 
 const ENTITLEMENT_NONE = "__none__";
 

@@ -1,0 +1,25 @@
+## Task: Collapse the two drifted entitlement-key lists onto the registry
+
+### What This Does
+Makes lib/db/src/entitlement-registry.ts the single source of truth by removing the two independent copies of the full key list found in the codebase. No schema changes.
+
+### Files Modified
+- artifacts/portal/src/pages/admin/AdminAssistantCards.tsx — DELETE the local `const ENTITLEMENT_KEYS = [...]` (lines ~67–86). Import the canonical list from @workspace/db instead and drive the access-gate dropdown from it, so the dropdown always reflects the registry (including all brand keys content:yse/backroad/offmarket/reserve_income/silent_partner/test_like_mad and offer keys offer:cmo_bump/21_day_blitz/swipe_bank/profit_maximizer). 
+  - IMPORTANT: the local list also contained chat:ai, vault:view, vault:manage, which are NOT in the registry. Before deleting, check whether any assistant card or other row currently persists one of those three values as its gate. If yes, do NOT silently drop them — report back which rows use them and pause for a decision (we either add those keys to the registry or migrate those rows). If no row uses them, they were invalid options and removing them is correct.
+- artifacts/api-server/src/seed.ts — `entitlementData` (lines ~41–62): derive the seeded entitlements catalog from ENTITLEMENT_KEYS (or explicitly import and reference it) rather than re-listing keys by hand, so this catalog can't drift from the registry. Preserve any human-readable label/description fields the catalog rows carry — if the registry only holds key strings, keep the labels in seed.ts but source the KEY SET from the registry, and fail/skip loudly if a seeded key isn't in the registry.
+
+### Schema Changes
+None.
+
+### Dependencies
+None — independent of ②/③/④/⑤. Touches only these two files.
+
+### Acceptance Criteria
+- A repo search for a second `const ENTITLEMENT_KEYS = [` (or any independent full key list) returns only the canonical registry; AdminAssistantCards.tsx imports it.
+- The assistant-card access-gate dropdown shows every registry key, including all brand and offer keys.
+- The seeded entitlements catalog cannot contain a key absent from the registry.
+- If any existing row uses chat:ai / vault:view / vault:manage, the agent reported it and paused rather than dropping it.
+
+### Implementation Notes
+- entitlements.ts is already clean (reads keys at runtime, no list) — do not touch it.
+- This is the file the registry was meant to subsume; after this, adding a brand = one line in entitlement-registry.ts and the dropdown + validation + seed all pick it up.

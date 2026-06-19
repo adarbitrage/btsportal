@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, ENTITLEMENT_KEYS } from "@workspace/db";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
 import {
   productsTable, entitlementsTable, userProductsTable,
@@ -38,28 +38,59 @@ async function seed() {
     );
   END $$`);
 
-  const entitlementData = [
-    { key: "content:frontend", description: "Foundational video + text training modules", category: "content" },
-    { key: "content:advanced", description: "Advanced pre-recorded training modules", category: "content" },
-    { key: "software:base", description: "Base software/tool access", category: "software" },
-    { key: "software:expanded", description: "Expanded software/tool suite", category: "software" },
-    { key: "coaching:group", description: "Live group coaching calls", category: "coaching" },
-    { key: "coaching:mastermind", description: "Advanced mastermind sessions", category: "coaching" },
-    { key: "community:access", description: "Mentorship community access", category: "community" },
-    { key: "commissions:entry", description: "Entry-level affiliate commissions", category: "commissions" },
-    { key: "commissions:mid", description: "Mid-tier affiliate commissions", category: "commissions" },
-    { key: "commissions:premium", description: "Premium affiliate commissions", category: "commissions" },
-    { key: "commissions:top", description: "Top-tier affiliate commissions", category: "commissions" },
-    { key: "support:basic", description: "3 tickets/month, standard SLA", category: "support" },
-    { key: "support:standard", description: "5 tickets/month", category: "support" },
-    { key: "support:enhanced", description: "10 tickets/month", category: "support" },
-    { key: "support:unlimited", description: "Unlimited tickets", category: "support" },
-    { key: "support:vip", description: "Unlimited + priority SLA", category: "support" },
-    { key: "chat:basic", description: "AI chat with basic access", category: "chat" },
-    { key: "chat:full", description: "AI chat with full access", category: "chat" },
-    { key: "chat:custom", description: "AI chat with custom prompts", category: "chat" },
-    { key: "access:lifetime", description: "No expiration on access", category: "access" },
-  ];
+  // Human-readable catalog metadata for each entitlement key. The KEY SET is
+  // sourced from ENTITLEMENT_KEYS (the single source of truth) below, so this
+  // seeded catalog can never contain a key absent from the registry. The Record
+  // type is exhaustive over the registry, so adding a key without metadata is a
+  // compile error; the runtime guard also fails loudly as a backstop.
+  const ENTITLEMENT_METADATA: Record<
+    (typeof ENTITLEMENT_KEYS)[number],
+    { description: string; category: string }
+  > = {
+    "content:frontend": { description: "Foundational video + text training modules", category: "content" },
+    "content:advanced": { description: "Advanced pre-recorded training modules", category: "content" },
+    "content:yse": { description: "YSE brand front-end content", category: "content" },
+    "content:backroad": { description: "Backroad brand front-end content", category: "content" },
+    "content:offmarket": { description: "Off-Market brand front-end content", category: "content" },
+    "content:reserve_income": { description: "Reserve Income brand front-end content", category: "content" },
+    "content:silent_partner": { description: "Silent Partner brand front-end content", category: "content" },
+    "content:test_like_mad": { description: "Test Like Mad brand front-end content", category: "content" },
+    "offer:cmo_bump": { description: "CMO Bump offer access", category: "offer" },
+    "offer:21_day_blitz": { description: "21-Day Blitz offer access", category: "offer" },
+    "offer:swipe_bank": { description: "Swipe Resource Bank offer access", category: "offer" },
+    "offer:profit_maximizer": { description: "Profit Maximizer Pass offer access", category: "offer" },
+    "software:base": { description: "Base software/tool access", category: "software" },
+    "software:expanded": { description: "Expanded software/tool suite", category: "software" },
+    "coaching:group": { description: "Live group coaching calls", category: "coaching" },
+    "coaching:mastermind": { description: "Advanced mastermind sessions", category: "coaching" },
+    "coaching:one_on_one:monthly": { description: "Monthly 1-on-1 coaching sessions", category: "coaching" },
+    "coaching:one_on_one:weekly": { description: "Weekly 1-on-1 coaching sessions", category: "coaching" },
+    "community:access": { description: "Mentorship community access", category: "community" },
+    "commissions:entry": { description: "Entry-level affiliate commissions", category: "commissions" },
+    "commissions:mid": { description: "Mid-tier affiliate commissions", category: "commissions" },
+    "commissions:premium": { description: "Premium affiliate commissions", category: "commissions" },
+    "commissions:top": { description: "Top-tier affiliate commissions", category: "commissions" },
+    "support:basic": { description: "3 tickets/month, standard SLA", category: "support" },
+    "support:standard": { description: "5 tickets/month", category: "support" },
+    "support:enhanced": { description: "10 tickets/month", category: "support" },
+    "support:unlimited": { description: "Unlimited tickets", category: "support" },
+    "support:vip": { description: "Unlimited + priority SLA", category: "support" },
+    "chat:basic": { description: "AI chat with basic access", category: "chat" },
+    "chat:full": { description: "AI chat with full access", category: "chat" },
+    "chat:custom": { description: "AI chat with custom prompts", category: "chat" },
+    "access:lifetime": { description: "No expiration on access", category: "access" },
+    "voice:access": { description: "Voice assistant access", category: "voice" },
+  };
+
+  const entitlementData = ENTITLEMENT_KEYS.map((key) => {
+    const meta = ENTITLEMENT_METADATA[key];
+    if (!meta) {
+      throw new Error(
+        `seed: entitlement key "${key}" is in the registry (ENTITLEMENT_KEYS) but has no catalog metadata in seed.ts. Add a description/category for it.`,
+      );
+    }
+    return { key, description: meta.description, category: meta.category };
+  });
   await db.insert(entitlementsTable).values(entitlementData);
 
   const productData = [
