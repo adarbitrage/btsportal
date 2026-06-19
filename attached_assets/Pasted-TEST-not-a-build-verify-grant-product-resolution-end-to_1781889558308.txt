@@ -1,0 +1,18 @@
+TEST (not a build) — verify /grant-product resolution end-to-end against a synthetic call. No real order needed; call the endpoint directly with a tagged test email (e2e-test+<timestamp>@example.com). Report observed vs expected. Change nothing structural.
+
+PART A — valid multi-key grant (the keys The Machine actually emits for a YSE front-end+bump+upsell):
+1. POST to /api/integrations/grant-product with externalSource="machine", a unique externalOrderId (e.g. "E2E-A-<timestamp>"), the test customer email, and productKeys: ["yse:front_end","yse:bump","yse:upsell_1"].
+2. Report: the user created/matched; every user_products row granted (product slug + status); the flattened entitlements (getUserEntitlements); and confirm machine_unknown_product_keys stayed empty.
+EXPECTED: grants yse_front_end + yse_affiliate_cmo_bump + yse_21_day_blitz; entitlements include content:frontend, content:yse, offer:cmo_bump, offer:21_day_blitz (plus whatever those products carry); machine_unknown_product_keys empty.
+
+PART B — unmapped-key fallback:
+3. POST again, new externalOrderId ("E2E-B-<timestamp>"), same test email, productKeys: ["yse:front_end","yse:upsell_9"] (yse:upsell_9 is deliberately bogus).
+4. Report: HTTP status (must NOT be 404); was yse_front_end still granted; did "yse:upsell_9" get recorded in machine_unknown_product_keys; did it fall back to the front-end product?
+EXPECTED: 200, valid key granted, bogus key recorded in machine_unknown_product_keys, fallback to yse_front_end (no lockout).
+
+PART C — dedup guard (⑤):
+5. Re-POST the EXACT Part A call again — same externalOrderId "E2E-A-<timestamp>", same email, same keys.
+6. Report: were any duplicate active user_products rows created? Did the idempotency (externalSource+externalOrderId) short-circuit, or the partial unique index prevent dupes? Any 23505 error, and was it handled gracefully or did it surface as an error?
+EXPECTED: no duplicate active rows; idempotency holds.
+
+Report all observed values vs expected.
