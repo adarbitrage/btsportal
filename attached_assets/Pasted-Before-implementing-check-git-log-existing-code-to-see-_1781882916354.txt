@@ -1,0 +1,39 @@
+Before implementing: check git log / existing code to see whether any of this already shipped. If parts exist, report what's already done and flag any conflict rather than reverting settled or test-locked code. Implement only the genuinely missing pieces.
+
+## Task: Resolve funnel-qualified productKeys at /grant-product — INVESTIGATE FIRST
+
+### Critical context
+The Machine sends funnel-qualified productKeys (e.g. "backroad:bump", "yse:front_end") to POST /api/integrations/grant-product UNCONDITIONALLY. A funnel-qualified key is NOT a products.slug. I need to know exactly how this endpoint resolves such keys today before changing anything.
+
+### Phase 0 — INVESTIGATE (report before implementing)
+1. Does validateGrantProductBody / the /grant-product payload currently accept a productKeys field (array)? Or only productSlugs?
+2. When a productKey like "backroad:bump" arrives, how is it resolved to a product — direct products.slug lookup (would fail), via machine_product_key_mappings, or by parsing the prefix? Show the code.
+3. List the current rows in machine_product_key_mappings. Are there funnel-qualified rows (machine_key like "backroad:bump"), or only single-key rows (like "backroad", "yse_front_end")?
+4. Simulate/trace: what happens RIGHT NOW when productKeys ["yse:front_end","yse:bump","backroad:front_end"] hit this endpoint — granted correctly, unknown/404, or fallback? 
+Report all four before writing code. If resolution already works for funnel-qualified keys, implement only what's missing from the rest.
+
+### Target behavior (implement the gap)
+- /grant-product accepts productKeys: string[] (in addition to existing productSlugs; at least one non-empty).
+- Each productKey resolves via machine_product_key_mappings (machine_key → portal_slug), then grants that product's entitlements through the existing per-item grant engine.
+- Unknown key → record to machine_unknown_product_keys AND fall back to the front-end product for that key's offer prefix ("backroad:bump" → "backroad"; "yse:*" → "yse_front_end"), so a paid buyer is never locked out. (Do NOT change the productSlugs-only path; it stays all-or-nothing 404.)
+
+### Seed the 30 funnel-qualified mapping rows (idempotent, additive)
+For EACH offer in { yse, backroad, offmarket, reserve_income, silent_partner, test_like_mad }:
+  {offer}:front_end → that offer's front-end product slug
+       yse→yse_front_end, backroad→backroad, offmarket→offmarket,
+       reserve_income→reserve_income, silent_partner→silent_partner, test_like_mad→test_like_mad
+  {offer}:bump      → yse_affiliate_cmo_bump
+  {offer}:upsell_1  → yse_21_day_blitz
+  {offer}:upsell_2  → yse_swipe_resource_bank
+  {offer}:upsell_3  → yse_profit_maximizer_pass
+(The 24 offer rows intentionally point at 4 shared products — shared offer content, distinct keys so each can be overridden later. The existing single-key rows from the retired Path A are now orphaned; leave them or clean them, your call, but don't break them.)
+
+### Schema / Dependencies
+No schema change (machine_product_key_mappings + machine_unknown_product_keys exist). DEPLOY BEFORE ④.
+
+### Acceptance Criteria
+- Phase 0 findings reported.
+- productKeys ["yse:front_end","yse:bump"] grants yse_front_end + yse_affiliate_cmo_bump entitlements.
+- ["backroad:front_end"] grants the Backroad product.
+- An unmapped key like "backroad:upsell_9" → recorded in machine_unknown_product_keys AND buyer still granted "backroad" front-end (not 404, not zero access).
+- Existing productSlugs callers unchanged. Idempotency (externalSource + externalOrderId) and 5-attempt retry unaffected.
