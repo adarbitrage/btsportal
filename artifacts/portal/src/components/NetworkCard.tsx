@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Network, Star, CheckCircle2, Loader2 } from "lucide-react";
+import { Network, Star, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-
-const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 export interface NetworkCardData {
   slug: string;
@@ -47,51 +43,6 @@ export interface NetworkCardProps {
   disableLinks?: boolean;
 }
 
-function MediaMavensLoginButton({ slug }: { slug: string }) {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  async function handleLogin() {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/affiliate/tapfiliate-sso`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const msg =
-          res.status === 503
-            ? "Log in is temporarily unavailable. Please contact an administrator."
-            : (data.error as string) || "Failed to start login. Please try again.";
-        toast({ title: "Login unavailable", description: msg, variant: "destructive" });
-        return;
-      }
-      const { url } = await res.json();
-      window.open(url, "_blank", "noopener");
-    } catch {
-      toast({
-        title: "Login unavailable",
-        description: "Could not connect to the server. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={loading}
-      onClick={handleLogin}
-      data-testid={`button-login-${slug}`}
-    >
-      {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
-      Log in
-    </Button>
-  );
-}
 
 export function NetworkCard({
   network,
@@ -220,10 +171,17 @@ export function NetworkCard({
                 {isMediaMavens ? (
                   disableLinks ? (
                     <Button size="sm" variant="outline" disabled type="button">
-                      Log in
+                      View Performance
                     </Button>
                   ) : (
-                    <MediaMavensLoginButton slug={network.slug} />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      asChild
+                      data-testid={`button-performance-${network.slug}`}
+                    >
+                      <Link href="/media-mavens/performance">View Performance</Link>
+                    </Button>
                   )
                 ) : (
                   <>

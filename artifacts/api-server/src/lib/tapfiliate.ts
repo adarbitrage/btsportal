@@ -147,6 +147,58 @@ interface TapfiliateAffiliateInProgram {
   };
 }
 
+export interface TapfiliateConversion {
+  id: string;
+  created_at: string;
+  amount: string | number;
+  commission_amount?: string | number;
+  commission?: { amount: string | number } | null;
+  status: string;
+  program?: { id: string; title?: string } | null;
+}
+
+export interface TapfiliateConversionsPage {
+  items: TapfiliateConversion[];
+  hasNextPage: boolean;
+}
+
+export async function getAffiliateConversions(
+  affiliateId: string,
+  page: number,
+): Promise<TapfiliateConversionsPage> {
+  const items = await tapRequest<TapfiliateConversion[]>(
+    "GET",
+    `/conversions/?affiliate_id=${encodeURIComponent(affiliateId)}&page=${page}`,
+  );
+  const list = Array.isArray(items) ? items : [];
+  return { items: list, hasNextPage: list.length >= 25 };
+}
+
+export interface TapfiliatePayout {
+  id: string;
+  created_at: string;
+  amount: string | number;
+  payment_method?: string | null;
+  status: string;
+}
+
+export interface TapfiliatePayoutsPage {
+  items: TapfiliatePayout[];
+  hasNextPage: boolean;
+}
+
+export async function getAffiliatePayouts(
+  affiliateId: string,
+  page: number,
+): Promise<TapfiliatePayoutsPage> {
+  const items = await tapRequest<TapfiliatePayout[]>(
+    "GET",
+    `/affiliates/${encodeURIComponent(affiliateId)}/payouts/?page=${page}`,
+  );
+  const list = Array.isArray(items) ? items : [];
+  return { items: list, hasNextPage: list.length >= 25 };
+}
+
 export async function getAffiliateReferralLinks(
   affiliateId: string,
   programId: string,

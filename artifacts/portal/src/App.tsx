@@ -53,6 +53,7 @@ import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import AdminAffiliateNetworks from "@/pages/admin/AdminAffiliateNetworks";
 import AdminMediaMavens from "@/pages/admin/AdminMediaMavens";
 import MediaMavens from "@/pages/MediaMavens";
+import MediaMavensPerformance from "@/pages/MediaMavensPerformance";
 import CollectionDetail from "@/pages/CollectionDetail";
 import ResourceDetail from "@/pages/ResourceDetail";
 import Login from "@/pages/Login";
@@ -444,6 +445,7 @@ function Router() {
       <Route path="/resource-library">{() => <ProtectedRoute component={ResourceLibrary} />}</Route>
       <Route path="/affiliate-networks">{() => <ProtectedRoute component={AffiliateNetworks} />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
+      <Route path="/media-mavens/performance">{() => <ProtectedRoute component={MediaMavensPerformance} />}</Route>
       <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>
       <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} permission="tickets:view" />}</Route>
       <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} permission="tickets:manage" />}</Route>
