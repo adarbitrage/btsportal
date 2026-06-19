@@ -1,8 +1,6 @@
 {
   "constraints": {
-    "onlyInPush": [
-      "ticket_attachments | f | FOREIGN KEY (message_id) REFERENCES ticket_messages(id)"
-    ],
+    "onlyInPush": [],
     "onlyInMigrations": []
   },
   "indexes": {
