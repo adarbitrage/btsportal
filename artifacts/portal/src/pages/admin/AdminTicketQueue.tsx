@@ -11,6 +11,7 @@ import { Search, X, MailX, AlertTriangle, RefreshCw } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import type { TicketCategorySlug } from "@workspace/support-config";
 
 type AdminTicket = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[number];
 type TicketPriority = AdminTicket["priority"];
@@ -156,8 +157,15 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
 
 // Human-readable labels for ticket categories. The API stores raw enum slugs
 // (e.g. "concierge_task"), so we map them to display strings here. Unknown
-// slugs fall back to the raw value so new categories still render legibly.
-export const CATEGORY_LABELS: Record<string, string> = {
+// slugs fall back to slug-to-Title-Case so new categories still render legibly.
+//
+// The map is keyed by `TicketCategorySlug` (the authoritative list of every
+// category the backend can emit, from @workspace/support-config), so a new
+// backend category that lacks a curated label here fails the portal typecheck
+// — never silently shipping a slug-cased fallback. A companion test
+// (categoryLabel.test.tsx) backs this up at runtime and cross-checks the
+// generated API-client enum against the same list.
+export const CATEGORY_LABELS: Record<TicketCategorySlug, string> = {
   billing: "Billing",
   technical: "Technical",
   training: "Training",
@@ -169,7 +177,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 
 export function categoryLabel(category: string): string {
   return (
-    CATEGORY_LABELS[category] ??
+    (CATEGORY_LABELS as Record<string, string>)[category] ??
     category
       .split("_")
       .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))

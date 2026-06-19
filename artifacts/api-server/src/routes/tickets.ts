@@ -27,6 +27,7 @@ import { autoRouteTicket } from "../lib/ticket-routing";
 import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
 import { CommunicationService } from "../lib/communication-service";
+import { TICKET_CATEGORY } from "@workspace/support-config";
 
 // Stable namespace for the per-user advisory lock used by POST /tickets so
 // concurrent ticket-create requests for the same user are serialized and
@@ -945,7 +946,7 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
         .values({
           ticketNumber: generateTicketNumber(),
           userId,
-          category: "concierge_task",
+          category: TICKET_CATEGORY.conciergeTask,
           priority: "normal",
           status: "open",
           subject,
@@ -1082,7 +1083,7 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
         .values({
           ticketNumber: generateTicketNumber(),
           userId,
-          category: "compliance_review",
+          category: TICKET_CATEGORY.complianceReview,
           priority: "normal",
           status: "open",
           subject,

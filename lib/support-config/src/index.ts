@@ -90,3 +90,63 @@ export const TICKETDESK_CHAT_ORIGIN_ENV = "TICKETDESK_CHAT_ORIGIN";
  * so a missing secret can never silently accept unauthenticated replies.
  */
 export const TICKETDESK_WEBHOOK_SECRET_ENV = "TICKETDESK_WEBHOOK_SECRET";
+
+/**
+ * Single source of truth for the support-ticket categories the backend can
+ * emit on a ticket's `category` field.
+ *
+ * The ticket `category` column is free-form text in the database, so the
+ * authoritative set of values lives here instead. Two independent consumers
+ * must agree on this list:
+ *   - the API server, which stamps the internal categories below onto tickets
+ *     it auto-creates (the concierge and compliance intake forms), and
+ *   - the admin portal, whose `CATEGORY_LABELS` map
+ *     (`artifacts/portal/src/pages/admin/AdminTicketQueue.tsx`) must carry a
+ *     curated, human-readable label for every value here — otherwise the queue
+ *     silently falls back to slug-to-Title-Case for the missing one.
+ *
+ * A portal test pins `CATEGORY_LABELS` to this list, so adding a category here
+ * without also adding a curated label fails CI. The member-facing subset
+ * (everything except the internal categories) is additionally validated by the
+ * OpenAPI `category` enum; a test cross-checks the generated client enum
+ * against this list so a new member-facing enum value can never drift away
+ * from the curated labels either.
+ */
+
+/**
+ * Categories a member can pick when opening a ticket from the support form.
+ * Mirrors the OpenAPI `CreateTicketBody`/`ListTicketsResponseItem` `category`
+ * enum. Keep in lockstep with `openapi.yaml`.
+ */
+export const MEMBER_TICKET_CATEGORIES = [
+  "billing",
+  "technical",
+  "training",
+  "account",
+  "other",
+] as const;
+
+/**
+ * Categories the backend stamps onto tickets it auto-creates from internal
+ * intake flows. These are never member-selectable and so are not part of the
+ * OpenAPI create enum, but they are returned to admins on the ticket queue and
+ * therefore still need curated labels.
+ */
+export const INTERNAL_TICKET_CATEGORIES = [
+  "concierge_task",
+  "compliance_review",
+] as const;
+
+/** The full set of ticket categories the backend can emit. */
+export const TICKET_CATEGORIES = [
+  ...MEMBER_TICKET_CATEGORIES,
+  ...INTERNAL_TICKET_CATEGORIES,
+] as const;
+
+export type TicketCategorySlug = (typeof TICKET_CATEGORIES)[number];
+
+/** Stable references for the internal categories the backend stamps directly. */
+export const TICKET_CATEGORY = {
+  conciergeTask: "concierge_task",
+  complianceReview: "compliance_review",
+} as const satisfies Record<string, (typeof INTERNAL_TICKET_CATEGORIES)[number]>;

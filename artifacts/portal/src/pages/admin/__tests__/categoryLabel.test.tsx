@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { TICKET_CATEGORIES } from "@workspace/support-config";
+import {
+  CreateTicketCategory,
+  TicketCategory,
+} from "@workspace/api-client-react";
 import { CATEGORY_LABELS, categoryLabel } from "../AdminTicketQueue";
 
 describe("categoryLabel known slugs", () => {
@@ -44,5 +49,54 @@ describe("categoryLabel unknown slugs", () => {
   it("never returns the raw slug for a known category", () => {
     expect(categoryLabel("concierge_task")).not.toBe("concierge_task");
     expect(categoryLabel("compliance_review")).not.toBe("compliance_review");
+  });
+});
+
+describe("CATEGORY_LABELS coverage", () => {
+  // Guards against the silent slug-to-Title-Case fallback shipping for a real
+  // backend category. Every category the backend can emit (the authoritative
+  // list in @workspace/support-config) must have an explicit, curated label —
+  // adding a new category there without a label here fails CI.
+  it("has an explicit curated label for every backend category", () => {
+    for (const slug of TICKET_CATEGORIES) {
+      expect(
+        Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, slug),
+        `Missing curated CATEGORY_LABELS entry for ticket category "${slug}". ` +
+          `Add it to CATEGORY_LABELS in AdminTicketQueue.tsx.`,
+      ).toBe(true);
+    }
+  });
+
+  it("does not declare labels for unknown categories", () => {
+    // Keeps the curated map in lockstep with the shared list so a stale label
+    // (e.g. a removed/renamed category) is caught too.
+    const known = new Set<string>(TICKET_CATEGORIES);
+    for (const slug of Object.keys(CATEGORY_LABELS)) {
+      expect(
+        known.has(slug),
+        `CATEGORY_LABELS declares "${slug}", which is not in TICKET_CATEGORIES ` +
+          `(@workspace/support-config). Remove it or add it to the shared list.`,
+      ).toBe(true);
+    }
+  });
+
+  it("includes every category in the generated API-client enum", () => {
+    // The member-facing categories are an OpenAPI enum; the generated client
+    // is regenerated from the spec. If the backend adds a new enum value and
+    // the clients are regenerated, this fails until the value is added to the
+    // shared TICKET_CATEGORIES list (which in turn forces a curated label).
+    const generated = new Set<string>([
+      ...Object.values(TicketCategory),
+      ...Object.values(CreateTicketCategory),
+    ]);
+    const known = new Set<string>(TICKET_CATEGORIES);
+    for (const slug of generated) {
+      expect(
+        known.has(slug),
+        `Generated API-client category "${slug}" is missing from ` +
+          `TICKET_CATEGORIES (@workspace/support-config). Add it there ` +
+          `and give it a curated CATEGORY_LABELS entry.`,
+      ).toBe(true);
+    }
   });
 });
