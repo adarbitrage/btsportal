@@ -3,6 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Send, CheckCircle2, Upload, AlertCircle, X } from "lucide-react";
 import { useState, useRef } from "react";
+import {
+  validateTicketAttachment,
+  TICKET_ATTACHMENT_MAX_LABEL,
+  TICKET_ATTACHMENT_ALLOWED_LABEL,
+} from "@workspace/support-config";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -10,22 +15,15 @@ const creativeTypes = ["Banner", "Landing Page"];
 const trafficSources = ["Grasshopper", "Crane", "Caterpillar", "Meta", "Other"];
 const shareOptions = ["Yes, I have shared access", "No, I have not shared access"];
 
-// Mirrors the server-side limits in api-server/src/lib/attachment-validation.ts.
-// The server is the authority; these give the member instant feedback so they
-// don't wait through a long upload only to be rejected.
+// Per-file size and content-type are enforced by the SHARED
+// `validateTicketAttachment` (the exact rules the ticket reply composer uses),
+// so both intake paths stay consistent. These two aggregate caps mirror the
+// server-side guards in api-server/src/lib/attachment-validation.ts that the
+// shared per-file validator doesn't cover. The server is the authority; these
+// give the member instant feedback so they don't wait through a long upload
+// only to be rejected.
 const MAX_FILES = 100;
-const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB per file
 const MAX_TOTAL_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB per submission
-
-const ALLOWED_CONTENT_TYPES = new Set([
-  "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
-  "image/bmp", "image/tiff",
-  "application/pdf",
-  "application/zip", "application/x-zip", "application/x-zip-compressed", "multipart/x-zip",
-]);
-const ALLOWED_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".pdf", ".zip",
-]);
 const FILE_ACCEPT = "image/*,application/pdf,.zip,application/zip";
 
 function formatBytes(bytes: number): string {
@@ -35,17 +33,6 @@ function formatBytes(bytes: number): string {
   return `${bytes} bytes`;
 }
 
-function extensionOf(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot < 0 ? "" : name.slice(dot).toLowerCase();
-}
-
-function isAllowedType(file: File): boolean {
-  const ct = (file.type || "").toLowerCase();
-  if (ct && ALLOWED_CONTENT_TYPES.has(ct)) return true;
-  return ALLOWED_EXTENSIONS.has(extensionOf(file.name));
-}
-
 // Returns an error message if the selected files break a limit, else null.
 function validateFiles(files: File[]): string | null {
   if (files.length > MAX_FILES) {
@@ -53,12 +40,12 @@ function validateFiles(files: File[]): string | null {
   }
   let total = 0;
   for (const f of files) {
-    if (!isAllowedType(f)) {
-      return `"${f.name}" has an unsupported file type. Allowed types are images, PDF, and ZIP files.`;
-    }
-    if (f.size > MAX_FILE_SIZE_BYTES) {
-      return `"${f.name}" is too large (${formatBytes(f.size)}). The maximum size per file is ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
-    }
+    const perFileError = validateTicketAttachment({
+      fileName: f.name,
+      fileSize: f.size,
+      contentType: f.type,
+    });
+    if (perFileError) return perFileError;
     total += f.size;
   }
   if (total > MAX_TOTAL_SIZE_BYTES) {
@@ -396,7 +383,7 @@ export default function ComplianceReview() {
                     {files.length > 0 ? `${files.length} file(s) selected` : "Drag & drop files or click to browse"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Up to {MAX_FILES} files — images, PDF, or ZIP — max {formatBytes(MAX_FILE_SIZE_BYTES)} each
+                    Up to {MAX_FILES} files — {TICKET_ATTACHMENT_ALLOWED_LABEL} — max {TICKET_ATTACHMENT_MAX_LABEL} each
                   </p>
                 </div>
                 <input

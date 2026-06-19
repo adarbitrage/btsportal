@@ -46,10 +46,8 @@ import { inArray, eq } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
 import ticketsRouter from "../routes/tickets";
-import {
-  COMPLIANCE_MAX_FILE_SIZE_BYTES,
-  COMPLIANCE_MAX_FILES,
-} from "../lib/attachment-validation";
+import { COMPLIANCE_MAX_FILES } from "../lib/attachment-validation";
+import { TICKET_ATTACHMENT_MAX_BYTES } from "@workspace/support-config";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const TEST_TAG = `compliance-limits-${randomUUID().slice(0, 8)}`;
@@ -143,7 +141,7 @@ describe("POST /tickets/compliance — attachment limits", () => {
   });
 
   it("rejects an attachment whose actual stored size exceeds the per-file limit", async () => {
-    const objectPath = seedObject(COMPLIANCE_MAX_FILE_SIZE_BYTES + 1, "application/zip");
+    const objectPath = seedObject(TICKET_ATTACHMENT_MAX_BYTES + 1, "application/zip");
     const res = await request(app)
       .post("/api/tickets/compliance")
       .set("Cookie", memberCookie)
@@ -174,7 +172,7 @@ describe("POST /tickets/compliance — attachment limits", () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/unsupported file type/i);
+    expect(res.body.error).toMatch(/can't be attached/i);
   });
 
   it("rejects more files than the per-submission cap", async () => {
