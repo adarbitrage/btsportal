@@ -154,6 +154,21 @@ export class ObjectStorageService {
     return objectFile;
   }
 
+  // Reads the actual stored size and content type of a previously uploaded
+  // object entity. Used to validate attachment limits against the real upload
+  // rather than the client-declared metadata (which can be spoofed). Throws
+  // ObjectNotFoundError if the object does not exist.
+  async getObjectEntityMetadata(
+    objectPath: string,
+  ): Promise<{ size: number; contentType: string }> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    const [metadata] = await objectFile.getMetadata();
+    return {
+      size: Number(metadata.size ?? 0),
+      contentType: (metadata.contentType as string) ?? "",
+    };
+  }
+
   normalizeObjectEntityPath(rawPath: string): string {
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;

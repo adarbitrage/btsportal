@@ -28,6 +28,10 @@ import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements"
 import { sendError } from "../lib/api-errors";
 import { CommunicationService } from "../lib/communication-service";
 import { TICKET_CATEGORY } from "@workspace/support-config";
+import {
+  COMPLIANCE_MAX_FILES,
+  validateComplianceAttachments,
+} from "../lib/attachment-validation";
 
 // Stable namespace for the per-user advisory lock used by POST /tickets so
 // concurrent ticket-create requests for the same user are serialized and
@@ -1074,6 +1078,55 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate uploaded files against per-file / total size, file-count, and
+  // content-type limits BEFORE creating the ticket. The file count is checked
+  // up front so we never fan out hundreds of storage lookups for an abusive
+  // payload. Sizes and content types are then read from the *actual* stored
+  // objects (not the client-declared values, which can be spoofed) and run
+  // through the shared validator. getObjectEntityMetadata also throws if an
+  // objectPath does not point at a real upload, rejecting bogus paths.
+  if (parsedAttachments.length > COMPLIANCE_MAX_FILES) {
+    res.status(400).json({
+      error: `Too many files. You can upload at most ${COMPLIANCE_MAX_FILES} files per submission (you attached ${parsedAttachments.length}).`,
+    });
+    return;
+  }
+
+  type VerifiedAttachment = {
+    objectPath: string;
+    fileName: string | null;
+    fileSize: number;
+    contentType: string | null;
+  };
+  let verifiedAttachments: VerifiedAttachment[] = [];
+  if (parsedAttachments.length > 0) {
+    try {
+      verifiedAttachments = await Promise.all(
+        parsedAttachments.map(async (a) => {
+          const meta = await objectStorageService.getObjectEntityMetadata(a.objectPath);
+          return {
+            objectPath: a.objectPath,
+            fileName: a.fileName ?? null,
+            fileSize: meta.size,
+            contentType: meta.contentType || a.contentType || null,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error("[Tickets] Failed to verify compliance attachment metadata:", err);
+      res.status(400).json({
+        error: "We couldn't verify one or more of your uploaded files. Please re-upload them and try again.",
+      });
+      return;
+    }
+
+    const validationError = validateComplianceAttachments(verifiedAttachments);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+  }
+
   const subject = `Compliance Review — ${String(offerName)}`;
 
   const lines: string[] = [
@@ -1128,15 +1181,16 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
 
       // Persist each uploaded file as a structured attachment row so admins
       // can open files directly from the ticket detail (not just read paths
-      // buried in message text).
-      if (parsedAttachments.length > 0) {
+      // buried in message text). We store the verified (actual stored) size and
+      // content type rather than the client-declared values.
+      if (verifiedAttachments.length > 0) {
         await tx.insert(ticketAttachmentsTable).values(
-          parsedAttachments.map((a) => ({
+          verifiedAttachments.map((a) => ({
             ticketId: created.id,
             objectPath: a.objectPath,
-            fileName: a.fileName ?? null,
-            fileSize: typeof a.fileSize === "number" ? a.fileSize : null,
-            contentType: a.contentType ?? null,
+            fileName: a.fileName,
+            fileSize: a.fileSize,
+            contentType: a.contentType,
           })),
         );
       }

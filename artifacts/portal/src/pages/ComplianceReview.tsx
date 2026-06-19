@@ -10,6 +10,63 @@ const creativeTypes = ["Banner", "Landing Page"];
 const trafficSources = ["Grasshopper", "Crane", "Caterpillar", "Meta", "Other"];
 const shareOptions = ["Yes, I have shared access", "No, I have not shared access"];
 
+// Mirrors the server-side limits in api-server/src/lib/attachment-validation.ts.
+// The server is the authority; these give the member instant feedback so they
+// don't wait through a long upload only to be rejected.
+const MAX_FILES = 100;
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB per file
+const MAX_TOTAL_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB per submission
+
+const ALLOWED_CONTENT_TYPES = new Set([
+  "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+  "image/bmp", "image/tiff",
+  "application/pdf",
+  "application/zip", "application/x-zip", "application/x-zip-compressed", "multipart/x-zip",
+]);
+const ALLOWED_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".pdf", ".zip",
+]);
+const FILE_ACCEPT = "image/*,application/pdf,.zip,application/zip";
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} bytes`;
+}
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? "" : name.slice(dot).toLowerCase();
+}
+
+function isAllowedType(file: File): boolean {
+  const ct = (file.type || "").toLowerCase();
+  if (ct && ALLOWED_CONTENT_TYPES.has(ct)) return true;
+  return ALLOWED_EXTENSIONS.has(extensionOf(file.name));
+}
+
+// Returns an error message if the selected files break a limit, else null.
+function validateFiles(files: File[]): string | null {
+  if (files.length > MAX_FILES) {
+    return `Too many files. You can upload at most ${MAX_FILES} files (you selected ${files.length}).`;
+  }
+  let total = 0;
+  for (const f of files) {
+    if (!isAllowedType(f)) {
+      return `"${f.name}" has an unsupported file type. Allowed types are images, PDF, and ZIP files.`;
+    }
+    if (f.size > MAX_FILE_SIZE_BYTES) {
+      return `"${f.name}" is too large (${formatBytes(f.size)}). The maximum size per file is ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
+    }
+    total += f.size;
+  }
+  if (total > MAX_TOTAL_SIZE_BYTES) {
+    return `Your files total ${formatBytes(total)}, which exceeds the ${formatBytes(MAX_TOTAL_SIZE_BYTES)} limit.`;
+  }
+  return null;
+}
+
 type AttachmentMeta = {
   objectPath: string;
   fileName: string;
@@ -62,8 +119,27 @@ export default function ComplianceReview() {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const handleFilesSelected = (selected: File[]) => {
+    const error = validateFiles(selected);
+    if (error) {
+      setSubmitResult({ kind: "error", message: error });
+      return;
+    }
+    setSubmitResult(null);
+    setFiles(selected);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Guard again at submit time in case the selection was assembled some other
+    // way; the server enforces this regardless, but this avoids a wasted upload.
+    const fileError = validateFiles(files);
+    if (fileError) {
+      setSubmitResult({ kind: "error", message: fileError });
+      return;
+    }
+
     setSubmitting(true);
     setSubmitResult(null);
 
@@ -319,13 +395,16 @@ export default function ComplianceReview() {
                   <p className="text-sm text-muted-foreground">
                     {files.length > 0 ? `${files.length} file(s) selected` : "Drag & drop files or click to browse"}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">You can upload up to 100 files</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Up to {MAX_FILES} files — images, PDF, or ZIP — max {formatBytes(MAX_FILE_SIZE_BYTES)} each
+                  </p>
                 </div>
                 <input
                   ref={fileRef}
                   type="file"
                   multiple
-                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                  accept={FILE_ACCEPT}
+                  onChange={(e) => handleFilesSelected(Array.from(e.target.files || []))}
                   className="hidden"
                 />
                 {files.length > 0 && (
