@@ -78,6 +78,7 @@ import tapfiliateSSORrouter from "./tapfiliate-sso";
 import voiceRouter from "./voice";
 import webhooksRetellRouter from "./webhooks-retell";
 import adminFulfillmentCatalogRouter from "./admin-fulfillment-catalog";
+import kbSearchRouter from "./kb-search";
 
 const router: IRouter = Router();
 
@@ -160,5 +161,6 @@ router.use(tapfiliateSSORrouter);
 router.use(voiceRouter);
 router.use(webhooksRetellRouter);
 router.use(adminFulfillmentCatalogRouter);
+router.use(kbSearchRouter);
 
 export default router;

@@ -58,6 +58,7 @@ import {
   UserCircle,
   Package,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -136,6 +137,7 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/resource-library", label: "Resource Library", icon: Library },
+      { kind: "leaf", href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
       { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },

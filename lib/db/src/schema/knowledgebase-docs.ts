@@ -14,6 +14,11 @@ export const knowledgebaseDocsTable = pgTable("knowledgebase_docs", {
   // so existing rows stay member-visible.
   audience: text("audience").notNull().default("member"),
   searchVector: text("search_vector"),
+  // Deep-link back to the originating portal page (member-facing path).
+  // Nullable — existing rows and admin docs have no portal destination.
+  sourcePath: text("source_path"),
+  // Human-readable label for the source (e.g. "Blitz Guide", "Resource Library").
+  sourceLabel: text("source_label"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

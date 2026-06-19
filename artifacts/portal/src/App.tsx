@@ -49,6 +49,7 @@ import Apps from "@/pages/Apps";
 import PartnerTools from "@/pages/PartnerTools";
 import Resources from "@/pages/Resources";
 import ResourceLibrary from "@/pages/ResourceLibrary";
+import KnowledgeBase from "@/pages/KnowledgeBase";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import AdminAffiliateNetworks from "@/pages/admin/AdminAffiliateNetworks";
 import AdminMediaMavens from "@/pages/admin/AdminMediaMavens";
@@ -443,6 +444,7 @@ function Router() {
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
       <Route path="/resource-library">{() => <ProtectedRoute component={ResourceLibrary} />}</Route>
+      <Route path="/knowledge-base">{() => <ProtectedRoute component={KnowledgeBase} />}</Route>
       <Route path="/affiliate-networks">{() => <ProtectedRoute component={AffiliateNetworks} />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
       <Route path="/media-mavens/performance">{() => <ProtectedRoute component={MediaMavensPerformance} />}</Route>

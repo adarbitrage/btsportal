@@ -6,6 +6,7 @@ import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import { seedKnowledgebaseFromFiles, seedInternalSops } from "./seed-kb";
+import { seedMemberBroadContent } from "./seed-kb-member-content";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -69,6 +70,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runKnowledgebaseAudienceColumnMigration() threw:", err);
     missing.push("knowledgebaseAudienceColumnMigration");
+  }
+
+  // 0a-3. Add knowledgebase_docs.source_path and source_label columns
+  //       (IF NOT EXISTS — idempotent). These columns power the member KB search
+  //       deep-links. Added at boot so /kb/search queries and the broad-content
+  //       seed never hit a "column does not exist" error on environments where
+  //       the schema push hasn't run yet.
+  try {
+    await runKnowledgebaseSourceColumnsMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runKnowledgebaseSourceColumnsMigration() threw:", err);
+    missing.push("knowledgebaseSourceColumnsMigration");
   }
 
   // 0b. Backfill undelivered tickets — runs in the background after the HTTP
@@ -302,12 +315,30 @@ async function ensureKBGrounding(): Promise<void> {
   seedInternalSops().catch((err) => {
     console.error("[Bootstrap] Internal SOP seeding failed:", err);
   });
+
+  // 6. Seed member-facing broad content index (Blitz lessons, Resource Library,
+  //    individual glossary terms) with source_path deep-links. Idempotent via
+  //    ON CONFLICT (title) DO UPDATE — re-runs safely refresh content + paths.
+  seedMemberBroadContent().catch((err) => {
+    console.error("[Bootstrap] Member broad content seeding failed:", err);
+  });
 }
 
 async function runKnowledgebaseAudienceColumnMigration(): Promise<void> {
   await db.execute(
     sql`ALTER TABLE knowledgebase_docs
         ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'member'`,
+  );
+}
+
+async function runKnowledgebaseSourceColumnsMigration(): Promise<void> {
+  await db.execute(
+    sql`ALTER TABLE knowledgebase_docs
+        ADD COLUMN IF NOT EXISTS source_path text`,
+  );
+  await db.execute(
+    sql`ALTER TABLE knowledgebase_docs
+        ADD COLUMN IF NOT EXISTS source_label text`,
   );
 }
 
