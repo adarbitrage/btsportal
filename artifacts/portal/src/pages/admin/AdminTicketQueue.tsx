@@ -154,6 +154,29 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   closed: "closed",
 };
 
+// Human-readable labels for ticket categories. The API stores raw enum slugs
+// (e.g. "concierge_task"), so we map them to display strings here. Unknown
+// slugs fall back to the raw value so new categories still render legibly.
+export const CATEGORY_LABELS: Record<string, string> = {
+  billing: "Billing",
+  technical: "Technical",
+  training: "Training",
+  account: "Account",
+  other: "Other",
+  concierge_task: "Concierge Task",
+  compliance_review: "Compliance Review",
+};
+
+export function categoryLabel(category: string): string {
+  return (
+    CATEGORY_LABELS[category] ??
+    category
+      .split("_")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ")
+  );
+}
+
 // Row tint based on SLA status — keeps breached/approaching rows visually
 // distinct in the queue so they pop without needing to scan the badge column.
 function slaRowTint(status: SlaStatus | null): string {
@@ -576,7 +599,7 @@ export default function AdminTicketQueue() {
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                      <SelectItem key={c} value={c}>{categoryLabel(c)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

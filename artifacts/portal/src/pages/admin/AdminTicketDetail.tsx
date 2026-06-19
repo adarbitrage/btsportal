@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
+import { categoryLabel } from "./AdminTicketQueue";
 
 type TicketAuditRow = {
   id: number;
@@ -610,7 +611,7 @@ export default function AdminTicketDetail() {
                 <span>·</span>
                 <span data-testid="ticket-member">{memberName}{memberEmail ? ` (${memberEmail})` : ""}</span>
                 <span>·</span>
-                <span className="capitalize">{ticket.category}</span>
+                <span>{categoryLabel(ticket.category)}</span>
                 <span>·</span>
                 <span>Created {format(new Date(ticket.createdAt), "MMM d, yyyy h:mm a")}</span>
               </div>
