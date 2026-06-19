@@ -78,13 +78,17 @@ export default function TicketDetail() {
   const [reply, setReply] = useState("");
   const [resolving, setResolving] = useState(false);
   const [files, setFiles] = useState<StagedFile[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<{ url: string; name: string; kind: "image" | "pdf" } | null>(null);
 
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
+
+  // Eager uploads track their progress per-row, so "is anything still in flight"
+  // is derived from the files list rather than a separate global flag. Send,
+  // Attach and Retry all key off this so they stay in lockstep with the rows.
+  const anyUploading = files.some((sf) => sf.status === "uploading");
 
   const removeFile = (fileId: string) => {
     setFiles((prev) => prev.filter((sf) => sf.id !== fileId));
@@ -93,8 +97,9 @@ export default function TicketDetail() {
   // Validate a freshly selected batch against the shared size/content-type
   // rules before staging them. Rejected files are dropped and a clear message
   // names the first offender, so an oversized/unsupported file never reaches
-  // object storage or the API. Accepted files are staged as "pending" so each
-  // one shows its own upload status on send.
+  // object storage or the API. Accepted files are staged as "pending" and then
+  // uploaded eagerly (see below) so by the time the member finishes writing the
+  // attachments are already in object storage and a flaky file fails early.
   const addFiles = (selected: File[]) => {
     if (selected.length === 0) return;
     const accepted: StagedFile[] = [];
@@ -114,6 +119,8 @@ export default function TicketDetail() {
     setUploadError(firstError);
     if (accepted.length > 0) {
       setFiles((prev) => [...prev, ...accepted]);
+      // Kick off each upload immediately; startUpload drives the per-row status.
+      accepted.forEach((sf) => { void startUpload(sf); });
     }
   };
 
@@ -132,16 +139,23 @@ export default function TicketDetail() {
     }
   };
 
+  // Flip a staged file to "uploading", push it to object storage, then write
+  // back its final status. Shared by the eager-on-attach path and Retry so both
+  // behave identically. Guards against the row vanishing (removed mid-upload).
+  const startUpload = async (target: StagedFile) => {
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? { ...sf, status: "uploading", error: undefined } : sf)));
+    const result = await uploadOne(target);
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? result : sf)));
+  };
+
   const retryFile = async (fileId: string) => {
     const target = files.find((sf) => sf.id === fileId);
-    if (!target || target.status === "uploading" || uploading) return;
-    setFiles((prev) => prev.map((sf) => (sf.id === fileId ? { ...sf, status: "uploading", error: undefined } : sf)));
-    const result = await uploadOne(target);
-    setFiles((prev) => prev.map((sf) => (sf.id === fileId ? result : sf)));
+    if (!target || target.status === "uploading") return;
+    await startUpload(target);
   };
 
   const handleReply = async () => {
-    if (!reply.trim() || uploading || addMessage.isPending) return;
+    if (!reply.trim() || anyUploading || addMessage.isPending) return;
 
     // Re-validate just before upload as a safety net (the list is filtered on
     // selection, but this guarantees nothing slips through). The first offender
@@ -158,20 +172,20 @@ export default function TicketDetail() {
       }
     }
 
-    // Only (re)upload files that aren't already in object storage, so a retry on
-    // send never re-uploads the ones that already succeeded.
+    // Files upload eagerly on attach, so by send time they're normally already
+    // in object storage and this is a no-op (Send is instant). As a safety net
+    // we still (re)upload anything not yet uploaded — e.g. a failed file the
+    // member sends without retrying first — but never the ones that succeeded.
     const pending = files.filter((sf) => sf.status !== "uploaded");
     let working = files;
 
     if (pending.length > 0) {
-      setUploading(true);
       setFiles((prev) => prev.map((sf) => (sf.status !== "uploaded" ? { ...sf, status: "uploading", error: undefined } : sf)));
 
       const results = await Promise.all(pending.map(uploadOne));
       const byId = new Map(results.map((r) => [r.id, r]));
       working = files.map((sf) => byId.get(sf.id) ?? sf);
       setFiles(working);
-      setUploading(false);
 
       // If any file failed, surface it per-row and hold the send so the member
       // can retry/remove the offending files individually.
@@ -492,7 +506,7 @@ export default function TicketDetail() {
                           <button
                             type="button"
                             onClick={() => retryFile(sf.id)}
-                            disabled={uploading}
+                            disabled={anyUploading}
                             className="flex items-center gap-1 text-primary hover:underline disabled:opacity-50"
                             data-testid={`reply-file-retry-${i}`}
                           >
@@ -544,14 +558,14 @@ export default function TicketDetail() {
                 type="button"
                 variant="outline"
                 onClick={() => fileRef.current?.click()}
-                disabled={uploading || addMessage.isPending}
+                disabled={anyUploading || addMessage.isPending}
                 data-testid="reply-attach-btn"
               >
                 <Upload className="w-4 h-4 mr-2" /> Attach Files
               </Button>
-              <Button onClick={handleReply} disabled={!reply.trim() || uploading || addMessage.isPending} data-testid="reply-send-btn">
+              <Button onClick={handleReply} disabled={!reply.trim() || anyUploading || addMessage.isPending} data-testid="reply-send-btn">
                 <Send className="w-4 h-4 mr-2" />
-                {uploading ? "Uploading…" : addMessage.isPending ? "Sending…" : "Send Reply"}
+                {anyUploading ? "Uploading…" : addMessage.isPending ? "Sending…" : "Send Reply"}
               </Button>
             </div>
           </Card>
