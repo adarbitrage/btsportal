@@ -823,14 +823,43 @@ router.post("/tickets/:id/messages", async (req, res): Promise<void> => {
     return;
   }
 
-  const [message] = await db
-    .insert(ticketMessagesTable)
-    .values({
-      ticketId: ticket.id,
-      senderType: "member",
-      body: body.data.body,
-    })
-    .returning();
+  // Optional files uploaded via the presigned-upload flow before this reply
+  // was sent. Each is persisted as a ticket_attachments row linked to both the
+  // ticket (so it appears in the member + admin attachment lists) and this
+  // specific reply message. We filter to entries with a usable objectPath so a
+  // malformed item can't insert a broken row.
+  type ReplyAttachmentInput = { objectPath: string; fileName?: string | null; fileSize?: number | null; contentType?: string | null };
+  const replyAttachments: ReplyAttachmentInput[] = Array.isArray(body.data.attachments)
+    ? (body.data.attachments as ReplyAttachmentInput[]).filter(
+        (a) => a && typeof a === "object" && typeof a.objectPath === "string" && a.objectPath.length > 0,
+      )
+    : [];
+
+  const message = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(ticketMessagesTable)
+      .values({
+        ticketId: ticket.id,
+        senderType: "member",
+        body: body.data.body,
+      })
+      .returning();
+
+    if (replyAttachments.length > 0) {
+      await tx.insert(ticketAttachmentsTable).values(
+        replyAttachments.map((a) => ({
+          ticketId: ticket.id,
+          messageId: created.id,
+          objectPath: a.objectPath,
+          fileName: a.fileName ?? null,
+          fileSize: typeof a.fileSize === "number" ? a.fileSize : null,
+          contentType: a.contentType ?? null,
+        })),
+      );
+    }
+
+    return created;
+  });
 
   if (ticket.status === "awaiting_response") {
     await db.update(ticketsTable)

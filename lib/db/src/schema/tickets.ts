@@ -124,6 +124,12 @@ export type TicketSatisfaction = typeof ticketSatisfactionTable.$inferSelect;
 export const ticketAttachmentsTable = pgTable("ticket_attachments", {
   id: serial("id").primaryKey(),
   ticketId: integer("ticket_id").notNull().references(() => ticketsTable.id),
+  // Optional link to the specific reply message this file was attached to.
+  // Null for attachments uploaded at ticket-creation time (e.g. the initial
+  // Compliance Review form) which predate any reply. Set when a member (or
+  // future admin reply) uploads a file alongside a thread message so the
+  // attachment can be traced back to its message.
+  messageId: integer("message_id").references(() => ticketMessagesTable.id),
   // Path returned by the presigned-upload flow, e.g. /objects/uuid-file.ext
   objectPath: text("object_path").notNull(),
   // Original file name as provided by the uploader, for display only

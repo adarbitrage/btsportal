@@ -7987,7 +7987,29 @@ components:
       properties:
         body:
           type: string
+        attachments:
+          type: array
+          description: |
+            Optional files uploaded via the presigned-upload flow
+            (POST /storage/uploads/request-url). Each entry is persisted as a
+            ticket_attachments row linked to this reply message so it surfaces
+            in the member and admin attachment lists.
+          items:
+            $ref: "#/components/schemas/CreateTicketMessageAttachment"
       required: [body]
+
+    CreateTicketMessageAttachment:
+      type: object
+      properties:
+        objectPath:
+          type: string
+        fileName:
+          type: ["string", "null"]
+        fileSize:
+          type: ["integer", "null"]
+        contentType:
+          type: ["string", "null"]
+      required: [objectPath]
 
     Announcement:
       type: object

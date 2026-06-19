@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useGetTicket, useAddTicketMessage, useResolveTicket, getGetTicketQueryKey, getListTicketsQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,10 +6,40 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
+
+const API_BASE = `${import.meta.env.BASE_URL}api`;
+
+type AttachmentMeta = {
+  objectPath: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+};
+
+// Reuses the same presigned-upload flow as the Compliance Review form: ask the
+// API for a presigned URL, PUT the file straight to object storage, then return
+// the metadata the ticket-message endpoint persists as a ticket_attachments row.
+async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
+  const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+  });
+  if (!metaRes.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+  const { uploadURL, objectPath } = await metaRes.json();
+  const putRes = await fetch(uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  if (!putRes.ok) throw new Error(`Upload failed for ${file.name}`);
+  return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
+}
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -20,15 +50,39 @@ export default function TicketDetail() {
   const queryClient = useQueryClient();
   const [reply, setReply] = useState("");
   const [resolving, setResolving] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
 
-  const handleReply = () => {
-    if (!reply.trim()) return;
-    addMessage.mutate({ id: ticketId, data: { body: reply } }, {
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleReply = async () => {
+    if (!reply.trim() || uploading || addMessage.isPending) return;
+    setUploadError(null);
+
+    let attachments: AttachmentMeta[] = [];
+    if (files.length > 0) {
+      setUploading(true);
+      try {
+        attachments = await Promise.all(files.map(uploadFileToStorage));
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : "Failed to upload files. Please try again.");
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    addMessage.mutate({ id: ticketId, data: { body: reply, attachments } }, {
       onSuccess: () => {
         setReply("");
+        setFiles([]);
         queryClient.invalidateQueries({ queryKey: getGetTicketQueryKey(ticketId) });
       }
     });
@@ -266,9 +320,57 @@ export default function TicketDetail() {
               className="w-full p-4 border-none outline-none resize-none bg-transparent min-h-[120px]"
               placeholder="Type your reply here..."
             />
-            <div className="bg-secondary/50 p-3 border-t border-border flex justify-end">
-              <Button onClick={handleReply} disabled={!reply.trim() || addMessage.isPending}>
-                <Send className="w-4 h-4 mr-2" /> Send Reply
+
+            {files.length > 0 && (
+              <ul className="px-4 pb-2 space-y-1" data-testid="reply-files-list">
+                {files.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                    <span className="flex items-center gap-1.5 truncate min-w-0">
+                      <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
+                      aria-label={`Remove ${f.name}`}
+                      data-testid={`reply-file-remove-${i}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {uploadError && (
+              <p className="px-4 pb-2 text-xs text-destructive" data-testid="reply-upload-error">{uploadError}</p>
+            )}
+
+            <div className="bg-secondary/50 p-3 border-t border-border flex items-center justify-between gap-3">
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                onChange={(e) => {
+                  setFiles((prev) => [...prev, ...Array.from(e.target.files || [])]);
+                  e.target.value = "";
+                }}
+                className="hidden"
+                data-testid="reply-file-input"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading || addMessage.isPending}
+                data-testid="reply-attach-btn"
+              >
+                <Upload className="w-4 h-4 mr-2" /> Attach Files
+              </Button>
+              <Button onClick={handleReply} disabled={!reply.trim() || uploading || addMessage.isPending} data-testid="reply-send-btn">
+                <Send className="w-4 h-4 mr-2" />
+                {uploading ? "Uploading…" : addMessage.isPending ? "Sending…" : "Send Reply"}
               </Button>
             </div>
           </Card>

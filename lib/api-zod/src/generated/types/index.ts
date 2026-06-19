@@ -225,6 +225,7 @@ export * from "./createTicket";
 export * from "./createTicketCategory";
 export * from "./createTicketFromChatBody";
 export * from "./createTicketMessage";
+export * from "./createTicketMessageAttachment";
 export * from "./dashboardData";
 export * from "./dashboardToolWidget";
 export * from "./dismissAdminCancelledEmailChangeResponse";

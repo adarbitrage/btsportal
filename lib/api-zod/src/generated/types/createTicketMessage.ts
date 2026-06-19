@@ -5,7 +5,14 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { CreateTicketMessageAttachment } from "./createTicketMessageAttachment";
 
 export interface CreateTicketMessage {
   body: string;
+  /** Optional files uploaded via the presigned-upload flow
+(POST /storage/uploads/request-url). Each entry is persisted as a
+ticket_attachments row linked to this reply message so it surfaces
+in the member and admin attachment lists.
+ */
+  attachments?: CreateTicketMessageAttachment[];
 }

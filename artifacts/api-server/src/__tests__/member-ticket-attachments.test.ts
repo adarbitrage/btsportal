@@ -37,7 +37,7 @@ import {
   ticketMessagesTable,
   ticketAttachmentsTable,
 } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { inArray, eq } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
 import ticketsRouter from "../routes/tickets";
@@ -168,6 +168,80 @@ describe("GET /tickets/:id (member) — attachments", () => {
       .get(`/api/tickets/${ticketId}`)
       .set("Cookie", otherCookie);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /tickets/:id/messages — reply attachments", () => {
+  it("persists uploaded files as ticket_attachments linked to the reply message", async () => {
+    const objectPath = `/objects/uploads/${randomUUID()}`;
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/messages`)
+      .set("Cookie", ownerCookie)
+      .send({
+        body: "Here is the revised creative.",
+        attachments: [
+          { objectPath, fileName: "revised.png", fileSize: 4096, contentType: "image/png" },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    const messageId = res.body.id;
+    expect(typeof messageId).toBe("number");
+
+    // The new attachment row is linked to the ticket AND the reply message.
+    const rows = await db
+      .select()
+      .from(ticketAttachmentsTable)
+      .where(eq(ticketAttachmentsTable.messageId, messageId));
+    expect(rows.length).toBe(1);
+    expect(rows[0].ticketId).toBe(ticketId);
+    expect(rows[0].objectPath).toBe(objectPath);
+    expect(rows[0].fileName).toBe("revised.png");
+    expect(rows[0].fileSize).toBe(4096);
+
+    // And it surfaces in the member-facing attachments list (path hidden).
+    const getRes = await request(app)
+      .get(`/api/tickets/${ticketId}`)
+      .set("Cookie", ownerCookie);
+    expect(getRes.status).toBe(200);
+    const found = getRes.body.attachments.find((a: { id: number }) => a.id === rows[0].id);
+    expect(found).toBeTruthy();
+    expect(found.fileName).toBe("revised.png");
+    expect(found.objectPath).toBeUndefined();
+  });
+
+  it("accepts a reply with no attachments and creates no attachment rows", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/messages`)
+      .set("Cookie", ownerCookie)
+      .send({ body: "Just a plain text reply." });
+
+    expect(res.status).toBe(201);
+    const rows = await db
+      .select()
+      .from(ticketAttachmentsTable)
+      .where(eq(ticketAttachmentsTable.messageId, res.body.id));
+    expect(rows.length).toBe(0);
+  });
+
+  it("rejects a malformed attachment entry missing an objectPath", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/messages`)
+      .set("Cookie", ownerCookie)
+      .send({
+        body: "Reply with a bad attachment payload.",
+        attachments: [{ fileName: "no-path.png" }],
+      });
+
+    // The request-body schema requires objectPath on every attachment, so a
+    // malformed entry fails validation rather than silently inserting a broken
+    // row. No attachment rows should be created.
+    expect(res.status).toBe(400);
+    const rows = await db
+      .select()
+      .from(ticketAttachmentsTable)
+      .where(eq(ticketAttachmentsTable.fileName, "no-path.png"));
+    expect(rows.length).toBe(0);
   });
 });
 

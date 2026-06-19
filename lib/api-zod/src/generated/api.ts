@@ -912,6 +912,19 @@ export const AddTicketMessageParams = zod.object({
 
 export const AddTicketMessageBody = zod.object({
   body: zod.string(),
+  attachments: zod
+    .array(
+      zod.object({
+        objectPath: zod.string(),
+        fileName: zod.string().nullish(),
+        fileSize: zod.number().nullish(),
+        contentType: zod.string().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Optional files uploaded via the presigned-upload flow\n(POST \/storage\/uploads\/request-url). Each entry is persisted as a\nticket_attachments row linked to this reply message so it surfaces\nin the member and admin attachment lists.\n",
+    ),
 });
 
 /**
@@ -1043,6 +1056,19 @@ export const AdminReplyToTicketParams = zod.object({
 
 export const AdminReplyToTicketBody = zod.object({
   body: zod.string(),
+  attachments: zod
+    .array(
+      zod.object({
+        objectPath: zod.string(),
+        fileName: zod.string().nullish(),
+        fileSize: zod.number().nullish(),
+        contentType: zod.string().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Optional files uploaded via the presigned-upload flow\n(POST \/storage\/uploads\/request-url). Each entry is persisted as a\nticket_attachments row linked to this reply message so it surfaces\nin the member and admin attachment lists.\n",
+    ),
 });
 
 /**
@@ -1054,6 +1080,19 @@ export const AdminAddInternalNoteParams = zod.object({
 
 export const AdminAddInternalNoteBody = zod.object({
   body: zod.string(),
+  attachments: zod
+    .array(
+      zod.object({
+        objectPath: zod.string(),
+        fileName: zod.string().nullish(),
+        fileSize: zod.number().nullish(),
+        contentType: zod.string().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Optional files uploaded via the presigned-upload flow\n(POST \/storage\/uploads\/request-url). Each entry is persisted as a\nticket_attachments row linked to this reply message so it surfaces\nin the member and admin attachment lists.\n",
+    ),
 });
 
 /**

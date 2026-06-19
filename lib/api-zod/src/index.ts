@@ -226,6 +226,7 @@ export type {
   CreateTicketCategory,
   CreateTicketFromChatBody,
   CreateTicketMessage,
+  CreateTicketMessageAttachment,
   DashboardData,
   DashboardToolWidget,
   DismissAdminCancelledEmailChangeResponse,

@@ -1059,8 +1059,24 @@ team was still notified by email as a fallback). "pending" and
   attachments: TicketAttachment[];
 }
 
+export interface CreateTicketMessageAttachment {
+  objectPath: string;
+  /** @nullable */
+  fileName?: string | null;
+  /** @nullable */
+  fileSize?: number | null;
+  /** @nullable */
+  contentType?: string | null;
+}
+
 export interface CreateTicketMessage {
   body: string;
+  /** Optional files uploaded via the presigned-upload flow
+(POST /storage/uploads/request-url). Each entry is persisted as a
+ticket_attachments row linked to this reply message so it surfaces
+in the member and admin attachment lists.
+ */
+  attachments?: CreateTicketMessageAttachment[];
 }
 
 export type CreateAnnouncementRequestType =
