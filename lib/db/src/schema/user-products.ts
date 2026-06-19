@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -20,6 +21,17 @@ export const userProductsTable = pgTable("user_products", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   externalSourceOrderIdx: index("user_products_external_source_order_idx").on(table.externalSource, table.externalOrderId),
+  // Partial unique index: a user may hold at most one ACTIVE grant per product.
+  // Terminal rows (expired / revoked / superseded) are excluded from the
+  // predicate so they don't collide — this lets dedupe collapse duplicate
+  // active grants to a single active row and keep the rest as history. Guards
+  // against the double-insert race that produced duplicate active rows before
+  // this index existed. Mirrors the raw-SQL index created in
+  // 0061_user_products_active_unique_index.sql; declared here so
+  // `drizzle-kit push` produces the same constraint set.
+  activeUserProductUidx: uniqueIndex("user_products_user_product_active_uidx")
+    .on(table.userId, table.productId)
+    .where(sql`"status" = 'active'`),
 }));
 
 export const insertUserProductSchema = createInsertSchema(userProductsTable).omit({ id: true, createdAt: true });
