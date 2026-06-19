@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   Video,
@@ -623,14 +623,31 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     return () => el.removeEventListener("scroll", save);
   }, []);
 
-  useEffect(() => {
+  // Restore saved scroll position synchronously before the first paint so
+  // there is no visible jump to the top after navigation.
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || suppressRestoreRef.current) return;
     try {
       const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
       if (saved !== null) el.scrollTop = parseInt(saved, 10);
     } catch {}
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-apply after member data resolves: the nav can grow taller once
+  // entitlements are known, which may un-clamp a previously capped scrollTop.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || suppressRestoreRef.current) return;
+    try {
+      const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+      if (saved !== null) {
+        const target = parseInt(saved, 10);
+        if (el.scrollTop < target) el.scrollTop = target;
+      }
+    } catch {}
+  }, [member]);
 
   const collapseAdminFolder = useCallback(() => {
     if (scrollRef.current) {
@@ -661,7 +678,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         </div>
       </div>
 
-      <div ref={scrollRef} data-testid="member-sidebar-scroll" className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+      <div ref={scrollRef} data-testid="member-sidebar-scroll" className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">
         {filteredMemberNav.map((node, i) => (
           <NavNodeRow
             key={node.kind === "leaf" ? node.href : node.storageKey + i}
@@ -840,7 +857,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0 overflow-y-auto">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0">
         <SidebarContent />
       </aside>
     </>
