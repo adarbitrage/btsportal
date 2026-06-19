@@ -5,6 +5,7 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { TicketAttachment } from "./ticketAttachment";
 import type { TicketMessage } from "./ticketMessage";
 import type { TicketWithMessagesDeliveryStatus } from "./ticketWithMessagesDeliveryStatus";
 
@@ -35,4 +36,5 @@ team was still notified by email as a fallback). "pending" and
   /** @nullable */
   resolvedAt?: Date | null;
   messages: TicketMessage[];
+  attachments: TicketAttachment[];
 }

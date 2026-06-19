@@ -15,6 +15,6 @@ export const CreateTicketCategory = {
   training: "training",
   account: "account",
   other: "other",
-  concierge_task: "concierge_task",
   compliance_review: "compliance_review",
+  concierge_task: "concierge_task",
 } as const;

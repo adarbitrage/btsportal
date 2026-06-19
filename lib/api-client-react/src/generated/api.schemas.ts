@@ -910,6 +910,8 @@ export const TicketCategory = {
   training: "training",
   account: "account",
   other: "other",
+  compliance_review: "compliance_review",
+  concierge_task: "concierge_task",
 } as const;
 
 export type TicketPriority =
@@ -957,6 +959,8 @@ export const CreateTicketCategory = {
   training: "training",
   account: "account",
   other: "other",
+  compliance_review: "compliance_review",
+  concierge_task: "concierge_task",
 } as const;
 
 export interface CreateTicket {
@@ -1014,6 +1018,17 @@ export interface TicketMessage {
   createdAt: string;
 }
 
+export interface TicketAttachment {
+  id: number;
+  /** @nullable */
+  fileName?: string | null;
+  /** @nullable */
+  fileSize?: number | null;
+  /** @nullable */
+  contentType?: string | null;
+  createdAt: string;
+}
+
 export interface TicketWithMessages {
   id: number;
   ticketNumber: string;
@@ -1041,6 +1056,7 @@ team was still notified by email as a fallback). "pending" and
   /** @nullable */
   resolvedAt?: string | null;
   messages: TicketMessage[];
+  attachments: TicketAttachment[];
 }
 
 export interface CreateTicketMessage {

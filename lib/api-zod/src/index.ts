@@ -366,6 +366,7 @@ export type {
   TicketAnalyticsByCategoryItem,
   TicketAnalyticsByPriorityItem,
   TicketAnalyticsByStatusItem,
+  TicketAttachment,
   TicketCategory,
   TicketMessage,
   TicketMessageSenderType,

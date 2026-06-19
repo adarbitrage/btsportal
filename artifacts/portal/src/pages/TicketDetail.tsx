@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
@@ -211,6 +211,48 @@ export default function TicketDetail() {
             );
           })}
         </div>
+
+        {ticket.attachments && ticket.attachments.length > 0 && (
+          <Card data-testid="ticket-attachments-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Paperclip className="w-4 h-4 text-muted-foreground" />
+                <h2 className="font-bold text-foreground">Attachments</h2>
+                <span className="text-xs font-normal text-muted-foreground">({ticket.attachments.length})</span>
+              </div>
+              <ul className="space-y-2" data-testid="ticket-attachments-list">
+                {ticket.attachments.map((att: any) => {
+                  const fileName = att.fileName ?? `attachment-${att.id}`;
+                  const downloadUrl = `${import.meta.env.BASE_URL}api/tickets/${ticketId}/attachments/${att.id}/download`;
+                  const sizeLabel = att.fileSize != null
+                    ? att.fileSize < 1024 * 1024
+                      ? `${Math.round(att.fileSize / 1024)} KB`
+                      : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                    : null;
+                  return (
+                    <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
+                        {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
+                      </div>
+                      <a
+                        href={downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+                        data-testid={`attachment-download-${att.id}`}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {isResolved && (
           <SatisfactionSurvey ticketId={ticketId} />

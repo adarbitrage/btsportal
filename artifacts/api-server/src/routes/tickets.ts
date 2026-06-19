@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
+import { Readable } from "stream";
 import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, ticketAttachmentsTable, usersTable, webhookLogsTable } from "@workspace/db";
 import { eq, and, desc, gte, sql, asc } from "drizzle-orm";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { queueTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import {
@@ -62,6 +64,7 @@ async function countUserTicketsThisMonth(
 }
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 function generateTicketNumber(): string {
   const prefix = "BTS";
@@ -714,7 +717,85 @@ router.get("/tickets/:id", async (req, res): Promise<void> => {
     ))
     .orderBy(ticketMessagesTable.createdAt);
 
-  res.json(GetTicketResponse.parse({ ...ticket, messages }));
+  // Surface any uploaded files (e.g. Compliance Review creatives) so the
+  // member can see and re-download what they submitted. We deliberately omit
+  // objectPath from the response — downloads go through the owner-scoped
+  // /tickets/:id/attachments/:attachmentId/download route below rather than
+  // exposing the raw storage path to the client.
+  const attachments = await db
+    .select({
+      id: ticketAttachmentsTable.id,
+      fileName: ticketAttachmentsTable.fileName,
+      fileSize: ticketAttachmentsTable.fileSize,
+      contentType: ticketAttachmentsTable.contentType,
+      createdAt: ticketAttachmentsTable.createdAt,
+    })
+    .from(ticketAttachmentsTable)
+    .where(eq(ticketAttachmentsTable.ticketId, ticket.id))
+    .orderBy(ticketAttachmentsTable.createdAt);
+
+  res.json(GetTicketResponse.parse({ ...ticket, messages, attachments }));
+});
+
+// GET /tickets/:id/attachments/:attachmentId/download
+// Stream an uploaded attachment back to the member who owns the ticket. The
+// ticket is scoped to req.userId, and the attachment must belong to that
+// ticket, so a member can only ever download files on their own tickets — even
+// though the underlying object-storage path is otherwise reachable by any
+// authenticated user via /storage/objects/*.
+router.get("/tickets/:id/attachments/:attachmentId/download", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const ticketId = parseInt(req.params.id, 10);
+  const attachmentId = parseInt(req.params.attachmentId, 10);
+  if (isNaN(ticketId) || isNaN(attachmentId)) {
+    res.status(400).json({ error: "Invalid ticket or attachment ID" });
+    return;
+  }
+
+  const [ticket] = await db
+    .select({ id: ticketsTable.id })
+    .from(ticketsTable)
+    .where(and(eq(ticketsTable.id, ticketId), eq(ticketsTable.userId, userId)));
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const [attachment] = await db
+    .select()
+    .from(ticketAttachmentsTable)
+    .where(and(
+      eq(ticketAttachmentsTable.id, attachmentId),
+      eq(ticketAttachmentsTable.ticketId, ticket.id),
+    ));
+
+  if (!attachment) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+
+  try {
+    const objectFile = await objectStorageService.getObjectEntityFile(attachment.objectPath);
+    const response = await objectStorageService.downloadObject(objectFile);
+
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    console.error("[Tickets] Failed to serve attachment:", err);
+    if (err instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Attachment file not found" });
+      return;
+    }
+    res.status(500).json({ error: "Failed to download attachment" });
+  }
 });
 
 router.post("/tickets/:id/messages", async (req, res): Promise<void> => {

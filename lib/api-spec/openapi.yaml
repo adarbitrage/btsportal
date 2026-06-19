@@ -7847,7 +7847,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [billing, technical, training, account, other]
+          enum: [billing, technical, training, account, other, compliance_review, concierge_task]
         priority:
           type: string
           enum: [urgent, high, normal, low]
@@ -7874,7 +7874,7 @@ components:
       properties:
         category:
           type: string
-          enum: [billing, technical, training, account, other]
+          enum: [billing, technical, training, account, other, compliance_review, concierge_task]
         subject:
           type: string
         description:
@@ -7943,7 +7943,27 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TicketMessage"
-      required: [id, ticketNumber, userId, category, priority, status, subject, deliveryStatus, createdAt, updatedAt, messages]
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketAttachment"
+      required: [id, ticketNumber, userId, category, priority, status, subject, deliveryStatus, createdAt, updatedAt, messages, attachments]
+
+    TicketAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        fileName:
+          type: ["string", "null"]
+        fileSize:
+          type: ["integer", "null"]
+        contentType:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, createdAt]
 
     TicketMessage:
       type: object

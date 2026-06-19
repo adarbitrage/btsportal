@@ -803,7 +803,15 @@ export const ListTicketsResponseItem = zod.object({
   id: zod.number(),
   ticketNumber: zod.string(),
   userId: zod.number(),
-  category: zod.enum(["billing", "technical", "training", "account", "other", "concierge_task", "compliance_review"]),
+  category: zod.enum([
+    "billing",
+    "technical",
+    "training",
+    "account",
+    "other",
+    "compliance_review",
+    "concierge_task",
+  ]),
   priority: zod.enum(["urgent", "high", "normal", "low"]),
   status: zod.enum([
     "open",
@@ -824,7 +832,15 @@ export const ListTicketsResponse = zod.array(ListTicketsResponseItem);
  * @summary Create a new support ticket
  */
 export const CreateTicketBody = zod.object({
-  category: zod.enum(["billing", "technical", "training", "account", "other", "concierge_task", "compliance_review"]),
+  category: zod.enum([
+    "billing",
+    "technical",
+    "training",
+    "account",
+    "other",
+    "compliance_review",
+    "concierge_task",
+  ]),
   subject: zod.string(),
   description: zod.string(),
   source: zod
@@ -873,6 +889,15 @@ export const GetTicketResponse = zod.object({
       ticketId: zod.number(),
       senderType: zod.enum(["member", "admin"]),
       body: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+  attachments: zod.array(
+    zod.object({
+      id: zod.number(),
+      fileName: zod.string().nullish(),
+      fileSize: zod.number().nullish(),
+      contentType: zod.string().nullish(),
       createdAt: zod.date(),
     }),
   ),

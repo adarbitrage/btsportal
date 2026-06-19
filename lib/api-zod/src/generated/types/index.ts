@@ -365,6 +365,7 @@ export * from "./ticketAnalytics";
 export * from "./ticketAnalyticsByCategoryItem";
 export * from "./ticketAnalyticsByPriorityItem";
 export * from "./ticketAnalyticsByStatusItem";
+export * from "./ticketAttachment";
 export * from "./ticketCategory";
 export * from "./ticketMessage";
 export * from "./ticketMessageSenderType";
