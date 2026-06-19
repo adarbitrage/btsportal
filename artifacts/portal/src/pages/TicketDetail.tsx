@@ -9,7 +9,7 @@ import { Link, useParams } from "wouter";
 import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
-import { getTopicPresetForSubject } from "@/lib/support-topics";
+import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -118,7 +118,7 @@ export default function TicketDetail() {
                 <span>•</span>
                 <span>Created {format(new Date(ticket.createdAt), 'MMM d, yyyy')}</span>
                 <span>•</span>
-                <span className="capitalize">{ticket.category}</span>
+                <span>{formatTicketCategory(ticket.category)}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">

@@ -46,3 +46,29 @@ export function getTopicPresetForSource(source: string | null | undefined): Supp
   }
   return undefined;
 }
+
+// Human-readable labels for ticket categories. The raw values are the DB enum
+// stored on the ticket (billing, technical, …, concierge_task,
+// compliance_review). Most are single words that read fine title-cased, but the
+// snake_case service categories (Concierge Task / Compliance Review) must be
+// mapped explicitly so the portal never surfaces a raw enum value.
+const TICKET_CATEGORY_LABELS: Record<string, string> = {
+  billing: "Billing",
+  technical: "Technical",
+  training: "Training",
+  account: "Account",
+  other: "Other",
+  concierge_task: "Concierge Task",
+  compliance_review: "Compliance Review",
+};
+
+export function formatTicketCategory(category: string | null | undefined): string {
+  if (!category) return "";
+  const mapped = TICKET_CATEGORY_LABELS[category];
+  if (mapped) return mapped;
+  // Fallback for any future/unknown category: turn snake_case into Title Case.
+  return category
+    .split("_")
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(" ");
+}

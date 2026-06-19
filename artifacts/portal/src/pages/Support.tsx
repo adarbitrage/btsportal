@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2 } from "lucide-react";
-import { getTopicPresetForSubject } from "@/lib/support-topics";
+import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -208,7 +208,7 @@ export default function Support() {
                               </span>
                             ) : ticket.status.replace('_', ' ')}
                           </Badge>
-                          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{ticket.category}</span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground bg-muted px-2 py-0.5 rounded">{formatTicketCategory(ticket.category)}</span>
                           {(() => {
                             const preset = getTopicPresetForSubject(ticket.subject);
                             if (!preset) return null;
