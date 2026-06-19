@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import {
   db,
+  entitlementKeySchema,
   vaultCollectionsTable,
   vaultResourcesTable,
   vaultResourceDownloadsTable,
@@ -61,6 +62,13 @@ router.post("/admin/vault/collections", requirePermission("vault:manage"), async
       res.status(400).json({ error: "name and slug are required" });
       return;
     }
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
     const [collection] = await db.insert(vaultCollectionsTable).values({
       name,
       slug,
@@ -96,6 +104,13 @@ router.patch("/admin/vault/collections/:id", requirePermission("vault:manage"), 
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    if (req.body.requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(req.body.requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${req.body.requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
     const updates: any = { updatedAt: new Date() };
     const fields = ["name", "slug", "description", "icon", "coverImageUrl", "requiredEntitlement", "parentId", "sortOrder", "isActive"];
     for (const f of fields) {
@@ -247,6 +262,14 @@ router.post("/admin/vault/resources", requirePermission("vault:manage"), async (
 
     if (!title) { res.status(400).json({ error: "title is required" }); return; }
 
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const normalizedTags = normalizeTags(tags);
     if (!normalizedTags.ok) { res.status(400).json({ error: normalizedTags.error }); return; }
 
@@ -286,6 +309,14 @@ router.patch("/admin/vault/resources/:id", requirePermission("vault:manage"), as
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    if (req.body.requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(req.body.requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${req.body.requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
 
     const updates: any = { updatedAt: new Date() };
     const fields = [

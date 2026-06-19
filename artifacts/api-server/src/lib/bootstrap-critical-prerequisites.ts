@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { runTapfiliateColumnMigration } from "./tapfiliate-migration";
 import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
+import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import { seedKnowledgebaseFromFiles } from "./seed-kb";
 import {
@@ -158,6 +159,16 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureFoundingSuperAdmins() threw:", err);
     missing.push("ensureFoundingSuperAdmins");
+  }
+
+  // 1c. Additive entitlement-key reconcile: grants new brand/offer keys to
+  //     existing product rows without removing any prior keys. Idempotent:
+  //     re-running when keys are already present is a no-op.
+  try {
+    await reconcileEntitlementKeys();
+  } catch (err) {
+    console.error("[Bootstrap] reconcileEntitlementKeys() threw:", err);
+    missing.push("reconcileEntitlementKeys");
   }
 
   // 5a. Convert legacy one-off coaching calls into recurring schedule

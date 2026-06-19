@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { productsTable } from "@workspace/db/schema";
+import { productsTable, insertProductSchema } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
 
 // YSE (Your Second Engine) products granted via:
@@ -82,7 +82,9 @@ export async function seedYseProducts(): Promise<void> {
     .from(productsTable)
     .where(inArray(productsTable.slug, REQUIRED_SLUGS));
   const existingSlugs = new Set(existing.map((r) => r.slug));
-  const toInsert = YSE_PRODUCTS.filter((p) => !existingSlugs.has(p.slug));
+  const toInsert = YSE_PRODUCTS.filter((p) => !existingSlugs.has(p.slug)).map(
+    (p) => insertProductSchema.parse(p),
+  );
 
   if (toInsert.length === 0) {
     console.log("[Seed] YSE products already seeded, skipping");

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, lessonsTable, lessonVersionsTable, progressTable } from "@workspace/db";
+import { db, lessonsTable, lessonVersionsTable, progressTable, entitlementKeySchema } from "@workspace/db";
 import { eq, sql, asc, desc, count } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { AdminCreateLessonBody, AdminUpdateLessonBody } from "@workspace/api-zod";
@@ -33,6 +33,14 @@ router.post("/admin/lessons", requirePermission("content:manage"), async (req: R
       return;
     }
     const { moduleId, title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, status } = parsed.data;
+
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
 
     const [maxOrder] = await db
       .select({ max: sql<number>`COALESCE(MAX(${lessonsTable.sortOrder}), -1)` })
@@ -74,6 +82,15 @@ router.put("/admin/lessons/:id", requirePermission("content:manage"), async (req
       return;
     }
     const { title, description, videoUrl, contentType, textContent, actionItems, durationMinutes, requiredEntitlement, sortOrder, status } = parsed.data;
+
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const updates: Record<string, any> = {};
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;

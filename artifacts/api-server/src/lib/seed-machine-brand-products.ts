@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { productsTable } from "@workspace/db/schema";
+import { productsTable, insertProductSchema } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
 
 // Machine front-end brand products granted via:
@@ -78,7 +78,7 @@ export async function seedMachineBrandProducts(): Promise<void> {
   const existingSlugs = new Set(existing.map((r) => r.slug));
   const toInsert = MACHINE_BRAND_PRODUCTS.filter(
     (p) => !existingSlugs.has(p.slug),
-  );
+  ).map((p) => insertProductSchema.parse(p));
 
   if (toInsert.length === 0) {
     console.log("[Seed] Machine brand products already seeded, skipping");

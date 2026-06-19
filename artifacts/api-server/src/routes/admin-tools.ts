@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, toolsTable, toolCategoriesTable, toolUsageLogTable, usersTable, userProductsTable, productsTable } from "@workspace/db";
+import { db, toolsTable, toolCategoriesTable, toolUsageLogTable, usersTable, userProductsTable, productsTable, entitlementKeySchema } from "@workspace/db";
 import { eq, sql, asc, desc, and, gte, lt, count, countDistinct, or, isNull } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
@@ -211,6 +211,14 @@ router.post("/admin/tools", requirePermission("apps:manage"), async (req: Reques
       return;
     }
 
+    if (body.requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(body.requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${body.requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const [maxOrder] = await db
       .select({ max: sql<number>`COALESCE(MAX(${toolsTable.sortOrder}), -1)` })
       .from(toolsTable);
@@ -252,6 +260,15 @@ router.put("/admin/tools/:id", requirePermission("apps:manage"), async (req: Req
     }
 
     const body = req.body as ToolUpdateBody;
+
+    if (body.requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(body.requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${body.requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const updates: Partial<typeof toolsTable.$inferInsert> = {};
     if (body.slug !== undefined) updates.slug = body.slug;
     if (body.name !== undefined) updates.name = body.name;

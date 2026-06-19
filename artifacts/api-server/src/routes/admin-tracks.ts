@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, tracksTable, modulesTable, lessonsTable } from "@workspace/db";
+import { db, tracksTable, modulesTable, lessonsTable, entitlementKeySchema } from "@workspace/db";
 import { eq, sql, count, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 
@@ -41,6 +41,14 @@ router.post("/admin/tracks", requirePermission("content:manage"), async (req: Re
       return;
     }
 
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const [maxOrder] = await db
       .select({ max: sql<number>`COALESCE(MAX(${tracksTable.sortOrder}), -1)` })
       .from(tracksTable);
@@ -69,6 +77,15 @@ router.put("/admin/tracks/:id", requirePermission("content:manage"), async (req:
     }
 
     const { title, description, requiredEntitlement, status, sortOrder } = req.body;
+
+    if (requiredEntitlement !== undefined) {
+      const keyCheck = entitlementKeySchema.safeParse(requiredEntitlement);
+      if (!keyCheck.success) {
+        res.status(400).json({ error: `Invalid requiredEntitlement "${requiredEntitlement}". Must be a registered entitlement key.` });
+        return;
+      }
+    }
+
     const updates: Record<string, any> = {};
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;

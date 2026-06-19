@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, jsonb, boolean, check } from "drizzle-o
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { entitlementKeySchema } from "../entitlement-registry";
 
 export const productsTable = pgTable(
   "products",
@@ -58,6 +59,10 @@ export const productsTable = pgTable(
   }),
 );
 
-export const insertProductSchema = createInsertSchema(productsTable).omit({ id: true });
+export const insertProductSchema = createInsertSchema(productsTable)
+  .omit({ id: true })
+  .extend({
+    entitlementKeys: z.array(entitlementKeySchema).default([]),
+  });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof productsTable.$inferSelect;
