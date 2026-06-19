@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Send, CheckCircle2, Upload, AlertCircle, X } from "lucide-react";
+import { ShieldCheck, Send, CheckCircle2, Upload, AlertCircle, AlertTriangle, X, RotateCw, Loader2 } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   validateTicketAttachment,
@@ -61,6 +61,25 @@ type AttachmentMeta = {
   contentType: string;
 };
 
+type UploadStatus = "pending" | "uploading" | "uploaded" | "failed";
+
+// Mirrors the ticket reply composer's StagedFile model so each file carries its
+// own upload status, stored metadata and failure reason. Keying retries off a
+// stable id (not the array index) lets a single failed file be re-uploaded
+// without re-running the ones that already succeeded — and without the
+// index-shift hazard that forced the old per-index error map to be cleared on
+// every removal.
+type StagedFile = {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  meta?: AttachmentMeta;
+  error?: string;
+};
+
+let stagedFileSeq = 0;
+const nextStagedFileId = () => `compliance-staged-${Date.now()}-${stagedFileSeq++}`;
+
 // Mirrors the ticket reply composer's upload flow (TicketDetail.tsx) so both
 // intake paths surface the same human-readable failure reasons: a network
 // error (couldn't reach the server / connection dropped mid-upload) reads
@@ -107,11 +126,10 @@ export default function ComplianceReview() {
   const [selectedTraffic, setSelectedTraffic] = useState<string[]>([]);
   const [driveLink, setDriveLink] = useState("");
   const [shareStatus, setShareStatus] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  // Per-file upload failure reasons, keyed by index into `files`. Populated when
-  // a presigned upload fails on submit so the reason can render inline next to
-  // the file that failed, matching the ticket reply composer.
-  const [fileErrors, setFileErrors] = useState<Record<number, string>>({});
+  // Each selected file is staged with its own upload status + reason so a single
+  // failed file can be retried in place (see retryFile) without re-uploading the
+  // ones that already succeeded — matching the ticket reply composer.
+  const [files, setFiles] = useState<StagedFile[]>([]);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<
@@ -121,16 +139,16 @@ export default function ComplianceReview() {
   >(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // "Is any file still uploading" is derived from the rows so Retry stays in
+  // lockstep with the per-row status, matching the ticket reply composer.
+  const anyUploading = files.some((sf) => sf.status === "uploading");
+
   const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
     setList(list.includes(item) ? list.filter((i) => i !== item) : [...list, item]);
   };
 
-  const removeFile = (idx: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
-    // Indexes shift after a removal, so drop the stale per-file errors rather
-    // than risk pointing a reason at the wrong file; they re-populate on the
-    // next submit attempt.
-    setFileErrors({});
+  const removeFile = (fileId: string) => {
+    setFiles((prev) => prev.filter((sf) => sf.id !== fileId));
   };
 
   const handleFilesSelected = (selected: File[]) => {
@@ -140,8 +158,39 @@ export default function ComplianceReview() {
       return;
     }
     setSubmitResult(null);
-    setFileErrors({});
-    setFiles(selected);
+    setFiles(selected.map((file) => ({ id: nextStagedFileId(), file, status: "pending" })));
+  };
+
+  // Upload a single staged file, returning the row with its final status so the
+  // caller can write it back into state. Shared by submit and Retry so both
+  // behave identically.
+  const uploadOne = async (target: StagedFile): Promise<StagedFile> => {
+    try {
+      const meta = await uploadFileToStorage(target.file);
+      return { ...target, status: "uploaded", meta, error: undefined };
+    } catch (err) {
+      return {
+        ...target,
+        status: "failed",
+        error: err instanceof Error ? err.message : `Upload failed for ${target.file.name}`,
+      };
+    }
+  };
+
+  // Flip a staged file to "uploading", push it to object storage, then write
+  // back its final status. Guards against the row vanishing (removed mid-upload).
+  const startUpload = async (target: StagedFile) => {
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? { ...sf, status: "uploading", error: undefined } : sf)));
+    const result = await uploadOne(target);
+    setFiles((prev) => prev.map((sf) => (sf.id === target.id ? result : sf)));
+  };
+
+  // Re-upload only the one failed file. Disabled (no-op) while any upload is in
+  // flight so the in-flight set stays well-defined, matching the ticket composer.
+  const retryFile = async (fileId: string) => {
+    const target = files.find((sf) => sf.id === fileId);
+    if (!target || target.status === "uploading") return;
+    await startUpload(target);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,7 +198,7 @@ export default function ComplianceReview() {
 
     // Guard again at submit time in case the selection was assembled some other
     // way; the server enforces this regardless, but this avoids a wasted upload.
-    const fileError = validateFiles(files);
+    const fileError = validateFiles(files.map((sf) => sf.file));
     if (fileError) {
       setSubmitResult({ kind: "error", message: fileError });
       return;
@@ -157,28 +206,21 @@ export default function ComplianceReview() {
 
     setSubmitting(true);
     setSubmitResult(null);
-    setFileErrors({});
 
     try {
-      let attachments: AttachmentMeta[] = [];
-      if (files.length > 0) {
-        // allSettled (not all) so one bad file doesn't hide the fate of the
-        // others — we collect every per-file reason and render it inline next
-        // to the file that failed.
-        const results = await Promise.allSettled(files.map(uploadFileToStorage));
-        const failures: Record<number, string> = {};
-        results.forEach((result, i) => {
-          if (result.status === "fulfilled") {
-            attachments.push(result.value);
-          } else {
-            failures[i] =
-              result.reason instanceof Error
-                ? result.reason.message
-                : `Upload failed for ${files[i].name}`;
-          }
-        });
-        if (Object.keys(failures).length > 0) {
-          setFileErrors(failures);
+      // Upload only the files that aren't already in object storage — a file the
+      // member successfully retried before resubmitting is reused as-is.
+      const pending = files.filter((sf) => sf.status !== "uploaded");
+      let working = files;
+      if (pending.length > 0) {
+        setFiles((prev) => prev.map((sf) => (sf.status !== "uploaded" ? { ...sf, status: "uploading", error: undefined } : sf)));
+        const results = await Promise.all(pending.map(uploadOne));
+        const byId = new Map(results.map((r) => [r.id, r]));
+        working = files.map((sf) => byId.get(sf.id) ?? sf);
+        setFiles(working);
+        // If any file failed, hold the submit and surface it per-row so the
+        // member can retry/remove the offending files individually.
+        if (working.some((sf) => sf.status === "failed")) {
           setSubmitResult({
             kind: "error",
             message: "Some files didn't upload. Retry or remove them, then submit again.",
@@ -186,6 +228,10 @@ export default function ComplianceReview() {
           return;
         }
       }
+
+      const attachments: AttachmentMeta[] = working
+        .map((sf) => sf.meta)
+        .filter((meta): meta is AttachmentMeta => Boolean(meta));
 
       const res = await fetch(`${API_BASE}/tickets/compliance`, {
         method: "POST",
@@ -463,28 +509,67 @@ export default function ComplianceReview() {
                   className="hidden"
                 />
                 {files.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {files.map((f, i) => (
-                      <li key={i} className="text-xs bg-muted/40 rounded px-2 py-1">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="truncate max-w-xs">{f.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(i)}
-                            className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
-                            aria-label={`Remove ${f.name}`}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                  <ul className="mt-2 space-y-1" data-testid="compliance-files-list">
+                    {files.map((sf, i) => (
+                      <li
+                        key={sf.id}
+                        data-testid={`compliance-file-${i}`}
+                        data-status={sf.status}
+                        className="text-xs bg-muted/40 rounded px-2 py-1"
+                      >
+                        <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                          <span className="truncate max-w-xs">{sf.file.name}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            {sf.status === "uploading" && (
+                              <span className="flex items-center gap-1 text-blue-600" data-testid={`compliance-file-status-${i}`}>
+                                <Loader2 className="w-3 h-3 animate-spin" /> Uploading…
+                              </span>
+                            )}
+                            {sf.status === "uploaded" && (
+                              <span className="flex items-center gap-1 text-green-600" data-testid={`compliance-file-status-${i}`}>
+                                <CheckCircle2 className="w-3 h-3" /> Uploaded
+                              </span>
+                            )}
+                            {sf.status === "failed" && (
+                              <>
+                                <span
+                                  className="flex items-center gap-1 text-destructive"
+                                  data-testid={`compliance-file-status-${i}`}
+                                >
+                                  <AlertTriangle className="w-3 h-3" /> Failed
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => retryFile(sf.id)}
+                                  disabled={anyUploading}
+                                  className="flex items-center gap-1 text-primary hover:underline disabled:opacity-50"
+                                  data-testid={`compliance-file-retry-${i}`}
+                                >
+                                  <RotateCw className="w-3 h-3" /> Retry
+                                </button>
+                              </>
+                            )}
+                            {sf.status !== "uploading" && (
+                              <button
+                                type="button"
+                                onClick={() => removeFile(sf.id)}
+                                className="text-muted-foreground hover:text-foreground"
+                                aria-label={`Remove ${sf.file.name}`}
+                                data-testid={`compliance-file-remove-${i}`}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </span>
                         </div>
-                        {fileErrors[i] && (
+                        {sf.status === "failed" && sf.error && (
                           <p
                             className="mt-1 text-destructive"
                             role="alert"
                             data-testid={`compliance-file-error-${i}`}
                           >
                             <span className="sr-only">Upload failed: </span>
-                            {fileErrors[i]}
+                            {sf.error}
                           </p>
                         )}
                       </li>
