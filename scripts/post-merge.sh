@@ -130,6 +130,15 @@ if [ -n "$DATABASE_URL" ]; then
   #    Idempotent (DROP COLUMN IF EXISTS), so on a DB that never had it it no-ops.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0055_drop_coach_call_types.sql >/dev/null
+
+  # 10. Add the ticket_attachments table (compliance-review file uploads).
+  #     A pure additive table: applying it explicitly here keeps the
+  #     live-schema-drift gate below green so push stays skipped on the common
+  #     merge instead of flipping to FAIL and triggering a slow whole-DB
+  #     `drizzle-kit push --force` just to create one table (like step 7).
+  #     Idempotent (CREATE TABLE IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0056_ticket_attachments.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
