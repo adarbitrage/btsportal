@@ -1,6 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,7 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BarChart2, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
-import { useAffiliateConversions, useAffiliatePayouts } from "@/hooks/use-affiliate-performance";
+import {
+  useAffiliateConversions,
+  useAffiliatePayouts,
+  type ConversionFilters,
+  type ConversionStatusFilter,
+} from "@/hooks/use-affiliate-performance";
 
 function formatCurrency(value: string | number | undefined | null): string {
   if (value == null) return "—";
@@ -66,12 +81,143 @@ function TableSkeleton({ cols }: { cols: number }) {
   );
 }
 
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "disapproved", label: "Disapproved" },
+] as const;
+
+const VALID_STATUS_VALUES: ConversionStatusFilter[] = [
+  "pending",
+  "approved",
+  "disapproved",
+];
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseStatusParam(value: string | null): ConversionStatusFilter | "all" {
+  if (value && (VALID_STATUS_VALUES as string[]).includes(value)) {
+    return value as ConversionStatusFilter;
+  }
+  return "all";
+}
+
+function parseDateParam(value: string | null): string {
+  return value && DATE_PATTERN.test(value) ? value : "";
+}
+
 function ConversionsTab() {
-  const [page, setPage] = useState(1);
-  const { data, isLoading, isError } = useAffiliateConversions(page);
+  const [location, navigate] = useLocation();
+  const searchString = useSearch();
+
+  const [page, setPage] = useState(() => {
+    const raw = parseInt(new URLSearchParams(searchString).get("page") ?? "1", 10);
+    return Number.isFinite(raw) && raw >= 1 ? raw : 1;
+  });
+  const [status, setStatus] = useState<ConversionStatusFilter | "all">(() =>
+    parseStatusParam(new URLSearchParams(searchString).get("status")),
+  );
+  const [fromDate, setFromDate] = useState(() =>
+    parseDateParam(new URLSearchParams(searchString).get("from_date")),
+  );
+  const [toDate, setToDate] = useState(() =>
+    parseDateParam(new URLSearchParams(searchString).get("to_date")),
+  );
+
+  const filters: ConversionFilters = {
+    status: status === "all" ? undefined : status,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
+  };
+
+  const { data, isLoading, isError } = useAffiliateConversions(page, filters);
+
+  // Mirror the active page + filters into the URL so the view survives refresh,
+  // bookmarking, tab switches, and Back navigation. Replace (not push) so
+  // adjusting filters doesn't flood the history stack.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (page > 1) params.set("page", String(page));
+    if (status !== "all") params.set("status", status);
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    const nextQuery = params.toString();
+    if (nextQuery === searchString) return;
+    navigate(`${location}${nextQuery ? `?${nextQuery}` : ""}`, { replace: true });
+  }, [page, status, fromDate, toDate, searchString, location, navigate]);
+
+  const hasActiveFilters = status !== "all" || fromDate !== "" || toDate !== "";
+
+  const clearFilters = () => {
+    setStatus("all");
+    setFromDate("");
+    setToDate("");
+    setPage(1);
+  };
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="conversion-status">Status</Label>
+          <Select
+            value={status}
+            onValueChange={(value) => {
+              setStatus(value as ConversionStatusFilter | "all");
+              setPage(1);
+            }}
+          >
+            <SelectTrigger id="conversion-status" className="w-[180px]">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="conversion-from">From</Label>
+          <Input
+            id="conversion-from"
+            type="date"
+            className="w-[170px]"
+            value={fromDate}
+            max={toDate || undefined}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="conversion-to">To</Label>
+          <Input
+            id="conversion-to"
+            type="date"
+            className="w-[170px]"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>

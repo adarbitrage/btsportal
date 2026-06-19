@@ -32,11 +32,29 @@ export interface AffiliatePayoutsPage {
   page: number;
 }
 
-async function fetchPerformance<T>(dataset: "conversions" | "payouts", page: number): Promise<T> {
-  const res = await fetch(
-    `${API_BASE}/affiliate/performance?dataset=${dataset}&page=${page}`,
-    { credentials: "include" },
-  );
+export type ConversionStatusFilter = "pending" | "approved" | "disapproved";
+
+export interface ConversionFilters {
+  status?: ConversionStatusFilter;
+  fromDate?: string;
+  toDate?: string;
+}
+
+async function fetchPerformance<T>(
+  dataset: "conversions" | "payouts",
+  page: number,
+  filters: ConversionFilters = {},
+): Promise<T> {
+  const params = new URLSearchParams();
+  params.set("dataset", dataset);
+  params.set("page", String(page));
+  if (filters.status) params.set("status", filters.status);
+  if (filters.fromDate) params.set("from_date", filters.fromDate);
+  if (filters.toDate) params.set("to_date", filters.toDate);
+
+  const res = await fetch(`${API_BASE}/affiliate/performance?${params.toString()}`, {
+    credentials: "include",
+  });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(
@@ -46,10 +64,17 @@ async function fetchPerformance<T>(dataset: "conversions" | "payouts", page: num
   return res.json() as Promise<T>;
 }
 
-export function useAffiliateConversions(page: number) {
+export function useAffiliateConversions(page: number, filters: ConversionFilters = {}) {
   return useQuery<AffiliateConversionsPage, Error>({
-    queryKey: ["affiliate-performance", "conversions", page],
-    queryFn: () => fetchPerformance<AffiliateConversionsPage>("conversions", page),
+    queryKey: [
+      "affiliate-performance",
+      "conversions",
+      page,
+      filters.status ?? null,
+      filters.fromDate ?? null,
+      filters.toDate ?? null,
+    ],
+    queryFn: () => fetchPerformance<AffiliateConversionsPage>("conversions", page, filters),
     staleTime: 60_000,
   });
 }

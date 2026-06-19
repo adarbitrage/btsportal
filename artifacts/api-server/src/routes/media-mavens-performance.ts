@@ -6,10 +6,44 @@ import {
   getAffiliatePayouts,
   TapfiliateConfigError,
   TapfiliateApiError,
+  type ConversionFilters,
+  type ConversionStatusFilter,
 } from "../lib/tapfiliate";
 import { resolveAffiliateId } from "../lib/tapfiliate-affiliate";
 
 const router = Router();
+
+const VALID_CONVERSION_STATUSES: ConversionStatusFilter[] = [
+  "pending",
+  "approved",
+  "disapproved",
+];
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseConversionFilters(req: Request): ConversionFilters {
+  const filters: ConversionFilters = {};
+
+  const status = req.query.status;
+  if (
+    typeof status === "string" &&
+    (VALID_CONVERSION_STATUSES as string[]).includes(status)
+  ) {
+    filters.status = status as ConversionStatusFilter;
+  }
+
+  const fromDate = req.query.from_date;
+  if (typeof fromDate === "string" && DATE_PATTERN.test(fromDate)) {
+    filters.fromDate = fromDate;
+  }
+
+  const toDate = req.query.to_date;
+  if (typeof toDate === "string" && DATE_PATTERN.test(toDate)) {
+    filters.toDate = toDate;
+  }
+
+  return filters;
+}
 
 router.get("/affiliate/performance", async (req: Request, res: Response) => {
   try {
@@ -42,7 +76,8 @@ router.get("/affiliate/performance", async (req: Request, res: Response) => {
     const affiliateId = await resolveAffiliateId(userId, user.email, user.name);
 
     if (dataset === "conversions") {
-      const data = await getAffiliateConversions(affiliateId, page);
+      const filters = parseConversionFilters(req);
+      const data = await getAffiliateConversions(affiliateId, page, filters);
       res.json({ ...data, page });
     } else {
       const data = await getAffiliatePayouts(affiliateId, page);

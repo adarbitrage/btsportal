@@ -162,13 +162,34 @@ export interface TapfiliateConversionsPage {
   hasNextPage: boolean;
 }
 
+export type ConversionStatusFilter = "pending" | "approved" | "disapproved";
+
+export interface ConversionFilters {
+  /** Restrict to a single conversion status. */
+  status?: ConversionStatusFilter;
+  /** Inclusive lower bound on conversion date, formatted YYYY-MM-DD. */
+  fromDate?: string;
+  /** Inclusive upper bound on conversion date, formatted YYYY-MM-DD. */
+  toDate?: string;
+}
+
 export async function getAffiliateConversions(
   affiliateId: string,
   page: number,
+  filters: ConversionFilters = {},
 ): Promise<TapfiliateConversionsPage> {
+  const params = new URLSearchParams();
+  params.set("affiliate_id", affiliateId);
+  params.set("page", String(page));
+  // Tapfiliate expresses status as mutually-exclusive boolean flags rather than
+  // a single status param, so map the chosen status onto the matching flag.
+  if (filters.status) params.set(filters.status, "true");
+  if (filters.fromDate) params.set("from_date", filters.fromDate);
+  if (filters.toDate) params.set("to_date", filters.toDate);
+
   const items = await tapRequest<TapfiliateConversion[]>(
     "GET",
-    `/conversions/?affiliate_id=${encodeURIComponent(affiliateId)}&page=${page}`,
+    `/conversions/?${params.toString()}`,
   );
   const list = Array.isArray(items) ? items : [];
   return { items: list, hasNextPage: list.length >= 25 };
