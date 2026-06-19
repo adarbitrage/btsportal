@@ -101,7 +101,10 @@ export function CommunicationsLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0">
+      <aside
+        data-testid="communications-sidebar-desktop"
+        className="hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0"
+      >
         <CommunicationsSidebarContent />
       </aside>
 
@@ -111,7 +114,10 @@ export function CommunicationsLayout({ children }: { children: ReactNode }) {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+          <aside
+            data-testid="communications-sidebar-drawer"
+            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200"
+          >
             <div className="absolute top-4 right-4 z-10">
               <button
                 onClick={() => setMobileOpen(false)}
