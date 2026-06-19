@@ -7874,7 +7874,7 @@ components:
       properties:
         category:
           type: string
-          enum: [billing, technical, training, account, other, compliance_review, concierge_task]
+          enum: [billing, technical, training, account, other]
         subject:
           type: string
         description:
@@ -7908,6 +7908,7 @@ components:
           type: integer
         category:
           type: string
+          enum: [billing, technical, training, account, other, compliance_review, concierge_task]
         priority:
           type: string
         status:

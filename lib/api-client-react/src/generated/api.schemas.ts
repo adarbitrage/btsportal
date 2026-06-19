@@ -959,8 +959,6 @@ export const CreateTicketCategory = {
   training: "training",
   account: "account",
   other: "other",
-  compliance_review: "compliance_review",
-  concierge_task: "concierge_task",
 } as const;
 
 export interface CreateTicket {
@@ -982,6 +980,19 @@ history.
  */
   sourceReferenceId?: number;
 }
+
+export type TicketWithMessagesCategory =
+  (typeof TicketWithMessagesCategory)[keyof typeof TicketWithMessagesCategory];
+
+export const TicketWithMessagesCategory = {
+  billing: "billing",
+  technical: "technical",
+  training: "training",
+  account: "account",
+  other: "other",
+  compliance_review: "compliance_review",
+  concierge_task: "concierge_task",
+} as const;
 
 /**
  * TicketDesk delivery pipeline status, surfaced to the member so
@@ -1033,7 +1044,7 @@ export interface TicketWithMessages {
   id: number;
   ticketNumber: string;
   userId: number;
-  category: string;
+  category: TicketWithMessagesCategory;
   priority: string;
   status: string;
   subject: string;

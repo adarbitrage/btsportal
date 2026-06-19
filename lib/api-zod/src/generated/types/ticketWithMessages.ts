@@ -7,13 +7,14 @@
  */
 import type { TicketAttachment } from "./ticketAttachment";
 import type { TicketMessage } from "./ticketMessage";
+import type { TicketWithMessagesCategory } from "./ticketWithMessagesCategory";
 import type { TicketWithMessagesDeliveryStatus } from "./ticketWithMessagesDeliveryStatus";
 
 export interface TicketWithMessages {
   id: number;
   ticketNumber: string;
   userId: number;
-  category: string;
+  category: TicketWithMessagesCategory;
   priority: string;
   status: string;
   subject: string;

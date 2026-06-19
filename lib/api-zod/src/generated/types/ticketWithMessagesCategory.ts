@@ -6,13 +6,15 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type CreateTicketCategory =
-  (typeof CreateTicketCategory)[keyof typeof CreateTicketCategory];
+export type TicketWithMessagesCategory =
+  (typeof TicketWithMessagesCategory)[keyof typeof TicketWithMessagesCategory];
 
-export const CreateTicketCategory = {
+export const TicketWithMessagesCategory = {
   billing: "billing",
   technical: "technical",
   training: "training",
   account: "account",
   other: "other",
+  compliance_review: "compliance_review",
+  concierge_task: "concierge_task",
 } as const;

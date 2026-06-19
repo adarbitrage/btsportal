@@ -832,15 +832,7 @@ export const ListTicketsResponse = zod.array(ListTicketsResponseItem);
  * @summary Create a new support ticket
  */
 export const CreateTicketBody = zod.object({
-  category: zod.enum([
-    "billing",
-    "technical",
-    "training",
-    "account",
-    "other",
-    "compliance_review",
-    "concierge_task",
-  ]),
+  category: zod.enum(["billing", "technical", "training", "account", "other"]),
   subject: zod.string(),
   description: zod.string(),
   source: zod
@@ -868,7 +860,15 @@ export const GetTicketResponse = zod.object({
   id: zod.number(),
   ticketNumber: zod.string(),
   userId: zod.number(),
-  category: zod.string(),
+  category: zod.enum([
+    "billing",
+    "technical",
+    "training",
+    "account",
+    "other",
+    "compliance_review",
+    "concierge_task",
+  ]),
   priority: zod.string(),
   status: zod.string(),
   subject: zod.string(),

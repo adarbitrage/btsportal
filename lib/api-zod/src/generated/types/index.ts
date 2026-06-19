@@ -375,6 +375,7 @@ export * from "./ticketSatisfaction";
 export * from "./ticketSlaDetail";
 export * from "./ticketStatus";
 export * from "./ticketWithMessages";
+export * from "./ticketWithMessagesCategory";
 export * from "./ticketWithMessagesDeliveryStatus";
 export * from "./timeSlot";
 export * from "./toggleCommunityReaction";

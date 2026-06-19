@@ -376,6 +376,7 @@ export type {
   TicketSlaDetail,
   TicketStatus,
   TicketWithMessages,
+  TicketWithMessagesCategory,
   TicketWithMessagesDeliveryStatus,
   TimeSlot,
   ToggleCommunityReaction,
