@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, index, real } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 
@@ -24,6 +24,15 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   networkPath: text("network_path"),
   publisherPath: text("publisher_path"),
   blitzOrder: integer("blitz_order"),
+  // AI triage fields (added in 0060_kb_staging_ai_triage.sql)
+  aiConfidenceScore: real("ai_confidence_score"),
+  aiRecommendedAction: text("ai_recommended_action"),
+  aiSuggestedCategory: text("ai_suggested_category"),
+  aiCleanedTitle: text("ai_cleaned_title"),
+  aiSummary: text("ai_summary"),
+  autoAction: text("auto_action"),
+  autoActionAt: timestamp("auto_action_at", { withTimezone: true }),
+  autoActionConfidence: real("auto_action_confidence"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -35,3 +44,21 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
 
 export type KbStagingDoc = typeof kbStagingDocsTable.$inferSelect;
 export type InsertKbStagingDoc = typeof kbStagingDocsTable.$inferInsert;
+
+// Immutable audit trail — every auto-triage event is INSERT-only; undo appends
+// an 'undone' row rather than deleting or clearing the original record.
+export const kbTriageAuditLogTable = pgTable("kb_triage_audit_log", {
+  id: serial("id").primaryKey(),
+  stagingDocId: integer("staging_doc_id").notNull().references(() => kbStagingDocsTable.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(), // 'auto_approved' | 'auto_rejected' | 'needs_review' | 'undone'
+  confidenceScore: real("confidence_score"),
+  actorUserId: integer("actor_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  aiReasoning: text("ai_reasoning"),
+  docTitle: text("doc_title"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("kb_triage_audit_doc_idx").on(table.stagingDocId),
+  index("kb_triage_audit_created_idx").on(table.createdAt),
+]);
+
+export type KbTriageAuditLogEntry = typeof kbTriageAuditLogTable.$inferSelect;

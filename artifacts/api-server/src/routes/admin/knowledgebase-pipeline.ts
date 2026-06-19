@@ -9,6 +9,7 @@ import { requirePermission } from "../../middleware/rbac.js";
 import { execSync } from "child_process";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
+import { runTriageBackground } from "./knowledgebase-staging.js";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -320,6 +321,17 @@ async function processTranscriptsBackground(
   console.log(
     `[KB Pipeline] Complete. Processed: ${processed}, Errors: ${errors}`,
   );
+
+  if (processed > 0) {
+    console.log(`[KB Pipeline] Auto-triaging ${processed} new docs…`);
+    const newDocs = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.status, "pending_review"));
+    runTriageBackground(newDocs).catch((err) =>
+      console.error("[KB Pipeline] Triage error:", err),
+    );
+  }
 }
 
 function cleanBlitzTranscript(raw: string): string {
@@ -755,6 +767,17 @@ async function processBlitzBackground(
   console.log(
     `[Blitz Pipeline] Complete. Processed: ${blitzProcessingStatus.processed}, Errors: ${blitzProcessingStatus.errors}`,
   );
+
+  if (blitzProcessingStatus.processed > 0) {
+    console.log(`[Blitz Pipeline] Auto-triaging ${blitzProcessingStatus.processed} new docs…`);
+    const newDocs = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.status, "pending_review"));
+    runTriageBackground(newDocs).catch((err) =>
+      console.error("[Blitz Pipeline] Triage error:", err),
+    );
+  }
 }
 
 router.post("/process-blitz-retry", async (req: Request, res: Response) => {

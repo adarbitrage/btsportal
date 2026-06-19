@@ -4,7 +4,11 @@
     "onlyInMigrations": []
   },
   "indexes": {
-    "onlyInPush": [],
-    "onlyInMigrations": []
+    "onlyInPush": [
+      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)"
+    ],
+    "onlyInMigrations": [
+      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at DESC)"
+    ]
   }
 }

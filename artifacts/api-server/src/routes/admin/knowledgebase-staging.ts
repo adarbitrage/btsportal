@@ -2,9 +2,19 @@ import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
-import { eq, desc, sql, count, and, ne } from "drizzle-orm";
+import { eq, desc, sql, count, and, ne, isNotNull } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
+import {
+  getTriageSettings,
+  saveTriageSettings,
+  runAutoTriageOnDoc,
+  undoAutoAction,
+  runTriageBackground,
+  isTriageRunning,
+} from "../../lib/kb-triage.js";
+
+export { runTriageBackground } from "../../lib/kb-triage.js";
 
 const router = Router();
 router.use(requirePermission("chat:manage"));
@@ -13,6 +23,7 @@ router.get("/", async (req: Request, res: Response) => {
   try {
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
+    const sourceFilter = (req.query.source as string) || undefined;
     const page = parseInt((req.query.page as string) || "1");
     const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
     const offset = (page - 1) * limit;
@@ -23,6 +34,13 @@ router.get("/", async (req: Request, res: Response) => {
     }
     if (search) {
       where = sql`${where} AND to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || ${kbStagingDocsTable.content}) @@ plainto_tsquery('english', ${search})`;
+    }
+    if (sourceFilter === "blitz") {
+      where = sql`${where} AND ${kbStagingDocsTable.source} = 'blitz'`;
+    } else if (sourceFilter === "coaching_call") {
+      where = sql`${where} AND ${kbStagingDocsTable.source} = 'coaching_call'`;
+    } else if (sourceFilter === "unlabeled") {
+      where = sql`${where} AND (${kbStagingDocsTable.source} IS NULL OR ${kbStagingDocsTable.source} NOT IN ('blitz','coaching_call'))`;
     }
 
     const [docs, total] = await Promise.all([
@@ -47,6 +65,14 @@ router.get("/", async (req: Request, res: Response) => {
       .from(kbStagingDocsTable)
       .groupBy(kbStagingDocsTable.status);
 
+    const sourceCounts = await db
+      .select({
+        source: kbStagingDocsTable.source,
+        cnt: count(),
+      })
+      .from(kbStagingDocsTable)
+      .groupBy(kbStagingDocsTable.source);
+
     res.json({
       documents: docs,
       pagination: {
@@ -58,12 +84,155 @@ router.get("/", async (req: Request, res: Response) => {
       statusCounts: Object.fromEntries(
         statusCounts.map((s) => [s.status, s.cnt]),
       ),
+      sourceCounts: {
+        blitz: sourceCounts.find((s) => s.source === "blitz")?.cnt ?? 0,
+        coaching_call: sourceCounts.find((s) => s.source === "coaching_call")?.cnt ?? 0,
+        unlabeled: sourceCounts
+          .filter((s) => !s.source || !["blitz", "coaching_call"].includes(s.source ?? ""))
+          .reduce((sum, s) => sum + s.cnt, 0),
+      },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: message });
   }
 });
+
+// ── AI Triage endpoints (must be BEFORE /:id to avoid capture) ──────────────
+
+router.get("/triage-settings", async (_req: Request, res: Response) => {
+  try {
+    const settings = await getTriageSettings();
+    res.json(settings);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.patch("/triage-settings", async (req: Request, res: Response) => {
+  try {
+    const { autoApproveThreshold, autoRejectThreshold } = req.body as {
+      autoApproveThreshold?: number;
+      autoRejectThreshold?: number;
+    };
+    const saved = await saveTriageSettings({ autoApproveThreshold, autoRejectThreshold });
+    res.json(saved);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/run-triage", async (req: Request, res: Response) => {
+  try {
+    if (isTriageRunning()) {
+      res.json({ message: "Triage is already running", running: true });
+      return;
+    }
+
+    const { ids, includeStatuses } = req.body as {
+      ids?: number[];
+      includeStatuses?: string[];
+    };
+
+    const statuses = includeStatuses ?? ["pending_review"];
+
+    let targetDocs: (typeof kbStagingDocsTable.$inferSelect)[];
+
+    if (ids && ids.length > 0) {
+      targetDocs = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(sql`${kbStagingDocsTable.id} = ANY(${ids})`);
+    } else {
+      targetDocs = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(sql`${kbStagingDocsTable.status} = ANY(${statuses})`);
+    }
+
+    if (targetDocs.length === 0) {
+      res.json({ message: "No documents to triage", triaged: 0 });
+      return;
+    }
+
+    res.json({
+      message: `Starting AI triage on ${targetDocs.length} documents in background.`,
+      total: targetDocs.length,
+      running: true,
+    });
+
+    // runTriageBackground manages _triageRunning internally; safe to fire-and-forget
+    runTriageBackground(targetDocs).catch((err) =>
+      console.error("[KB Triage] Unhandled error in background run:", err),
+    );
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.get("/triage-status", async (_req: Request, res: Response) => {
+  try {
+    const [triaged, pending, needsReview] = await Promise.all([
+      db.select({ cnt: count() }).from(kbStagingDocsTable).where(isNotNull(kbStagingDocsTable.aiRecommendedAction)),
+      db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "pending_review")),
+      db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review")),
+    ]);
+    const autoActions = await db
+      .select({
+        action: kbStagingDocsTable.autoAction,
+        cnt: count(),
+      })
+      .from(kbStagingDocsTable)
+      .where(isNotNull(kbStagingDocsTable.autoAction))
+      .groupBy(kbStagingDocsTable.autoAction);
+
+    res.json({
+      running: isTriageRunning(),
+      triaged: triaged[0].cnt,
+      pendingTriage: pending[0].cnt,
+      needsReview: needsReview[0].cnt,
+      autoActions: Object.fromEntries(autoActions.map((a) => [a.action, a.cnt])),
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.get("/auto-actions", async (req: Request, res: Response) => {
+  try {
+    const page = parseInt((req.query.page as string) || "1");
+    const limit = Math.min(parseInt((req.query.limit as string) || "50"), 100);
+    const offset = (page - 1) * limit;
+
+    const [docs, total] = await Promise.all([
+      db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(isNotNull(kbStagingDocsTable.autoAction))
+        .orderBy(desc(kbStagingDocsTable.autoActionAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ cnt: count() })
+        .from(kbStagingDocsTable)
+        .where(isNotNull(kbStagingDocsTable.autoAction)),
+    ]);
+
+    res.json({
+      documents: docs,
+      pagination: {
+        page,
+        limit,
+        total: total[0].cnt,
+        totalPages: Math.ceil(total[0].cnt / limit),
+      },
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Per-document routes ───────────────────────────────────────────────────────
 
 router.get("/:id", async (req: Request, res: Response) => {
   try {
@@ -376,6 +545,22 @@ router.get("/:id/similar", async (req: Request, res: Response) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: message });
+  }
+});
+
+router.post("/:id/undo-auto-action", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const userId = (req as unknown as { userId: number }).userId;
+    await undoAutoAction(doc, userId);
+    res.json({ success: true, message: "Auto-action undone. Document moved to needs_review." });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
 });
 
