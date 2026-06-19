@@ -14,6 +14,15 @@ vi.mock("@/components/layout/AppLayout", () => ({
   ),
 }));
 
+// Stateful wouter mock so we can assert that the active filter / search term are
+// mirrored into the URL query string and restored from it on load.
+let mockLocation = "/support";
+let mockSearch = "";
+const navigateMock = vi.fn((to: string, _opts?: { replace?: boolean }) => {
+  const [path, search = ""] = to.split("?");
+  mockLocation = path;
+  mockSearch = search;
+});
 vi.mock("wouter", () => ({
   Link: ({
     href,
@@ -28,6 +37,8 @@ vi.mock("wouter", () => ({
       {children}
     </a>
   ),
+  useLocation: () => [mockLocation, navigateMock],
+  useSearch: () => mockSearch,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -100,6 +111,9 @@ function visibleTicketIds(): number[] {
 beforeEach(() => {
   useListTickets.mockReset();
   useListTickets.mockReturnValue({ data: tickets, isLoading: false });
+  mockLocation = "/support";
+  mockSearch = "";
+  navigateMock.mockClear();
 });
 
 afterEach(() => {
@@ -165,6 +179,75 @@ describe("Support — search box", () => {
     // "Please book my travel" is concierge (filtered out by the Support tab),
     // so the only match is the billing invoice ticket.
     expect(visibleTicketIds()).toEqual([2]);
+  });
+});
+
+describe("Support — URL persistence of filter & search", () => {
+  it("restores the filter tab from the URL on load", () => {
+    mockSearch = "filter=concierge_task";
+    render(<Support />);
+    expect(screen.getByTestId("ticket-filter-concierge_task")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(visibleTicketIds()).toEqual([3]);
+  });
+
+  it("restores the search term from the URL on load", () => {
+    mockSearch = "q=invoice";
+    render(<Support />);
+    expect(screen.getByPlaceholderText(/search tickets/i)).toHaveValue("invoice");
+    expect(visibleTicketIds()).toEqual([2]);
+  });
+
+  it("restores both filter and search together from the URL on load", () => {
+    mockSearch = "filter=support&q=invoice";
+    render(<Support />);
+    expect(screen.getByTestId("ticket-filter-support")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByPlaceholderText(/search tickets/i)).toHaveValue("invoice");
+    expect(visibleTicketIds()).toEqual([2]);
+  });
+
+  it("falls back to the All tab when the URL filter is invalid", () => {
+    mockSearch = "filter=bogus";
+    render(<Support />);
+    expect(screen.getByTestId("ticket-filter-all")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(visibleTicketIds()).toEqual([1, 2, 3, 4]);
+  });
+
+  it("writes the active filter to the URL (replace) when a tab is clicked", () => {
+    render(<Support />);
+    navigateMock.mockClear();
+    fireEvent.click(screen.getByTestId("ticket-filter-concierge_task"));
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/support?filter=concierge_task",
+      { replace: true },
+    );
+  });
+
+  it("writes the search term to the URL (replace) when typing", () => {
+    render(<Support />);
+    navigateMock.mockClear();
+    fireEvent.change(screen.getByPlaceholderText(/search tickets/i), {
+      target: { value: "travel" },
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/support?q=travel", {
+      replace: true,
+    });
+  });
+
+  it("drops the filter param from the URL when returning to the All tab", () => {
+    mockSearch = "filter=concierge_task";
+    render(<Support />);
+    navigateMock.mockClear();
+    fireEvent.click(screen.getByTestId("ticket-filter-all"));
+    expect(navigateMock).toHaveBeenCalledWith("/support", { replace: true });
   });
 });
 

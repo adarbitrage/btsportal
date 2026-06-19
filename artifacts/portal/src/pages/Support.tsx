@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useListTickets, useCreateTicket, useResolveTicket, getListTicketsQueryKey, ApiError } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import {
   getTopicPresetForSubject,
@@ -59,12 +59,29 @@ const serviceCategoryIcons = {
   ShieldCheck,
 } as const;
 
+// The filter tab and search box are persisted in the URL query string so that
+// refreshing, bookmarking, or hitting Back from a ticket detail restores the
+// same filtered view (e.g. /support?filter=concierge_task&q=travel).
+const VALID_FILTERS = new Set<TicketFilter>(TICKET_FILTERS.map((f) => f.value));
+
+function parseFilterParam(value: string | null): TicketFilter {
+  if (value && VALID_FILTERS.has(value as TicketFilter)) return value as TicketFilter;
+  return "all";
+}
+
 export default function Support() {
+  const [location, navigate] = useLocation();
+  const searchString = useSearch();
+
   const [isCreating, setIsCreating] = useState(false);
   const [limitReached, setLimitReached] = useState<LimitReachedDetails | null>(null);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
-  const [activeFilter, setActiveFilter] = useState<TicketFilter>("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<TicketFilter>(() =>
+    parseFilterParam(new URLSearchParams(searchString).get("filter")),
+  );
+  const [searchTerm, setSearchTerm] = useState(
+    () => new URLSearchParams(searchString).get("q") ?? "",
+  );
   const { data: tickets, isLoading } = useListTickets();
   const createTicket = useCreateTicket();
   const resolveTicket = useResolveTicket();
@@ -74,6 +91,19 @@ export default function Support() {
     resolver: zodResolver(ticketSchema),
     defaultValues: { category: "technical", subject: "", description: "" }
   });
+
+  // Mirror the active filter/search into the URL so the view is restored on
+  // refresh, bookmark, share, or Back navigation from a ticket detail. Replace
+  // (rather than push) so typing in the search box doesn't flood the history.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeFilter !== "all") params.set("filter", activeFilter);
+    const trimmedSearch = searchTerm.trim();
+    if (trimmedSearch) params.set("q", trimmedSearch);
+    const nextQuery = params.toString();
+    if (nextQuery === searchString) return;
+    navigate(`${location}${nextQuery ? `?${nextQuery}` : ""}`, { replace: true });
+  }, [activeFilter, searchTerm, searchString, location, navigate]);
 
   const onSubmit = (data: z.infer<typeof ticketSchema>) => {
     setLimitReached(null);
