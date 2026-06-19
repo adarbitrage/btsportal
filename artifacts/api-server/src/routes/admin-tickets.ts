@@ -5,6 +5,7 @@ import {
   ticketsTable,
   ticketMessagesTable,
   ticketSlaTable,
+  ticketAttachmentsTable,
   cannedResponsesTable,
   ticketRoutingRulesTable,
   ticketSatisfactionTable,
@@ -699,6 +700,38 @@ router.get("/admin/tickets/:id", requirePermission("tickets:view"), async (req: 
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
+
+// GET /admin/tickets/:id/attachments
+// Returns all file attachments for a compliance-review (or any) ticket so the
+// admin ticket detail page can render clickable download links.
+router.get("/admin/tickets/:id/attachments", requirePermission("tickets:view"), async (req: Request, res: Response) => {
+  try {
+    const ticketId = parseInt(getParam(req.params.id));
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: "Invalid ticket ID" });
+      return;
+    }
+
+    const [ticket] = await db.select({ id: ticketsTable.id })
+      .from(ticketsTable)
+      .where(eq(ticketsTable.id, ticketId));
+
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    const attachments = await db
+      .select()
+      .from(ticketAttachmentsTable)
+      .where(eq(ticketAttachmentsTable.ticketId, ticketId))
+      .orderBy(ticketAttachmentsTable.createdAt);
+
+    res.json(attachments);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch attachments" });
   }
 });
 

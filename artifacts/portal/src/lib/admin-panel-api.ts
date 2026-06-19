@@ -717,6 +717,20 @@ export const adminPanelApi = {
     }>;
   },
 
+  async getTicketAttachments(ticketId: number) {
+    const res = await authFetch(`/admin/tickets/${ticketId}/attachments`);
+    if (!res.ok) throw new Error("Failed to fetch ticket attachments");
+    return res.json() as Promise<Array<{
+      id: number;
+      ticketId: number;
+      objectPath: string;
+      fileName: string | null;
+      fileSize: number | null;
+      contentType: string | null;
+      createdAt: string;
+    }>>;
+  },
+
   async getTicketDeliveryHealth() {
     const res = await authFetch("/admin/tickets/delivery-health");
     if (!res.ok) throw new Error("Failed to fetch ticket delivery health");

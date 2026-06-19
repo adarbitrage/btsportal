@@ -117,3 +117,20 @@ export const ticketSatisfactionTable = pgTable("ticket_satisfaction", {
 export const insertTicketSatisfactionSchema = createInsertSchema(ticketSatisfactionTable).omit({ id: true, createdAt: true });
 export type InsertTicketSatisfaction = z.infer<typeof insertTicketSatisfactionSchema>;
 export type TicketSatisfaction = typeof ticketSatisfactionTable.$inferSelect;
+
+// Stores file attachments uploaded with compliance-review (and any future
+// attachment-capable ticket types). One row per file. Queried by the admin
+// ticket detail page to render clickable download links.
+export const ticketAttachmentsTable = pgTable("ticket_attachments", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => ticketsTable.id),
+  // Path returned by the presigned-upload flow, e.g. /objects/uuid-file.ext
+  objectPath: text("object_path").notNull(),
+  // Original file name as provided by the uploader, for display only
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  contentType: text("content_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type TicketAttachment = typeof ticketAttachmentsTable.$inferSelect;

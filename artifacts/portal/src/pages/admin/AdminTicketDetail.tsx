@@ -33,6 +33,8 @@ import {
   ExternalLink,
   MailX,
   RefreshCw,
+  Paperclip,
+  Download,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
@@ -386,6 +388,17 @@ export default function AdminTicketDetail() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [retryingDelivery, setRetryingDelivery] = useState(false);
 
+  type TicketAttachment = {
+    id: number;
+    ticketId: number;
+    objectPath: string;
+    fileName: string | null;
+    fileSize: number | null;
+    contentType: string | null;
+    createdAt: string;
+  };
+  const [attachments, setAttachments] = useState<TicketAttachment[] | null>(null);
+
   const loadTicket = useCallback(async () => {
     if (!Number.isFinite(ticketId)) {
       setNotFound(true);
@@ -435,11 +448,22 @@ export default function AdminTicketDetail() {
     }
   }, [ticketId]);
 
+  const loadAttachments = useCallback(async () => {
+    if (!Number.isFinite(ticketId)) return;
+    try {
+      const data = await adminPanelApi.getTicketAttachments(ticketId);
+      setAttachments(data);
+    } catch {
+      setAttachments([]);
+    }
+  }, [ticketId]);
+
   useEffect(() => {
     loadTicket();
     loadSla();
     loadAuditHistory();
-  }, [loadTicket, loadSla, loadAuditHistory]);
+    loadAttachments();
+  }, [loadTicket, loadSla, loadAuditHistory, loadAttachments]);
 
   useEffect(() => {
     let cancelled = false;
@@ -785,6 +809,50 @@ export default function AdminTicketDetail() {
             </Card>
           )}
         </div>
+
+        {attachments !== null && attachments.length > 0 && (
+          <Card data-testid="ticket-attachments-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Paperclip className="w-4 h-4" /> Attachments
+                <span className="text-xs font-normal text-muted-foreground">({attachments.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2" data-testid="ticket-attachments-list">
+                {attachments.map((att) => {
+                  const fileName = att.fileName ?? att.objectPath.split("/").pop() ?? att.objectPath;
+                  const wildcardPath = att.objectPath.replace(/^\/objects\//, "");
+                  const downloadUrl = `${import.meta.env.BASE_URL}api/storage/objects/${wildcardPath}`;
+                  const sizeLabel = att.fileSize != null
+                    ? att.fileSize < 1024 * 1024
+                      ? `${Math.round(att.fileSize / 1024)} KB`
+                      : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                    : null;
+                  return (
+                    <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
+                        {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
+                      </div>
+                      <a
+                        href={downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+                        data-testid={`attachment-download-${att.id}`}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         <Card data-testid="ticket-recent-activity-card">
           <CardHeader>

@@ -3,9 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Headphones, CheckCircle2, Send,
-  ClipboardList, Phone
+  ClipboardList, Phone, AlertCircle
 } from "lucide-react";
 import { useState } from "react";
+
+const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 const FLEXY_BOOKING_BASE = "https://apiv2.getflexy.app/widget/bookings";
 
@@ -70,6 +72,10 @@ const pillClass = (selected: boolean, mono = false) =>
       : "bg-background border-border text-muted-foreground hover:border-foreground/30"
   }`;
 
+type SubmitResult =
+  | { kind: "success"; ticketNumber: string }
+  | { kind: "error"; message: string };
+
 function ConciergeForm() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -83,7 +89,8 @@ function ConciergeForm() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [otherInfo, setOtherInfo] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<SubmitResult | null>(null);
 
   const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
     setList(list.includes(item) ? list.filter((i) => i !== item) : [...list, item]);
@@ -96,12 +103,38 @@ function ConciergeForm() {
 
   const maxTasks = phase === '"Build" Phase' ? 2 : 1;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/tickets/concierge`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName, lastName, email,
+          networks, offerName, offerUrl,
+          traffic, phase, selectedTasks, selectedSizes,
+          otherInfo,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = typeof data?.error === "string" ? data.error : "Failed to submit. Please try again.";
+        setResult({ kind: "error", message: msg });
+        return;
+      }
+      const data = await res.json();
+      setResult({ kind: "success", ticketNumber: data.ticketNumber });
+    } catch {
+      setResult({ kind: "error", message: "Network error. Please check your connection and try again." });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (submitted) {
+  if (result?.kind === "success") {
     return (
       <Card className="border-border/60 shadow-sm">
         <CardContent className="p-8 text-center space-y-4">
@@ -110,9 +143,21 @@ function ConciergeForm() {
           </div>
           <h3 className="text-xl font-bold text-foreground">Task Submitted!</h3>
           <p className="text-muted-foreground">
-            Your request has been received. Our BTS Concierge™ team will get back to you within 24 hours.
+            Your request has been received and logged under reference{" "}
+            <span className="font-mono font-semibold text-foreground">{result.ticketNumber}</span>.
+            Our BTS Concierge™ team will get back to you within 24–72 hours.
+            Check your email for a confirmation.
           </p>
-          <Button onClick={() => setSubmitted(false)} variant="outline" className="mt-4">
+          <Button
+            onClick={() => {
+              setResult(null);
+              setFirstName(""); setLastName(""); setEmail(""); setNetworks([]);
+              setOfferName(""); setOfferUrl(""); setTraffic([]); setPhase("");
+              setSelectedTasks([]); setSelectedSizes([]); setOtherInfo(""); setConfirmed(false);
+            }}
+            variant="outline"
+            className="mt-4"
+          >
             Submit Another Task
           </Button>
         </CardContent>
@@ -122,6 +167,13 @@ function ConciergeForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {result?.kind === "error" && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+          <p>{result.message}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">First Name *</label>
@@ -299,7 +351,7 @@ function ConciergeForm() {
         </span>
       </label>
 
-      <Button type="submit" className="gap-2 w-full sm:w-auto">
+      <Button type="submit" className="gap-2 w-full sm:w-auto" isLoading={submitting} disabled={submitting}>
         <Send className="w-4 h-4" />
         Submit Your Task
       </Button>

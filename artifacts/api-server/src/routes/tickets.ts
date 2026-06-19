@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, usersTable, webhookLogsTable } from "@workspace/db";
+import { db, ticketsTable, ticketMessagesTable, ticketSatisfactionTable, ticketAttachmentsTable, usersTable, webhookLogsTable } from "@workspace/db";
 import { eq, and, desc, gte, sql, asc } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { queueTicketDeskDelivery } from "../lib/ticketdesk-queue";
@@ -814,6 +814,278 @@ router.post("/tickets/:id/satisfaction", async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(survey);
+});
+
+// POST /tickets/concierge
+// Accepts structured Concierge™ form data, builds a formatted ticket in the
+// `concierge_task` category, and sends the member a confirmation email.
+// No monthly ticket cap — these are service requests, not support tickets.
+router.post("/tickets/concierge", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const {
+    firstName, lastName, email,
+    networks, offerName, offerUrl,
+    traffic, phase, selectedTasks, selectedSizes, otherInfo,
+  } = req.body as Record<string, unknown>;
+
+  if (!firstName || !lastName || !email || !offerName || !offerUrl) {
+    res.status(400).json({ error: "Missing required fields: firstName, lastName, email, offerName, offerUrl" });
+    return;
+  }
+
+  const subject = `Concierge Task — ${String(offerName)}`;
+
+  const lines: string[] = [
+    `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
+    ``,
+    `Affiliate Network(s): ${Array.isArray(networks) && networks.length ? networks.join(", ") : "Not specified"}`,
+    `Offer Name: ${String(offerName)}`,
+    `Offer URL: ${String(offerUrl)}`,
+    `Traffic Source(s): ${Array.isArray(traffic) && traffic.length ? traffic.join(", ") : "Not specified"}`,
+    `Phase: ${phase ? String(phase) : "Not specified"}`,
+    `Selected Task(s): ${Array.isArray(selectedTasks) && selectedTasks.length ? selectedTasks.join("; ") : "None selected"}`,
+  ];
+
+  if (Array.isArray(selectedSizes) && selectedSizes.length > 0) {
+    lines.push(`Banner Sizes: ${selectedSizes.join(", ")}`);
+  }
+
+  if (otherInfo && String(otherInfo).trim()) {
+    lines.push(``, `Additional Info:`, String(otherInfo).trim());
+  }
+
+  const description = lines.join("\n");
+
+  let ticket: typeof ticketsTable.$inferSelect;
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(ticketsTable)
+        .values({
+          ticketNumber: generateTicketNumber(),
+          userId,
+          category: "concierge_task",
+          priority: "normal",
+          status: "open",
+          subject,
+          source: "concierge_form",
+        })
+        .returning();
+
+      await tx.insert(ticketMessagesTable).values({
+        ticketId: created.id,
+        senderType: "member",
+        body: description,
+      });
+
+      return created;
+    });
+    ticket = result;
+  } catch (err) {
+    console.error("[Tickets] Failed to create concierge ticket:", err);
+    res.status(500).json({ error: "Failed to submit your request. Please try again." });
+    return;
+  }
+
+  // SLA + routing — best-effort
+  try { await createSlaForTicket(ticket.id, userId); } catch {}
+  try { await autoRouteTicket(ticket.id, userId, "concierge_task", "normal"); } catch {}
+
+  // TicketDesk delivery
+  ;(async () => {
+    try {
+      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (member) {
+        await queueTicketDeskDelivery({
+          contactEmail: member.email,
+          contactName: member.name,
+          subject,
+          body: description,
+          btsTicketNumber: ticket.ticketNumber,
+          ticketId: ticket.id,
+        });
+      }
+    } catch (err) {
+      console.error("[TicketDesk] Failed to queue concierge ticket delivery:", err);
+    }
+  })();
+
+  // Confirmation email — best-effort
+  ;(async () => {
+    try {
+      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (member) {
+        await CommunicationService.queueEmail({
+          templateSlug: "concierge_task_created",
+          to: member.email,
+          userId,
+          variables: {
+            member_name: member.name,
+            ticket_number: ticket.ticketNumber,
+            task_subject: String(offerName),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[Comms] Failed to send concierge confirmation email:", err);
+    }
+  })();
+
+  res.status(201).json({ ticketNumber: ticket.ticketNumber, ticketId: ticket.id });
+});
+
+// POST /tickets/compliance
+// Accepts structured Compliance Review form data (including optional file
+// attachments that were uploaded via the presigned-URL flow). Attachment
+// metadata is persisted in `ticket_attachments` so admins can open files
+// directly from the ticket detail — not just read paths in message text.
+router.post("/tickets/compliance", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const {
+    firstName, lastName, email,
+    offerName, selectedCreatives, selectedTraffic,
+    driveLink, shareStatus,
+    attachments,
+    notes,
+  } = req.body as Record<string, unknown>;
+
+  type AttachmentInput = { objectPath: string; fileName?: string; fileSize?: number; contentType?: string };
+  const parsedAttachments: AttachmentInput[] = Array.isArray(attachments)
+    ? (attachments as AttachmentInput[]).filter(
+        (a) => a && typeof a === "object" && typeof a.objectPath === "string",
+      )
+    : [];
+
+  if (!firstName || !lastName || !email || !offerName) {
+    res.status(400).json({ error: "Missing required fields: firstName, lastName, email, offerName" });
+    return;
+  }
+
+  const subject = `Compliance Review — ${String(offerName)}`;
+
+  const lines: string[] = [
+    `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
+    ``,
+    `Offer Name: ${String(offerName)}`,
+    `Creative Type(s): ${Array.isArray(selectedCreatives) && selectedCreatives.length ? selectedCreatives.join(", ") : "Not specified"}`,
+    `Traffic Source(s): ${Array.isArray(selectedTraffic) && selectedTraffic.length ? selectedTraffic.join(", ") : "Not specified"}`,
+  ];
+
+  if (driveLink && String(driveLink).trim()) {
+    lines.push(`Google Drive Link: ${String(driveLink).trim()}`);
+    if (shareStatus && String(shareStatus).trim()) {
+      lines.push(`Drive Access Status: ${String(shareStatus).trim()}`);
+    }
+  }
+
+  if (parsedAttachments.length > 0) {
+    lines.push(``, `Uploaded Files (${parsedAttachments.length}):`);
+    parsedAttachments.forEach((a, i) => {
+      lines.push(`  ${i + 1}. ${a.fileName ?? a.objectPath}`);
+    });
+  }
+
+  if (notes && String(notes).trim()) {
+    lines.push(``, `Additional Notes:`, String(notes).trim());
+  }
+
+  const description = lines.join("\n");
+
+  let ticket: typeof ticketsTable.$inferSelect;
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(ticketsTable)
+        .values({
+          ticketNumber: generateTicketNumber(),
+          userId,
+          category: "compliance_review",
+          priority: "normal",
+          status: "open",
+          subject,
+          source: "compliance_form",
+        })
+        .returning();
+
+      await tx.insert(ticketMessagesTable).values({
+        ticketId: created.id,
+        senderType: "member",
+        body: description,
+      });
+
+      // Persist each uploaded file as a structured attachment row so admins
+      // can open files directly from the ticket detail (not just read paths
+      // buried in message text).
+      if (parsedAttachments.length > 0) {
+        await tx.insert(ticketAttachmentsTable).values(
+          parsedAttachments.map((a) => ({
+            ticketId: created.id,
+            objectPath: a.objectPath,
+            fileName: a.fileName ?? null,
+            fileSize: typeof a.fileSize === "number" ? a.fileSize : null,
+            contentType: a.contentType ?? null,
+          })),
+        );
+      }
+
+      return created;
+    });
+    ticket = result;
+  } catch (err) {
+    console.error("[Tickets] Failed to create compliance ticket:", err);
+    res.status(500).json({ error: "Failed to submit your request. Please try again." });
+    return;
+  }
+
+  // SLA + routing — best-effort
+  try { await createSlaForTicket(ticket.id, userId); } catch {}
+  try { await autoRouteTicket(ticket.id, userId, "compliance_review", "normal"); } catch {}
+
+  // TicketDesk delivery
+  ;(async () => {
+    try {
+      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (member) {
+        await queueTicketDeskDelivery({
+          contactEmail: member.email,
+          contactName: member.name,
+          subject,
+          body: description,
+          btsTicketNumber: ticket.ticketNumber,
+          ticketId: ticket.id,
+        });
+      }
+    } catch (err) {
+      console.error("[TicketDesk] Failed to queue compliance ticket delivery:", err);
+    }
+  })();
+
+  // Confirmation email — best-effort
+  ;(async () => {
+    try {
+      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (member) {
+        await CommunicationService.queueEmail({
+          templateSlug: "compliance_review_created",
+          to: member.email,
+          userId,
+          variables: {
+            member_name: member.name,
+            ticket_number: ticket.ticketNumber,
+            task_subject: String(offerName),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[Comms] Failed to send compliance confirmation email:", err);
+    }
+  })();
+
+  res.status(201).json({ ticketNumber: ticket.ticketNumber, ticketId: ticket.id });
 });
 
 router.get("/tickets/:id/satisfaction", async (req, res): Promise<void> => {

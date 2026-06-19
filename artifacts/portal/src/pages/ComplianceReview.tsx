@@ -1,12 +1,39 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Send, CheckCircle2, Upload } from "lucide-react";
+import { ShieldCheck, Send, CheckCircle2, Upload, AlertCircle, X } from "lucide-react";
 import { useState, useRef } from "react";
+
+const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 const creativeTypes = ["Banner", "Landing Page"];
 const trafficSources = ["Grasshopper", "Crane", "Caterpillar", "Meta", "Other"];
 const shareOptions = ["Yes, I have shared access", "No, I have not shared access"];
+
+type AttachmentMeta = {
+  objectPath: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+};
+
+async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
+  const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+  });
+  if (!metaRes.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+  const { uploadURL, objectPath } = await metaRes.json();
+  const putRes = await fetch(uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  if (!putRes.ok) throw new Error(`Upload failed for ${file.name}`);
+  return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
+}
 
 export default function ComplianceReview() {
   const [firstName, setFirstName] = useState("");
@@ -19,16 +46,61 @@ export default function ComplianceReview() {
   const [shareStatus, setShareStatus] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<
+    | { kind: "success"; ticketNumber: string }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
     setList(list.includes(item) ? list.filter((i) => i !== item) : [...list, item]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      let attachments: AttachmentMeta[] = [];
+      if (files.length > 0) {
+        attachments = await Promise.all(files.map(uploadFileToStorage));
+      }
+
+      const res = await fetch(`${API_BASE}/tickets/compliance`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName, lastName, email, offerName,
+          selectedCreatives, selectedTraffic,
+          driveLink, shareStatus,
+          attachments,
+          notes,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = typeof data?.error === "string" ? data.error : "Failed to submit. Please try again.";
+        setSubmitResult({ kind: "error", message: msg });
+        return;
+      }
+
+      const data = await res.json();
+      setSubmitResult({ kind: "success", ticketNumber: data.ticketNumber });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error. Please check your connection and try again.";
+      setSubmitResult({ kind: "error", message: msg });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const inputClass =
@@ -41,7 +113,7 @@ export default function ComplianceReview() {
         : "bg-background border-border text-muted-foreground hover:border-foreground/40"
     }`;
 
-  if (submitted) {
+  if (submitResult?.kind === "success") {
     return (
       <AppLayout>
         <div className="space-y-6 max-w-6xl">
@@ -57,14 +129,26 @@ export default function ComplianceReview() {
 
           <Card className="border-border/60">
             <CardContent className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-foreground" />
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-8 h-8 text-emerald-700" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Submission Received</h2>
               <p className="text-muted-foreground">
-                Your creative has been submitted for compliance review. We'll review it within 24 hours.
+                Your creative has been submitted for compliance review under reference{" "}
+                <span className="font-mono font-semibold text-foreground">{submitResult.ticketNumber}</span>.
+                We'll review it within 24 hours. Do <strong>not</strong> run the creative until you receive approval.
+                Check your email for a confirmation.
               </p>
-              <Button onClick={() => setSubmitted(false)} variant="outline" className="mt-4">
+              <Button
+                onClick={() => {
+                  setSubmitResult(null);
+                  setFirstName(""); setLastName(""); setEmail(""); setOfferName("");
+                  setSelectedCreatives([]); setSelectedTraffic([]); setDriveLink("");
+                  setShareStatus(""); setFiles([]); setNotes("");
+                }}
+                variant="outline"
+                className="mt-4"
+              >
                 Submit Another Creative
               </Button>
             </CardContent>
@@ -91,6 +175,13 @@ export default function ComplianceReview() {
 
         <Card className="border-border/60">
           <CardContent className="p-6 md:p-8">
+            {submitResult?.kind === "error" && (
+              <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+                <p>{submitResult.message}</p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-5">
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -237,6 +328,23 @@ export default function ComplianceReview() {
                   onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   className="hidden"
                 />
+                {files.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {files.map((f, i) => (
+                      <li key={i} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                        <span className="truncate max-w-xs">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
+                          aria-label={`Remove ${f.name}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div>
@@ -253,9 +361,15 @@ export default function ComplianceReview() {
                 />
               </div>
 
-              <Button type="submit" className="gap-2 w-full sm:w-auto" data-testid="button-submit">
+              <Button
+                type="submit"
+                className="gap-2 w-full sm:w-auto"
+                isLoading={submitting}
+                disabled={submitting}
+                data-testid="button-submit"
+              >
                 <Send className="w-4 h-4" />
-                Submit For Review
+                {submitting ? "Uploading & Submitting…" : "Submit For Review"}
               </Button>
 
             </form>

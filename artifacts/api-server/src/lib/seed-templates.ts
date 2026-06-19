@@ -441,6 +441,44 @@ const transactionalEmailTemplates = [
     category: "transactional",
     variables: ["member_name", "actor_name", "previous_role_label", "new_role_label", "portal_url", "support_email", "current_year"],
   },
+  {
+    slug: "concierge_task_created",
+    name: "Concierge Task Submitted",
+    subject: "Your Concierge task {{ticket_number}} has been received",
+    htmlBody: wrapHtml("Concierge Task Received", `
+<h2 style="color:#1a1a2e;margin-top:0;">Concierge Task Received</h2>
+<p>Hi {{member_name}},</p>
+<p>Your BTS Concierge™ task has been received and logged under reference <strong>{{ticket_number}}</strong>.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Task:</strong> {{task_subject}}<br>
+<strong>Reference:</strong> {{ticket_number}}
+</p>
+<p>Our Concierge team typically turns tasks around within <strong>24–72 hours</strong>. We'll reach out if we need any additional information.</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Your Submission</a></p>
+<p>Thank you for using the BTS Concierge™!<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour BTS Concierge™ task has been received.\n\nTask: {{task_subject}}\nReference: {{ticket_number}}\n\nOur team will turn this around within 24-72 hours.\n\nView it at {{portal_url}}/support\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "ticket_number", "task_subject", "portal_url", "current_year"],
+  },
+  {
+    slug: "compliance_review_created",
+    name: "Compliance Review Submitted",
+    subject: "Your compliance review {{ticket_number}} has been received",
+    htmlBody: wrapHtml("Compliance Review Received", `
+<h2 style="color:#1a1a2e;margin-top:0;">Compliance Review Received</h2>
+<p>Hi {{member_name}},</p>
+<p>Your compliance review submission has been received and logged under reference <strong>{{ticket_number}}</strong>.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Offer:</strong> {{task_subject}}<br>
+<strong>Reference:</strong> {{ticket_number}}
+</p>
+<p>Our compliance team will review your creative within <strong>24 hours</strong>. Please do <strong>not</strong> run the creative on any traffic source until you have received our approval.</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Your Submission</a></p>
+<p>Thank you,<br>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour compliance review has been received.\n\nOffer: {{task_subject}}\nReference: {{ticket_number}}\n\nOur team will review within 24 hours. Do NOT run the creative until you receive approval.\n\nView it at {{portal_url}}/support\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "ticket_number", "task_subject", "portal_url", "current_year"],
+  },
 ];
 
 const marketingEmailTemplates = [
@@ -869,6 +907,8 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "mentorship_expired",
   "session_feedback",
   "session_recording_ready",
+  "concierge_task_created",
+  "compliance_review_created",
 ] as const;
 
 /**

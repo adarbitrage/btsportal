@@ -175,6 +175,7 @@ export default function AdminTicketQueue() {
   const [slaFilter, setSlaFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
   const [deliveryFilter, setDeliveryFilter] = useState("all");
+  const [viewFilter, setViewFilter] = useState<"all" | "support" | "concierge_compliance">("all");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [bulkPending, setBulkPending] = useState(false);
@@ -234,8 +235,19 @@ export default function AdminTicketQueue() {
     return Array.from(set).sort((a, b) => tierRank(a) - tierRank(b));
   }, [tickets]);
 
+  const CC_CATEGORIES = ["concierge_task", "compliance_review"];
+  const SUPPORT_CATEGORIES = ["billing", "technical", "training", "account", "other"];
+
   const filtered = useMemo(() => {
     let result = tickets;
+
+    // Top-level view filter: scopes to support or concierge/compliance tickets
+    if (viewFilter === "support") {
+      result = result.filter((t) => SUPPORT_CATEGORIES.includes(t.category));
+    } else if (viewFilter === "concierge_compliance") {
+      result = result.filter((t) => CC_CATEGORIES.includes(t.category));
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((t) =>
@@ -245,7 +257,8 @@ export default function AdminTicketQueue() {
       );
     }
     if (statusFilter !== "all") result = result.filter((t) => t.status === statusFilter);
-    if (categoryFilter !== "all") result = result.filter((t) => t.category === categoryFilter);
+    // Category dropdown only active when viewing All (not scoped by viewFilter)
+    if (viewFilter === "all" && categoryFilter !== "all") result = result.filter((t) => t.category === categoryFilter);
     if (priorityFilter !== "all") result = result.filter((t) => t.priority === priorityFilter);
     if (agentFilter !== "all") {
       if (agentFilter === "__unassigned") {
@@ -272,7 +285,7 @@ export default function AdminTicketQueue() {
       result = result.filter((t) => t.deliveryStatus === deliveryFilter);
     }
     return sortTickets(result);
-  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter, slaFilter, tierFilter, deliveryFilter]);
+  }, [tickets, viewFilter, searchQuery, statusFilter, categoryFilter, priorityFilter, agentFilter, slaFilter, tierFilter, deliveryFilter]);
 
   const filteredIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
   const selectedVisibleCount = useMemo(
@@ -325,6 +338,8 @@ export default function AdminTicketQueue() {
     tierFilter !== "all" ||
     deliveryFilter !== "all" ||
     searchQuery !== "";
+
+  const ccCount = useMemo(() => tickets.filter((t) => CC_CATEGORIES.includes(t.category)).length, [tickets]);
 
   const stats = useMemo(() => ({
     total: tickets.length,
@@ -463,6 +478,35 @@ export default function AdminTicketQueue() {
         </div>
 
         <Card>
+          <div className="flex border-b border-border">
+            {(
+              [
+                { key: "all", label: "All Tickets", count: tickets.length },
+                { key: "support", label: "Support", count: tickets.filter((t) => SUPPORT_CATEGORIES.includes(t.category)).length },
+                { key: "concierge_compliance", label: "Concierge & Compliance", count: ccCount },
+              ] as const
+            ).map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => { setViewFilter(key); setCategoryFilter("all"); }}
+                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  viewFilter === key
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`view-tab-${key}`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`ml-2 text-xs rounded-full px-1.5 py-0.5 font-medium ${
+                    viewFilter === key ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
           <div className="p-4 border-b border-border space-y-3">
             <div className="flex gap-3 items-center flex-wrap">
               <div className="relative flex-1 max-w-sm">
@@ -526,15 +570,17 @@ export default function AdminTicketQueue() {
                   <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {viewFilter === "all" && (
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={agentFilter} onValueChange={setAgentFilter}>
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Agent" /></SelectTrigger>
                 <SelectContent>
