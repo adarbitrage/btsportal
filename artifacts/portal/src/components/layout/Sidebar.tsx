@@ -559,11 +559,14 @@ function NavNodeRow({
   );
 }
 
+const SIDEBAR_SCROLL_KEY = "sidebar-scroll-top";
+
 export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location, setLocation] = useLocation();
   const { data: member } = useGetCurrentMember() as { data: MemberProfile | undefined };
   const { user, logout } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const suppressRestoreRef = useRef(false);
 
   const entitlements = new Set<string>(member?.entitlements ?? []);
 
@@ -602,8 +605,34 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     location,
   );
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const save = () => {
+      try {
+        sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(el.scrollTop));
+      } catch {}
+    };
+    el.addEventListener("scroll", save, { passive: true });
+    return () => el.removeEventListener("scroll", save);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || suppressRestoreRef.current) return;
+    try {
+      const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+      if (saved !== null) el.scrollTop = parseInt(saved, 10);
+    } catch {}
+  });
+
   const collapseAdminFolder = useCallback(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    if (scrollRef.current) {
+      suppressRestoreRef.current = true;
+      scrollRef.current.scrollTop = 0;
+      try { sessionStorage.removeItem(SIDEBAR_SCROLL_KEY); } catch {}
+      requestAnimationFrame(() => { suppressRestoreRef.current = false; });
+    }
   }, []);
 
   return (
