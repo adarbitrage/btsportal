@@ -27,7 +27,7 @@ import { autoRouteTicket } from "../lib/ticket-routing";
 import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
 import { CommunicationService } from "../lib/communication-service";
-import { TICKET_CATEGORY } from "@workspace/support-config";
+import { TICKET_CATEGORY, validateTicketAttachment } from "@workspace/support-config";
 import {
   COMPLIANCE_MAX_FILES,
   validateComplianceAttachments,
@@ -838,6 +838,21 @@ router.post("/tickets/:id/messages", async (req, res): Promise<void> => {
         (a) => a && typeof a === "object" && typeof a.objectPath === "string" && a.objectPath.length > 0,
       )
     : [];
+
+  // Enforce the size cap + content-type allow-list before persisting any
+  // attachment row. The portal validates the same rules pre-upload, but a
+  // hand-crafted request could skip that — so this is the authoritative gate.
+  for (const attachment of replyAttachments) {
+    const validationError = validateTicketAttachment({
+      fileName: attachment.fileName,
+      fileSize: attachment.fileSize,
+      contentType: attachment.contentType,
+    });
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+  }
 
   const message = await db.transaction(async (tx) => {
     const [created] = await tx

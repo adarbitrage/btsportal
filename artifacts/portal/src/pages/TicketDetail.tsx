@@ -16,6 +16,7 @@ import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, Ale
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
+import { validateTicketAttachment } from "@workspace/support-config";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -69,12 +70,51 @@ export default function TicketDetail() {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // Validate a freshly selected batch against the shared size/content-type
+  // rules before adding them to the pending list. Rejected files are dropped
+  // and a clear message names the first offender, so an oversized/unsupported
+  // file never reaches object storage or the API.
+  const addFiles = (selected: File[]) => {
+    if (selected.length === 0) return;
+    const accepted: File[] = [];
+    let firstError: string | null = null;
+    for (const file of selected) {
+      const error = validateTicketAttachment({
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: file.type,
+      });
+      if (error) {
+        if (!firstError) firstError = error;
+        continue;
+      }
+      accepted.push(file);
+    }
+    setUploadError(firstError);
+    if (accepted.length > 0) {
+      setFiles((prev) => [...prev, ...accepted]);
+    }
+  };
+
   const handleReply = async () => {
     if (!reply.trim() || uploading || addMessage.isPending) return;
     setUploadError(null);
 
     let attachments: AttachmentMeta[] = [];
     if (files.length > 0) {
+      // Re-validate just before upload as a safety net (the list is filtered on
+      // selection, but this guarantees nothing slips through).
+      for (const file of files) {
+        const error = validateTicketAttachment({
+          fileName: file.name,
+          fileSize: file.size,
+          contentType: file.type,
+        });
+        if (error) {
+          setUploadError(error);
+          return;
+        }
+      }
       setUploading(true);
       try {
         attachments = await Promise.all(files.map(uploadFileToStorage));
@@ -378,7 +418,7 @@ export default function TicketDetail() {
                 type="file"
                 multiple
                 onChange={(e) => {
-                  setFiles((prev) => [...prev, ...Array.from(e.target.files || [])]);
+                  addFiles(Array.from(e.target.files || []));
                   e.target.value = "";
                 }}
                 className="hidden"

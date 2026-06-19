@@ -5,6 +5,9 @@ import {
   DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
   DEFAULT_TICKETDESK_WIDGET_WORKSPACE_ID,
   DEFAULT_TICKETDESK_WIDGET_API_URL,
+  validateTicketAttachment,
+  TICKET_ATTACHMENT_MAX_BYTES,
+  TICKET_ATTACHMENT_MAX_LABEL,
 } from "./index";
 
 describe("DEFAULT_TICKETDESK_URL", () => {
@@ -48,5 +51,55 @@ describe("DEFAULT_TICKETDESK_WIDGET_API_URL", () => {
     const apiHost = new URL(DEFAULT_TICKETDESK_WIDGET_API_URL).host;
     const rootHost = new URL(DEFAULT_TICKETDESK_URL).host;
     expect(apiHost).toBe(rootHost);
+  });
+});
+
+describe("validateTicketAttachment", () => {
+  it("accepts an allowed type within the size limit", () => {
+    expect(
+      validateTicketAttachment({
+        fileName: "report.pdf",
+        fileSize: 1024,
+        contentType: "application/pdf",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects an unsupported content type", () => {
+    const error = validateTicketAttachment({
+      fileName: "malware.exe",
+      fileSize: 1024,
+      contentType: "application/x-msdownload",
+    });
+    expect(error).toBeTruthy();
+    expect(error).toContain("malware.exe");
+    expect(error).toContain("Allowed types");
+  });
+
+  it("rejects a file over the size limit", () => {
+    const error = validateTicketAttachment({
+      fileName: "huge.png",
+      fileSize: TICKET_ATTACHMENT_MAX_BYTES + 1,
+      contentType: "image/png",
+    });
+    expect(error).toBeTruthy();
+    expect(error).toContain("too large");
+    expect(error).toContain(TICKET_ATTACHMENT_MAX_LABEL);
+  });
+
+  it("accepts a file exactly at the size limit", () => {
+    expect(
+      validateTicketAttachment({
+        fileName: "edge.png",
+        fileSize: TICKET_ATTACHMENT_MAX_BYTES,
+        contentType: "image/png",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a missing content type", () => {
+    expect(
+      validateTicketAttachment({ fileName: "x", fileSize: 1, contentType: null }),
+    ).toBeTruthy();
   });
 });
