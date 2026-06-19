@@ -13,6 +13,18 @@
       "path": "./lib/api-zod"
     },
     {
+      "path": "./lib/auth"
+    },
+    {
+      "path": "./lib/blitz-curriculum"
+    },
+    {
+      "path": "./lib/moderation-shared"
+    },
+    {
+      "path": "./lib/support-config"
+    },
+    {
       "path": "./lib/integrations-anthropic-ai"
     },
     {

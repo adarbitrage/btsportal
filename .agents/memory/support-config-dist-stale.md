@@ -6,12 +6,17 @@ description: Editing lib/support-config source can break the portal/api typechec
 `lib/support-config` is a `composite` + `emitDeclarationOnly` TS project consumed by
 the portal/api-server through its generated declarations in `lib/support-config/dist`.
 
-**The trap:** the root `tsconfig.json` `references` list (built by `typecheck:libs` =
-`tsc --build`) does NOT include support-config (nor `lib/auth`,
-`lib/moderation-shared`, `lib/blitz-curriculum`). So editing support-config source
-(new export, re-export) does NOT regenerate its committed dist. Consumers then
-typecheck against stale declarations and fail with `"@workspace/support-config" has
-no exported member named X`.
+**FIXED structurally:** the root `tsconfig.json` `references` list (built by
+`typecheck:libs` = `tsc --build`) now includes ALL composite libs, including
+support-config, `lib/auth`, `lib/moderation-shared`, `lib/blitz-curriculum`. So
+`pnpm run typecheck` now regenerates every lib's dist before the portal/api
+typecheck — no manual per-lib `tsc --build` needed. Keep new composite libs added
+to the root references list.
+
+**The old trap (pre-fix):** the root references list did NOT include those 4 libs,
+so editing support-config source (new export, re-export) did NOT regenerate its
+committed dist. Consumers then typechecked against stale declarations and failed
+with `"@workspace/support-config" has no exported member named X`.
 
 Incremental builds make it worse: a stale `lib/support-config/tsconfig.tsbuildinfo`
 can leave a re-exported file (e.g. `upload-limits.d.ts`) un-emitted while `index.d.ts`
