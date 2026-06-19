@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
-import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X, Loader2, RotateCw } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X, Loader2, RotateCw, FileText } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatisfactionSurvey } from "@/components/support/SatisfactionSurvey";
 import { getTopicPresetForSubject, formatTicketCategory } from "@/lib/support-topics";
@@ -81,7 +81,7 @@ export default function TicketDetail() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string; kind: "image" | "pdf" } | null>(null);
 
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
@@ -382,6 +382,7 @@ export default function TicketDetail() {
                   const fileName = att.fileName ?? `attachment-${att.id}`;
                   const downloadUrl = `${import.meta.env.BASE_URL}api/tickets/${ticketId}/attachments/${att.id}/download`;
                   const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
+                  const isPdf = att.contentType === "application/pdf";
                   const sizeLabel = att.fileSize != null
                     ? att.fileSize < 1024 * 1024
                       ? `${Math.round(att.fileSize / 1024)} KB`
@@ -393,7 +394,7 @@ export default function TicketDetail() {
                         {isImage ? (
                           <button
                             type="button"
-                            onClick={() => setPreview({ url: downloadUrl, name: fileName })}
+                            onClick={() => setPreview({ url: downloadUrl, name: fileName, kind: "image" })}
                             className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
                             title={`Preview ${fileName}`}
                             data-testid={`attachment-thumbnail-${att.id}`}
@@ -404,6 +405,16 @@ export default function TicketDetail() {
                               loading="lazy"
                               className="h-10 w-10 object-cover"
                             />
+                          </button>
+                        ) : isPdf ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreview({ url: downloadUrl, name: fileName, kind: "pdf" })}
+                            className="shrink-0 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:ring-2 hover:ring-primary hover:text-primary transition-all"
+                            title={`Preview ${fileName}`}
+                            data-testid={`attachment-thumbnail-${att.id}`}
+                          >
+                            <FileText className="w-5 h-5" />
                           </button>
                         ) : (
                           <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -554,11 +565,20 @@ export default function TicketDetail() {
           </DialogHeader>
           {preview && (
             <div className="flex flex-col items-center gap-4">
-              <img
-                src={preview.url}
-                alt={preview.name}
-                className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
-              />
+              {preview.kind === "pdf" ? (
+                <iframe
+                  src={preview.url}
+                  title={preview.name}
+                  className="h-[70vh] w-full rounded-md border border-border"
+                  data-testid="attachment-preview-pdf"
+                />
+              ) : (
+                <img
+                  src={preview.url}
+                  alt={preview.name}
+                  className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
+                />
+              )}
               <a
                 href={preview.url}
                 target="_blank"

@@ -35,6 +35,7 @@ import {
   RefreshCw,
   Paperclip,
   Download,
+  FileText,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
@@ -399,7 +400,7 @@ export default function AdminTicketDetail() {
     createdAt: string;
   };
   const [attachments, setAttachments] = useState<TicketAttachment[] | null>(null);
-  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; name: string } | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; name: string; kind: "image" | "pdf" } | null>(null);
 
   const loadTicket = useCallback(async () => {
     if (!Number.isFinite(ticketId)) {
@@ -827,6 +828,7 @@ export default function AdminTicketDetail() {
                   const wildcardPath = att.objectPath.replace(/^\/objects\//, "");
                   const downloadUrl = `${import.meta.env.BASE_URL}api/storage/objects/${wildcardPath}`;
                   const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
+                  const isPdf = att.contentType === "application/pdf";
                   const sizeLabel = att.fileSize != null
                     ? att.fileSize < 1024 * 1024
                       ? `${Math.round(att.fileSize / 1024)} KB`
@@ -838,7 +840,7 @@ export default function AdminTicketDetail() {
                         {isImage ? (
                           <button
                             type="button"
-                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName })}
+                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName, kind: "image" })}
                             className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
                             title={`Preview ${fileName}`}
                             data-testid={`attachment-thumbnail-${att.id}`}
@@ -849,6 +851,16 @@ export default function AdminTicketDetail() {
                               loading="lazy"
                               className="h-10 w-10 object-cover"
                             />
+                          </button>
+                        ) : isPdf ? (
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName, kind: "pdf" })}
+                            className="shrink-0 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:ring-2 hover:ring-primary hover:text-primary transition-all"
+                            title={`Preview ${fileName}`}
+                            data-testid={`attachment-thumbnail-${att.id}`}
+                          >
+                            <FileText className="w-5 h-5" />
                           </button>
                         ) : (
                           <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -992,11 +1004,20 @@ export default function AdminTicketDetail() {
             </DialogHeader>
             {attachmentPreview && (
               <div className="flex flex-col items-center gap-4">
-                <img
-                  src={attachmentPreview.url}
-                  alt={attachmentPreview.name}
-                  className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
-                />
+                {attachmentPreview.kind === "pdf" ? (
+                  <iframe
+                    src={attachmentPreview.url}
+                    title={attachmentPreview.name}
+                    className="h-[70vh] w-full rounded-md border border-border"
+                    data-testid="attachment-preview-pdf"
+                  />
+                ) : (
+                  <img
+                    src={attachmentPreview.url}
+                    alt={attachmentPreview.name}
+                    className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
+                  />
+                )}
                 <a
                   href={attachmentPreview.url}
                   target="_blank"
