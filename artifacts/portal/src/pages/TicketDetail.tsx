@@ -4,6 +4,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Link, useParams } from "wouter";
 import { ArrowLeft, User, ShieldAlert, Send, Bot, Info, CheckCircle2, Clock, AlertTriangle, Paperclip, Download, Upload, X } from "lucide-react";
@@ -54,6 +60,7 @@ export default function TicketDetail() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
 
   if (isLoading) return <AppLayout><div className="animate-pulse h-96 bg-card rounded-xl" /></AppLayout>;
   if (!ticket) return <AppLayout><div>Ticket not found</div></AppLayout>;
@@ -278,6 +285,7 @@ export default function TicketDetail() {
                 {ticket.attachments.map((att: any) => {
                   const fileName = att.fileName ?? `attachment-${att.id}`;
                   const downloadUrl = `${import.meta.env.BASE_URL}api/tickets/${ticketId}/attachments/${att.id}/download`;
+                  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
                   const sizeLabel = att.fileSize != null
                     ? att.fileSize < 1024 * 1024
                       ? `${Math.round(att.fileSize / 1024)} KB`
@@ -286,7 +294,24 @@ export default function TicketDetail() {
                   return (
                     <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        {isImage ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreview({ url: downloadUrl, name: fileName })}
+                            className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
+                            title={`Preview ${fileName}`}
+                            data-testid={`attachment-thumbnail-${att.id}`}
+                          >
+                            <img
+                              src={downloadUrl}
+                              alt={fileName}
+                              loading="lazy"
+                              className="h-10 w-10 object-cover"
+                            />
+                          </button>
+                        ) : (
+                          <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        )}
                         <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
                         {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
                       </div>
@@ -376,6 +401,32 @@ export default function TicketDetail() {
           </Card>
         )}
       </div>
+
+      <Dialog open={preview !== null} onOpenChange={(open) => { if (!open) setPreview(null); }}>
+        <DialogContent className="max-w-3xl" data-testid="attachment-preview-dialog">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">{preview?.name}</DialogTitle>
+          </DialogHeader>
+          {preview && (
+            <div className="flex flex-col items-center gap-4">
+              <img
+                src={preview.url}
+                alt={preview.name}
+                className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
+              />
+              <a
+                href={preview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

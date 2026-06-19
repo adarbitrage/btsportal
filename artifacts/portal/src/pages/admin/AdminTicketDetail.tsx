@@ -399,6 +399,7 @@ export default function AdminTicketDetail() {
     createdAt: string;
   };
   const [attachments, setAttachments] = useState<TicketAttachment[] | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; name: string } | null>(null);
 
   const loadTicket = useCallback(async () => {
     if (!Number.isFinite(ticketId)) {
@@ -825,6 +826,7 @@ export default function AdminTicketDetail() {
                   const fileName = att.fileName ?? att.objectPath.split("/").pop() ?? att.objectPath;
                   const wildcardPath = att.objectPath.replace(/^\/objects\//, "");
                   const downloadUrl = `${import.meta.env.BASE_URL}api/storage/objects/${wildcardPath}`;
+                  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
                   const sizeLabel = att.fileSize != null
                     ? att.fileSize < 1024 * 1024
                       ? `${Math.round(att.fileSize / 1024)} KB`
@@ -833,7 +835,24 @@ export default function AdminTicketDetail() {
                   return (
                     <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        {isImage ? (
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName })}
+                            className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
+                            title={`Preview ${fileName}`}
+                            data-testid={`attachment-thumbnail-${att.id}`}
+                          >
+                            <img
+                              src={downloadUrl}
+                              alt={fileName}
+                              loading="lazy"
+                              className="h-10 w-10 object-cover"
+                            />
+                          </button>
+                        ) : (
+                          <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        )}
                         <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
                         {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
                       </div>
@@ -965,6 +984,32 @@ export default function AdminTicketDetail() {
             loadAuditHistory();
           }}
         />
+
+        <Dialog open={attachmentPreview !== null} onOpenChange={(open) => { if (!open) setAttachmentPreview(null); }}>
+          <DialogContent className="max-w-3xl" data-testid="attachment-preview-dialog">
+            <DialogHeader>
+              <DialogTitle className="truncate pr-6">{attachmentPreview?.name}</DialogTitle>
+            </DialogHeader>
+            {attachmentPreview && (
+              <div className="flex flex-col items-center gap-4">
+                <img
+                  src={attachmentPreview.url}
+                  alt={attachmentPreview.name}
+                  className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
+                />
+                <a
+                  href={attachmentPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </a>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
