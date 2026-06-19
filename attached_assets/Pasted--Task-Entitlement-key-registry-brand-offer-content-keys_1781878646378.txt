@@ -1,0 +1,58 @@
+## Task: Entitlement-key registry + brand/offer content keys (additive)
+
+### What This Does
+Introduces a single source-of-truth registry of valid entitlement keys (so typos fail loudly instead of silently hiding content), adds distinct per-brand front-end content keys and shared per-offer content keys, and grants them additively on the existing products so buyers HOLD the keys. Does NOT create CMS content — that's authored separately; the keys sit ready until content is tagged with them.
+
+### Phase 0 — ENUMERATE FIRST (do this before anything else)
+Query and list every DISTINCT entitlement string currently in use, across BOTH:
+- products.entitlement_keys (all rows, flattened)
+- required_entitlement on tracks, lessons, vault_collections, vault_resources, tools
+This complete set MUST go into the registry verbatim, or existing admin edits will start failing validation. Print the set before proceeding.
+
+### Files Created
+- lib/db/src/entitlement-keys.ts — the registry. Export ENTITLEMENT_KEYS (readonly string[]) = [every key from Phase 0] + [the new keys below]. Also export a Zod validator entitlementKeySchema = z.enum(ENTITLEMENT_KEYS as [string, ...string[]]). Export it from the db package's public index so api-server and portal both import from one place. This file is the ONLY place the valid-key list is defined.
+
+### New keys to add to the registry
+Brand front-end content (DISTINCT — one per front-end offer):
+  content:yse, content:backroad, content:offmarket, content:reserve_income, content:silent_partner, content:test_like_mad
+Offer content (SHARED — authored once, granted by every front-end's matching offer):
+  offer:cmo_bump, offer:21_day_blitz, offer:swipe_bank, offer:profit_maximizer
+
+### Files Modified — validation wiring (reject unregistered keys on WRITE)
+- The products entitlement_keys write path (admin products create/update Zod schema): validate every array element with entitlementKeySchema. Reject the write on any unregistered value.
+- Every admin route/Zod schema that writes required_entitlement — lessons, tracks, vault_collections, vault_resources, tools (e.g. admin-lessons.ts and siblings): validate the value with entitlementKeySchema; reject unregistered values.
+Validation is on writes only — existing rows are not re-validated and must not be mutated by this task.
+
+### Product entitlement updates (ADDITIVE — merge, never replace)
+Update these existing product rows so they grant the new keys IN ADDITION to their current keys. Apply via the codebase's existing idempotent boot-seed/reconcile pattern (upsert by slug so EXISTING prod rows are updated, not just fresh envs) — drizzle-kit push won't carry data, so do not rely on a schema migration for this:
+  reserve_income (id 1)            += content:reserve_income
+  backroad (id 2)                  += content:backroad
+  offmarket (id 3)                 += content:offmarket
+  silent_partner (id 4168)         += content:silent_partner
+  test_like_mad (id 4169)          += content:test_like_mad
+  yse_front_end (id 50)            += content:yse
+  yse_affiliate_cmo_bump (id 51)   += offer:cmo_bump
+  yse_21_day_blitz (id 52)         += offer:21_day_blitz
+  yse_swipe_resource_bank (id 53)  += offer:swipe_bank
+  yse_profit_maximizer_pass (id 54)+= offer:profit_maximizer
+Reconcile must be idempotent (re-running adds nothing) and must preserve all existing keys on each row. Also reflect these in seed.ts so new environments match.
+
+### OPTIONAL (cosmetic, low-risk) — display names only
+The four offer products are YSE-named but now universal. Rename their display NAME only (NOT slug, NOT keys): "YSE Affiliate CMO Bump"→"CMO Bump", "YSE 21-Day Blitz"→"21-Day Blitz", "YSE Swipe Resource Bank"→"Swipe Resource Bank", "YSE Profit Maximizer Pass"→"Profit Maximizer Pass". Makes the mapping page read sensibly for brand orders. Skip if risky.
+
+### Schema Changes
+None. (entitlement_keys stays JSONB; the new constraint is application-level via the registry.)
+
+### Dependencies
+- Owns seed.ts and the content/products admin Zod schemas exclusively for this batch.
+- Does NOT touch: integrations.ts, external-grant-product.ts, machine-product-key-mappings.ts (spec ③), user-products.ts or the dedupe migration (spec ⑤), App.tsx or the fulfillment-catalog files (spec ④).
+
+### Acceptance Criteria
+- Phase 0 set is printed and fully contained in ENTITLEMENT_KEYS.
+- An admin attempt to save a lesson/product with an unregistered key (e.g. "content:typo") is rejected with a clear error; saving a registered key succeeds.
+- After deploy, the 5 brand front-end products and yse_front_end each carry their content:<brand> key PLUS content:frontend (and their prior keys); the 4 offer products each carry their offer:* key PLUS their prior keys. No key was removed from any row.
+- Re-running the reconcile changes nothing.
+
+### Implementation Notes
+- Gating is exact-string set membership (getUserEntitlements flattens product keys; routes check entitlements.has(required_entitlement)) — so a key grants access only once CMS content sets it as required_entitlement. This task ships the keys; authoring + tagging the brand/offer content is a separate manual step you'll do after deploy.
+- Adding a future brand = add its key to entitlement-keys.ts (one line) + author its content. The registry is the gate; keep it the only definition.
