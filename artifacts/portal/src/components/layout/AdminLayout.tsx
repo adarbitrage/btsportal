@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -44,12 +44,42 @@ const adminNavGroups: NavGroup[] = [
   },
 ];
 
+const ADMIN_SIDEBAR_SCROLL_KEY = "admin-sidebar-scroll-top";
+
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const save = () => {
+      try {
+        sessionStorage.setItem(ADMIN_SIDEBAR_SCROLL_KEY, String(el.scrollTop));
+      } catch {}
+    };
+    el.addEventListener("scroll", save, { passive: true });
+    return () => el.removeEventListener("scroll", save);
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    try {
+      const saved = sessionStorage.getItem(ADMIN_SIDEBAR_SCROLL_KEY);
+      if (saved !== null) el.scrollTop = parseInt(saved, 10);
+    } catch {}
+  }, []);
+
+  const resetSidebarScroll = useCallback(() => {
+    try {
+      sessionStorage.removeItem(ADMIN_SIDEBAR_SCROLL_KEY);
+    } catch {}
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="w-64 shrink-0 flex flex-col bg-white border-r border-border min-h-screen sticky top-0">
+      <aside className="w-64 shrink-0 flex flex-col bg-white border-r border-border h-screen sticky top-0">
         <div className="p-6 border-b border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -62,7 +92,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+        <div ref={scrollRef} data-testid="admin-sidebar-scroll" className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
           {adminNav.map((item) => {
             const isActive = location === item.href || location.startsWith(item.href + "/");
             return (
@@ -113,7 +143,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
         <div className="p-4 mt-auto">
           <Link href="/">
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all cursor-pointer">
+            <div
+              data-testid="admin-back-to-portal"
+              onClick={resetSidebarScroll}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all cursor-pointer"
+            >
               <ArrowLeft className="w-4 h-4" />
               Back to Portal
             </div>
