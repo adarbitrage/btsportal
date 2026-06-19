@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,10 +8,42 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Plus, Pencil, Trash2, Search, X, FileText, Lock } from "lucide-react";
-import { fetchKnowledgebaseDocs, createKnowledgebaseDoc, updateKnowledgebaseDoc, deleteKnowledgebaseDoc } from "@/lib/admin-api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  BookOpen,
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  FileText,
+  Lock,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  X,
+  Film,
+  Mic,
+  File,
+} from "lucide-react";
+import {
+  fetchKnowledgebaseDocs,
+  createKnowledgebaseDoc,
+  updateKnowledgebaseDoc,
+  deleteKnowledgebaseDoc,
+  requestKbUploadUrl,
+  createKbStagingFromUpload,
+} from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 const CATEGORIES = [
   { value: "faq", label: "FAQ" },
@@ -23,6 +55,360 @@ const CATEGORIES = [
   { value: "sop", label: "SOP (Internal)" },
 ];
 
+type FileUploadStatus = "pending" | "uploading" | "processing" | "done" | "error";
+
+interface UploadResult {
+  stagingDocId: number;
+  title: string;
+  fileType: string;
+  triagingInBackground: boolean;
+}
+
+interface FileUploadEntry {
+  file: File;
+  title: string;
+  status: FileUploadStatus;
+  result?: UploadResult;
+  error?: string;
+}
+
+function fileTypeIcon(file: File | null) {
+  if (!file) return <File className="w-6 h-6 text-muted-foreground" />;
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime.startsWith("video/") || /\.(mp4|webm|mov|avi|mkv)$/.test(name))
+    return <Film className="w-6 h-6 text-blue-500" />;
+  if (mime.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|aac|flac)$/.test(name))
+    return <Mic className="w-6 h-6 text-purple-500" />;
+  if (mime === "application/pdf" || name.endsWith(".pdf"))
+    return <FileText className="w-6 h-6 text-red-500" />;
+  if (/docx?$/.test(name))
+    return <FileText className="w-6 h-6 text-blue-700" />;
+  return <FileText className="w-6 h-6 text-muted-foreground" />;
+}
+
+function fileTypeLabel(file: File | null): string {
+  if (!file) return "";
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime.startsWith("video/") || /\.(mp4|webm|mov|avi|mkv)$/.test(name)) return "Video — will be transcribed";
+  if (mime.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|aac|flac)$/.test(name)) return "Audio — will be transcribed";
+  if (mime === "application/pdf" || name.endsWith(".pdf")) return "PDF — text will be extracted";
+  if (/\.docx?$/.test(name)) return "Word document — text will be extracted";
+  if (mime.startsWith("text/") || /\.(txt|md|markdown)$/.test(name)) return "Text file — content imported directly";
+  return "Other file — stored as reference (no text extraction)";
+}
+
+function isAudioVideoFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    mime.startsWith("audio/") ||
+    mime.startsWith("video/") ||
+    /\.(mp4|webm|mov|avi|mkv|mp3|wav|ogg|m4a|aac|flac)$/.test(name)
+  );
+}
+
+function autoTitle(file: File): string {
+  return file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").trim();
+}
+
+function FileStatusIcon({ status }: { status: FileUploadStatus }) {
+  if (status === "done") return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
+  if (status === "error") return <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
+  if (status === "uploading" || status === "processing")
+    return <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />;
+  return <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 flex-shrink-0" />;
+}
+
+function KbUploadDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [entries, setEntries] = useState<FileUploadEntry[]>([]);
+  const [category, setCategory] = useState("faq");
+  const [audience, setAudience] = useState<"member" | "admin">("member");
+  const [isRunning, setIsRunning] = useState(false);
+  const [allDone, setAllDone] = useState(false);
+
+  const reset = () => {
+    setEntries([]);
+    setCategory("faq");
+    setAudience("member");
+    setIsRunning(false);
+    setAllDone(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setEntries((prev) => {
+      const existingNames = new Set(prev.map((en) => en.file.name));
+      const newEntries: FileUploadEntry[] = files
+        .filter((f) => !existingNames.has(f.name))
+        .map((f) => ({ file: f, title: autoTitle(f), status: "pending" }));
+      return [...prev, ...newEntries];
+    });
+    // Reset so same file can be re-added after removal
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeEntry = (idx: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateEntry = (idx: number, patch: Partial<FileUploadEntry>) => {
+    setEntries((prev) => prev.map((en, i) => (i === idx ? { ...en, ...patch } : en)));
+  };
+
+  const uploadSingleFile = async (entry: FileUploadEntry, idx: number): Promise<void> => {
+    const { file } = entry;
+    try {
+      updateEntry(idx, { status: "uploading" });
+
+      const { uploadURL, objectPath } = await requestKbUploadUrl({
+        name: file.name,
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+      });
+
+      const putResp = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!putResp.ok) throw new Error(`Storage upload failed (${putResp.status})`);
+
+      updateEntry(idx, { status: "processing" });
+
+      const created = await createKbStagingFromUpload({
+        objectPath,
+        title: entry.title.trim() || autoTitle(file),
+        category,
+        audience,
+        originalFilename: file.name,
+        mimeType: file.type || "application/octet-stream",
+      });
+
+      updateEntry(idx, { status: "done", result: created });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "Upload failed";
+      updateEntry(idx, { status: "error", error });
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!entries.length) {
+      toast({ title: "Please select at least one file", variant: "destructive" });
+      return;
+    }
+    setIsRunning(true);
+    setAllDone(false);
+
+    // Upload files sequentially to avoid hammering the API
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].status === "pending") {
+        await uploadSingleFile(entries[i], i);
+      }
+    }
+
+    setIsRunning(false);
+    setAllDone(true);
+  };
+
+  const doneCount = entries.filter((e) => e.status === "done").length;
+  const errorCount = entries.filter((e) => e.status === "error").length;
+  const pendingCount = entries.filter((e) => e.status === "pending").length;
+  const hasAudioVideo = entries.some((e) => isAudioVideoFile(e.file));
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            Upload to Knowledge Base
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          {/* Drop zone / file picker */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Files</Label>
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-5 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => !isRunning && fileInputRef.current?.click()}
+            >
+              <Upload className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm font-medium">
+                {isRunning ? "Upload in progress…" : "Click to add one or more files"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Documents (.txt, .md, .pdf, .docx), Audio, Video, or any other file
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={isRunning}
+            />
+          </div>
+
+          {/* File list */}
+          {entries.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {entries.map((entry, idx) => (
+                <div
+                  key={entry.file.name + idx}
+                  className="flex items-start gap-3 p-2.5 border rounded-lg bg-secondary/20"
+                >
+                  {fileTypeIcon(entry.file)}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    {/* Editable title shown while pending */}
+                    {entry.status === "pending" && !isRunning ? (
+                      <Input
+                        value={entry.title}
+                        onChange={(e) => updateEntry(idx, { title: e.target.value })}
+                        placeholder="Document title"
+                        className="h-7 text-sm py-0 px-2"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium truncate">{entry.file.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{fileTypeLabel(entry.file)}</p>
+                    {entry.status === "error" && (
+                      <p className="text-xs text-red-500 break-all">{entry.error}</p>
+                    )}
+                    {entry.status === "done" && entry.result && (
+                      <p className="text-xs text-green-600">
+                        Staged as "{entry.result.title}"
+                        {entry.result.triagingInBackground && " (AI triage running)"}
+                      </p>
+                    )}
+                    {entry.status === "processing" && (
+                      <p className="text-xs text-muted-foreground">
+                        {isAudioVideoFile(entry.file)
+                          ? "Transcribing audio — may take a minute…"
+                          : "Extracting text…"}
+                      </p>
+                    )}
+                    {entry.status === "uploading" && (
+                      <p className="text-xs text-muted-foreground">Uploading…</p>
+                    )}
+                  </div>
+                  <FileStatusIcon status={entry.status} />
+                  {entry.status === "pending" && !isRunning && (
+                    <Button variant="ghost" size="sm" className="p-1 h-auto" onClick={() => removeEntry(idx)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Category + Audience row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Category</Label>
+              <Select value={category} onValueChange={setCategory} disabled={isRunning}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Visibility</Label>
+              <Select
+                value={audience}
+                onValueChange={(v) => setAudience(v as "member" | "admin")}
+                disabled={isRunning}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Members</SelectItem>
+                  <SelectItem value="admin">Admin only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {hasAudioVideo && !isRunning && !allDone && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
+              Audio/video files are transcribed using Whisper AI. This may take 1–3 minutes per file.
+            </p>
+          )}
+
+          {/* Summary after all done */}
+          {allDone && (
+            <div className={`rounded-lg p-3 text-sm ${errorCount > 0 ? "bg-amber-50 border border-amber-200" : "bg-green-50 border border-green-200"}`}>
+              {doneCount > 0 && (
+                <p className="text-green-700 font-medium">
+                  {doneCount} file{doneCount !== 1 ? "s" : ""} staged for review
+                </p>
+              )}
+              {errorCount > 0 && (
+                <p className="text-red-600 mt-0.5">
+                  {errorCount} file{errorCount !== 1 ? "s" : ""} failed — see details above
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          {allDone && doneCount > 0 ? (
+            <>
+              <Button variant="outline" onClick={reset}>Upload More</Button>
+              <Button asChild>
+                <Link to="/admin/knowledgebase/review">Review Staged Documents</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleClose} disabled={isRunning}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={pendingCount === 0 || isRunning}
+              >
+                {isRunning ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Uploading…</>
+                ) : (
+                  <><Upload className="w-4 h-4 mr-1" />Upload {entries.length > 0 ? `${pendingCount} File${pendingCount !== 1 ? "s" : ""}` : ""}</>
+                )}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Knowledgebase() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,6 +417,7 @@ export default function Knowledgebase() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formCategory, setFormCategory] = useState("faq");
@@ -129,11 +516,16 @@ export default function Knowledgebase() {
             >
               <FileText className="w-4 h-4 mr-1" /> Maintenance SOP
             </Button>
+            <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+              <Upload className="w-4 h-4 mr-1" /> Upload
+            </Button>
             <Button onClick={() => { resetForm(); setShowForm(true); }}>
               <Plus className="w-4 h-4 mr-1" /> Add Document
             </Button>
           </div>
         </div>
+
+        <KbUploadDialog open={showUploadDialog} onClose={() => setShowUploadDialog(false)} />
 
         {showForm && (
           <Card>

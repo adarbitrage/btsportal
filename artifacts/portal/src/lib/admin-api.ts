@@ -725,6 +725,27 @@ export function deleteKnowledgebaseDoc(id: number) {
   return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
 }
 
+export function requestKbUploadUrl(params: { name: string; size: number; contentType: string }) {
+  return adminFetch<{ uploadURL: string; objectPath: string }>("/storage/uploads/request-url", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function createKbStagingFromUpload(params: {
+  objectPath: string;
+  title: string;
+  category: string;
+  audience: "member" | "admin";
+  originalFilename: string;
+  mimeType: string;
+}) {
+  return adminFetch<{ stagingDocId: number; title: string; status: string; triagingInBackground: boolean; fileType: string }>(
+    "/admin/knowledgebase/pipeline/create-from-upload",
+    { method: "POST", body: JSON.stringify(params) },
+  );
+}
+
 export interface RateLimitTier {
   tier: string;
   dailyLimit: number;

@@ -6,10 +6,18 @@ import { db } from "@workspace/db";
 import { kbStagingDocsTable } from "@workspace/db/schema";
 import { eq, count, and, sql } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
-import { execSync } from "child_process";
+import { execSync, execFile } from "child_process";
+import { promisify } from "util";
+import { createRequire } from "module";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
 import { runTriageBackground } from "./knowledgebase-staging.js";
+import { ObjectStorageService } from "../../lib/objectStorage.js";
+import mammoth from "mammoth";
+
+const execFileAsync = promisify(execFile);
+const _require = createRequire(import.meta.url);
+const pdfParse: (buf: Buffer) => Promise<{ text: string; numpages: number }> = _require("pdf-parse");
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -1355,6 +1363,187 @@ router.post("/seed-blitz", async (_req: Request, res: Response) => {
     res.json({ message: `Seeded ${inserted} Blitz documents`, seeded: inserted });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Upload-based staging doc creation ────────────────────────────────────────
+//
+// Flow: client requests presigned URL (existing /storage/uploads/request-url),
+// PUTs the file directly to GCS, then calls this endpoint with the objectPath.
+// We download the file from storage, extract text by type, create a staging doc
+// and fire-and-forget the AI triage — consistent with the video pipeline.
+
+const AUDIO_MIME_TYPES = new Set([
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/aac",
+  "audio/m4a", "audio/x-m4a", "audio/webm", "audio/flac",
+]);
+const VIDEO_MIME_TYPES = new Set([
+  "video/mp4", "video/webm", "video/mpeg", "video/quicktime",
+  "video/x-msvideo", "video/x-matroska",
+]);
+
+function guessAudioMime(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  return [".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".weba"].includes(ext);
+}
+function guessVideoMime(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  return [".mp4", ".webm", ".mpeg", ".mpg", ".mov", ".avi", ".mkv"].includes(ext);
+}
+function guessPdfMime(filename: string): boolean {
+  return path.extname(filename).toLowerCase() === ".pdf";
+}
+function guessDocxMime(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  return [".docx", ".doc"].includes(ext);
+}
+function guessTextMime(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  return [".txt", ".md", ".markdown"].includes(ext);
+}
+
+type FileCategory = "text" | "pdf" | "docx" | "audio" | "video" | "unsupported";
+
+function classifyFile(mimeType: string, originalFilename: string): FileCategory {
+  const mime = mimeType.toLowerCase();
+  if (AUDIO_MIME_TYPES.has(mime) || guessAudioMime(originalFilename)) return "audio";
+  if (VIDEO_MIME_TYPES.has(mime) || guessVideoMime(originalFilename)) return "video";
+  if (mime === "application/pdf" || guessPdfMime(originalFilename)) return "pdf";
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/msword" ||
+    guessDocxMime(originalFilename)
+  ) return "docx";
+  if (mime.startsWith("text/") || guessTextMime(originalFilename)) return "text";
+  return "unsupported";
+}
+
+router.post("/create-from-upload", async (req: Request, res: Response) => {
+  try {
+    const { objectPath, title, category, audience, originalFilename, mimeType } = req.body as {
+      objectPath?: string;
+      title?: string;
+      category?: string;
+      audience?: string;
+      originalFilename?: string;
+      mimeType?: string;
+    };
+
+    if (!objectPath || !originalFilename || !mimeType) {
+      res.status(400).json({ error: "objectPath, originalFilename, and mimeType are required" });
+      return;
+    }
+
+    const docTitle = (title || path.basename(originalFilename, path.extname(originalFilename))).trim() || originalFilename;
+    const docCategory = category || "faq";
+    const docAudience = (audience === "admin" ? "admin" : "member") as "admin" | "member";
+
+    const fileType = classifyFile(mimeType, originalFilename);
+    const storageService = new ObjectStorageService();
+
+    let content = "";
+    let adminNotes = "";
+    let triagingInBackground = false;
+
+    if (fileType === "text") {
+      const objectFile = await storageService.getObjectEntityFile(objectPath);
+      const [buf] = await objectFile.download();
+      content = buf.toString("utf-8");
+      adminNotes = `Uploaded text file: ${originalFilename}. Source file stored at: ${objectPath}`;
+    } else if (fileType === "pdf") {
+      const objectFile = await storageService.getObjectEntityFile(objectPath);
+      const [buf] = await objectFile.download();
+      const parsed = await pdfParse(buf);
+      content = parsed.text;
+      adminNotes = `Uploaded PDF: ${originalFilename} (${parsed.numpages} pages). Source file stored at: ${objectPath}`;
+    } else if (fileType === "docx") {
+      const objectFile = await storageService.getObjectEntityFile(objectPath);
+      const [buf] = await objectFile.download();
+      const result = await mammoth.extractRawText({ buffer: buf });
+      content = result.value;
+      adminNotes = `Uploaded DOCX: ${originalFilename}. Source file stored at: ${objectPath}`;
+    } else if (fileType === "audio" || fileType === "video") {
+      // Download to tmp, extract audio via ffmpeg, then transcribe via Whisper.
+      // Use execFileAsync (not execSync with shell) to avoid shell-injection risk.
+      const tmpDir = "/tmp/kb-uploads";
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+      // Sanitize: use only a timestamp-based name; ignore user-supplied extension
+      // for the download file, always convert output to .mp3
+      const safeBase = `kb-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const downloadPath = path.join(tmpDir, safeBase);
+      const audioPath = path.join(tmpDir, `${safeBase}.mp3`);
+
+      try {
+        const objectFile = await storageService.getObjectEntityFile(objectPath);
+        const [buf] = await objectFile.download();
+        fs.writeFileSync(downloadPath, buf);
+
+        // Convert any video/audio to a mono 16 kHz mp3 for Whisper
+        await execFileAsync("ffmpeg", [
+          "-y", "-i", downloadPath,
+          ...(fileType === "video" ? ["-vn"] : []),
+          "-acodec", "libmp3lame", "-ab", "64k", "-ar", "16000", "-ac", "1",
+          audioPath,
+        ], { timeout: 300000 });
+
+        const transcript = await transcribeAudio(audioPath);
+        const cleaned = cleanTranscript(transcript);
+        const extracted = await extractDocument(cleaned, docTitle);
+
+        content = extracted.content;
+        adminNotes = `Uploaded ${fileType}: ${originalFilename} — transcribed via Whisper. Source file stored at: ${objectPath}`;
+      } finally {
+        try { fs.unlinkSync(downloadPath); } catch {}
+        try { fs.unlinkSync(audioPath); } catch {}
+      }
+    } else {
+      // Unsupported type — store reference with a placeholder so admin can add content
+      content = `[Unsupported file type: ${originalFilename}]\n\nThis file has been stored but text could not be extracted automatically. Source file retrievable at: ${objectPath}\n\nPlease review and add content manually.`;
+      adminNotes = `Uploaded unsupported file type: ${originalFilename} (${mimeType}). Source file stored at: ${objectPath}. No text extracted.`;
+    }
+
+    // Always ensure objectPath appears in adminNotes for text-extraction paths too
+    if (!adminNotes.includes(objectPath)) {
+      adminNotes += ` Source file stored at: ${objectPath}`;
+    }
+
+    if (!content.trim()) {
+      content = `[No text extracted from ${originalFilename}]\n\nThe file was stored at ${objectPath} but no text content could be extracted. Please add content manually.`;
+    }
+
+    const [inserted] = await db
+      .insert(kbStagingDocsTable)
+      .values({
+        title: docTitle,
+        category: docCategory,
+        content,
+        tags: "",
+        status: "pending_review",
+        source: "upload",
+        adminNotes,
+        audience: docAudience,
+        sourceObjectPath: objectPath,
+      })
+      .returning();
+
+    // Run triage in background (non-blocking) for all types
+    triagingInBackground = true;
+    runTriageBackground([inserted]).catch((err) =>
+      console.error("[KB Upload] Triage error:", err),
+    );
+
+    res.json({
+      stagingDocId: inserted.id,
+      title: inserted.title,
+      status: inserted.status,
+      triagingInBackground,
+      fileType,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[KB Upload] Error:", message);
     res.status(500).json({ error: message });
   }
 });

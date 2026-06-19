@@ -469,12 +469,14 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
             title: scrubPrivateContent(doc.title),
             category: doc.category,
             content,
+            audience: doc.audience ?? "member",
           })
           .onConflictDoUpdate({
             target: knowledgebaseDocsTable.title,
             set: {
               category: sql`EXCLUDED.category`,
               content: sql`EXCLUDED.content`,
+              audience: sql`EXCLUDED.audience`,
               updatedAt: sql`NOW()`,
             },
           });

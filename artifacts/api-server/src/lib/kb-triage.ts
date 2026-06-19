@@ -258,12 +258,13 @@ async function pushDocToLive(
 
   await db
     .insert(knowledgebaseDocsTable)
-    .values({ title, category, content })
+    .values({ title, category, content, audience: doc.audience ?? "member" })
     .onConflictDoUpdate({
       target: knowledgebaseDocsTable.title,
       set: {
         category: sql`EXCLUDED.category`,
         content: sql`EXCLUDED.content`,
+        audience: sql`EXCLUDED.audience`,
         updatedAt: sql`NOW()`,
       },
     });

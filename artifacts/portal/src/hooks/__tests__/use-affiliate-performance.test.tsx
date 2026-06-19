@@ -69,7 +69,7 @@ describe("useAffiliateConversions", () => {
 
     // The cache entry is keyed by dataset + page so paginating doesn't collide.
     const keys = queryClient.getQueryCache().getAll().map((q) => q.queryKey);
-    expect(keys).toContainEqual(["affiliate-performance", "conversions", 2]);
+    expect(keys).toContainEqual(["affiliate-performance", "conversions", 2, null, null, null]);
   });
 
   it("propagates the server error message when the request fails", async () => {

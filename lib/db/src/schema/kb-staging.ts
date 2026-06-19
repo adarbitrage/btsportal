@@ -33,6 +33,9 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   autoAction: text("auto_action"),
   autoActionAt: timestamp("auto_action_at", { withTimezone: true }),
   autoActionConfidence: real("auto_action_confidence"),
+  // Upload-specific fields (added alongside the KB upload feature)
+  audience: text("audience").notNull().default("member"),
+  sourceObjectPath: text("source_object_path"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
