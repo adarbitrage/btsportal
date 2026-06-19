@@ -386,6 +386,85 @@ test.describe("Concierge & Compliance form validation and error states", () => {
     await expect(page.getByText("Submission Received")).toHaveCount(0);
   });
 
+  test("Concierge: a server-rejected submission shows the server error and creates no ticket", async ({
+    page,
+  }) => {
+    await loginAs(page, member.memberEmail, member.memberPassword);
+    await page.goto("/concierge", { waitUntil: "commit" });
+
+    const firstName = page.getByTestId("input-first-name");
+    await expect(firstName).toBeVisible({ timeout: 60_000 });
+
+    // Fill an otherwise-valid form so native validation passes and the submit
+    // handler actually fires the POST.
+    await firstName.fill("Casey");
+    await page.getByTestId("input-last-name").fill("Concierge");
+    await page.getByTestId("input-email").fill("casey.concierge@e2e.local");
+    await page.getByTestId("input-offer-name").fill("E2E Test Offer");
+    await page.getByTestId("input-offer-url").fill("https://example.com/vsl");
+    await page.getByRole("button", { name: "Clickbank", exact: true }).click();
+    await page.getByRole("button", { name: "Meta", exact: true }).click();
+    await page.getByRole("button", { name: '"Build" Phase', exact: true }).click();
+    await page.getByTestId("checkbox-confirm").check();
+
+    // The request reaches the backend, but the backend rejects it with a 400
+    // and an { error } body — exactly the shape the real route returns for
+    // missing required fields. The form must surface that message verbatim.
+    const serverMessage =
+      "Missing required fields: firstName, lastName, email, offerName, offerUrl";
+    await page.route("**/api/tickets/concierge", (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ error: serverMessage }),
+      }),
+    );
+
+    await page.getByTestId("button-submit").click();
+
+    // The red error banner renders the exact server message — not a generic
+    // fallback, not "[object Object]" — and the success card never appears.
+    await expect(page.getByText(serverMessage)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("[object Object]")).toHaveCount(0);
+    await expect(page.getByText("Task Submitted!")).toHaveCount(0);
+  });
+
+  test("Compliance: a server-rejected submission shows the server error and creates no ticket", async ({
+    page,
+  }) => {
+    await loginAs(page, member.memberEmail, member.memberPassword);
+    await page.goto("/compliance", { waitUntil: "commit" });
+
+    const firstName = page.getByTestId("input-first-name");
+    await expect(firstName).toBeVisible({ timeout: 60_000 });
+
+    // Fill an otherwise-valid form with no file attachment, so the upload step
+    // is skipped and the POST to /tickets/compliance is reached directly.
+    await firstName.fill("Dana");
+    await page.getByTestId("input-last-name").fill("Compliance");
+    await page.getByTestId("input-email").fill("dana.compliance@e2e.local");
+    await page.getByTestId("input-offer-name").fill("E2E Compliance Offer");
+    await page.getByTestId("chip-creative-Banner").click();
+    await page.getByTestId("chip-traffic-Meta").click();
+
+    // Backend accepts the request but blows up with a 500 and an { error }
+    // body. The form must surface the server's message in the red banner.
+    const serverMessage = "Failed to submit your request. Please try again.";
+    await page.route("**/api/tickets/compliance", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: serverMessage }),
+      }),
+    );
+
+    await page.getByTestId("button-submit").click();
+
+    await expect(page.getByText(serverMessage)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("[object Object]")).toHaveCount(0);
+    await expect(page.getByText("Submission Received")).toHaveCount(0);
+  });
+
   test("Compliance: a failed creative upload surfaces a clear error and creates no ticket", async ({
     page,
   }) => {
