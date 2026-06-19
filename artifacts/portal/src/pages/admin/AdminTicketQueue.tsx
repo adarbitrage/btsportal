@@ -11,7 +11,7 @@ import { Search, X, MailX, AlertTriangle, RefreshCw } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { TicketCategorySlug } from "@workspace/support-config";
+import { TICKET_CATEGORY_LABELS, formatTicketCategory } from "@workspace/support-config";
 
 type AdminTicket = Awaited<ReturnType<typeof adminPanelApi.getAdminTickets>>[number];
 type TicketPriority = AdminTicket["priority"];
@@ -155,35 +155,17 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   closed: "closed",
 };
 
-// Human-readable labels for ticket categories. The API stores raw enum slugs
-// (e.g. "concierge_task"), so we map them to display strings here. Unknown
-// slugs fall back to slug-to-Title-Case so new categories still render legibly.
-//
-// The map is keyed by `TicketCategorySlug` (the authoritative list of every
-// category the backend can emit, from @workspace/support-config), so a new
-// backend category that lacks a curated label here fails the portal typecheck
-// — never silently shipping a slug-cased fallback. A companion test
-// (categoryLabel.test.tsx) backs this up at runtime and cross-checks the
-// generated API-client enum against the same list.
-export const CATEGORY_LABELS: Record<TicketCategorySlug, string> = {
-  billing: "Billing",
-  technical: "Technical",
-  training: "Training",
-  account: "Account",
-  other: "Other",
-  concierge_task: "Concierge Task",
-  compliance_review: "Compliance Review",
-};
+// Human-readable labels for ticket categories. The curated map and the
+// snake_case fallback now live in a single shared source
+// (`@workspace/support-config`) so the admin and member views can never drift
+// apart. Re-exported here (under the names this page and its tests already use)
+// so consumers keep working unchanged. The shared map is keyed by
+// `TicketCategorySlug`, so a new backend category that lacks a curated label
+// fails the portal typecheck; the companion test (categoryLabel.test.tsx) backs
+// this up at runtime and cross-checks the generated API-client enum.
+export const CATEGORY_LABELS = TICKET_CATEGORY_LABELS;
 
-export function categoryLabel(category: string): string {
-  return (
-    (CATEGORY_LABELS as Record<string, string>)[category] ??
-    category
-      .split("_")
-      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-      .join(" ")
-  );
-}
+export const categoryLabel = formatTicketCategory;
 
 // Row tint based on SLA status — keeps breached/approaching rows visually
 // distinct in the queue so they pop without needing to scan the badge column.

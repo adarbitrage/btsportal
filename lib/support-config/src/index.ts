@@ -150,3 +150,44 @@ export const TICKET_CATEGORY = {
   conciergeTask: "concierge_task",
   complianceReview: "compliance_review",
 } as const satisfies Record<string, (typeof INTERNAL_TICKET_CATEGORIES)[number]>;
+
+/**
+ * Single source of truth for the human-readable label of every ticket
+ * category the backend can emit.
+ *
+ * The portal previously carried two independent copies of this map — a
+ * member-facing one (`TICKET_CATEGORY_LABELS` in `support-topics.ts`) and an
+ * admin one (`CATEGORY_LABELS` in `AdminTicketQueue.tsx`). They were identical
+ * but could silently drift, so members and admins would see different labels
+ * for the same ticket. Both now derive from this map.
+ *
+ * Keyed by `TicketCategorySlug`, so adding a new category to `TICKET_CATEGORIES`
+ * without a curated label here fails the typecheck — never silently shipping a
+ * slug-cased fallback for a real backend category.
+ */
+export const TICKET_CATEGORY_LABELS: Record<TicketCategorySlug, string> = {
+  billing: "Billing",
+  technical: "Technical",
+  training: "Training",
+  account: "Account",
+  other: "Other",
+  concierge_task: "Concierge Task",
+  compliance_review: "Compliance Review",
+};
+
+/**
+ * Render a ticket category as a human-readable label.
+ *
+ * Returns the curated label for known categories. For any unknown/future
+ * value it falls back to turning snake_case into Title Case so the portal
+ * never surfaces a raw enum slug. Empty/null/undefined input returns "".
+ */
+export function formatTicketCategory(category: string | null | undefined): string {
+  if (!category) return "";
+  const mapped = (TICKET_CATEGORY_LABELS as Record<string, string>)[category];
+  if (mapped) return mapped;
+  return category
+    .split("_")
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(" ");
+}
