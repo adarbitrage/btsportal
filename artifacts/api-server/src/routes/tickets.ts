@@ -40,6 +40,86 @@ import {
 // codebase would matter, and there are none.
 const TICKET_CREATE_LOCK_NAMESPACE = 0x71_43_5e_71;
 
+/**
+ * Looks up the owning member's email + name for post-submit notifications
+ * (TicketDesk delivery + confirmation email). The ticket is already safely
+ * persisted by the time this runs, so a transient failure here must never
+ * fail the member's request — we log and return undefined, and the callers
+ * degrade gracefully (skip delivery, report confirmationEmailSent: false).
+ */
+async function lookupTicketMember(
+  userId: number,
+): Promise<{ email: string; name: string } | undefined> {
+  try {
+    const [member] = await db
+      .select({ email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    return member;
+  } catch (err) {
+    console.error(
+      `[Tickets] Failed to look up member ${userId} for post-submit notifications:`,
+      err,
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Sends the post-submit confirmation email for a Concierge / Compliance
+ * ticket and reports whether one is genuinely on its way.
+ *
+ * The ticket itself is already safely persisted before this runs, so a missed
+ * confirmation never fails the member's request. But `queueEmail` reports its
+ * fate as a return value (queued / sent_direct / skipped / failed) rather than
+ * throwing — so the old fire-and-forget `try { await queueEmail } catch {}`
+ * silently swallowed `skipped`/`failed` outcomes and the success card always
+ * told the member to "check your email" even when nothing was sent.
+ *
+ * Returns true only when the confirmation is queued or sent directly. Any
+ * other outcome (no member row, missing/unconfigured template, provider
+ * failure, or an unexpected throw) returns false so the caller can tell the
+ * member their request was logged but a confirmation could not be sent.
+ */
+async function trySendConfirmationEmail(opts: {
+  member: { email: string; name: string } | undefined;
+  templateSlug: string;
+  userId: number;
+  ticketNumber: string;
+  taskSubject: string;
+  logLabel: string;
+}): Promise<boolean> {
+  const { member, templateSlug, userId, ticketNumber, taskSubject, logLabel } = opts;
+  if (!member) return false;
+
+  try {
+    const outcome = await CommunicationService.queueEmail({
+      templateSlug,
+      to: member.email,
+      userId,
+      variables: {
+        member_name: member.name,
+        ticket_number: ticketNumber,
+        task_subject: taskSubject,
+      },
+    });
+
+    if (outcome.result === "queued" || outcome.result === "sent_direct") {
+      return true;
+    }
+
+    console.error(
+      `[Comms] ${logLabel} confirmation email not sent for ${ticketNumber}: ${outcome.result}` +
+        ("reason" in outcome ? ` (${outcome.reason})` : ""),
+    );
+    return false;
+  } catch (err) {
+    console.error(`[Comms] Failed to send ${logLabel} confirmation email for ${ticketNumber}:`, err);
+    return false;
+  }
+}
+
 function startOfCurrentMonthUtc(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
@@ -1055,49 +1135,43 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
   try { await createSlaForTicket(ticket.id, userId); } catch {}
   try { await autoRouteTicket(ticket.id, userId, "concierge_task", "normal"); } catch {}
 
-  // TicketDesk delivery
-  ;(async () => {
-    try {
-      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
-        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      if (member) {
-        await queueTicketDeskDelivery({
-          contactEmail: member.email,
-          contactName: member.name,
-          subject,
-          body: description,
-          btsTicketNumber: ticket.ticketNumber,
-          ticketId: ticket.id,
-        });
-      }
-    } catch (err) {
+  const member = await lookupTicketMember(userId);
+
+  // TicketDesk delivery — fire-and-forget. Its terminal outcome is already
+  // tracked on the ticket's delivery_status column (with a support-inbox
+  // fallback email + admin "Retry delivery"), so a failure here is observable
+  // without blocking the response.
+  if (member) {
+    void queueTicketDeskDelivery({
+      contactEmail: member.email,
+      contactName: member.name,
+      subject,
+      body: description,
+      btsTicketNumber: ticket.ticketNumber,
+      ticketId: ticket.id,
+    }).catch((err) => {
       console.error("[TicketDesk] Failed to queue concierge ticket delivery:", err);
-    }
-  })();
+    });
+  }
 
-  // Confirmation email — best-effort
-  ;(async () => {
-    try {
-      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
-        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      if (member) {
-        await CommunicationService.queueEmail({
-          templateSlug: "concierge_task_created",
-          to: member.email,
-          userId,
-          variables: {
-            member_name: member.name,
-            ticket_number: ticket.ticketNumber,
-            task_subject: String(offerName),
-          },
-        });
-      }
-    } catch (err) {
-      console.error("[Comms] Failed to send concierge confirmation email:", err);
-    }
-  })();
+  // Confirmation email — awaited so the member can be told the truth. The
+  // ticket is already safely created; we never fail the request over a missed
+  // confirmation, but we do surface whether one is actually on its way so the
+  // success card doesn't promise an email that never arrives.
+  const confirmationEmailSent = await trySendConfirmationEmail({
+    member,
+    templateSlug: "concierge_task_created",
+    userId,
+    ticketNumber: ticket.ticketNumber,
+    taskSubject: String(offerName),
+    logLabel: "concierge",
+  });
 
-  res.status(201).json({ ticketNumber: ticket.ticketNumber, ticketId: ticket.id });
+  res.status(201).json({
+    ticketNumber: ticket.ticketNumber,
+    ticketId: ticket.id,
+    confirmationEmailSent,
+  });
 });
 
 // POST /tickets/compliance
@@ -1257,49 +1331,43 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
   try { await createSlaForTicket(ticket.id, userId); } catch {}
   try { await autoRouteTicket(ticket.id, userId, "compliance_review", "normal"); } catch {}
 
-  // TicketDesk delivery
-  ;(async () => {
-    try {
-      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
-        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      if (member) {
-        await queueTicketDeskDelivery({
-          contactEmail: member.email,
-          contactName: member.name,
-          subject,
-          body: description,
-          btsTicketNumber: ticket.ticketNumber,
-          ticketId: ticket.id,
-        });
-      }
-    } catch (err) {
+  const member = await lookupTicketMember(userId);
+
+  // TicketDesk delivery — fire-and-forget. Its terminal outcome is already
+  // tracked on the ticket's delivery_status column (with a support-inbox
+  // fallback email + admin "Retry delivery"), so a failure here is observable
+  // without blocking the response.
+  if (member) {
+    void queueTicketDeskDelivery({
+      contactEmail: member.email,
+      contactName: member.name,
+      subject,
+      body: description,
+      btsTicketNumber: ticket.ticketNumber,
+      ticketId: ticket.id,
+    }).catch((err) => {
       console.error("[TicketDesk] Failed to queue compliance ticket delivery:", err);
-    }
-  })();
+    });
+  }
 
-  // Confirmation email — best-effort
-  ;(async () => {
-    try {
-      const [member] = await db.select({ email: usersTable.email, name: usersTable.name })
-        .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      if (member) {
-        await CommunicationService.queueEmail({
-          templateSlug: "compliance_review_created",
-          to: member.email,
-          userId,
-          variables: {
-            member_name: member.name,
-            ticket_number: ticket.ticketNumber,
-            task_subject: String(offerName),
-          },
-        });
-      }
-    } catch (err) {
-      console.error("[Comms] Failed to send compliance confirmation email:", err);
-    }
-  })();
+  // Confirmation email — awaited so the member can be told the truth. The
+  // ticket is already safely created; we never fail the request over a missed
+  // confirmation, but we do surface whether one is actually on its way so the
+  // success card doesn't promise an email that never arrives.
+  const confirmationEmailSent = await trySendConfirmationEmail({
+    member,
+    templateSlug: "compliance_review_created",
+    userId,
+    ticketNumber: ticket.ticketNumber,
+    taskSubject: String(offerName),
+    logLabel: "compliance",
+  });
 
-  res.status(201).json({ ticketNumber: ticket.ticketNumber, ticketId: ticket.id });
+  res.status(201).json({
+    ticketNumber: ticket.ticketNumber,
+    ticketId: ticket.id,
+    confirmationEmailSent,
+  });
 });
 
 router.get("/tickets/:id/satisfaction", async (req, res): Promise<void> => {

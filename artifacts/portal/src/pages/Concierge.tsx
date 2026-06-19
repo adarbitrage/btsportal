@@ -73,7 +73,7 @@ const pillClass = (selected: boolean, mono = false) =>
   }`;
 
 type SubmitResult =
-  | { kind: "success"; ticketNumber: string }
+  | { kind: "success"; ticketNumber: string; confirmationEmailSent: boolean }
   | { kind: "error"; message: string };
 
 function ConciergeForm() {
@@ -126,7 +126,11 @@ function ConciergeForm() {
         return;
       }
       const data = await res.json();
-      setResult({ kind: "success", ticketNumber: data.ticketNumber });
+      setResult({
+        kind: "success",
+        ticketNumber: data.ticketNumber,
+        confirmationEmailSent: data.confirmationEmailSent !== false,
+      });
     } catch {
       setResult({ kind: "error", message: "Network error. Please check your connection and try again." });
     } finally {
@@ -146,8 +150,21 @@ function ConciergeForm() {
             Your request has been received and logged under reference{" "}
             <span className="font-mono font-semibold text-foreground" data-testid="text-ticket-number">{result.ticketNumber}</span>.
             Our BTS Concierge™ team will get back to you within 24–72 hours.
-            Check your email for a confirmation.
+            {result.confirmationEmailSent ? " Check your email for a confirmation." : ""}
           </p>
+          {!result.confirmationEmailSent && (
+            <div
+              className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 text-left"
+              data-testid="alert-confirmation-email-failed"
+            >
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+              <p>
+                Your request was logged successfully, but we couldn't send a confirmation email
+                right now. No need to resubmit — note your reference number above, and our team
+                will still receive your request.
+              </p>
+            </div>
+          )}
           <Button
             onClick={() => {
               setResult(null);

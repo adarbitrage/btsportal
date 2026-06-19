@@ -34,6 +34,8 @@ vi.mock("wouter", () => ({
       {children}
     </a>
   ),
+  useLocation: () => ["/support", vi.fn()],
+  useSearch: () => "",
 }));
 
 vi.mock("@tanstack/react-query", () => ({
