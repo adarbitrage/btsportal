@@ -61,21 +61,40 @@ type AttachmentMeta = {
   contentType: string;
 };
 
+// Mirrors the ticket reply composer's upload flow (TicketDetail.tsx) so both
+// intake paths surface the same human-readable failure reasons: a network
+// error (couldn't reach the server / connection dropped mid-upload) reads
+// differently from a storage rejection (the server or object store returned a
+// non-OK status).
 async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
-  const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-  });
-  if (!metaRes.ok) throw new Error(`Failed to get upload URL for ${file.name}`);
+  let metaRes: Response;
+  try {
+    metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+  } catch {
+    throw new Error("Network error — couldn't reach the server. Check your connection and retry.");
+  }
+  if (!metaRes.ok) {
+    throw new Error(`Couldn't prepare the upload (server error ${metaRes.status}). Retry in a moment.`);
+  }
   const { uploadURL, objectPath } = await metaRes.json();
-  const putRes = await fetch(uploadURL, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-  if (!putRes.ok) throw new Error(`Upload failed for ${file.name}`);
+  let putRes: Response;
+  try {
+    putRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    });
+  } catch {
+    throw new Error("Network error during upload — check your connection and retry.");
+  }
+  if (!putRes.ok) {
+    throw new Error(`Storage rejected the file (error ${putRes.status}). Retry in a moment.`);
+  }
   return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
 }
 
@@ -89,6 +108,10 @@ export default function ComplianceReview() {
   const [driveLink, setDriveLink] = useState("");
   const [shareStatus, setShareStatus] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  // Per-file upload failure reasons, keyed by index into `files`. Populated when
+  // a presigned upload fails on submit so the reason can render inline next to
+  // the file that failed, matching the ticket reply composer.
+  const [fileErrors, setFileErrors] = useState<Record<number, string>>({});
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<
@@ -104,6 +127,10 @@ export default function ComplianceReview() {
 
   const removeFile = (idx: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
+    // Indexes shift after a removal, so drop the stale per-file errors rather
+    // than risk pointing a reason at the wrong file; they re-populate on the
+    // next submit attempt.
+    setFileErrors({});
   };
 
   const handleFilesSelected = (selected: File[]) => {
@@ -113,6 +140,7 @@ export default function ComplianceReview() {
       return;
     }
     setSubmitResult(null);
+    setFileErrors({});
     setFiles(selected);
   };
 
@@ -129,11 +157,34 @@ export default function ComplianceReview() {
 
     setSubmitting(true);
     setSubmitResult(null);
+    setFileErrors({});
 
     try {
       let attachments: AttachmentMeta[] = [];
       if (files.length > 0) {
-        attachments = await Promise.all(files.map(uploadFileToStorage));
+        // allSettled (not all) so one bad file doesn't hide the fate of the
+        // others — we collect every per-file reason and render it inline next
+        // to the file that failed.
+        const results = await Promise.allSettled(files.map(uploadFileToStorage));
+        const failures: Record<number, string> = {};
+        results.forEach((result, i) => {
+          if (result.status === "fulfilled") {
+            attachments.push(result.value);
+          } else {
+            failures[i] =
+              result.reason instanceof Error
+                ? result.reason.message
+                : `Upload failed for ${files[i].name}`;
+          }
+        });
+        if (Object.keys(failures).length > 0) {
+          setFileErrors(failures);
+          setSubmitResult({
+            kind: "error",
+            message: "Some files didn't upload. Retry or remove them, then submit again.",
+          });
+          return;
+        }
       }
 
       const res = await fetch(`${API_BASE}/tickets/compliance`, {
@@ -414,16 +465,28 @@ export default function ComplianceReview() {
                 {files.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {files.map((f, i) => (
-                      <li key={i} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
-                        <span className="truncate max-w-xs">{f.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
-                          aria-label={`Remove ${f.name}`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                      <li key={i} className="text-xs bg-muted/40 rounded px-2 py-1">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="truncate max-w-xs">{f.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(i)}
+                            className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
+                            aria-label={`Remove ${f.name}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {fileErrors[i] && (
+                          <p
+                            className="mt-1 text-destructive"
+                            role="alert"
+                            data-testid={`compliance-file-error-${i}`}
+                          >
+                            <span className="sr-only">Upload failed: </span>
+                            {fileErrors[i]}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
