@@ -810,6 +810,11 @@ router.get("/tickets/:id", async (req, res): Promise<void> => {
   const attachments = await db
     .select({
       id: ticketAttachmentsTable.id,
+      // Surface the link back to the reply message this file was sent with so
+      // the conversation thread can render the attachment beneath its message.
+      // Null for files uploaded at ticket-creation time (e.g. the Compliance
+      // Review form), which the UI keeps in the separate Attachments list.
+      messageId: ticketAttachmentsTable.messageId,
       fileName: ticketAttachmentsTable.fileName,
       fileSize: ticketAttachmentsTable.fileSize,
       contentType: ticketAttachmentsTable.contentType,

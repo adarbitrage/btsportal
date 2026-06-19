@@ -895,6 +895,12 @@ export const GetTicketResponse = zod.object({
   attachments: zod.array(
     zod.object({
       id: zod.number(),
+      messageId: zod
+        .number()
+        .nullish()
+        .describe(
+          "The reply message this file was attached to, so the conversation\nthread can render it beneath that message. Null for files uploaded\nat ticket-creation time (e.g. the Compliance Review form).\n",
+        ),
       fileName: zod.string().nullish(),
       fileSize: zod.number().nullish(),
       contentType: zod.string().nullish(),

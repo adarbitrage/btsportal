@@ -71,6 +71,87 @@ function extractCannedVariables(body: string): string[] {
   return Array.from(seen);
 }
 
+type AdminAttachment = {
+  id: number;
+  ticketId: number;
+  messageId: number | null;
+  objectPath: string;
+  fileName: string | null;
+  fileSize: number | null;
+  contentType: string | null;
+  createdAt: string;
+};
+
+function formatFileSize(fileSize: number | null | undefined): string | null {
+  if (fileSize == null) return null;
+  return fileSize < 1024 * 1024
+    ? `${Math.round(fileSize / 1024)} KB`
+    : `${(fileSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Admins download attachments directly via the shared object-storage route
+// (they aren't the ticket owner, so the member-scoped download endpoint would
+// 404 for them).
+function adminAttachmentDownloadUrl(att: AdminAttachment): string {
+  const wildcardPath = att.objectPath.replace(/^\/objects\//, "");
+  return `${import.meta.env.BASE_URL}api/storage/objects/${wildcardPath}`;
+}
+
+// Renders a single attachment. Image content types render a clickable
+// thumbnail that opens the larger preview dialog; everything else renders a
+// download link.
+function AttachmentTile({
+  att,
+  onPreview,
+}: {
+  att: AdminAttachment;
+  onPreview: (preview: { url: string; name: string; kind: "image" | "pdf" }) => void;
+}) {
+  const fileName = att.fileName ?? att.objectPath.split("/").pop() ?? att.objectPath;
+  const downloadUrl = adminAttachmentDownloadUrl(att);
+  const sizeLabel = formatFileSize(att.fileSize);
+  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
+
+  if (isImage) {
+    return (
+      <button
+        type="button"
+        onClick={() => onPreview({ url: downloadUrl, name: fileName, kind: "image" })}
+        className="group inline-flex flex-col gap-1 max-w-[160px] text-left"
+        data-testid={`attachment-thumbnail-${att.id}`}
+        title={`Preview ${fileName}`}
+      >
+        <img
+          src={downloadUrl}
+          alt={fileName}
+          loading="lazy"
+          className="w-40 h-40 object-cover rounded-lg border border-border bg-muted/30 group-hover:opacity-90 transition-opacity"
+        />
+        <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+          <span className="truncate">{fileName}</span>
+          {sizeLabel && <span className="shrink-0">· {sizeLabel}</span>}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={downloadUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2 hover:bg-muted/50 transition-colors max-w-xs"
+      data-testid={`attachment-download-${att.id}`}
+      title={fileName}
+    >
+      <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+      <span className="truncate text-foreground font-medium">{fileName}</span>
+      {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">· {sizeLabel}</span>}
+      <Download className="w-3.5 h-3.5 shrink-0 text-primary ml-auto" />
+    </a>
+  );
+}
+
 type SlaBadgeStatus = "breached" | "approaching" | "within";
 
 // Reduce the SLA record's per-target flags into a single rollup status
@@ -393,6 +474,7 @@ export default function AdminTicketDetail() {
   type TicketAttachment = {
     id: number;
     ticketId: number;
+    messageId: number | null;
     objectPath: string;
     fileName: string | null;
     fileSize: number | null;
@@ -584,6 +666,24 @@ export default function AdminTicketDetail() {
   const memberName = ticket.member?.name ?? "Unknown member";
   const memberEmail = ticket.member?.email ?? "";
   const assigneeSelectValue = ticket.assignedTo != null ? String(ticket.assignedTo) : "unassigned";
+
+  // Group attachments by the message they were sent with so each file renders
+  // beneath its message. Files with no messageId (uploaded at ticket-creation
+  // time) — or whose linked message isn't on this ticket — fall back to the
+  // separate Attachments list below the thread.
+  const allAttachments = attachments ?? [];
+  const messageIds = new Set<number>(ticket.messages.map((m) => m.id));
+  const attachmentsByMessage = new Map<number, AdminAttachment[]>();
+  for (const att of allAttachments) {
+    if (att.messageId != null && messageIds.has(att.messageId)) {
+      const list = attachmentsByMessage.get(att.messageId) ?? [];
+      list.push(att);
+      attachmentsByMessage.set(att.messageId, list);
+    }
+  }
+  const unlinkedAttachments = allAttachments.filter(
+    (att) => att.messageId == null || !messageIds.has(att.messageId),
+  );
 
   // The current assignee may not be in the assignees list (e.g. role
   // changed since assignment); surface them anyway so the dropdown can
@@ -799,6 +899,16 @@ export default function AdminTicketDetail() {
                       <span className="text-xs text-muted-foreground">{format(new Date(msg.createdAt), "MMM d, h:mm a")}</span>
                     </div>
                     <div className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">{msg.body}</div>
+                    {(attachmentsByMessage.get(msg.id) ?? []).length > 0 && (
+                      <div
+                        className="mt-3 flex flex-wrap gap-3"
+                        data-testid={`message-attachments-${msg.id}`}
+                      >
+                        {(attachmentsByMessage.get(msg.id) ?? []).map((att) => (
+                          <AttachmentTile key={att.id} att={att} onPreview={setAttachmentPreview} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -813,75 +923,20 @@ export default function AdminTicketDetail() {
           )}
         </div>
 
-        {attachments !== null && attachments.length > 0 && (
+        {unlinkedAttachments.length > 0 && (
           <Card data-testid="ticket-attachments-card">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Paperclip className="w-4 h-4" /> Attachments
-                <span className="text-xs font-normal text-muted-foreground">({attachments.length})</span>
+                <span className="text-xs font-normal text-muted-foreground">({unlinkedAttachments.length})</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2" data-testid="ticket-attachments-list">
-                {attachments.map((att) => {
-                  const fileName = att.fileName ?? att.objectPath.split("/").pop() ?? att.objectPath;
-                  const wildcardPath = att.objectPath.replace(/^\/objects\//, "");
-                  const downloadUrl = `${import.meta.env.BASE_URL}api/storage/objects/${wildcardPath}`;
-                  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
-                  const isPdf = att.contentType === "application/pdf";
-                  const sizeLabel = att.fileSize != null
-                    ? att.fileSize < 1024 * 1024
-                      ? `${Math.round(att.fileSize / 1024)} KB`
-                      : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`
-                    : null;
-                  return (
-                    <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isImage ? (
-                          <button
-                            type="button"
-                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName, kind: "image" })}
-                            className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
-                            title={`Preview ${fileName}`}
-                            data-testid={`attachment-thumbnail-${att.id}`}
-                          >
-                            <img
-                              src={downloadUrl}
-                              alt={fileName}
-                              loading="lazy"
-                              className="h-10 w-10 object-cover"
-                            />
-                          </button>
-                        ) : isPdf ? (
-                          <button
-                            type="button"
-                            onClick={() => setAttachmentPreview({ url: downloadUrl, name: fileName, kind: "pdf" })}
-                            className="shrink-0 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:ring-2 hover:ring-primary hover:text-primary transition-all"
-                            title={`Preview ${fileName}`}
-                            data-testid={`attachment-thumbnail-${att.id}`}
-                          >
-                            <FileText className="w-5 h-5" />
-                          </button>
-                        ) : (
-                          <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
-                        {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
-                      </div>
-                      <a
-                        href={downloadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-                        data-testid={`attachment-download-${att.id}`}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="flex flex-wrap gap-3" data-testid="ticket-attachments-list">
+                {unlinkedAttachments.map((att) => (
+                  <AttachmentTile key={att.id} att={att} onPreview={setAttachmentPreview} />
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}

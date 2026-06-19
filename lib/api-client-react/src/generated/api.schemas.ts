@@ -1031,6 +1031,14 @@ export interface TicketMessage {
 
 export interface TicketAttachment {
   id: number;
+  /**
+   * The reply message this file was attached to, so the conversation
+thread can render it beneath that message. Null for files uploaded
+at ticket-creation time (e.g. the Compliance Review form).
+
+   * @nullable
+   */
+  messageId?: number | null;
   /** @nullable */
   fileName?: string | null;
   /** @nullable */

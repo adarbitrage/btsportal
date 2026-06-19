@@ -68,6 +68,69 @@ async function uploadFileToStorage(file: File): Promise<AttachmentMeta> {
   return { objectPath: objectPath as string, fileName: file.name, fileSize: file.size, contentType: file.type };
 }
 
+function formatFileSize(fileSize: number | null | undefined): string | null {
+  if (fileSize == null) return null;
+  return fileSize < 1024 * 1024
+    ? `${Math.round(fileSize / 1024)} KB`
+    : `${(fileSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Renders a single attachment. Image content types render a clickable
+// thumbnail that opens the larger preview dialog; everything else renders a
+// download link pointing at the owner-scoped download endpoint.
+function AttachmentTile({
+  att,
+  downloadUrl,
+  onPreview,
+}: {
+  att: any;
+  downloadUrl: string;
+  onPreview: (preview: { url: string; name: string; kind: "image" | "pdf" }) => void;
+}) {
+  const fileName = att.fileName ?? `attachment-${att.id}`;
+  const sizeLabel = formatFileSize(att.fileSize);
+  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
+
+  if (isImage) {
+    return (
+      <button
+        type="button"
+        onClick={() => onPreview({ url: downloadUrl, name: fileName, kind: "image" })}
+        className="group inline-flex flex-col gap-1 max-w-[160px] text-left"
+        data-testid={`attachment-thumbnail-${att.id}`}
+        title={`Preview ${fileName}`}
+      >
+        <img
+          src={downloadUrl}
+          alt={fileName}
+          loading="lazy"
+          className="w-40 h-40 object-cover rounded-lg border border-border bg-muted/30 group-hover:opacity-90 transition-opacity"
+        />
+        <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+          <span className="truncate">{fileName}</span>
+          {sizeLabel && <span className="shrink-0">· {sizeLabel}</span>}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={downloadUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2 hover:bg-muted/50 transition-colors max-w-xs"
+      data-testid={`attachment-download-${att.id}`}
+      title={fileName}
+    >
+      <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+      <span className="truncate text-foreground font-medium">{fileName}</span>
+      {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">· {sizeLabel}</span>}
+      <Download className="w-3.5 h-3.5 shrink-0 text-primary ml-auto" />
+    </a>
+  );
+}
+
 export default function TicketDetail() {
   const { id } = useParams();
   const ticketId = parseInt(id || "1", 10);
@@ -222,6 +285,27 @@ export default function TicketDetail() {
 
   const visibleMessages = ticket.messages.filter((msg: any) => !msg.isInternal);
 
+  // Group attachments by the reply message they were sent with so each file
+  // can render beneath its message. Files with no messageId (uploaded at
+  // ticket-creation time) — or whose linked message isn't visible — fall back
+  // to the separate Attachments list below the thread.
+  const allAttachments: any[] = ticket.attachments ?? [];
+  const visibleMessageIds = new Set<number>(visibleMessages.map((m: any) => m.id));
+  const attachmentsByMessage = new Map<number, any[]>();
+  for (const att of allAttachments) {
+    if (att.messageId != null && visibleMessageIds.has(att.messageId)) {
+      const list = attachmentsByMessage.get(att.messageId) ?? [];
+      list.push(att);
+      attachmentsByMessage.set(att.messageId, list);
+    }
+  }
+  const unlinkedAttachments = allAttachments.filter(
+    (att: any) => att.messageId == null || !visibleMessageIds.has(att.messageId),
+  );
+
+  const attachmentDownloadUrl = (att: any) =>
+    `${import.meta.env.BASE_URL}api/tickets/${ticketId}/attachments/${att.id}/download`;
+
   const topicPreset = getTopicPresetForSubject(ticket.subject);
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
   const isActive = !isResolved;
@@ -375,6 +459,16 @@ export default function TicketDetail() {
                       <div className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
                         {msg.body}
                       </div>
+                      {(attachmentsByMessage.get(msg.id) ?? []).length > 0 && (
+                        <div
+                          className="mt-3 flex flex-wrap gap-3"
+                          data-testid={`message-attachments-${msg.id}`}
+                        >
+                          {(attachmentsByMessage.get(msg.id) ?? []).map((att: any) => (
+                            <AttachmentTile key={att.id} att={att} downloadUrl={attachmentDownloadUrl(att)} onPreview={setPreview} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -383,73 +477,19 @@ export default function TicketDetail() {
           })}
         </div>
 
-        {ticket.attachments && ticket.attachments.length > 0 && (
+        {unlinkedAttachments.length > 0 && (
           <Card data-testid="ticket-attachments-card">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
                 <h2 className="font-bold text-foreground">Attachments</h2>
-                <span className="text-xs font-normal text-muted-foreground">({ticket.attachments.length})</span>
+                <span className="text-xs font-normal text-muted-foreground">({unlinkedAttachments.length})</span>
               </div>
-              <ul className="space-y-2" data-testid="ticket-attachments-list">
-                {ticket.attachments.map((att: any) => {
-                  const fileName = att.fileName ?? `attachment-${att.id}`;
-                  const downloadUrl = `${import.meta.env.BASE_URL}api/tickets/${ticketId}/attachments/${att.id}/download`;
-                  const isImage = typeof att.contentType === "string" && att.contentType.startsWith("image/");
-                  const isPdf = att.contentType === "application/pdf";
-                  const sizeLabel = att.fileSize != null
-                    ? att.fileSize < 1024 * 1024
-                      ? `${Math.round(att.fileSize / 1024)} KB`
-                      : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`
-                    : null;
-                  return (
-                    <li key={att.id} className="flex items-center justify-between gap-3 text-sm rounded-lg border border-border bg-muted/30 px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isImage ? (
-                          <button
-                            type="button"
-                            onClick={() => setPreview({ url: downloadUrl, name: fileName, kind: "image" })}
-                            className="shrink-0 rounded-md overflow-hidden border border-border bg-background hover:ring-2 hover:ring-primary transition-all"
-                            title={`Preview ${fileName}`}
-                            data-testid={`attachment-thumbnail-${att.id}`}
-                          >
-                            <img
-                              src={downloadUrl}
-                              alt={fileName}
-                              loading="lazy"
-                              className="h-10 w-10 object-cover"
-                            />
-                          </button>
-                        ) : isPdf ? (
-                          <button
-                            type="button"
-                            onClick={() => setPreview({ url: downloadUrl, name: fileName, kind: "pdf" })}
-                            className="shrink-0 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:ring-2 hover:ring-primary hover:text-primary transition-all"
-                            title={`Preview ${fileName}`}
-                            data-testid={`attachment-thumbnail-${att.id}`}
-                          >
-                            <FileText className="w-5 h-5" />
-                          </button>
-                        ) : (
-                          <Paperclip className="w-4 h-4 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate text-foreground font-medium" title={fileName}>{fileName}</span>
-                        {sizeLabel && <span className="text-xs text-muted-foreground shrink-0">{sizeLabel}</span>}
-                      </div>
-                      <a
-                        href={downloadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-                        data-testid={`attachment-download-${att.id}`}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="flex flex-wrap gap-3" data-testid="ticket-attachments-list">
+                {unlinkedAttachments.map((att: any) => (
+                  <AttachmentTile key={att.id} att={att} downloadUrl={attachmentDownloadUrl(att)} onPreview={setPreview} />
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}

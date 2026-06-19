@@ -723,6 +723,7 @@ export const adminPanelApi = {
     return res.json() as Promise<Array<{
       id: number;
       ticketId: number;
+      messageId: number | null;
       objectPath: string;
       fileName: string | null;
       fileSize: number | null;
