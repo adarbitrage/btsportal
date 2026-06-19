@@ -160,6 +160,10 @@ test.afterAll(async () => {
     await pool.query(`DELETE FROM coaches WHERE id = ANY($1::int[])`, [
       [fixture.coachAId, fixture.coachBId],
     ]);
+    // Logging in seeds GHL contact-sync jobs in dev, which write ghl_sync_log
+    // rows that FK-reference the user (NO ACTION). Remove them before the user,
+    // or the final DELETE fails with a 23503 FK violation and leaves orphans.
+    await pool.query(`DELETE FROM ghl_sync_log WHERE user_id = $1`, [fixture.coachUserId]);
     await pool.query(`DELETE FROM users WHERE id = $1`, [fixture.coachUserId]);
   } catch (err) {
     console.error("[e2e] coach-picker cleanup failed:", err);
