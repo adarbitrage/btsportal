@@ -682,6 +682,13 @@ export default function KnowledgeBaseReview() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => window.open(`${import.meta.env.BASE_URL}docs/kb-weekly-maintenance-sop.pdf`, "_blank", "noopener,noreferrer")}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Maintenance SOP
+            </Button>
             {(statusCounts.approved || 0) > 0 && (
               <Button onClick={pushApproved} disabled={pushing} className="bg-[#1a56db] hover:bg-[#1a56db]/90">
                 {pushing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}

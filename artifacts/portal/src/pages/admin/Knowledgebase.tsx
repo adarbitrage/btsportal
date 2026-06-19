@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Plus, Pencil, Trash2, Search, X } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Search, X, FileText } from "lucide-react";
 import { fetchKnowledgebaseDocs, createKnowledgebaseDoc, updateKnowledgebaseDoc, deleteKnowledgebaseDoc } from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -118,9 +118,17 @@ export default function Knowledgebase() {
             <h1 className="text-2xl font-bold text-foreground">Knowledgebase Management</h1>
             <p className="text-muted-foreground mt-1">Manage RAG knowledge documents for the AI chat assistant.</p>
           </div>
-          <Button onClick={() => { resetForm(); setShowForm(true); }}>
-            <Plus className="w-4 h-4 mr-1" /> Add Document
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => window.open(`${import.meta.env.BASE_URL}docs/kb-weekly-maintenance-sop.pdf`, "_blank", "noopener,noreferrer")}
+            >
+              <FileText className="w-4 h-4 mr-1" /> Maintenance SOP
+            </Button>
+            <Button onClick={() => { resetForm(); setShowForm(true); }}>
+              <Plus className="w-4 h-4 mr-1" /> Add Document
+            </Button>
+          </div>
         </div>
 
         {showForm && (
