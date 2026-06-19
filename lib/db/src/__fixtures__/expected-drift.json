@@ -1,31 +1,10 @@
 {
   "constraints": {
-    "onlyInPush": [
-      "blitz_daily_activity | f | FOREIGN KEY (user_id) REFERENCES users(id)",
-      "blitz_daily_activity | p | PRIMARY KEY (user_id, activity_date)",
-      "blitz_events | f | FOREIGN KEY (user_id) REFERENCES users(id)",
-      "blitz_events | p | PRIMARY KEY (id)",
-      "blitz_phases | p | PRIMARY KEY (slug)",
-      "coach_google_connections | f | FOREIGN KEY (user_id) REFERENCES users(id)",
-      "coach_google_connections | p | PRIMARY KEY (id)",
-      "coach_google_connections | u | UNIQUE (user_id)"
-    ],
-    "onlyInMigrations": [
-      "voice_daily_usage | u | UNIQUE (user_id, usage_date)"
-    ]
+    "onlyInPush": [],
+    "onlyInMigrations": []
   },
   "indexes": {
-    "onlyInPush": [
-      "blitz_daily_activity | CREATE UNIQUE INDEX <name> ON public.blitz_daily_activity USING btree (user_id, activity_date)",
-      "blitz_events | CREATE INDEX <name> ON public.blitz_events USING btree (user_id, course_id, occurred_at)",
-      "blitz_events | CREATE INDEX <name> ON public.blitz_events USING btree (user_id, occurred_at)",
-      "blitz_events | CREATE UNIQUE INDEX <name> ON public.blitz_events USING btree (id)",
-      "blitz_phases | CREATE UNIQUE INDEX <name> ON public.blitz_phases USING btree (slug)",
-      "coach_google_connections | CREATE UNIQUE INDEX <name> ON public.coach_google_connections USING btree (id)",
-      "coach_google_connections | CREATE UNIQUE INDEX <name> ON public.coach_google_connections USING btree (user_id)"
-    ],
-    "onlyInMigrations": [
-      "voice_daily_usage | CREATE INDEX <name> ON public.voice_daily_usage USING btree (user_id, usage_date)"
-    ]
+    "onlyInPush": [],
+    "onlyInMigrations": []
   }
 }

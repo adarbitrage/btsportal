@@ -20,8 +20,11 @@ CREATE TABLE IF NOT EXISTS voice_daily_usage (
   id           serial PRIMARY KEY,
   user_id      integer NOT NULL REFERENCES users(id),
   usage_date   date    NOT NULL,
-  seconds_used integer NOT NULL DEFAULT 0,
-  CONSTRAINT voice_daily_usage_user_date_unique UNIQUE (user_id, usage_date)
+  seconds_used integer NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS voice_daily_usage_user_date_idx ON voice_daily_usage (user_id, usage_date);
+-- Mirror schema/voice-daily-usage.ts: a single UNIQUE index (not a separate
+-- UNIQUE constraint + plain index) enforces one row per user per day. Keeping
+-- this in lockstep with the schema is what drains the voice_daily_usage
+-- `onlyInMigrations` drift in migration-drift.test.ts.
+CREATE UNIQUE INDEX IF NOT EXISTS voice_daily_usage_user_date_idx ON voice_daily_usage (user_id, usage_date);
