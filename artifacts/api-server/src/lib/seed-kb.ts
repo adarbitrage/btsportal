@@ -265,3 +265,131 @@ export async function seedKnowledgebaseFromFiles(): Promise<void> {
 
   console.log(`[seed-kb] Done. Inserted: ${inserted}, Skipped (already exist): ${skipped}, Total parsed: ${allDocs.length}`);
 }
+
+/**
+ * Internal, admin-only SOP documents. These live in the same
+ * `knowledgebase_docs` table as member content but carry `audience='admin'`,
+ * so every member-facing retrieval path (AI Assistant chat, voice KB search,
+ * RAG retriever, searchTranscripts) excludes them. They surface only in the
+ * admin Knowledge Base management page.
+ *
+ * Inserted verbatim (no privacy scrub) since the body is operator
+ * documentation with no member PII. Idempotent via ON CONFLICT (title) DO
+ * NOTHING keyed on the UNIQUE title — re-runs neither duplicate nor overwrite.
+ */
+const INTERNAL_SOP_DOCS: KBDoc[] = [
+  {
+    title: "SOP: Machine → Portal Product Granting Integration",
+    category: "sop",
+    content: `# SOP: Machine → Portal Product Granting Integration
+
+**Audience:** Internal / Admins only
+**System:** \`POST /api/integrations/grant-product\` (BTS Member Portal API)
+**Purpose:** When a purchase happens in an external system ("The Machine" /
+checkout), that system calls this endpoint to grant the buyer access to the
+corresponding portal products and entitlements.
+
+## 1. Overview
+External systems call the grant-product endpoint after a successful purchase.
+The endpoint finds-or-creates the member by email, grants them the purchased
+product(s), recalculates their entitlements, and triggers onboarding side
+effects (welcome email, CRM sync). It is safe to call more than once for the
+same order — duplicate calls return the original result and never double-grant.
+
+## 2. Endpoint & Authentication
+- **Method / Path:** \`POST /api/integrations/grant-product\`
+- **Auth:** API key in the \`Authorization: Bearer bts_live_sk_…\` header.
+- **Required scope:** the API key must have the \`integrations:grant_products\`
+  permission. A key without this scope receives \`401/403\`.
+- Keys are issued and managed by admins. Never share or paste a full key into
+  logs, tickets, or chat — only the \`bts_live_sk_\` prefix is safe to reference.
+
+## 3. Request Body
+| Field | Required | Notes |
+|-------|----------|-------|
+| \`externalOrderId\` | yes | Unique order id from the source system. Used for idempotency. |
+| \`externalSource\` | yes | Identifier of the calling system (e.g. \`machine\`). |
+| \`customer.email\` | yes | Used to find or create the member. |
+| \`purchasedAt\` | yes | ISO 8601 timestamp of the purchase. |
+| \`productKeys[]\` | one of | The source system's product keys (resilient path — see §4). |
+| \`productSlugs[]\` | one of | Exact portal product slugs (strict — must match known slugs). |
+
+Provide **either** \`productKeys\` **or** \`productSlugs\`.
+
+## 4. Product Resolution & Unknown-Key Fallback
+- **\`productKeys\` path is resilient:** each key is resolved independently. An
+  unknown/unmapped key does NOT fail the request. Instead it is recorded in the
+  \`machine_unknown_product_keys\` table (incrementing an occurrence count) and
+  falls back to the default front-end product so the buyer still gets access.
+- **\`productSlugs\` path is strict:** slugs must match known portal product slugs.
+- Admins should periodically review \`machine_unknown_product_keys\` and add a real
+  mapping for any recurring key so it grants the correct product instead of the
+  fallback.
+
+## 5. What a Successful Grant Does
+- Finds the member by email, or creates a new member account if none exists.
+- Inserts an active \`user_products\` grant for each resolved product (status
+  \`active\`). A partial unique index guarantees at most **one active grant per
+  (member, product)**.
+- Recalculates the member's entitlement set (the union derived from all active
+  products).
+- Queues onboarding side effects: a welcome email and a CRM (GHL) sync.
+
+## 6. Idempotency (Safe Retries)
+- Idempotency is keyed on \`externalSource\` + \`externalOrderId\` (recorded in
+  \`webhook_logs\` as \`\${source}_\${orderId}\`).
+- An exact replay of an already-processed order returns the **cached snapshot**
+  of the original response. No new rows are written, no duplicate grants occur,
+  and no unique-constraint error is raised.
+
+## 7. How to Verify the Integration (Test Procedure)
+Use synthetic, clearly-tagged data and clean it up afterward. Never test against
+a real customer's email.
+1. Mint a temporary API key with the \`integrations:grant_products\` scope.
+2. **Valid multi-key grant:** call the endpoint with several known product keys
+   for a fresh synthetic email. Expect \`200\`, an active \`user_products\` row per
+   product, and the correct combined entitlements.
+3. **Unknown-key fallback:** call with an unmapped key. Expect \`200\` (not 404),
+   a new row in \`machine_unknown_product_keys\`, and a fallback grant to the
+   default front-end product.
+4. **Idempotent replay:** repeat the exact first call. Expect \`200\`, the cached
+   snapshot returned, no duplicate active grants, and no unique-constraint error.
+5. **Clean up:** delete the synthetic member, its grants, side-effect log rows,
+   the webhook log entries, the recorded unknown key, and the temporary API key.
+
+## 8. Troubleshooting
+- **401 / 403:** missing/invalid API key, or the key lacks
+  \`integrations:grant_products\`.
+- **Buyer got the wrong (front-end) product:** the source sent an unmapped key —
+  check \`machine_unknown_product_keys\` and add the correct mapping.
+- **"Nothing happened" on a retry:** expected — idempotency returned the cached
+  result from the first call.
+- **Buyer missing expected access:** confirm the active \`user_products\` rows and
+  that the entitlement set was recalculated; verify the product keys/slugs sent.`,
+  },
+];
+
+export async function seedInternalSops(): Promise<void> {
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const doc of INTERNAL_SOP_DOCS) {
+    try {
+      const result = await db.execute(
+        sql`INSERT INTO knowledgebase_docs (title, category, content, audience)
+            VALUES (${doc.title}, ${doc.category}, ${doc.content}, 'admin')
+            ON CONFLICT (title) DO NOTHING
+            RETURNING id`
+      );
+      if ((result.rows as any[]).length > 0) {
+        inserted++;
+      } else {
+        skipped++;
+      }
+    } catch (err) {
+      console.error(`[seed-kb] Error inserting internal SOP "${doc.title}":`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  console.log(`[seed-kb] Internal SOPs done. Inserted: ${inserted}, Skipped (already exist): ${skipped}.`);
+}

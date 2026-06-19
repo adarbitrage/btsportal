@@ -8,6 +8,11 @@ export const knowledgebaseDocsTable = pgTable("knowledgebase_docs", {
   title: text("title").notNull(),
   category: text("category").notNull().default("faq"),
   content: text("content").notNull(),
+  // Visibility flag. `member` docs are eligible for AI Assistant / voice /
+  // member chat retrieval; `admin` docs are internal-only and MUST be excluded
+  // from every member-facing retrieval path. Additive NOT NULL with a default
+  // so existing rows stay member-visible.
+  audience: text("audience").notNull().default("member"),
   searchVector: text("search_vector"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

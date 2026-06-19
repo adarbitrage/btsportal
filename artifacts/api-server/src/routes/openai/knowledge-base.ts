@@ -90,6 +90,7 @@ export async function searchTranscripts(query: string, maxResults = 3): Promise<
         ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${trimmed})) AS rank
       FROM knowledgebase_docs
       WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${trimmed})
+        AND audience <> 'admin'
       ORDER BY rank DESC
       LIMIT ${maxResults}`
   );

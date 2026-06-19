@@ -5,7 +5,7 @@ import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
-import { seedKnowledgebaseFromFiles } from "./seed-kb";
+import { seedKnowledgebaseFromFiles, seedInternalSops } from "./seed-kb";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -55,6 +55,20 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runTicketDeliveryColumnMigration() threw:", err);
     missing.push("ticketDeliveryColumnMigration");
+  }
+
+  // 0a-2. Add knowledgebase_docs.audience column (IF NOT EXISTS — idempotent).
+  //       Every member-facing KB retrieval path (AI Assistant chat, voice KB
+  //       search, RAG retriever, searchTranscripts) now filters on this column
+  //       to exclude admin-only docs. Added at boot so existing databases pick
+  //       it up BEFORE any retrieval query references it, avoiding a
+  //       "column audience does not exist" runtime error on environments where
+  //       the schema push hasn't run yet.
+  try {
+    await runKnowledgebaseAudienceColumnMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runKnowledgebaseAudienceColumnMigration() threw:", err);
+    missing.push("knowledgebaseAudienceColumnMigration");
   }
 
   // 0b. Backfill undelivered tickets — runs in the background after the HTTP
@@ -280,6 +294,21 @@ async function ensureKBGrounding(): Promise<void> {
   seedKnowledgebaseFromFiles().catch((err) => {
     console.error("[Bootstrap] KB file ingestion failed:", err);
   });
+
+  // 5. Seed internal, admin-only SOP docs (idempotent, audience='admin').
+  //    These are excluded from every member-facing KB retrieval path and
+  //    surface only in the admin Knowledge Base page. Inserts the row
+  //    directly to the DB (editing a knowledge-base/*.txt file would not).
+  seedInternalSops().catch((err) => {
+    console.error("[Bootstrap] Internal SOP seeding failed:", err);
+  });
+}
+
+async function runKnowledgebaseAudienceColumnMigration(): Promise<void> {
+  await db.execute(
+    sql`ALTER TABLE knowledgebase_docs
+        ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'member'`,
+  );
 }
 
 async function runTicketDeliveryColumnMigration(): Promise<void> {

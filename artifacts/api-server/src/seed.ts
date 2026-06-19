@@ -22,7 +22,7 @@ import bcrypt from "bcryptjs";
 import { seedCommunicationTemplates } from "./lib/seed-templates";
 import { seedVaultData } from "./lib/seed-vault";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
-import { seedKnowledgebaseFromFiles } from "./lib/seed-kb";
+import { seedKnowledgebaseFromFiles, seedInternalSops } from "./lib/seed-kb";
 import { ANTI_HALLUCINATION_SYSTEM_PROMPT } from "./lib/chat-system-prompt";
 import { affiliateNetworksTable, blitzPhasesTable } from "@workspace/db/schema";
 import { BLITZ_PHASES } from "./lib/blitz/sections";
@@ -1164,6 +1164,8 @@ async function seed() {
   await seedAssistantCards();
 
   await seedKnowledgebaseFromFiles();
+
+  await seedInternalSops();
 
   for (const phase of BLITZ_PHASES) {
     await db.insert(blitzPhasesTable).values({

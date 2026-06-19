@@ -53,6 +53,7 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
       FROM knowledgebase_docs
       WHERE to_tsvector('english', title || ' ' || content) @@ websearch_to_tsquery('english', ${query})
         AND category = ANY(${categoriesArray}::text[])
+        AND audience <> 'admin'
       ORDER BY rank DESC
       LIMIT 4`
   );
@@ -67,6 +68,7 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
         FROM knowledgebase_docs
         WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
           AND category = ANY(${categoriesArray}::text[])
+          AND audience <> 'admin'
         ORDER BY rank DESC
         LIMIT 4`
     );

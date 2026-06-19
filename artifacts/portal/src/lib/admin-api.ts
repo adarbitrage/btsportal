@@ -695,6 +695,7 @@ export interface KnowledgebaseDoc {
   title: string;
   category: string;
   content: string;
+  audience: "member" | "admin";
   chunkCount: number;
   updatedAt: string;
 }
@@ -706,14 +707,14 @@ export function fetchKnowledgebaseDocs(params?: { category?: string; search?: st
   return adminFetch<KnowledgebaseDoc[]>(`/admin/chat/knowledgebase?${qs.toString()}`);
 }
 
-export function createKnowledgebaseDoc(data: { title: string; category: string; content: string }) {
+export function createKnowledgebaseDoc(data: { title: string; category: string; content: string; audience?: "member" | "admin" }) {
   return adminFetch("/admin/chat/knowledgebase", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
-export function updateKnowledgebaseDoc(id: number, data: { title?: string; category?: string; content?: string }) {
+export function updateKnowledgebaseDoc(id: number, data: { title?: string; category?: string; content?: string; audience?: "member" | "admin" }) {
   return adminFetch(`/admin/chat/knowledgebase/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),

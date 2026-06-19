@@ -432,10 +432,15 @@ router.get("/admin/chat/knowledgebase", requirePermission("chat:view"), async (r
 });
 
 router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const { title, category, content } = req.body as { title?: string; category?: string; content?: string };
+  const { title, category, content, audience } = req.body as { title?: string; category?: string; content?: string; audience?: string };
 
   if (!title || !content) {
     res.status(400).json({ error: "Title and content are required" });
+    return;
+  }
+
+  if (audience !== undefined && audience !== "member" && audience !== "admin") {
+    res.status(400).json({ error: "audience must be 'member' or 'admin'" });
     return;
   }
 
@@ -445,6 +450,7 @@ router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async
       title: scrubPrivateContent(title),
       category: category || "faq",
       content: scrubPrivateContent(content),
+      audience: audience ?? "member",
     })
     .returning();
 
@@ -464,11 +470,18 @@ router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), as
     return;
   }
 
-  const { title, category, content } = req.body as { title?: string; category?: string; content?: string };
+  const { title, category, content, audience } = req.body as { title?: string; category?: string; content?: string; audience?: string };
+
+  if (audience !== undefined && audience !== "member" && audience !== "admin") {
+    res.status(400).json({ error: "audience must be 'member' or 'admin'" });
+    return;
+  }
+
   const updates: Record<string, any> = {};
   if (title !== undefined) updates.title = scrubPrivateContent(title);
   if (category !== undefined) updates.category = category;
   if (content !== undefined) updates.content = scrubPrivateContent(content);
+  if (audience !== undefined) updates.audience = audience;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nothing to update" });

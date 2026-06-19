@@ -36,6 +36,7 @@ export async function retrieveFromKB(
         FROM knowledgebase_docs
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
           AND id = ANY(${idsArray}::int[])
+          AND audience <> 'admin'
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );
@@ -47,6 +48,7 @@ export async function retrieveFromKB(
         FROM knowledgebase_docs
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
           AND category = ANY(${categoriesArray}::text[])
+          AND audience <> 'admin'
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );
@@ -56,6 +58,7 @@ export async function retrieveFromKB(
           ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
         FROM knowledgebase_docs
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
+          AND audience <> 'admin'
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );

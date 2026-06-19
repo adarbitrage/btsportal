@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Plus, Pencil, Trash2, Search, X, FileText } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Search, X, FileText, Lock } from "lucide-react";
 import { fetchKnowledgebaseDocs, createKnowledgebaseDoc, updateKnowledgebaseDoc, deleteKnowledgebaseDoc } from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ const CATEGORIES = [
   { value: "compliance", label: "Compliance" },
   { value: "advanced_strategy", label: "Advanced Strategy" },
   { value: "troubleshooting", label: "Troubleshooting" },
+  { value: "sop", label: "SOP (Internal)" },
 ];
 
 export default function Knowledgebase() {
@@ -34,6 +35,7 @@ export default function Knowledgebase() {
   const [formTitle, setFormTitle] = useState("");
   const [formCategory, setFormCategory] = useState("faq");
   const [formContent, setFormContent] = useState("");
+  const [formAudience, setFormAudience] = useState<"member" | "admin">("member");
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ["admin-knowledgebase", categoryFilter, searchQuery],
@@ -81,6 +83,7 @@ export default function Knowledgebase() {
     setFormTitle("");
     setFormCategory("faq");
     setFormContent("");
+    setFormAudience("member");
   };
 
   const startEdit = (doc: any) => {
@@ -88,6 +91,7 @@ export default function Knowledgebase() {
     setFormTitle(doc.title);
     setFormCategory(doc.category);
     setFormContent(doc.content);
+    setFormAudience(doc.audience === "admin" ? "admin" : "member");
     setShowForm(true);
   };
 
@@ -98,9 +102,9 @@ export default function Knowledgebase() {
     }
 
     if (editingDoc) {
-      updateMutation.mutate({ id: editingDoc.id, data: { title: formTitle, category: formCategory, content: formContent } });
+      updateMutation.mutate({ id: editingDoc.id, data: { title: formTitle, category: formCategory, content: formContent, audience: formAudience } });
     } else {
-      createMutation.mutate({ title: formTitle, category: formCategory, content: formContent });
+      createMutation.mutate({ title: formTitle, category: formCategory, content: formContent, audience: formAudience });
     }
   };
 
@@ -154,6 +158,21 @@ export default function Knowledgebase() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Visibility</label>
+                  <Select value={formAudience} onValueChange={(v) => setFormAudience(v as "member" | "admin")}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">Members (AI Assistant)</SelectItem>
+                      <SelectItem value="admin">Admin only / Internal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Admin-only docs are never returned to members by the AI Assistant or voice search.
+                  </p>
                 </div>
               </div>
               <div>
@@ -231,6 +250,7 @@ export default function Knowledgebase() {
                   <TableRow>
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Visibility</TableHead>
                     <TableHead>Chunks</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead></TableHead>
@@ -242,6 +262,15 @@ export default function Knowledgebase() {
                       <TableCell className="font-medium max-w-[250px] truncate">{doc.title}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">{categoryLabel(doc.category)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {doc.audience === "admin" ? (
+                          <Badge variant="destructive" className="text-xs gap-1">
+                            <Lock className="w-3 h-3" /> Admin only
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Members</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">{doc.chunkCount}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
