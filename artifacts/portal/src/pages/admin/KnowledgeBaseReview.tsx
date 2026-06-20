@@ -85,6 +85,7 @@ interface StatusCounts {
 interface SourceCounts {
   blitz: number;
   coaching_call: number;
+  upload: number;
   unlabeled: number;
 }
 
@@ -141,7 +142,7 @@ function ConfidenceBadge({ score, recommendation }: { score: number | null; reco
 export default function KnowledgeBaseReview() {
   const [docs, setDocs] = useState<StagingDoc[]>([]);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({});
-  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({ blitz: 0, coaching_call: 0, unlabeled: 0 });
+  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({ blitz: 0, coaching_call: 0, upload: 0, unlabeled: 0 });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [pushing, setPushing] = useState(false);
@@ -188,7 +189,7 @@ export default function KnowledgeBaseReview() {
       const data = await res.json();
       setDocs(data.documents);
       setStatusCounts(data.statusCounts || {});
-      setSourceCounts(data.sourceCounts || { blitz: 0, coaching_call: 0, unlabeled: 0 });
+      setSourceCounts(data.sourceCounts || { blitz: 0, coaching_call: 0, upload: 0, unlabeled: 0 });
       setTotalPages(data.pagination?.totalPages || 1);
       setTotal(data.pagination?.total || 0);
     } catch {
@@ -782,6 +783,7 @@ export default function KnowledgeBaseReview() {
             ["all", "All"],
             ["blitz", `Blitz (${sourceCounts.blitz})`],
             ["coaching_call", `Coaching Call (${sourceCounts.coaching_call})`],
+            ["upload", `Uploaded (${sourceCounts.upload})`],
             ["unlabeled", `Unlabeled (${sourceCounts.unlabeled})`],
           ].map(([key, label]) => (
             <button

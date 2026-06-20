@@ -39,8 +39,10 @@ router.get("/", async (req: Request, res: Response) => {
       where = sql`${where} AND ${kbStagingDocsTable.source} = 'blitz'`;
     } else if (sourceFilter === "coaching_call") {
       where = sql`${where} AND ${kbStagingDocsTable.source} = 'coaching_call'`;
+    } else if (sourceFilter === "upload") {
+      where = sql`${where} AND ${kbStagingDocsTable.source} = 'upload'`;
     } else if (sourceFilter === "unlabeled") {
-      where = sql`${where} AND (${kbStagingDocsTable.source} IS NULL OR ${kbStagingDocsTable.source} NOT IN ('blitz','coaching_call'))`;
+      where = sql`${where} AND (${kbStagingDocsTable.source} IS NULL OR ${kbStagingDocsTable.source} NOT IN ('blitz','coaching_call','upload'))`;
     }
 
     const [docs, total] = await Promise.all([
@@ -87,8 +89,9 @@ router.get("/", async (req: Request, res: Response) => {
       sourceCounts: {
         blitz: sourceCounts.find((s) => s.source === "blitz")?.cnt ?? 0,
         coaching_call: sourceCounts.find((s) => s.source === "coaching_call")?.cnt ?? 0,
+        upload: sourceCounts.find((s) => s.source === "upload")?.cnt ?? 0,
         unlabeled: sourceCounts
-          .filter((s) => !s.source || !["blitz", "coaching_call"].includes(s.source ?? ""))
+          .filter((s) => !s.source || !["blitz", "coaching_call", "upload"].includes(s.source ?? ""))
           .reduce((sum, s) => sum + s.cnt, 0),
       },
     });
