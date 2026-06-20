@@ -18,7 +18,12 @@ import mammoth from "mammoth";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
-const pdfParse: (buf: Buffer) => Promise<{ text: string; numpages: number }> = _require("pdf-parse");
+const { PDFParse } = _require("pdf-parse") as {
+  PDFParse: new (opts: { data: Uint8Array }) => {
+    getText: () => Promise<{ text: string; total: number }>;
+    destroy: () => Promise<void>;
+  };
+};
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -1527,9 +1532,15 @@ async function processUploadInBackground(
     } else if (fileType === "pdf") {
       const objectFile = await storageService.getObjectEntityFile(objectPath);
       const [buf] = await objectFile.download();
-      const parsed = await pdfParse(buf);
+      const parser = new PDFParse({ data: new Uint8Array(buf) });
+      let parsed: { text: string; total: number };
+      try {
+        parsed = await parser.getText();
+      } finally {
+        await parser.destroy();
+      }
       content = parsed.text;
-      adminNotes = `Uploaded PDF: ${originalFilename} (${parsed.numpages} pages). Source file stored at: ${objectPath}`;
+      adminNotes = `Uploaded PDF: ${originalFilename} (${parsed.total} pages). Source file stored at: ${objectPath}`;
     } else if (fileType === "docx") {
       const objectFile = await storageService.getObjectEntityFile(objectPath);
       const [buf] = await objectFile.download();
