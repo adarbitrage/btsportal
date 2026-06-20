@@ -518,14 +518,14 @@ describe("POST /api/integrations/grant-product — Machine brand slugs resolve",
 
 // ─── Colon-qualified productKeys (The Machine's single /grant-product call) ──
 // The Machine now sends one /grant-product call per sale carrying colon-
-// qualified `productKeys` (e.g. "yse:front_end", "backroad:bump"). Each key
+// qualified `productKeys` (e.g. "yse:front_end", "backroad:bump_1"). Each key
 // resolves via machine_product_key_mappings; unknown keys are recorded AND fall
 // back to the offer's front-end product so a paid buyer is never 404'd.
 describe("POST /api/integrations/grant-product — colon-qualified productKeys", () => {
   const NEEDED_PRODUCTS = ["yse_front_end", "yse_affiliate_cmo_bump", "backroad"];
   const MAPPINGS = [
     { machineKey: "yse:front_end", portalSlug: "yse_front_end" },
-    { machineKey: "yse:bump", portalSlug: "yse_affiliate_cmo_bump" },
+    { machineKey: "yse:bump_1", portalSlug: "yse_affiliate_cmo_bump" },
     { machineKey: "backroad:front_end", portalSlug: "backroad" },
   ];
   const insertedMappingIds: number[] = [];
@@ -597,7 +597,7 @@ describe("POST /api/integrations/grant-product — colon-qualified productKeys",
     const res = await request(app)
       .post(BASE_URL)
       .set("Authorization", `Bearer ${validApiKey}`)
-      .send(productKeysBody(["yse:front_end", "yse:bump"]));
+      .send(productKeysBody(["yse:front_end", "yse:bump_1"]));
 
     expect(res.status).toBe(200);
     const slugs = res.body.grants

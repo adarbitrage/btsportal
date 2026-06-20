@@ -101,16 +101,17 @@ export const OFFER_PREFIX_TO_FRONT_END_SLUG: Readonly<Record<string, string>> = 
 };
 
 // Shared backend/upsell products every offer's funnel points at today. Keys are
-// distinct per offer (e.g. "backroad:bump") so any one can be repointed later
-// without touching the others.
+// distinct per offer (e.g. "backroad:bump_1") so any one can be repointed later
+// without touching the others. The Machine renamed the bump slot "bump" -> "bump_1"
+// (front_end and upsell_1..3 unchanged); old "{offer}:bump" rows stay as inert no-ops.
 const FUNNEL_QUALIFIED_VARIANT_SLUG: Readonly<Record<string, string>> = {
-  bump: "yse_affiliate_cmo_bump",
+  bump_1: "yse_affiliate_cmo_bump",
   upsell_1: "yse_21_day_blitz",
   upsell_2: "yse_swipe_resource_bank",
   upsell_3: "yse_profit_maximizer_pass",
 };
 
-// 30 funnel-qualified rows: { 6 offers } × { front_end, bump, upsell_1..3 }.
+// 30 funnel-qualified rows: { 6 offers } × { front_end, bump_1, upsell_1..3 }.
 const FUNNEL_QUALIFIED_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMappingSeed> =
   Object.entries(OFFER_PREFIX_TO_FRONT_END_SLUG).flatMap(
     ([offer, frontEndSlug]) => [
