@@ -740,10 +740,22 @@ export function createKbStagingFromUpload(params: {
   originalFilename: string;
   mimeType: string;
 }) {
-  return adminFetch<{ stagingDocId: number; title: string; status: string; triagingInBackground: boolean; fileType: string }>(
+  return adminFetch<{ stagingDocId: number; title: string; status: string; processingStage: string | null; fileType: string }>(
     "/admin/knowledgebase/pipeline/create-from-upload",
     { method: "POST", body: JSON.stringify(params) },
   );
+}
+
+export interface KbStagingStatus {
+  id: number;
+  title: string;
+  status: string;
+  processingStage: string | null;
+  processingError: string | null;
+}
+
+export function getKbStagingDoc(id: number) {
+  return adminFetch<KbStagingStatus>(`/admin/knowledgebase/staging/${id}`);
 }
 
 export interface RateLimitTier {

@@ -12,6 +12,7 @@ import { createRequire } from "module";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
 import { runTriageBackground } from "./knowledgebase-staging.js";
+import { getTriageSettings, runAutoTriageOnDoc } from "../../lib/kb-triage.js";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import mammoth from "mammoth";
 
@@ -1440,11 +1441,83 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
     const docAudience = (audience === "admin" ? "admin" : "member") as "admin" | "member";
 
     const fileType = classifyFile(mimeType, originalFilename);
-    const storageService = new ObjectStorageService();
 
+    // Stage the doc immediately in a "processing" state and kick off the heavy
+    // extraction + triage work asynchronously. The frontend polls
+    // GET /admin/knowledgebase/staging/:id for live progress until the status
+    // is no longer "processing".
+    const initialStage =
+      fileType === "audio" || fileType === "video"
+        ? "Transcribing audio…"
+        : "Extracting text…";
+
+    const [inserted] = await db
+      .insert(kbStagingDocsTable)
+      .values({
+        title: docTitle,
+        category: docCategory,
+        content: `[Processing ${originalFilename}…]`,
+        tags: "",
+        status: "processing",
+        source: "upload",
+        adminNotes: `Uploaded ${fileType === "unsupported" ? "file" : fileType}: ${originalFilename}. Source file stored at: ${objectPath}`,
+        audience: docAudience,
+        sourceObjectPath: objectPath,
+        processingStage: initialStage,
+        processingError: null,
+      })
+      .returning();
+
+    // Fire-and-forget the extraction + triage pipeline.
+    processUploadInBackground(inserted.id, {
+      objectPath,
+      originalFilename,
+      docTitle,
+      fileType,
+      mimeType,
+    }).catch((err) =>
+      console.error("[KB Upload] Background processing error:", err),
+    );
+
+    res.json({
+      stagingDocId: inserted.id,
+      title: inserted.title,
+      status: inserted.status,
+      processingStage: inserted.processingStage,
+      fileType,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[KB Upload] Error:", message);
+    res.status(500).json({ error: message });
+  }
+});
+
+interface UploadProcessingContext {
+  objectPath: string;
+  originalFilename: string;
+  docTitle: string;
+  fileType: FileCategory;
+  mimeType: string;
+}
+
+async function setProcessingStage(id: number, stage: string): Promise<void> {
+  await db
+    .update(kbStagingDocsTable)
+    .set({ processingStage: stage })
+    .where(eq(kbStagingDocsTable.id, id));
+}
+
+async function processUploadInBackground(
+  id: number,
+  ctx: UploadProcessingContext,
+): Promise<void> {
+  const { objectPath, originalFilename, docTitle, fileType } = ctx;
+  const storageService = new ObjectStorageService();
+
+  try {
     let content = "";
     let adminNotes = "";
-    let triagingInBackground = false;
 
     if (fileType === "text") {
       const objectFile = await storageService.getObjectEntityFile(objectPath);
@@ -1490,6 +1563,8 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
 
         const transcript = await transcribeAudio(audioPath);
         const cleaned = cleanTranscript(transcript);
+
+        await setProcessingStage(id, "Extracting key points…");
         const extracted = await extractDocument(cleaned, docTitle);
 
         content = extracted.content;
@@ -1501,7 +1576,7 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
     } else {
       // Unsupported type — store reference with a placeholder so admin can add content
       content = `[Unsupported file type: ${originalFilename}]\n\nThis file has been stored but text could not be extracted automatically. Source file retrievable at: ${objectPath}\n\nPlease review and add content manually.`;
-      adminNotes = `Uploaded unsupported file type: ${originalFilename} (${mimeType}). Source file stored at: ${objectPath}. No text extracted.`;
+      adminNotes = `Uploaded unsupported file type: ${originalFilename} (${ctx.mimeType}). Source file stored at: ${objectPath}. No text extracted.`;
     }
 
     // Always ensure objectPath appears in adminNotes for text-extraction paths too
@@ -1513,39 +1588,57 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
       content = `[No text extracted from ${originalFilename}]\n\nThe file was stored at ${objectPath} but no text content could be extracted. Please add content manually.`;
     }
 
-    const [inserted] = await db
-      .insert(kbStagingDocsTable)
-      .values({
-        title: docTitle,
-        category: docCategory,
-        content,
-        tags: "",
-        status: "pending_review",
-        source: "upload",
-        adminNotes,
-        audience: docAudience,
-        sourceObjectPath: objectPath,
+    // Persist extracted content; move into AI triage stage (still "processing")
+    await db
+      .update(kbStagingDocsTable)
+      .set({ content, adminNotes, processingStage: "Running AI triage…" })
+      .where(eq(kbStagingDocsTable.id, id));
+
+    // Run triage synchronously on this single doc so the final status is set
+    // exactly once. runAutoTriageOnDoc updates the row's status to one of
+    // approved/rejected/needs_review (i.e. no longer "processing").
+    const [withContent] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, id));
+
+    try {
+      const settings = await getTriageSettings();
+      await runAutoTriageOnDoc(withContent, settings);
+    } catch (triageErr) {
+      // Triage is best-effort; if it fails the doc still belongs in the
+      // human review queue. Never leave it stuck in "processing".
+      console.error("[KB Upload] Triage error:", triageErr);
+      await db
+        .update(kbStagingDocsTable)
+        .set({ status: "pending_review" })
+        .where(eq(kbStagingDocsTable.id, id));
+    }
+
+    // Clear the live-progress stage now that work is complete. Re-read to make
+    // sure we don't clobber the final status that triage just set.
+    await db
+      .update(kbStagingDocsTable)
+      .set({
+        processingStage: null,
+        status: sql`CASE WHEN ${kbStagingDocsTable.status} = 'processing' THEN 'pending_review' ELSE ${kbStagingDocsTable.status} END`,
       })
-      .returning();
-
-    // Run triage in background (non-blocking) for all types
-    triagingInBackground = true;
-    runTriageBackground([inserted]).catch((err) =>
-      console.error("[KB Upload] Triage error:", err),
-    );
-
-    res.json({
-      stagingDocId: inserted.id,
-      title: inserted.title,
-      status: inserted.status,
-      triagingInBackground,
-      fileType,
-    });
+      .where(eq(kbStagingDocsTable.id, id));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[KB Upload] Error:", message);
-    res.status(500).json({ error: message });
+    console.error(`[KB Upload] Processing failed for doc ${id}:`, message);
+    await db
+      .update(kbStagingDocsTable)
+      .set({
+        status: "error",
+        processingStage: null,
+        processingError: message,
+      })
+      .where(eq(kbStagingDocsTable.id, id))
+      .catch((dbErr) =>
+        console.error("[KB Upload] Failed to record processing error:", dbErr),
+      );
   }
-});
+}
 
 export default router;

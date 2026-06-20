@@ -36,6 +36,10 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),
+  // Live progress for async upload processing (status === "processing").
+  // Holds a human-readable stage label like "Transcribing…" / "Extracting text…" / "Running AI triage…".
+  processingStage: text("processing_stage"),
+  processingError: text("processing_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

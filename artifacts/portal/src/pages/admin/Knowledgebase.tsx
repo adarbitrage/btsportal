@@ -40,6 +40,7 @@ import {
   deleteKnowledgebaseDoc,
   requestKbUploadUrl,
   createKbStagingFromUpload,
+  getKbStagingDoc,
 } from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -61,13 +62,13 @@ interface UploadResult {
   stagingDocId: number;
   title: string;
   fileType: string;
-  triagingInBackground: boolean;
 }
 
 interface FileUploadEntry {
   file: File;
   title: string;
   status: FileUploadStatus;
+  stage?: string;
   result?: UploadResult;
   error?: string;
 }
@@ -191,7 +192,7 @@ function KbUploadDialog({
       });
       if (!putResp.ok) throw new Error(`Storage upload failed (${putResp.status})`);
 
-      updateEntry(idx, { status: "processing" });
+      updateEntry(idx, { status: "processing", stage: "Starting…" });
 
       const created = await createKbStagingFromUpload({
         objectPath,
@@ -202,10 +203,57 @@ function KbUploadDialog({
         mimeType: file.type || "application/octet-stream",
       });
 
-      updateEntry(idx, { status: "done", result: created });
+      updateEntry(idx, {
+        status: "processing",
+        stage: created.processingStage || "Processing…",
+      });
+
+      // Poll the staging doc until the backend finishes processing.
+      // Generous cap: 150 polls × 2s = 5 minutes (transcription can take a while).
+      const MAX_POLLS = 150;
+      const POLL_INTERVAL_MS = 2000;
+      let finalTitle = created.title;
+      let finished = false;
+      for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        const doc = await getKbStagingDoc(created.stagingDocId);
+
+        if (doc.status === "processing") {
+          updateEntry(idx, { stage: doc.processingStage || "Processing…" });
+          continue;
+        }
+
+        if (doc.status === "error") {
+          throw new Error(doc.processingError || "Processing failed");
+        }
+
+        // Any non-processing, non-error status means it finished and landed
+        // in the review queue (pending_review / needs_review / approved / etc.)
+        finalTitle = doc.title || finalTitle;
+        finished = true;
+        break;
+      }
+
+      // Never report success while the doc is still processing — exhausting the
+      // poll budget is a timeout, not completion.
+      if (!finished) {
+        throw new Error(
+          "Still processing after 5 minutes — check the review queue shortly.",
+        );
+      }
+
+      updateEntry(idx, {
+        status: "done",
+        stage: undefined,
+        result: {
+          stagingDocId: created.stagingDocId,
+          title: finalTitle,
+          fileType: created.fileType,
+        },
+      });
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : "Upload failed";
-      updateEntry(idx, { status: "error", error });
+      updateEntry(idx, { status: "error", stage: undefined, error });
     }
   };
 
@@ -297,14 +345,11 @@ function KbUploadDialog({
                     {entry.status === "done" && entry.result && (
                       <p className="text-xs text-green-600">
                         Staged as "{entry.result.title}"
-                        {entry.result.triagingInBackground && " (AI triage running)"}
                       </p>
                     )}
                     {entry.status === "processing" && (
-                      <p className="text-xs text-muted-foreground">
-                        {isAudioVideoFile(entry.file)
-                          ? "Transcribing audio — may take a minute…"
-                          : "Extracting text…"}
+                      <p className="text-xs text-primary">
+                        {entry.stage || "Processing…"}
                       </p>
                     )}
                     {entry.status === "uploading" && (
