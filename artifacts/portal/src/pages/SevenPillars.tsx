@@ -158,37 +158,6 @@ export default function SevenPillars() {
           </div>
         </div>
 
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-6 md:p-8">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-                <Layers className="w-4 h-4 text-foreground" />
-              </div>
-              <h2 className="text-lg font-bold text-foreground">Table of Contents</h2>
-            </div>
-            <div className="space-y-2">
-              <a href="#welcome" className="block text-primary font-semibold hover:underline">
-                Welcome: Overview of the 7 Pillar™ System
-              </a>
-              {pillars.map((p) => (
-                <a
-                  key={p.id}
-                  href={`#${p.id}`}
-                  className="flex items-center gap-2 text-primary hover:underline"
-                >
-                  <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs font-bold flex items-center justify-center shrink-0">
-                    {p.num}
-                  </span>
-                  <span className="font-semibold">{p.title}</span>
-                </a>
-              ))}
-              <a href="#conclusion" className="block text-primary font-semibold hover:underline">
-                Conclusion and Next Steps
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-
         <section id="welcome">
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-8 md:p-10 space-y-5">
