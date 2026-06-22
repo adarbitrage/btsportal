@@ -14,6 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -710,10 +715,17 @@ export default function KnowledgeBaseReview() {
               {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               {triaging ? "AI Triaging…" : "Run AI Triage"}
             </Button>
-            <Button onClick={runPipeline} disabled={processing} variant="outline">
-              {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-              Run Pipeline
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={runPipeline} disabled={processing} variant="outline">
+                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                  Run Pipeline
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Converts new raw video transcripts into draft KB articles in staging (pending review), then auto-triages them. Won&apos;t run if staging already has documents. Publish later with Push to KB.
+              </TooltipContent>
+            </Tooltip>
             <Button variant="ghost" size="sm" onClick={() => setShowSettings(true)}>
               <Settings2 className="w-4 h-4" />
             </Button>
