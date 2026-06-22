@@ -77,6 +77,47 @@ const pillars: Pillar[] = [
   },
 ];
 
+function PillarQuickNav() {
+  const scrollToPillar = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <nav aria-label="Jump to a pillar">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+        Jump to a pillar
+      </p>
+      <div className="overflow-x-auto pb-1">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[600px]">
+          {pillars.map((pillar) => {
+            const Icon = pillar.icon;
+            return (
+              <button
+                key={pillar.id}
+                type="button"
+                onClick={() => scrollToPillar(pillar.id)}
+                className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card px-1 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg border ${pillar.tint.iconBg} ${pillar.tint.iconBorder} shrink-0`}
+                >
+                  <Icon className={`h-4 w-4 ${pillar.tint.iconText}`} />
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                  Pillar #{pillar.num}
+                </span>
+                <span className="text-[11px] font-semibold leading-tight text-foreground">
+                  {pillar.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 function BackToTop({ topRef }: { topRef: RefObject<HTMLDivElement | null> }) {
   return (
     <button
@@ -159,6 +200,8 @@ export default function SevenPillars() {
             />
           </div>
         </div>
+
+        <PillarQuickNav />
 
         <section id="welcome">
           <Card className="border-border/60 shadow-sm">
